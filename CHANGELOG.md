@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026.8.0-beta.16
+
+### Sequential TTS playback
+
+- Added a per-profile TTS playback lock shared by all Fitness announcements.
+- Fitness now waits for actual media-player playback to finish before sending
+  the next announcement.
+- Multiple speakers receiving the same announcement are still started together.
+- Added playback-start and hard-finish safety timeouts for players with incomplete
+  state reporting.
+- Added TTS serialization regression tests.
+
 ## 2026.8.0-beta.15
 
 ### Config-entry migration fix

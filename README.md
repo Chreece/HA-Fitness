@@ -8,7 +8,7 @@
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![HACS](https://img.shields.io/badge/HACS-Custom%20Repository-41BDF5)](https://www.hacs.xyz/)
-[![Version](https://img.shields.io/badge/version-2026.8.0--beta.15-blue)](https://github.com/Chreece/HA-Fitness/releases)
+[![Version](https://img.shields.io/badge/version-2026.8.0--beta.16-blue)](https://github.com/Chreece/HA-Fitness/releases)
 [![License](https://img.shields.io/badge/status-public%20beta-orange)](#beta-status)
 
 </div>
@@ -919,7 +919,7 @@ YYYY.MM.release
 Prereleases append their stage:
 
 ```text
-2026.8.0-beta.15
+2026.8.0-beta.16
 ```
 
 The stable version for this release line will be:
@@ -1087,3 +1087,18 @@ automatically to schema version 11.
 The migration preserves all existing profile, device, AI, feedback and options
 configuration. If no profile language exists yet, it stores the current Home
 Assistant UI language when supported, otherwise English.
+
+
+## Sequential TTS playback
+
+Fitness serializes all announcements for a profile. A new workout, recovery,
+periodic, or intensity announcement is not sent while the previous Fitness TTS
+message is still audibly playing.
+
+Messages targeting multiple configured speakers are dispatched to those speakers
+as one announcement, so they can play together. Fitness then watches the media
+players and keeps the speech queue locked until playback has finished.
+
+A five-second playback-start grace period handles players that do not expose a
+`playing` state, and a 120-second hard safety timeout prevents a broken media
+player from blocking the queue indefinitely.

@@ -192,6 +192,11 @@ class FitnessManager:
         # AI messages cannot overtake one another.
         self._session_announcement_lock = asyncio.Lock()
 
+        # Serialize every TTS announcement for this Fitness profile. Home
+        # Assistant's blocking tts.speak only waits for the service call itself,
+        # not for audible playback to finish.
+        self._tts_playback_lock = asyncio.Lock()
+
         # Workout lifecycle light cues are serialized separately from the
         # heartbeat/intensity pulses. They reuse the same original-state
         # snapshot only while intensity feedback is suspended.
@@ -1989,73 +1994,146 @@ class FitnessManager:
 
         return sorted(set(usable))
 
-    async def _async_speak(self, message: str):
-        """Speak only through existing/available configured entities."""
-        tts_entity = str(
-            self.config.get(CONF_TTS_ENTITY_ID) or ""
-        ).strip()
+    async def _async_wait_for_tts_playback(
+        self,
+        media_players: list[str],
+        *,
+        start_timeout: float = 5.0,
+        finish_timeout: float = 120.0,
+    ) -> None:
+        """Wait until TTS playback has started and then fully finished.
 
-        if not message:
-            self.last_feedback_tts_result = "no_message"
-            return
-
-        if not tts_entity or not tts_entity.startswith("tts."):
-            self.last_feedback_tts_result = "no_tts_entity"
-            return
-
-        tts_state = self.hass.states.get(tts_entity)
-        if tts_state is None:
-            self.last_feedback_tts_result = "tts_entity_missing"
-            return
-        if tts_state.state == "unavailable":
-            self.last_feedback_tts_result = "tts_entity_unavailable"
-            return
-
-        media_players = self._feedback_media_player_ids()
-
+        The TTS service returning does not mean audio playback is complete.
+        Fitness therefore watches the target media-player states. A short start
+        timeout prevents a player that never exposes `playing` from blocking
+        announcements forever, and a hard finish timeout protects against a
+        device that remains stuck in `playing`.
+        """
         if not media_players:
-            self.last_feedback_tts_result = "no_usable_media_players"
             return
 
-        if not self.hass.services.has_service("tts", "speak"):
-            self.last_feedback_tts_result = "tts_service_missing"
+        loop = asyncio.get_running_loop()
+        start_deadline = loop.time() + max(0.0, start_timeout)
+        saw_playing: set[str] = set()
+
+        # First wait for each responsive target to expose playback. If no
+        # target ever reports playing, release after the short grace period.
+        while loop.time() < start_deadline:
+            for entity_id in media_players:
+                state = self.hass.states.get(entity_id)
+                if state is not None and state.state == "playing":
+                    saw_playing.add(entity_id)
+
+            if saw_playing:
+                break
+
+            await asyncio.sleep(0.1)
+
+        if not saw_playing:
             return
 
-        language = self._tts_language_for_entity(tts_entity)
-        success = 0
-        failed = 0
+        finish_deadline = loop.time() + max(0.0, finish_timeout)
 
-        # Call one media player at a time so a failing speaker cannot suppress
-        # announcements on the others.
-        for media_player in media_players:
-            data = {
-                "media_player_entity_id": media_player,
-                "message": message,
-                "cache": False,
-            }
+        # Once playback was observed, do not permit the next Fitness TTS until
+        # every player that actually entered `playing` has left that state.
+        while loop.time() < finish_deadline:
+            still_playing = False
 
-            if language:
-                data["language"] = language
+            for entity_id in saw_playing:
+                state = self.hass.states.get(entity_id)
+                if state is not None and state.state == "playing":
+                    still_playing = True
+                    break
 
-            try:
-                await self.hass.services.async_call(
-                    "tts",
-                    "speak",
-                    data,
-                    target={"entity_id": tts_entity},
-                    blocking=True,
-                )
-                success += 1
-            except Exception:
-                failed += 1
-                continue
+            if not still_playing:
+                return
 
-        if success and not failed:
-            self.last_feedback_tts_result = "success"
-        elif success and failed:
-            self.last_feedback_tts_result = "partial_success"
-        else:
-            self.last_feedback_tts_result = "failed"
+            await asyncio.sleep(0.1)
+
+    async def _async_speak(self, message: str):
+        """Speak one Fitness message at a time and wait for playback to end."""
+        async with self._tts_playback_lock:
+            tts_entity = str(
+                self.config.get(CONF_TTS_ENTITY_ID) or ""
+            ).strip()
+
+            if not message:
+                self.last_feedback_tts_result = "no_message"
+                return
+
+            if not tts_entity or not tts_entity.startswith("tts."):
+                self.last_feedback_tts_result = "no_tts_entity"
+                return
+
+            tts_state = self.hass.states.get(tts_entity)
+            if tts_state is None:
+                self.last_feedback_tts_result = "tts_entity_missing"
+                return
+            if tts_state.state == "unavailable":
+                self.last_feedback_tts_result = "tts_entity_unavailable"
+                return
+
+            media_players = self._feedback_media_player_ids()
+
+            if not media_players:
+                self.last_feedback_tts_result = "no_usable_media_players"
+                return
+
+            if not self.hass.services.has_service("tts", "speak"):
+                self.last_feedback_tts_result = "tts_service_missing"
+                return
+
+            language = self._tts_language_for_entity(tts_entity)
+            success = 0
+            failed = 0
+            successful_players: list[str] = []
+
+            # Dispatch the same announcement to all selected targets first.
+            # Do not wait for player 1 to finish before starting player 2: they
+            # belong to the same announcement and should speak together.
+            for media_player in media_players:
+                data = {
+                    "media_player_entity_id": media_player,
+                    "message": message,
+                    "cache": False,
+                }
+
+                if language:
+                    data["language"] = language
+
+                try:
+                    await self.hass.services.async_call(
+                        "tts",
+                        "speak",
+                        data,
+                        target={"entity_id": tts_entity},
+                        blocking=True,
+                    )
+                    success += 1
+                    successful_players.append(media_player)
+                except Exception:
+                    failed += 1
+                    continue
+
+            if success and not failed:
+                self.last_feedback_tts_result = "playing"
+            elif success and failed:
+                self.last_feedback_tts_result = "partial_playing"
+            else:
+                self.last_feedback_tts_result = "failed"
+                return
+
+            self._notify()
+
+            # Crucial: keep the lock until audible playback has ended. Any
+            # session, recovery, periodic, or intensity announcement arriving
+            # meanwhile waits here instead of interrupting the current speech.
+            await self._async_wait_for_tts_playback(successful_players)
+
+            if success and not failed:
+                self.last_feedback_tts_result = "success"
+            else:
+                self.last_feedback_tts_result = "partial_success"
 
     async def _async_notify(
         self,
