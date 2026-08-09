@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026.8.0-beta.15
+
+### Config-entry migration fix
+
+- Added `async_migrate_entry` for schema version 11.
+- Existing Fitness profiles now upgrade cleanly after the per-profile language
+  field was introduced.
+- Migration preserves existing data/options and only adds a language when absent.
+- Migrated profiles default to the current supported Home Assistant UI language,
+  otherwise English.
+- Added migration regression tests.
+
 ## 2026.8.0-beta.14
 
 ### Announcement targeting and simpler intensity lights

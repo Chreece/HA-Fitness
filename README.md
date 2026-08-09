@@ -8,7 +8,7 @@
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![HACS](https://img.shields.io/badge/HACS-Custom%20Repository-41BDF5)](https://www.hacs.xyz/)
-[![Version](https://img.shields.io/badge/version-2026.8.0--beta.14-blue)](https://github.com/Chreece/HA-Fitness/releases)
+[![Version](https://img.shields.io/badge/version-2026.8.0--beta.15-blue)](https://github.com/Chreece/HA-Fitness/releases)
 [![License](https://img.shields.io/badge/status-public%20beta-orange)](#beta-status)
 
 </div>
@@ -919,7 +919,7 @@ YYYY.MM.release
 Prereleases append their stage:
 
 ```text
-2026.8.0-beta.14
+2026.8.0-beta.15
 ```
 
 The stable version for this release line will be:
@@ -1076,3 +1076,14 @@ Intensity changes no longer blink the lights. Each accepted intensity change:
 
 The existing five-second minimum age between accepted intensity transitions is
 unchanged.
+
+
+## Config entry migration
+
+Fitness now includes a Home Assistant config-entry migration handler. Existing
+profiles created before the per-profile language setting are upgraded
+automatically to schema version 11.
+
+The migration preserves all existing profile, device, AI, feedback and options
+configuration. If no profile language exists yet, it stores the current Home
+Assistant UI language when supported, otherwise English.
