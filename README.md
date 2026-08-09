@@ -1,6 +1,6 @@
 # Fitness for Home Assistant
 
-**Current release: `2026.8.0-beta.1` — public beta**
+**Current release: `2026.8.0-beta.2` — public beta**
 
 Fitness is a person-centered Home Assistant integration that combines live exercise
 data, completed workouts, physiological profile data, Home Assistant long-term
@@ -19,10 +19,8 @@ statistics, and optional AI evaluation into one local fitness model.
   actually arrives.
 - Scientifically grounded derived metrics including HRmax/HRR intensity, Banister
   TRIMP, mechanical work, heart-rate recovery, aerobic efficiency and decoupling.
-- Provider-independent completed-workout discovery and normalization from selected
-  Home Assistant workout devices, with verified support for Garmin-style activity
-  lists, Strava Latest Activity sensors, Hevy split-sensor workouts, and compatible
-  activity/workout integrations.
+- Completed-workout normalization and merging across selected workout providers such
+  as Garmin, Strava and compatible activity integrations.
 - Long-term evaluation using Fitness workout history plus Home Assistant Recorder
   statistics when available.
 - Optional AI-generated general/workout evaluations using Home Assistant AI Task.
@@ -67,59 +65,15 @@ restart Home Assistant, then add **Fitness** from Devices & services.
 - Prompt/output follows Home Assistant's configured language; unsupported locales
   fall back to English.
 
-## Completed workout sources
+## Garmin Last activities
 
-During setup, Fitness lets you select one or more **Home Assistant devices that
-provide completed workout or activity data**. The completed-workout pipeline is
-provider-independent: Fitness does not require a Garmin device, a Garmin entity
-ID, or any specific integration domain.
+Fitness scans all entities belonging to the selected workout device and finds
+the `last_activities` attribute automatically. No Garmin entity ID is hard-coded.
 
-For every selected workout device, Fitness scans its sensor entities and looks
-for common completed-activity layouts, including:
-
-- activity/workout data exposed directly as sensor attributes
-- nested activity/workout/exercise/session dictionaries
-- recent activity/workout lists such as `last_activities`
-- integrations that split the latest workout across sibling sensors, such as a
-  workout title, start time, duration, distance, calories, reps, or volume
-
-Known compatible layouts include:
-
-- **Garmin-style integrations** exposing recent activities such as
-  `last_activities`
-- **Strava integrations** exposing Latest Activity sensors with activity details
-  such as start time, distance, elapsed/moving time, elevation, heart rate,
-  cadence, power, speed, relative effort, gear, and device information
-- **Hevy integrations** exposing the latest strength workout across sibling
-  sensors such as `last_workout`, `last_workout_start`,
-  `last_workout_duration`, and `last_workout_volume`
-- other Home Assistant integrations that expose equivalent activity/workout
-  information using the supported generic field aliases
-
-Fitness normalizes available values into a common workout model. Depending on
-what the source provides, this can include name/type/start, duration, moving and
-elapsed time, distance, heart rate, power, cadence, elevation, calories,
-training effect/load, intensity minutes, VO2max, speed, relative effort,
-kilojoules, repetitions, exercise count, training volume, device, and gear.
-Provider-specific values that are not mapped to a common field are preserved as
-extra workout data instead of being discarded.
-
-A completed workout must contain a usable start timestamp plus at least one
-meaningful workout signal. Fitness deliberately ignores obvious schedules,
-plans, aggregate totals, routes, and gear-distance sensors so they are not
-misidentified as completed workouts.
-
-When the same physical workout is available from more than one source, Fitness
-merges the representations instead of treating them as separate sessions. It
-uses a source-independent workout identity based primarily on normalized sport
-and start time, keeps the richest representation as the canonical value source,
-and retains provider provenance and differing provider values. The newest
-normalized workout is then compared with Fitness' own locally captured sessions.
-
-Compatibility is determined by the **data exposed by the selected Home Assistant
-device**, not by the provider name. An integration does not need a dedicated
-Fitness adapter if its completed-workout entities follow one of the generic
-layouts above.
+It imports completed activities including name/type/start, duration, distance,
+HR, power, cadence, elevation, calories, training effect/load, intensity minutes,
+VO2max, and speed where available. The newest timestamp wins against Fitness'
+own locally captured sessions and other external workout sources.
 
 ## Localization
 
@@ -233,8 +187,8 @@ motivational sentence is used if AI is disabled or unavailable.
 
 ### New workout feedback
 
-Fitness now tracks the signature of the newest normalized workout across the
-configured external workout sources and locally captured workouts. The existing workout at
+Fitness now tracks the signature of the newest normalized workout across Garmin,
+other external sources and locally captured workouts. The existing workout at
 Home Assistant startup is treated as historical and is not announced.
 
 When a genuinely newer workout appears:
@@ -381,7 +335,7 @@ The last announced workout fingerprint is persisted in Fitness storage.
 Workout fingerprints are now source-independent. They use normalized sport plus
 a five-minute start-time bucket, so the same physical session does not become a
 different "new" workout merely because Home Assistant switches from a locally
-captured Fitness record to a synchronized external provider copy after sync.
+captured Fitness record to Garmin/Strava's copy after sync.
 
 On first installation, if workout providers populate after Fitness loads, the
 first observed external workout becomes the historical baseline and is not
@@ -605,7 +559,8 @@ alpha.29 explicitly imports it from Home Assistant's media_player component.
 
 ## Provider-independent merged workout model (alpha.30)
 
-Fitness no longer chooses one provider record and discards the others.
+Fitness no longer chooses a whole Garmin/Strava/provider record and discards the
+others.
 
 All completed-workout candidates from selected workout devices are normalized,
 clustered by physical session (start time within five minutes + compatible sport),
@@ -617,10 +572,9 @@ Supported discovery patterns include:
 - lists such as `last_activities`, `activities`, `workouts`, `sessions`
 - sibling sensors such as Hevy's last-workout title/start/duration/volume layout
 
-The current generic discovery paths are verified against Garmin-style activity lists,
-Strava Latest Activity sensors, and Hevy's split last-workout sensors. They are also
-designed to accept other activity integrations without a hard-coded provider adapter
-when those integrations expose recognizable completed-workout fields.
+This covers Garmin Connect, Strava, Hevy and generic activity contracts used by
+Polar/Oura/Peloton-style integrations, while also making future workout integrations
+work without adding a hard-coded provider name when they expose recognizable fields.
 
 The canonical value for a field comes from the richest matching provider record.
 Provider disagreements are never discarded: the complete raw provider data and
@@ -785,3 +739,33 @@ Git tags should match the manifest version exactly, for example:
 ```text
 2026.8.0-beta.1
 ```
+
+
+## Conservative cross-provider workout matching (beta.2)
+
+Workout merging is deliberately stricter to avoid combining two real sessions
+that happen close together.
+
+Matching now considers:
+- normalized sport compatibility
+- start-time difference
+- duration agreement when both providers expose duration
+- distance agreement when both providers expose distance
+- explicit end-time agreement when available
+
+Hard conflicts in sport, duration, distance or end time reject a merge.
+
+Evidence requirements increase with start-time difference:
+- <=30 s: compatible sport is sufficient when richer provider data is absent
+- 30-90 s: at least one independent matching characteristic is required
+- 90-180 s: normally two independent matches are required
+- 3-5 min: only very strong multi-field agreement can merge
+- >5 min: never merged
+
+Workout clustering now uses complete-link matching: a new provider record must
+match every record already in the candidate group. This prevents transitive
+A≈B≈C chain merges.
+
+Provider disagreements are still preserved in `provider_values` and
+`field_sources`; stricter identity matching changes only whether records belong
+to the same physical workout.

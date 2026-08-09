@@ -624,26 +624,189 @@ def _sport_key(value: str | None) -> str:
 
 
 def workout_identity(workout: Workout) -> tuple[str, int] | None:
+    """Return a coarse identity useful for diagnostics, not merge decisions."""
     dt = _dt(workout.start)
     if dt is None:
         return None
-    return (_sport_key(workout.sport), int(dt.timestamp()) // 300)
+    # One-minute buckets are deliberately finer than the old five-minute
+    # bucket. Actual merging uses _same_real_workout() below.
+    return (_sport_key(workout.sport), int(dt.timestamp()) // 60)
+
+
+def _sports_compatible(a: Workout, b: Workout) -> bool:
+    """Require matching normalized sports unless one provider is generic."""
+    sa = _sport_key(a.sport)
+    sb = _sport_key(b.sport)
+
+    if sa == sb:
+        return True
+
+    generic = {"", "workout", "activity", "exercise", "session"}
+    return sa in generic or sb in generic
+
+
+def _relative_difference(
+    a: float | None,
+    b: float | None,
+) -> float | None:
+    if a is None or b is None:
+        return None
+    try:
+        av = abs(float(a))
+        bv = abs(float(b))
+    except (TypeError, ValueError):
+        return None
+
+    reference = max(av, bv)
+    if reference <= 0:
+        return 0.0 if av == bv else None
+    return abs(av - bv) / reference
+
+
+def _duration_compatible(a: Workout, b: Workout) -> bool | None:
+    """Compare duration when both providers expose it.
+
+    Returns:
+      True  -> compatible
+      False -> hard conflict
+      None  -> insufficient data
+    """
+    if a.duration_s is None or b.duration_s is None:
+        return None
+
+    da = float(a.duration_s)
+    db = float(b.duration_s)
+    difference = abs(da - db)
+    reference = max(abs(da), abs(db), 1.0)
+
+    # Provider elapsed/moving-time semantics commonly differ slightly.
+    # Permit 2 minutes or 8%, whichever is larger.
+    tolerance = max(120.0, reference * 0.08)
+    return difference <= tolerance
+
+
+def _distance_compatible(a: Workout, b: Workout) -> bool | None:
+    """Compare distance when both providers expose it."""
+    if a.distance_m is None or b.distance_m is None:
+        return None
+
+    da = float(a.distance_m)
+    db = float(b.distance_m)
+    difference = abs(da - db)
+    reference = max(abs(da), abs(db), 1.0)
+
+    # GPS/platform processing can differ. Keep this conservative:
+    # 250 metres or 5%, whichever is larger.
+    tolerance = max(250.0, reference * 0.05)
+    return difference <= tolerance
+
+
+def _end_time_compatible(a: Workout, b: Workout) -> bool | None:
+    """Compare explicit end timestamps when both providers expose them."""
+    if not a.end or not b.end:
+        return None
+    adt = _dt(a.end)
+    bdt = _dt(b.end)
+    if adt is None or bdt is None:
+        return None
+    return abs((adt - bdt).total_seconds()) <= 180
 
 
 def _same_real_workout(a: Workout, b: Workout) -> bool:
+    """Conservatively decide whether two records describe one physical workout.
+
+    Matching is intentionally asymmetric in evidence:
+    - start times farther apart require stronger supporting agreement
+    - explicit contradictions in sport/duration/distance/end time reject a merge
+    - two records with almost identical start times can still merge when one
+      provider exposes little detail
+    """
     adt = _dt(a.start)
     bdt = _dt(b.start)
     if adt is None or bdt is None:
         return False
 
-    # Same activity should start within five minutes. Sport mismatch is tolerated
-    # when one provider only says generic "workout".
-    if abs((adt - bdt).total_seconds()) > 300:
+    start_delta = abs((adt - bdt).total_seconds())
+
+    # Never merge records whose reported starts differ by more than 5 minutes.
+    if start_delta > 300:
         return False
 
-    sa = _sport_key(a.sport)
-    sb = _sport_key(b.sport)
-    return sa == sb or "workout" in (sa, sb) or not sa or not sb
+    # Distinct known sports are a hard conflict.
+    if not _sports_compatible(a, b):
+        return False
+
+    duration_match = _duration_compatible(a, b)
+    distance_match = _distance_compatible(a, b)
+    end_match = _end_time_compatible(a, b)
+
+    # Any strong contradictory measurement rejects the merge.
+    if duration_match is False:
+        return False
+    if distance_match is False:
+        return False
+    if end_match is False:
+        return False
+
+    supporting_matches = sum(
+        value is True
+        for value in (
+            duration_match,
+            distance_match,
+            end_match,
+        )
+    )
+
+    # Within 30 seconds, providers are close enough in start time that a
+    # compatible sport is sufficient when richer fields are unavailable.
+    if start_delta <= 30:
+        return True
+
+    # 30-90 seconds: require at least one agreeing independent characteristic.
+    if start_delta <= 90:
+        return supporting_matches >= 1
+
+    # 90-180 seconds: require two independent agreements, unless only one of
+    # duration/distance/end is jointly available and it agrees very strongly.
+    if start_delta <= 180:
+        if supporting_matches >= 2:
+            return True
+
+        available = [
+            value
+            for value in (
+                duration_match,
+                distance_match,
+                end_match,
+            )
+            if value is not None
+        ]
+        if len(available) == 1 and available[0] is True:
+            # The lone evidence must be tight, not just within normal tolerance.
+            if a.duration_s is not None and b.duration_s is not None:
+                diff = _relative_difference(a.duration_s, b.duration_s)
+                return diff is not None and diff <= 0.02
+            if a.distance_m is not None and b.distance_m is not None:
+                diff = _relative_difference(a.distance_m, b.distance_m)
+                return diff is not None and diff <= 0.02
+        return False
+
+    # 3-5 minutes is unusual for the same workout. Merge only with very strong
+    # agreement in at least two independent characteristics.
+    if supporting_matches < 2:
+        return False
+
+    tight_duration = True
+    if a.duration_s is not None and b.duration_s is not None:
+        diff = _relative_difference(a.duration_s, b.duration_s)
+        tight_duration = diff is not None and diff <= 0.03
+
+    tight_distance = True
+    if a.distance_m is not None and b.distance_m is not None:
+        diff = _relative_difference(a.distance_m, b.distance_m)
+        tight_distance = diff is not None and diff <= 0.03
+
+    return tight_duration and tight_distance
 
 
 def _richness(workout: Workout) -> int:
@@ -735,7 +898,14 @@ def merged_workouts(workouts: list[Workout]) -> list[Workout]:
     ):
         placed = False
         for group in groups:
-            if any(_same_real_workout(workout, existing) for existing in group):
+            # Complete-link clustering: a new record must agree with every
+            # member already in the group. This prevents transitive chain
+            # merges such as A≈B and B≈C accidentally merging A+B+C when A and
+            # C are actually separate workouts.
+            if all(
+                _same_real_workout(workout, existing)
+                for existing in group
+            ):
                 group.append(workout)
                 placed = True
                 break

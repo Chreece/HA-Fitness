@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026.8.0-beta.2
+
+### Safer workout merging
+
+- Replaced the previous `start within 5 minutes + compatible sport` duplicate
+  matcher with conservative multi-field matching.
+- Added hard conflict checks for sport, duration, distance and explicit end time.
+- Requires progressively stronger supporting evidence as provider start times
+  differ.
+- Changed workout grouping from transitive `any()` matching to complete-link
+  `all()` matching to prevent nearby separate workouts from being chained into
+  one merged activity.
+- Reduced the diagnostic workout identity bucket from five minutes to one minute.
+- Complementary fields and provider provenance are still merged/preserved for
+  records identified as the same workout.
+
+
 ## 2026.8.0-beta.1
 
 First public beta of Fitness for Home Assistant.
