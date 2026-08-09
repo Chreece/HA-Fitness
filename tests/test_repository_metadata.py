@@ -1,0 +1,35 @@
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_hacs_structure_and_metadata():
+    manifest = json.loads((ROOT / "custom_components/fitness/manifest.json").read_text())
+    hacs = json.loads((ROOT / "hacs.json").read_text())
+
+    assert manifest["domain"] == "fitness"
+    assert manifest["name"] == "Fitness"
+    assert manifest["version"]
+    assert manifest["documentation"].startswith("https://github.com/")
+    assert manifest["issue_tracker"].startswith("https://github.com/")
+    assert manifest["codeowners"] == ["@Chreece"]
+    assert manifest["config_flow"] is True
+    assert hacs["name"] == "Fitness"
+
+    custom_components = [
+        p for p in (ROOT / "custom_components").iterdir() if p.is_dir()
+    ]
+    assert [p.name for p in custom_components] == ["fitness"]
+
+
+def test_brand_and_translations_exist():
+    assert (ROOT / "brand/icon.png").is_file()
+    assert (ROOT / "custom_components/fitness/brand/icon.png").is_file()
+    assert (ROOT / "custom_components/fitness/strings.json").is_file()
+    assert len(list((ROOT / "custom_components/fitness/translations").glob("*.json"))) >= 2
+
+
+def test_all_json_files_parse():
+    for path in ROOT.rglob("*.json"):
+        json.loads(path.read_text(encoding="utf-8"))

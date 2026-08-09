@@ -1,0 +1,56 @@
+name: Bug report
+description: Report a reproducible problem with Fitness.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping test Fitness. Remove secrets/tokens before posting logs.
+
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.8.x"
+    validations:
+      required: true
+
+  - type: input
+    id: fitness_version
+    attributes:
+      label: Fitness version
+      placeholder: "2026.8.0-beta.6"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe what you expected and what happened instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: sources
+    attributes:
+      label: Relevant source integrations/entities
+      description: Garmin, Strava, ANT+, BLE, entity IDs, etc.
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / diagnostics
+      render: text
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I removed access tokens, passwords and other secrets.
+          required: true
+        - label: I searched existing issues for the same problem.
+          required: true

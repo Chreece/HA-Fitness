@@ -8,7 +8,7 @@
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![HACS](https://img.shields.io/badge/HACS-Custom%20Repository-41BDF5)](https://www.hacs.xyz/)
-[![Version](https://img.shields.io/badge/version-2026.8.0--beta.5-blue)](https://github.com/Chreece/HA-Fitness/releases)
+[![Version](https://img.shields.io/badge/version-2026.8.0--beta.6-blue)](https://github.com/Chreece/HA-Fitness/releases)
 [![License](https://img.shields.io/badge/status-public%20beta-orange)](#beta-status)
 
 </div>
@@ -808,6 +808,28 @@ The integration is most useful when it combines **transparent calculations + you
 
 ---
 
+
+# Quality checks
+
+Every push and pull request runs:
+
+- **pytest** for the deterministic calculation, unit-conversion and workout-merging logic
+- the official **HACS validation** action
+- Home Assistant **hassfest**
+
+The HACS and hassfest validators also run on a daily schedule so upstream validation changes are caught even when the repository itself has not changed.
+
+Local tests:
+
+```bash
+python3.14 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements_test.txt
+pytest
+```
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md).
+
 # Beta status
 
 Fitness is currently a public beta. Entity names, provider mappings and calculations may still be refined before the first stable release.
@@ -836,7 +858,7 @@ YYYY.MM.release
 Prereleases append their stage:
 
 ```text
-2026.8.0-beta.5
+2026.8.0-beta.6
 ```
 
 The stable version for this release line will be:

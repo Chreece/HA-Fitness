@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest a Fitness feature or supported metric/provider.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case
+      description: What problem should this solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Scientific/provider references
+      description: For new physiological calculations, include papers/specifications where possible.

@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026.8.0-beta.6
+
+### Tests and HACS release engineering
+
+- Added pytest coverage for heart-rate calculations, live intensity boundaries,
+  VO₂max/reference calculations, Banister TRIMP, mechanical work, HRR intensity
+  time, aerobic efficiency/decoupling and coefficient of variation.
+- Added unit-normalization tests for weight, height, HR, power, pace, speed,
+  distance, altitude and cadence.
+- Added workout identity/merge regression tests covering Garmin+Strava
+  enrichment, conflicting workouts, sparse providers and complete-link grouping.
+- Added repository metadata/JSON/brand structure tests.
+- Added GitHub Actions for pytest, HACS validation and hassfest.
+- Added Dependabot, CODEOWNERS, issue forms, contribution guidelines and a release
+  checklist.
+- Runtime Fitness behavior is unchanged from beta.5.
+
 ## 2026.8.0-beta.5
 
 ### Branding polish
