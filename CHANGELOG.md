@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026.8.0-beta.4
+
+### Documentation and branding
+
+- Added Home Assistant local brand assets under `custom_components/fitness/brand/`.
+- Added HACS repository brand assets under `brand/`.
+- Added GitHub avatar, social-preview, logo and overview assets.
+- Replaced the development-history-style README with user documentation focused on
+  setup, live workouts, workout merging, calculated sensors, equations,
+  longitudinal evaluation, AI/coaching, scientific basis and limitations.
+- Added direct research references for the deterministic physiological methods.
+
 ## 2026.8.0-beta.3
 
 ### Personal historical workout comparison

@@ -1,46 +1,63 @@
+<div align="center">
+
+<img src="assets/fitness-logo.png" alt="Fitness for Home Assistant" width="520">
+
 # Fitness for Home Assistant
 
-**Current release: `2026.8.0-beta.3` — public beta**
+**Turn live exercise data, completed workouts and long-term Home Assistant history into one personal fitness picture.**
 
-Fitness is a person-centered Home Assistant integration that combines live exercise
-data, completed workouts, physiological profile data, Home Assistant long-term
-statistics, and optional AI evaluation into one local fitness model.
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
+[![HACS](https://img.shields.io/badge/HACS-Custom%20Repository-41BDF5)](https://www.hacs.xyz/)
+[![Version](https://img.shields.io/badge/version-2026.8.0--beta.4-blue)](https://github.com/Chreece/HA-Fitness/releases)
+[![License](https://img.shields.io/badge/status-public%20beta-orange)](#beta-status)
 
-> **Beta status:** This integration is under active development. Entity names,
-> calculations, configuration details, and provider adapters may still change before
-> the first stable release. Fitness metrics are intended for training and wellness
-> context and are not medical diagnoses.
+</div>
 
-## Highlights
+![Fitness overview](assets/fitness-overview.png)
 
-- Live workout sessions from Home Assistant fitness sensors such as ANT+, BLE, power,
-  cadence, speed, distance and heart-rate sources.
-- Start is armed first: the workout timer begins only when valid live exercise data
-  actually arrives.
-- Scientifically grounded derived metrics including HRmax/HRR intensity, Banister
-  TRIMP, mechanical work, heart-rate recovery, aerobic efficiency and decoupling.
-- Completed-workout normalization and merging across selected workout providers such
-  as Garmin, Strava and compatible activity integrations.
-- Long-term evaluation using Fitness workout history plus Home Assistant Recorder
-  statistics when available.
-- Optional AI-generated general/workout evaluations using Home Assistant AI Task.
-- Live coaching through lights and TTS/notifications.
-- Lazy entity creation: optional sensors appear only after they become calculable,
-  then remain registered and become unavailable when data is temporarily missing.
-- Multi-language UI translations.
+Fitness is a **person-centered fitness and workout integration for Home Assistant**. It can combine live sensors, completed workouts from several providers, physiological profile inputs, Home Assistant Recorder history and an optional AI Task entity.
 
-## Installation
+Instead of exposing only raw numbers, Fitness can answer more useful questions:
 
-### HACS custom repository
+- How hard am I working **right now**?
+- Was this workout easy, moderate, vigorous or unusually demanding **for me**?
+- Is my heart rate responding differently at a similar pace or power?
+- Is aerobic efficiency improving?
+- How quickly does my heart rate recover after exercise?
+- Is recent training load higher or lower than my own recent norm?
+- What do my long-term VO₂max, resting-HR, HRV and threshold trends suggest?
+- Can Home Assistant use all of this for dashboards, automations, lights, TTS and notifications?
 
-1. Open HACS.
-2. Add `https://github.com/Chreece/HA-Fitness` as a custom **Integration**
-   repository.
-3. Install **Fitness**.
-4. Restart Home Assistant.
-5. Go to **Settings → Devices & services → Add integration → Fitness**.
+> [!IMPORTANT]
+> Fitness is a training/wellness integration, **not a medical device**. Several individual calculations are established exercise-physiology methods, but the integration's combined evaluation and AI interpretation are not a clinically validated diagnostic score.
 
-### Manual
+## The three devices
+
+Each configured person gets three logical devices:
+
+| Device | Purpose |
+|---|---|
+| **Live** | Current workout values, intensity, session statistics and live coaching |
+| **Workout** | The newest completed workout, normalized and enriched from live capture and/or external providers |
+| **Evaluation** | Long-term fitness, recovery and training context |
+
+Optional sensors use **lazy creation**. If Fitness has never been able to calculate a value, that entity is not created. Once it has existed, the entity stays registered permanently and becomes unavailable when its prerequisites are temporarily missing. This keeps dashboards, automations and Recorder history stable.
+
+---
+
+# Installation
+
+## HACS custom repository
+
+1. Open **HACS**.
+2. Open the menu → **Custom repositories**.
+3. Add `https://github.com/Chreece/HA-Fitness`.
+4. Select **Integration**.
+5. Install **Fitness**.
+6. Restart Home Assistant.
+7. Go to **Settings → Devices & services → Add integration → Fitness**.
+
+## Manual
 
 Copy:
 
@@ -48,760 +65,790 @@ Copy:
 custom_components/fitness/
 ```
 
-into:
+to:
 
 ```text
 /config/custom_components/fitness/
 ```
 
-restart Home Assistant, then add **Fitness** from Devices & services.
+Restart Home Assistant, then add **Fitness** from **Devices & services**.
 
-## AI evaluation
+Home Assistant 2026.3+ supports local custom-integration brand images, so the icon/logo included in `custom_components/fitness/brand/` are used directly by Home Assistant.
 
-- Sensor state = short overall verdict only.
-- Full assessment = `text` attribute.
-- Old persisted long AI text can never become the state again.
-- Prompt requests one natural paragraph rather than a sensor-by-sensor summary.
-- Prompt/output follows Home Assistant's configured language; unsupported locales
-  fall back to English.
+---
 
-## Garmin Last activities
+# Setup philosophy
 
-Fitness scans all entities belonging to the selected workout device and finds
-the `last_activities` attribute automatically. No Garmin entity ID is hard-coded.
+Fitness accepts a mixture of **direct values** and **Home Assistant entities**.
 
-It imports completed activities including name/type/start, duration, distance,
-HR, power, cadence, elevation, calories, training effect/load, intensity minutes,
-VO2max, and speed where available. The newest timestamp wins against Fitness'
-own locally captured sessions and other external workout sources.
+Core physiological inputs such as weight and resting heart rate can come from entities so they continue changing over time. Thresholds, VO₂max and other optional values can also come from providers or entities.
 
-## Localization
+When an entity is used, Fitness reads its `unit_of_measurement` and converts it to a canonical internal unit before calculation. Unknown or incompatible units are ignored rather than silently assumed.
 
-Custom integration localization is shipped through `translations/*.json`.
+Supported normalizations include mass, heart rate, power, pace/speed and distance-related units.
 
-Included: en, el, de, fr, es, it, pt, nl, pl, ru, uk, tr, zh, ja, ko.
+## Live devices
 
-Greek contains translated setup/options/entity/button names. The other major
-languages have localized setup essentials and buttons, with accurate English
-fallbacks for entity terminology not manually authored.
+Select devices that expose changing exercise data such as:
 
-
-## Unit normalization (alpha.15)
-
-Direct values entered in setup are interpreted in the unit printed beside the field:
-
-- weight: kg
-- height: cm
-- heart rate: bpm
-- power: W
-- VO2max: mL/kg/min
-- threshold pace: min/km
-
-When the user enters an entity ID instead, Fitness reads that entity's
-`unit_of_measurement` and converts it to the canonical internal unit before any
-calculation.
-
-Supported conversions currently include:
-
-- mass: kg, g, mg, lb/lbs, oz, stone
-- length: cm, m, mm, inch, foot
-- heart rate: bpm and Hz
-- power: W and kW
-- VO2max: mL/kg/min and L/kg/min
-- pace/speed to min/km: min/km, s/km, min/mile, s/mile, m/s, km/h, mph
-
-Unknown/incompatible units are not silently treated as the canonical unit; the
-value resolves to unavailable instead, preventing scientifically invalid calculations.
-
-
-## Dynamic scientifically-derived live entities (alpha.16)
-
-Fitness now creates derived Live entities only when their prerequisites exist.
-
-With live heart rate:
-- Heart rate % of maximum
-- Heart rate reserve %
-- Heart rate intensity (ACSM HRR classification)
-- Heart rate relative to threshold, if threshold HR exists
-
-With live power:
-- Current power-to-weight
-- Power relative to threshold, if threshold power exists
-
-With live speed:
-- Current pace
-- Speed relative to threshold, if threshold pace exists
-
-ACSM HRR intensity states:
-- very_light: <30 %HRR
-- light: 30–39 %HRR
-- moderate: 40–59 %HRR
-- vigorous: 60–89 %HRR
-- near_maximal: >=90 %HRR
-
-These population ranges are explicitly documented as approximations. Threshold-relative
-metrics are exposed separately because ventilatory/metabolic thresholds are more
-individualized and should not be assumed equivalent to fixed HRR percentages.
-
-## Live unit normalization
-
-Live source entities are normalized before calculations:
-- heart rate -> bpm
-- power -> W
-- cadence -> events/min
-- speed -> km/h
-- distance -> km
-- altitude -> m
-
-The original source entity and unit remain visible in entity attributes.
-
-
-## Coaching, lights, notifications and TTS (alpha.17)
-
-Setup can optionally select:
-- one or more Home Assistant areas/rooms
-- explicit light entities
-- notify entities
-- one TTS provider entity
-- one or more media-player/speaker entities
-
-### Live intensity feedback
-
-While a Fitness live workout session is active, changes in the ACSM HRR intensity
-classification trigger audiovisual coaching.
-
-Color mapping is a user-interface convention, not a scientific claim:
-- very low: blue
-- low: green
-- moderate: yellow
-- high: orange
-- near-maximal: red
-
-All selected lights are snapshotted using a temporary Home Assistant scene, changed
-for five seconds, and restored to their exact previous state. A newer intensity
-change during the five seconds keeps the original snapshot, changes color, and
-restarts the timer.
-
-The spoken message is AI-generated when Fitness AI is enabled. A localized static
-motivational sentence is used if AI is disabled or unavailable.
-
-### New workout feedback
-
-Fitness now tracks the signature of the newest normalized workout across Garmin,
-other external sources and locally captured workouts. The existing workout at
-Home Assistant startup is treated as historical and is not announced.
-
-When a genuinely newer workout appears:
-1. deterministic evaluation is immediately current
-2. AI general/workout evaluation is regenerated if enabled
-3. a spoken workout summary is sent to configured speakers
-4. a notification is sent to all selected notify entities
-
-AI workout text is used when available; otherwise a localized static summary is used.
-
-### Home Assistant services
-
-- `scene.create`, `scene.turn_on`, `scene.delete` for temporary light-state snapshots
-- `notify.send_message` for notify entities
-- `tts.speak` for spoken output
-
-
-## Robust feedback targets (alpha.18)
-
-Feedback configuration supports explicit entities and Home Assistant areas.
-The later room-selection implementation supersedes the earlier entity-only design.
-
-Light feedback safety:
-- missing light -> ignored
-- unavailable light -> ignored
-- light without RGB/HS/XY-style color support -> ignored
-- scene snapshot failure -> no lights are modified
-- one light service failure -> other lights continue normally
-- only safely snapshotted, available, color-capable lights are restored
-
-Announcements:
-- missing/unavailable TTS provider -> skipped
-- missing/unavailable media player -> skipped
-- one media-player failure -> other speakers continue
-- missing/unavailable notify entity -> skipped
-- one notification failure -> other notification targets continue
-
-All integration settings remain editable through Configure after installation:
-profile, physiological inputs, live devices, workout/long-term devices, AI, and
-feedback/announcement entities.
-
-
-## Room + explicit light selection (alpha.19)
-
-Feedback lighting can be configured in two complementary ways:
-
-1. Select one or more Home Assistant rooms/areas.
-2. Select individual `light.*` entities.
-
-For every selected room, Fitness discovers:
-- light entities assigned directly to that area
-- light entities whose owning device is assigned to that area
-
-The resolved set is merged with explicitly selected lights and deduplicated.
-
-Fitness then applies the same safety filtering:
-- missing -> ignored
-- unavailable -> ignored
-- no color support -> ignored
-- only RGB/HS/XY/RGBW/RGBWW-capable lights are controlled
-- snapshot must succeed before any light is changed
-- each service failure is isolated
-
-The room selection itself is also editable after installation under Configure ->
-Coaching, lights and announcements.
-
-
-## Home Assistant ColorMode enum fix (alpha.20)
-
-Home Assistant may expose `supported_color_modes` as `ColorMode` enum objects
-instead of plain strings. Fitness now normalizes both forms.
-
-For example:
-
-`[<ColorMode.COLOR_TEMP: 'color_temp'>, <ColorMode.RGB: 'rgb'>]`
-
-is normalized internally to:
-
-`{'color_temp', 'rgb'}`
-
-so RGB-capable lights are correctly detected.
-
-Unavailable and on/off-only lights remain ignored.
-
-
-## Immediate session coaching + diagnostics (alpha.21)
-
-Live audiovisual coaching remains active only while `Session status` is `active`.
-
-When Start workout is pressed:
-1. ANT+ capture is started.
-2. Fitness collects an initial sample.
-3. If a valid current HR/intensity already exists, light/TTS feedback is triggered
-   immediately.
-4. If HR is not available yet, the first valid later live-state update triggers the
-   initial feedback.
-5. Further coaching only occurs when the scientific intensity category changes.
-
-After Stop workout, live coaching stops.
-
-The `Heart rate intensity` entity now exposes diagnostics including:
-- feedback_enabled
-- session_active
-- configured_feedback_areas
-- configured_feedback_lights
-- resolved_feedback_lights
-- tts_entity
-- tts_available
-- tts_media_players
-- usable_tts_media_players
-- last_feedback_intensity
-- last_feedback_time
-- last_light_feedback
-- last_tts_feedback
-- last_feedback_message
-
-These diagnostics are intended to make room/light/TTS problems visible directly
-from the Home Assistant entity UI.
-
-
-## Startup capability + workout announcement fixes (alpha.22)
-
-### Derived Live entities no longer disappear at startup
-
-Entity existence is now based on configured capability rather than a transient
-numeric state during Home Assistant startup.
-
-Example:
-- live HR source configured/discovered
-- resting-HR entity configured
-- resting-HR entity temporarily unavailable during HA startup
-
-Fitness still creates:
-- Heart rate reserve %
-- Heart rate intensity
-
-Their values remain unavailable until resting HR becomes usable, then update
-normally without requiring an integration reload.
-
-### Workout announcements survive restarts correctly
-
-The last announced workout fingerprint is persisted in Fitness storage.
-
-Workout fingerprints are now source-independent. They use normalized sport plus
-a five-minute start-time bucket, so the same physical session does not become a
-different "new" workout merely because Home Assistant switches from a locally
-captured Fitness record to Garmin/Strava's copy after sync.
-
-On first installation, if workout providers populate after Fitness loads, the
-first observed external workout becomes the historical baseline and is not
-announced.
-
-Local workouts finalized by Stop workout are still announced immediately once,
-then the persisted fingerprint prevents replay after restart.
-
-
-## In-memory light state restoration (alpha.23)
-
-Live intensity light feedback no longer depends on `scene.create`.
-
-Before changing any usable color light, Fitness records its current state in
-memory:
-- on/off
-- brightness
-- active color mode
-- RGB / HS / XY color where available
-- color temperature in Kelvin
-- active effect
-
-After the five-second intensity color flash, Fitness restores every light
-individually. An off light is turned off again; an on light is restored using
-its previous active color representation and brightness.
-
-This preserves the existing behavior for repeated intensity changes: the first
-snapshot remains the original pre-feedback state until the final five-second
-timer expires.
-
-New diagnostics on Heart rate intensity:
-- light_snapshot_active
-- snapshotted_feedback_lights
-- last_light_feedback
-
-Expected successful lifecycle:
-`snapshot_created` -> feedback color -> `success_restored`
-
-
-## BPM in intensity coaching + periodic live announcements (alpha.24)
-
-### Intensity-change coaching
-
-Every live intensity-change announcement now includes the current heart rate when
-available.
-
-AI mode:
-- current BPM is passed explicitly to the AI prompt
-- the model is instructed to include it naturally in the short coaching sentence
-
-Static fallback:
-- the localized fallback sentence appends the current BPM in the Home Assistant
-  language
-
-### Periodic live workout announcements
-
-A new optional setup/reconfigure setting is available under Coaching, lights and
-announcements:
-
-- Periodic live workout announcements: on/off
-- Live announcement interval: 1–120 minutes, default 5
-
-When enabled, a task starts with Start workout and stops immediately with Stop
-workout. The first periodic announcement happens after the configured interval,
-not immediately, because the normal intensity-change coaching handles the start of
-the session.
-
-Periodic summaries use whichever live measurements are currently available:
 - heart rate
-- HRR intensity
-- power
-- cadence
-- pace derived from normalized speed
-
-AI mode produces one concise natural spoken update and intentionally mentions only
-the most useful live metrics. Static mode uses a localized deterministic summary.
-
-Periodic-announcement diagnostics are also exposed on Heart rate intensity:
-- periodic_live_announcements
-- periodic_live_interval_minutes
-- last_periodic_live_announcement_time
-- last_periodic_live_message
-
-
-## Smarter periodic live coaching (alpha.25)
-
-Periodic coaching now receives both raw live measurements and individualized
-relative context:
-
-- current BPM
-- %HRmax
-- %HRR
-- ACSM HRR intensity
-- HR relative to threshold HR
-- current power
-- current W/kg
-- power relative to threshold power
+- running/cycling power
 - cadence
 - speed
-- pace
-- speed relative to threshold pace
-- elapsed workout duration
-- recent descriptive trends for HR, power, cadence and speed
+- distance
+- altitude
 
-Trend windows use roughly the last 90 seconds of captured samples and are explicitly
-descriptive rather than diagnostic.
+If no live device is selected, Fitness can automatically discover supported ANT+ live sources.
 
-AI is instructed to prioritize relative intensity and trends, mention current BPM,
-use no more than three numerical values, and finish with one actionable coaching cue.
+When multiple candidate entities provide the same live metric, Fitness prefers an available numeric source rather than becoming stuck on an unavailable one.
 
-The full context is exposed while a session is active in the Heart rate intensity
-attribute `live_coaching_context`.
+## Workout devices
 
+Select devices from integrations that expose completed activity/workout data. Fitness uses a provider-independent normalization layer and currently understands common layouts used by integrations such as Garmin Connect, Strava and other activity providers.
 
-## Runtime Workout room select (alpha.26)
+It can read:
 
-The Fitness Live device now exposes a `select` entity named `Workout room`.
+- activity dictionaries/attributes
+- recent-activity lists such as `last_activities`
+- workout/session lists
+- sibling sensors describing one latest workout
 
-Its options are populated dynamically from the Home Assistant area registry. The
-selected value is persisted by area ID, so renaming an area does not lose the
-selection.
+---
 
-Changing Workout room immediately changes physical coaching targets.
+# Live workout flow
 
-### Lights
+A Fitness live workout deliberately separates **capture** from **timing**:
 
-When a room is selected:
-- all available color-capable `light.*` entities in that room are used
-- room membership checks entity `area_id` first, then the owning device `area_id`
-- explicitly configured lights with no area remain global and continue to be used
-- explicitly configured lights assigned to another area are suppressed
-- unavailable/unknown/non-color lights remain ignored
+```text
+Start Workout
+      ↓
+capture sources are enabled
+      ↓
+waiting_for_live_data
+      ↓
+first valid HR/power/cadence/speed/distance arrives
+      ↓
+workout timer actually starts
+      ↓
+live samples + derived metrics accumulate
+      ↓
+Stop Workout
+      ↓
+completed workout is generated
+      ↓
+optional HR-recovery measurement
+      ↓
+Workout + Evaluation devices update
+```
 
-### Spoken announcements
+This avoids counting time while a heart-rate strap or other sensor has not started transmitting yet.
 
-When a room is selected:
-- available `media_player.*` entities in that room become announcement targets
-- explicitly configured media players with no area remain global
-- configured media players assigned to a different area are suppressed
-- the configured `tts.*` provider itself remains unchanged
+Outside an active workout, live measurement/statistic entities become unavailable instead of showing stale values.
 
-`notify.*` entities remain global and are not room-filtered.
+---
 
-This makes it possible to move a workout between rooms from a dashboard or
-automation without reconfiguring the integration.
+# Live calculated sensors
 
+The exact entities created depend on the available inputs.
 
-## Workout-room target semantics + media_play filtering (alpha.27)
+## Heart-rate intensity
 
-Workout room now has explicit override semantics.
+### Heart rate as % of maximum
 
-### Lights
+```text
+%HRmax = current HR / maximum HR × 100
+```
 
-If a Workout room is selected:
-- all available color-capable lights in that room are used
-- explicitly configured lights with no Home Assistant area remain global
-- explicitly configured lights that belong to another area do not follow the
-  workout; the newly selected room's lights replace them
+**Needs:** current HR + maximum HR.
+
+**Why useful:** a simple relative intensity indicator. If no measured/user maximum HR exists, Fitness can estimate maximum HR using the Tanaka equation described below.
+
+### Heart-rate reserve percentage
+
+```text
+HRR = HRmax − HRrest
+
+%HRR = (HRcurrent − HRrest) / (HRmax − HRrest) × 100
+```
+
+**Needs:** current HR + resting HR + maximum HR.
+
+**Why useful:** heart-rate reserve accounts for the individual's resting HR and is commonly used for relative aerobic-exercise intensity.
+
+> In this README, **HRR** can mean *heart-rate reserve* in intensity formulas. **Heart-rate recovery** is explicitly written as *post-exercise HR recovery* to avoid ambiguity.
+
+### Heart-rate intensity
+
+Fitness maps `%HRR` to the ACSM relative-intensity categories used by the implementation:
+
+| %HRR | Fitness state |
+|---:|---|
+| `<30%` | `very_light` |
+| `30–39%` | `light` |
+| `40–59%` | `moderate` |
+| `60–89%` | `vigorous` |
+| `≥90%` | `near_maximal` |
+
+These are population-level exercise-intensity categories, not an individual's lactate/ventilatory thresholds.
+
+### Heart rate relative to threshold
+
+```text
+current HR / threshold HR × 100
+```
+
+**Needs:** live HR + threshold HR.
+
+**Why useful:** compares current effort with an individually supplied/provider threshold instead of a generic population percentage.
+
+---
+
+## Running/cycling intensity
+
+### Current power-to-weight
+
+```text
+W/kg = current power / body mass
+```
+
+**Needs:** power + weight.
+
+**Why useful:** normalizes power for body size and makes changes in performance easier to compare over time.
+
+### Power relative to threshold
+
+```text
+current power / threshold power × 100
+```
+
+**Needs:** power + threshold power.
+
+**Why useful:** indicates how current output relates to the athlete's supplied/provider threshold.
+
+### Current pace
+
+```text
+pace (min/km) = 60 / speed (km/h)
+```
+
+**Needs:** speed.
+
+### Speed relative to threshold
+
+Fitness converts threshold pace to speed when needed, then calculates:
+
+```text
+current speed / threshold speed × 100
+```
+
+**Why useful:** gives an individualized running-intensity reference when threshold pace is available.
+
+---
+
+# Within-workout statistics
+
+Fitness does not create a completed live workout from only one final sensor value. It keeps samples throughout the session and derives session-level behavior.
+
+When prerequisites are available, live/session statistics include:
+
+- average and maximum heart rate
+- average and maximum power
+- average cadence
+- average speed
+- Banister TRIMP
+- accumulated mechanical work
+- time spent in HRR intensity categories
+- aerobic efficiency
+- aerobic decoupling
+
+## Banister TRIMP
+
+TRIMP is an **internal cardiovascular training-load estimate** using exercise duration and heart-rate reserve.
+
+First:
+
+```text
+ΔHR = (HRavg − HRrest) / (HRmax − HRrest)
+```
+
+Fitness then uses the classic sex-specific weighting implemented in the code:
+
+```text
+Men:
+TRIMP = duration(min) × ΔHR × 0.64 × e^(1.92 × ΔHR)
+
+Women:
+TRIMP = duration(min) × ΔHR × 0.86 × e^(1.67 × ΔHR)
+```
+
+**Why useful:** two sessions of the same duration do not receive the same load when one is performed at a substantially higher cardiovascular intensity.
+
+**Limitations:** TRIMP is HR-based internal load. Heat, dehydration, fatigue, medication and cardiac drift can change HR independently of external mechanical output. Treat it as one load signal, not a complete description of training stress.
+
+## Mechanical work
+
+For workouts with power samples, Fitness integrates power over time using trapezoidal integration:
+
+```text
+Work = ∫ Power dt
+```
+
+and reports kilojoules.
+
+**Why useful:** this is a direct measure of accumulated external mechanical work from power data. It complements HR-based internal load.
+
+## Aerobic efficiency
+
+Fitness uses the relationship between external output and HR:
+
+```text
+power / HR
+```
+
+when power is available, otherwise:
+
+```text
+speed / HR
+```
+
+The session value is the mean of usable sample ratios.
+
+**Why useful:** for comparable conditions and workouts, producing more power/speed for a similar cardiovascular response can indicate improved efficiency.
+
+**Important:** this is best interpreted **within the same person and similar sessions**. Terrain, temperature, wind, treadmill calibration and sensor quality can all affect it.
+
+## Aerobic decoupling
+
+For sessions of at least 20 minutes with enough valid data, Fitness compares first-half versus second-half efficiency:
+
+```text
+Decoupling =
+(first-half efficiency − second-half efficiency)
+────────────────────────────────────────────── × 100
+first-half efficiency
+```
+
+**Why useful:** increasing HR relative to a similar external output during a sustained session is often described as cardiovascular drift. Lower drift in comparable steady aerobic sessions can be useful longitudinal information.
+
+**Scientific caution:** this exact decoupling percentage is a practical endurance-monitoring metric, not a universally validated clinical cutoff. Fitness therefore compares it mainly against **your own history** rather than declaring a population-based good/bad threshold.
+
+## Time by HRR intensity
+
+Fitness integrates the time between HR samples and accumulates seconds/minutes spent in:
+
+- very light
+- light
+- moderate
+- vigorous
+- near maximal
+
+Gaps longer than 30 seconds are not blindly integrated as if the last HR value remained valid.
+
+---
+
+# Post-exercise heart-rate recovery
+
+When a live workout ends with usable HR data, Fitness can keep capture active briefly **after the workout timer has already stopped**.
+
+It measures the fall from end-exercise HR at:
+
+- 10 seconds
+- 30 seconds
+- 60 seconds
+- 120 seconds
+
+```text
+HR recovery at t =
+HR at exercise end − HR at recovery time t
+```
+
+**Why useful:** post-exercise HR decline reflects autonomic recovery and has substantial exercise-testing literature behind it.
+
+**Important limitation:** recovery values depend on the protocol — for example active versus passive recovery, body position and whether the exercise test truly reached peak effort. Fitness therefore stores the values and compares personal trends; it does **not** use one universal cutoff as a diagnosis.
+
+---
+
+# How a live session becomes a completed workout
+
+A sufficiently valid live session becomes a normal Fitness workout with a source of `fitness_live_capture`.
+
+Depending on available sensors, the Workout device can contain:
+
+**Core session data**
+
+- name/type and start time
+- duration
+- distance
+- average/max HR
+- average/max power
+- average/max cadence
+- average/max speed
+- elevation gain/loss when available
+- calories/provider values when supplied
+
+**Fitness-derived session data**
+
+- Banister TRIMP
+- TRIMP per hour
+- mechanical work
+- aerobic efficiency
+- aerobic decoupling
+- post-exercise HR recovery
+- time by exercise-intensity class
+
+Afterwards the same workout participates in the same provider-merging and long-term evaluation pipeline as externally imported workouts.
+
+---
+
+# Combining Garmin, Strava and other workout providers
+
+Different services often describe the **same physical workout** with slightly different data. Fitness tries to create one richer workout rather than forcing the user to choose one provider.
 
 Example:
 
-Configured:
-- `light.guest_room` -> area `guest_room`
-- `light.portable_strip` -> no area
-
-Workout room changes from Guest room to Living room:
-
-Used:
-- color lights in Living room
-- `light.portable_strip`
-
-Not used:
-- `light.guest_room`
-
-### Announcements
-
-The same routing applies to `media_player.*`:
-- room-bound players come from the selected Workout room
-- explicitly configured area-less players remain global
-- configured players in another room are replaced by players from the newly
-  selected room
-
-Additionally, Fitness now requires announcement media players to advertise
-`MediaPlayerEntityFeature.PLAY`, the Home Assistant feature for the
-`media_player.media_play` action. Missing, unknown, unavailable, or players
-without PLAY support are ignored.
-
-The TTS provider remains the configured `tts.*` entity and `notify.*` remains
-global.
-
-
-## Explicit Workout-room default behavior (alpha.28)
-
-Workout room initialization is now deterministic:
-
-1. A valid previously selected runtime Workout room is restored.
-2. Otherwise, if setup/reconfigure contains one or more feedback areas, the first
-   valid configured area becomes the initial Workout room.
-3. Otherwise Workout room is `No room`.
-
-Fitness never guesses or auto-selects an arbitrary Home Assistant area.
-
-When Workout room is `No room`:
-- explicitly configured area-less lights remain global and can still be used
-- explicitly configured area-less media players remain global and can still be used
-- configured area-bound entities follow the legacy configured-target behavior
-- selecting a room later immediately switches room-bound light/speaker routing
-
-The Workout room select also includes an explicit `No room` option so the runtime
-room can be cleared intentionally.
-
-
-## MediaPlayerEntityFeature import fix (alpha.29)
-
-alpha.28 referenced `MediaPlayerEntityFeature.PLAY` in room-aware announcement
-speaker filtering without importing `MediaPlayerEntityFeature` in the packaged
-manager.py.
-
-alpha.29 explicitly imports it from Home Assistant's media_player component.
-
-
-## Provider-independent merged workout model (alpha.30)
-
-Fitness no longer chooses a whole Garmin/Strava/provider record and discards the
-others.
-
-All completed-workout candidates from selected workout devices are normalized,
-clustered by physical session (start time within five minutes + compatible sport),
-and merged.
-
-Supported discovery patterns include:
-- activity/workout attributes directly on a sensor
-- nested activity/workout dictionaries
-- lists such as `last_activities`, `activities`, `workouts`, `sessions`
-- sibling sensors such as Hevy's last-workout title/start/duration/volume layout
-
-This covers Garmin Connect, Strava, Hevy and generic activity contracts used by
-Polar/Oura/Peloton-style integrations, while also making future workout integrations
-work without adding a hard-coded provider name when they expose recognizable fields.
-
-The canonical value for a field comes from the richest matching provider record.
-Provider disagreements are never discarded: the complete raw provider data and
-normalized mismatches are retained in the Workout entities' attributes through:
-
-- `sources`
-- `provider_domains`
-- `field_sources`
-- `provider_values`
-- `extra`
-
-The Workout device now exposes additional common metrics including calories,
-moving/elapsed time, speed, weighted power, max cadence, elevation loss, training
-load/effect, workout VO2max, Strava-style relative effort, energy, strength-training
-reps/exercise count/volume, device, gear and data sources.
-
-
-## Scientific session + longitudinal evaluation upgrade (alpha.31)
-
-Start Workout now arms capture first. Session timing begins only after the first
-subsequent valid live HR/power/cadence/speed/distance update.
-
-Outside an active Fitness workout, all live measurements and live session
-statistics are unavailable. Session status remains available and can be:
-`idle`, `waiting_for_live_data`, `active`, or `recovery`.
-
-Live/local workout calculations now include classic Banister TRIMP, mechanical
-work, HRR-intensity duration, aerobic efficiency/decoupling, and post-exercise
-heart-rate recovery at 10/30/60/120 seconds.
-
-After Stop Workout, the workout timer ends immediately and live entities become
-unavailable. ANT capture may remain active for up to 120 seconds solely to
-measure post-exercise HR recovery, then stops automatically.
-
-Fitness also requests up to 90 days of Home Assistant Recorder long-term
-statistics for relevant configured/provider entities. Cached 7/28/90-day means
-and recent trends are included in deterministic/AI evaluation context. Numeric
-Fitness sensors use measurement state class where appropriate so HA can build
-long-term statistics too.
-
-
-## Lazy permanent Fitness entities (alpha.32)
-
-Optional sensors now use a create-on-first-valid-result lifecycle:
-
-1. Fitness has never calculated a valid value -> entity does not exist.
-2. First valid calculation -> entity is created.
-3. Its description key is persisted in Fitness storage.
-4. A later workout/source cannot calculate it -> entity remains registered and
-   becomes unavailable.
-5. Data becomes valid again -> the same entity resumes updating.
-
-Entities are never deleted after first materialization. This protects entity IDs,
-dashboards, automations, Recorder history, long-term statistics and user
-customizations.
-
-The calculation engine, workout engine, AI evaluation and coaching never depend
-on the HA sensor entity existing. Missing/not-yet-created entities are only a UI
-representation decision.
-
-`Session status` is the one deliberate exception because it always has a useful
-control state (`idle`, `waiting_for_live_data`, `active`, `recovery`).
-
-During upgrades Fitness also inspects the HA entity registry and treats entities
-already created by older versions as materialized. Thus alpha.31 entities are not
-removed merely by installing alpha.32.
-
-HRR-intensity duration sensors no longer materialize as artificial zeroes when
-there was no usable HR + resting/max HR basis. Long-term training sensors also
-stay absent before any qualifying Fitness workout history exists.
-
-alpha.32 additionally fixes the missing `SensorStateClass` import in alpha.31.
-
-
-## Stable intensity transitions + heartbeat light pulses (alpha.33)
-
-### Five-second transition guard
-
-After an intensity class is accepted, another intensity class cannot trigger
-light/TTS feedback until the accepted intensity is at least five seconds old.
-
-The first valid intensity after workout start is accepted immediately. If a new
-class appears inside the five-second guard it is not committed; if it remains
-current, the next live sensor update after the guard expires will accept it.
-
-This avoids rapid light/TTS transitions caused by heart-rate values oscillating
-around an intensity boundary.
-
-### Five heartbeat-style light pulses
-
-Intensity feedback no longer holds a colour for five seconds.
-
-For each accepted intensity change, Fitness:
-1. snapshots the original state of every usable feedback light;
-2. sets the intensity colour;
-3. restores the original state;
-4. repeats this five times;
-5. leaves the lights in their original state.
-
-The full pulse period is based on current heart rate:
-
-`pulse_interval = max(60 / BPM, 1.0 seconds)`
-
-Examples:
-- 50 bpm -> one pulse every 1.2 seconds
-- 60 bpm -> one pulse every 1.0 second
-- 120 bpm -> capped at one pulse every 1.0 second
-- missing/invalid BPM -> one pulse every 1.0 second
-
-Each cycle uses an approximately 50% colour / 50% original-state duty cycle.
-The intensity TTS/AI coaching message is still spoken once per accepted
-transition, not once per pulse.
-
-Diagnostics on Heart rate intensity now include:
-- `intensity_transition_min_age_seconds`
-- `last_feedback_bpm`
-- `last_feedback_pulse_interval_seconds`
-- `last_feedback_pulse_count`
-
-
-## ANT+ Capture snapshot/restore (2026.8.0-beta.1)
-
-Fitness now discovers every Capture-like switch belonging to `antplus` /
-`ant_plus`, including switches on USB-adapter hub devices that are separate from
-the selected HR/power/cadence sensor devices.
-
-On Start Workout:
-- snapshot every available Capture switch state
-- already ON -> leave ON
-- OFF -> turn ON
-- unavailable/unknown -> ignore safely
-
-During the live workout all available ANT+ Capture switches are therefore ON.
-
-On Stop Workout, or after the post-workout HRR collection finishes:
-- originally ON -> restore ON
-- originally OFF -> restore OFF
-
-The snapshot is persisted across HA restarts. If HA restarts while Fitness owns
-capture, it makes a delayed restoration attempt. Failed/unavailable restores
-remain in the snapshot so they are not silently forgotten.
-
-Diagnostics:
-- `antplus_capture_switches`
-- `antplus_capture_snapshot`
-- `antplus_capture_changed_by_fitness`
-
-
-## Versioning
-
-Fitness follows `YYYY.MM.release` versioning.
-
-Examples:
-
-- `2026.8.0-beta.1` — beta 1 of the August 2026 release line
-- `2026.8.0-beta.2` — beta 2
-- `2026.8.0` — stable release
-- `2026.8.1` — next patch/release in the same month
-
-Git tags should match the manifest version exactly, for example:
-
 ```text
-2026.8.0-beta.1
+Garmin
+  ├─ HR
+  ├─ training effect
+  ├─ load
+  └─ cadence
+
+Strava
+  ├─ distance
+  ├─ elevation
+  ├─ power
+  └─ relative effort
+
+             ↓
+
+       one Fitness workout
 ```
 
+Provider provenance and disagreements are retained in attributes such as:
 
-## Conservative cross-provider workout matching (beta.2)
+```text
+sources
+provider_domains
+field_sources
+provider_values
+extra
+```
 
-Workout merging is deliberately stricter to avoid combining two real sessions
-that happen close together.
+## How duplicate matching works
 
-Matching now considers:
-- normalized sport compatibility
+Fitness deliberately uses conservative matching.
+
+It considers:
+
+- normalized sport
 - start-time difference
-- duration agreement when both providers expose duration
-- distance agreement when both providers expose distance
+- duration agreement
+- distance agreement
 - explicit end-time agreement when available
 
-Hard conflicts in sport, duration, distance or end time reject a merge.
+A hard conflict in known sport, duration, distance or end time prevents a merge.
 
-Evidence requirements increase with start-time difference:
-- <=30 s: compatible sport is sufficient when richer provider data is absent
-- 30-90 s: at least one independent matching characteristic is required
-- 90-180 s: normally two independent matches are required
-- 3-5 min: only very strong multi-field agreement can merge
-- >5 min: never merged
+The farther apart two providers report the workout start, the more independent evidence Fitness requires. Records more than five minutes apart are never merged.
 
-Workout clustering now uses complete-link matching: a new provider record must
-match every record already in the candidate group. This prevents transitive
-A≈B≈C chain merges.
+This reduces the risk of accidentally combining two short sessions performed close together.
 
-Provider disagreements are still preserved in `provider_values` and
-`field_sources`; stricter identity matching changes only whether records belong
-to the same physical workout.
+---
 
+# Personal workout comparison
 
-## Personal historical workout context (beta.3)
+A live-generated workout is also compared with up to **20 similar prior Fitness workouts from the previous 90 days**.
 
-Live-generated Fitness workouts now keep two separate layers:
+Comparable workouts require compatible sport and, where available, roughly comparable duration/distance.
 
-1. **Factual workout measurements** — duration, distance, HR, power, cadence,
-   speed, TRIMP, HRR, efficiency, decoupling, etc.
-2. **Personal longitudinal comparison** — how this workout compares with similar
-   prior Fitness workouts.
+Fitness can then create:
 
-Historical context never overwrites raw workout measurements.
+| Sensor | Meaning |
+|---|---|
+| Comparable prior workouts | How many historical sessions formed the personal baseline |
+| Efficiency vs personal baseline | Difference from mean aerobic efficiency of comparable sessions |
+| Decoupling vs personal baseline | Difference in percentage points from comparable sessions |
+| Average HR vs personal baseline | BPM difference from comparable sessions |
+| Average power vs personal baseline | Relative power difference |
+| Average speed vs personal baseline | Relative speed difference |
+| TRIMP vs recent comparable workouts | Relative internal-load difference |
+| Workout load context | Lower / similar / higher than the person's recent comparable norm |
+| Workout personal context | Human-readable deterministic summary |
 
-Comparable prior workouts are selected conservatively from the previous 90 days:
-- same/compatible sport
-- prior session only
-- duration within roughly ±35% when both sessions expose duration
-- distance within roughly ±35% when both sessions expose meaningful distance
+These fields **never replace the factual workout data**. They are a separate interpretation layer.
 
-Up to the 20 most recent comparable workouts form the personal baseline.
+---
 
-When calculable, Fitness adds:
-- comparable workout count
-- aerobic efficiency vs personal baseline %
-- aerobic decoupling difference vs personal baseline
-- average HR difference vs personal baseline
-- average power or speed difference vs personal baseline
-- TRIMP difference vs comparable recent workouts
-- deterministic load context (lower/similar/higher than personal norm)
-- a concise personal-context summary
+# Evaluation sensors
 
-These comparison fields are descriptive within-subject metrics, not medical
-diagnoses or population-based health classifications.
+The Evaluation device combines direct/profile inputs, provider metrics, Fitness workout history and Home Assistant Recorder history.
 
-The workout AI prompt now explicitly uses comparable-workout context together
-with long-term HA/Fitness trends rather than relying only on session averages.
+## Maximum heart rate
+
+If the user has not supplied a maximum HR, Fitness uses Tanaka et al.:
+
+```text
+HRmax ≈ 208 − 0.7 × age
+```
+
+If a completed workout later contains a higher observed peak HR, Fitness can use that observed peak instead of the lower prediction.
+
+**Usefulness:** provides a reasonable population estimate when a measured value is unavailable.
+
+**Limitation:** age equations have substantial individual error. A real measured maximum, when valid, is more individualized.
+
+## Heart-rate reserve
+
+```text
+HR reserve = HRmax − resting HR
+```
+
+Used by live intensity and TRIMP.
+
+## VO₂max
+
+Fitness prefers a provider/user VO₂max.
+
+If none exists and resting/max HR are available, it can estimate VO₂max with the Uth heart-rate-ratio method:
+
+```text
+VO₂max ≈ 15.3 × HRmax / HRrest
+```
+
+**Important limitation:** the original validation study involved well-trained men. Fitness exposes the method provenance and should not present this estimate as equivalent to laboratory gas-exchange measurement.
+
+## FRIEND predicted VO₂max
+
+Fitness calculates a reference prediction using the FRIEND 2017 equation implemented by the integration:
+
+```text
+VO₂max predicted =
+79.9 − 0.39 × age − 13.7 × sex − 0.127 × weight(lb)
+```
+
+where the equation encodes male as `0` and female as `1`.
+
+Fitness then exposes:
+
+```text
+VO₂max % predicted =
+measured/estimated VO₂max
+──────────────────────── × 100
+FRIEND predicted VO₂max
+```
+
+The displayed `below_reference`, `around_reference`, and `above_reference` bands are **Fitness UI conventions**, not medical diagnostic cutoffs.
+
+## HRV personal-baseline status
+
+When a provider exposes last-night HRV plus a personal baseline range, Fitness reports:
+
+- below personal baseline
+- within personal baseline
+- above personal baseline
+
+**Why useful:** HRV is highly individual; longitudinal within-person monitoring is generally more meaningful than comparing one number with another person's HRV.
+
+Fitness does not diagnose readiness from HRV alone.
+
+## Threshold metrics
+
+When available from a provider or configuration:
+
+- threshold HR
+- threshold pace
+- threshold power
+- threshold power-to-weight
+
+These are used as individualized references for live intensity.
+
+## Fitness age
+
+Fitness does **not invent its own fitness-age equation**. If a selected provider supplies fitness age, Fitness exposes it and calculates:
+
+```text
+fitness-age difference = provider fitness age − chronological age
+```
+
+## Provider recovery/training context
+
+When a selected provider exposes them, Fitness can include:
+
+- training readiness
+- sleep score
+- acute training load
+- chronic training load
+- acute:chronic ratio
+- provider training status
+
+These are treated as **provider context**, not as scientifically universal truths.
+
+Fitness explicitly avoids interpreting a single acute:chronic ratio as an injury-risk prediction.
+
+---
+
+# Long-term statistics
+
+Fitness uses two kinds of history.
+
+## Fitness workout history
+
+From actual Fitness live-generated workouts it can calculate:
+
+- Banister TRIMP accumulated over 7 days
+- Banister TRIMP accumulated over 28 days
+- Banister TRIMP accumulated over 42 days
+- active training days in the last 28 days
+- 90-day mean 60-second post-exercise HR recovery
+- 90-day mean aerobic decoupling
+- 90-day mean aerobic efficiency
+
+These are only created after sufficient data exists.
+
+## Home Assistant Recorder history
+
+Fitness can request up to 90 days of daily long-term statistics for compatible configured/provider entities, such as:
+
+- resting HR
+- VO₂max
+- HRV
+- weight
+- thresholds
+- training readiness
+- sleep score
+
+For available statistics, Fitness builds context including:
+
+- 7-day mean
+- 28-day mean
+- 90-day mean
+- latest daily mean
+- most recent 14 days versus the previous 14 days
+
+This historical context is used by the evaluation/AI layer instead of treating one current sensor value as the whole story.
+
+---
+
+# AI evaluation
+
+AI is optional.
+
+If Home Assistant has an `ai_task` entity, Fitness can use it to generate:
+
+- an **overall fitness/recovery verdict** plus one natural-language paragraph
+- a **latest-workout verdict** plus one workout-specific paragraph
+
+The prompt receives structured deterministic results, personal comparisons and long-term context. It is explicitly instructed to:
+
+- prefer personal trends over one isolated value
+- avoid repeating a sensor list
+- distinguish performance fitness from medical health
+- avoid diagnosing disease
+- treat proprietary provider scores as context
+- avoid using one acute:chronic ratio as an injury-risk prediction
+
+The entity state contains only a short verdict; the longer text is kept in attributes so it does not violate Home Assistant's 255-character state limit.
+
+AI output follows the Home Assistant language for supported locales, with English fallback.
+
+---
+
+# Smart live coaching
+
+Fitness can use Home Assistant itself as workout feedback.
+
+Optional targets include:
+
+- Home Assistant areas/rooms
+- explicit color-capable lights
+- notify entities
+- a TTS entity
+- media players
+
+## Intensity light feedback
+
+When the accepted HRR intensity changes:
+
+1. Fitness snapshots the original light state.
+2. It waits for the current accepted intensity to be at least five seconds old before accepting another transition, reducing rapid zone jitter.
+3. It pulses the configured intensity color five times.
+4. It restores the original light state exactly.
+5. It gives one AI/static spoken coaching message.
+
+Unsupported/unavailable lights are ignored safely.
+
+## Workout-room routing
+
+A runtime **Workout room** selector can use Home Assistant areas. Area-aware lights and announcement targets follow the chosen room while explicitly configured targets without an area can remain usable.
+
+## Periodic coaching
+
+If enabled, Fitness can periodically announce useful currently available live metrics. Unknown/unavailable data is omitted instead of being spoken.
+
+---
+
+# ANT+ Capture ownership
+
+When Fitness starts a live session it can discover all ANT+/ANT Plus Capture-like switches.
+
+Before touching them, Fitness snapshots their states:
+
+```text
+Capture A: ON
+Capture B: OFF
+```
+
+During the workout:
+
+```text
+A remains ON
+B is temporarily turned ON
+```
+
+After the workout — or after HR-recovery collection finishes:
+
+```text
+A returns/remains ON
+B returns OFF
+```
+
+The snapshot is persisted so a Home Assistant restart does not make Fitness forget which capture switches it temporarily owned.
+
+---
+
+# Scientific basis and limitations
+
+Fitness intentionally separates three categories:
+
+### Established/transparent calculations
+
+These have explicit equations and published physiological or mathematical bases:
+
+- Tanaka age-predicted maximum HR
+- heart-rate reserve
+- ACSM HRR intensity categories
+- Banister TRIMP
+- FRIEND VO₂max reference prediction
+- Uth HR-ratio VO₂max estimate
+- post-exercise HR recovery
+- mechanical work integration
+
+### Practical longitudinal training metrics
+
+These are useful when interpreted within the same athlete under similar conditions, but should not be treated as universal diagnostic scores:
+
+- power/HR or speed/HR aerobic efficiency
+- first-vs-second-half aerobic decoupling
+- personal comparable-workout deltas
+- rolling training-load summaries
+
+### Provider/AI context
+
+These are exposed for context but their interpretation may be proprietary or model-dependent:
+
+- provider training readiness/status
+- provider fitness age
+- provider training effect/load
+- AI-generated evaluation
+
+---
+
+# Research references
+
+The implementation keeps scientific provenance in `custom_components/fitness/research/references.py`. Important references include:
+
+1. **Tanaka H, Monahan KD, Seals DR. (2001).** *Age-predicted maximal heart rate revisited.* J Am Coll Cardiol.  
+   PMID: https://pubmed.ncbi.nlm.nih.gov/11153730/  
+   DOI: https://doi.org/10.1016/S0735-1097(00)01054-8
+
+2. **Garber CE et al. / American College of Sports Medicine (2011).** *Quantity and Quality of Exercise for Developing and Maintaining Cardiorespiratory, Musculoskeletal, and Neuromotor Fitness in Apparently Healthy Adults.*  
+   PMID: https://pubmed.ncbi.nlm.nih.gov/21694556/  
+   DOI: https://doi.org/10.1249/MSS.0b013e318213fefb
+
+3. **Uth N, Sørensen H, Overgaard K, Pedersen PK. (2004).** *Estimation of VO₂max from the ratio between HRmax and HRrest — the Heart Rate Ratio Method.*  
+   PMID: https://pubmed.ncbi.nlm.nih.gov/14624296/  
+   DOI: https://doi.org/10.1007/s00421-003-0988-y
+
+4. **Myers J et al. (2017).** *A Reference Equation for Normal Standards for VO₂ Max: Analysis from the FRIEND Registry.*  
+   PMID: https://pubmed.ncbi.nlm.nih.gov/28377168/  
+   DOI: https://doi.org/10.1016/j.pcad.2017.03.002
+
+5. **Cole CR et al. (1999).** *Heart-rate recovery immediately after exercise as a predictor of mortality.* N Engl J Med.  
+   PMID: https://pubmed.ncbi.nlm.nih.gov/10536127/  
+   DOI: https://doi.org/10.1056/NEJM199910283411804
+
+6. **Plews DJ et al. (2013).** *Training adaptation and heart rate variability in elite endurance athletes: opening the door to effective monitoring.* Sports Med.  
+   PMID: https://pubmed.ncbi.nlm.nih.gov/23852425/  
+   DOI: https://doi.org/10.1007/s40279-013-0071-8
+
+7. **Bourdon PC et al. (2017).** *Monitoring Athlete Training Loads: Consensus Statement.* Int J Sports Physiol Perform.  
+   PMID: https://pubmed.ncbi.nlm.nih.gov/28463642/  
+   DOI: https://doi.org/10.1123/IJSPP.2017-0208
+
+8. **Kellmann M et al. (2018).** *Recovery and Performance in Sport: Consensus Statement.*  
+   PMID: https://pubmed.ncbi.nlm.nih.gov/29345524/  
+   DOI: https://doi.org/10.1123/ijspp.2017-0759
+
+For Banister TRIMP, the implemented equation and coefficients are also reproduced in the exercise-physiology literature, for example:  
+https://journals.physiology.org/doi/10.1152/advan.00078.2011
+
+---
+
+# What Fitness intentionally does not claim
+
+Fitness does **not** claim that:
+
+- an age-predicted HRmax is your true measured maximum
+- an estimated VO₂max equals laboratory CPET
+- one HRV reading proves good or bad recovery
+- one acute:chronic ratio predicts injury
+- aerobic decoupling has one universal healthy cutoff
+- an AI-generated paragraph is medical advice
+
+The integration is most useful when it combines **transparent calculations + your own longitudinal history + comparable workouts**.
+
+---
+
+# Beta status
+
+Fitness is currently a public beta. Entity names, provider mappings and calculations may still be refined before the first stable release.
+
+Bug reports are especially useful when they include:
+
+- Home Assistant version
+- Fitness version
+- source integration/provider
+- relevant entity states + attributes
+- the Fitness diagnostics involved
+- logs around the workout/update
+
+Issues: https://github.com/Chreece/HA-Fitness/issues
+
+---
+
+# Versioning
+
+Fitness follows:
+
+```text
+YYYY.MM.release
+```
+
+Prereleases append their stage:
+
+```text
+2026.8.0-beta.4
+```
+
+The stable version for this release line will be:
+
+```text
+2026.8.0
+```
+
+---
+
+<div align="center">
+
+**Built for Home Assistant. Local data, transparent calculations, personal context.**
+
+</div>
