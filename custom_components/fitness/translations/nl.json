@@ -7,6 +7,7 @@
         "description": "Profiel",
         "data": {
           "profile_name": "Naam",
+          "language": "Taal",
           "birth_day": "Geboortedag",
           "birth_month": "Geboortemaand",
           "birth_year": "Geboortejaar",
@@ -94,6 +95,7 @@
         "title": "Profiel",
         "description": "Edit the person's profile information.",
         "data": {
+          "language": "Taal",
           "birth_day": "Geboortedag",
           "birth_month": "Geboortemaand",
           "birth_year": "Geboortejaar",

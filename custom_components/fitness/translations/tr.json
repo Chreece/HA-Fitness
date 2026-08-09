@@ -7,6 +7,7 @@
         "description": "Profil",
         "data": {
           "profile_name": "Ad",
+          "language": "Dil",
           "birth_day": "Doğum günü",
           "birth_month": "Doğum ayı",
           "birth_year": "Doğum yılı",
@@ -94,6 +95,7 @@
         "title": "Profil",
         "description": "Edit the person's profile information.",
         "data": {
+          "language": "Dil",
           "birth_day": "Doğum günü",
           "birth_month": "Doğum ayı",
           "birth_year": "Doğum yılı",

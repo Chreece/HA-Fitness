@@ -8,7 +8,7 @@
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![HACS](https://img.shields.io/badge/HACS-Custom%20Repository-41BDF5)](https://www.hacs.xyz/)
-[![Version](https://img.shields.io/badge/version-2026.8.0--beta.12-blue)](https://github.com/Chreece/HA-Fitness/releases)
+[![Version](https://img.shields.io/badge/version-2026.8.0--beta.13-blue)](https://github.com/Chreece/HA-Fitness/releases)
 [![License](https://img.shields.io/badge/status-public%20beta-orange)](#beta-status)
 
 </div>
@@ -919,7 +919,7 @@ YYYY.MM.release
 Prereleases append their stage:
 
 ```text
-2026.8.0-beta.12
+2026.8.0-beta.13
 ```
 
 The stable version for this release line will be:
@@ -1025,3 +1025,23 @@ At workout end / post-exercise HR recovery:
 Every temporary recovery cue restores the previous light state after three
 seconds. The light tasks are queued asynchronously and never delay the actual
 10/30/60/120-second HR measurements.
+
+
+## Per-profile language
+
+Each Fitness profile has its own language setting. New profiles preselect Home
+Assistant's current UI language when Fitness has localization for it; otherwise
+English is selected.
+
+Available languages are:
+
+English, Ελληνικά, Deutsch, Français, Español, Italiano, Português, Nederlands,
+Polski, Русский, Українська, Türkçe, 中文, 日本語 and 한국어.
+
+The profile language controls deterministic coaching text, workout/session
+announcements, HR-recovery guidance, notification wording and AI output-language
+instructions. It can be changed later from **Fitness → Configure → Profile**.
+
+Profiles created before this option existed remain backward-compatible: until a
+language is explicitly saved, Fitness follows the current Home Assistant UI
+language, with English as the final fallback.

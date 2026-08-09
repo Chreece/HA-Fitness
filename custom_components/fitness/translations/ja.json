@@ -7,6 +7,7 @@
         "description": "プロフィール",
         "data": {
           "profile_name": "名前",
+          "language": "言語",
           "birth_day": "生まれた日",
           "birth_month": "生まれた月",
           "birth_year": "生まれた年",
@@ -94,6 +95,7 @@
         "title": "プロフィール",
         "description": "Edit the person's profile information.",
         "data": {
+          "language": "言語",
           "birth_day": "生まれた日",
           "birth_month": "生まれた月",
           "birth_year": "生まれた年",

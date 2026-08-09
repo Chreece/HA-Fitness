@@ -23,6 +23,7 @@ from .const import (
     CONF_TTS_MEDIA_PLAYER_IDS,
     CONF_DATE_OF_BIRTH,
     CONF_HEIGHT,
+    CONF_LANGUAGE,
     CONF_LIVE_DEVICE_IDS,
     CONF_MAX_HR,
     CONF_PERIODIC_LIVE_ANNOUNCEMENTS,
@@ -37,12 +38,40 @@ from .const import (
     CONF_WEIGHT,
     CONF_WORKOUT_DEVICE_IDS,
     DOMAIN,
+    SUPPORTED_LANGUAGES,
 )
 from .providers.entities import validate_number_or_entity
 
 
 def _text():
     return selector.TextSelector(selector.TextSelectorConfig(multiline=False))
+
+
+def _normalize_language(value) -> str:
+    """Normalize a HA/UI language value to one supported Fitness language."""
+    language = str(value or "en").lower()
+    code = language.split("-")[0].split("_")[0]
+    return code if code in SUPPORTED_LANGUAGES else "en"
+
+
+def _default_language(hass) -> str:
+    """Use Home Assistant's configured UI language as the setup default."""
+    return _normalize_language(
+        getattr(hass.config, "language", None)
+    )
+
+
+def _language_selector():
+    """Select only languages for which Fitness ships localized guidance."""
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=[
+                {"value": code, "label": label}
+                for code, label in SUPPORTED_LANGUAGES.items()
+            ],
+            mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )
 
 
 def _device_multi():
@@ -120,7 +149,7 @@ def _validate(user_input, specs):
 
 
 class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    VERSION = 10
+    VERSION = 11
 
     def __init__(self):
         self._data = {}
@@ -148,6 +177,10 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         schema = vol.Schema(
             {
                 vol.Required(CONF_PROFILE_NAME): str,
+                vol.Required(
+                    CONF_LANGUAGE,
+                    default=_default_language(self.hass),
+                ): _language_selector(),
                 vol.Required(CONF_BIRTH_DAY, default=1): _number(1, 31),
                 vol.Required(CONF_BIRTH_MONTH, default="1"): selector.SelectSelector(
                     selector.SelectSelectorConfig(
@@ -446,6 +479,9 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 else:
                     values = {
                         CONF_DATE_OF_BIRTH: new_dob.isoformat(),
+                        CONF_LANGUAGE: _normalize_language(
+                            user_input.get(CONF_LANGUAGE)
+                        ),
                     }
                     if user_input.get(CONF_SEX):
                         values[CONF_SEX] = user_input[CONF_SEX]
@@ -457,6 +493,15 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
 
         schema = vol.Schema(
             {
+                vol.Required(
+                    CONF_LANGUAGE,
+                    default=_normalize_language(
+                        current.get(
+                            CONF_LANGUAGE,
+                            _default_language(self.hass),
+                        )
+                    ),
+                ): _language_selector(),
                 vol.Required(
                     CONF_BIRTH_DAY,
                     default=dob.day,

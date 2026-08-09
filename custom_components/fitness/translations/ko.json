@@ -7,6 +7,7 @@
         "description": "프로필",
         "data": {
           "profile_name": "이름",
+          "language": "언어",
           "birth_day": "생일",
           "birth_month": "출생 월",
           "birth_year": "출생 연도",
@@ -94,6 +95,7 @@
         "title": "프로필",
         "description": "Edit the person's profile information.",
         "data": {
+          "language": "언어",
           "birth_day": "생일",
           "birth_month": "출생 월",
           "birth_year": "출생 연도",

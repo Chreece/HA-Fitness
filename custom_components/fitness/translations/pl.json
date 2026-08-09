@@ -7,6 +7,7 @@
         "description": "Profil",
         "data": {
           "profile_name": "Nazwa",
+          "language": "Język",
           "birth_day": "Dzień urodzenia",
           "birth_month": "Miesiąc urodzenia",
           "birth_year": "Rok urodzenia",
@@ -94,6 +95,7 @@
         "title": "Profil",
         "description": "Edit the person's profile information.",
         "data": {
+          "language": "Język",
           "birth_day": "Dzień urodzenia",
           "birth_month": "Miesiąc urodzenia",
           "birth_year": "Rok urodzenia",

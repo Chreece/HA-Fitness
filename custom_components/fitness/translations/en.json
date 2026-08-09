@@ -7,6 +7,7 @@
         "description": "Create the person whose fitness will be evaluated.",
         "data": {
           "profile_name": "Name",
+          "language": "Language",
           "birth_day": "Day of birth",
           "birth_month": "Month of birth",
           "birth_year": "Year of birth",
@@ -94,6 +95,7 @@
         "title": "Profile",
         "description": "Edit the person's profile information.",
         "data": {
+          "language": "Language",
           "birth_day": "Day of birth",
           "birth_month": "Month of birth",
           "birth_year": "Year of birth",

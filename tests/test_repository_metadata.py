@@ -70,3 +70,13 @@ def test_session_guidance_is_localized_for_supported_languages():
     ):
         assert f'"{language}": {{' in feedback
     assert "def static_session_message" in feedback
+
+
+
+def test_every_translation_exposes_profile_language():
+    translation_dir = ROOT / "custom_components/fitness/translations"
+    files = [ROOT / "custom_components/fitness/strings.json", *translation_dir.glob("*.json")]
+    for path in files:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        assert data["config"]["step"]["user"]["data"]["language"]
+        assert data["options"]["step"]["profile"]["data"]["language"]

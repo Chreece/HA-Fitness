@@ -23,6 +23,7 @@ from .const import (
     CONF_AI_ENTITY,
     CONF_FEEDBACK_AREA_IDS,
     CONF_FEEDBACK_LIGHT_IDS,
+    CONF_LANGUAGE,
     CONF_NOTIFY_ENTITY_IDS,
     CONF_TTS_ENTITY_ID,
     CONF_TTS_MEDIA_PLAYER_IDS,
@@ -51,6 +52,7 @@ from .const import (
     MIN_LOCAL_WORKOUT_SECONDS,
     STORE_KEY_PREFIX,
     STORE_VERSION,
+    SUPPORTED_LANGUAGES,
 )
 from .engine.fitness import (
     friend_predicted_vo2max,
@@ -3755,18 +3757,24 @@ class FitnessManager:
         }
 
     def _ai_language(self) -> str:
-        """Return a supported language based on Home Assistant's UI language."""
+        """Return this Fitness profile's configured output language.
+
+        Existing profiles created before the language option was introduced
+        fall back to Home Assistant's UI language, then English.
+        """
+        configured = self.config.get(CONF_LANGUAGE)
         language = str(
-            getattr(self.hass.config, "language", None) or "en"
+            configured
+            or getattr(self.hass.config, "language", None)
+            or "en"
         ).lower()
         code = language.split("-")[0].split("_")[0]
-        return code if code in {
-            "en", "el", "de", "fr", "es", "it", "pt", "nl", "pl",
-            "ru", "uk", "tr", "zh", "ja", "ko"
-        } else "en"
+        return code if code in SUPPORTED_LANGUAGES else "en"
 
     def _prompt_strings(self) -> dict[str, str]:
         """Localized AI instructions."""
+        # AI prompts use English language names for unambiguous model
+        # instruction; the profile selector itself shows native names.
         language_names = {
             "en": "English",
             "el": "Greek",

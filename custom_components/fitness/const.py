@@ -5,6 +5,26 @@ DOMAIN = "fitness"
 CONF_PROFILE_NAME = "profile_name"
 CONF_DATE_OF_BIRTH = "date_of_birth"
 CONF_SEX = "sex"
+CONF_LANGUAGE = "language"
+
+SUPPORTED_LANGUAGES = {
+    "en": "English",
+    "el": "Ελληνικά",
+    "de": "Deutsch",
+    "fr": "Français",
+    "es": "Español",
+    "it": "Italiano",
+    "pt": "Português",
+    "nl": "Nederlands",
+    "pl": "Polski",
+    "ru": "Русский",
+    "uk": "Українська",
+    "tr": "Türkçe",
+    "zh": "中文",
+    "ja": "日本語",
+    "ko": "한국어",
+}
+
 CONF_BIRTH_DAY = "birth_day"
 CONF_BIRTH_MONTH = "birth_month"
 CONF_BIRTH_YEAR = "birth_year"

@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026.8.0-beta.13
+
+### Per-profile language
+
+- Added a language selector to initial Fitness profile setup.
+- The selector contains exactly the 15 languages already localized by Fitness.
+- New profiles preselect the current Home Assistant UI language when supported,
+  otherwise English.
+- Language can be changed later from the Profile options page.
+- All static coaching/session/recovery text and AI output instructions now use
+  the profile language.
+- Existing profiles without the setting continue to follow HA UI language for
+  backward compatibility.
+- Added translated field labels and language regression tests.
+
 ## 2026.8.0-beta.12
 
 ### Visual workout lifecycle feedback
