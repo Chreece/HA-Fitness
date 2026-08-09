@@ -467,6 +467,33 @@
       },
       "aerobic_efficiency_long_term": {
         "name": "90-day mean aerobic efficiency"
+      },
+      "last_workout_comparable_count": {
+        "name": "Comparable prior workouts"
+      },
+      "last_workout_efficiency_vs_baseline": {
+        "name": "Aerobic efficiency vs personal baseline"
+      },
+      "last_workout_decoupling_vs_baseline": {
+        "name": "Aerobic decoupling vs personal baseline"
+      },
+      "last_workout_hr_vs_baseline": {
+        "name": "Average heart rate vs personal baseline"
+      },
+      "last_workout_power_vs_baseline": {
+        "name": "Average power vs personal baseline"
+      },
+      "last_workout_speed_vs_baseline": {
+        "name": "Average speed vs personal baseline"
+      },
+      "last_workout_trimp_vs_recent": {
+        "name": "TRIMP vs comparable recent workouts"
+      },
+      "last_workout_load_context": {
+        "name": "Workout load context"
+      },
+      "last_workout_personal_context": {
+        "name": "Workout personal context"
       }
     },
     "button": {

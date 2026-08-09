@@ -1,6 +1,6 @@
 # Fitness for Home Assistant
 
-**Current release: `2026.8.0-beta.2` — public beta**
+**Current release: `2026.8.0-beta.3` — public beta**
 
 Fitness is a person-centered Home Assistant integration that combines live exercise
 data, completed workouts, physiological profile data, Home Assistant long-term
@@ -769,3 +769,39 @@ A≈B≈C chain merges.
 Provider disagreements are still preserved in `provider_values` and
 `field_sources`; stricter identity matching changes only whether records belong
 to the same physical workout.
+
+
+## Personal historical workout context (beta.3)
+
+Live-generated Fitness workouts now keep two separate layers:
+
+1. **Factual workout measurements** — duration, distance, HR, power, cadence,
+   speed, TRIMP, HRR, efficiency, decoupling, etc.
+2. **Personal longitudinal comparison** — how this workout compares with similar
+   prior Fitness workouts.
+
+Historical context never overwrites raw workout measurements.
+
+Comparable prior workouts are selected conservatively from the previous 90 days:
+- same/compatible sport
+- prior session only
+- duration within roughly ±35% when both sessions expose duration
+- distance within roughly ±35% when both sessions expose meaningful distance
+
+Up to the 20 most recent comparable workouts form the personal baseline.
+
+When calculable, Fitness adds:
+- comparable workout count
+- aerobic efficiency vs personal baseline %
+- aerobic decoupling difference vs personal baseline
+- average HR difference vs personal baseline
+- average power or speed difference vs personal baseline
+- TRIMP difference vs comparable recent workouts
+- deterministic load context (lower/similar/higher than personal norm)
+- a concise personal-context summary
+
+These comparison fields are descriptive within-subject metrics, not medical
+diagnoses or population-based health classifications.
+
+The workout AI prompt now explicitly uses comparable-workout context together
+with long-term HA/Fitness trends rather than relying only on session averages.

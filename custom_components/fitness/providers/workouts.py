@@ -179,6 +179,19 @@ class Workout:
     time_vigorous_s: float | None = None
     time_near_maximal_s: float | None = None
 
+    # Personal longitudinal comparison. These fields never replace the factual
+    # workout measurements above; they describe the session relative to the
+    # user's own historical baseline.
+    comparable_workout_count: int | None = None
+    efficiency_vs_baseline_percent: float | None = None
+    decoupling_vs_baseline_percent: float | None = None
+    avg_hr_vs_baseline_bpm: float | None = None
+    avg_power_vs_baseline_percent: float | None = None
+    avg_speed_vs_baseline_percent: float | None = None
+    trimp_vs_recent_mean_percent: float | None = None
+    load_context: str | None = None
+    personal_context_summary: str | None = None
+
     # Merge/provenance fields.
     sources: list[str] = field(default_factory=list)
     provider_domains: list[str] = field(default_factory=list)

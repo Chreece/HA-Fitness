@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026.8.0-beta.3
+
+### Personal historical workout comparison
+
+- Live-generated Fitness workouts now compare against up to 20 similar prior
+  Fitness workouts from the previous 90 days.
+- Historical comparison never overwrites raw workout measurements.
+- Added aerobic efficiency, decoupling, average HR, average power/speed and
+  TRIMP comparisons against the user's own comparable-workout baseline.
+- Added deterministic lower/similar/higher personal load context.
+- Added a concise personal-context workout summary.
+- Workout AI evaluation now explicitly receives this comparable-workout context.
+- New comparison entities use the existing lazy-creation lifecycle.
+
+
 ## 2026.8.0-beta.2
 
 ### Safer workout merging

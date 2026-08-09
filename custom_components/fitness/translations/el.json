@@ -467,6 +467,33 @@
       },
       "aerobic_efficiency_long_term": {
         "name": "Μέση αερόβια αποδοτικότητα 90 ημερών"
+      },
+      "last_workout_comparable_count": {
+        "name": "Συγκρίσιμες προηγούμενες προπονήσεις"
+      },
+      "last_workout_efficiency_vs_baseline": {
+        "name": "Αερόβια αποδοτικότητα έναντι προσωπικής βάσης"
+      },
+      "last_workout_decoupling_vs_baseline": {
+        "name": "Αερόβια αποσύζευξη έναντι προσωπικής βάσης"
+      },
+      "last_workout_hr_vs_baseline": {
+        "name": "Μέσος καρδιακός ρυθμός έναντι προσωπικής βάσης"
+      },
+      "last_workout_power_vs_baseline": {
+        "name": "Μέση ισχύς έναντι προσωπικής βάσης"
+      },
+      "last_workout_speed_vs_baseline": {
+        "name": "Μέση ταχύτητα έναντι προσωπικής βάσης"
+      },
+      "last_workout_trimp_vs_recent": {
+        "name": "TRIMP έναντι παρόμοιων πρόσφατων προπονήσεων"
+      },
+      "last_workout_load_context": {
+        "name": "Σχετικό φορτίο προπόνησης"
+      },
+      "last_workout_personal_context": {
+        "name": "Προσωπικό πλαίσιο προπόνησης"
       }
     },
     "button": {

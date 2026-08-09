@@ -92,7 +92,13 @@ from .providers.entities import (
     resolve_number_or_entity,
 )
 from .providers.evaluation import collect_provider_metrics, workout_device_entity_ids
-from .providers.workouts import Workout, discover_external_workouts, newest
+from .providers.workouts import (
+    Workout,
+    _dt,
+    _sport_key,
+    discover_external_workouts,
+    newest,
+)
 
 
 class FitnessManager:
@@ -2315,6 +2321,271 @@ class FitnessManager:
             part = "Night"
         return f"{part} {sport} – {start.astimezone():%Y-%m-%d %H:%M}"
 
+    @staticmethod
+    def _percent_difference_from_baseline(
+        current: float | None,
+        baseline: float | None,
+    ) -> float | None:
+        if current is None or baseline is None:
+            return None
+        try:
+            current = float(current)
+            baseline = float(baseline)
+        except (TypeError, ValueError):
+            return None
+        if baseline == 0:
+            return None
+        return ((current - baseline) / abs(baseline)) * 100.0
+
+    @staticmethod
+    def _safe_mean(values: list[float]) -> float | None:
+        clean = []
+        for value in values:
+            try:
+                number = float(value)
+            except (TypeError, ValueError):
+                continue
+            if math.isfinite(number):
+                clean.append(number)
+        return mean(clean) if clean else None
+
+    def _comparable_local_workouts(
+        self,
+        workout: Workout,
+        *,
+        lookback_days: int = 90,
+    ) -> list[Workout]:
+        """Return similar prior Fitness workouts for personal comparison.
+
+        Similarity is deliberately conservative:
+        - same normalized sport when known
+        - previous workouts only
+        - within 90 days
+        - duration within ±35% when both durations exist
+        - distance within ±35% when both distances exist
+
+        This is not a scientific population classifier; it is a personal
+        within-subject comparison filter.
+        """
+        now_start = _dt(workout.start)
+        if now_start is None:
+            return []
+
+        result: list[Workout] = []
+        current_sport = _sport_key(workout.sport)
+
+        for previous in self.local_workouts():
+            prev_start = _dt(previous.start)
+            if prev_start is None or prev_start >= now_start:
+                continue
+
+            age_days = (now_start - prev_start).total_seconds() / 86400.0
+            if age_days < 0 or age_days > lookback_days:
+                continue
+
+            prev_sport = _sport_key(previous.sport)
+            generic = {"", "workout", "activity", "exercise", "session"}
+
+            if (
+                current_sport not in generic
+                and prev_sport not in generic
+                and current_sport != prev_sport
+            ):
+                continue
+
+            if (
+                workout.duration_s is not None
+                and previous.duration_s is not None
+            ):
+                reference = max(
+                    abs(float(workout.duration_s)),
+                    abs(float(previous.duration_s)),
+                    1.0,
+                )
+                if (
+                    abs(
+                        float(workout.duration_s)
+                        - float(previous.duration_s)
+                    )
+                    / reference
+                    > 0.35
+                ):
+                    continue
+
+            if (
+                workout.distance_m is not None
+                and previous.distance_m is not None
+                and max(
+                    abs(float(workout.distance_m)),
+                    abs(float(previous.distance_m)),
+                ) > 500
+            ):
+                reference = max(
+                    abs(float(workout.distance_m)),
+                    abs(float(previous.distance_m)),
+                    1.0,
+                )
+                if (
+                    abs(
+                        float(workout.distance_m)
+                        - float(previous.distance_m)
+                    )
+                    / reference
+                    > 0.35
+                ):
+                    continue
+
+            result.append(previous)
+
+        return result[-20:]
+
+    def _apply_personal_workout_context(
+        self,
+        workout: Workout,
+    ) -> Workout:
+        """Compare a completed workout against the user's own history.
+
+        Raw metrics are never overwritten.
+        """
+        comparable = self._comparable_local_workouts(workout)
+        workout.comparable_workout_count = len(comparable)
+
+        if not comparable:
+            workout.personal_context_summary = (
+                "No sufficiently comparable prior Fitness workouts are "
+                "available yet."
+            )
+            return workout
+
+        def baseline(field_name: str) -> float | None:
+            return self._safe_mean(
+                [
+                    getattr(item, field_name)
+                    for item in comparable
+                    if getattr(item, field_name) is not None
+                ]
+            )
+
+        efficiency_baseline = baseline("aerobic_efficiency")
+        decoupling_baseline = baseline("aerobic_decoupling_percent")
+        hr_baseline = baseline("avg_hr")
+        power_baseline = baseline("avg_power")
+        speed_baseline = baseline("average_speed_m_s")
+        trimp_baseline = baseline("banister_trimp")
+
+        workout.efficiency_vs_baseline_percent = (
+            self._percent_difference_from_baseline(
+                workout.aerobic_efficiency,
+                efficiency_baseline,
+            )
+        )
+
+        # Lower decoupling is generally preferable for the same type of steady
+        # aerobic session, so report current minus personal baseline directly.
+        if (
+            workout.aerobic_decoupling_percent is not None
+            and decoupling_baseline is not None
+        ):
+            workout.decoupling_vs_baseline_percent = (
+                float(workout.aerobic_decoupling_percent)
+                - float(decoupling_baseline)
+            )
+
+        if workout.avg_hr is not None and hr_baseline is not None:
+            workout.avg_hr_vs_baseline_bpm = (
+                float(workout.avg_hr) - float(hr_baseline)
+            )
+
+        workout.avg_power_vs_baseline_percent = (
+            self._percent_difference_from_baseline(
+                workout.avg_power,
+                power_baseline,
+            )
+        )
+
+        workout.avg_speed_vs_baseline_percent = (
+            self._percent_difference_from_baseline(
+                workout.average_speed_m_s,
+                speed_baseline,
+            )
+        )
+
+        workout.trimp_vs_recent_mean_percent = (
+            self._percent_difference_from_baseline(
+                workout.banister_trimp,
+                trimp_baseline,
+            )
+        )
+
+        # Deterministic descriptive load context, not a medical/safety score.
+        if workout.trimp_vs_recent_mean_percent is not None:
+            delta = workout.trimp_vs_recent_mean_percent
+            if delta >= 35:
+                workout.load_context = "much_higher_than_personal_norm"
+            elif delta >= 15:
+                workout.load_context = "higher_than_personal_norm"
+            elif delta <= -35:
+                workout.load_context = "much_lower_than_personal_norm"
+            elif delta <= -15:
+                workout.load_context = "lower_than_personal_norm"
+            else:
+                workout.load_context = "similar_to_personal_norm"
+
+        parts: list[str] = []
+
+        if workout.efficiency_vs_baseline_percent is not None:
+            parts.append(
+                "aerobic efficiency "
+                f"{workout.efficiency_vs_baseline_percent:+.1f}% "
+                "vs comparable-workout baseline"
+            )
+
+        if workout.decoupling_vs_baseline_percent is not None:
+            parts.append(
+                "aerobic decoupling "
+                f"{workout.decoupling_vs_baseline_percent:+.1f} percentage "
+                "points vs baseline"
+            )
+
+        if workout.avg_hr_vs_baseline_bpm is not None:
+            parts.append(
+                "average HR "
+                f"{workout.avg_hr_vs_baseline_bpm:+.1f} bpm vs baseline"
+            )
+
+        if workout.avg_power_vs_baseline_percent is not None:
+            parts.append(
+                "average power "
+                f"{workout.avg_power_vs_baseline_percent:+.1f}% vs baseline"
+            )
+        elif workout.avg_speed_vs_baseline_percent is not None:
+            parts.append(
+                "average speed "
+                f"{workout.avg_speed_vs_baseline_percent:+.1f}% vs baseline"
+            )
+
+        if workout.trimp_vs_recent_mean_percent is not None:
+            parts.append(
+                "TRIMP "
+                f"{workout.trimp_vs_recent_mean_percent:+.1f}% vs comparable "
+                "recent-workout mean"
+            )
+
+        if parts:
+            workout.personal_context_summary = (
+                f"Compared with {len(comparable)} similar prior workout"
+                f"{'s' if len(comparable) != 1 else ''}: "
+                + "; ".join(parts)
+                + "."
+            )
+        else:
+            workout.personal_context_summary = (
+                f"{len(comparable)} comparable prior workouts were found, "
+                "but no directly comparable derived metrics were available."
+            )
+
+        return workout
+
     def _finalize_local_workout(self, stop_time: datetime) -> Workout | None:
         if self.session_started is None:
             return None
@@ -2400,7 +2671,7 @@ class FitnessManager:
         )
 
         sport = self._infer_sport()
-        return Workout(
+        workout = Workout(
             source="fitness_live_capture",
             name=self._workout_name(self.session_started, sport),
             sport=sport.lower(),
@@ -2442,6 +2713,8 @@ class FitnessManager:
                 if has_hr_intensity_basis else None
             ),
         )
+
+        return self._apply_personal_workout_context(workout)
 
     def local_workouts(self) -> list[Workout]:
         result = []
@@ -2987,7 +3260,8 @@ class FitnessManager:
             f"{output_language}. Then write exactly ONE natural paragraph of roughly "
             "80-150 words in the same language. Do NOT list or repeat the workout "
             "statistics one by one. Use within-workout distribution, TRIMP, recovery, "
-            "efficiency/decoupling and personal long-term trends when available rather "
+            "efficiency/decoupling, comparable-workout personal context, and personal "
+            "long-term trends when available rather "
             "than relying only on averages. Explain what kind of session it appears to have "
             "been, whether the effort seems appropriate for the person's current "
             "fitness, what it likely trained, and one useful observation for future "

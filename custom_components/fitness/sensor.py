@@ -124,6 +124,15 @@ DESCRIPTIONS = (
     Desc(key="last_workout_time_moderate", translation_key="last_workout_time_moderate", kind="workout", metric="workout_time_moderate", unit="min"),
     Desc(key="last_workout_time_vigorous", translation_key="last_workout_time_vigorous", kind="workout", metric="workout_time_vigorous", unit="min"),
     Desc(key="last_workout_time_near_maximal", translation_key="last_workout_time_near_maximal", kind="workout", metric="workout_time_near_maximal", unit="min"),
+    Desc(key="last_workout_comparable_count", translation_key="last_workout_comparable_count", kind="workout", metric="workout_comparable_count"),
+    Desc(key="last_workout_efficiency_vs_baseline", translation_key="last_workout_efficiency_vs_baseline", kind="workout", metric="workout_efficiency_vs_baseline", unit="%"),
+    Desc(key="last_workout_decoupling_vs_baseline", translation_key="last_workout_decoupling_vs_baseline", kind="workout", metric="workout_decoupling_vs_baseline", unit="%"),
+    Desc(key="last_workout_hr_vs_baseline", translation_key="last_workout_hr_vs_baseline", kind="workout", metric="workout_hr_vs_baseline", unit="bpm"),
+    Desc(key="last_workout_power_vs_baseline", translation_key="last_workout_power_vs_baseline", kind="workout", metric="workout_power_vs_baseline", unit="%"),
+    Desc(key="last_workout_speed_vs_baseline", translation_key="last_workout_speed_vs_baseline", kind="workout", metric="workout_speed_vs_baseline", unit="%"),
+    Desc(key="last_workout_trimp_vs_recent", translation_key="last_workout_trimp_vs_recent", kind="workout", metric="workout_trimp_vs_recent", unit="%"),
+    Desc(key="last_workout_load_context", translation_key="last_workout_load_context", kind="workout", metric="workout_load_context"),
+    Desc(key="last_workout_personal_context", translation_key="last_workout_personal_context", kind="workout", metric="workout_personal_context"),
 
     # Evaluation device
     Desc(key="age", translation_key="age", kind="evaluation", metric="age", unit="yr"),
@@ -298,6 +307,8 @@ class FitnessSensor(SensorEntity):
             "workout_device",
             "workout_gear",
             "workout_sources",
+            "workout_load_context",
+            "workout_personal_context",
             "ai_general",
             "ai_workout",
             "cardiorespiratory_status",
@@ -469,6 +480,15 @@ class FitnessSensor(SensorEntity):
                 "workout_time_moderate": round(w.time_moderate_s / 60, 1) if w.time_moderate_s is not None else None,
                 "workout_time_vigorous": round(w.time_vigorous_s / 60, 1) if w.time_vigorous_s is not None else None,
                 "workout_time_near_maximal": round(w.time_near_maximal_s / 60, 1) if w.time_near_maximal_s is not None else None,
+                "workout_comparable_count": w.comparable_workout_count,
+                "workout_efficiency_vs_baseline": round(w.efficiency_vs_baseline_percent, 1) if w.efficiency_vs_baseline_percent is not None else None,
+                "workout_decoupling_vs_baseline": round(w.decoupling_vs_baseline_percent, 1) if w.decoupling_vs_baseline_percent is not None else None,
+                "workout_hr_vs_baseline": round(w.avg_hr_vs_baseline_bpm, 1) if w.avg_hr_vs_baseline_bpm is not None else None,
+                "workout_power_vs_baseline": round(w.avg_power_vs_baseline_percent, 1) if w.avg_power_vs_baseline_percent is not None else None,
+                "workout_speed_vs_baseline": round(w.avg_speed_vs_baseline_percent, 1) if w.avg_speed_vs_baseline_percent is not None else None,
+                "workout_trimp_vs_recent": round(w.trimp_vs_recent_mean_percent, 1) if w.trimp_vs_recent_mean_percent is not None else None,
+                "workout_load_context": w.load_context,
+                "workout_personal_context": w.personal_context_summary,
             }.get(m)
 
         e = self.manager.evaluation()
