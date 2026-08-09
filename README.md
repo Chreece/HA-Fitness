@@ -8,7 +8,7 @@
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![HACS](https://img.shields.io/badge/HACS-Custom%20Repository-41BDF5)](https://www.hacs.xyz/)
-[![Version](https://img.shields.io/badge/version-2026.8.0--beta.13-blue)](https://github.com/Chreece/HA-Fitness/releases)
+[![Version](https://img.shields.io/badge/version-2026.8.0--beta.14-blue)](https://github.com/Chreece/HA-Fitness/releases)
 [![License](https://img.shields.io/badge/status-public%20beta-orange)](#beta-status)
 
 </div>
@@ -919,7 +919,7 @@ YYYY.MM.release
 Prereleases append their stage:
 
 ```text
-2026.8.0-beta.13
+2026.8.0-beta.14
 ```
 
 The stable version for this release line will be:
@@ -1045,3 +1045,34 @@ instructions. It can be changed later from **Fitness → Configure → Profile**
 Profiles created before this option existed remain backward-compatible: until a
 language is explicitly saved, Fitness follows the current Home Assistant UI
 language, with English as the final fallback.
+
+
+## Announcement target precedence
+
+Explicit TTS media-player targets from Fitness setup are authoritative.
+
+When a Workout room is selected:
+
+- configured player with **no area** → always keep it
+- configured player in the **same room** → keep it
+- configured player in a **different room** → replace the room-bound target
+  with usable media players from the selected Workout room
+
+Fitness no longer adds every media player in the selected room merely because a
+room is selected. This prevents unrelated devices such as a television from
+receiving TTS when the explicitly configured speaker is already appropriate.
+
+Lifecycle announcements also use a short AI deadline. If AI cannot produce the
+start/stop/recovery wording within 2.5 seconds, Fitness immediately speaks the
+localized deterministic message instead.
+
+## Intensity light feedback
+
+Intensity changes no longer blink the lights. Each accepted intensity change:
+
+1. snapshots the current light state
+2. sets the intensity color for **3 seconds**
+3. restores the exact previous state
+
+The existing five-second minimum age between accepted intensity transitions is
+unchanged.

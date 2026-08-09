@@ -660,7 +660,7 @@ class FitnessManager:
         preserve_existing_snapshot: bool = False,
     ) -> bool:
         """Suspend intensity feedback and establish the lifecycle snapshot."""
-        # Invalidate/cancel any heartbeat pulse before touching lifecycle lights.
+        # Invalidate/cancel any active intensity cue before lifecycle lights.
         self._feedback_generation += 1
         if self._live_feedback_task and not self._live_feedback_task.done():
             self._live_feedback_task.cancel()
@@ -1282,7 +1282,7 @@ class FitnessManager:
             self.last_feedback_light_result = "no_usable_lights"
 
     async def _async_live_intensity_feedback(self, intensity: str):
-        """Pulse intensity colour five times, then restore original lights."""
+        """Show intensity colour for three seconds, then restore the lights."""
         self._feedback_generation += 1
         generation = self._feedback_generation
         light_ids = self._feedback_light_ids()
@@ -1297,41 +1297,28 @@ class FitnessManager:
         except (TypeError, ValueError):
             bpm = None
 
-        # One full pulse cycle follows one heartbeat, but flashing is never
-        # allowed faster than once per second.
-        pulse_interval = (
-            max(60.0 / bpm, 1.0)
-            if bpm is not None and bpm > 0
-            else 1.0
-        )
-        pulse_count = 5
-
-        # 50% duty cycle: intensity colour for half the beat interval, original
-        # light state for the other half.
-        colour_seconds = pulse_interval / 2.0
-        original_seconds = pulse_interval - colour_seconds
-
         self.last_feedback_intensity = intensity
         self.last_feedback_time = datetime.now(timezone.utc).isoformat()
         self.last_feedback_bpm = bpm
-        self.last_feedback_pulse_interval = round(pulse_interval, 3)
-        self.last_feedback_pulse_count = pulse_count
 
+        # Retain the old diagnostic attributes for entity compatibility, but
+        # blinking no longer exists.
+        self.last_feedback_pulse_interval = 3.0
+        self.last_feedback_pulse_count = 1
+
+        snapshot_ok = False
         if not light_ids:
             self.last_feedback_light_result = "no_usable_lights"
 
-        snapshot_ok = False
-
         async with self._feedback_lock:
-            snapshot_ok = self._feedback_scene_active
-
             if light_ids and not self._feedback_scene_active:
                 snapshot_ok = await self._async_snapshot_feedback_lights(
                     light_ids
                 )
+            else:
+                snapshot_ok = bool(self._feedback_scene_active)
 
-        # The spoken coaching cue is generated once for the accepted intensity
-        # transition, independently from the five visual pulses.
+        # Spoken intensity coaching remains independent from the visual cue.
         message = await self._async_intensity_message(intensity)
         self.last_feedback_message = message
 
@@ -1344,35 +1331,15 @@ class FitnessManager:
 
         try:
             if light_ids and snapshot_ok:
-                for pulse_number in range(pulse_count):
-                    if generation != self._feedback_generation:
-                        return
+                async with self._feedback_lock:
+                    await self._async_set_feedback_color(
+                        light_ids,
+                        intensity,
+                    )
 
-                    async with self._feedback_lock:
-                        await self._async_set_feedback_color(
-                            light_ids,
-                            intensity,
-                        )
-
-                    await asyncio.sleep(colour_seconds)
-
-                    if generation != self._feedback_generation:
-                        return
-
-                    async with self._feedback_lock:
-                        await self._async_restore_feedback_lights(
-                            clear_snapshot=False,
-                        )
-
-                    # After pulse five the original state has already been
-                    # restored; no additional waiting is necessary.
-                    if pulse_number < pulse_count - 1:
-                        await asyncio.sleep(original_seconds)
+                await asyncio.sleep(3.0)
 
         except asyncio.CancelledError:
-            # A newer accepted intensity deliberately inherits the original
-            # snapshot so that the final cycle can restore the real pre-feedback
-            # state instead of snapshotting an intermediate pulse colour.
             return
 
         if generation != self._feedback_generation:
@@ -1530,10 +1497,23 @@ class FitnessManager:
             f"Context: {json.dumps(context, ensure_ascii=False)}"
         )
 
-        result = await self._call_ai(
-            prompt,
-            f"Fitness session guidance {self.config.get(CONF_PROFILE_NAME)}",
-        )
+        # Session-state guidance must be timely. Give AI a short chance to
+        # personalize the wording, then use the localized deterministic fallback
+        # rather than leaving Start/Stop/Recovery feedback waiting on an LLM.
+        try:
+            result = await asyncio.wait_for(
+                self._call_ai(
+                    prompt,
+                    (
+                        "Fitness session guidance "
+                        f"{self.config.get(CONF_PROFILE_NAME)}"
+                    ),
+                ),
+                timeout=2.5,
+            )
+        except (asyncio.TimeoutError, asyncio.CancelledError):
+            result = None
+
         if result:
             compact = " ".join(str(result).split()).strip()
             if compact:
@@ -1946,45 +1926,55 @@ class FitnessManager:
         )
 
     def _feedback_media_player_ids(self) -> list[str]:
-        """Resolve announcement players from the selected Workout room.
+        """Resolve announcement players while respecting explicit setup targets.
 
-        Runtime room semantics:
-        - media players in the selected Workout room are used
-        - configured media players with NO area remain global and are also used
-        - configured media players assigned to another area are replaced by
-          the selected room's players rather than following the workout
-        - every usable player must be available and support media_player.media_play
+        Rules:
+        - Explicitly configured players are authoritative.
+        - A configured player with no HA area is global and always remains.
+        - A configured player in the currently selected Workout room remains.
+        - Only a configured player assigned to a DIFFERENT area is replaced by
+          usable media players in the selected Workout room.
+        - Merely selecting a room never adds extra room players when all
+          configured targets are already valid for that room.
+        - Every returned player must be available and support media_play.
         """
-        configured = set(
-            self.config.get(CONF_TTS_MEDIA_PLAYER_IDS) or []
-        )
+        configured = {
+            entity_id
+            for entity_id in (
+                self.config.get(CONF_TTS_MEDIA_PLAYER_IDS) or []
+            )
+            if isinstance(entity_id, str)
+            and entity_id.startswith("media_player.")
+        }
+
         candidates: set[str] = set()
-
         selected = self.selected_feedback_area_id
+        needs_room_replacement = False
 
-        if selected:
-            # The selected Workout room supplies the room-bound players.
+        for entity_id in configured:
+            area_id = self._entity_area_id(entity_id)
+
+            if not selected:
+                candidates.add(entity_id)
+                continue
+
+            if area_id is None or area_id == selected:
+                candidates.add(entity_id)
+                continue
+
+            # The configured player is bound to another room. Do not follow it
+            # across rooms; replace that room-bound target using the selected
+            # Workout room instead.
+            needs_room_replacement = True
+
+        if selected and needs_room_replacement:
             candidates.update(
                 self._entities_in_selected_area("media_player")
             )
 
-            # Explicit area-less players are global and remain in addition to
-            # the currently selected room.
-            for entity_id in configured:
-                if self._entity_area_id(entity_id) is None:
-                    candidates.add(entity_id)
-        else:
-            candidates.update(configured)
-
         usable = []
 
         for entity_id in candidates:
-            if (
-                not isinstance(entity_id, str)
-                or not entity_id.startswith("media_player.")
-            ):
-                continue
-
             state = self.hass.states.get(entity_id)
             if (
                 state is None
@@ -2053,7 +2043,7 @@ class FitnessManager:
                     "speak",
                     data,
                     target={"entity_id": tts_entity},
-                    blocking=False,
+                    blocking=True,
                 )
                 success += 1
             except Exception:

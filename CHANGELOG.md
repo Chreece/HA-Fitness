@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026.8.0-beta.14
+
+### Announcement targeting and simpler intensity lights
+
+- Explicit configured TTS media players are now authoritative.
+- Selected-room media players are substituted only when a configured
+  area-bound player belongs to a different room.
+- Area-less configured players always remain; same-room configured players stay
+  without automatically adding every other media player in the room.
+- Session lifecycle AI wording has a 2.5-second deadline with immediate localized
+  static fallback so Start/Stop/Recovery announcements remain timely.
+- TTS service dispatch waits until Home Assistant accepts the action.
+- Intensity light feedback no longer heartbeat-blinks.
+- Accepted intensity changes now show one color for three seconds and restore the
+  previous state.
+- Added regression tests for announcement target precedence, TTS fallback timing,
+  and non-blinking intensity feedback.
+
 ## 2026.8.0-beta.13
 
 ### Per-profile language

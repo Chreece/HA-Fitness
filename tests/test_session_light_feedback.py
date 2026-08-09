@@ -31,7 +31,7 @@ def test_live_data_start_is_green_for_three_seconds_and_restores():
     assert "await self._async_restore_feedback_lights(" in MANAGER
 
 
-def test_lifecycle_feedback_suspends_intensity_pulses():
+def test_lifecycle_feedback_suspends_intensity_cues():
     start = MANAGER.index("def _check_live_intensity_feedback")
     block = MANAGER[start:start+500]
     assert "if self._session_status_light_active:" in block

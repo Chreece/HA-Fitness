@@ -80,3 +80,15 @@ def test_every_translation_exposes_profile_language():
         data = json.loads(path.read_text(encoding="utf-8"))
         assert data["config"]["step"]["user"]["data"]["language"]
         assert data["options"]["step"]["profile"]["data"]["language"]
+
+
+
+def test_intensity_light_feedback_is_not_heartbeat_blinking():
+    manager = (
+        ROOT / "custom_components/fitness/manager.py"
+    ).read_text(encoding="utf-8")
+    start = manager.index("async def _async_live_intensity_feedback")
+    end = manager.index("async def _async_intensity_message", start)
+    block = manager[start:end]
+    assert "await asyncio.sleep(3.0)" in block
+    assert "for pulse_number" not in block
