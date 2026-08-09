@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026.8.0-beta.7
+
+### Maintainable workout-provider adapters
+
+- Replaced provider-specific workout heuristics with a registry-based adapter
+  architecture plus a generic fallback.
+- Added explicit Garmin Connect, Strava, Polar, Hevy, Peloton and Oura adapters.
+- Polar Last exercise now maps its documented AccessLink attributes, including
+  provider-preserved Running Index and training load.
+- Known providers are owned by exactly one explicit adapter; unknown/future
+  integrations continue through the generic adapter.
+- Added ISO-8601 duration parsing and shared distance/speed normalization helpers
+  for provider contracts.
+- Added adapter-registry and cross-provider enrichment regression tests.
+
 ## 2026.8.0-beta.6
 
 ### Tests and HACS release engineering

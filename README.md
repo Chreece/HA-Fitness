@@ -8,7 +8,7 @@
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![HACS](https://img.shields.io/badge/HACS-Custom%20Repository-41BDF5)](https://www.hacs.xyz/)
-[![Version](https://img.shields.io/badge/version-2026.8.0--beta.6-blue)](https://github.com/Chreece/HA-Fitness/releases)
+[![Version](https://img.shields.io/badge/version-2026.8.0--beta.7-blue)](https://github.com/Chreece/HA-Fitness/releases)
 [![License](https://img.shields.io/badge/status-public%20beta-orange)](#beta-status)
 
 </div>
@@ -401,6 +401,46 @@ Afterwards the same workout participates in the same provider-merging and long-t
 ---
 
 # Combining Garmin, Strava and other workout providers
+
+
+## Workout provider adapters
+
+Completed-workout importing is adapter-based. Known integrations have an
+explicit adapter that owns their data contract, followed by a generic fallback
+for other integrations.
+
+| Adapter | Home Assistant domain(s) | What Fitness reads |
+|---|---|---|
+| Garmin Connect | `garmin_connect` | Last Activity and Last Activities, including nested recent activity records |
+| Strava | `ha_strava`, `strava` | Latest per-sport activity sensors and their activity attributes |
+| Polar | `polar` | Last exercise start time plus distance, duration, HR, training load, sport, calories, Running Index and device |
+| Hevy | `hevy` | Last workout title/start/duration/volume plus reps and exercise count |
+| Peloton | `peloton` | Start/end, duration, distance, HR, cadence, calories, speed and total output |
+| Oura | `oura` | Latest workout type/duration/distance/calories/intensity when a real workout timestamp is exposed |
+| Generic | any other selected provider | Activity/workout dictionaries, recent-activity lists and common sibling-sensor layouts |
+
+Provider-specific metrics that do not map safely to a universal Fitness field
+remain in `provider_values` / `extra`. For example Polar Running Index remains a
+Polar provider metric rather than being renamed as a Fitness VO₂max.
+
+The adapter registry is intentionally small:
+
+```text
+providers/workout_adapters/
+├── registry.py
+├── generic.py
+├── garmin.py
+├── strava.py
+├── polar.py
+├── hevy.py
+├── peloton.py
+└── oura.py
+```
+
+Adding support for a new workout integration normally means adding one adapter
+module and one registry entry; the common merge/deduplication/evaluation pipeline
+does not need to change.
+
 
 Different services often describe the **same physical workout** with slightly different data. Fitness tries to create one richer workout rather than forcing the user to choose one provider.
 
@@ -858,7 +898,7 @@ YYYY.MM.release
 Prereleases append their stage:
 
 ```text
-2026.8.0-beta.6
+2026.8.0-beta.7
 ```
 
 The stable version for this release line will be:

@@ -23,8 +23,8 @@ _FIELD_KEYS: dict[str, tuple[str, ...]] = {
         "workoutName", "ride_title",
     ),
     "sport": (
-        "activityType", "activity_type", "sport_type", "sportType", "type",
-        "workout_type", "workoutType",
+        "activityType", "activity_type", "sport", "sport_type", "sportType",
+        "type", "workout_type", "workoutType",
     ),
     "start": (
         "startTime", "start_time", "startTimeLocal", "start_date",
@@ -425,6 +425,8 @@ def _activity_dicts(attrs: dict[str, Any]) -> list[dict[str, Any]]:
 def _generic_activity_entities(
     hass: HomeAssistant,
     config: dict,
+    *,
+    exclude_domains: set[str] | None = None,
 ) -> list[Workout]:
     """Parse activity-like entities from any selected workout device."""
     device_ids = set(config.get(CONF_WORKOUT_DEVICE_IDS) or [])
@@ -456,6 +458,8 @@ def _generic_activity_entities(
 
         attrs = dict(state.attributes)
         provider = _provider_domain(hass, entry)
+        if exclude_domains and provider in exclude_domains:
+            continue
 
         # Provider entities often expose the activity directly as attributes.
         if any(token in label for token in (
@@ -490,6 +494,8 @@ def _generic_activity_entities(
 def _bundle_sibling_entities(
     hass: HomeAssistant,
     config: dict,
+    *,
+    exclude_domains: set[str] | None = None,
 ) -> list[Workout]:
     """Parse providers that split the last workout across sibling sensors.
 
@@ -517,6 +523,8 @@ def _bundle_sibling_entities(
             if state is None or state.state in ("unknown", "unavailable"):
                 continue
             provider = _provider_domain(hass, entry)
+            if exclude_domains and provider in exclude_domains:
+                continue
             label = _norm_key(
                 f"{entry.entity_id} {entry.name or ''} "
                 f"{entry.original_name or ''}"
@@ -594,15 +602,15 @@ def discover_external_workouts(
     hass: HomeAssistant,
     config: dict,
 ) -> list[Workout]:
-    """Discover completed workouts from all selected workout-source devices."""
-    candidates = (
-        _generic_activity_entities(hass, config)
-        + _bundle_sibling_entities(hass, config)
-    )
+    """Discover completed workouts through explicit + generic adapters."""
+    # Imported lazily to keep Workout/_extract_record available to adapter
+    # modules without creating a module-import cycle.
+    from .workout_adapters.registry import discover_all
 
-    # De-duplicate identical parses from the same source/list entity.
-    seen = set()
-    unique = []
+    candidates = discover_all(hass, config)
+
+    # De-duplicate identical adapter parses, keeping the richest representation.
+    unique: dict[tuple, Workout] = {}
     for workout in candidates:
         key = (
             workout.source,
@@ -610,12 +618,11 @@ def discover_external_workouts(
             workout.name,
             workout.sport,
         )
-        if key in seen:
-            continue
-        seen.add(key)
-        unique.append(workout)
+        current = unique.get(key)
+        if current is None or _richness(workout) > _richness(current):
+            unique[key] = workout
 
-    return unique
+    return list(unique.values())
 
 
 def _sport_key(value: str | None) -> str:
