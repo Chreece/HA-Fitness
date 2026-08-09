@@ -1,0 +1,489 @@
+{
+  "title": "フィットネス",
+  "config": {
+    "step": {
+      "user": {
+        "title": "プロフィール",
+        "description": "プロフィール",
+        "data": {
+          "profile_name": "名前",
+          "birth_day": "生まれた日",
+          "birth_month": "生まれた月",
+          "birth_year": "生まれた年",
+          "sex": "性別"
+        }
+      },
+      "required": {
+        "title": "Required profile inputs",
+        "description": "Enter one numeric value OR one Home Assistant entity ID in each field.",
+        "data": {
+          "weight": "体重（kg またはエンティティ）",
+          "resting_hr": "安静時心拍数（bpm またはエンティティ）"
+        }
+      },
+      "optional": {
+        "title": "Optional initial / calculable values",
+        "description": "Each field accepts a numeric value OR entity ID. Leave unknown fields empty.",
+        "data": {
+          "height": "身長（cm またはエンティティ）",
+          "max_hr": "最大心拍数（bpm またはエンティティ）",
+          "vo2max": "VO₂max (mL/kg/min or entity)",
+          "threshold_hr": "閾値心拍数（bpm またはエンティティ）",
+          "threshold_pace": "閾値ペース（min/km またはエンティティ）",
+          "threshold_power": "閾値パワー（W またはエンティティ）"
+        }
+      },
+      "live_devices": {
+        "title": "ライブワークアウトソース",
+        "description": "Select devices Fitness may capture during a live workout. Supported metrics are discovered automatically. Leave empty to use ANT+ automatically.",
+        "data": {
+          "live_device_ids": "Devices providing live workout data"
+        }
+      },
+      "workout_devices": {
+        "title": "ワークアウト / 長期データ",
+        "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
+        "data": {
+          "workout_device_ids": "Devices providing workout / fitness history data"
+        }
+      },
+      "ai": {
+        "title": "AI 解釈",
+        "description": "Fitness calculations stay deterministic. AI only interprets them. An existing AI Task is preselected; leaving it empty uses Home Assistant's preferred/default AI Task.",
+        "data": {
+          "ai_enabled": "Generate AI fitness assessments",
+          "ai_entity": "AI Task / LLM entity"
+        }
+      },
+      "feedback": {
+        "title": "コーチング、ライト、アナウンス",
+        "description": "Choose rooms and/or explicit light entities for five-second intensity color feedback. Every available color-capable light in the selected rooms is included automatically. You can also select notification entities, a TTS provider and media players for announcements.",
+        "data": {
+          "feedback_light_ids": "Additional / explicit lights for intensity feedback",
+          "notify_entity_ids": "ワークアウト通知エンティティ",
+          "tts_entity_id": "TTSプロバイダー",
+          "tts_media_player_ids": "スピーカー / メディアプレーヤー",
+          "feedback_area_ids": "Rooms for intensity light feedback",
+          "periodic_live_announcements": "定期ライブワークアウト案内",
+          "periodic_live_interval_minutes": "ライブ案内の間隔"
+        }
+      }
+    },
+    "error": {
+      "invalid_date": "Enter a valid date of birth in the past.",
+      "invalid_number_or_entity": "Enter a valid numeric value or Home Assistant entity ID."
+    },
+    "abort": {
+      "already_configured": "A Fitness profile with this name already exists."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "フィットネス",
+        "menu_options": {
+          "profile": "プロフィール",
+          "fitness_inputs": "フィットネスデータと初期値",
+          "live_devices": "ライブワークアウトソース",
+          "workout_devices": "ワークアウト / 長期データ",
+          "ai": "AI 解釈",
+          "feedback": "コーチング、ライト、アナウンス"
+        }
+      },
+      "profile": {
+        "title": "プロフィール",
+        "description": "Edit the person's profile information.",
+        "data": {
+          "birth_day": "生まれた日",
+          "birth_month": "生まれた月",
+          "birth_year": "生まれた年",
+          "sex": "性別"
+        }
+      },
+      "fitness_inputs": {
+        "title": "フィットネスデータと初期値",
+        "description": "Every field accepts one numeric value OR one Home Assistant entity ID. Weight and resting heart rate are required.",
+        "data": {
+          "weight": "体重（kg またはエンティティ）",
+          "resting_hr": "安静時心拍数（bpm またはエンティティ）",
+          "height": "身長（cm またはエンティティ）",
+          "max_hr": "最大心拍数（bpm またはエンティティ）",
+          "vo2max": "VO₂max (mL/kg/min or entity)",
+          "threshold_hr": "閾値心拍数（bpm またはエンティティ）",
+          "threshold_pace": "閾値ペース（min/km またはエンティティ）",
+          "threshold_power": "閾値パワー（W またはエンティティ）"
+        }
+      },
+      "live_devices": {
+        "title": "ライブワークアウトソース",
+        "description": "Select live source devices. Leave empty to use ANT+ automatically.",
+        "data": {
+          "live_device_ids": "Devices providing live workout data"
+        }
+      },
+      "workout_devices": {
+        "title": "ワークアウト / 長期データ",
+        "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
+        "data": {
+          "workout_device_ids": "Devices providing workout / fitness history data"
+        }
+      },
+      "ai": {
+        "title": "AI 解釈",
+        "description": "Choose a specific AI Task / LLM or leave empty to use Home Assistant's preferred/default AI Task.",
+        "data": {
+          "ai_enabled": "Generate AI fitness assessments",
+          "ai_entity": "AI Task / LLM entity"
+        }
+      },
+      "feedback": {
+        "title": "コーチング、ライト、アナウンス",
+        "description": "Choose rooms and/or explicit light entities for five-second intensity color feedback. Every available color-capable light in the selected rooms is included automatically. You can also select notification entities, a TTS provider and media players for announcements.",
+        "data": {
+          "feedback_light_ids": "Additional / explicit lights for intensity feedback",
+          "notify_entity_ids": "ワークアウト通知エンティティ",
+          "tts_entity_id": "TTSプロバイダー",
+          "tts_media_player_ids": "スピーカー / メディアプレーヤー",
+          "feedback_area_ids": "Rooms for intensity light feedback",
+          "periodic_live_announcements": "定期ライブワークアウト案内",
+          "periodic_live_interval_minutes": "ライブ案内の間隔"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "session_status": {
+        "name": "Session status"
+      },
+      "session_duration": {
+        "name": "Session duration"
+      },
+      "current_heart_rate": {
+        "name": "Current heart rate"
+      },
+      "current_power": {
+        "name": "Current power"
+      },
+      "current_cadence": {
+        "name": "Current cadence"
+      },
+      "current_speed": {
+        "name": "Current speed"
+      },
+      "current_distance": {
+        "name": "Current distance"
+      },
+      "current_altitude": {
+        "name": "Current altitude"
+      },
+      "last_workout": {
+        "name": "Last workout"
+      },
+      "last_workout_source": {
+        "name": "Last workout source"
+      },
+      "last_workout_duration": {
+        "name": "Last workout duration"
+      },
+      "last_workout_distance": {
+        "name": "Last workout distance"
+      },
+      "last_workout_avg_hr": {
+        "name": "Last workout average heart rate"
+      },
+      "last_workout_max_hr": {
+        "name": "Last workout maximum heart rate"
+      },
+      "last_workout_avg_power": {
+        "name": "Last workout average power"
+      },
+      "last_workout_max_power": {
+        "name": "Last workout maximum power"
+      },
+      "last_workout_avg_cadence": {
+        "name": "Last workout average cadence"
+      },
+      "last_workout_elevation_gain": {
+        "name": "Last workout elevation gain"
+      },
+      "age": {
+        "name": "Age"
+      },
+      "weight": {
+        "name": "Weight"
+      },
+      "resting_hr": {
+        "name": "Resting heart rate"
+      },
+      "maximum_hr": {
+        "name": "Maximum heart rate"
+      },
+      "heart_rate_reserve": {
+        "name": "Heart rate reserve"
+      },
+      "vo2max": {
+        "name": "VO₂max"
+      },
+      "friend_predicted_vo2max": {
+        "name": "FRIEND predicted VO₂max"
+      },
+      "vo2max_percent_predicted": {
+        "name": "VO₂max percent predicted"
+      },
+      "cardiorespiratory_status": {
+        "name": "Cardiorespiratory fitness status"
+      },
+      "hrv_weekly": {
+        "name": "HRV weekly average"
+      },
+      "hrv_last_night": {
+        "name": "HRV last night average"
+      },
+      "hrv_status": {
+        "name": "HRV status"
+      },
+      "threshold_hr": {
+        "name": "Threshold heart rate"
+      },
+      "threshold_pace": {
+        "name": "Threshold pace"
+      },
+      "threshold_power": {
+        "name": "Threshold power"
+      },
+      "threshold_power_to_weight": {
+        "name": "Threshold power-to-weight"
+      },
+      "fitness_age": {
+        "name": "Fitness age"
+      },
+      "fitness_age_difference": {
+        "name": "Fitness age difference"
+      },
+      "training_readiness_context": {
+        "name": "Training readiness context"
+      },
+      "sleep_score_context": {
+        "name": "Sleep score context"
+      },
+      "acute_training_load": {
+        "name": "Acute training load"
+      },
+      "chronic_training_load": {
+        "name": "Chronic training load"
+      },
+      "acute_chronic_ratio": {
+        "name": "Acute/chronic load ratio"
+      },
+      "provider_training_status": {
+        "name": "Provider training status"
+      },
+      "ai_general_evaluation": {
+        "name": "AI general evaluation"
+      },
+      "ai_workout_evaluation": {
+        "name": "AI workout evaluation"
+      },
+      "heart_rate_percent_max": {
+        "name": "最大心拍数に対する割合"
+      },
+      "heart_rate_reserve_percent": {
+        "name": "心拍予備率 %"
+      },
+      "heart_rate_intensity": {
+        "name": "心拍強度"
+      },
+      "heart_rate_relative_threshold": {
+        "name": "閾値に対する心拍数"
+      },
+      "current_power_to_weight": {
+        "name": "現在のパワーウェイトレシオ"
+      },
+      "power_relative_threshold": {
+        "name": "閾値に対するパワー"
+      },
+      "current_pace": {
+        "name": "現在のペース"
+      },
+      "speed_relative_threshold": {
+        "name": "閾値に対する速度"
+      },
+      "last_workout_calories": {
+        "name": "Last workout calories"
+      },
+      "last_workout_moving_time": {
+        "name": "Last workout moving time"
+      },
+      "last_workout_elapsed_time": {
+        "name": "Last workout elapsed time"
+      },
+      "last_workout_average_speed": {
+        "name": "Last workout average speed"
+      },
+      "last_workout_max_speed": {
+        "name": "Last workout maximum speed"
+      },
+      "last_workout_weighted_power": {
+        "name": "Last workout weighted / normalized power"
+      },
+      "last_workout_max_cadence": {
+        "name": "Last workout maximum cadence"
+      },
+      "last_workout_elevation_loss": {
+        "name": "Last workout elevation loss"
+      },
+      "last_workout_training_load": {
+        "name": "Last workout training load"
+      },
+      "last_workout_aerobic_effect": {
+        "name": "Last workout aerobic training effect"
+      },
+      "last_workout_anaerobic_effect": {
+        "name": "Last workout anaerobic training effect"
+      },
+      "last_workout_training_effect": {
+        "name": "Last workout training effect"
+      },
+      "last_workout_vo2max": {
+        "name": "Last workout VO₂max"
+      },
+      "last_workout_relative_effort": {
+        "name": "Last workout relative effort"
+      },
+      "last_workout_kilojoules": {
+        "name": "Last workout energy"
+      },
+      "last_workout_total_reps": {
+        "name": "Last workout total reps"
+      },
+      "last_workout_exercise_count": {
+        "name": "Last workout exercise count"
+      },
+      "last_workout_volume": {
+        "name": "Last workout training volume"
+      },
+      "last_workout_device": {
+        "name": "Last workout device"
+      },
+      "last_workout_gear": {
+        "name": "Last workout gear"
+      },
+      "last_workout_sources": {
+        "name": "Last workout data sources"
+      },
+      "live_average_heart_rate": {
+        "name": "Live average heart rate"
+      },
+      "live_maximum_heart_rate": {
+        "name": "Live maximum heart rate"
+      },
+      "live_average_power": {
+        "name": "Live average power"
+      },
+      "live_maximum_power": {
+        "name": "Live maximum power"
+      },
+      "live_average_cadence": {
+        "name": "Live average cadence"
+      },
+      "live_average_speed": {
+        "name": "Live average speed"
+      },
+      "live_banister_trimp": {
+        "name": "Live Banister TRIMP"
+      },
+      "live_mechanical_work": {
+        "name": "Live mechanical work"
+      },
+      "live_aerobic_efficiency": {
+        "name": "Live aerobic efficiency"
+      },
+      "live_aerobic_decoupling": {
+        "name": "Live aerobic decoupling"
+      },
+      "live_time_moderate": {
+        "name": "Time at moderate intensity"
+      },
+      "live_time_vigorous": {
+        "name": "Time at vigorous intensity"
+      },
+      "live_time_near_maximal": {
+        "name": "Time at near-maximal intensity"
+      },
+      "last_workout_banister_trimp": {
+        "name": "Last workout Banister TRIMP"
+      },
+      "last_workout_trimp_per_hour": {
+        "name": "Last workout TRIMP per hour"
+      },
+      "last_workout_mechanical_work": {
+        "name": "Last workout mechanical work"
+      },
+      "last_workout_aerobic_efficiency": {
+        "name": "Last workout aerobic efficiency"
+      },
+      "last_workout_aerobic_decoupling": {
+        "name": "Last workout aerobic decoupling"
+      },
+      "last_workout_hrr_10s": {
+        "name": "Last workout heart-rate recovery 10 s"
+      },
+      "last_workout_hrr_30s": {
+        "name": "Last workout heart-rate recovery 30 s"
+      },
+      "last_workout_hrr_60s": {
+        "name": "Last workout heart-rate recovery 60 s"
+      },
+      "last_workout_hrr_120s": {
+        "name": "Last workout heart-rate recovery 120 s"
+      },
+      "last_workout_time_moderate": {
+        "name": "Last workout moderate-intensity time"
+      },
+      "last_workout_time_vigorous": {
+        "name": "Last workout vigorous-intensity time"
+      },
+      "last_workout_time_near_maximal": {
+        "name": "Last workout near-maximal time"
+      },
+      "training_load_7d": {
+        "name": "Banister training load 7 days"
+      },
+      "training_load_28d": {
+        "name": "Banister training load 28 days"
+      },
+      "training_load_42d": {
+        "name": "Banister training load 42 days"
+      },
+      "training_days_28d": {
+        "name": "Active training days 28 days"
+      },
+      "hrr_60s_long_term": {
+        "name": "90-day mean heart-rate recovery 60 s"
+      },
+      "aerobic_decoupling_long_term": {
+        "name": "90-day mean aerobic decoupling"
+      },
+      "aerobic_efficiency_long_term": {
+        "name": "90-day mean aerobic efficiency"
+      }
+    },
+    "button": {
+      "start_workout": {
+        "name": "ワークアウトを開始"
+      },
+      "stop_workout": {
+        "name": "ワークアウトを停止"
+      },
+      "regenerate_ai_evaluation": {
+        "name": "AI評価を再生成"
+      }
+    },
+    "select": {
+      "workout_room": {
+        "name": "ワークアウトルーム"
+      }
+    }
+  }
+}

@@ -1,0 +1,489 @@
+{
+  "title": "Φυσική κατάσταση",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Δημιουργία προφίλ φυσικής κατάστασης",
+        "description": "Δημιούργησε το άτομο του οποίου θα αξιολογείται η φυσική κατάσταση.",
+        "data": {
+          "profile_name": "Όνομα",
+          "birth_day": "Ημέρα γέννησης",
+          "birth_month": "Μήνας γέννησης",
+          "birth_year": "Έτος γέννησης",
+          "sex": "Φύλο (προαιρετικό, μόνο για μεθόδους με δεδομένα αναφοράς ανά φύλο)"
+        }
+      },
+      "required": {
+        "title": "Απαραίτητα στοιχεία προφίλ",
+        "description": "Σε κάθε πεδίο βάλε είτε αριθμητική τιμή είτε entity ID. Οι άμεσες τιμές χρησιμοποιούν τις μονάδες που αναγράφονται στο πεδίο. Για entities, το Fitness διαβάζει και μετατρέπει αυτόματα τη μονάδα μέτρησης.",
+        "data": {
+          "weight": "Βάρος (kg ή entity)",
+          "resting_hr": "Καρδιακοί παλμοί ηρεμίας (bpm ή entity)"
+        }
+      },
+      "optional": {
+        "title": "Προαιρετικές αρχικές / υπολογίσιμες τιμές",
+        "description": "Κάθε πεδίο δέχεται αριθμητική τιμή ή entity ID. Οι άμεσες τιμές θεωρούνται στις μονάδες που αναγράφονται, ενώ οι τιμές από entities μετατρέπονται αυτόματα από το unit_of_measurement. Άφησε κενά όσα δεν γνωρίζεις.",
+        "data": {
+          "height": "Ύψος (cm ή entity)",
+          "max_hr": "Μέγιστοι καρδιακοί παλμοί (bpm ή entity)",
+          "vo2max": "VO₂max (mL/kg/min ή entity)",
+          "threshold_hr": "Καρδιακοί παλμοί κατωφλίου (bpm ή entity)",
+          "threshold_pace": "Ρυθμός κατωφλίου (min/km ή entity)",
+          "threshold_power": "Ισχύς κατωφλίου (W ή entity)"
+        }
+      },
+      "live_devices": {
+        "title": "Συσκευές ζωντανών δεδομένων προπόνησης",
+        "description": "Επίλεξε συσκευές για ζωντανή καταγραφή. Οι μετρήσεις εντοπίζονται αυτόματα. Άφησέ το κενό για αυτόματη χρήση ANT+.",
+        "data": {
+          "live_device_ids": "Συσκευές με ζωντανά δεδομένα προπόνησης"
+        }
+      },
+      "workout_devices": {
+        "title": "Συσκευές προπονήσεων και μακροχρόνιων δεδομένων",
+        "description": "Επίλεξε συσκευές με ολοκληρωμένες προπονήσεις ή μακροχρόνια δεδομένα φυσικής κατάστασης/αποκατάστασης, όπως Garmin Connect ή Strava.",
+        "data": {
+          "workout_device_ids": "Συσκευές με ιστορικό προπονήσεων / φυσικής κατάστασης"
+        }
+      },
+      "ai": {
+        "title": "Ερμηνεία με AI",
+        "description": "Οι επιστημονικοί υπολογισμοί παραμένουν ντετερμινιστικοί και το AI μόνο τους ερμηνεύει. Αν υπάρχει AI Task προεπιλέγεται· κενό πεδίο χρησιμοποιεί το preferred/default AI Task του Home Assistant.",
+        "data": {
+          "ai_enabled": "Δημιουργία αξιολογήσεων με AI",
+          "ai_entity": "AI Task / LLM entity"
+        }
+      },
+      "feedback": {
+        "title": "Καθοδήγηση, φώτα και ανακοινώσεις",
+        "description": "Επίλεξε δωμάτια και/ή συγκεκριμένα light entities για χρωματική ένδειξη έντασης διάρκειας πέντε δευτερολέπτων. Όλα τα διαθέσιμα φώτα του επιλεγμένου δωματίου που υποστηρίζουν χρώμα συμπεριλαμβάνονται αυτόματα. Μπορείς επίσης να επιλέξεις notify entities, πάροχο TTS και media players για ανακοινώσεις.",
+        "data": {
+          "feedback_light_ids": "Επιπλέον / συγκεκριμένα φώτα για ένδειξη έντασης",
+          "notify_entity_ids": "Notify entities για προπονήσεις",
+          "tts_entity_id": "Πάροχος TTS",
+          "tts_media_player_ids": "Ηχεία / media players για ανακοινώσεις",
+          "feedback_area_ids": "Δωμάτια για χρωματική ένδειξη έντασης",
+          "periodic_live_announcements": "Περιοδικές ανακοινώσεις ζωντανών δεδομένων",
+          "periodic_live_interval_minutes": "Διάστημα μεταξύ ζωντανών ανακοινώσεων"
+        }
+      }
+    },
+    "error": {
+      "invalid_date": "Βάλε έγκυρη ημερομηνία γέννησης στο παρελθόν.",
+      "invalid_number_or_entity": "Βάλε έγκυρη αριθμητική τιμή ή Home Assistant entity ID."
+    },
+    "abort": {
+      "already_configured": "Υπάρχει ήδη προφίλ Fitness με αυτό το όνομα."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ρυθμίσεις Fitness",
+        "menu_options": {
+          "profile": "Προφίλ",
+          "fitness_inputs": "Στοιχεία και αρχικές τιμές φυσικής κατάστασης",
+          "live_devices": "Συσκευές ζωντανών δεδομένων προπόνησης",
+          "workout_devices": "Συσκευές προπονήσεων / μακροχρόνιων δεδομένων",
+          "ai": "Ερμηνεία με AI",
+          "feedback": "Καθοδήγηση, φώτα και ανακοινώσεις"
+        }
+      },
+      "profile": {
+        "title": "Προφίλ",
+        "description": "Επεξεργασία στοιχείων προφίλ.",
+        "data": {
+          "birth_day": "Ημέρα γέννησης",
+          "birth_month": "Μήνας γέννησης",
+          "birth_year": "Έτος γέννησης",
+          "sex": "Φύλο"
+        }
+      },
+      "fitness_inputs": {
+        "title": "Στοιχεία και αρχικές τιμές φυσικής κατάστασης",
+        "description": "Κάθε πεδίο δέχεται αριθμητική τιμή ή entity ID. Οι άμεσες τιμές χρησιμοποιούν τις μονάδες του πεδίου και τα entities μετατρέπονται αυτόματα από τη δική τους μονάδα μέτρησης. Το βάρος και οι παλμοί ηρεμίας είναι απαραίτητα.",
+        "data": {
+          "weight": "Βάρος (kg ή entity)",
+          "resting_hr": "Καρδιακοί παλμοί ηρεμίας (bpm ή entity)",
+          "height": "Ύψος (cm ή entity)",
+          "max_hr": "Μέγιστοι καρδιακοί παλμοί (bpm ή entity)",
+          "vo2max": "VO₂max (mL/kg/min ή entity)",
+          "threshold_hr": "Καρδιακοί παλμοί κατωφλίου (bpm ή entity)",
+          "threshold_pace": "Ρυθμός κατωφλίου (min/km ή entity)",
+          "threshold_power": "Ισχύς κατωφλίου (W ή entity)"
+        }
+      },
+      "live_devices": {
+        "title": "Συσκευές ζωντανών δεδομένων προπόνησης",
+        "description": "Επίλεξε συσκευές ζωντανών δεδομένων ή άφησέ το κενό για ANT+.",
+        "data": {
+          "live_device_ids": "Συσκευές με ζωντανά δεδομένα προπόνησης"
+        }
+      },
+      "workout_devices": {
+        "title": "Συσκευές προπονήσεων και μακροχρόνιων δεδομένων",
+        "description": "Επίλεξε συσκευές με ολοκληρωμένες προπονήσεις ή μακροχρόνια δεδομένα.",
+        "data": {
+          "workout_device_ids": "Συσκευές με ιστορικό προπονήσεων / φυσικής κατάστασης"
+        }
+      },
+      "ai": {
+        "title": "Ερμηνεία με AI",
+        "description": "Επίλεξε συγκεκριμένο AI Task / LLM ή άφησέ το κενό για το preferred/default AI Task.",
+        "data": {
+          "ai_enabled": "Δημιουργία αξιολογήσεων με AI",
+          "ai_entity": "AI Task / LLM entity"
+        }
+      },
+      "feedback": {
+        "title": "Καθοδήγηση, φώτα και ανακοινώσεις",
+        "description": "Επίλεξε δωμάτια και/ή συγκεκριμένα light entities για χρωματική ένδειξη έντασης διάρκειας πέντε δευτερολέπτων. Όλα τα διαθέσιμα φώτα του επιλεγμένου δωματίου που υποστηρίζουν χρώμα συμπεριλαμβάνονται αυτόματα. Μπορείς επίσης να επιλέξεις notify entities, πάροχο TTS και media players για ανακοινώσεις.",
+        "data": {
+          "feedback_light_ids": "Επιπλέον / συγκεκριμένα φώτα για ένδειξη έντασης",
+          "notify_entity_ids": "Notify entities για προπονήσεις",
+          "tts_entity_id": "Πάροχος TTS",
+          "tts_media_player_ids": "Ηχεία / media players για ανακοινώσεις",
+          "feedback_area_ids": "Δωμάτια για χρωματική ένδειξη έντασης",
+          "periodic_live_announcements": "Περιοδικές ανακοινώσεις ζωντανών δεδομένων",
+          "periodic_live_interval_minutes": "Διάστημα μεταξύ ζωντανών ανακοινώσεων"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "session_status": {
+        "name": "Κατάσταση συνεδρίας"
+      },
+      "session_duration": {
+        "name": "Διάρκεια συνεδρίας"
+      },
+      "current_heart_rate": {
+        "name": "Τρέχοντες καρδιακοί παλμοί"
+      },
+      "current_power": {
+        "name": "Τρέχουσα ισχύς"
+      },
+      "current_cadence": {
+        "name": "Τρέχουσα συχνότητα βημάτων"
+      },
+      "current_speed": {
+        "name": "Τρέχουσα ταχύτητα"
+      },
+      "current_distance": {
+        "name": "Τρέχουσα απόσταση"
+      },
+      "current_altitude": {
+        "name": "Τρέχον υψόμετρο"
+      },
+      "last_workout": {
+        "name": "Τελευταία προπόνηση"
+      },
+      "last_workout_source": {
+        "name": "Πηγή τελευταίας προπόνησης"
+      },
+      "last_workout_duration": {
+        "name": "Διάρκεια τελευταίας προπόνησης"
+      },
+      "last_workout_distance": {
+        "name": "Απόσταση τελευταίας προπόνησης"
+      },
+      "last_workout_avg_hr": {
+        "name": "Μέσοι παλμοί τελευταίας προπόνησης"
+      },
+      "last_workout_max_hr": {
+        "name": "Μέγιστοι παλμοί τελευταίας προπόνησης"
+      },
+      "last_workout_avg_power": {
+        "name": "Μέση ισχύς τελευταίας προπόνησης"
+      },
+      "last_workout_max_power": {
+        "name": "Μέγιστη ισχύς τελευταίας προπόνησης"
+      },
+      "last_workout_avg_cadence": {
+        "name": "Μέση συχνότητα βημάτων τελευταίας προπόνησης"
+      },
+      "last_workout_elevation_gain": {
+        "name": "Υψομετρική άνοδος τελευταίας προπόνησης"
+      },
+      "age": {
+        "name": "Ηλικία"
+      },
+      "weight": {
+        "name": "Βάρος"
+      },
+      "resting_hr": {
+        "name": "Καρδιακοί παλμοί ηρεμίας"
+      },
+      "maximum_hr": {
+        "name": "Μέγιστοι καρδιακοί παλμοί"
+      },
+      "heart_rate_reserve": {
+        "name": "Απόθεμα καρδιακής συχνότητας"
+      },
+      "vo2max": {
+        "name": "VO₂max"
+      },
+      "friend_predicted_vo2max": {
+        "name": "Αναμενόμενο VO₂max βάσει FRIEND"
+      },
+      "vo2max_percent_predicted": {
+        "name": "VO₂max σε σχέση με την αναμενόμενη τιμή"
+      },
+      "cardiorespiratory_status": {
+        "name": "Καρδιοαναπνευστική ικανότητα"
+      },
+      "hrv_weekly": {
+        "name": "Εβδομαδιαίος μέσος HRV"
+      },
+      "hrv_last_night": {
+        "name": "Μέσο HRV τελευταίας νύχτας"
+      },
+      "hrv_status": {
+        "name": "Κατάσταση HRV"
+      },
+      "threshold_hr": {
+        "name": "Καρδιακοί παλμοί κατωφλίου"
+      },
+      "threshold_pace": {
+        "name": "Ρυθμός κατωφλίου"
+      },
+      "threshold_power": {
+        "name": "Ισχύς κατωφλίου"
+      },
+      "threshold_power_to_weight": {
+        "name": "Ισχύς κατωφλίου ανά κιλό σωματικού βάρους"
+      },
+      "fitness_age": {
+        "name": "Ηλικία φυσικής κατάστασης"
+      },
+      "fitness_age_difference": {
+        "name": "Διαφορά από τη βιολογική ηλικία φυσικής κατάστασης"
+      },
+      "training_readiness_context": {
+        "name": "Ετοιμότητα για προπόνηση"
+      },
+      "sleep_score_context": {
+        "name": "Αξιολόγηση ύπνου"
+      },
+      "acute_training_load": {
+        "name": "Οξύ προπονητικό φορτίο"
+      },
+      "chronic_training_load": {
+        "name": "Χρόνιο προπονητικό φορτίο"
+      },
+      "acute_chronic_ratio": {
+        "name": "Λόγος οξέος/χρόνιου φορτίου"
+      },
+      "provider_training_status": {
+        "name": "Κατάσταση προπόνησης από τον πάροχο"
+      },
+      "ai_general_evaluation": {
+        "name": "Συνολική αξιολόγηση AI"
+      },
+      "ai_workout_evaluation": {
+        "name": "Αξιολόγηση προπόνησης με AI"
+      },
+      "heart_rate_percent_max": {
+        "name": "Καρδιακοί παλμοί ως % του μέγιστου"
+      },
+      "heart_rate_reserve_percent": {
+        "name": "Ποσοστό αποθέματος καρδιακής συχνότητας"
+      },
+      "heart_rate_intensity": {
+        "name": "Ένταση βάσει καρδιακής συχνότητας"
+      },
+      "heart_rate_relative_threshold": {
+        "name": "Καρδιακοί παλμοί σε σχέση με το κατώφλι"
+      },
+      "current_power_to_weight": {
+        "name": "Τρέχουσα ισχύς ανά κιλό"
+      },
+      "power_relative_threshold": {
+        "name": "Ισχύς σε σχέση με το κατώφλι"
+      },
+      "current_pace": {
+        "name": "Τρέχων ρυθμός"
+      },
+      "speed_relative_threshold": {
+        "name": "Ταχύτητα σε σχέση με το κατώφλι"
+      },
+      "last_workout_calories": {
+        "name": "Θερμίδες τελευταίας προπόνησης"
+      },
+      "last_workout_moving_time": {
+        "name": "Χρόνος κίνησης τελευταίας προπόνησης"
+      },
+      "last_workout_elapsed_time": {
+        "name": "Συνολικός χρόνος τελευταίας προπόνησης"
+      },
+      "last_workout_average_speed": {
+        "name": "Μέση ταχύτητα τελευταίας προπόνησης"
+      },
+      "last_workout_max_speed": {
+        "name": "Μέγιστη ταχύτητα τελευταίας προπόνησης"
+      },
+      "last_workout_weighted_power": {
+        "name": "Σταθμισμένη / κανονικοποιημένη ισχύς"
+      },
+      "last_workout_max_cadence": {
+        "name": "Μέγιστη συχνότητα τελευταίας προπόνησης"
+      },
+      "last_workout_elevation_loss": {
+        "name": "Υψομετρική κάθοδος τελευταίας προπόνησης"
+      },
+      "last_workout_training_load": {
+        "name": "Προπονητικό φορτίο τελευταίας προπόνησης"
+      },
+      "last_workout_aerobic_effect": {
+        "name": "Αερόβια επίδραση τελευταίας προπόνησης"
+      },
+      "last_workout_anaerobic_effect": {
+        "name": "Αναερόβια επίδραση τελευταίας προπόνησης"
+      },
+      "last_workout_training_effect": {
+        "name": "Επίδραση τελευταίας προπόνησης"
+      },
+      "last_workout_vo2max": {
+        "name": "VO₂max τελευταίας προπόνησης"
+      },
+      "last_workout_relative_effort": {
+        "name": "Σχετική προσπάθεια τελευταίας προπόνησης"
+      },
+      "last_workout_kilojoules": {
+        "name": "Ενέργεια τελευταίας προπόνησης"
+      },
+      "last_workout_total_reps": {
+        "name": "Συνολικές επαναλήψεις τελευταίας προπόνησης"
+      },
+      "last_workout_exercise_count": {
+        "name": "Αριθμός ασκήσεων τελευταίας προπόνησης"
+      },
+      "last_workout_volume": {
+        "name": "Όγκος τελευταίας προπόνησης"
+      },
+      "last_workout_device": {
+        "name": "Συσκευή τελευταίας προπόνησης"
+      },
+      "last_workout_gear": {
+        "name": "Εξοπλισμός τελευταίας προπόνησης"
+      },
+      "last_workout_sources": {
+        "name": "Πηγές δεδομένων τελευταίας προπόνησης"
+      },
+      "live_average_heart_rate": {
+        "name": "Μέσος καρδιακός ρυθμός προπόνησης"
+      },
+      "live_maximum_heart_rate": {
+        "name": "Μέγιστος καρδιακός ρυθμός προπόνησης"
+      },
+      "live_average_power": {
+        "name": "Μέση ισχύς προπόνησης"
+      },
+      "live_maximum_power": {
+        "name": "Μέγιστη ισχύς προπόνησης"
+      },
+      "live_average_cadence": {
+        "name": "Μέση συχνότητα προπόνησης"
+      },
+      "live_average_speed": {
+        "name": "Μέση ταχύτητα προπόνησης"
+      },
+      "live_banister_trimp": {
+        "name": "Τρέχον Banister TRIMP"
+      },
+      "live_mechanical_work": {
+        "name": "Τρέχον μηχανικό έργο"
+      },
+      "live_aerobic_efficiency": {
+        "name": "Τρέχουσα αερόβια αποδοτικότητα"
+      },
+      "live_aerobic_decoupling": {
+        "name": "Τρέχουσα αερόβια αποσύζευξη"
+      },
+      "live_time_moderate": {
+        "name": "Χρόνος σε μέτρια ένταση"
+      },
+      "live_time_vigorous": {
+        "name": "Χρόνος σε έντονη ένταση"
+      },
+      "live_time_near_maximal": {
+        "name": "Χρόνος σε σχεδόν μέγιστη ένταση"
+      },
+      "last_workout_banister_trimp": {
+        "name": "Banister TRIMP τελευταίας προπόνησης"
+      },
+      "last_workout_trimp_per_hour": {
+        "name": "TRIMP ανά ώρα τελευταίας προπόνησης"
+      },
+      "last_workout_mechanical_work": {
+        "name": "Μηχανικό έργο τελευταίας προπόνησης"
+      },
+      "last_workout_aerobic_efficiency": {
+        "name": "Αερόβια αποδοτικότητα τελευταίας προπόνησης"
+      },
+      "last_workout_aerobic_decoupling": {
+        "name": "Αερόβια αποσύζευξη τελευταίας προπόνησης"
+      },
+      "last_workout_hrr_10s": {
+        "name": "Ανάκαμψη καρδιακού ρυθμού 10 δευτ."
+      },
+      "last_workout_hrr_30s": {
+        "name": "Ανάκαμψη καρδιακού ρυθμού 30 δευτ."
+      },
+      "last_workout_hrr_60s": {
+        "name": "Ανάκαμψη καρδιακού ρυθμού 60 δευτ."
+      },
+      "last_workout_hrr_120s": {
+        "name": "Ανάκαμψη καρδιακού ρυθμού 120 δευτ."
+      },
+      "last_workout_time_moderate": {
+        "name": "Χρόνος μέτριας έντασης τελευταίας προπόνησης"
+      },
+      "last_workout_time_vigorous": {
+        "name": "Χρόνος έντονης έντασης τελευταίας προπόνησης"
+      },
+      "last_workout_time_near_maximal": {
+        "name": "Χρόνος σχεδόν μέγιστης έντασης"
+      },
+      "training_load_7d": {
+        "name": "Προπονητικό φορτίο Banister 7 ημερών"
+      },
+      "training_load_28d": {
+        "name": "Προπονητικό φορτίο Banister 28 ημερών"
+      },
+      "training_load_42d": {
+        "name": "Προπονητικό φορτίο Banister 42 ημερών"
+      },
+      "training_days_28d": {
+        "name": "Ενεργές ημέρες προπόνησης 28 ημερών"
+      },
+      "hrr_60s_long_term": {
+        "name": "Μέση ανάκαμψη καρδιακού ρυθμού 60 δευτ. (90 ημέρες)"
+      },
+      "aerobic_decoupling_long_term": {
+        "name": "Μέση αερόβια αποσύζευξη 90 ημερών"
+      },
+      "aerobic_efficiency_long_term": {
+        "name": "Μέση αερόβια αποδοτικότητα 90 ημερών"
+      }
+    },
+    "button": {
+      "start_workout": {
+        "name": "Έναρξη προπόνησης"
+      },
+      "stop_workout": {
+        "name": "Τερματισμός προπόνησης"
+      },
+      "regenerate_ai_evaluation": {
+        "name": "Ανανέωση αξιολόγησης AI"
+      }
+    },
+    "select": {
+      "workout_room": {
+        "name": "Δωμάτιο προπόνησης"
+      }
+    }
+  }
+}
