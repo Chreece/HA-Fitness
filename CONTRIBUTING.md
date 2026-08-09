@@ -33,3 +33,10 @@ Fitness uses `YYYY.MM.release` with prerelease suffixes:
 2026.8.0
 2026.8.1
 ```
+
+
+## Automated dependency updates
+
+Dependabot PRs may be squash-merged automatically only after the repository's
+required CI checks pass. Normal contributor PRs are never auto-merged by the
+Dependabot workflow.

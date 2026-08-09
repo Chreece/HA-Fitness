@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026.8.0-beta.9
+
+### Workout announcement reliability
+
+- Startup-restored provider workouts are silent historical baseline.
+- Added a provider restoration window before external announcements are armed.
+- Added debounce for multi-entity provider workout updates.
+- AI/TTS/notifications require substantive completed-workout information.
+- The AI workout prompt independently rejects incomplete workout data.
+- Added regression tests for restart and incomplete-provider behavior.
+- Includes beta.8 Dependabot auto-merge workflow.
+
+## 2026.8.0-beta.8
+
+### Safe Dependabot auto-merge
+
+- Added a Dependabot-only auto-merge workflow.
+- Dependabot PRs use squash auto-merge and never administrator bypass.
+- Normal contributor PRs are excluded by an explicit author check.
+- Added regression coverage for the workflow's bot-only guard and permissions.
+- Documented the required GitHub auto-merge and branch-status-check settings.
+- Runtime Fitness behavior is unchanged from beta.7.
+
 ## 2026.8.0-beta.7
 
 ### Maintainable workout-provider adapters

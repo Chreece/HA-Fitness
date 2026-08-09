@@ -8,7 +8,7 @@
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![HACS](https://img.shields.io/badge/HACS-Custom%20Repository-41BDF5)](https://www.hacs.xyz/)
-[![Version](https://img.shields.io/badge/version-2026.8.0--beta.7-blue)](https://github.com/Chreece/HA-Fitness/releases)
+[![Version](https://img.shields.io/badge/version-2026.8.0--beta.9-blue)](https://github.com/Chreece/HA-Fitness/releases)
 [![License](https://img.shields.io/badge/status-public%20beta-orange)](#beta-status)
 
 </div>
@@ -851,6 +851,27 @@ The integration is most useful when it combines **transparent calculations + you
 
 # Quality checks
 
+
+## Dependabot updates
+
+Routine Dependabot pull requests can be automatically squash-merged after the
+repository's required checks pass.
+
+The auto-merge workflow is intentionally restricted to pull requests authored by
+`dependabot[bot]`. It does not auto-merge contributor pull requests and does not
+use administrator bypass.
+
+Required repository-side settings:
+
+- GitHub **Allow auto-merge** enabled
+- `main` protected so these checks are required before merge:
+  - Tests
+  - Hassfest
+  - HACS validation
+
+If a required check fails, the Dependabot PR remains open for inspection.
+
+
 Every push and pull request runs:
 
 - **pytest** for the deterministic calculation, unit-conversion and workout-merging logic
@@ -898,7 +919,7 @@ YYYY.MM.release
 Prereleases append their stage:
 
 ```text
-2026.8.0-beta.7
+2026.8.0-beta.9
 ```
 
 The stable version for this release line will be:
@@ -914,3 +935,14 @@ The stable version for this release line will be:
 **Built for Home Assistant. Local data, transparent calculations, personal context.**
 
 </div>
+
+
+## Workout announcement reliability
+
+Existing provider workouts restored after a Home Assistant restart are treated
+as historical baseline and are never announced as new workouts.
+
+Provider workout entities are allowed to settle before Fitness accepts a new
+completed workout. AI workout evaluation, TTS and notifications additionally
+require substantive workout information; a timestamp plus name/sport alone is
+not enough.

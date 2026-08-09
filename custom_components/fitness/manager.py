@@ -149,6 +149,14 @@ class FitnessManager:
         self._last_external_signature: str | None = None
         self._last_announced_workout_signature: str | None = None
         self._external_workout_baseline_pending = False
+
+        # Provider integrations restore/update workout entities in stages.
+        # Startup restoration is baseline-only; later provider changes are
+        # debounced before Fitness can evaluate or announce them.
+        self._external_workout_announcements_armed = False
+        self._external_workout_debounce_task: asyncio.Task | None = None
+        self._external_workout_candidate_signature: str | None = None
+
         self._last_live_intensity: str | None = None
         self._last_live_intensity_accepted_at: datetime | None = None
         self._feedback_generation = 0
@@ -262,28 +270,20 @@ class FitnessManager:
                 )
             )
 
-        # Build a stable startup baseline. If a previously announced workout
-        # is persisted, use that even when Garmin has not restored its entities
-        # yet. On a first installation with no persisted fingerprint, the first
-        # external workout that appears is treated as historical baseline and is
-        # deliberately NOT announced.
-        current_signature = self._workout_signature(
-            self.latest_workout()
+        # Completed-workout providers restore asynchronously after Home
+        # Assistant startup. During that restoration window the same workout may
+        # temporarily appear with only a subset of its attributes. Never treat
+        # startup restoration as a newly completed workout.
+        self._external_workout_announcements_armed = False
+        self._external_workout_baseline_pending = True
+        self._last_external_signature = (
+            self._last_announced_workout_signature
+            if self._last_announced_workout_signature
+            else None
         )
-
-        if self._last_announced_workout_signature:
-            self._last_external_signature = (
-                self._last_announced_workout_signature
-            )
-            self._external_workout_baseline_pending = False
-        elif current_signature:
-            self._last_external_signature = current_signature
-            self._last_announced_workout_signature = current_signature
-            self._external_workout_baseline_pending = False
-            self.hass.async_create_task(self._save())
-        else:
-            self._last_external_signature = None
-            self._external_workout_baseline_pending = True
+        self.hass.async_create_task(
+            self._async_arm_external_workout_announcements()
+        )
 
         # Recover a pre-workout capture snapshot if HA restarted while Fitness
         # had temporarily enabled ANT+ Capture switches.
@@ -321,6 +321,12 @@ class FitnessManager:
 
         if self._recovery_task and not self._recovery_task.done():
             self._recovery_task.cancel()
+
+        if (
+            self._external_workout_debounce_task
+            and not self._external_workout_debounce_task.done()
+        ):
+            self._external_workout_debounce_task.cancel()
 
         if self._feedback_scene_active:
             await self._async_restore_feedback_lights()
@@ -428,19 +434,133 @@ class FitnessManager:
 
         self._notify()
 
+        # Provider workout entities often change several times while one
+        # completed workout is being restored/synchronized. Re-evaluate only
+        # after the provider data has settled.
+        self._schedule_external_workout_recheck()
+
+    @staticmethod
+    def _workout_has_real_information(
+        workout: Workout | None,
+    ) -> bool:
+        """Reject unavailable/placeholder workout representations.
+
+        A provider timestamp plus a name/sport is not enough to trigger AI,
+        speech or notifications. Require at least one substantive completed-
+        workout measurement.
+        """
+        if workout is None or not workout.start:
+            return False
+
+        fields = (
+            "duration_s",
+            "moving_time_s",
+            "elapsed_time_s",
+            "distance_m",
+            "avg_hr",
+            "max_hr",
+            "avg_power",
+            "max_power",
+            "weighted_power",
+            "avg_cadence",
+            "max_cadence",
+            "calories",
+            "training_load",
+            "relative_effort",
+            "kilojoules",
+            "total_reps",
+            "exercise_count",
+            "volume_kg",
+            "sample_count",
+            "banister_trimp",
+            "mechanical_work_kj",
+        )
+
+        for field_name in fields:
+            value = getattr(workout, field_name, None)
+            try:
+                if value is not None and float(value) > 0:
+                    return True
+            except (TypeError, ValueError):
+                continue
+
+        for field_name in ("elevation_gain_m", "elevation_loss_m"):
+            value = getattr(workout, field_name, None)
+            try:
+                if value is not None and abs(float(value)) > 0:
+                    return True
+            except (TypeError, ValueError):
+                continue
+
+        return False
+
+    async def _async_arm_external_workout_announcements(self) -> None:
+        """Settle startup provider state and establish a silent baseline."""
+        await asyncio.sleep(30)
+
         latest = self.latest_workout()
-        signature = self._workout_signature(latest)
+        signature = (
+            self._workout_signature(latest)
+            if self._workout_has_real_information(latest)
+            else None
+        )
 
-        if latest is None or signature is None:
-            return
-
-        if self._external_workout_baseline_pending:
-            # First provider population after startup/first install is history,
-            # not a newly completed workout.
-            self._external_workout_baseline_pending = False
+        if signature is not None:
             self._last_external_signature = signature
             self._last_announced_workout_signature = signature
-            self.hass.async_create_task(self._save())
+            await self._save()
+
+        self._external_workout_baseline_pending = False
+        self._external_workout_announcements_armed = True
+
+    def _schedule_external_workout_recheck(self) -> None:
+        """Debounce provider changes before accepting a completed workout."""
+        if not self._external_workout_announcements_armed:
+            return
+
+        latest = self.latest_workout()
+        if not self._workout_has_real_information(latest):
+            return
+
+        signature = self._workout_signature(latest)
+        if signature is None or signature == self._last_external_signature:
+            return
+
+        self._external_workout_candidate_signature = signature
+
+        if (
+            self._external_workout_debounce_task
+            and not self._external_workout_debounce_task.done()
+        ):
+            self._external_workout_debounce_task.cancel()
+
+        self._external_workout_debounce_task = self.hass.async_create_task(
+            self._async_process_external_workout_after_settle(signature)
+        )
+
+    async def _async_process_external_workout_after_settle(
+        self,
+        candidate_signature: str,
+    ) -> None:
+        """Accept one stable provider workout after its entities settle."""
+        try:
+            await asyncio.sleep(8)
+        except asyncio.CancelledError:
+            return
+
+        if not self._external_workout_announcements_armed:
+            return
+
+        latest = self.latest_workout()
+        if not self._workout_has_real_information(latest):
+            return
+
+        signature = self._workout_signature(latest)
+        if (
+            signature is None
+            or signature != candidate_signature
+            or signature != self._external_workout_candidate_signature
+        ):
             return
 
         if signature == self._last_external_signature:
@@ -452,10 +572,8 @@ class FitnessManager:
             return
 
         self._last_announced_workout_signature = signature
-        self.hass.async_create_task(self._save())
-        self.hass.async_create_task(
-            self._async_handle_new_workout(latest)
-        )
+        await self._save()
+        await self._async_handle_new_workout(latest)
 
     def _current_live_intensity(self) -> str | None:
         live = self.live_values()
@@ -1662,7 +1780,10 @@ class FitnessManager:
         self,
         workout: Workout,
     ):
-        """Re-evaluate, then announce and notify once per genuinely new workout."""
+        """Evaluate/announce only a genuinely populated new workout."""
+        if not self._workout_has_real_information(workout):
+            return
+
         if self.config.get(CONF_AI_ENABLED):
             await self.async_generate_ai(
                 general=True,
@@ -3330,7 +3451,7 @@ class FitnessManager:
 
     def _workout_ai_prompt(self) -> str | None:
         workout = self.latest_workout()
-        if workout is None:
+        if not self._workout_has_real_information(workout):
             return None
 
         evaluation = {

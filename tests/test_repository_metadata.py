@@ -33,3 +33,18 @@ def test_brand_and_translations_exist():
 def test_all_json_files_parse():
     for path in ROOT.rglob("*.json"):
         json.loads(path.read_text(encoding="utf-8"))
+
+
+
+def test_dependabot_automerge_is_bot_only():
+    workflow = (
+        ROOT / ".github/workflows/dependabot-automerge.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "dependabot[bot]" in workflow
+    assert "github.event.pull_request.user.login" in workflow
+    assert "github.event.pull_request.draft == false" in workflow
+    assert "pull-requests: write" in workflow
+    assert "contents: write" in workflow
+    assert "gh pr merge --auto --squash" in workflow
+    assert "--admin" not in workflow
