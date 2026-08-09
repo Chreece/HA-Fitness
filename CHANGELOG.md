@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026.8.0-beta.5
+
+### Branding polish
+
+- Rebuilt the Fitness logo with generous safe padding so GitHub does not crop it.
+- Rebuilt the README overview entirely with real rendered typography for sharp, readable text.
+- Rebuilt the GitHub social preview with real typography.
+- Refreshed Home Assistant/HACS icon assets from the new graphical mark.
+- Runtime integration behavior is unchanged from beta.4.
+
 ## 2026.8.0-beta.4
 
 ### Documentation and branding

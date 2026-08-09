@@ -8,7 +8,7 @@
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![HACS](https://img.shields.io/badge/HACS-Custom%20Repository-41BDF5)](https://www.hacs.xyz/)
-[![Version](https://img.shields.io/badge/version-2026.8.0--beta.4-blue)](https://github.com/Chreece/HA-Fitness/releases)
+[![Version](https://img.shields.io/badge/version-2026.8.0--beta.5-blue)](https://github.com/Chreece/HA-Fitness/releases)
 [![License](https://img.shields.io/badge/status-public%20beta-orange)](#beta-status)
 
 </div>
@@ -836,7 +836,7 @@ YYYY.MM.release
 Prereleases append their stage:
 
 ```text
-2026.8.0-beta.4
+2026.8.0-beta.5
 ```
 
 The stable version for this release line will be:

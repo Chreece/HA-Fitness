@@ -1,7 +1,7 @@
 {
   "domain": "fitness",
   "name": "Fitness",
-  "version": "2026.8.0-beta.4",
+  "version": "2026.8.0-beta.5",
   "documentation": "https://github.com/Chreece/HA-Fitness",
   "issue_tracker": "https://github.com/Chreece/HA-Fitness/issues",
   "codeowners": [
