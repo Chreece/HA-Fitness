@@ -1,5 +1,50 @@
 # Changelog
 
+## 2026.8.0-beta.12
+
+### Visual workout lifecycle feedback
+
+- Start Workout now gives green/temporary or persistent-red light feedback based
+  on whether usable live sensor data is already available.
+- Waiting-for-live red persists until the first valid live data arrives; the
+  subsequent green cue restores the exact pre-wait light state.
+- Added three-second recovery-stage cues: red at stop, orange at 10 s, yellow at
+  30 s, blue at 60 s and green at 120 s.
+- Lifecycle cues use the existing room/configured color-capable light resolver.
+- Lifecycle cues suspend intensity pulses to protect the original-state snapshot,
+  then intensity feedback resumes after the start-green cue.
+- Light cues are asynchronous and cannot delay HR-recovery measurement timing.
+- Added lifecycle-light regression tests.
+
+## 2026.8.0-beta.11
+
+### Spoken workout lifecycle and HR-recovery guidance
+
+- Added AI/static localized announcements when Start Workout is pressed.
+- Distinguishes immediately available live data from waiting-for-sensor state.
+- Announces the actual live sensor names when timing begins.
+- Added spoken post-exercise HR-recovery guidance at 10/30/60/120 seconds with
+  remaining time.
+- Missing HR at a recovery checkpoint is reported truthfully rather than marked
+  collected.
+- Recovery speech/AI is asynchronous and cannot delay measurement checkpoints.
+- Final workout evaluation/summary is deferred until HR recovery finishes so it
+  can include the collected recovery values.
+- Added localized deterministic guidance for all currently shipped UI languages.
+- Added lifecycle/recovery regression tests.
+
+## 2026.8.0-beta.10
+
+### Resilient workout-provider fallback
+
+- Known providers now use explicit adapter → scoped generic fallback → safe ignore.
+- Generic fallback runs only for the affected provider/device.
+- Working explicit adapters are never parsed twice.
+- Adapter exceptions are isolated and exposed in diagnostics.
+- Unknown/future integrations continue through the generic adapter.
+- Added adapter status/count/error diagnostics and regression tests.
+- Retains beta.9 startup/replay protection and beta.8 Dependabot automation.
+
 ## 2026.8.0-beta.9
 
 ### Workout announcement reliability

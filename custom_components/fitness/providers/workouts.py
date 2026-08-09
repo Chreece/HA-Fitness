@@ -427,6 +427,8 @@ def _generic_activity_entities(
     config: dict,
     *,
     exclude_domains: set[str] | None = None,
+    only_domains: set[str] | None = None,
+    only_device_ids: set[str] | None = None,
 ) -> list[Workout]:
     """Parse activity-like entities from any selected workout device."""
     device_ids = set(config.get(CONF_WORKOUT_DEVICE_IDS) or [])
@@ -435,6 +437,8 @@ def _generic_activity_entities(
 
     for entry in registry.entities.values():
         if entry.device_id not in device_ids:
+            continue
+        if only_device_ids is not None and entry.device_id not in only_device_ids:
             continue
         if not entry.entity_id.startswith("sensor."):
             continue
@@ -459,6 +463,8 @@ def _generic_activity_entities(
         attrs = dict(state.attributes)
         provider = _provider_domain(hass, entry)
         if exclude_domains and provider in exclude_domains:
+            continue
+        if only_domains is not None and provider not in only_domains:
             continue
 
         # Provider entities often expose the activity directly as attributes.
@@ -496,6 +502,8 @@ def _bundle_sibling_entities(
     config: dict,
     *,
     exclude_domains: set[str] | None = None,
+    only_domains: set[str] | None = None,
+    only_device_ids: set[str] | None = None,
 ) -> list[Workout]:
     """Parse providers that split the last workout across sibling sensors.
 
@@ -508,11 +516,13 @@ def _bundle_sibling_entities(
 
     by_device: dict[str, list] = {}
     for entry in registry.entities.values():
-        if (
-            entry.device_id in device_ids
-            and entry.entity_id.startswith("sensor.")
-        ):
-            by_device.setdefault(entry.device_id, []).append(entry)
+        if entry.device_id not in device_ids:
+            continue
+        if only_device_ids is not None and entry.device_id not in only_device_ids:
+            continue
+        if not entry.entity_id.startswith("sensor."):
+            continue
+        by_device.setdefault(entry.device_id, []).append(entry)
 
     for device_id, entries in by_device.items():
         values: dict[str, tuple[Any, Any, str]] = {}
@@ -524,6 +534,8 @@ def _bundle_sibling_entities(
                 continue
             provider = _provider_domain(hass, entry)
             if exclude_domains and provider in exclude_domains:
+                continue
+            if only_domains is not None and provider not in only_domains:
                 continue
             label = _norm_key(
                 f"{entry.entity_id} {entry.name or ''} "

@@ -8,7 +8,7 @@
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![HACS](https://img.shields.io/badge/HACS-Custom%20Repository-41BDF5)](https://www.hacs.xyz/)
-[![Version](https://img.shields.io/badge/version-2026.8.0--beta.9-blue)](https://github.com/Chreece/HA-Fitness/releases)
+[![Version](https://img.shields.io/badge/version-2026.8.0--beta.12-blue)](https://github.com/Chreece/HA-Fitness/releases)
 [![License](https://img.shields.io/badge/status-public%20beta-orange)](#beta-status)
 
 </div>
@@ -919,7 +919,7 @@ YYYY.MM.release
 Prereleases append their stage:
 
 ```text
-2026.8.0-beta.9
+2026.8.0-beta.12
 ```
 
 The stable version for this release line will be:
@@ -946,3 +946,82 @@ Provider workout entities are allowed to settle before Fitness accepts a new
 completed workout. AI workout evaluation, TTS and notifications additionally
 require substantive workout information; a timestamp plus name/sport alone is
 not enough.
+
+
+## Adapter fallback and upstream compatibility
+
+If a known workout integration changes its entity layout, Fitness does not
+immediately lose all support. It first tries the dedicated adapter; if that
+returns no usable workout, it runs the generic parser only for that provider and
+selected device. If neither path yields a valid workout, that provider is
+ignored safely.
+
+A working explicit adapter is never parsed again by the generic fallback, so
+fallback resilience does not create duplicate ownership.
+
+Fitness diagnostics expose the latest status per adapter:
+`explicit`, `generic_fallback`, `no_usable_workout`, `not_selected`, or
+`generic`, together with parsed counts and adapter errors.
+
+
+## Spoken live-session state guidance
+
+Fitness now announces the important state transitions of a live workout through
+the configured TTS/media-player targets. AI wording is used when AI is enabled
+and available; otherwise fully localized deterministic text is used.
+
+At **Start Workout**:
+
+- If live sensor data already exists, Fitness names the currently usable sensors
+  and confirms that the workout timer has started.
+- If no live data exists yet, Fitness says that the workout is armed and waiting.
+  The timer remains stopped.
+- When the first usable live HR/power/cadence/speed/distance data arrives, Fitness
+  names the available sensors, starts the timer and tells the user the workout
+  can begin.
+
+At **Stop Workout**, when end-of-exercise HR is available:
+
+- Fitness says the workout timer has stopped and asks the user to wait for the
+  120-second post-exercise heart-rate recovery collection.
+- It announces the 10, 30, 60 and 120-second checkpoints and remaining time.
+- If HR is missing at an individual checkpoint, Fitness says so instead of
+  falsely claiming that data was collected.
+- After the recovery period it confirms that all available recovery data has
+  been saved and everything is ready.
+
+The recovery measurement loop never waits on AI/TTS generation, so spoken
+feedback cannot shift the 10/30/60/120-second measurement timing.
+
+The final workout AI evaluation/summary is deferred until recovery collection
+finishes, allowing it to use the newly collected HR-recovery values.
+
+
+## Visual workout lifecycle feedback
+
+Configured/room-resolved color-capable workout lights also show live-session
+state. Unavailable lights and lights without color support are ignored.
+
+At Start Workout:
+
+- live data already available → **green for 3 seconds**, then restore
+- no live data → **red continuously** while Fitness waits
+- first usable live data arrives → **green for 3 seconds**, then restore the
+  exact state the lights had before the waiting-red indication
+
+The normal intensity-color pulses are suspended during these lifecycle cues and
+resume only after the start-green cue has restored the original lights.
+
+At workout end / post-exercise HR recovery:
+
+| Time | Lifecycle light |
+|---:|---|
+| workout timer stops | red for 3 seconds |
+| 10 s | orange for 3 seconds |
+| 30 s | yellow for 3 seconds |
+| 60 s | blue for 3 seconds |
+| 120 s / recovery complete | green for 3 seconds |
+
+Every temporary recovery cue restores the previous light state after three
+seconds. The light tasks are queued asynchronously and never delay the actual
+10/30/60/120-second HR measurements.

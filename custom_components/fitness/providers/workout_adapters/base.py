@@ -76,6 +76,29 @@ def selected_device_entries_by_domain(
     return result
 
 
+def selected_device_ids_for_domains(
+    hass: HomeAssistant,
+    config: dict,
+    domains: tuple[str, ...],
+) -> set[str]:
+    """Return selected workout device IDs belonging to provider domains."""
+    return set(selected_device_entries_by_domain(hass, config, domains))
+
+
+def selected_provider_domains(
+    hass: HomeAssistant,
+    config: dict,
+) -> dict[str, set[str]]:
+    """Map selected workout device ID to config-entry domains."""
+    result: dict[str, set[str]] = {}
+    for entry in selected_sensor_entries(hass, config):
+        if entry.device_id:
+            result.setdefault(entry.device_id, set()).add(
+                provider_domain(hass, entry)
+            )
+    return result
+
+
 def entry_label(hass: HomeAssistant, entry) -> str:
     state = hass.states.get(entry.entity_id)
     return " ".join(

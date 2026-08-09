@@ -12,17 +12,23 @@ def discover(
     config: dict,
     *,
     exclude_domains: set[str] | None = None,
+    only_domains: set[str] | None = None,
+    only_device_ids: set[str] | None = None,
 ) -> list:
-    """Use Fitness' schema/label heuristics for integrations without adapters."""
+    """Use generic heuristics for unknown providers or scoped fallback."""
     return (
         _generic_activity_entities(
             hass,
             config,
             exclude_domains=exclude_domains,
+            only_domains=only_domains,
+            only_device_ids=only_device_ids,
         )
         + _bundle_sibling_entities(
             hass,
             config,
             exclude_domains=exclude_domains,
+            only_domains=only_domains,
+            only_device_ids=only_device_ids,
         )
     )

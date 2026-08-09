@@ -48,3 +48,25 @@ def test_dependabot_automerge_is_bot_only():
     assert "contents: write" in workflow
     assert "gh pr merge --auto --squash" in workflow
     assert "--admin" not in workflow
+
+
+
+def test_adapter_diagnostics_are_exposed():
+    manager = (
+        ROOT / "custom_components/fitness/manager.py"
+    ).read_text(encoding="utf-8")
+    assert "def workout_adapter_diagnostics" in manager
+    assert '"workout_adapters": self.workout_adapter_diagnostics()' in manager
+
+
+
+def test_session_guidance_is_localized_for_supported_languages():
+    feedback = (
+        ROOT / "custom_components/fitness/feedback.py"
+    ).read_text(encoding="utf-8")
+    for language in (
+        "en", "el", "de", "fr", "es", "it", "pt", "nl",
+        "pl", "ru", "uk", "tr", "zh", "ja", "ko",
+    ):
+        assert f'"{language}": {{' in feedback
+    assert "def static_session_message" in feedback

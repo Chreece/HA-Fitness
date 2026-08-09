@@ -72,3 +72,27 @@ def test_registry_has_explicit_provider_owners():
 
     domains = [domain for values in supported.values() for domain in values]
     assert len(domains) == len(set(domains))
+
+
+
+def test_adapter_diagnostic_contract():
+    for name in (
+        "garmin", "strava", "polar", "hevy", "peloton", "oura", "generic"
+    ):
+        module_name = f"custom_components.fitness.providers.workout_adapters.{name}"
+        if module_name not in sys.modules:
+            load_module(module_name, f"providers/workout_adapters/{name}.py")
+
+    registry = load_module(
+        "custom_components.fitness.providers.workout_adapters.registry_fallback_test",
+        "providers/workout_adapters/registry.py",
+    )
+    diag = registry.AdapterDiagnostic(
+        adapter="polar",
+        domains=["polar"],
+        selected_devices=1,
+        fallback_workouts=1,
+        status="generic_fallback",
+    ).as_dict()
+    assert diag["status"] == "generic_fallback"
+    assert diag["fallback_workouts"] == 1

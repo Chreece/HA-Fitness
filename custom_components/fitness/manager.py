@@ -79,6 +79,7 @@ from .feedback import (
     intensity_rgb,
     static_intensity_message,
     static_periodic_live_message,
+    static_session_message,
     static_workout_message,
 )
 from .providers.devices import (
@@ -185,6 +186,17 @@ class FitnessManager:
         self.selected_feedback_area_id: str | None = None
 
         self._ai_lock = asyncio.Lock()
+        # Serializes start/recovery spoken guidance so asynchronously generated
+        # AI messages cannot overtake one another.
+        self._session_announcement_lock = asyncio.Lock()
+
+        # Workout lifecycle light cues are serialized separately from the
+        # heartbeat/intensity pulses. They reuse the same original-state
+        # snapshot only while intensity feedback is suspended.
+        self._session_status_light_lock = asyncio.Lock()
+        self._session_status_light_active = False
+        self._session_status_light_task: asyncio.Task | None = None
+        self._session_waiting_red = False
 
     @property
     def config(self):
@@ -327,6 +339,12 @@ class FitnessManager:
             and not self._external_workout_debounce_task.done()
         ):
             self._external_workout_debounce_task.cancel()
+
+        if (
+            self._session_status_light_task
+            and not self._session_status_light_task.done()
+        ):
+            self._session_status_light_task.cancel()
 
         if self._feedback_scene_active:
             await self._async_restore_feedback_lights()
@@ -517,6 +535,8 @@ class FitnessManager:
         """Debounce provider changes before accepting a completed workout."""
         if not self._external_workout_announcements_armed:
             return
+        if self.recovery_active:
+            return
 
         latest = self.latest_workout()
         if not self._workout_has_real_information(latest):
@@ -587,6 +607,9 @@ class FitnessManager:
 
     def _check_live_intensity_feedback(self):
         """Accept intensity transitions no more often than every five seconds."""
+        if self._session_status_light_active:
+            return
+
         intensity = self._current_live_intensity()
         if intensity is None:
             return
@@ -615,6 +638,171 @@ class FitnessManager:
 
         self._live_feedback_task = self.hass.async_create_task(
             self._async_live_intensity_feedback(intensity)
+        )
+
+    @staticmethod
+    def _session_status_intensity(status: str) -> str | None:
+        """Map lifecycle status colors onto the existing RGB palette."""
+        return {
+            "red": "near_maximal",
+            "orange": "vigorous",
+            "yellow": "moderate",
+            "blue": "very_light",
+            "green": "light",
+        }.get(status)
+
+    async def _async_prepare_session_status_lights(
+        self,
+        light_ids: list[str],
+        *,
+        preserve_existing_snapshot: bool = False,
+    ) -> bool:
+        """Suspend intensity feedback and establish the lifecycle snapshot."""
+        # Invalidate/cancel any heartbeat pulse before touching lifecycle lights.
+        self._feedback_generation += 1
+        if self._live_feedback_task and not self._live_feedback_task.done():
+            self._live_feedback_task.cancel()
+
+        async with self._feedback_lock:
+            if (
+                self._feedback_scene_active
+                and not preserve_existing_snapshot
+            ):
+                await self._async_restore_feedback_lights(
+                    clear_snapshot=True,
+                )
+
+            if not self._feedback_scene_active:
+                return await self._async_snapshot_feedback_lights(
+                    light_ids
+                )
+
+            return bool(self._feedback_light_snapshot)
+
+    async def _async_session_status_waiting_red(self) -> None:
+        """Hold workout lights red until the first valid live data arrives."""
+        async with self._session_status_light_lock:
+            light_ids = self._feedback_light_ids()
+            if not light_ids:
+                self._session_status_light_active = False
+                self._session_waiting_red = False
+                return
+
+            snapshot_ok = await self._async_prepare_session_status_lights(
+                light_ids,
+            )
+            if not snapshot_ok:
+                self._session_status_light_active = False
+                self._session_waiting_red = False
+                return
+
+            async with self._feedback_lock:
+                await self._async_set_feedback_color(
+                    light_ids,
+                    self._session_status_intensity("red"),
+                )
+
+            # Keep the original snapshot alive. Green-on-live will restore it.
+            self._session_waiting_red = True
+            self.last_feedback_light_result = "waiting_for_live_data_red"
+            self._notify()
+
+    async def _async_session_status_cue(
+        self,
+        status: str,
+        *,
+        seconds: float = 3.0,
+        finish_waiting: bool = False,
+        resume_intensity: bool = False,
+    ) -> None:
+        """Show one lifecycle color temporarily, then restore original state."""
+        async with self._session_status_light_lock:
+            light_ids = self._feedback_light_ids()
+            if not light_ids:
+                self._session_status_light_active = False
+                self._session_waiting_red = False
+                if resume_intensity and self.session_active:
+                    self._check_live_intensity_feedback()
+                return
+
+            preserve = bool(
+                finish_waiting
+                and self._session_waiting_red
+                and self._feedback_scene_active
+            )
+            snapshot_ok = await self._async_prepare_session_status_lights(
+                light_ids,
+                preserve_existing_snapshot=preserve,
+            )
+            if not snapshot_ok:
+                self._session_status_light_active = False
+                self._session_waiting_red = False
+                if resume_intensity and self.session_active:
+                    self._check_live_intensity_feedback()
+                return
+
+            mapped = self._session_status_intensity(status)
+            if mapped is None:
+                self._session_status_light_active = False
+                return
+
+            try:
+                async with self._feedback_lock:
+                    await self._async_set_feedback_color(
+                        light_ids,
+                        mapped,
+                    )
+
+                self.last_feedback_light_result = (
+                    f"session_status_{status}"
+                )
+                self._notify()
+                await asyncio.sleep(max(0.0, float(seconds)))
+
+            except asyncio.CancelledError:
+                # Restore below before exiting.
+                pass
+
+            finally:
+                async with self._feedback_lock:
+                    await self._async_restore_feedback_lights(
+                        clear_snapshot=True,
+                    )
+
+                self._session_waiting_red = False
+                self._session_status_light_active = False
+                self._notify()
+
+                if resume_intensity and self.session_active:
+                    # Re-evaluate the current zone after lifecycle feedback
+                    # releases control of the lights.
+                    self._last_live_intensity = None
+                    self._last_live_intensity_accepted_at = None
+                    self._check_live_intensity_feedback()
+
+    def _queue_session_status_waiting_red(self) -> None:
+        """Immediately reserve lifecycle lights, then hold red asynchronously."""
+        self._session_status_light_active = True
+        self._session_status_light_task = self.hass.async_create_task(
+            self._async_session_status_waiting_red()
+        )
+
+    def _queue_session_status_cue(
+        self,
+        status: str,
+        *,
+        finish_waiting: bool = False,
+        resume_intensity: bool = False,
+    ) -> None:
+        """Queue a three-second lifecycle color cue."""
+        self._session_status_light_active = True
+        self._session_status_light_task = self.hass.async_create_task(
+            self._async_session_status_cue(
+                status,
+                seconds=3.0,
+                finish_waiting=finish_waiting,
+                resume_intensity=resume_intensity,
+            )
         )
 
     def available_feedback_areas(self) -> list[tuple[str, str]]:
@@ -727,6 +915,16 @@ class FitnessManager:
 
         return result
 
+    def workout_adapter_diagnostics(self) -> dict:
+        """Return latest completed-workout adapter/fallback diagnostics."""
+        try:
+            from .providers.workout_adapters.registry import (
+                last_adapter_diagnostics,
+            )
+            return last_adapter_diagnostics()
+        except Exception:
+            return {}
+
     def live_feedback_diagnostics(self) -> dict:
         """Return current live coaching diagnostics for UI/entity attributes."""
         configured_lights = list(
@@ -755,6 +953,7 @@ class FitnessManager:
         resolved_lights = self._feedback_light_ids()
 
         return {
+            "workout_adapters": self.workout_adapter_diagnostics(),
             "feedback_enabled": bool(
                 resolved_lights
                 or (tts_available and usable_media_players)
@@ -1219,6 +1418,155 @@ class FitnessManager:
             language,
             intensity,
             bpm=bpm,
+        )
+
+    def _available_live_source_names(self) -> list[str]:
+        """Return friendly names of live sources currently producing data."""
+        values = self.live_values(raw=True)
+        sources = self.live_sources()
+        result: list[str] = []
+
+        for metric, source in sources.items():
+            if values.get(metric) is None:
+                continue
+
+            state = self.hass.states.get(source.entity_id)
+            friendly = (
+                state.attributes.get("friendly_name")
+                if state is not None
+                else None
+            )
+            name = str(friendly or source.entity_id)
+            if name not in result:
+                result.append(name)
+
+        return result
+
+    async def _async_session_guidance_message(
+        self,
+        event: str,
+        *,
+        sensors: list[str] | None = None,
+        seconds: int | None = None,
+        remaining: int | None = None,
+        collected: bool | None = None,
+    ) -> str | None:
+        """Generate localized AI/static live-session guidance."""
+        language = self._ai_language()
+
+        static_event = event
+        if event == "recovery_checkpoint" and collected is False:
+            static_event = "recovery_checkpoint_missing"
+
+        fallback = static_session_message(
+            language,
+            static_event,
+            sensors=sensors,
+            seconds=seconds,
+            remaining=remaining,
+        )
+
+        if not self.config.get(CONF_AI_ENABLED):
+            return fallback
+
+        context = {
+            "event": event,
+            "live_sensor_names": sensors or [],
+            "checkpoint_seconds": seconds,
+            "remaining_seconds": remaining,
+            "heart_rate_collected": collected,
+        }
+
+        instructions = {
+            "waiting_live": (
+                "Say that the workout has been started/armed, but the timer has "
+                "not started yet because Fitness is waiting for live sensor data."
+            ),
+            "started_with_live": (
+                "Say that the workout has started, name the supplied live sensors "
+                "naturally, and say the workout timer has started."
+            ),
+            "live_available": (
+                "Say that live data is now available, name the supplied sensors, "
+                "say the workout timer has started, and tell the user they can "
+                "begin the workout."
+            ),
+            "stopped_without_live": (
+                "Say the workout was stopped before live sensor data arrived and "
+                "therefore no live workout was recorded."
+            ),
+            "recovery_wait": (
+                "Say the workout timer has stopped and ask the user to wait while "
+                "post-exercise heart-rate recovery is collected for 120 seconds."
+            ),
+            "recovery_checkpoint": (
+                "Report the supplied post-exercise heart-rate recovery checkpoint. "
+                "If heart_rate_collected is true, clearly say that checkpoint was "
+                "collected. If false, clearly say no HR value was available there. "
+                "State the supplied remaining seconds."
+            ),
+            "recovery_complete": (
+                "Say post-exercise heart-rate recovery collection is complete, all "
+                "available recovery data has been saved, and everything is ready."
+            ),
+            "no_recovery": (
+                "Say the workout ended but post-exercise heart-rate recovery could "
+                "not be collected because usable heart-rate data was unavailable."
+            ),
+        }.get(event)
+
+        if not instructions:
+            return fallback
+
+        prompt = (
+            "Create ONE short spoken Home Assistant fitness status message. "
+            f"{instructions} "
+            "Do not add medical advice, do not invent sensor names or values, "
+            "and do not add information absent from the context. "
+            "Use natural conversational language, no markdown, about 10-30 words. "
+            f"Output only the spoken sentence in {self._prompt_strings()['language']}.\n\n"
+            f"Context: {json.dumps(context, ensure_ascii=False)}"
+        )
+
+        result = await self._call_ai(
+            prompt,
+            f"Fitness session guidance {self.config.get(CONF_PROFILE_NAME)}",
+        )
+        if result:
+            compact = " ".join(str(result).split()).strip()
+            if compact:
+                return compact[:450]
+
+        return fallback
+
+    async def _async_announce_session_guidance(
+        self,
+        event: str,
+        **context,
+    ) -> None:
+        """Speak session guidance in order without affecting measurement timing."""
+        async with self._session_announcement_lock:
+            message = await self._async_session_guidance_message(
+                event,
+                **context,
+            )
+            if not message:
+                return
+            self.last_feedback_message = message
+            await self._async_speak(message)
+            self._notify()
+
+    def _queue_session_guidance(
+        self,
+        event: str,
+        **context,
+    ) -> None:
+        """Queue guidance without blocking capture/recovery timers."""
+        self.hass.async_create_task(
+            self._async_announce_session_guidance(
+                event,
+                **context,
+            )
         )
 
     def _recent_live_trend(
@@ -1889,8 +2237,12 @@ class FitnessManager:
             )
         )
 
-    def _begin_session_from_live_data(self) -> None:
-        """Convert armed capture into an active workout on first valid data."""
+    def _begin_session_from_live_data(
+        self,
+        *,
+        announcement_event: str = "live_available",
+    ) -> None:
+        """Convert armed capture into active timing on first valid live data."""
         if not self.session_armed or self.session_active:
             return
 
@@ -1921,7 +2273,16 @@ class FitnessManager:
                     )
                 )
 
-        self._check_live_intensity_feedback()
+        self._queue_session_status_cue(
+            "green",
+            finish_waiting=(announcement_event == "live_available"),
+            resume_intensity=True,
+        )
+
+        self._queue_session_guidance(
+            announcement_event,
+            sensors=self._available_live_source_names(),
+        )
         self._notify()
 
     def _capture_sample(self):
@@ -2267,13 +2628,31 @@ class FitnessManager:
         self.last_feedback_message = None
 
         self.capture_control = await self._async_antplus_control(True)
-        self._notify()
+
+        # If usable data already exists after capture is enabled, timing can
+        # begin immediately. Otherwise remain armed until a later source event.
+        if self._has_valid_live_workout_data():
+            self._begin_session_from_live_data(
+                announcement_event="started_with_live",
+            )
+        else:
+            self._queue_session_status_waiting_red()
+            self._queue_session_guidance("waiting_live")
+            self._notify()
 
     async def async_stop_session(self):
         """Stop workout timing; optionally keep capture for 120 s HR recovery."""
         if self.session_armed and not self.session_active:
             self.session_armed = False
             self.capture_control = await self._async_antplus_control(False)
+
+            if self._session_waiting_red or self._feedback_scene_active:
+                self._queue_session_status_cue(
+                    "red",
+                    finish_waiting=True,
+                )
+
+            self._queue_session_guidance("stopped_without_live")
             self._notify()
             return
 
@@ -2293,6 +2672,10 @@ class FitnessManager:
         # unavailable even if ANT capture remains on for recovery.
         self.session_active = False
         self.session_armed = False
+
+        # Visual indication that workout timing is over and post-exercise
+        # handling has begun. It restores the exact pre-cue light state.
+        self._queue_session_status_cue("red")
 
         if (
             self._periodic_live_announcement_task
@@ -2320,11 +2703,14 @@ class FitnessManager:
             self.recovery_active = True
             self._recovery_reference_hr = last_hr
             self._recovery_workout_start = workout.start
+            self._queue_session_guidance("recovery_wait")
             self._recovery_task = self.hass.async_create_task(
                 self._async_collect_heart_rate_recovery()
             )
         else:
             self.capture_control = await self._async_antplus_control(False)
+            if workout is not None:
+                self._queue_session_guidance("no_recovery")
 
         latest = self.latest_workout()
         latest_signature = self._workout_signature(latest)
@@ -2336,7 +2722,9 @@ class FitnessManager:
         ):
             self._last_external_signature = latest_signature
 
-            if (
+            # If HR recovery is running, defer the final workout AI/summary
+            # until the recovery checkpoints have been written to history.
+            if not self.recovery_active and (
                 latest_signature
                 != self._last_announced_workout_signature
             ):
@@ -2346,9 +2734,10 @@ class FitnessManager:
                 await self._save()
                 await self._async_handle_new_workout(latest)
 
-        self.hass.async_create_task(
-            self._async_refresh_long_term_statistics()
-        )
+        if not self.recovery_active:
+            self.hass.async_create_task(
+                self._async_refresh_long_term_statistics()
+            )
 
     async def _async_collect_heart_rate_recovery(self) -> None:
         """Measure HR fall at 10/30/60/120 s after the workout timer stops."""
@@ -2375,7 +2764,26 @@ class FitnessManager:
                 hr = self.live_values(raw=True).get(
                     METRIC_HEART_RATE
                 )
+                remaining = max(0, 120 - seconds)
+
+                checkpoint_color = {
+                    10: "orange",
+                    30: "yellow",
+                    60: "blue",
+                    120: "green",
+                }.get(seconds)
+                if checkpoint_color is not None:
+                    self._queue_session_status_cue(
+                        checkpoint_color,
+                    )
+
                 if hr is None:
+                    self._queue_session_guidance(
+                        "recovery_checkpoint",
+                        seconds=seconds,
+                        remaining=remaining,
+                        collected=False,
+                    )
                     continue
 
                 recovery = max(0.0, reference - float(hr))
@@ -2386,6 +2794,12 @@ class FitnessManager:
                         break
 
                 await self._save()
+                self._queue_session_guidance(
+                    "recovery_checkpoint",
+                    seconds=seconds,
+                    remaining=remaining,
+                    collected=True,
+                )
                 self._notify()
 
         except asyncio.CancelledError:
@@ -2397,6 +2811,28 @@ class FitnessManager:
             self.capture_control = await self._async_antplus_control(False)
             await self._save()
             self._notify()
+
+            # Final readiness cue is queued after the 120 s checkpoint cue.
+            self._queue_session_guidance("recovery_complete")
+
+            # The completed workout evaluation/summary now sees all available
+            # HR-recovery checkpoints rather than the pre-recovery workout.
+            latest = self.latest_workout()
+            latest_signature = self._workout_signature(latest)
+            if (
+                latest is not None
+                and latest_signature is not None
+                and latest_signature
+                != self._last_announced_workout_signature
+            ):
+                self._last_external_signature = latest_signature
+                self._last_announced_workout_signature = latest_signature
+                await self._save()
+                await self._async_handle_new_workout(latest)
+
+            self.hass.async_create_task(
+                self._async_refresh_long_term_statistics()
+            )
 
     def session_duration(self) -> float:
         if not self.session_active or not self.session_started:
