@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026.8.0-beta.24
+
+### Critical evaluation availability fix
+
+- Fixed missing `CONF_BIRTH_DAY`, `CONF_BIRTH_MONTH`, and `CONF_BIRTH_YEAR` imports used by evaluation provenance.
+- Fixes evaluation entities becoming unavailable after upgrading from beta.20 to beta.22/23.
+- Hardened `_notify()` so an exception in one entity listener is logged and cannot block updates for the remaining Fitness entities.
+- Added regression coverage for undefined Fitness constants and listener isolation.
+
 ## 2026.8.0-beta.23
 
 ### Provenance localization

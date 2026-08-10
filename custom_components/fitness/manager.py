@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 from datetime import datetime, timezone, timedelta
 from statistics import mean
@@ -28,6 +29,9 @@ from .const import (
     CONF_TTS_ENTITY_ID,
     CONF_TTS_MEDIA_PLAYER_IDS,
     CONF_DATE_OF_BIRTH,
+    CONF_BIRTH_DAY,
+    CONF_BIRTH_MONTH,
+    CONF_BIRTH_YEAR,
     CONF_MAX_HR,
     CONF_PERIODIC_LIVE_ANNOUNCEMENTS,
     CONF_PERIODIC_LIVE_INTERVAL_MINUTES,
@@ -105,6 +109,8 @@ from .providers.workouts import (
     newest,
 )
 
+
+_LOGGER = logging.getLogger(__name__)
 
 class FitnessManager:
     def __init__(self, hass: HomeAssistant, entry):
@@ -475,8 +481,14 @@ class FitnessManager:
         return True
 
     def _notify(self):
+        """Notify all entity listeners without one broken entity blocking others."""
         for listener in list(self.listeners):
-            listener()
+            try:
+                listener()
+            except Exception:  # noqa: BLE001 - entity listeners must be isolated
+                _LOGGER.exception(
+                    "Fitness entity listener failed; continuing remaining updates"
+                )
 
     async def _save(self):
         await self.store.async_save(
