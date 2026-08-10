@@ -1,5 +1,45 @@
 # Changelog
 
+## 2026.8.0-beta.23
+
+### Provenance localization
+
+- Localized human-facing evaluation provenance descriptions in all 15 supported languages.
+- Provider/direct/history explanatory notes now follow the user's selected Fitness language.
+- Kept formulas, entity IDs, method identifiers, numerical values and units untranslated intentionally.
+- Added regression tests for complete provenance vocabulary and technical-field preservation.
+
+## 2026.8.0-beta.22
+
+### Explainable evaluation provenance
+
+- Every evaluation sensor now receives deterministic value provenance.
+- Calculated entities expose their actual formula and concrete input sources.
+- Source details can include entity ID, raw value/unit, normalized unit,
+  configured value, provider entity or workout source.
+- HR reserve, VO₂max, FRIEND reference, threshold pace/power, power-to-weight,
+  HRV status, fitness age difference and acute:chronic ratio now explain their
+  exact derivation.
+- Direct provider metrics explicitly state that Fitness is exposing a provider
+  value rather than claiming a proprietary calculation.
+- Long-term metrics identify their 7/28/42/90-day history window and aggregation.
+- Expanded the deterministic explanation catalog so known evaluation metrics no
+  longer fall back to a generic method description.
+- Added regression coverage for provenance completeness and AI-free metadata.
+
+## 2026.8.0-beta.21
+
+### Setup localization and Garmin VO₂max fixes
+
+- Localized sex and birth-month selector choices in all 15 supported languages.
+- Removed hard-coded English selector labels from config/options flows.
+- Added Unicode unit normalization for Garmin/Home Assistant VO₂max
+  `mL/(kg·min)` and equivalent multiplication/minus glyphs.
+- Existing empty Fitness Input fields now propose strict exact autofill matches;
+  existing user-selected values always take precedence.
+- Added regression tests for Greek selector labels, all selector translations,
+  Garmin VO₂max unit normalization and options autofill.
+
 ## 2026.8.0-beta.20
 
 ### Deterministic explanations and complete localization

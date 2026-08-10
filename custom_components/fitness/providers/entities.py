@@ -60,6 +60,10 @@ def _unit_key(unit: str | None) -> str:
         .replace(" ", "")
         .replace("°", "")
         .replace("per", "/")
+        .replace("·", "*")
+        .replace("⋅", "*")
+        .replace("×", "*")
+        .replace("−", "-")
     )
 
 
@@ -124,7 +128,7 @@ def _convert_vo2max(value: float, unit: str) -> float | None:
         "",
         "ml/kg/min",
         "ml/kg/minute",
-        "ml·kg−1·min−1",
+        "ml*kg-1*min-1",
         "mlkg-1min-1",
         "ml/(kg*min)",
     ):

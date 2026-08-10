@@ -589,5 +589,44 @@
         "name": "Habitación de entrenamiento"
       }
     }
+  },
+  "selector": {
+    "sex": {
+      "options": {
+        "female": "Mujer",
+        "male": "Hombre",
+        "other": "Otro",
+        "prefer_not_to_say": "Prefiero no responder"
+      }
+    },
+    "birth_month": {
+      "options": {
+        "1": "Enero",
+        "2": "Febrero",
+        "3": "Marzo",
+        "4": "Abril",
+        "5": "Mayo",
+        "6": "Junio",
+        "7": "Julio",
+        "8": "Agosto",
+        "9": "Septiembre",
+        "10": "Octubre",
+        "11": "Noviembre",
+        "12": "Diciembre"
+      }
+    }
+  },
+  "evaluation_provenance": {
+    "calculated": "Calculado por Fitness",
+    "direct": "Valor directo de la fuente",
+    "provider": "Valor del proveedor",
+    "history": "Cálculo del historial de entrenamientos",
+    "profile": "Configuración del perfil",
+    "sources": "Fuentes de datos utilizadas",
+    "why": "Por qué es útil",
+    "caveat": "Nota científica",
+    "provider_note": "Este valor procede del proveedor de fitness. Fitness no reproduce ni afirma conocer el algoritmo interno del proveedor.",
+    "history_note": "Este valor se calcula a partir del historial de entrenamientos completados.",
+    "direct_note": "Este valor se usa directamente tras normalizar la unidad; Fitness no lo estima."
   }
 }

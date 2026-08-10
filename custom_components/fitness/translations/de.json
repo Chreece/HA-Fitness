@@ -589,5 +589,44 @@
         "name": "Trainingsraum"
       }
     }
+  },
+  "selector": {
+    "sex": {
+      "options": {
+        "female": "Weiblich",
+        "male": "Männlich",
+        "other": "Andere",
+        "prefer_not_to_say": "Keine Angabe"
+      }
+    },
+    "birth_month": {
+      "options": {
+        "1": "Januar",
+        "2": "Februar",
+        "3": "März",
+        "4": "April",
+        "5": "Mai",
+        "6": "Juni",
+        "7": "Juli",
+        "8": "August",
+        "9": "September",
+        "10": "Oktober",
+        "11": "November",
+        "12": "Dezember"
+      }
+    }
+  },
+  "evaluation_provenance": {
+    "calculated": "Von Fitness berechnet",
+    "direct": "Direkter Quellwert",
+    "provider": "Anbieterwert",
+    "history": "Berechnung aus dem Trainingsverlauf",
+    "profile": "Profilkonfiguration",
+    "sources": "Verwendete Datenquellen",
+    "why": "Warum dieser Wert nützlich ist",
+    "caveat": "Wissenschaftlicher Hinweis",
+    "provider_note": "Dieser Wert stammt vom Fitness-Anbieter. Fitness bildet dessen internen Algorithmus nicht nach und erhebt keinen Anspruch darauf.",
+    "history_note": "Dieser Wert wird aus dem Verlauf abgeschlossener Trainings berechnet.",
+    "direct_note": "Dieser Wert wird nach der Einheiten-Normalisierung direkt verwendet; Fitness schätzt ihn nicht."
   }
 }

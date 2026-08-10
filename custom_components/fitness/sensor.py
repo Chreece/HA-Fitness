@@ -626,6 +626,8 @@ class FitnessSensor(SensorEntity):
             "evaluation",
             m,
         )
+        provenance = self.manager.localized_evaluation_provenance(m)
+        base_explanation.update(provenance)
 
         if m in ("friend_predicted_vo2max", "vo2max_percent_predicted", "cardiorespiratory_status"):
             return {
@@ -661,7 +663,11 @@ class FitnessSensor(SensorEntity):
             return {
                 **base_explanation,
                 "source_type": "provider_context",
-                "note": "Provider metric; calculation may be proprietary.",
+                "note": (
+                    "The value is supplied by the provider. Fitness exposes the "
+                    "concrete source entity in input_sources and does not claim "
+                    "the provider's proprietary algorithm as a Fitness formula."
+                ),
             }
 
         if m == "acute_chronic_ratio":
@@ -716,6 +722,7 @@ class FitnessSensor(SensorEntity):
                     "source_value": resolved.original_value,
                     "source_unit": resolved.original_unit,
                     "normalized_unit": resolved.canonical_unit,
+                    "value_used": resolved.value,
                 }
 
         return base_explanation

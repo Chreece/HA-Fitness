@@ -259,28 +259,20 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_BIRTH_DAY, default=1): _number(1, 31),
                 vol.Required(CONF_BIRTH_MONTH, default="1"): selector.SelectSelector(
                     selector.SelectSelectorConfig(
-                        options=[
-                            {"value": str(i), "label": name}
-                            for i, name in enumerate(
-                                (
-                                    "January", "February", "March", "April",
-                                    "May", "June", "July", "August",
-                                    "September", "October", "November", "December",
-                                ),
-                                start=1,
-                            )
-                        ]
+                        options=[str(i) for i in range(1, 13)],
+                        translation_key="birth_month",
                     )
                 ),
                 vol.Required(CONF_BIRTH_YEAR, default=1980): _number(1900, date.today().year),
                 vol.Optional(CONF_SEX): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=[
-                            {"value": "female", "label": "Female"},
-                            {"value": "male", "label": "Male"},
-                            {"value": "other", "label": "Other"},
-                            {"value": "prefer_not_to_say", "label": "Prefer not to say"},
-                        ]
+                            "female",
+                            "male",
+                            "other",
+                            "prefer_not_to_say",
+                        ],
+                        translation_key="sex",
                     )
                 ),
             }
@@ -586,17 +578,8 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                     default=str(dob.month),
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
-                        options=[
-                            {"value": str(i), "label": name}
-                            for i, name in enumerate(
-                                (
-                                    "January", "February", "March", "April",
-                                    "May", "June", "July", "August",
-                                    "September", "October", "November", "December",
-                                ),
-                                start=1,
-                            )
-                        ]
+                        options=[str(i) for i in range(1, 13)],
+                        translation_key="birth_month",
                     )
                 ),
                 vol.Required(
@@ -609,14 +592,12 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=[
-                            {"value": "female", "label": "Female"},
-                            {"value": "male", "label": "Male"},
-                            {"value": "other", "label": "Other"},
-                            {
-                                "value": "prefer_not_to_say",
-                                "label": "Prefer not to say",
-                            },
-                        ]
+                            "female",
+                            "male",
+                            "other",
+                            "prefer_not_to_say",
+                        ],
+                        translation_key="sex",
                     )
                 ),
             }
@@ -664,9 +645,13 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 }
                 return await self._save_merge(values)
 
+        exact_defaults = exact_profile_defaults(self.hass)
+
         def current_text(key):
             value = current.get(key)
-            return "" if value is None else str(value)
+            if value not in (None, ""):
+                return str(value)
+            return str(exact_defaults.get(key, ""))
 
         schema = vol.Schema(
             {

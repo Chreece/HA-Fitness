@@ -3798,6 +3798,485 @@ class FitnessManager:
             ),
         }
 
+    def _profile_input_provenance(
+        self,
+        config_key: str,
+        quantity: str,
+    ) -> dict[str, Any]:
+        """Describe one configured number/entity without changing its value."""
+        resolved = resolve_number_or_entity(
+            self.hass,
+            self.config.get(config_key),
+            quantity=quantity,
+        )
+        if resolved.value is None:
+            return {}
+        result = {
+            "role": config_key,
+            "source_type": resolved.source,
+            "value_used": resolved.value,
+        }
+        if resolved.entity_id:
+            result.update(
+                {
+                    "entity_id": resolved.entity_id,
+                    "raw_value": resolved.original_value,
+                    "raw_unit": resolved.original_unit,
+                    "normalized_unit": resolved.canonical_unit,
+                }
+            )
+        else:
+            result["configured_value"] = resolved.original_value
+        return result
+
+    def _provider_metric_provenance(
+        self,
+        provider: dict[str, Any],
+        key: str,
+        *,
+        role: str | None = None,
+    ) -> dict[str, Any]:
+        """Describe one normalized provider metric and its HA source entity."""
+        value = provider.get(key)
+        entity_id = provider.get(f"{key}_entity")
+        if value is None and not entity_id:
+            return {}
+        result = {
+            "role": role or key,
+            "source_type": "provider_entity",
+            "value_used": value,
+        }
+        if entity_id:
+            result["entity_id"] = entity_id
+            state = self.hass.states.get(entity_id)
+            if state is not None:
+                result["raw_value"] = state.state
+                result["raw_unit"] = state.attributes.get(
+                    "unit_of_measurement"
+                )
+        return result
+
+    def evaluation_provenance(self, metric: str) -> dict[str, Any]:
+        """Return concrete, deterministic provenance for an evaluation metric."""
+        e = self.evaluation()
+        provider = e.get("provider_metrics") or {}
+        inputs: list[dict[str, Any]] = []
+
+        def add(item):
+            if item:
+                inputs.append(item)
+
+        def profile(key, quantity, role=None):
+            item = self._profile_input_provenance(key, quantity)
+            if item and role:
+                item["role"] = role
+            return item
+
+        def provider_item(key, role=None):
+            return self._provider_metric_provenance(
+                provider,
+                key,
+                role=role,
+            )
+
+        if metric == "age":
+            inputs.extend(
+                [
+                    {
+                        "role": "date_of_birth",
+                        "source_type": "profile_configuration",
+                        "configured_value": (
+                            f"{self.config.get(CONF_BIRTH_YEAR):04d}-"
+                            f"{self.config.get(CONF_BIRTH_MONTH):02d}-"
+                            f"{self.config.get(CONF_BIRTH_DAY):02d}"
+                            if all(
+                                self.config.get(key) is not None
+                                for key in (
+                                    CONF_BIRTH_YEAR,
+                                    CONF_BIRTH_MONTH,
+                                    CONF_BIRTH_DAY,
+                                )
+                            )
+                            else None
+                        ),
+                    }
+                ]
+            )
+            return {
+                "value_origin": "calculated_from_profile",
+                "formula": "age = completed years between date_of_birth and today",
+                "input_sources": inputs,
+            }
+
+        if metric == "weight":
+            item = provider_item("weight_kg", "weight")
+            if not item:
+                item = profile(CONF_WEIGHT, "weight", "weight")
+            add(item)
+            return {
+                "value_origin": "provider_or_profile_input",
+                "formula": "direct normalized body-mass value; no derived Fitness formula",
+                "input_sources": inputs,
+            }
+
+        if metric == "resting_hr":
+            item = provider_item("resting_hr", "resting_hr")
+            if not item:
+                item = profile(CONF_RESTING_HR, "heart_rate", "resting_hr")
+            add(item)
+            return {
+                "value_origin": "provider_or_profile_input",
+                "formula": "direct resting-HR value; no derived Fitness formula",
+                "input_sources": inputs,
+            }
+
+        if metric == "max_hr":
+            manual = profile(CONF_MAX_HR, "heart_rate", "configured_max_hr")
+            latest = self.latest_workout()
+            if e.get("max_hr_method") == "observed_workout_peak" and latest:
+                add(
+                    {
+                        "role": "maximum_hr",
+                        "source_type": "completed_workout_observation",
+                        "value_used": latest.max_hr,
+                        "workout_source": latest.source,
+                        "workout_start": latest.start,
+                    }
+                )
+                formula = "max(configured_or_Tanaka_max_hr, observed_latest_workout_peak)"
+                origin = "observed_workout_peak"
+            elif manual:
+                add(manual)
+                formula = "configured maximum HR used directly"
+                origin = "configured_input"
+            else:
+                add(
+                    {
+                        "role": "age",
+                        "source_type": "profile_age",
+                        "value_used": self.age(),
+                    }
+                )
+                formula = "Tanaka et al. 2001: maximum_hr = 208 − 0.7 × age"
+                origin = "tanaka_2001_prediction"
+            return {
+                "value_origin": origin,
+                "formula": formula,
+                "input_sources": inputs,
+            }
+
+        if metric == "heart_rate_reserve":
+            max_info = self.evaluation_provenance("max_hr")
+            rest_info = self.evaluation_provenance("resting_hr")
+            inputs.extend(max_info.get("input_sources") or [])
+            inputs.extend(rest_info.get("input_sources") or [])
+            return {
+                "value_origin": "fitness_calculation",
+                "formula": "heart_rate_reserve = maximum_hr − resting_hr",
+                "input_sources": inputs,
+            }
+
+        if metric == "vo2max":
+            item = provider_item("vo2max", "vo2max")
+            if not item:
+                item = profile(CONF_VO2MAX, "vo2max", "vo2max")
+            if item:
+                add(item)
+                return {
+                    "value_origin": "provider_or_profile_input",
+                    "formula": "direct normalized VO₂max value; no Fitness estimation",
+                    "input_sources": inputs,
+                }
+            max_info = self.evaluation_provenance("max_hr")
+            rest_info = self.evaluation_provenance("resting_hr")
+            inputs.extend(max_info.get("input_sources") or [])
+            inputs.extend(rest_info.get("input_sources") or [])
+            return {
+                "value_origin": "uth_2004_estimate",
+                "formula": "Uth et al. 2004: VO₂max = 15.3 × maximum_hr / resting_hr",
+                "input_sources": inputs,
+                "method_caveat": (
+                    "Uth 2004 was validated in well-trained men; Fitness exposes "
+                    "the provenance when used outside that population."
+                ),
+            }
+
+        if metric == "friend_predicted_vo2max":
+            weight_info = self.evaluation_provenance("weight")
+            inputs.extend(weight_info.get("input_sources") or [])
+            add(
+                {
+                    "role": "age",
+                    "source_type": "profile_age",
+                    "value_used": self.age(),
+                }
+            )
+            add(
+                {
+                    "role": "sex",
+                    "source_type": "profile_configuration",
+                    "configured_value": self.config.get(CONF_SEX),
+                }
+            )
+            return {
+                "value_origin": "friend_2017_reference_equation",
+                "formula": (
+                    "FRIEND 2017: 79.9 − 0.39×age − 13.7×gender "
+                    "− 0.127×weight_lb; gender male=0, female=1"
+                ),
+                "input_sources": inputs,
+            }
+
+        if metric in ("vo2max_percent_predicted", "cardiorespiratory_status"):
+            measured = self.evaluation_provenance("vo2max")
+            predicted = self.evaluation_provenance(
+                "friend_predicted_vo2max"
+            )
+            inputs.extend(measured.get("input_sources") or [])
+            inputs.extend(predicted.get("input_sources") or [])
+            formula = (
+                "percent_predicted = measured_vo2max / FRIEND_predicted_vo2max × 100"
+            )
+            if metric == "cardiorespiratory_status":
+                formula += (
+                    "; display only: <90 below_reference, 90–110 around_reference, "
+                    ">110 above_reference"
+                )
+            return {
+                "value_origin": "fitness_reference_comparison",
+                "formula": formula,
+                "input_sources": inputs,
+            }
+
+        if metric in ("hrv_weekly", "hrv_last_night"):
+            key = "hrv_weekly" if metric == "hrv_weekly" else "hrv_last_night"
+            add(provider_item(key, metric))
+            return {
+                "value_origin": "provider_metric",
+                "formula": "provider value exposed directly; Fitness does not recalculate HRV",
+                "input_sources": inputs,
+            }
+
+        if metric == "hrv_status":
+            add(provider_item("hrv_last_night", "nightly_hrv"))
+            hrv_entity = provider.get("hrv_provider_status_entity")
+            add(
+                {
+                    "role": "personal_hrv_baseline",
+                    "source_type": "provider_entity_attributes",
+                    "entity_id": hrv_entity,
+                    "baseline_low": provider.get("hrv_baseline_low"),
+                    "baseline_high": provider.get("hrv_baseline_high"),
+                }
+                if hrv_entity or provider.get("hrv_baseline_low") is not None
+                else {}
+            )
+            return {
+                "value_origin": "fitness_personal_baseline_comparison",
+                "formula": (
+                    "nightly_hrv < baseline_low → below; "
+                    "nightly_hrv > baseline_high → above; otherwise within baseline"
+                ),
+                "input_sources": inputs,
+            }
+
+        if metric == "threshold_hr":
+            item = provider_item("threshold_hr", "threshold_hr")
+            if not item:
+                item = profile("threshold_hr", "heart_rate", "threshold_hr")
+            add(item)
+            return {
+                "value_origin": "provider_or_profile_threshold",
+                "formula": "threshold HR used directly; Fitness does not estimate a physiological threshold",
+                "input_sources": inputs,
+            }
+
+        if metric == "threshold_pace":
+            item = profile("threshold_pace", "pace", "threshold_pace")
+            if item:
+                add(item)
+                return {
+                    "value_origin": "profile_threshold_pace",
+                    "formula": "configured/entity pace normalized to min/km",
+                    "input_sources": inputs,
+                }
+            item = provider_item("threshold_speed", "threshold_speed")
+            add(item)
+            return {
+                "value_origin": "provider_threshold_speed_conversion",
+                "formula": "threshold_pace_min_km = 1000 / threshold_speed_m_s / 60",
+                "input_sources": inputs,
+            }
+
+        if metric == "threshold_power":
+            item = provider_item("ftp_running", "running_ftp")
+            if not item:
+                item = profile("threshold_power", "power", "threshold_power")
+            add(item)
+            return {
+                "value_origin": "provider_or_profile_threshold_power",
+                "formula": "selected threshold/FTP power used directly; Fitness does not infer FTP",
+                "input_sources": inputs,
+            }
+
+        if metric == "power_to_weight":
+            item = provider_item(
+                "power_to_weight_running",
+                "provider_running_power_to_weight",
+            )
+            if item:
+                add(item)
+                return {
+                    "value_origin": "provider_metric",
+                    "formula": "provider power-to-weight value used directly",
+                    "input_sources": inputs,
+                }
+            power_info = self.evaluation_provenance("threshold_power")
+            weight_info = self.evaluation_provenance("weight")
+            inputs.extend(power_info.get("input_sources") or [])
+            inputs.extend(weight_info.get("input_sources") or [])
+            return {
+                "value_origin": "fitness_calculation",
+                "formula": "threshold_power_to_weight = threshold_power_w / body_mass_kg",
+                "input_sources": inputs,
+            }
+
+        provider_direct = {
+            "fitness_age": "fitness_age",
+            "training_readiness": "training_readiness",
+            "sleep_score": "sleep_score",
+            "provider_training_status": "provider_training_status",
+        }
+        if metric in provider_direct:
+            key = provider_direct[metric]
+            add(provider_item(key, metric))
+            return {
+                "value_origin": "provider_metric",
+                "formula": "provider value exposed directly; provider algorithm may be proprietary",
+                "input_sources": inputs,
+            }
+
+        if metric == "fitness_age_difference":
+            add(provider_item("fitness_age", "fitness_age"))
+            add(
+                {
+                    "role": "chronological_age",
+                    "source_type": "profile_age",
+                    "value_used": self.age(),
+                }
+            )
+            return {
+                "value_origin": "fitness_calculation_from_provider_context",
+                "formula": "fitness_age_difference = provider_fitness_age − chronological_age",
+                "input_sources": inputs,
+            }
+
+        if metric in ("acute_load", "chronic_load", "acute_chronic_ratio"):
+            status_entity = provider.get(
+                "provider_training_status_entity"
+            )
+            add(
+                {
+                    "role": "provider_training_status",
+                    "source_type": "provider_entity_attributes",
+                    "entity_id": status_entity,
+                    "acute_load": provider.get("acute_load"),
+                    "chronic_load": provider.get("chronic_load"),
+                    "provider_ratio": provider.get(
+                        "acute_chronic_ratio"
+                    ),
+                }
+                if status_entity else {}
+            )
+            return {
+                "value_origin": (
+                    "provider_metric_or_fitness_ratio"
+                    if metric == "acute_chronic_ratio"
+                    else "provider_metric"
+                ),
+                "formula": (
+                    "provider ratio used when present; otherwise acute_load / chronic_load"
+                    if metric == "acute_chronic_ratio"
+                    else "provider training-status load value used directly"
+                ),
+                "input_sources": inputs,
+            }
+
+        history_formulas = {
+            "training_load_7d": (
+                "Σ(Banister_TRIMP for completed workouts during previous 7 days)"
+            ),
+            "training_load_28d": (
+                "Σ(Banister_TRIMP for completed workouts during previous 28 days)"
+            ),
+            "training_load_42d": (
+                "Σ(Banister_TRIMP for completed workouts during previous 42 days)"
+            ),
+            "training_days_28d": (
+                "count(unique calendar days with a completed workout during previous 28 days)"
+            ),
+            "hrr_60s_long_term": (
+                "mean(60-second post-exercise HR recovery over comparable workouts in previous 90 days)"
+            ),
+            "aerobic_decoupling_long_term": (
+                "mean(aerobic decoupling percent over comparable workouts in previous 90 days)"
+            ),
+            "aerobic_efficiency_long_term": (
+                "mean(aerobic efficiency over comparable workouts in previous 90 days)"
+            ),
+        }
+        if metric in history_formulas:
+            latest = self.latest_workout()
+            add(
+                {
+                    "role": "completed_workout_history",
+                    "source_type": "fitness_merged_workout_history",
+                    "latest_workout_source": (
+                        latest.source if latest else None
+                    ),
+                    "history_records_available": len(
+                        self.local_workouts()
+                    ),
+                    "home_assistant_long_term_statistics_updated": (
+                        self.long_term_statistics_updated
+                    ),
+                }
+            )
+            return {
+                "value_origin": "fitness_history_aggregation",
+                "formula": history_formulas[metric],
+                "input_sources": inputs,
+            }
+
+        return {
+            "value_origin": "fitness_evaluation",
+            "formula": "See method/calculation attributes for deterministic evaluation logic.",
+            "input_sources": inputs,
+        }
+
+    def localized_evaluation_provenance(self, metric: str) -> dict[str, Any]:
+        """Add localized human-facing context without translating technical data."""
+        result = dict(self.evaluation_provenance(metric))
+        language = self._ai_language()
+        origin = result.get("value_origin", "")
+        if "provider" in origin:
+            kind = "provider"
+            note_key = "provider_note"
+        elif "history" in origin:
+            kind = "history"
+            note_key = "history_note"
+        elif origin in {"configured_input", "provider_or_profile_input", "profile_threshold_pace"}:
+            kind = "direct"
+            note_key = "direct_note"
+        else:
+            kind = "calculated"
+            note_key = None
+        result["origin_description"] = provenance_text(language, kind)
+        result["data_sources_description"] = provenance_text(language, "sources")
+        if note_key:
+            result["provenance_note"] = provenance_text(language, note_key)
+        return result
+
     def evaluation(self) -> dict:
         provider = collect_provider_metrics(self.hass, self.config)
 

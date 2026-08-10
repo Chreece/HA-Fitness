@@ -589,5 +589,44 @@
         "name": "Pièce d’entraînement"
       }
     }
+  },
+  "selector": {
+    "sex": {
+      "options": {
+        "female": "Femme",
+        "male": "Homme",
+        "other": "Autre",
+        "prefer_not_to_say": "Je préfère ne pas répondre"
+      }
+    },
+    "birth_month": {
+      "options": {
+        "1": "Janvier",
+        "2": "Février",
+        "3": "Mars",
+        "4": "Avril",
+        "5": "Mai",
+        "6": "Juin",
+        "7": "Juillet",
+        "8": "Août",
+        "9": "Septembre",
+        "10": "Octobre",
+        "11": "Novembre",
+        "12": "Décembre"
+      }
+    }
+  },
+  "evaluation_provenance": {
+    "calculated": "Calculé par Fitness",
+    "direct": "Valeur directe de la source",
+    "provider": "Valeur du fournisseur",
+    "history": "Calcul à partir de l’historique des entraînements",
+    "profile": "Configuration du profil",
+    "sources": "Sources de données utilisées",
+    "why": "Pourquoi cette valeur est utile",
+    "caveat": "Note scientifique",
+    "provider_note": "Cette valeur provient du fournisseur fitness. Fitness ne reproduit pas et ne prétend pas connaître son algorithme interne.",
+    "history_note": "Cette valeur est calculée à partir de l’historique des entraînements terminés.",
+    "direct_note": "Cette valeur est utilisée directement après normalisation de l’unité ; Fitness ne l’estime pas."
   }
 }

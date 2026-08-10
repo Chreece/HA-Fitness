@@ -589,5 +589,44 @@
         "name": "Workout room"
       }
     }
+  },
+  "selector": {
+    "sex": {
+      "options": {
+        "female": "Female",
+        "male": "Male",
+        "other": "Other",
+        "prefer_not_to_say": "Prefer not to say"
+      }
+    },
+    "birth_month": {
+      "options": {
+        "1": "January",
+        "2": "February",
+        "3": "March",
+        "4": "April",
+        "5": "May",
+        "6": "June",
+        "7": "July",
+        "8": "August",
+        "9": "September",
+        "10": "October",
+        "11": "November",
+        "12": "December"
+      }
+    }
+  },
+  "evaluation_provenance": {
+    "calculated": "Calculated by Fitness",
+    "direct": "Direct source value",
+    "provider": "Provider value",
+    "history": "Workout-history calculation",
+    "profile": "Profile configuration",
+    "sources": "Data sources used",
+    "why": "Why this is useful",
+    "caveat": "Scientific note",
+    "provider_note": "This value comes from the fitness provider. Fitness does not recreate or claim the provider's internal algorithm.",
+    "history_note": "This value is calculated from completed workout history.",
+    "direct_note": "This value is used directly after unit normalization; Fitness does not estimate it."
   }
 }

@@ -39,7 +39,7 @@ calculations, history and recovery collection in the background.
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![HACS](https://img.shields.io/badge/HACS-Custom%20Repository-41BDF5)](https://www.hacs.xyz/)
-[![Version](https://img.shields.io/badge/version-2026.8.0--beta.20-blue)](https://github.com/Chreece/HA-Fitness/releases)
+[![Version](https://img.shields.io/badge/version-2026.8.0--beta.23-blue)](https://github.com/Chreece/HA-Fitness/releases)
 [![License](https://img.shields.io/badge/status-public%20beta-orange)](#beta-status)
 
 </div>
@@ -950,7 +950,7 @@ YYYY.MM.release
 Prereleases append their stage:
 
 ```text
-2026.8.0-beta.20
+2026.8.0-beta.23
 ```
 
 The stable version for this release line will be:
@@ -1231,3 +1231,42 @@ AI remains available only for optional workout coaching and interpretation.
 Fitness ships the same configuration structure for all 15 supported languages:
 English, Ελληνικά, Deutsch, Français, Español, Italiano, Português, Nederlands,
 Polski, Русский, Українська, Türkçe, 中文, 日本語 and 한국어.
+
+## Beta.21 setup fixes
+
+Sex and birth-month selector options now use Home Assistant selector translations
+in every shipped language instead of hard-coded English labels.
+
+Garmin Connect VO₂max units written as `mL/(kg·min)` are normalized correctly.
+Strict autofill can therefore select the Garmin VO₂max entity. Existing profiles
+also receive exact autofill suggestions for currently empty Fitness Input fields,
+while any already configured value remains untouched.
+
+
+## Explainable evaluation provenance
+
+Every non-AI evaluation entity now describes not only the scientific method but
+the **actual provenance of the value currently shown**.
+
+Calculated values expose a `formula` and an `input_sources` structure. Each input
+can identify its role, Home Assistant entity ID, raw value/unit, normalized unit,
+configured value, provider source or completed-workout source as applicable.
+
+Examples:
+
+- heart-rate reserve identifies the actual max-HR source and resting-HR source,
+  then shows `maximum_hr − resting_hr`;
+- threshold pace identifies the configured pace entity or provider threshold
+  speed entity and shows the `m/s → min/km` conversion;
+- VO₂max distinguishes a direct Garmin/configured value from a Uth 2004 estimate;
+- FRIEND predicted VO₂max exposes the age/sex/weight reference equation inputs;
+- Fitness Age, Training Readiness and Sleep Score are clearly marked as provider
+  metrics rather than Fitness calculations;
+- 7/28/42-day load and 90-day recovery/efficiency summaries state their history
+  window and aggregation.
+
+The provenance metadata remains deterministic and AI-free.
+
+
+### Localized provenance
+Human-facing provenance descriptions follow the selected Fitness language in all 15 supported languages. Technical/scientific data such as formulas, entity IDs, method identifiers, numerical values and units remain unchanged for precision and troubleshooting.

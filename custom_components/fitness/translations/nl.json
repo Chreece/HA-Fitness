@@ -589,5 +589,44 @@
         "name": "Trainingsruimte"
       }
     }
+  },
+  "selector": {
+    "sex": {
+      "options": {
+        "female": "Vrouw",
+        "male": "Man",
+        "other": "Anders",
+        "prefer_not_to_say": "Zeg ik liever niet"
+      }
+    },
+    "birth_month": {
+      "options": {
+        "1": "Januari",
+        "2": "Februari",
+        "3": "Maart",
+        "4": "April",
+        "5": "Mei",
+        "6": "Juni",
+        "7": "Juli",
+        "8": "Augustus",
+        "9": "September",
+        "10": "Oktober",
+        "11": "November",
+        "12": "December"
+      }
+    }
+  },
+  "evaluation_provenance": {
+    "calculated": "Berekend door Fitness",
+    "direct": "Directe bronwaarde",
+    "provider": "Waarde van provider",
+    "history": "Berekening uit trainingsgeschiedenis",
+    "profile": "Profielconfiguratie",
+    "sources": "Gebruikte gegevensbronnen",
+    "why": "Waarom dit nuttig is",
+    "caveat": "Wetenschappelijke opmerking",
+    "provider_note": "Deze waarde komt van de fitnessprovider. Fitness reconstrueert de interne algoritmen van de provider niet en claimt deze niet te kennen.",
+    "history_note": "Deze waarde wordt berekend uit de geschiedenis van voltooide trainingen.",
+    "direct_note": "Deze waarde wordt na eenheidsnormalisatie direct gebruikt; Fitness schat deze niet."
   }
 }
