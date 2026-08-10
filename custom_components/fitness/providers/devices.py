@@ -154,6 +154,14 @@ def _score(hass: HomeAssistant, entry: er.RegistryEntry, metric: str) -> int:
     return score
 
 
+def source_is_usable(
+    hass: HomeAssistant,
+    source: MetricSource,
+) -> bool:
+    """Return whether a live metric source currently has a numeric value."""
+    return _available(hass, source.entity_id)
+
+
 def discover_candidates(hass: HomeAssistant, config: dict) -> dict[str, list[MetricSource]]:
     device_ids = set(source_device_ids(hass, config))
     registry = er.async_get(hass)

@@ -40,7 +40,12 @@ from .const import (
     DOMAIN,
     SUPPORTED_LANGUAGES,
 )
-from .providers.entities import validate_number_or_entity
+from .providers.entities import convert_to_canonical, validate_number_or_entity
+from .providers.autofill import (
+    exact_antplus_live_device_ids,
+    exact_profile_defaults,
+    exact_workout_device_ids,
+)
 
 
 def _text():
@@ -69,6 +74,70 @@ def _language_selector():
                 {"value": code, "label": label}
                 for code, label in SUPPORTED_LANGUAGES.items()
             ],
+            mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )
+
+
+
+_PROFILE_ENTITY_QUANTITY = {
+    CONF_WEIGHT: "weight",
+    CONF_RESTING_HR: "heart_rate",
+    CONF_HEIGHT: "height",
+    CONF_MAX_HR: "heart_rate",
+    CONF_VO2MAX: "vo2max",
+    CONF_THRESHOLD_HR: "heart_rate",
+    CONF_THRESHOLD_PACE: "pace",
+    CONF_THRESHOLD_POWER: "power",
+}
+
+
+def _compatible_profile_entities(hass, field: str) -> list[dict[str, str]]:
+    """Return currently compatible sensor entities for one profile field."""
+    quantity = _PROFILE_ENTITY_QUANTITY[field]
+    result = []
+
+    for state in sorted(
+        hass.states.async_all("sensor"),
+        key=lambda item: item.entity_id,
+    ):
+        if state.state in ("unknown", "unavailable", ""):
+            continue
+        try:
+            value = float(state.state)
+        except (TypeError, ValueError):
+            continue
+
+        unit = state.attributes.get("unit_of_measurement")
+        converted, canonical = convert_to_canonical(
+            value,
+            unit,
+            quantity,
+        )
+        if converted is None:
+            continue
+
+        friendly = state.attributes.get("friendly_name") or state.entity_id
+        label = f"{friendly} — {state.entity_id}"
+        if unit:
+            label += f" [{unit}]"
+
+        result.append(
+            {
+                "value": state.entity_id,
+                "label": label,
+            }
+        )
+
+    return result
+
+
+def _number_or_entity_selector(hass, field: str):
+    """Dropdown compatible entities while still permitting a manual number/ID."""
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=_compatible_profile_entities(hass, field),
+            custom_value=True,
             mode=selector.SelectSelectorMode.DROPDOWN,
         )
     )
@@ -153,6 +222,12 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def __init__(self):
         self._data = {}
+        self._autofill_defaults: dict[str, str] | None = None
+
+    def _profile_autofill(self) -> dict[str, str]:
+        if self._autofill_defaults is None:
+            self._autofill_defaults = exact_profile_defaults(self.hass)
+        return self._autofill_defaults
 
     async def async_step_user(self, user_input=None):
         errors = {}
@@ -230,8 +305,8 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="required",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_WEIGHT): _text(),
-                    vol.Required(CONF_RESTING_HR): _text(),
+                    vol.Required(CONF_WEIGHT, default=self._profile_autofill().get(CONF_WEIGHT, "")): _number_or_entity_selector(self.hass, CONF_WEIGHT),
+                    vol.Required(CONF_RESTING_HR, default=self._profile_autofill().get(CONF_RESTING_HR, "")): _number_or_entity_selector(self.hass, CONF_RESTING_HR),
                 }
             ),
             errors=errors,
@@ -261,12 +336,12 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="optional",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_HEIGHT): _text(),
-                    vol.Optional(CONF_MAX_HR): _text(),
-                    vol.Optional(CONF_VO2MAX): _text(),
-                    vol.Optional(CONF_THRESHOLD_HR): _text(),
-                    vol.Optional(CONF_THRESHOLD_PACE): _text(),
-                    vol.Optional(CONF_THRESHOLD_POWER): _text(),
+                    vol.Optional(CONF_HEIGHT): _number_or_entity_selector(self.hass, CONF_HEIGHT),
+                    vol.Optional(CONF_MAX_HR): _number_or_entity_selector(self.hass, CONF_MAX_HR),
+                    vol.Optional(CONF_VO2MAX, default=self._profile_autofill().get(CONF_VO2MAX, "")): _number_or_entity_selector(self.hass, CONF_VO2MAX),
+                    vol.Optional(CONF_THRESHOLD_HR, default=self._profile_autofill().get(CONF_THRESHOLD_HR, "")): _number_or_entity_selector(self.hass, CONF_THRESHOLD_HR),
+                    vol.Optional(CONF_THRESHOLD_PACE, default=self._profile_autofill().get(CONF_THRESHOLD_PACE, "")): _number_or_entity_selector(self.hass, CONF_THRESHOLD_PACE),
+                    vol.Optional(CONF_THRESHOLD_POWER, default=self._profile_autofill().get(CONF_THRESHOLD_POWER, "")): _number_or_entity_selector(self.hass, CONF_THRESHOLD_POWER),
                 }
             ),
             errors=errors,
@@ -282,7 +357,7 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="live_devices",
             data_schema=vol.Schema(
-                {vol.Optional(CONF_LIVE_DEVICE_IDS, default=[]): _device_multi()}
+                {vol.Optional(CONF_LIVE_DEVICE_IDS, default=exact_antplus_live_device_ids(self.hass)): _device_multi()}
             ),
         )
 
@@ -296,7 +371,7 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="workout_devices",
             data_schema=vol.Schema(
-                {vol.Optional(CONF_WORKOUT_DEVICE_IDS, default=[]): _device_multi()}
+                {vol.Optional(CONF_WORKOUT_DEVICE_IDS, default=exact_workout_device_ids(self.hass)): _device_multi()}
             ),
         )
 
@@ -598,35 +673,35 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(
                     CONF_WEIGHT,
                     default=current_text(CONF_WEIGHT),
-                ): _text(),
+                ): _number_or_entity_selector(self.hass, CONF_WEIGHT),
                 vol.Required(
                     CONF_RESTING_HR,
                     default=current_text(CONF_RESTING_HR),
-                ): _text(),
+                ): _number_or_entity_selector(self.hass, CONF_RESTING_HR),
                 vol.Optional(
                     CONF_HEIGHT,
                     default=current_text(CONF_HEIGHT),
-                ): _text(),
+                ): _number_or_entity_selector(self.hass, CONF_HEIGHT),
                 vol.Optional(
                     CONF_MAX_HR,
                     default=current_text(CONF_MAX_HR),
-                ): _text(),
+                ): _number_or_entity_selector(self.hass, CONF_MAX_HR),
                 vol.Optional(
                     CONF_VO2MAX,
                     default=current_text(CONF_VO2MAX),
-                ): _text(),
+                ): _number_or_entity_selector(self.hass, CONF_VO2MAX),
                 vol.Optional(
                     CONF_THRESHOLD_HR,
                     default=current_text(CONF_THRESHOLD_HR),
-                ): _text(),
+                ): _number_or_entity_selector(self.hass, CONF_THRESHOLD_HR),
                 vol.Optional(
                     CONF_THRESHOLD_PACE,
                     default=current_text(CONF_THRESHOLD_PACE),
-                ): _text(),
+                ): _number_or_entity_selector(self.hass, CONF_THRESHOLD_PACE),
                 vol.Optional(
                     CONF_THRESHOLD_POWER,
                     default=current_text(CONF_THRESHOLD_POWER),
-                ): _text(),
+                ): _number_or_entity_selector(self.hass, CONF_THRESHOLD_POWER),
             }
         )
 

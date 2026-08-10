@@ -12,6 +12,14 @@
           "birth_month": "출생 월",
           "birth_year": "출생 연도",
           "sex": "성별"
+        },
+        "data_description": {
+          "profile_name": "이 사람의 별도 Fitness 프로필과 엔티티를 만들 때 사용하는 이름입니다.",
+          "language": "알림, 코칭, 설명용 센서 속성의 언어입니다. 지원되는 경우 Home Assistant UI 언어가 미리 선택됩니다.",
+          "birth_day": "생년월일의 일. 월/년과 함께 나이 의존 방법에서 나이를 계산하는 데 사용합니다.",
+          "birth_month": "출생 월. 전체 생년월일과 함께 나이 관련 기준 계산에 사용합니다.",
+          "birth_year": "출생 연도. 나이 의존 피트니스 기준 방법에서 나이를 계산하는 데 사용합니다.",
+          "sex": "선택적 생물학적 성별. 성별별 계수를 명시적으로 요구하는 과학 방법에서만 사용합니다."
         }
       },
       "required": {
@@ -20,6 +28,10 @@
         "data": {
           "weight": "체중(kg 또는 엔티티)",
           "resting_hr": "안정시 심박수(bpm 또는 엔티티)"
+        },
+        "data_description": {
+          "weight": "체중. W/kg 및 체중 정규화 지표에 사용합니다. kg를 입력하거나 호환 엔티티를 선택하며 단위는 자동 변환됩니다.",
+          "resting_hr": "안정시 심박수(bpm). %HRR, 강도 분류, Banister TRIMP에 사용합니다. 운동 중 최저값이 아닌 실제 안정시 HR을 사용하세요."
         }
       },
       "optional": {
@@ -32,6 +44,14 @@
           "threshold_hr": "역치 심박수(bpm 또는 엔티티)",
           "threshold_pace": "역치 페이스(min/km 또는 엔티티)",
           "threshold_power": "역치 파워(W 또는 엔티티)"
+        },
+        "data_description": {
+          "height": "신장. 선택적 프로필 정보입니다. 수동 값은 cm이고 엔티티 단위는 자동 변환됩니다.",
+          "max_hr": "생리학적/설정 최대 심박수(bpm). %HRmax, %HRR, TRIMP에 사용하며 한 번의 운동 최대값으로 추정하지 않습니다.",
+          "vo2max": "VO₂max(mL/kg/min). 심폐 능력 비교와 장기 평가에 사용합니다.",
+          "threshold_hr": "임계 심박수(bpm). 현재/완료 운동 강도를 설정 임계값과 비교하는 데 사용합니다.",
+          "threshold_pace": "러닝 임계 페이스(min/km). m/s 또는 km/h 속도 엔티티는 자동 변환됩니다.",
+          "threshold_power": "임계 파워(W). 임계 상대 파워와 W/kg에 사용하며 여러 모호한 FTP 소스는 자동 선택하지 않습니다."
         }
       },
       "live_devices": {
@@ -39,6 +59,9 @@
         "description": "Select devices Fitness may capture during a live workout. Supported metrics are discovered automatically. Leave empty to use ANT+ automatically.",
         "data": {
           "live_device_ids": "Devices providing live workout data"
+        },
+        "data_description": {
+          "live_device_ids": "실시간 장치. 지원 HA-ANT-Plus 센서를 미리 선택하며 HR, 속도, 케이던스, 파워, 거리는 지표별 failover로 다른 장치에서 올 수 있습니다."
         }
       },
       "workout_devices": {
@@ -46,6 +69,9 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data"
+        },
+        "data_description": {
+          "workout_device_ids": "기록 장치. 명확히 지원되는 Garmin, Strava, Polar, Hevy, Peloton, Oura 계약만 미리 선택합니다."
         }
       },
       "ai": {
@@ -54,6 +80,10 @@
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
           "ai_entity": "AI Task / LLM entity"
+        },
+        "data_description": {
+          "ai_enabled": "결정론적 계산의 AI 해석을 활성화합니다. AI는 과학적 센서 공식이나 메타데이터를 정의하거나 변경하지 않습니다.",
+          "ai_entity": "코칭/평가용 AI Task 또는 대화 에이전트입니다. AI와 TTS는 직렬화되어 겹치지 않습니다."
         }
       },
       "feedback": {
@@ -67,6 +97,15 @@
           "feedback_area_ids": "Rooms for intensity light feedback",
           "periodic_live_announcements": "주기적 실시간 운동 안내",
           "periodic_live_interval_minutes": "실시간 안내 간격"
+        },
+        "data_description": {
+          "feedback_light_ids": "명시적으로 선택한 컬러 조명입니다. 임시 색상은 직렬 처리되고 이전 상태를 복원합니다.",
+          "notify_entity_ids": "운동/평가 메시지의 알림 대상입니다.",
+          "tts_entity_id": "음성 안내용 TTS 제공자입니다.",
+          "tts_media_player_ids": "TTS용 미디어 플레이어입니다. 명시적 대상은 선택한 운동 공간 규칙을 따릅니다.",
+          "feedback_area_ids": "상황별 조명과 미디어 플레이어를 찾는 운동 공간입니다.",
+          "periodic_live_announcements": "설정 간격마다 진행 중 운동의 음성 평가를 활성화합니다.",
+          "periodic_live_interval_minutes": "평가 사이의 분 단위 간격입니다. 각 평가 전에 최신 운동 통계를 갱신합니다."
         }
       }
     },
@@ -100,6 +139,13 @@
           "birth_month": "출생 월",
           "birth_year": "출생 연도",
           "sex": "성별"
+        },
+        "data_description": {
+          "language": "알림, 코칭, 설명용 센서 속성의 언어입니다. 지원되는 경우 Home Assistant UI 언어가 미리 선택됩니다.",
+          "birth_day": "생년월일의 일. 월/년과 함께 나이 의존 방법에서 나이를 계산하는 데 사용합니다.",
+          "birth_month": "출생 월. 전체 생년월일과 함께 나이 관련 기준 계산에 사용합니다.",
+          "birth_year": "출생 연도. 나이 의존 피트니스 기준 방법에서 나이를 계산하는 데 사용합니다.",
+          "sex": "선택적 생물학적 성별. 성별별 계수를 명시적으로 요구하는 과학 방법에서만 사용합니다."
         }
       },
       "fitness_inputs": {
@@ -114,6 +160,16 @@
           "threshold_hr": "역치 심박수(bpm 또는 엔티티)",
           "threshold_pace": "역치 페이스(min/km 또는 엔티티)",
           "threshold_power": "역치 파워(W 또는 엔티티)"
+        },
+        "data_description": {
+          "weight": "체중. W/kg 및 체중 정규화 지표에 사용합니다. kg를 입력하거나 호환 엔티티를 선택하며 단위는 자동 변환됩니다.",
+          "resting_hr": "안정시 심박수(bpm). %HRR, 강도 분류, Banister TRIMP에 사용합니다. 운동 중 최저값이 아닌 실제 안정시 HR을 사용하세요.",
+          "height": "신장. 선택적 프로필 정보입니다. 수동 값은 cm이고 엔티티 단위는 자동 변환됩니다.",
+          "max_hr": "생리학적/설정 최대 심박수(bpm). %HRmax, %HRR, TRIMP에 사용하며 한 번의 운동 최대값으로 추정하지 않습니다.",
+          "vo2max": "VO₂max(mL/kg/min). 심폐 능력 비교와 장기 평가에 사용합니다.",
+          "threshold_hr": "임계 심박수(bpm). 현재/완료 운동 강도를 설정 임계값과 비교하는 데 사용합니다.",
+          "threshold_pace": "러닝 임계 페이스(min/km). m/s 또는 km/h 속도 엔티티는 자동 변환됩니다.",
+          "threshold_power": "임계 파워(W). 임계 상대 파워와 W/kg에 사용하며 여러 모호한 FTP 소스는 자동 선택하지 않습니다."
         }
       },
       "live_devices": {
@@ -121,6 +177,9 @@
         "description": "Select live source devices. Leave empty to use ANT+ automatically.",
         "data": {
           "live_device_ids": "Devices providing live workout data"
+        },
+        "data_description": {
+          "live_device_ids": "실시간 장치. 지원 HA-ANT-Plus 센서를 미리 선택하며 HR, 속도, 케이던스, 파워, 거리는 지표별 failover로 다른 장치에서 올 수 있습니다."
         }
       },
       "workout_devices": {
@@ -128,6 +187,9 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data"
+        },
+        "data_description": {
+          "workout_device_ids": "기록 장치. 명확히 지원되는 Garmin, Strava, Polar, Hevy, Peloton, Oura 계약만 미리 선택합니다."
         }
       },
       "ai": {
@@ -136,6 +198,10 @@
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
           "ai_entity": "AI Task / LLM entity"
+        },
+        "data_description": {
+          "ai_enabled": "결정론적 계산의 AI 해석을 활성화합니다. AI는 과학적 센서 공식이나 메타데이터를 정의하거나 변경하지 않습니다.",
+          "ai_entity": "코칭/평가용 AI Task 또는 대화 에이전트입니다. AI와 TTS는 직렬화되어 겹치지 않습니다."
         }
       },
       "feedback": {
@@ -149,6 +215,15 @@
           "feedback_area_ids": "Rooms for intensity light feedback",
           "periodic_live_announcements": "주기적 실시간 운동 안내",
           "periodic_live_interval_minutes": "실시간 안내 간격"
+        },
+        "data_description": {
+          "feedback_light_ids": "명시적으로 선택한 컬러 조명입니다. 임시 색상은 직렬 처리되고 이전 상태를 복원합니다.",
+          "notify_entity_ids": "운동/평가 메시지의 알림 대상입니다.",
+          "tts_entity_id": "음성 안내용 TTS 제공자입니다.",
+          "tts_media_player_ids": "TTS용 미디어 플레이어입니다. 명시적 대상은 선택한 운동 공간 규칙을 따릅니다.",
+          "feedback_area_ids": "상황별 조명과 미디어 플레이어를 찾는 운동 공간입니다.",
+          "periodic_live_announcements": "설정 간격마다 진행 중 운동의 음성 평가를 활성화합니다.",
+          "periodic_live_interval_minutes": "평가 사이의 분 단위 간격입니다. 각 평가 전에 최신 운동 통계를 갱신합니다."
         }
       }
     }

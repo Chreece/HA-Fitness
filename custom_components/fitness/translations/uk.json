@@ -12,6 +12,14 @@
           "birth_month": "Місяць народження",
           "birth_year": "Рік народження",
           "sex": "Стать"
+        },
+        "data_description": {
+          "profile_name": "Ім'я для створення окремого профілю Fitness та сутностей цієї людини.",
+          "language": "Мова оголошень, коучингу та пояснювальних атрибутів. Якщо підтримується, попередньо вибирається мова інтерфейсу Home Assistant.",
+          "birth_day": "День народження; разом із місяцем і роком використовується для розрахунку віку в залежних від віку методах.",
+          "birth_month": "Місяць народження, що використовується з повною датою для вікових довідкових розрахунків.",
+          "birth_year": "Рік народження для розрахунку віку у фітнес-методах.",
+          "sex": "Необов'язкова біологічна стать, лише для наукових методів із чітко залежними від статі коефіцієнтами."
         }
       },
       "required": {
@@ -20,6 +28,10 @@
         "data": {
           "weight": "Вага (кг або сутність)",
           "resting_hr": "Пульс у спокої (bpm або сутність)"
+        },
+        "data_description": {
+          "weight": "Маса тіла. Використовується для W/kg і нормованих за масою показників. Введіть кг або виберіть сумісну сутність; одиниці перетворюються.",
+          "resting_hr": "Пульс у спокої в bpm. Використовується для %HRR, інтенсивності та Banister TRIMP. Використовуйте справжній показник спокою."
         }
       },
       "optional": {
@@ -32,6 +44,14 @@
           "threshold_hr": "Пороговий пульс (bpm або сутність)",
           "threshold_pace": "Пороговий темп (min/km або сутність)",
           "threshold_power": "Порогова потужність (W або сутність)"
+        },
+        "data_description": {
+          "height": "Зріст. Необов'язковий контекст профілю. Ручне значення в см; одиниці сутностей перетворюються.",
+          "max_hr": "Фізіологічний/налаштований максимальний пульс у bpm. Використовується для %HRmax, %HRR і TRIMP; не визначається з одного максимуму тренування.",
+          "vo2max": "VO₂max у mL/kg/min для кардіореспіраторних порівнянь і довгострокової оцінки.",
+          "threshold_hr": "Пороговий пульс у bpm для порівняння з налаштованим порогом.",
+          "threshold_pace": "Пороговий біговий темп у min/km. Швидкість у m/s або km/h перетворюється автоматично.",
+          "threshold_power": "Порогова потужність у ватах. Для відносної потужності та W/kg; кілька неоднозначних FTP не вибираються автоматично."
         }
       },
       "live_devices": {
@@ -39,6 +59,9 @@
         "description": "Select devices Fitness may capture during a live workout. Supported metrics are discovered automatically. Leave empty to use ANT+ automatically.",
         "data": {
           "live_device_ids": "Devices providing live workout data"
+        },
+        "data_description": {
+          "live_device_ids": "Live-пристрої. Сумісні HA-ANT-Plus датчики попередньо вибираються; HR, швидкість, каденс, потужність і дистанція можуть надходити з різних пристроїв із failover для кожної метрики."
         }
       },
       "workout_devices": {
@@ -46,6 +69,9 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data"
+        },
+        "data_description": {
+          "workout_device_ids": "Пристрої історії. Попередньо вибираються лише точні підтримувані контракти Garmin, Strava, Polar, Hevy, Peloton та Oura."
         }
       },
       "ai": {
@@ -54,6 +80,10 @@
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
           "ai_entity": "AI Task / LLM entity"
+        },
+        "data_description": {
+          "ai_enabled": "Вмикає AI-інтерпретацію детермінованих розрахунків. AI ніколи не визначає й не змінює наукові формули або метадані сенсорів.",
+          "ai_entity": "AI Task або розмовний агент для коучингу/оцінки. AI і TTS серіалізовані та не перекриваються."
         }
       },
       "feedback": {
@@ -67,6 +97,15 @@
           "feedback_area_ids": "Rooms for intensity light feedback",
           "periodic_live_announcements": "Періодичні голосові дані тренування",
           "periodic_live_interval_minutes": "Інтервал голосових оновлень"
+        },
+        "data_description": {
+          "feedback_light_ids": "Явно вибрані кольорові лампи. Тимчасові кольори серіалізовані, попередній стан відновлюється.",
+          "notify_entity_ids": "Цілі сповіщень для повідомлень тренування та оцінки.",
+          "tts_entity_id": "TTS-провайдер для голосових оголошень.",
+          "tts_media_player_ids": "Media player для TTS; явні цілі дотримуються правил вибраної кімнати тренування.",
+          "feedback_area_ids": "Кімнати тренування для контекстних ламп і media player.",
+          "periodic_live_announcements": "Вмикає голосову оцінку поточного тренування через заданий інтервал.",
+          "periodic_live_interval_minutes": "Хвилини між оцінками; перед кожною оновлюється найновіша статистика тренування."
         }
       }
     },
@@ -100,6 +139,13 @@
           "birth_month": "Місяць народження",
           "birth_year": "Рік народження",
           "sex": "Стать"
+        },
+        "data_description": {
+          "language": "Мова оголошень, коучингу та пояснювальних атрибутів. Якщо підтримується, попередньо вибирається мова інтерфейсу Home Assistant.",
+          "birth_day": "День народження; разом із місяцем і роком використовується для розрахунку віку в залежних від віку методах.",
+          "birth_month": "Місяць народження, що використовується з повною датою для вікових довідкових розрахунків.",
+          "birth_year": "Рік народження для розрахунку віку у фітнес-методах.",
+          "sex": "Необов'язкова біологічна стать, лише для наукових методів із чітко залежними від статі коефіцієнтами."
         }
       },
       "fitness_inputs": {
@@ -114,6 +160,16 @@
           "threshold_hr": "Пороговий пульс (bpm або сутність)",
           "threshold_pace": "Пороговий темп (min/km або сутність)",
           "threshold_power": "Порогова потужність (W або сутність)"
+        },
+        "data_description": {
+          "weight": "Маса тіла. Використовується для W/kg і нормованих за масою показників. Введіть кг або виберіть сумісну сутність; одиниці перетворюються.",
+          "resting_hr": "Пульс у спокої в bpm. Використовується для %HRR, інтенсивності та Banister TRIMP. Використовуйте справжній показник спокою.",
+          "height": "Зріст. Необов'язковий контекст профілю. Ручне значення в см; одиниці сутностей перетворюються.",
+          "max_hr": "Фізіологічний/налаштований максимальний пульс у bpm. Використовується для %HRmax, %HRR і TRIMP; не визначається з одного максимуму тренування.",
+          "vo2max": "VO₂max у mL/kg/min для кардіореспіраторних порівнянь і довгострокової оцінки.",
+          "threshold_hr": "Пороговий пульс у bpm для порівняння з налаштованим порогом.",
+          "threshold_pace": "Пороговий біговий темп у min/km. Швидкість у m/s або km/h перетворюється автоматично.",
+          "threshold_power": "Порогова потужність у ватах. Для відносної потужності та W/kg; кілька неоднозначних FTP не вибираються автоматично."
         }
       },
       "live_devices": {
@@ -121,6 +177,9 @@
         "description": "Select live source devices. Leave empty to use ANT+ automatically.",
         "data": {
           "live_device_ids": "Devices providing live workout data"
+        },
+        "data_description": {
+          "live_device_ids": "Live-пристрої. Сумісні HA-ANT-Plus датчики попередньо вибираються; HR, швидкість, каденс, потужність і дистанція можуть надходити з різних пристроїв із failover для кожної метрики."
         }
       },
       "workout_devices": {
@@ -128,6 +187,9 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data"
+        },
+        "data_description": {
+          "workout_device_ids": "Пристрої історії. Попередньо вибираються лише точні підтримувані контракти Garmin, Strava, Polar, Hevy, Peloton та Oura."
         }
       },
       "ai": {
@@ -136,6 +198,10 @@
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
           "ai_entity": "AI Task / LLM entity"
+        },
+        "data_description": {
+          "ai_enabled": "Вмикає AI-інтерпретацію детермінованих розрахунків. AI ніколи не визначає й не змінює наукові формули або метадані сенсорів.",
+          "ai_entity": "AI Task або розмовний агент для коучингу/оцінки. AI і TTS серіалізовані та не перекриваються."
         }
       },
       "feedback": {
@@ -149,6 +215,15 @@
           "feedback_area_ids": "Rooms for intensity light feedback",
           "periodic_live_announcements": "Періодичні голосові дані тренування",
           "periodic_live_interval_minutes": "Інтервал голосових оновлень"
+        },
+        "data_description": {
+          "feedback_light_ids": "Явно вибрані кольорові лампи. Тимчасові кольори серіалізовані, попередній стан відновлюється.",
+          "notify_entity_ids": "Цілі сповіщень для повідомлень тренування та оцінки.",
+          "tts_entity_id": "TTS-провайдер для голосових оголошень.",
+          "tts_media_player_ids": "Media player для TTS; явні цілі дотримуються правил вибраної кімнати тренування.",
+          "feedback_area_ids": "Кімнати тренування для контекстних ламп і media player.",
+          "periodic_live_announcements": "Вмикає голосову оцінку поточного тренування через заданий інтервал.",
+          "periodic_live_interval_minutes": "Хвилини між оцінками; перед кожною оновлюється найновіша статистика тренування."
         }
       }
     }

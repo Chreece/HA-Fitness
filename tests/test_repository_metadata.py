@@ -88,7 +88,29 @@ def test_intensity_light_feedback_is_not_heartbeat_blinking():
         ROOT / "custom_components/fitness/manager.py"
     ).read_text(encoding="utf-8")
     start = manager.index("async def _async_live_intensity_feedback")
-    end = manager.index("async def _async_intensity_message", start)
+    end = manager.index("def _available_live_source_names", start)
     block = manager[start:end]
     assert "await asyncio.sleep(3.0)" in block
     assert "for pulse_number" not in block
+
+
+
+def test_live_hot_path_does_not_scan_completed_workout_providers():
+    manager = (
+        ROOT / "custom_components/fitness/manager.py"
+    ).read_text(encoding="utf-8")
+    start = manager.index("def _async_live_source_change")
+    end = manager.index("def _async_workout_source_change", start)
+    live = manager[start:end]
+    assert "_schedule_external_workout_recheck" not in live
+    assert "latest_workout" not in live
+
+
+def test_zone_feedback_has_no_tts():
+    manager = (
+        ROOT / "custom_components/fitness/manager.py"
+    ).read_text(encoding="utf-8")
+    start = manager.index("async def _async_live_intensity_feedback")
+    end = manager.index("def _available_live_source_names", start)
+    block = manager[start:end]
+    assert "_async_speak" not in block

@@ -86,8 +86,10 @@ from .feedback import (
 )
 from .providers.devices import (
     all_live_candidate_entity_ids,
+    discover_candidates,
     discover_sources,
     source_device_ids,
+    source_is_usable,
 )
 from .providers.entities import (
     is_entity_reference,
@@ -121,6 +123,25 @@ class FitnessManager:
         self.session_started: datetime | None = None
         self.samples: list[dict[str, Any]] = []
         self.capture_control = "idle"
+
+        # Live sensors may update many times per second. Keep the hot path small:
+        # cache discovered source mappings, record at most one workout sample per
+        # second, and publish live entity updates at most twice per second.
+        self._live_sources_cache: dict = {}
+        self._live_candidates_cache: dict = {}
+        self._live_source_initial_entity: dict[str, str] = {}
+        self._live_source_switches: list[dict[str, Any]] = []
+        self._last_sample_monotonic: float | None = None
+        self._last_live_notify_monotonic: float | None = None
+
+        # HR intensity basis is calculated once when live timing begins instead
+        # of running the full provider/workout evaluation on every sensor event.
+        self._session_intensity_max_hr: float | None = None
+        self._session_intensity_resting_hr: float | None = None
+
+        # Zone optical feedback requires a stable zone for 10 seconds.
+        self._candidate_live_intensity: str | None = None
+        self._candidate_live_intensity_since: float | None = None
 
         # Pre-workout states of ANT+ Capture switches. Persisted so a Home
         # Assistant restart cannot make Fitness forget which switches it
@@ -170,6 +191,12 @@ class FitnessManager:
         self._feedback_lock = asyncio.Lock()
         self._live_feedback_task: asyncio.Task | None = None
         self._periodic_live_announcement_task: asyncio.Task | None = None
+        self._live_calculation_task: asyncio.Task | None = None
+        self._live_session_statistics_cache: dict[str, Any] = {}
+        self._live_derived_cache: dict[str, Any] = {}
+        self._live_coaching_context_cache: dict[str, Any] = {}
+        self._last_live_calculation_at: str | None = None
+        self._session_profile_context: dict[str, Any] = {}
 
         # Live coaching diagnostics, exposed on the Heart rate intensity sensor.
         self.last_feedback_intensity: str | None = None
@@ -201,6 +228,7 @@ class FitnessManager:
         # heartbeat/intensity pulses. They reuse the same original-state
         # snapshot only while intensity feedback is suspended.
         self._session_status_light_lock = asyncio.Lock()
+        self._light_feedback_serial_lock = asyncio.Lock()
         self._session_status_light_active = False
         self._session_status_light_task: asyncio.Task | None = None
         self._session_waiting_red = False
@@ -267,8 +295,13 @@ class FitnessManager:
             else:
                 self.selected_feedback_area_id = None
 
-        ids = set(all_live_candidate_entity_ids(self.hass, self.config))
-        ids.update(workout_device_entity_ids(self.hass, self.config))
+        live_ids = set(
+            all_live_candidate_entity_ids(self.hass, self.config)
+        )
+        workout_ids = set(
+            workout_device_entity_ids(self.hass, self.config)
+        )
+        profile_ids: set[str] = set()
 
         for key in (
             CONF_WEIGHT,
@@ -278,14 +311,50 @@ class FitnessManager:
         ):
             raw = self.config.get(key)
             if is_entity_reference(raw):
-                ids.add(str(raw).strip())
+                profile_ids.add(str(raw).strip())
 
-        if ids:
+        # Resolve source ownership once. State values remain live; only the
+        # entity-to-metric mapping is cached.
+        self._live_candidates_cache = discover_candidates(
+            self.hass,
+            self.config,
+        )
+        self._live_sources_cache = {
+            metric: items[0]
+            for metric, items in self._live_candidates_cache.items()
+            if items
+        }
+        self._live_source_initial_entity = {
+            metric: source.entity_id
+            for metric, source in self._live_sources_cache.items()
+        }
+
+        if live_ids:
             self.remove_listeners.append(
                 async_track_state_change_event(
                     self.hass,
-                    sorted(ids),
-                    self._async_source_change,
+                    sorted(live_ids),
+                    self._async_live_source_change,
+                )
+            )
+
+        if workout_ids:
+            self.remove_listeners.append(
+                async_track_state_change_event(
+                    self.hass,
+                    sorted(workout_ids),
+                    self._async_workout_source_change,
+                )
+            )
+
+        # Profile-input changes do not need workout-provider discovery.
+        profile_only_ids = profile_ids - live_ids - workout_ids
+        if profile_only_ids:
+            self.remove_listeners.append(
+                async_track_state_change_event(
+                    self.hass,
+                    sorted(profile_only_ids),
+                    self._async_profile_source_change,
                 )
             )
 
@@ -337,6 +406,12 @@ class FitnessManager:
             and not self._periodic_live_announcement_task.done()
         ):
             self._periodic_live_announcement_task.cancel()
+
+        if (
+            self._live_calculation_task
+            and not self._live_calculation_task.done()
+        ):
+            self._live_calculation_task.cancel()
 
         if self._recovery_task and not self._recovery_task.done():
             self._recovery_task.cancel()
@@ -432,12 +507,20 @@ class FitnessManager:
             }
         )
 
-    @callback
-    def _async_source_change(self, event: Event):
-        """React to live samples and genuinely new completed workouts."""
+    def _notify_live_throttled(self) -> None:
+        """Publish live entity changes at most twice per second."""
+        now = asyncio.get_running_loop().time()
+        if (
+            self._last_live_notify_monotonic is not None
+            and now - self._last_live_notify_monotonic < 0.5
+        ):
+            return
+        self._last_live_notify_monotonic = now
+        self._notify()
 
-        # Start button only arms capture. The workout clock begins on the first
-        # subsequent valid live measurement/event.
+    @callback
+    def _async_live_source_change(self, event: Event):
+        """Minimal hot path for high-frequency live workout sensor updates."""
         if self.session_armed and not self.session_active:
             if self._has_valid_live_workout_data():
                 self._begin_session_from_live_data()
@@ -446,23 +529,29 @@ class FitnessManager:
             self._capture_sample()
             self._check_live_intensity_feedback()
 
-        if self.session_active and self.config.get(CONF_PERIODIC_LIVE_ANNOUNCEMENTS):
-            if (
-                self._periodic_live_announcement_task is None
-                or self._periodic_live_announcement_task.done()
-            ):
-                self._periodic_live_announcement_task = (
-                    self.hass.async_create_task(
-                        self._async_periodic_live_announcements()
+            if self.config.get(CONF_PERIODIC_LIVE_ANNOUNCEMENTS):
+                if (
+                    self._periodic_live_announcement_task is None
+                    or self._periodic_live_announcement_task.done()
+                ):
+                    self._periodic_live_announcement_task = (
+                        self.hass.async_create_task(
+                            self._async_periodic_live_announcements()
+                        )
                     )
-                )
 
+        self._notify_live_throttled()
+
+    @callback
+    def _async_workout_source_change(self, event: Event):
+        """Handle completed-workout provider updates outside the live hot path."""
         self._notify()
-
-        # Provider workout entities often change several times while one
-        # completed workout is being restored/synchronized. Re-evaluate only
-        # after the provider data has settled.
         self._schedule_external_workout_recheck()
+
+    @callback
+    def _async_profile_source_change(self, event: Event):
+        """Refresh profile-derived entities without scanning workout providers."""
+        self._notify()
 
     @staticmethod
     def _workout_has_real_information(
@@ -603,42 +692,47 @@ class FitnessManager:
         await self._async_handle_new_workout(latest)
 
     def _current_live_intensity(self) -> str | None:
+        """Calculate HRR zone from cached session physiology only."""
         live = self.live_values()
-        evaluation = self.evaluation()
         hrr = percent_hrr(
             live.get(METRIC_HEART_RATE),
-            evaluation.get("max_hr"),
-            evaluation.get("resting_hr"),
+            self._session_intensity_max_hr,
+            self._session_intensity_resting_hr,
         )
         return acsm_hrr_intensity(hrr)
 
     def _check_live_intensity_feedback(self):
-        """Accept intensity transitions no more often than every five seconds."""
+        """Give optical zone feedback only after 10 stable seconds."""
         if self._session_status_light_active:
             return
 
         intensity = self._current_live_intensity()
         if intensity is None:
+            self._candidate_live_intensity = None
+            self._candidate_live_intensity_since = None
+            return
+
+        loop_now = asyncio.get_running_loop().time()
+
+        if intensity != self._candidate_live_intensity:
+            self._candidate_live_intensity = intensity
+            self._candidate_live_intensity_since = loop_now
+            return
+
+        if self._candidate_live_intensity_since is None:
+            self._candidate_live_intensity_since = loop_now
+            return
+
+        if loop_now - self._candidate_live_intensity_since < 10.0:
             return
 
         if intensity == self._last_live_intensity:
             return
 
-        now = datetime.now(timezone.utc)
-
-        # The first valid intensity of a workout is accepted immediately.
-        # Afterwards the previous accepted intensity must be at least 5 seconds
-        # old. A transition ignored here is naturally reconsidered by the next
-        # live sensor update, so a persistent new intensity is not lost.
-        if self._last_live_intensity_accepted_at is not None:
-            age = (
-                now - self._last_live_intensity_accepted_at
-            ).total_seconds()
-            if age < 5.0:
-                return
-
         self._last_live_intensity = intensity
-        self._last_live_intensity_accepted_at = now
+        self._last_live_intensity_accepted_at = datetime.now(
+            timezone.utc
+        )
 
         if self._live_feedback_task and not self._live_feedback_task.done():
             self._live_feedback_task.cancel()
@@ -665,10 +759,7 @@ class FitnessManager:
         preserve_existing_snapshot: bool = False,
     ) -> bool:
         """Suspend intensity feedback and establish the lifecycle snapshot."""
-        # Invalidate/cancel any active intensity cue before lifecycle lights.
         self._feedback_generation += 1
-        if self._live_feedback_task and not self._live_feedback_task.done():
-            self._live_feedback_task.cancel()
 
         async with self._feedback_lock:
             if (
@@ -688,104 +779,63 @@ class FitnessManager:
 
     async def _async_session_status_waiting_red(self) -> None:
         """Hold workout lights red until the first valid live data arrives."""
-        async with self._session_status_light_lock:
-            light_ids = self._feedback_light_ids()
-            if not light_ids:
-                self._session_status_light_active = False
-                self._session_waiting_red = False
-                return
-
-            snapshot_ok = await self._async_prepare_session_status_lights(
-                light_ids,
-            )
-            if not snapshot_ok:
-                self._session_status_light_active = False
-                self._session_waiting_red = False
-                return
-
-            async with self._feedback_lock:
-                await self._async_set_feedback_color(
-                    light_ids,
-                    self._session_status_intensity("red"),
-                )
-
-            # Keep the original snapshot alive. Green-on-live will restore it.
-            self._session_waiting_red = True
-            self.last_feedback_light_result = "waiting_for_live_data_red"
-            self._notify()
+        async with self._light_feedback_serial_lock:
+            async with self._session_status_light_lock:
+                light_ids = self._feedback_light_ids()
+                if not light_ids:
+                    self._session_status_light_active = False
+                    self._session_waiting_red = False
+                    return
+                snapshot_ok = await self._async_prepare_session_status_lights(light_ids)
+                if not snapshot_ok:
+                    self._session_status_light_active = False
+                    self._session_waiting_red = False
+                    return
+                async with self._feedback_lock:
+                    await self._async_set_feedback_color(light_ids, self._session_status_intensity("red"))
+                # Keep the original snapshot alive. Green-on-live will restore it.
+                self._session_waiting_red = True
+                self.last_feedback_light_result = "waiting_for_live_data_red"
+                self._notify()
 
     async def _async_session_status_cue(
-        self,
-        status: str,
-        *,
-        seconds: float = 3.0,
-        finish_waiting: bool = False,
-        resume_intensity: bool = False,
+        self, status: str, *, seconds: float = 3.0,
+        finish_waiting: bool = False, resume_intensity: bool = False,
     ) -> None:
-        """Show one lifecycle color temporarily, then restore original state."""
-        async with self._session_status_light_lock:
-            light_ids = self._feedback_light_ids()
-            if not light_ids:
-                self._session_status_light_active = False
-                self._session_waiting_red = False
-                if resume_intensity and self.session_active:
-                    self._check_live_intensity_feedback()
-                return
-
-            preserve = bool(
-                finish_waiting
-                and self._session_waiting_red
-                and self._feedback_scene_active
-            )
-            snapshot_ok = await self._async_prepare_session_status_lights(
-                light_ids,
-                preserve_existing_snapshot=preserve,
-            )
-            if not snapshot_ok:
-                self._session_status_light_active = False
-                self._session_waiting_red = False
-                if resume_intensity and self.session_active:
-                    self._check_live_intensity_feedback()
-                return
-
-            mapped = self._session_status_intensity(status)
-            if mapped is None:
-                self._session_status_light_active = False
-                return
-
-            try:
-                async with self._feedback_lock:
-                    await self._async_set_feedback_color(
-                        light_ids,
-                        mapped,
-                    )
-
-                self.last_feedback_light_result = (
-                    f"session_status_{status}"
-                )
-                self._notify()
-                await asyncio.sleep(max(0.0, float(seconds)))
-
-            except asyncio.CancelledError:
-                # Restore below before exiting.
-                pass
-
-            finally:
-                async with self._feedback_lock:
-                    await self._async_restore_feedback_lights(
-                        clear_snapshot=True,
-                    )
-
-                self._session_waiting_red = False
-                self._session_status_light_active = False
-                self._notify()
-
-                if resume_intensity and self.session_active:
-                    # Re-evaluate the current zone after lifecycle feedback
-                    # releases control of the lights.
-                    self._last_live_intensity = None
-                    self._last_live_intensity_accepted_at = None
-                    self._check_live_intensity_feedback()
+        """Show one serialized lifecycle color and always restore lights."""
+        async with self._light_feedback_serial_lock:
+            async with self._session_status_light_lock:
+                light_ids = self._feedback_light_ids()
+                if not light_ids:
+                    self._session_status_light_active = False
+                    self._session_waiting_red = False
+                    return
+                preserve = bool(finish_waiting and self._session_waiting_red and self._feedback_scene_active)
+                snapshot_ok = await self._async_prepare_session_status_lights(light_ids, preserve_existing_snapshot=preserve)
+                if not snapshot_ok:
+                    self._session_status_light_active = False
+                    self._session_waiting_red = False
+                    return
+                mapped = self._session_status_intensity(status)
+                if mapped is None:
+                    self._session_status_light_active = False
+                    return
+                try:
+                    async with self._feedback_lock:
+                        await self._async_set_feedback_color(light_ids, mapped)
+                    self.last_feedback_light_result = f"session_status_{status}"
+                    self._notify()
+                    await asyncio.sleep(max(0.0, float(seconds)))
+                finally:
+                    async with self._feedback_lock:
+                        await self._async_restore_feedback_lights(clear_snapshot=True)
+                    self._session_waiting_red = False
+                    self._session_status_light_active = False
+                    self._notify()
+                    if resume_intensity and self.session_active:
+                        self._last_live_intensity = None
+                        self._last_live_intensity_accepted_at = None
+                        self._check_live_intensity_feedback()
 
     def _queue_session_status_waiting_red(self) -> None:
         """Immediately reserve lifecycle lights, then hold red asynchronously."""
@@ -985,7 +1035,23 @@ class FitnessManager:
             "last_light_feedback": self.last_feedback_light_result,
             "last_tts_feedback": self.last_feedback_tts_result,
             "last_feedback_message": self.last_feedback_message,
-            "intensity_transition_min_age_seconds": 5,
+            "intensity_zone_stability_seconds": 10,
+            "live_sample_max_hz": 1,
+            "live_entity_publish_max_hz": 2,
+            "live_derived_calculation_interval_seconds": 30,
+            "last_live_calculation_at": self._last_live_calculation_at,
+            "live_sources": {
+                metric: self.live_source_info(metric)
+                for metric in (
+                    METRIC_HEART_RATE,
+                    METRIC_POWER,
+                    METRIC_CADENCE,
+                    METRIC_SPEED,
+                    METRIC_DISTANCE,
+                    METRIC_ALTITUDE,
+                )
+            },
+            "live_source_switches": list(self._live_source_switches),
             "last_feedback_bpm": self.last_feedback_bpm,
             "last_feedback_pulse_interval_seconds": (
                 self.last_feedback_pulse_interval
@@ -1114,9 +1180,12 @@ class FitnessManager:
                     attrs.get("color_mode"),
                 ),
                 "rgb_color": attrs.get("rgb_color"),
+                "rgbw_color": attrs.get("rgbw_color"),
+                "rgbww_color": attrs.get("rgbww_color"),
                 "hs_color": attrs.get("hs_color"),
                 "xy_color": attrs.get("xy_color"),
                 "color_temp_kelvin": attrs.get("color_temp_kelvin"),
+                "color_temp": attrs.get("color_temp"),
                 "effect": attrs.get("effect"),
             }
 
@@ -1180,11 +1249,22 @@ class FitnessManager:
 
                 # Restore the light using the color representation that was
                 # active before feedback.
-                if color_mode in ("rgb", "rgbw", "rgbww"):
+                if color_mode == "rgb":
                     rgb = saved.get("rgb_color")
                     if rgb is not None:
                         service_data["rgb_color"] = list(rgb)
-
+                elif color_mode == "rgbw":
+                    rgbw = saved.get("rgbw_color")
+                    if rgbw is not None:
+                        service_data["rgbw_color"] = list(rgbw)
+                    elif saved.get("rgb_color") is not None:
+                        service_data["rgb_color"] = list(saved["rgb_color"])
+                elif color_mode == "rgbww":
+                    rgbww = saved.get("rgbww_color")
+                    if rgbww is not None:
+                        service_data["rgbww_color"] = list(rgbww)
+                    elif saved.get("rgb_color") is not None:
+                        service_data["rgb_color"] = list(saved["rgb_color"])
                 elif color_mode == "hs":
                     hs = saved.get("hs_color")
                     if hs is not None:
@@ -1200,8 +1280,11 @@ class FitnessManager:
                     "color_temperature",
                 ):
                     kelvin = saved.get("color_temp_kelvin")
+                    mired = saved.get("color_temp")
                     if kelvin is not None:
                         service_data["color_temp_kelvin"] = kelvin
+                    elif mired is not None:
+                        service_data["color_temp"] = mired
 
                 effect = saved.get("effect")
                 if effect not in (None, "none", "None"):
@@ -1287,112 +1370,36 @@ class FitnessManager:
             self.last_feedback_light_result = "no_usable_lights"
 
     async def _async_live_intensity_feedback(self, intensity: str):
-        """Show intensity colour for three seconds, then restore the lights."""
-        self._feedback_generation += 1
-        generation = self._feedback_generation
-        light_ids = self._feedback_light_ids()
-
-        current_hr = self.live_values().get(METRIC_HEART_RATE)
-        try:
-            bpm = (
-                int(round(float(current_hr)))
-                if current_hr is not None
-                else None
-            )
-        except (TypeError, ValueError):
-            bpm = None
-
-        self.last_feedback_intensity = intensity
-        self.last_feedback_time = datetime.now(timezone.utc).isoformat()
-        self.last_feedback_bpm = bpm
-
-        # Retain the old diagnostic attributes for entity compatibility, but
-        # blinking no longer exists.
-        self.last_feedback_pulse_interval = 3.0
-        self.last_feedback_pulse_count = 1
-
-        snapshot_ok = False
-        if not light_ids:
-            self.last_feedback_light_result = "no_usable_lights"
-
-        async with self._feedback_lock:
-            if light_ids and not self._feedback_scene_active:
-                snapshot_ok = await self._async_snapshot_feedback_lights(
-                    light_ids
-                )
-            else:
-                snapshot_ok = bool(self._feedback_scene_active)
-
-        # Spoken intensity coaching remains independent from the visual cue.
-        message = await self._async_intensity_message(intensity)
-        self.last_feedback_message = message
-
-        if message:
-            await self._async_speak(message)
-        else:
-            self.last_feedback_tts_result = "no_message"
-
-        self._notify()
-
-        try:
-            if light_ids and snapshot_ok:
-                async with self._feedback_lock:
-                    await self._async_set_feedback_color(
-                        light_ids,
-                        intensity,
-                    )
-
-                await asyncio.sleep(3.0)
-
-        except asyncio.CancelledError:
-            return
-
-        if generation != self._feedback_generation:
-            return
-
-        async with self._feedback_lock:
-            await self._async_restore_feedback_lights(
-                clear_snapshot=True,
-            )
-
-        self._notify()
-
-    async def _async_intensity_message(self, intensity: str) -> str:
-        """Use AI when enabled; localized static coaching is always a fallback."""
-        language = self._ai_language()
-        current_hr = self.live_values().get(METRIC_HEART_RATE)
-        bpm = (
-            int(round(current_hr))
-            if current_hr is not None
-            else None
-        )
-
-        if self.config.get(CONF_AI_ENABLED):
-            strings = self._prompt_strings()
-            prompt = (
-                "Write ONE short motivational coaching sentence for a person "
-                f"whose current aerobic exercise intensity is `{intensity}`. "
-                f"The current heart rate is {bpm if bpm is not None else 'unknown'} "
-                "beats per minute. Include the current BPM naturally in the sentence "
-                "when it is available. Do not list other sensor values. Keep it "
-                "supportive but not exaggerated, about 12-25 words. Do not give "
-                "medical advice. Output only the sentence. "
-                f"Write it in {strings['language']}."
-            )
-            result = await self._call_ai(
-                prompt,
-                f"Fitness live intensity {self.config.get(CONF_PROFILE_NAME)}",
-            )
-            if result:
-                compact = " ".join(str(result).split()).strip()
-                if compact:
-                    return compact[:350]
-
-        return static_intensity_message(
-            language,
-            intensity,
-            bpm=bpm,
-        )
+        """Show one serialized 3 s zone colour and always restore lights."""
+        async with self._light_feedback_serial_lock:
+            self._feedback_generation += 1
+            light_ids = self._feedback_light_ids()
+            current_hr = self.live_values().get(METRIC_HEART_RATE)
+            try: bpm = int(round(float(current_hr))) if current_hr is not None else None
+            except (TypeError, ValueError): bpm = None
+            self.last_feedback_intensity = intensity
+            self.last_feedback_time = datetime.now(timezone.utc).isoformat()
+            self.last_feedback_bpm = bpm
+            self.last_feedback_pulse_interval = 3.0
+            self.last_feedback_pulse_count = 1
+            snapshot_ok = False
+            if not light_ids: self.last_feedback_light_result = "no_usable_lights"
+            async with self._feedback_lock:
+                if self._feedback_scene_active:
+                    snapshot_ok = bool(self._feedback_light_snapshot)
+                else:
+                    snapshot_ok = await self._async_snapshot_feedback_lights(light_ids)
+            self._notify()
+            try:
+                if light_ids and snapshot_ok:
+                    async with self._feedback_lock:
+                        await self._async_set_feedback_color(light_ids, intensity)
+                    await asyncio.sleep(3.0)
+            finally:
+                if snapshot_ok:
+                    async with self._feedback_lock:
+                        await self._async_restore_feedback_lights(clear_snapshot=True)
+                self._notify()
 
     def _available_live_source_names(self) -> list[str]:
         """Return friendly names of live sources currently producing data."""
@@ -1425,7 +1432,17 @@ class FitnessManager:
         remaining: int | None = None,
         collected: bool | None = None,
     ) -> str | None:
-        """Generate localized AI/static live-session guidance."""
+        """Generate only start/ready/stop lifecycle guidance."""
+        if event not in {
+            "waiting_live",
+            "started_with_live",
+            "live_available",
+            "stopped_without_live",
+            "recovery_wait",
+            "no_recovery",
+        }:
+            return None
+
         language = self._ai_language()
 
         static_event = event
@@ -1625,121 +1642,79 @@ class FitnessManager:
             "sample_count": len(recent),
         }
 
-    def live_coaching_context(self) -> dict:
-        """Return normalized live data plus individualized relative context."""
-        live = self.live_values()
-        evaluation = self.evaluation()
-
-        heart_rate = live.get(METRIC_HEART_RATE)
-        power = live.get(METRIC_POWER)
-        cadence = live.get(METRIC_CADENCE)
-        speed_kmh = live.get(METRIC_SPEED)
-        pace = pace_from_speed_kmh(speed_kmh)
-
-        max_hr = evaluation.get("max_hr")
-        resting_hr = evaluation.get("resting_hr")
-        threshold_hr = evaluation.get("threshold_hr")
-        threshold_power = evaluation.get("threshold_power")
-        threshold_pace = evaluation.get("threshold_pace")
-        weight = evaluation.get("weight")
-
-        hrr_pct = percent_hrr(
-            heart_rate,
-            max_hr,
-            resting_hr,
-        )
-        hrmax_pct = percent_max_hr(
-            heart_rate,
-            max_hr,
-        )
-        intensity = acsm_hrr_intensity(hrr_pct)
-
-        threshold_hr_pct = relative_percent(
-            heart_rate,
-            threshold_hr,
-        )
-        threshold_power_pct = relative_percent(
-            power,
-            threshold_power,
-        )
-
-        threshold_speed_kmh = speed_from_pace_min_km(
-            threshold_pace
-        )
-        threshold_speed_pct = relative_percent(
-            speed_kmh,
-            threshold_speed_kmh,
-        )
-
-        power_to_weight = (
-            power / weight
-            if power is not None and weight
-            else None
-        )
-
-        return {
-            "session_duration_minutes": round(
-                self.session_duration() / 60.0,
-                1,
-            ),
-            "heart_rate_bpm": (
-                round(heart_rate)
-                if heart_rate is not None else None
-            ),
-            "heart_rate_percent_max": (
-                round(hrmax_pct, 1)
-                if hrmax_pct is not None else None
-            ),
-            "heart_rate_reserve_percent": (
-                round(hrr_pct, 1)
-                if hrr_pct is not None else None
-            ),
-            "heart_rate_intensity": intensity,
-            "heart_rate_relative_threshold_percent": (
-                round(threshold_hr_pct, 1)
-                if threshold_hr_pct is not None else None
-            ),
-            "power_w": (
-                round(power)
-                if power is not None else None
-            ),
-            "power_to_weight_w_kg": (
-                round(power_to_weight, 2)
-                if power_to_weight is not None else None
-            ),
-            "power_relative_threshold_percent": (
-                round(threshold_power_pct, 1)
-                if threshold_power_pct is not None else None
-            ),
-            "cadence_per_min": (
-                round(cadence)
-                if cadence is not None else None
-            ),
-            "speed_kmh": (
-                round(speed_kmh, 2)
-                if speed_kmh is not None else None
-            ),
-            "pace_min_km": (
-                round(pace, 2)
-                if pace is not None else None
-            ),
-            "speed_relative_threshold_percent": (
-                round(threshold_speed_pct, 1)
-                if threshold_speed_pct is not None else None
-            ),
-            "heart_rate_trend": self._recent_live_trend(
-                METRIC_HEART_RATE
-            ),
-            "power_trend": self._recent_live_trend(
-                METRIC_POWER
-            ),
-            "cadence_trend": self._recent_live_trend(
-                METRIC_CADENCE
-            ),
-            "speed_trend": self._recent_live_trend(
-                METRIC_SPEED
-            ),
+    def _compute_live_calculation_snapshot(self) -> None:
+        """Refresh all derived live calculations from the canonical samples."""
+        if not self.session_active:
+            self._live_session_statistics_cache = {}
+            self._live_derived_cache = {}
+            self._live_coaching_context_cache = {}
+            return
+        live=self.live_values(); ctx=self._session_profile_context
+        def vals(metric):
+            out=[]
+            for sample in self.samples:
+                value=sample.get(metric)
+                if value is not None:
+                    try: out.append(float(value))
+                    except (TypeError,ValueError): pass
+            return out
+        hr=vals(METRIC_HEART_RATE); power=vals(METRIC_POWER); cadence=vals(METRIC_CADENCE); speed=vals(METRIC_SPEED)
+        duration=self.session_duration(); resting=ctx.get('resting_hr'); max_hr=ctx.get('max_hr')
+        trimp=banister_trimp(duration/60.0,mean(hr) if hr else None,resting,max_hr,self.config.get(CONF_SEX))
+        coupling=aerobic_efficiency_and_decoupling(self.samples,duration)
+        has_basis=bool(hr) and resting is not None and max_hr is not None
+        intensity_time=time_in_hrr_intensity(self.samples,resting,max_hr) if has_basis else {}
+        self._live_session_statistics_cache={
+            'average_hr':mean(hr) if hr else None,'maximum_hr':max(hr) if hr else None,
+            'average_power':mean(power) if power else None,'maximum_power':max(power) if power else None,
+            'average_cadence':mean(cadence) if cadence else None,'average_speed':mean(speed) if speed else None,
+            'banister_trimp':trimp,'mechanical_work_kj':mechanical_work_kj(self.samples),
+            'aerobic_efficiency':coupling.get('efficiency'),'aerobic_efficiency_kind':coupling.get('efficiency_kind'),
+            'aerobic_decoupling_percent':coupling.get('decoupling_percent'),
+            'time_very_light_s':intensity_time.get('very_light') if has_basis else None,
+            'time_light_s':intensity_time.get('light') if has_basis else None,
+            'time_moderate_s':intensity_time.get('moderate') if has_basis else None,
+            'time_vigorous_s':intensity_time.get('vigorous') if has_basis else None,
+            'time_near_maximal_s':intensity_time.get('near_maximal') if has_basis else None,
         }
+        heart_rate=live.get(METRIC_HEART_RATE); current_power=live.get(METRIC_POWER); current_speed=live.get(METRIC_SPEED)
+        pace=pace_from_speed_kmh(current_speed); threshold_hr=ctx.get('threshold_hr'); threshold_power=ctx.get('threshold_power'); threshold_pace=ctx.get('threshold_pace'); weight=ctx.get('weight')
+        hrmax_pct=percent_max_hr(heart_rate,max_hr); hrr_pct=percent_hrr(heart_rate,max_hr,resting)
+        hr_thr=relative_percent(heart_rate,threshold_hr); power_thr=relative_percent(current_power,threshold_power)
+        threshold_speed=speed_from_pace_min_km(threshold_pace); speed_thr=relative_percent(current_speed,threshold_speed)
+        p2w=current_power/weight if current_power is not None and weight else None
+        self._live_derived_cache={'heart_rate_percent_max':hrmax_pct,'heart_rate_reserve_percent':hrr_pct,'heart_rate_intensity':acsm_hrr_intensity(hrr_pct),'heart_rate_relative_threshold':hr_thr,'current_power_to_weight':p2w,'power_relative_threshold':power_thr,'current_pace':pace,'speed_relative_threshold':speed_thr}
+        self._live_coaching_context_cache={
+            'session_duration_minutes':round(duration/60.0,1),'heart_rate_bpm':round(heart_rate) if heart_rate is not None else None,
+            'heart_rate_percent_max':round(hrmax_pct,1) if hrmax_pct is not None else None,'heart_rate_reserve_percent':round(hrr_pct,1) if hrr_pct is not None else None,
+            'heart_rate_intensity':acsm_hrr_intensity(hrr_pct),'heart_rate_relative_threshold_percent':round(hr_thr,1) if hr_thr is not None else None,
+            'power_w':round(current_power) if current_power is not None else None,'power_to_weight_w_kg':round(p2w,2) if p2w is not None else None,
+            'power_relative_threshold_percent':round(power_thr,1) if power_thr is not None else None,
+            'cadence_per_min':round(live.get(METRIC_CADENCE)) if live.get(METRIC_CADENCE) is not None else None,
+            'speed_kmh':round(current_speed,2) if current_speed is not None else None,'pace_min_km':round(pace,2) if pace is not None else None,
+            'speed_relative_threshold_percent':round(speed_thr,1) if speed_thr is not None else None,
+            'heart_rate_trend':self._recent_live_trend(METRIC_HEART_RATE),'power_trend':self._recent_live_trend(METRIC_POWER),
+            'cadence_trend':self._recent_live_trend(METRIC_CADENCE),'speed_trend':self._recent_live_trend(METRIC_SPEED),
+        }
+        self._last_live_calculation_at=datetime.now(timezone.utc).isoformat()
+
+    async def _async_live_calculation_loop(self) -> None:
+        """Recompute derived live state only every 30 seconds."""
+        try:
+            while self.session_active:
+                await asyncio.sleep(30.0)
+                if not self.session_active: break
+                self._compute_live_calculation_snapshot()
+                self._notify()
+        except asyncio.CancelledError:
+            return
+
+    def live_derived_values(self) -> dict[str, Any]:
+        return self._live_derived_cache if self.session_active else {}
+
+    def live_coaching_context(self) -> dict:
+        """Return cached 30-second coaching context."""
+        return dict(self._live_coaching_context_cache) if self.session_active else {}
 
     def _periodic_live_interval_seconds(self) -> float:
         """Return configured periodic announcement cadence in seconds."""
@@ -1861,27 +1836,37 @@ class FitnessManager:
         return base
 
     async def _async_periodic_live_announcements(self):
-        """Speak live workout data at the configured cadence while active."""
+        """Evaluate and speak the ongoing workout every configured X minutes."""
+        interval = self._periodic_live_interval_seconds()
+        loop = asyncio.get_running_loop()
+        next_due = loop.time() + interval
+
         try:
             while self.session_active:
-                await asyncio.sleep(
-                    self._periodic_live_interval_seconds()
-                )
+                await asyncio.sleep(max(0.0, next_due - loop.time()))
 
                 if not self.session_active:
                     break
 
+                # Refresh immediately before each scheduled evaluation so an AI
+                # request delayed by serialization starts from current workout
+                # statistics rather than a stale previous 30-second snapshot.
+                self._compute_live_calculation_snapshot()
+
                 message = await self._async_periodic_live_message()
-                if not message:
-                    continue
+                if message and self.session_active:
+                    self.last_periodic_live_announcement_time = (
+                        datetime.now(timezone.utc).isoformat()
+                    )
+                    self.last_periodic_live_message = message
+                    await self._async_speak(message)
+                    self._notify()
 
-                self.last_periodic_live_announcement_time = (
-                    datetime.now(timezone.utc).isoformat()
-                )
-                self.last_periodic_live_message = message
-
-                await self._async_speak(message)
-                self._notify()
+                # Keep cadence anchored to workout time. If one message was
+                # delayed, do not redefine "every X minutes" from its finish.
+                next_due += interval
+                while next_due <= loop.time():
+                    next_due += interval
 
         except asyncio.CancelledError:
             return
@@ -2257,12 +2242,48 @@ class FitnessManager:
             quantity=quantity_map.get(key),
         ).value
 
-    def live_values(self, raw: bool = False) -> dict[str, float | None]:
-        """Return live measurements in canonical Fitness units.
+    @staticmethod
+    def _live_quantity(metric: str) -> str | None:
+        return {
+            METRIC_HEART_RATE: "heart_rate",
+            METRIC_POWER: "power",
+            METRIC_CADENCE: "cadence",
+            METRIC_SPEED: "speed",
+            METRIC_DISTANCE: "distance",
+            METRIC_ALTITUDE: "altitude",
+        }.get(metric)
 
-        By design all Live sensor values become unavailable outside an active
-        Fitness workout. Internal capture/recovery code can request raw=True.
-        """
+    def _switch_live_source_if_needed(self, metric: str):
+        """Keep current source while usable; fail over before returning missing."""
+        candidates = self._live_candidates_cache.get(metric) or []
+        current = self._live_sources_cache.get(metric)
+
+        if current is not None and source_is_usable(self.hass, current):
+            return current
+
+        for candidate in candidates:
+            if not source_is_usable(self.hass, candidate):
+                continue
+
+            if current is None or candidate.entity_id != current.entity_id:
+                previous = current.entity_id if current else None
+                self._live_sources_cache[metric] = candidate
+                self._live_source_switches.append(
+                    {
+                        "metric": metric,
+                        "from": previous,
+                        "to": candidate.entity_id,
+                        "timestamp": datetime.now(
+                            timezone.utc
+                        ).isoformat(),
+                    }
+                )
+            return candidate
+
+        return current
+
+    def live_values(self, raw: bool = False) -> dict[str, float | None]:
+        """Return canonical measurements using sticky per-metric failover."""
         if not raw and not self.session_active:
             return {
                 METRIC_HEART_RATE: None,
@@ -2273,26 +2294,99 @@ class FitnessManager:
                 METRIC_ALTITUDE: None,
             }
 
-        sources = discover_sources(self.hass, self.config)
-        quantity_map = {
-            METRIC_HEART_RATE: "heart_rate",
-            METRIC_POWER: "power",
-            METRIC_CADENCE: "cadence",
-            METRIC_SPEED: "speed",
-            METRIC_DISTANCE: "distance",
-            METRIC_ALTITUDE: "altitude",
-        }
-        result = {}
-        for metric, source in sources.items():
-            result[metric] = numeric_entity_state(
+        if not self._live_candidates_cache:
+            self._live_candidates_cache = discover_candidates(
                 self.hass,
-                source.entity_id,
-                quantity=quantity_map.get(metric),
+                self.config,
+            )
+        if not self._live_sources_cache:
+            self._live_sources_cache = {
+                metric: items[0]
+                for metric, items in self._live_candidates_cache.items()
+                if items
+            }
+
+        result = {}
+        for metric in (
+            METRIC_HEART_RATE,
+            METRIC_POWER,
+            METRIC_CADENCE,
+            METRIC_SPEED,
+            METRIC_DISTANCE,
+            METRIC_ALTITUDE,
+        ):
+            source = self._switch_live_source_if_needed(metric)
+            result[metric] = (
+                numeric_entity_state(
+                    self.hass,
+                    source.entity_id,
+                    quantity=self._live_quantity(metric),
+                )
+                if source is not None
+                else None
             )
         return result
 
     def live_sources(self):
-        return discover_sources(self.hass, self.config)
+        """Return current active source for each metric after sticky failover."""
+        for metric in (
+            METRIC_HEART_RATE,
+            METRIC_POWER,
+            METRIC_CADENCE,
+            METRIC_SPEED,
+            METRIC_DISTANCE,
+            METRIC_ALTITUDE,
+        ):
+            self._switch_live_source_if_needed(metric)
+        return self._live_sources_cache
+
+    def live_source_info(self, metric: str) -> dict[str, Any]:
+        """Describe current source/fallback status for a live metric."""
+        source = self.live_sources().get(metric)
+        if source is None:
+            return {}
+
+        state = self.hass.states.get(source.entity_id)
+        integration = None
+        device_name = None
+
+        registry = er.async_get(self.hass)
+        entry = registry.async_get(source.entity_id)
+        if entry is not None:
+            if entry.config_entry_id:
+                config_entry = self.hass.config_entries.async_get_entry(
+                    entry.config_entry_id
+                )
+                integration = config_entry.domain if config_entry else None
+            if entry.device_id:
+                device = dr.async_get(self.hass).async_get(entry.device_id)
+                if device is not None:
+                    device_name = device.name_by_user or device.name
+
+        initial = self._live_source_initial_entity.get(metric)
+        switches = [
+            item
+            for item in self._live_source_switches
+            if item.get("metric") == metric
+        ]
+
+        return {
+            "source_entity": source.entity_id,
+            "source_device": source.device_id,
+            "source_device_name": device_name,
+            "source_integration": integration,
+            "source_available": source_is_usable(self.hass, source),
+            "source_unit": (
+                state.attributes.get("unit_of_measurement")
+                if state is not None else None
+            ),
+            "discovery_score": source.score,
+            "fallback_active": bool(
+                initial and source.entity_id != initial
+            ),
+            "source_switch_count": len(switches),
+            "last_source_switch": switches[-1] if switches else None,
+        }
 
     def _has_valid_live_workout_data(self) -> bool:
         values = self.live_values(raw=True)
@@ -2322,15 +2416,56 @@ class FitnessManager:
         self.session_started = datetime.now(timezone.utc)
         self.samples = []
 
+        # Re-rank all live candidates at the beginning of each workout.
+        # During the workout selection becomes sticky: only failure causes a
+        # switch, and a recovered preferred sensor does not steal the metric
+        # back until the next workout.
+        self._live_candidates_cache = discover_candidates(
+            self.hass,
+            self.config,
+        )
+        self._live_sources_cache = {
+            metric: items[0]
+            for metric, items in self._live_candidates_cache.items()
+            if items
+        }
+        self._live_source_initial_entity = {
+            metric: source.entity_id
+            for metric, source in self._live_sources_cache.items()
+        }
+        self._live_source_switches = []
+
         self._last_live_intensity = None
         self._last_live_intensity_accepted_at = None
+        self._candidate_live_intensity = None
+        self._candidate_live_intensity_since = None
+        self._last_sample_monotonic = None
+        self._last_live_notify_monotonic = None
+
+        # One full evaluation at session start is acceptable; never repeat it
+        # for every HR/cadence/power event.
+        session_evaluation = self.evaluation()
+        self._session_profile_context = {
+            "max_hr": session_evaluation.get("max_hr"),
+            "resting_hr": session_evaluation.get("resting_hr"),
+            "weight": session_evaluation.get("weight"),
+            "threshold_hr": session_evaluation.get("threshold_hr"),
+            "threshold_pace": session_evaluation.get("threshold_pace"),
+            "threshold_power": session_evaluation.get("threshold_power"),
+        }
+        self._session_intensity_max_hr = self._session_profile_context.get("max_hr")
+        self._session_intensity_resting_hr = self._session_profile_context.get("resting_hr")
+
         self.last_feedback_intensity = None
         self.last_feedback_time = None
         self.last_feedback_light_result = None
         self.last_feedback_tts_result = None
         self.last_feedback_message = None
 
-        self._capture_sample()
+        self._capture_sample(force=True)
+        self._compute_live_calculation_snapshot()
+        if self._live_calculation_task is None or self._live_calculation_task.done():
+            self._live_calculation_task = self.hass.async_create_task(self._async_live_calculation_loop())
 
         if self.config.get(CONF_PERIODIC_LIVE_ANNOUNCEMENTS):
             if (
@@ -2355,10 +2490,24 @@ class FitnessManager:
         )
         self._notify()
 
-    def _capture_sample(self):
+    def _capture_sample(self, *, force: bool = False) -> bool:
+        """Capture at most one canonical sample per second.
+
+        High-frequency ANT+/BLE entity updates otherwise create several near-
+        identical samples per second, increasing memory, Recorder/entity churn
+        and end-of-workout calculation cost without adding useful resolution.
+        """
+        loop_now = asyncio.get_running_loop().time()
+        if (
+            not force
+            and self._last_sample_monotonic is not None
+            and loop_now - self._last_sample_monotonic < 1.0
+        ):
+            return False
+
         values = self.live_values(raw=True)
         if not any(v is not None for v in values.values()):
-            return
+            return False
 
         now = datetime.now(timezone.utc)
         self.samples.append(
@@ -2368,6 +2517,8 @@ class FitnessManager:
                 **values,
             }
         )
+        self._last_sample_monotonic = loop_now
+        return True
 
     def _antplus_capture_switches(self) -> list[str]:
         """Find every Capture-like switch belonging to ANT+ integrations."""
@@ -2714,6 +2865,10 @@ class FitnessManager:
         """Stop workout timing; optionally keep capture for 120 s HR recovery."""
         if self.session_armed and not self.session_active:
             self.session_armed = False
+            self._session_intensity_max_hr = None
+            self._session_intensity_resting_hr = None
+            self._candidate_live_intensity = None
+            self._candidate_live_intensity_since = None
             self.capture_control = await self._async_antplus_control(False)
 
             if self._session_waiting_red or self._feedback_scene_active:
@@ -2729,8 +2884,12 @@ class FitnessManager:
         if not self.session_active:
             return
 
-        self._capture_sample()
+        self._capture_sample(force=True)
+        self._compute_live_calculation_snapshot()
         stop_time = datetime.now(timezone.utc)
+        if self._live_calculation_task and not self._live_calculation_task.done():
+            self._live_calculation_task.cancel()
+        self._live_calculation_task = None
 
         previous_signature = self._workout_signature(
             self.latest_workout()
@@ -2848,12 +3007,6 @@ class FitnessManager:
                     )
 
                 if hr is None:
-                    self._queue_session_guidance(
-                        "recovery_checkpoint",
-                        seconds=seconds,
-                        remaining=remaining,
-                        collected=False,
-                    )
                     continue
 
                 recovery = max(0.0, reference - float(hr))
@@ -2864,12 +3017,6 @@ class FitnessManager:
                         break
 
                 await self._save()
-                self._queue_session_guidance(
-                    "recovery_checkpoint",
-                    seconds=seconds,
-                    remaining=remaining,
-                    collected=True,
-                )
                 self._notify()
 
         except asyncio.CancelledError:
@@ -2878,12 +3025,13 @@ class FitnessManager:
             self.recovery_active = False
             self._recovery_reference_hr = None
             self._recovery_workout_start = None
+            self._session_intensity_max_hr = None
+            self._session_intensity_resting_hr = None
+            self._candidate_live_intensity = None
+            self._candidate_live_intensity_since = None
             self.capture_control = await self._async_antplus_control(False)
             await self._save()
             self._notify()
-
-            # Final readiness cue is queued after the 120 s checkpoint cue.
-            self._queue_session_guidance("recovery_complete")
 
             # The completed workout evaluation/summary now sees all available
             # HR-recovery checkpoints rather than the pre-recovery workout.
@@ -3418,89 +3566,8 @@ class FitnessManager:
         )
 
     def live_session_statistics(self) -> dict[str, Any]:
-        """Within-session summaries; unavailable outside an active workout."""
-        if not self.session_active:
-            return {}
-
-        def vals(metric):
-            result = []
-            for sample in self.samples:
-                value = sample.get(metric)
-                if value is not None:
-                    try:
-                        result.append(float(value))
-                    except (TypeError, ValueError):
-                        pass
-            return result
-
-        hr = vals(METRIC_HEART_RATE)
-        power = vals(METRIC_POWER)
-        cadence = vals(METRIC_CADENCE)
-        speed = vals(METRIC_SPEED)
-        duration = self.session_duration()
-        evaluation = self.evaluation()
-
-        trimp = banister_trimp(
-            duration / 60.0,
-            mean(hr) if hr else None,
-            evaluation.get("resting_hr"),
-            evaluation.get("max_hr"),
-            self.config.get(CONF_SEX),
-        )
-        coupling = aerobic_efficiency_and_decoupling(
-            self.samples,
-            duration,
-        )
-        resting_hr = evaluation.get("resting_hr")
-        max_hr = evaluation.get("max_hr")
-        has_hr_intensity_basis = (
-            bool(hr)
-            and resting_hr is not None
-            and max_hr is not None
-        )
-        intensity_time = (
-            time_in_hrr_intensity(
-                self.samples,
-                resting_hr,
-                max_hr,
-            )
-            if has_hr_intensity_basis
-            else {}
-        )
-
-        return {
-            "average_hr": mean(hr) if hr else None,
-            "maximum_hr": max(hr) if hr else None,
-            "average_power": mean(power) if power else None,
-            "maximum_power": max(power) if power else None,
-            "average_cadence": mean(cadence) if cadence else None,
-            "average_speed": mean(speed) if speed else None,
-            "banister_trimp": trimp,
-            "mechanical_work_kj": mechanical_work_kj(self.samples),
-            "aerobic_efficiency": coupling.get("efficiency"),
-            "aerobic_efficiency_kind": coupling.get("efficiency_kind"),
-            "aerobic_decoupling_percent": coupling.get("decoupling_percent"),
-            "time_very_light_s": (
-                intensity_time.get("very_light")
-                if has_hr_intensity_basis else None
-            ),
-            "time_light_s": (
-                intensity_time.get("light")
-                if has_hr_intensity_basis else None
-            ),
-            "time_moderate_s": (
-                intensity_time.get("moderate")
-                if has_hr_intensity_basis else None
-            ),
-            "time_vigorous_s": (
-                intensity_time.get("vigorous")
-                if has_hr_intensity_basis else None
-            ),
-            "time_near_maximal_s": (
-                intensity_time.get("near_maximal")
-                if has_hr_intensity_basis else None
-            ),
-        }
+        """Return cached derived session statistics refreshed every 30 seconds."""
+        return self._live_session_statistics_cache if self.session_active else {}
 
     async def _async_delayed_long_term_refresh(self) -> None:
         await asyncio.sleep(8)
@@ -3991,6 +4058,12 @@ class FitnessManager:
         )
 
     async def _call_ai(self, prompt: str, task_name: str) -> str | None:
+        """Serialize AI and prevent overlap with audible Fitness TTS."""
+        async with self._ai_lock:
+            async with self._tts_playback_lock:
+                return await self._call_ai_unlocked(prompt, task_name)
+
+    async def _call_ai_unlocked(self, prompt: str, task_name: str) -> str | None:
         entity = str(self.config.get(CONF_AI_ENTITY) or "").strip() or None
 
         # Preferred path: Home Assistant AI Task.
@@ -4056,28 +4129,20 @@ class FitnessManager:
     async def async_generate_ai(self, *, general: bool, workout: bool):
         if not self.config.get(CONF_AI_ENABLED):
             return
-        async with self._ai_lock:
-            if workout:
-                prompt = self._workout_ai_prompt()
-                if prompt:
-                    result = await self._call_ai(
-                        prompt,
-                        f"Fitness workout evaluation {self.config.get(CONF_PROFILE_NAME)}",
-                    )
-                    if result:
-                        verdict, body = self._parse_ai_result(result)
-                        self.ai_workout_verdict = verdict
-                        self.ai_workout = body
-            if general:
-                result = await self._call_ai(
-                    self._general_ai_prompt(),
-                    f"Fitness general evaluation {self.config.get(CONF_PROFILE_NAME)}",
-                )
+        if workout:
+            prompt = self._workout_ai_prompt()
+            if prompt:
+                result = await self._call_ai(prompt, f"Fitness workout evaluation {self.config.get(CONF_PROFILE_NAME)}")
                 if result:
                     verdict, body = self._parse_ai_result(result)
-                    self.ai_general_verdict = verdict
-                    self.ai_general = body
-
-            self.ai_last_generated = datetime.now(timezone.utc).isoformat()
-            await self._save()
-            self._notify()
+                    self.ai_workout_verdict = verdict
+                    self.ai_workout = body
+        if general:
+            result = await self._call_ai(self._general_ai_prompt(), f"Fitness general evaluation {self.config.get(CONF_PROFILE_NAME)}")
+            if result:
+                verdict, body = self._parse_ai_result(result)
+                self.ai_general_verdict = verdict
+                self.ai_general = body
+        self.ai_last_generated = datetime.now(timezone.utc).isoformat()
+        await self._save()
+        self._notify()

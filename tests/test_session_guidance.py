@@ -68,22 +68,21 @@ def test_first_later_live_data_announces_timer_start():
     assert "self._available_live_source_names()" in MANAGER
 
 
-def test_recovery_announcements_do_not_block_checkpoint_timing():
-    # Measurement loop queues speech instead of awaiting AI/TTS.
+def test_recovery_checkpoints_are_visual_only_and_nonblocking():
     start = MANAGER.index("async def _async_collect_heart_rate_recovery")
     end = MANAGER.index("def session_duration", start)
     recovery = MANAGER[start:end]
-    assert 'self._queue_session_guidance(' in recovery
-    assert 'await self._async_announce_session_guidance' not in recovery
+    assert "_queue_session_guidance(" not in recovery
+    assert "_queue_session_status_cue(" in recovery
+    assert "await self._async_session_status_cue" not in recovery
 
 
-def test_recovery_milestones_and_remaining_time():
+def test_recovery_milestones_remain_for_collection_and_lights():
     assert '(10, "hrr_10s")' in MANAGER
     assert '(30, "hrr_30s")' in MANAGER
     assert '(60, "hrr_60s")' in MANAGER
     assert '(120, "hrr_120s")' in MANAGER
-    assert "remaining = max(0, 120 - seconds)" in MANAGER
-    assert 'self._queue_session_guidance("recovery_complete")' in MANAGER
+    assert '_queue_session_guidance("recovery_complete")' not in MANAGER
 
 
 def test_workout_summary_is_deferred_until_recovery_finishes():

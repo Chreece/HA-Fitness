@@ -12,6 +12,14 @@
           "birth_month": "Geboortemaand",
           "birth_year": "Geboortejaar",
           "sex": "Geslacht"
+        },
+        "data_description": {
+          "profile_name": "Naam waarmee het aparte Fitness-profiel en de entiteiten van deze persoon worden aangemaakt.",
+          "language": "Taal voor aankondigingen, coaching en verklarende sensorattributen. De Home Assistant-UI-taal wordt gekozen als die wordt ondersteund.",
+          "birth_day": "Geboortedag, samen met maand en jaar gebruikt om leeftijd te berekenen voor leeftijdsafhankelijke methoden.",
+          "birth_month": "Geboortemaand, gebruikt met de volledige geboortedatum voor leeftijdsafhankelijke referentieberekeningen.",
+          "birth_year": "Geboortejaar, gebruikt voor leeftijdsberekening in fitnessreferentiemethoden.",
+          "sex": "Optioneel biologisch geslacht, alleen gebruikt door wetenschappelijke methoden die expliciet geslachtsspecifieke coëfficiënten vereisen."
         }
       },
       "required": {
@@ -20,6 +28,10 @@
         "data": {
           "weight": "Gewicht (kg of entiteit)",
           "resting_hr": "Rusthartslag (bpm of entiteit)"
+        },
+        "data_description": {
+          "weight": "Lichaamsgewicht. Gebruikt voor W/kg en gewichtsgenormaliseerde metrics. Voer kg in of kies een compatibele entiteit; eenheden worden omgerekend.",
+          "resting_hr": "Rusthartslag in bpm. Gebruikt voor %HRR, intensiteitsclassificatie en Banister TRIMP. Gebruik een echte rusthartslag."
         }
       },
       "optional": {
@@ -32,6 +44,14 @@
           "threshold_hr": "Drempelhartslag (bpm of entiteit)",
           "threshold_pace": "Drempeltempo (min/km of entiteit)",
           "threshold_power": "Drempelvermogen (W of entiteit)"
+        },
+        "data_description": {
+          "height": "Lengte. Optionele profielcontext. Handmatige waarde in cm; entiteitseenheden worden omgerekend.",
+          "max_hr": "Fysiologische/ingestelde maximale hartslag in bpm. Gebruikt voor %HRmax, %HRR en TRIMP; niet afgeleid van één trainingsmaximum.",
+          "vo2max": "VO₂max in mL/kg/min, gebruikt voor cardiorespiratoire vergelijkingen en langetermijnevaluatie.",
+          "threshold_hr": "Drempelhartslag in bpm, gebruikt om inspanning met de ingestelde drempel te vergelijken.",
+          "threshold_pace": "Hardloopdrempeltempo in min/km. Snelheidsentiteiten in m/s of km/h worden automatisch omgerekend.",
+          "threshold_power": "Drempelvermogen in watt. Gebruikt voor drempelrelatief vermogen en W/kg; meerdere dubbelzinnige FTP-bronnen worden niet automatisch gekozen."
         }
       },
       "live_devices": {
@@ -39,6 +59,9 @@
         "description": "Select devices Fitness may capture during a live workout. Supported metrics are discovered automatically. Leave empty to use ANT+ automatically.",
         "data": {
           "live_device_ids": "Devices providing live workout data"
+        },
+        "data_description": {
+          "live_device_ids": "Live-apparaten. Compatibele HA-ANT-Plus-sensoren worden voorgeselecteerd; HR, snelheid, cadans, vermogen en afstand kunnen met failover per metric van verschillende apparaten komen."
         }
       },
       "workout_devices": {
@@ -46,6 +69,9 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data"
+        },
+        "data_description": {
+          "workout_device_ids": "Historische apparaten. Alleen exact ondersteunde Garmin-, Strava-, Polar-, Hevy-, Peloton- en Oura-contracten worden voorgeselecteerd."
         }
       },
       "ai": {
@@ -54,6 +80,10 @@
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
           "ai_entity": "AI Task / LLM entity"
+        },
+        "data_description": {
+          "ai_enabled": "Schakelt AI-interpretatie van deterministische berekeningen in. AI definieert of wijzigt nooit wetenschappelijke sensorformules of metadata.",
+          "ai_entity": "AI Task of conversatie-agent voor coaching/evaluatie. AI en TTS zijn geserialiseerd en overlappen niet."
         }
       },
       "feedback": {
@@ -67,6 +97,15 @@
           "feedback_area_ids": "Rooms for intensity light feedback",
           "periodic_live_announcements": "Periodieke live trainingsmeldingen",
           "periodic_live_interval_minutes": "Interval voor live meldingen"
+        },
+        "data_description": {
+          "feedback_light_ids": "Expliciete kleurlampen. Tijdelijke kleuren worden geserialiseerd en de vorige toestand wordt hersteld.",
+          "notify_entity_ids": "Meldingsdoelen voor trainings- en evaluatieberichten.",
+          "tts_entity_id": "TTS-provider voor gesproken aankondigingen.",
+          "tts_media_player_ids": "Media players voor TTS; expliciete doelen volgen de regels van de trainingsruimte.",
+          "feedback_area_ids": "Trainingsruimte(n) voor contextuele lampen en media-playerdoelen.",
+          "periodic_live_announcements": "Schakelt gesproken evaluatie van de lopende training in volgens het gekozen interval.",
+          "periodic_live_interval_minutes": "Minuten tussen evaluaties; de nieuwste statistieken worden vóór elke evaluatie vernieuwd."
         }
       }
     },
@@ -100,6 +139,13 @@
           "birth_month": "Geboortemaand",
           "birth_year": "Geboortejaar",
           "sex": "Geslacht"
+        },
+        "data_description": {
+          "language": "Taal voor aankondigingen, coaching en verklarende sensorattributen. De Home Assistant-UI-taal wordt gekozen als die wordt ondersteund.",
+          "birth_day": "Geboortedag, samen met maand en jaar gebruikt om leeftijd te berekenen voor leeftijdsafhankelijke methoden.",
+          "birth_month": "Geboortemaand, gebruikt met de volledige geboortedatum voor leeftijdsafhankelijke referentieberekeningen.",
+          "birth_year": "Geboortejaar, gebruikt voor leeftijdsberekening in fitnessreferentiemethoden.",
+          "sex": "Optioneel biologisch geslacht, alleen gebruikt door wetenschappelijke methoden die expliciet geslachtsspecifieke coëfficiënten vereisen."
         }
       },
       "fitness_inputs": {
@@ -114,6 +160,16 @@
           "threshold_hr": "Drempelhartslag (bpm of entiteit)",
           "threshold_pace": "Drempeltempo (min/km of entiteit)",
           "threshold_power": "Drempelvermogen (W of entiteit)"
+        },
+        "data_description": {
+          "weight": "Lichaamsgewicht. Gebruikt voor W/kg en gewichtsgenormaliseerde metrics. Voer kg in of kies een compatibele entiteit; eenheden worden omgerekend.",
+          "resting_hr": "Rusthartslag in bpm. Gebruikt voor %HRR, intensiteitsclassificatie en Banister TRIMP. Gebruik een echte rusthartslag.",
+          "height": "Lengte. Optionele profielcontext. Handmatige waarde in cm; entiteitseenheden worden omgerekend.",
+          "max_hr": "Fysiologische/ingestelde maximale hartslag in bpm. Gebruikt voor %HRmax, %HRR en TRIMP; niet afgeleid van één trainingsmaximum.",
+          "vo2max": "VO₂max in mL/kg/min, gebruikt voor cardiorespiratoire vergelijkingen en langetermijnevaluatie.",
+          "threshold_hr": "Drempelhartslag in bpm, gebruikt om inspanning met de ingestelde drempel te vergelijken.",
+          "threshold_pace": "Hardloopdrempeltempo in min/km. Snelheidsentiteiten in m/s of km/h worden automatisch omgerekend.",
+          "threshold_power": "Drempelvermogen in watt. Gebruikt voor drempelrelatief vermogen en W/kg; meerdere dubbelzinnige FTP-bronnen worden niet automatisch gekozen."
         }
       },
       "live_devices": {
@@ -121,6 +177,9 @@
         "description": "Select live source devices. Leave empty to use ANT+ automatically.",
         "data": {
           "live_device_ids": "Devices providing live workout data"
+        },
+        "data_description": {
+          "live_device_ids": "Live-apparaten. Compatibele HA-ANT-Plus-sensoren worden voorgeselecteerd; HR, snelheid, cadans, vermogen en afstand kunnen met failover per metric van verschillende apparaten komen."
         }
       },
       "workout_devices": {
@@ -128,6 +187,9 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data"
+        },
+        "data_description": {
+          "workout_device_ids": "Historische apparaten. Alleen exact ondersteunde Garmin-, Strava-, Polar-, Hevy-, Peloton- en Oura-contracten worden voorgeselecteerd."
         }
       },
       "ai": {
@@ -136,6 +198,10 @@
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
           "ai_entity": "AI Task / LLM entity"
+        },
+        "data_description": {
+          "ai_enabled": "Schakelt AI-interpretatie van deterministische berekeningen in. AI definieert of wijzigt nooit wetenschappelijke sensorformules of metadata.",
+          "ai_entity": "AI Task of conversatie-agent voor coaching/evaluatie. AI en TTS zijn geserialiseerd en overlappen niet."
         }
       },
       "feedback": {
@@ -149,6 +215,15 @@
           "feedback_area_ids": "Rooms for intensity light feedback",
           "periodic_live_announcements": "Periodieke live trainingsmeldingen",
           "periodic_live_interval_minutes": "Interval voor live meldingen"
+        },
+        "data_description": {
+          "feedback_light_ids": "Expliciete kleurlampen. Tijdelijke kleuren worden geserialiseerd en de vorige toestand wordt hersteld.",
+          "notify_entity_ids": "Meldingsdoelen voor trainings- en evaluatieberichten.",
+          "tts_entity_id": "TTS-provider voor gesproken aankondigingen.",
+          "tts_media_player_ids": "Media players voor TTS; expliciete doelen volgen de regels van de trainingsruimte.",
+          "feedback_area_ids": "Trainingsruimte(n) voor contextuele lampen en media-playerdoelen.",
+          "periodic_live_announcements": "Schakelt gesproken evaluatie van de lopende training in volgens het gekozen interval.",
+          "periodic_live_interval_minutes": "Minuten tussen evaluaties; de nieuwste statistieken worden vóór elke evaluatie vernieuwd."
         }
       }
     }

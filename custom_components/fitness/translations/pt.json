@@ -12,6 +12,14 @@
           "birth_month": "Mês de nascimento",
           "birth_year": "Ano de nascimento",
           "sex": "Sexo"
+        },
+        "data_description": {
+          "profile_name": "Nome usado para criar o perfil Fitness e as entidades separadas desta pessoa.",
+          "language": "Idioma dos anúncios, coaching e atributos explicativos. O idioma da interface Home Assistant é pré-selecionado quando suportado.",
+          "birth_day": "Dia de nascimento, usado com mês e ano para calcular a idade em métodos dependentes da idade.",
+          "birth_month": "Mês de nascimento usado com a data completa em cálculos de referência dependentes da idade.",
+          "birth_year": "Ano de nascimento usado para calcular a idade em métodos de referência fitness.",
+          "sex": "Sexo biológico opcional, usado apenas por métodos científicos que exigem coeficientes específicos por sexo."
         }
       },
       "required": {
@@ -20,6 +28,10 @@
         "data": {
           "weight": "Peso (kg ou entidade)",
           "resting_hr": "Frequência cardíaca de repouso (bpm ou entidade)"
+        },
+        "data_description": {
+          "weight": "Peso corporal. Usado para W/kg e métricas normalizadas pela massa. Introduza kg ou escolha uma entidade compatível; as unidades são convertidas automaticamente.",
+          "resting_hr": "Frequência cardíaca de repouso em bpm. Usada para %HRR, intensidade e Banister TRIMP. Use uma medida real de repouso."
         }
       },
       "optional": {
@@ -32,6 +44,14 @@
           "threshold_hr": "FC de limiar (bpm ou entidade)",
           "threshold_pace": "Ritmo de limiar (min/km ou entidade)",
           "threshold_power": "Potência de limiar (W ou entidade)"
+        },
+        "data_description": {
+          "height": "Altura. Contexto de perfil opcional. Valor manual em cm; unidades das entidades são convertidas automaticamente.",
+          "max_hr": "Frequência cardíaca máxima fisiológica/configurada em bpm. Usada para %HRmax, %HRR e TRIMP; não é inferida de um único máximo de treino.",
+          "vo2max": "VO₂max em mL/kg/min, usada para comparações cardiorrespiratórias e avaliação de longo prazo.",
+          "threshold_hr": "Frequência cardíaca de limiar em bpm, usada para comparar esforço com o limiar configurado.",
+          "threshold_pace": "Ritmo de limiar de corrida em min/km. Entidades de velocidade em m/s ou km/h são convertidas automaticamente.",
+          "threshold_power": "Potência de limiar em watts. Usada para potência relativa ao limiar e W/kg; múltiplas FTP ambíguas não são pré-selecionadas."
         }
       },
       "live_devices": {
@@ -39,6 +59,9 @@
         "description": "Select devices Fitness may capture during a live workout. Supported metrics are discovered automatically. Leave empty to use ANT+ automatically.",
         "data": {
           "live_device_ids": "Devices providing live workout data"
+        },
+        "data_description": {
+          "live_device_ids": "Dispositivos live. Sensores HA-ANT-Plus compatíveis são pré-selecionados; FC, velocidade, cadência, potência e distância podem vir de dispositivos diferentes com failover por métrica."
         }
       },
       "workout_devices": {
@@ -46,6 +69,9 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data"
+        },
+        "data_description": {
+          "workout_device_ids": "Dispositivos de histórico. Apenas contratos exatos suportados Garmin, Strava, Polar, Hevy, Peloton e Oura são pré-selecionados."
         }
       },
       "ai": {
@@ -54,6 +80,10 @@
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
           "ai_entity": "AI Task / LLM entity"
+        },
+        "data_description": {
+          "ai_enabled": "Ativa interpretação AI dos cálculos determinísticos. A AI nunca define nem altera fórmulas ou metadados científicos dos sensores.",
+          "ai_entity": "AI Task ou agente de conversa para coaching/avaliação. AI e TTS são serializados e não se sobrepõem."
         }
       },
       "feedback": {
@@ -67,6 +97,15 @@
           "feedback_area_ids": "Rooms for intensity light feedback",
           "periodic_live_announcements": "Anúncios periódicos de dados ao vivo",
           "periodic_live_interval_minutes": "Intervalo dos anúncios ao vivo"
+        },
+        "data_description": {
+          "feedback_light_ids": "Luzes coloridas explícitas. Cores temporárias são serializadas e o estado anterior é restaurado.",
+          "notify_entity_ids": "Destinos de notificação para mensagens de treino e avaliação.",
+          "tts_entity_id": "Fornecedor TTS para anúncios falados.",
+          "tts_media_player_ids": "Media players para TTS; alvos explícitos respeitam as regras da divisão de treino.",
+          "feedback_area_ids": "Divisão(ões) de treino usadas para resolver luzes e media players contextuais.",
+          "periodic_live_announcements": "Ativa uma avaliação falada do treino em curso no intervalo configurado.",
+          "periodic_live_interval_minutes": "Minutos entre avaliações; as estatísticas mais recentes são atualizadas antes de cada uma."
         }
       }
     },
@@ -100,6 +139,13 @@
           "birth_month": "Mês de nascimento",
           "birth_year": "Ano de nascimento",
           "sex": "Sexo"
+        },
+        "data_description": {
+          "language": "Idioma dos anúncios, coaching e atributos explicativos. O idioma da interface Home Assistant é pré-selecionado quando suportado.",
+          "birth_day": "Dia de nascimento, usado com mês e ano para calcular a idade em métodos dependentes da idade.",
+          "birth_month": "Mês de nascimento usado com a data completa em cálculos de referência dependentes da idade.",
+          "birth_year": "Ano de nascimento usado para calcular a idade em métodos de referência fitness.",
+          "sex": "Sexo biológico opcional, usado apenas por métodos científicos que exigem coeficientes específicos por sexo."
         }
       },
       "fitness_inputs": {
@@ -114,6 +160,16 @@
           "threshold_hr": "FC de limiar (bpm ou entidade)",
           "threshold_pace": "Ritmo de limiar (min/km ou entidade)",
           "threshold_power": "Potência de limiar (W ou entidade)"
+        },
+        "data_description": {
+          "weight": "Peso corporal. Usado para W/kg e métricas normalizadas pela massa. Introduza kg ou escolha uma entidade compatível; as unidades são convertidas automaticamente.",
+          "resting_hr": "Frequência cardíaca de repouso em bpm. Usada para %HRR, intensidade e Banister TRIMP. Use uma medida real de repouso.",
+          "height": "Altura. Contexto de perfil opcional. Valor manual em cm; unidades das entidades são convertidas automaticamente.",
+          "max_hr": "Frequência cardíaca máxima fisiológica/configurada em bpm. Usada para %HRmax, %HRR e TRIMP; não é inferida de um único máximo de treino.",
+          "vo2max": "VO₂max em mL/kg/min, usada para comparações cardiorrespiratórias e avaliação de longo prazo.",
+          "threshold_hr": "Frequência cardíaca de limiar em bpm, usada para comparar esforço com o limiar configurado.",
+          "threshold_pace": "Ritmo de limiar de corrida em min/km. Entidades de velocidade em m/s ou km/h são convertidas automaticamente.",
+          "threshold_power": "Potência de limiar em watts. Usada para potência relativa ao limiar e W/kg; múltiplas FTP ambíguas não são pré-selecionadas."
         }
       },
       "live_devices": {
@@ -121,6 +177,9 @@
         "description": "Select live source devices. Leave empty to use ANT+ automatically.",
         "data": {
           "live_device_ids": "Devices providing live workout data"
+        },
+        "data_description": {
+          "live_device_ids": "Dispositivos live. Sensores HA-ANT-Plus compatíveis são pré-selecionados; FC, velocidade, cadência, potência e distância podem vir de dispositivos diferentes com failover por métrica."
         }
       },
       "workout_devices": {
@@ -128,6 +187,9 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data"
+        },
+        "data_description": {
+          "workout_device_ids": "Dispositivos de histórico. Apenas contratos exatos suportados Garmin, Strava, Polar, Hevy, Peloton e Oura são pré-selecionados."
         }
       },
       "ai": {
@@ -136,6 +198,10 @@
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
           "ai_entity": "AI Task / LLM entity"
+        },
+        "data_description": {
+          "ai_enabled": "Ativa interpretação AI dos cálculos determinísticos. A AI nunca define nem altera fórmulas ou metadados científicos dos sensores.",
+          "ai_entity": "AI Task ou agente de conversa para coaching/avaliação. AI e TTS são serializados e não se sobrepõem."
         }
       },
       "feedback": {
@@ -149,6 +215,15 @@
           "feedback_area_ids": "Rooms for intensity light feedback",
           "periodic_live_announcements": "Anúncios periódicos de dados ao vivo",
           "periodic_live_interval_minutes": "Intervalo dos anúncios ao vivo"
+        },
+        "data_description": {
+          "feedback_light_ids": "Luzes coloridas explícitas. Cores temporárias são serializadas e o estado anterior é restaurado.",
+          "notify_entity_ids": "Destinos de notificação para mensagens de treino e avaliação.",
+          "tts_entity_id": "Fornecedor TTS para anúncios falados.",
+          "tts_media_player_ids": "Media players para TTS; alvos explícitos respeitam as regras da divisão de treino.",
+          "feedback_area_ids": "Divisão(ões) de treino usadas para resolver luzes e media players contextuais.",
+          "periodic_live_announcements": "Ativa uma avaliação falada do treino em curso no intervalo configurado.",
+          "periodic_live_interval_minutes": "Minutos entre avaliações; as estatísticas mais recentes são atualizadas antes de cada uma."
         }
       }
     }

@@ -1,5 +1,60 @@
 # Changelog
 
+## 2026.8.0-beta.20
+
+### Deterministic explanations and complete localization
+
+- Sensor scientific/explanatory attributes are explicitly AI-free and deterministic.
+- AI remains only an optional coaching/interpretation layer.
+- Scientific calculation strings now use stable formulas/algorithm identifiers instead of AI-generated or model-dependent prose.
+- Corrected explanation metric keys so workout TRIMP, mechanical work, aerobic efficiency/decoupling, HR recovery and threshold W/kg receive their specific method metadata.
+- Completed field-specific `data_description` help for every setup/options field in all 15 shipped languages.
+- Removed generic setup-help fallback wording from the shipped translations.
+- Added localization structure/completeness tests and deterministic-metadata regression tests.
+- Added a practical TL;DR near the top of the README for new users.
+
+## 2026.8.0-beta.19
+
+### Source failover, setup UX and explainable sensors
+
+- Added sticky per-metric live-source failover before a metric becomes unavailable.
+- Different metrics can use different live devices simultaneously.
+- Added source entity/device/integration, fallback status and switch-history diagnostics.
+- Profile numeric/entity inputs now offer a compatible-entity dropdown plus manual custom value.
+- Periodic coaching remains anchored to workout time and refreshes current statistics before each evaluation.
+- Added deterministic localized method/calculation/usefulness/input attributes to calculated/evaluation sensors.
+- Added detailed setup field explanations in every shipped UI language with English fallback.
+- Retains 30-second derived calculations, 1 Hz canonical sampling, serialized AI/TTS and serialized/restoring light feedback.
+
+## 2026.8.0-beta.18
+
+### Strict autofill, 30-second live calculations and feedback serialization
+
+- Exact documented profile autofill for Garmin, Hevy and Oura only.
+- HA-ANT-Plus live sensor-device preselection; adapter/control-only devices excluded.
+- Exact explicit-adapter workout-device preselection.
+- Derived live calculations cached and refreshed every 30 seconds.
+- Live sensor entity getters no longer run full Fitness evaluation.
+- AI requests serialized and mutually exclusive with audible Fitness TTS.
+- Lifecycle and zone light cues serialized with guaranteed state restoration.
+- Extended RGBW/RGBWW/color-temperature snapshot fidelity.
+
+## 2026.8.0-beta.17
+
+### Live workout stability and quieter coaching
+
+- Split high-frequency live sensor events from completed-workout provider events.
+- Cached live source mappings instead of rediscovering them for every measurement.
+- Capped stored live samples at 1 Hz and live entity publication at 2 Hz.
+- Removed full Fitness/provider/workout evaluation from the live intensity hot path;
+  HR intensity now uses a session-start cached physiology basis.
+- Zone changes must remain stable for 10 seconds before optical feedback.
+- Zone feedback is light-only; no zone AI/TTS announcements.
+- Recovery 10/30/60/120 checkpoints and completion are light-only.
+- Automatic speech is limited to start/wait→ready, one stop/recovery-procedure
+  message, and the configured periodic live announcement.
+- Added hot-path, announcement-policy and stability regression tests.
+
 ## 2026.8.0-beta.16
 
 ### Sequential TTS playback

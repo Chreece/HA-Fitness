@@ -12,6 +12,14 @@
           "birth_month": "Miesiąc urodzenia",
           "birth_year": "Rok urodzenia",
           "sex": "Płeć"
+        },
+        "data_description": {
+          "profile_name": "Nazwa używana do utworzenia osobnego profilu Fitness i encji tej osoby.",
+          "language": "Język komunikatów, coachingu i objaśnień w atrybutach. Jeśli obsługiwany, domyślnie wybierany jest język interfejsu Home Assistant.",
+          "birth_day": "Dzień urodzenia, używany z miesiącem i rokiem do obliczania wieku w metodach zależnych od wieku.",
+          "birth_month": "Miesiąc urodzenia używany z pełną datą urodzenia w obliczeniach zależnych od wieku.",
+          "birth_year": "Rok urodzenia używany do obliczania wieku w metodach referencyjnych fitness.",
+          "sex": "Opcjonalna płeć biologiczna, używana tylko przez metody naukowe wymagające współczynników zależnych od płci."
         }
       },
       "required": {
@@ -20,6 +28,10 @@
         "data": {
           "weight": "Masa (kg lub encja)",
           "resting_hr": "Tętno spoczynkowe (bpm lub encja)"
+        },
+        "data_description": {
+          "weight": "Masa ciała. Używana do W/kg i metryk normalizowanych masą. Podaj kg lub wybierz zgodną encję; jednostki są przeliczane.",
+          "resting_hr": "Tętno spoczynkowe w bpm. Używane do %HRR, klasyfikacji intensywności i Banister TRIMP. Użyj prawdziwego tętna spoczynkowego."
         }
       },
       "optional": {
@@ -32,6 +44,14 @@
           "threshold_hr": "Tętno progowe (bpm lub encja)",
           "threshold_pace": "Tempo progowe (min/km lub encja)",
           "threshold_power": "Moc progowa (W lub encja)"
+        },
+        "data_description": {
+          "height": "Wzrost. Opcjonalny kontekst profilu. Wartość ręczna w cm; jednostki encji są przeliczane.",
+          "max_hr": "Fizjologiczne/ustawione maksymalne tętno w bpm. Używane do %HRmax, %HRR i TRIMP; nie jest wyznaczane z pojedynczego maksimum treningowego.",
+          "vo2max": "VO₂max w mL/kg/min, używane do porównań krążeniowo-oddechowych i oceny długoterminowej.",
+          "threshold_hr": "Tętno progowe w bpm, używane do porównania wysiłku z ustawionym progiem.",
+          "threshold_pace": "Progowe tempo biegu w min/km. Encje prędkości w m/s lub km/h są automatycznie przeliczane.",
+          "threshold_power": "Moc progowa w watach. Używana do mocy względem progu i W/kg; wiele niejednoznacznych FTP nie jest wybieranych automatycznie."
         }
       },
       "live_devices": {
@@ -39,6 +59,9 @@
         "description": "Select devices Fitness may capture during a live workout. Supported metrics are discovered automatically. Leave empty to use ANT+ automatically.",
         "data": {
           "live_device_ids": "Devices providing live workout data"
+        },
+        "data_description": {
+          "live_device_ids": "Urządzenia live. Zgodne sensory HA-ANT-Plus są wybierane wstępnie; HR, prędkość, kadencja, moc i dystans mogą pochodzić z różnych urządzeń z failover dla każdej metryki."
         }
       },
       "workout_devices": {
@@ -46,6 +69,9 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data"
+        },
+        "data_description": {
+          "workout_device_ids": "Urządzenia historii. Wybierane są tylko dokładnie obsługiwane kontrakty Garmin, Strava, Polar, Hevy, Peloton i Oura."
         }
       },
       "ai": {
@@ -54,6 +80,10 @@
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
           "ai_entity": "AI Task / LLM entity"
+        },
+        "data_description": {
+          "ai_enabled": "Włącza interpretację AI deterministycznych obliczeń. AI nigdy nie definiuje ani nie zmienia naukowych formuł lub metadanych sensorów.",
+          "ai_entity": "AI Task lub agent konwersacyjny do coachingu/oceny. AI i TTS są serializowane i nie nakładają się."
         }
       },
       "feedback": {
@@ -67,6 +97,15 @@
           "feedback_area_ids": "Rooms for intensity light feedback",
           "periodic_live_announcements": "Okresowe komunikaty danych na żywo",
           "periodic_live_interval_minutes": "Interwał komunikatów na żywo"
+        },
+        "data_description": {
+          "feedback_light_ids": "Jawnie wybrane kolorowe światła. Tymczasowe kolory są serializowane, a poprzedni stan przywracany.",
+          "notify_entity_ids": "Cele powiadomień dla komunikatów treningowych i oceny.",
+          "tts_entity_id": "Dostawca TTS dla komunikatów głosowych.",
+          "tts_media_player_ids": "Media playery dla TTS; jawne cele przestrzegają zasad wybranego pomieszczenia treningowego.",
+          "feedback_area_ids": "Pomieszczenia treningowe używane do kontekstowych świateł i media playerów.",
+          "periodic_live_announcements": "Włącza głosową ocenę trwającego treningu w ustawionym interwale.",
+          "periodic_live_interval_minutes": "Minuty między ocenami; przed każdą odświeżane są najnowsze statystyki treningu."
         }
       }
     },
@@ -100,6 +139,13 @@
           "birth_month": "Miesiąc urodzenia",
           "birth_year": "Rok urodzenia",
           "sex": "Płeć"
+        },
+        "data_description": {
+          "language": "Język komunikatów, coachingu i objaśnień w atrybutach. Jeśli obsługiwany, domyślnie wybierany jest język interfejsu Home Assistant.",
+          "birth_day": "Dzień urodzenia, używany z miesiącem i rokiem do obliczania wieku w metodach zależnych od wieku.",
+          "birth_month": "Miesiąc urodzenia używany z pełną datą urodzenia w obliczeniach zależnych od wieku.",
+          "birth_year": "Rok urodzenia używany do obliczania wieku w metodach referencyjnych fitness.",
+          "sex": "Opcjonalna płeć biologiczna, używana tylko przez metody naukowe wymagające współczynników zależnych od płci."
         }
       },
       "fitness_inputs": {
@@ -114,6 +160,16 @@
           "threshold_hr": "Tętno progowe (bpm lub encja)",
           "threshold_pace": "Tempo progowe (min/km lub encja)",
           "threshold_power": "Moc progowa (W lub encja)"
+        },
+        "data_description": {
+          "weight": "Masa ciała. Używana do W/kg i metryk normalizowanych masą. Podaj kg lub wybierz zgodną encję; jednostki są przeliczane.",
+          "resting_hr": "Tętno spoczynkowe w bpm. Używane do %HRR, klasyfikacji intensywności i Banister TRIMP. Użyj prawdziwego tętna spoczynkowego.",
+          "height": "Wzrost. Opcjonalny kontekst profilu. Wartość ręczna w cm; jednostki encji są przeliczane.",
+          "max_hr": "Fizjologiczne/ustawione maksymalne tętno w bpm. Używane do %HRmax, %HRR i TRIMP; nie jest wyznaczane z pojedynczego maksimum treningowego.",
+          "vo2max": "VO₂max w mL/kg/min, używane do porównań krążeniowo-oddechowych i oceny długoterminowej.",
+          "threshold_hr": "Tętno progowe w bpm, używane do porównania wysiłku z ustawionym progiem.",
+          "threshold_pace": "Progowe tempo biegu w min/km. Encje prędkości w m/s lub km/h są automatycznie przeliczane.",
+          "threshold_power": "Moc progowa w watach. Używana do mocy względem progu i W/kg; wiele niejednoznacznych FTP nie jest wybieranych automatycznie."
         }
       },
       "live_devices": {
@@ -121,6 +177,9 @@
         "description": "Select live source devices. Leave empty to use ANT+ automatically.",
         "data": {
           "live_device_ids": "Devices providing live workout data"
+        },
+        "data_description": {
+          "live_device_ids": "Urządzenia live. Zgodne sensory HA-ANT-Plus są wybierane wstępnie; HR, prędkość, kadencja, moc i dystans mogą pochodzić z różnych urządzeń z failover dla każdej metryki."
         }
       },
       "workout_devices": {
@@ -128,6 +187,9 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data"
+        },
+        "data_description": {
+          "workout_device_ids": "Urządzenia historii. Wybierane są tylko dokładnie obsługiwane kontrakty Garmin, Strava, Polar, Hevy, Peloton i Oura."
         }
       },
       "ai": {
@@ -136,6 +198,10 @@
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
           "ai_entity": "AI Task / LLM entity"
+        },
+        "data_description": {
+          "ai_enabled": "Włącza interpretację AI deterministycznych obliczeń. AI nigdy nie definiuje ani nie zmienia naukowych formuł lub metadanych sensorów.",
+          "ai_entity": "AI Task lub agent konwersacyjny do coachingu/oceny. AI i TTS są serializowane i nie nakładają się."
         }
       },
       "feedback": {
@@ -149,6 +215,15 @@
           "feedback_area_ids": "Rooms for intensity light feedback",
           "periodic_live_announcements": "Okresowe komunikaty danych na żywo",
           "periodic_live_interval_minutes": "Interwał komunikatów na żywo"
+        },
+        "data_description": {
+          "feedback_light_ids": "Jawnie wybrane kolorowe światła. Tymczasowe kolory są serializowane, a poprzedni stan przywracany.",
+          "notify_entity_ids": "Cele powiadomień dla komunikatów treningowych i oceny.",
+          "tts_entity_id": "Dostawca TTS dla komunikatów głosowych.",
+          "tts_media_player_ids": "Media playery dla TTS; jawne cele przestrzegają zasad wybranego pomieszczenia treningowego.",
+          "feedback_area_ids": "Pomieszczenia treningowe używane do kontekstowych świateł i media playerów.",
+          "periodic_live_announcements": "Włącza głosową ocenę trwającego treningu w ustawionym interwale.",
+          "periodic_live_interval_minutes": "Minuty między ocenami; przed każdą odświeżane są najnowsze statystyki treningu."
         }
       }
     }

@@ -12,6 +12,14 @@
           "birth_month": "生まれた月",
           "birth_year": "生まれた年",
           "sex": "性別"
+        },
+        "data_description": {
+          "profile_name": "この人専用の Fitness プロフィールとエンティティを作成するための名前です。",
+          "language": "アナウンス、コーチング、説明用センサー属性の言語です。対応している場合は Home Assistant の UI 言語が事前選択されます。",
+          "birth_day": "生年月日の「日」。月・年と合わせて年齢依存の方法で年齢計算に使用します。",
+          "birth_month": "出生月。完全な生年月日と合わせて年齢依存の参照計算に使用します。",
+          "birth_year": "出生年。年齢依存のフィットネス参照方法で年齢を計算するために使用します。",
+          "sex": "任意の生物学的性別。性別固有係数を明示的に必要とする科学的方法だけで使用します。"
         }
       },
       "required": {
@@ -20,6 +28,10 @@
         "data": {
           "weight": "体重（kg またはエンティティ）",
           "resting_hr": "安静時心拍数（bpm またはエンティティ）"
+        },
+        "data_description": {
+          "weight": "体重。W/kg と体重で正規化した指標に使用します。kg を入力するか互換エンティティを選択し、単位は自動変換されます。",
+          "resting_hr": "安静時心拍数（bpm）。%HRR、強度分類、Banister TRIMP に使用します。ワークアウト最低値ではなく真の安静時 HR を使用してください。"
         }
       },
       "optional": {
@@ -32,6 +44,14 @@
           "threshold_hr": "閾値心拍数（bpm またはエンティティ）",
           "threshold_pace": "閾値ペース（min/km またはエンティティ）",
           "threshold_power": "閾値パワー（W またはエンティティ）"
+        },
+        "data_description": {
+          "height": "身長。任意のプロフィール情報です。手動値は cm、エンティティ単位は自動変換されます。",
+          "max_hr": "生理学的/設定済み最大心拍数（bpm）。%HRmax、%HRR、TRIMP に使用し、1回のワークアウト最大値から推測しません。",
+          "vo2max": "VO₂max（mL/kg/min）。心肺能力比較と長期評価に使用します。",
+          "threshold_hr": "閾値心拍数（bpm）。現在/完了した運動強度を設定閾値と比較するために使用します。",
+          "threshold_pace": "ランニング閾値ペース（min/km）。m/s や km/h の速度エンティティは自動変換されます。",
+          "threshold_power": "閾値パワー（W）。閾値相対パワーと W/kg に使用し、複数の曖昧な FTP は自動選択しません。"
         }
       },
       "live_devices": {
@@ -39,6 +59,9 @@
         "description": "Select devices Fitness may capture during a live workout. Supported metrics are discovered automatically. Leave empty to use ANT+ automatically.",
         "data": {
           "live_device_ids": "Devices providing live workout data"
+        },
+        "data_description": {
+          "live_device_ids": "ライブデバイス。対応 HA-ANT-Plus センサーを事前選択し、HR・速度・ケイデンス・パワー・距離は指標ごとのフェイルオーバーで別デバイスから利用できます。"
         }
       },
       "workout_devices": {
@@ -46,6 +69,9 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data"
+        },
+        "data_description": {
+          "workout_device_ids": "履歴デバイス。明確に対応する Garmin、Strava、Polar、Hevy、Peloton、Oura の契約だけを事前選択します。"
         }
       },
       "ai": {
@@ -54,6 +80,10 @@
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
           "ai_entity": "AI Task / LLM entity"
+        },
+        "data_description": {
+          "ai_enabled": "決定論的計算結果の AI 解釈を有効にします。AI は科学的センサー式やメタデータを定義・変更しません。",
+          "ai_entity": "コーチング/評価用 AI Task または会話エージェント。AI と TTS は直列化され重複しません。"
         }
       },
       "feedback": {
@@ -67,6 +97,15 @@
           "feedback_area_ids": "Rooms for intensity light feedback",
           "periodic_live_announcements": "定期ライブワークアウト案内",
           "periodic_live_interval_minutes": "ライブ案内の間隔"
+        },
+        "data_description": {
+          "feedback_light_ids": "明示的に選択したカラー対応ライト。一時的な色変更は直列化され、以前の状態を復元します。",
+          "notify_entity_ids": "ワークアウト/評価メッセージの通知先です。",
+          "tts_entity_id": "音声アナウンス用 TTS プロバイダーです。",
+          "tts_media_player_ids": "TTS 用メディアプレーヤー。明示的ターゲットは選択したワークアウト部屋のルールに従います。",
+          "feedback_area_ids": "コンテキストのライトとメディアプレーヤーを解決するワークアウト部屋です。",
+          "periodic_live_announcements": "設定間隔で進行中ワークアウトの音声評価を有効にします。",
+          "periodic_live_interval_minutes": "評価間隔（分）。各評価の前に最新のワークアウト統計を更新します。"
         }
       }
     },
@@ -100,6 +139,13 @@
           "birth_month": "生まれた月",
           "birth_year": "生まれた年",
           "sex": "性別"
+        },
+        "data_description": {
+          "language": "アナウンス、コーチング、説明用センサー属性の言語です。対応している場合は Home Assistant の UI 言語が事前選択されます。",
+          "birth_day": "生年月日の「日」。月・年と合わせて年齢依存の方法で年齢計算に使用します。",
+          "birth_month": "出生月。完全な生年月日と合わせて年齢依存の参照計算に使用します。",
+          "birth_year": "出生年。年齢依存のフィットネス参照方法で年齢を計算するために使用します。",
+          "sex": "任意の生物学的性別。性別固有係数を明示的に必要とする科学的方法だけで使用します。"
         }
       },
       "fitness_inputs": {
@@ -114,6 +160,16 @@
           "threshold_hr": "閾値心拍数（bpm またはエンティティ）",
           "threshold_pace": "閾値ペース（min/km またはエンティティ）",
           "threshold_power": "閾値パワー（W またはエンティティ）"
+        },
+        "data_description": {
+          "weight": "体重。W/kg と体重で正規化した指標に使用します。kg を入力するか互換エンティティを選択し、単位は自動変換されます。",
+          "resting_hr": "安静時心拍数（bpm）。%HRR、強度分類、Banister TRIMP に使用します。ワークアウト最低値ではなく真の安静時 HR を使用してください。",
+          "height": "身長。任意のプロフィール情報です。手動値は cm、エンティティ単位は自動変換されます。",
+          "max_hr": "生理学的/設定済み最大心拍数（bpm）。%HRmax、%HRR、TRIMP に使用し、1回のワークアウト最大値から推測しません。",
+          "vo2max": "VO₂max（mL/kg/min）。心肺能力比較と長期評価に使用します。",
+          "threshold_hr": "閾値心拍数（bpm）。現在/完了した運動強度を設定閾値と比較するために使用します。",
+          "threshold_pace": "ランニング閾値ペース（min/km）。m/s や km/h の速度エンティティは自動変換されます。",
+          "threshold_power": "閾値パワー（W）。閾値相対パワーと W/kg に使用し、複数の曖昧な FTP は自動選択しません。"
         }
       },
       "live_devices": {
@@ -121,6 +177,9 @@
         "description": "Select live source devices. Leave empty to use ANT+ automatically.",
         "data": {
           "live_device_ids": "Devices providing live workout data"
+        },
+        "data_description": {
+          "live_device_ids": "ライブデバイス。対応 HA-ANT-Plus センサーを事前選択し、HR・速度・ケイデンス・パワー・距離は指標ごとのフェイルオーバーで別デバイスから利用できます。"
         }
       },
       "workout_devices": {
@@ -128,6 +187,9 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data"
+        },
+        "data_description": {
+          "workout_device_ids": "履歴デバイス。明確に対応する Garmin、Strava、Polar、Hevy、Peloton、Oura の契約だけを事前選択します。"
         }
       },
       "ai": {
@@ -136,6 +198,10 @@
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
           "ai_entity": "AI Task / LLM entity"
+        },
+        "data_description": {
+          "ai_enabled": "決定論的計算結果の AI 解釈を有効にします。AI は科学的センサー式やメタデータを定義・変更しません。",
+          "ai_entity": "コーチング/評価用 AI Task または会話エージェント。AI と TTS は直列化され重複しません。"
         }
       },
       "feedback": {
@@ -149,6 +215,15 @@
           "feedback_area_ids": "Rooms for intensity light feedback",
           "periodic_live_announcements": "定期ライブワークアウト案内",
           "periodic_live_interval_minutes": "ライブ案内の間隔"
+        },
+        "data_description": {
+          "feedback_light_ids": "明示的に選択したカラー対応ライト。一時的な色変更は直列化され、以前の状態を復元します。",
+          "notify_entity_ids": "ワークアウト/評価メッセージの通知先です。",
+          "tts_entity_id": "音声アナウンス用 TTS プロバイダーです。",
+          "tts_media_player_ids": "TTS 用メディアプレーヤー。明示的ターゲットは選択したワークアウト部屋のルールに従います。",
+          "feedback_area_ids": "コンテキストのライトとメディアプレーヤーを解決するワークアウト部屋です。",
+          "periodic_live_announcements": "設定間隔で進行中ワークアウトの音声評価を有効にします。",
+          "periodic_live_interval_minutes": "評価間隔（分）。各評価の前に最新のワークアウト統計を更新します。"
         }
       }
     }

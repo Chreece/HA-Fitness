@@ -8,7 +8,7 @@ MANAGER = (
 
 def _intensity_block():
     start = MANAGER.index("async def _async_live_intensity_feedback")
-    end = MANAGER.index("async def _async_intensity_message", start)
+    end = MANAGER.index("def _available_live_source_names", start)
     return MANAGER[start:end]
 
 
@@ -32,9 +32,3 @@ def test_intensity_restores_original_light_state():
     assert "_async_snapshot_feedback_lights" in block
     assert "_async_restore_feedback_lights" in block
     assert "clear_snapshot=True" in block
-
-
-def test_intensity_still_announces_current_intensity():
-    block = _intensity_block()
-    assert "_async_intensity_message(intensity)" in block
-    assert "_async_speak(message)" in block

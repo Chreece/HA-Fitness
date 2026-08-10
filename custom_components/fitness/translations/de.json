@@ -12,6 +12,14 @@
           "birth_month": "Geburtsmonat",
           "birth_year": "Geburtsjahr",
           "sex": "Geschlecht"
+        },
+        "data_description": {
+          "profile_name": "Name für das separate Fitness-Profil und die zugehörigen Entitäten dieser Person.",
+          "language": "Sprache für Ansagen, Coaching und erklärende Sensorattribute. Wenn unterstützt, wird die Home-Assistant-UI-Sprache vorausgewählt.",
+          "birth_day": "Geburtstag. Zusammen mit Monat und Jahr zur Altersberechnung für altersabhängige Referenzmethoden.",
+          "birth_month": "Geburtsmonat. Wird mit dem vollständigen Geburtsdatum für altersabhängige Referenzberechnungen verwendet.",
+          "birth_year": "Geburtsjahr. Dient zur Altersberechnung für altersabhängige Fitness-Referenzmethoden.",
+          "sex": "Optionales biologisches Geschlecht, nur für wissenschaftliche Referenzmethoden mit ausdrücklich geschlechtsspezifischen Koeffizienten."
         }
       },
       "required": {
@@ -20,6 +28,10 @@
         "data": {
           "weight": "Gewicht (kg oder Entität)",
           "resting_hr": "Ruhepuls (bpm oder Entität)"
+        },
+        "data_description": {
+          "weight": "Körpergewicht. Für W/kg und körpermassenbezogene Kennzahlen. kg eingeben oder kompatible Entität wählen; Einheiten werden automatisch umgerechnet.",
+          "resting_hr": "Ruheherzfrequenz in bpm. Für %HRR, Intensitätsklassifikation und Banister TRIMP. Eine echte Ruhe-HF verwenden, nicht ein Workout-Minimum."
         }
       },
       "optional": {
@@ -32,6 +44,14 @@
           "threshold_hr": "Schwellenpuls (bpm oder Entität)",
           "threshold_pace": "Schwellentempo (min/km oder Entität)",
           "threshold_power": "Schwellenleistung (W oder Entität)"
+        },
+        "data_description": {
+          "height": "Körpergröße. Optionaler Profilkontext. Manuelle Werte in cm; Entitätseinheiten werden automatisch umgerechnet.",
+          "max_hr": "Physiologische/konfigurierte maximale Herzfrequenz in bpm. Für %HRmax, %HRR und TRIMP. Wird nicht aus einem einzelnen Workout-Maximum geschätzt.",
+          "vo2max": "VO₂max in mL/kg/min. Für kardiorespiratorische Vergleiche und Langzeitbewertung.",
+          "threshold_hr": "Schwellen-Herzfrequenz in bpm. Für den Vergleich aktueller und abgeschlossener Belastung mit der persönlichen Schwelle.",
+          "threshold_pace": "Lauf-Schwellenpace in min/km. Geschwindigkeitsentitäten in m/s oder km/h werden automatisch umgerechnet.",
+          "threshold_power": "Schwellenleistung in Watt. Für relative Schwellenleistung und W/kg. Mehrdeutige mehrere FTP-Quellen werden nicht automatisch gewählt."
         }
       },
       "live_devices": {
@@ -39,6 +59,9 @@
         "description": "Select devices Fitness may capture during a live workout. Supported metrics are discovered automatically. Leave empty to use ANT+ automatically.",
         "data": {
           "live_device_ids": "Devices providing live workout data"
+        },
+        "data_description": {
+          "live_device_ids": "Live-Workout-Geräte. Unterstützte HA-ANT-Plus-Sensoren werden vorausgewählt. HR, Tempo, Kadenz, Leistung und Distanz können mit Failover je Metrik von unterschiedlichen Geräten kommen."
         }
       },
       "workout_devices": {
@@ -46,6 +69,9 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data"
+        },
+        "data_description": {
+          "workout_device_ids": "Geräte für abgeschlossene Workouts/Verlauf. Nur exakt unterstützte Garmin-, Strava-, Polar-, Hevy-, Peloton- und Oura-Adapterverträge werden vorausgewählt."
         }
       },
       "ai": {
@@ -54,6 +80,10 @@
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
           "ai_entity": "AI Task / LLM entity"
+        },
+        "data_description": {
+          "ai_enabled": "Aktiviert AI-Interpretation deterministischer Fitness-Berechnungen. AI definiert oder verändert niemals wissenschaftliche Sensorformeln oder Metadaten.",
+          "ai_entity": "AI Task oder Conversation-Agent für Coaching/Auswertung. AI und TTS sind serialisiert und überlappen nicht."
         }
       },
       "feedback": {
@@ -67,6 +97,15 @@
           "feedback_area_ids": "Räume für Intensitäts-Farbrückmeldung",
           "periodic_live_announcements": "Regelmäßige Live-Trainingsansagen",
           "periodic_live_interval_minutes": "Intervall der Live-Ansagen"
+        },
+        "data_description": {
+          "feedback_light_ids": "Explizite farbfähige Lichter. Temporäre Farben werden serialisiert und der vorherige Zustand wird wiederhergestellt.",
+          "notify_entity_ids": "Benachrichtigungsziele für Workout- und Auswertungsmeldungen.",
+          "tts_entity_id": "TTS-Anbieter für gesprochene Workout-Ansagen.",
+          "tts_media_player_ids": "Media Player für Ansagen. Explizite Ziele werden gemäß den ausgewählten Workout-Raumregeln berücksichtigt.",
+          "feedback_area_ids": "Workout-Räume zur Auflösung passender Lichter und Media-Player-Ziele.",
+          "periodic_live_announcements": "Wenn aktiviert, spricht Fitness im konfigurierten Intervall eine laufende Workout-Auswertung.",
+          "periodic_live_interval_minutes": "Minuten zwischen laufenden Auswertungen. Vor jeder Auswertung werden die neuesten Workout-Statistiken aktualisiert."
         }
       }
     },
@@ -100,6 +139,13 @@
           "birth_month": "Geburtsmonat",
           "birth_year": "Geburtsjahr",
           "sex": "Geschlecht"
+        },
+        "data_description": {
+          "language": "Sprache für Ansagen, Coaching und erklärende Sensorattribute. Wenn unterstützt, wird die Home-Assistant-UI-Sprache vorausgewählt.",
+          "birth_day": "Geburtstag. Zusammen mit Monat und Jahr zur Altersberechnung für altersabhängige Referenzmethoden.",
+          "birth_month": "Geburtsmonat. Wird mit dem vollständigen Geburtsdatum für altersabhängige Referenzberechnungen verwendet.",
+          "birth_year": "Geburtsjahr. Dient zur Altersberechnung für altersabhängige Fitness-Referenzmethoden.",
+          "sex": "Optionales biologisches Geschlecht, nur für wissenschaftliche Referenzmethoden mit ausdrücklich geschlechtsspezifischen Koeffizienten."
         }
       },
       "fitness_inputs": {
@@ -114,6 +160,16 @@
           "threshold_hr": "Schwellenpuls (bpm oder Entität)",
           "threshold_pace": "Schwellentempo (min/km oder Entität)",
           "threshold_power": "Schwellenleistung (W oder Entität)"
+        },
+        "data_description": {
+          "weight": "Körpergewicht. Für W/kg und körpermassenbezogene Kennzahlen. kg eingeben oder kompatible Entität wählen; Einheiten werden automatisch umgerechnet.",
+          "resting_hr": "Ruheherzfrequenz in bpm. Für %HRR, Intensitätsklassifikation und Banister TRIMP. Eine echte Ruhe-HF verwenden, nicht ein Workout-Minimum.",
+          "height": "Körpergröße. Optionaler Profilkontext. Manuelle Werte in cm; Entitätseinheiten werden automatisch umgerechnet.",
+          "max_hr": "Physiologische/konfigurierte maximale Herzfrequenz in bpm. Für %HRmax, %HRR und TRIMP. Wird nicht aus einem einzelnen Workout-Maximum geschätzt.",
+          "vo2max": "VO₂max in mL/kg/min. Für kardiorespiratorische Vergleiche und Langzeitbewertung.",
+          "threshold_hr": "Schwellen-Herzfrequenz in bpm. Für den Vergleich aktueller und abgeschlossener Belastung mit der persönlichen Schwelle.",
+          "threshold_pace": "Lauf-Schwellenpace in min/km. Geschwindigkeitsentitäten in m/s oder km/h werden automatisch umgerechnet.",
+          "threshold_power": "Schwellenleistung in Watt. Für relative Schwellenleistung und W/kg. Mehrdeutige mehrere FTP-Quellen werden nicht automatisch gewählt."
         }
       },
       "live_devices": {
@@ -121,6 +177,9 @@
         "description": "Select live source devices. Leave empty to use ANT+ automatically.",
         "data": {
           "live_device_ids": "Devices providing live workout data"
+        },
+        "data_description": {
+          "live_device_ids": "Live-Workout-Geräte. Unterstützte HA-ANT-Plus-Sensoren werden vorausgewählt. HR, Tempo, Kadenz, Leistung und Distanz können mit Failover je Metrik von unterschiedlichen Geräten kommen."
         }
       },
       "workout_devices": {
@@ -128,6 +187,9 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data"
+        },
+        "data_description": {
+          "workout_device_ids": "Geräte für abgeschlossene Workouts/Verlauf. Nur exakt unterstützte Garmin-, Strava-, Polar-, Hevy-, Peloton- und Oura-Adapterverträge werden vorausgewählt."
         }
       },
       "ai": {
@@ -136,6 +198,10 @@
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
           "ai_entity": "AI Task / LLM entity"
+        },
+        "data_description": {
+          "ai_enabled": "Aktiviert AI-Interpretation deterministischer Fitness-Berechnungen. AI definiert oder verändert niemals wissenschaftliche Sensorformeln oder Metadaten.",
+          "ai_entity": "AI Task oder Conversation-Agent für Coaching/Auswertung. AI und TTS sind serialisiert und überlappen nicht."
         }
       },
       "feedback": {
@@ -149,6 +215,15 @@
           "feedback_area_ids": "Räume für Intensitäts-Farbrückmeldung",
           "periodic_live_announcements": "Regelmäßige Live-Trainingsansagen",
           "periodic_live_interval_minutes": "Intervall der Live-Ansagen"
+        },
+        "data_description": {
+          "feedback_light_ids": "Explizite farbfähige Lichter. Temporäre Farben werden serialisiert und der vorherige Zustand wird wiederhergestellt.",
+          "notify_entity_ids": "Benachrichtigungsziele für Workout- und Auswertungsmeldungen.",
+          "tts_entity_id": "TTS-Anbieter für gesprochene Workout-Ansagen.",
+          "tts_media_player_ids": "Media Player für Ansagen. Explizite Ziele werden gemäß den ausgewählten Workout-Raumregeln berücksichtigt.",
+          "feedback_area_ids": "Workout-Räume zur Auflösung passender Lichter und Media-Player-Ziele.",
+          "periodic_live_announcements": "Wenn aktiviert, spricht Fitness im konfigurierten Intervall eine laufende Workout-Auswertung.",
+          "periodic_live_interval_minutes": "Minuten zwischen laufenden Auswertungen. Vor jeder Auswertung werden die neuesten Workout-Statistiken aktualisiert."
         }
       }
     }

@@ -12,6 +12,14 @@
           "birth_month": "Doğum ayı",
           "birth_year": "Doğum yılı",
           "sex": "Cinsiyet"
+        },
+        "data_description": {
+          "profile_name": "Bu kişi için ayrı Fitness profili ve entity'leri oluşturmakta kullanılan ad.",
+          "language": "Duyurular, coaching ve açıklayıcı sensör özniteliklerinin dili. Destekleniyorsa Home Assistant arayüz dili önceden seçilir.",
+          "birth_day": "Yaşa bağlı yöntemlerde yaş hesaplamak için ay ve yılla birlikte kullanılan doğum günü.",
+          "birth_month": "Yaşa bağlı referans hesaplarında tam doğum tarihiyle kullanılan doğum ayı.",
+          "birth_year": "Fitness referans yöntemlerinde yaş hesaplamak için kullanılan doğum yılı.",
+          "sex": "Yalnızca açıkça cinsiyete özgü katsayı isteyen bilimsel yöntemlerde kullanılan isteğe bağlı biyolojik cinsiyet."
         }
       },
       "required": {
@@ -20,6 +28,10 @@
         "data": {
           "weight": "Kilo (kg veya varlık)",
           "resting_hr": "Dinlenik nabız (bpm veya varlık)"
+        },
+        "data_description": {
+          "weight": "Vücut ağırlığı. W/kg ve kütleye göre normalize ölçümler için kullanılır. kg girin veya uyumlu entity seçin; birimler dönüştürülür.",
+          "resting_hr": "Dinlenik kalp hızı (bpm). %HRR, yoğunluk ve Banister TRIMP için kullanılır. Gerçek bir dinlenik HR ölçümü kullanın."
         }
       },
       "optional": {
@@ -32,6 +44,14 @@
           "threshold_hr": "Eşik nabzı (bpm veya varlık)",
           "threshold_pace": "Eşik temposu (min/km veya varlık)",
           "threshold_power": "Eşik gücü (W veya varlık)"
+        },
+        "data_description": {
+          "height": "Boy. İsteğe bağlı profil bağlamı. Manuel değer cm; entity birimleri otomatik dönüştürülür.",
+          "max_hr": "Fizyolojik/yapılandırılmış maksimum kalp hızı (bpm). %HRmax, %HRR ve TRIMP için kullanılır; tek bir antrenman maksimumundan tahmin edilmez.",
+          "vo2max": "VO₂max (mL/kg/min); kardiyorespiratuvar karşılaştırmalar ve uzun vadeli değerlendirme için kullanılır.",
+          "threshold_hr": "Eşik kalp hızı (bpm); eforu yapılandırılmış eşikle karşılaştırmak için kullanılır.",
+          "threshold_pace": "Koşu eşik temposu (min/km). m/s veya km/h hız entity'leri otomatik dönüştürülür.",
+          "threshold_power": "Eşik gücü (W). Eşiğe göre güç ve W/kg için kullanılır; birden fazla belirsiz FTP otomatik seçilmez."
         }
       },
       "live_devices": {
@@ -39,6 +59,9 @@
         "description": "Select devices Fitness may capture during a live workout. Supported metrics are discovered automatically. Leave empty to use ANT+ automatically.",
         "data": {
           "live_device_ids": "Devices providing live workout data"
+        },
+        "data_description": {
+          "live_device_ids": "Canlı cihazlar. Uyumlu HA-ANT-Plus sensörleri önceden seçilir; HR, hız, kadans, güç ve mesafe metrik başına failover ile farklı cihazlardan gelebilir."
         }
       },
       "workout_devices": {
@@ -46,6 +69,9 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data"
+        },
+        "data_description": {
+          "workout_device_ids": "Geçmiş cihazları. Yalnızca tam desteklenen Garmin, Strava, Polar, Hevy, Peloton ve Oura sözleşmeleri önceden seçilir."
         }
       },
       "ai": {
@@ -54,6 +80,10 @@
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
           "ai_entity": "AI Task / LLM entity"
+        },
+        "data_description": {
+          "ai_enabled": "Deterministik hesapların AI yorumunu etkinleştirir. AI bilimsel sensör formüllerini veya metadatasını asla tanımlamaz ya da değiştirmez.",
+          "ai_entity": "Coaching/değerlendirme için AI Task veya konuşma aracısı. AI ve TTS seri çalışır ve çakışmaz."
         }
       },
       "feedback": {
@@ -67,6 +97,15 @@
           "feedback_area_ids": "Rooms for intensity light feedback",
           "periodic_live_announcements": "Periyodik canlı antrenman duyuruları",
           "periodic_live_interval_minutes": "Canlı duyuru aralığı"
+        },
+        "data_description": {
+          "feedback_light_ids": "Açıkça seçilen renkli ışıklar. Geçici renkler seri uygulanır ve önceki durum geri yüklenir.",
+          "notify_entity_ids": "Antrenman ve değerlendirme mesajları için bildirim hedefleri.",
+          "tts_entity_id": "Sesli duyurular için TTS sağlayıcısı.",
+          "tts_media_player_ids": "TTS için media player'lar; açık hedefler seçilen antrenman odası kurallarına uyar.",
+          "feedback_area_ids": "Bağlamsal ışık ve media player hedefleri için antrenman odaları.",
+          "periodic_live_announcements": "Yapılandırılan aralıkta devam eden antrenmanın sesli değerlendirmesini etkinleştirir.",
+          "periodic_live_interval_minutes": "Değerlendirmeler arasındaki dakika; her değerlendirmeden önce en son istatistikler yenilenir."
         }
       }
     },
@@ -100,6 +139,13 @@
           "birth_month": "Doğum ayı",
           "birth_year": "Doğum yılı",
           "sex": "Cinsiyet"
+        },
+        "data_description": {
+          "language": "Duyurular, coaching ve açıklayıcı sensör özniteliklerinin dili. Destekleniyorsa Home Assistant arayüz dili önceden seçilir.",
+          "birth_day": "Yaşa bağlı yöntemlerde yaş hesaplamak için ay ve yılla birlikte kullanılan doğum günü.",
+          "birth_month": "Yaşa bağlı referans hesaplarında tam doğum tarihiyle kullanılan doğum ayı.",
+          "birth_year": "Fitness referans yöntemlerinde yaş hesaplamak için kullanılan doğum yılı.",
+          "sex": "Yalnızca açıkça cinsiyete özgü katsayı isteyen bilimsel yöntemlerde kullanılan isteğe bağlı biyolojik cinsiyet."
         }
       },
       "fitness_inputs": {
@@ -114,6 +160,16 @@
           "threshold_hr": "Eşik nabzı (bpm veya varlık)",
           "threshold_pace": "Eşik temposu (min/km veya varlık)",
           "threshold_power": "Eşik gücü (W veya varlık)"
+        },
+        "data_description": {
+          "weight": "Vücut ağırlığı. W/kg ve kütleye göre normalize ölçümler için kullanılır. kg girin veya uyumlu entity seçin; birimler dönüştürülür.",
+          "resting_hr": "Dinlenik kalp hızı (bpm). %HRR, yoğunluk ve Banister TRIMP için kullanılır. Gerçek bir dinlenik HR ölçümü kullanın.",
+          "height": "Boy. İsteğe bağlı profil bağlamı. Manuel değer cm; entity birimleri otomatik dönüştürülür.",
+          "max_hr": "Fizyolojik/yapılandırılmış maksimum kalp hızı (bpm). %HRmax, %HRR ve TRIMP için kullanılır; tek bir antrenman maksimumundan tahmin edilmez.",
+          "vo2max": "VO₂max (mL/kg/min); kardiyorespiratuvar karşılaştırmalar ve uzun vadeli değerlendirme için kullanılır.",
+          "threshold_hr": "Eşik kalp hızı (bpm); eforu yapılandırılmış eşikle karşılaştırmak için kullanılır.",
+          "threshold_pace": "Koşu eşik temposu (min/km). m/s veya km/h hız entity'leri otomatik dönüştürülür.",
+          "threshold_power": "Eşik gücü (W). Eşiğe göre güç ve W/kg için kullanılır; birden fazla belirsiz FTP otomatik seçilmez."
         }
       },
       "live_devices": {
@@ -121,6 +177,9 @@
         "description": "Select live source devices. Leave empty to use ANT+ automatically.",
         "data": {
           "live_device_ids": "Devices providing live workout data"
+        },
+        "data_description": {
+          "live_device_ids": "Canlı cihazlar. Uyumlu HA-ANT-Plus sensörleri önceden seçilir; HR, hız, kadans, güç ve mesafe metrik başına failover ile farklı cihazlardan gelebilir."
         }
       },
       "workout_devices": {
@@ -128,6 +187,9 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data"
+        },
+        "data_description": {
+          "workout_device_ids": "Geçmiş cihazları. Yalnızca tam desteklenen Garmin, Strava, Polar, Hevy, Peloton ve Oura sözleşmeleri önceden seçilir."
         }
       },
       "ai": {
@@ -136,6 +198,10 @@
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
           "ai_entity": "AI Task / LLM entity"
+        },
+        "data_description": {
+          "ai_enabled": "Deterministik hesapların AI yorumunu etkinleştirir. AI bilimsel sensör formüllerini veya metadatasını asla tanımlamaz ya da değiştirmez.",
+          "ai_entity": "Coaching/değerlendirme için AI Task veya konuşma aracısı. AI ve TTS seri çalışır ve çakışmaz."
         }
       },
       "feedback": {
@@ -149,6 +215,15 @@
           "feedback_area_ids": "Rooms for intensity light feedback",
           "periodic_live_announcements": "Periyodik canlı antrenman duyuruları",
           "periodic_live_interval_minutes": "Canlı duyuru aralığı"
+        },
+        "data_description": {
+          "feedback_light_ids": "Açıkça seçilen renkli ışıklar. Geçici renkler seri uygulanır ve önceki durum geri yüklenir.",
+          "notify_entity_ids": "Antrenman ve değerlendirme mesajları için bildirim hedefleri.",
+          "tts_entity_id": "Sesli duyurular için TTS sağlayıcısı.",
+          "tts_media_player_ids": "TTS için media player'lar; açık hedefler seçilen antrenman odası kurallarına uyar.",
+          "feedback_area_ids": "Bağlamsal ışık ve media player hedefleri için antrenman odaları.",
+          "periodic_live_announcements": "Yapılandırılan aralıkta devam eden antrenmanın sesli değerlendirmesini etkinleştirir.",
+          "periodic_live_interval_minutes": "Değerlendirmeler arasındaki dakika; her değerlendirmeden önce en son istatistikler yenilenir."
         }
       }
     }

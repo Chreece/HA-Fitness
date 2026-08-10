@@ -12,6 +12,14 @@
           "birth_month": "Month of birth",
           "birth_year": "Year of birth",
           "sex": "Sex (optional; used only by methods requiring sex-specific reference data)"
+        },
+        "data_description": {
+          "profile_name": "Name used to create this person's separate Fitness profile and entities.",
+          "language": "Language used for Fitness announcements, coaching and explanatory sensor attributes. The Home Assistant UI language is preselected when supported.",
+          "birth_day": "Day of birth. Together with month and year it is used to calculate age for age-dependent reference methods.",
+          "birth_month": "Month of birth. Used with the full date of birth for age-dependent reference calculations.",
+          "birth_year": "Year of birth. Used to calculate age for age-dependent fitness reference methods.",
+          "sex": "Optional biological sex input used only by scientific/reference methods that explicitly require sex-specific coefficients."
         }
       },
       "required": {
@@ -20,6 +28,10 @@
         "data": {
           "weight": "Weight (kg or entity)",
           "resting_hr": "Resting heart rate (bpm or entity)"
+        },
+        "data_description": {
+          "weight": "Body mass. Used for power-to-weight and body-mass-normalized metrics. Enter kg or choose a compatible entity; entity units are converted automatically.",
+          "resting_hr": "Resting heart rate in bpm. Used for heart-rate reserve (%HRR), intensity classification and Banister TRIMP. Use a true resting-HR metric, not a workout minimum."
         }
       },
       "optional": {
@@ -32,6 +44,14 @@
           "threshold_hr": "Threshold heart rate (bpm or entity)",
           "threshold_pace": "Threshold pace (min/km or entity)",
           "threshold_power": "Threshold power (W or entity)"
+        },
+        "data_description": {
+          "height": "Height. Optional profile context. Manual values are cm; compatible entity units are converted automatically.",
+          "max_hr": "Physiological/configured maximum heart rate in bpm. Used for %HRmax, %HRR and TRIMP. Fitness does not guess this from one workout maximum.",
+          "vo2max": "VO₂max in mL/kg/min. Used for cardiorespiratory comparisons and long-term evaluation. Exact supported provider entities may be autofilled.",
+          "threshold_hr": "Heart-rate threshold in bpm. Used to express current and completed-workout HR relative to the configured threshold.",
+          "threshold_pace": "Running threshold pace in min/km. Speed entities such as m/s or km/h are converted automatically.",
+          "threshold_power": "Threshold power in watts. Used for threshold-relative power and power-to-weight evaluation. Ambiguous multiple FTP sources are not auto-selected."
         }
       },
       "live_devices": {
@@ -39,6 +59,9 @@
         "description": "Select devices Fitness may capture during a live workout. Supported metrics are discovered automatically. Leave empty to use ANT+ automatically.",
         "data": {
           "live_device_ids": "Devices providing live workout data"
+        },
+        "data_description": {
+          "live_device_ids": "Devices used for live workouts. Supported HA-ANT-Plus sensors are preselected. HR, speed, cadence, power and distance may come from different devices with per-metric failover."
         }
       },
       "workout_devices": {
@@ -46,6 +69,9 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data"
+        },
+        "data_description": {
+          "workout_device_ids": "Devices used for completed workouts/history. Only exact supported Garmin, Strava, Polar, Hevy, Peloton and Oura adapter contracts are preselected."
         }
       },
       "ai": {
@@ -54,6 +80,10 @@
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
           "ai_entity": "AI Task / LLM entity"
+        },
+        "data_description": {
+          "ai_enabled": "Enables AI interpretation of deterministic Fitness calculations. AI never defines or changes scientific sensor formulas or metadata.",
+          "ai_entity": "AI Task or conversation agent used for coaching/evaluation. Fitness serializes AI and TTS so they cannot overlap."
         }
       },
       "feedback": {
@@ -67,6 +97,15 @@
           "feedback_area_ids": "Rooms for intensity light feedback",
           "periodic_live_announcements": "Periodic live workout announcements",
           "periodic_live_interval_minutes": "Live announcement interval"
+        },
+        "data_description": {
+          "feedback_light_ids": "Explicit color-capable lights for workout feedback. Temporary colors are serialized and the previous state is restored.",
+          "notify_entity_ids": "Notification targets for workout and evaluation messages.",
+          "tts_entity_id": "TTS provider used for spoken workout announcements.",
+          "tts_media_player_ids": "Media players used for spoken announcements. Explicit targets are respected according to the selected workout-room rules.",
+          "feedback_area_ids": "Workout room(s) used to resolve contextual lights and compatible media-player targets.",
+          "periodic_live_announcements": "When enabled, Fitness gives an ongoing spoken workout evaluation at the configured interval.",
+          "periodic_live_interval_minutes": "Minutes between ongoing workout evaluations. Each one refreshes the latest workout statistics before AI/coaching is generated."
         }
       }
     },
@@ -100,6 +139,13 @@
           "birth_month": "Month of birth",
           "birth_year": "Year of birth",
           "sex": "Sex"
+        },
+        "data_description": {
+          "language": "Language used for Fitness announcements, coaching and explanatory sensor attributes. The Home Assistant UI language is preselected when supported.",
+          "birth_day": "Day of birth. Together with month and year it is used to calculate age for age-dependent reference methods.",
+          "birth_month": "Month of birth. Used with the full date of birth for age-dependent reference calculations.",
+          "birth_year": "Year of birth. Used to calculate age for age-dependent fitness reference methods.",
+          "sex": "Optional biological sex input used only by scientific/reference methods that explicitly require sex-specific coefficients."
         }
       },
       "fitness_inputs": {
@@ -114,6 +160,16 @@
           "threshold_hr": "Threshold heart rate (bpm or entity)",
           "threshold_pace": "Threshold pace (min/km or entity)",
           "threshold_power": "Threshold power (W or entity)"
+        },
+        "data_description": {
+          "weight": "Body mass. Used for power-to-weight and body-mass-normalized metrics. Enter kg or choose a compatible entity; entity units are converted automatically.",
+          "resting_hr": "Resting heart rate in bpm. Used for heart-rate reserve (%HRR), intensity classification and Banister TRIMP. Use a true resting-HR metric, not a workout minimum.",
+          "height": "Height. Optional profile context. Manual values are cm; compatible entity units are converted automatically.",
+          "max_hr": "Physiological/configured maximum heart rate in bpm. Used for %HRmax, %HRR and TRIMP. Fitness does not guess this from one workout maximum.",
+          "vo2max": "VO₂max in mL/kg/min. Used for cardiorespiratory comparisons and long-term evaluation. Exact supported provider entities may be autofilled.",
+          "threshold_hr": "Heart-rate threshold in bpm. Used to express current and completed-workout HR relative to the configured threshold.",
+          "threshold_pace": "Running threshold pace in min/km. Speed entities such as m/s or km/h are converted automatically.",
+          "threshold_power": "Threshold power in watts. Used for threshold-relative power and power-to-weight evaluation. Ambiguous multiple FTP sources are not auto-selected."
         }
       },
       "live_devices": {
@@ -121,6 +177,9 @@
         "description": "Select live source devices. Leave empty to use ANT+ automatically.",
         "data": {
           "live_device_ids": "Devices providing live workout data"
+        },
+        "data_description": {
+          "live_device_ids": "Devices used for live workouts. Supported HA-ANT-Plus sensors are preselected. HR, speed, cadence, power and distance may come from different devices with per-metric failover."
         }
       },
       "workout_devices": {
@@ -128,6 +187,9 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data"
+        },
+        "data_description": {
+          "workout_device_ids": "Devices used for completed workouts/history. Only exact supported Garmin, Strava, Polar, Hevy, Peloton and Oura adapter contracts are preselected."
         }
       },
       "ai": {
@@ -136,6 +198,10 @@
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
           "ai_entity": "AI Task / LLM entity"
+        },
+        "data_description": {
+          "ai_enabled": "Enables AI interpretation of deterministic Fitness calculations. AI never defines or changes scientific sensor formulas or metadata.",
+          "ai_entity": "AI Task or conversation agent used for coaching/evaluation. Fitness serializes AI and TTS so they cannot overlap."
         }
       },
       "feedback": {
@@ -149,6 +215,15 @@
           "feedback_area_ids": "Rooms for intensity light feedback",
           "periodic_live_announcements": "Periodic live workout announcements",
           "periodic_live_interval_minutes": "Live announcement interval"
+        },
+        "data_description": {
+          "feedback_light_ids": "Explicit color-capable lights for workout feedback. Temporary colors are serialized and the previous state is restored.",
+          "notify_entity_ids": "Notification targets for workout and evaluation messages.",
+          "tts_entity_id": "TTS provider used for spoken workout announcements.",
+          "tts_media_player_ids": "Media players used for spoken announcements. Explicit targets are respected according to the selected workout-room rules.",
+          "feedback_area_ids": "Workout room(s) used to resolve contextual lights and compatible media-player targets.",
+          "periodic_live_announcements": "When enabled, Fitness gives an ongoing spoken workout evaluation at the configured interval.",
+          "periodic_live_interval_minutes": "Minutes between ongoing workout evaluations. Each one refreshes the latest workout statistics before AI/coaching is generated."
         }
       }
     }

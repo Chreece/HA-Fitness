@@ -37,6 +37,7 @@ from .engine.live import (
     speed_from_pace_min_km,
 )
 from .providers.entities import resolve_number_or_entity
+from .explanations import sensor_explanation  # Deterministic; never AI-generated.
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -338,7 +339,7 @@ class FitnessSensor(SensorEntity):
                 return round(self.manager.session_duration())
 
             live = self.manager.live_values()
-            evaluation = self.manager.evaluation()
+            derived = self.manager.live_derived_values()
             session_stats = self.manager.live_session_statistics()
 
             if m in (
@@ -353,65 +354,34 @@ class FitnessSensor(SensorEntity):
                 return round(value, 2) if value is not None else None
 
             if m == "heart_rate_percent_max":
-                value = percent_max_hr(
-                    live.get(METRIC_HEART_RATE),
-                    evaluation.get("max_hr"),
-                )
+                value = derived.get(m)
                 return round(value, 1) if value is not None else None
 
             if m == "heart_rate_reserve_percent":
-                value = percent_hrr(
-                    live.get(METRIC_HEART_RATE),
-                    evaluation.get("max_hr"),
-                    evaluation.get("resting_hr"),
-                )
+                value = derived.get(m)
                 return round(value, 1) if value is not None else None
 
             if m == "heart_rate_intensity":
-                value = percent_hrr(
-                    live.get(METRIC_HEART_RATE),
-                    evaluation.get("max_hr"),
-                    evaluation.get("resting_hr"),
-                )
-                return acsm_hrr_intensity(value)
+                return derived.get(m)
 
             if m == "heart_rate_relative_threshold":
-                value = relative_percent(
-                    live.get(METRIC_HEART_RATE),
-                    evaluation.get("threshold_hr"),
-                )
+                value = derived.get(m)
                 return round(value, 1) if value is not None else None
 
             if m == "current_power_to_weight":
-                value = live.get(METRIC_POWER)
-                weight = evaluation.get("weight")
-                return (
-                    round(value / weight, 2)
-                    if value is not None and weight
-                    else None
-                )
+                value = derived.get(m)
+                return round(value, 2) if value is not None else None
 
             if m == "power_relative_threshold":
-                value = relative_percent(
-                    live.get(METRIC_POWER),
-                    evaluation.get("threshold_power"),
-                )
+                value = derived.get(m)
                 return round(value, 1) if value is not None else None
 
             if m == "current_pace":
-                value = pace_from_speed_kmh(
-                    live.get(METRIC_SPEED)
-                )
+                value = derived.get(m)
                 return round(value, 2) if value is not None else None
 
             if m == "speed_relative_threshold":
-                threshold_speed = speed_from_pace_min_km(
-                    evaluation.get("threshold_pace")
-                )
-                value = relative_percent(
-                    live.get(METRIC_SPEED),
-                    threshold_speed,
-                )
+                value = derived.get(m)
                 return round(value, 1) if value is not None else None
 
             live_stats_map = {
@@ -540,21 +510,16 @@ class FitnessSensor(SensorEntity):
                 "speed_relative_threshold": METRIC_SPEED,
             }.get(m, m)
 
-            source = self.manager.live_sources().get(source_metric)
-            if source:
-                state = self.manager.hass.states.get(source.entity_id)
-                attrs.update(
-                    {
-                        "source_entity": source.entity_id,
-                        "source_device": source.device_id,
-                        "source_available": source.available_numeric,
-                        "source_unit": (
-                            state.attributes.get("unit_of_measurement")
-                            if state is not None else None
-                        ),
-                        "discovery_score": source.score,
-                    }
+            attrs.update(
+                self.manager.live_source_info(source_metric)
+            )
+            attrs.update(
+                sensor_explanation(
+                    self.manager._ai_language(),
+                    "live",
+                    m,
                 )
+            )
 
             evaluation = self.manager.evaluation()
 
@@ -645,12 +610,26 @@ class FitnessSensor(SensorEntity):
 
         if self.entity_description.kind == "workout":
             w = self.manager.latest_workout()
-            return w.as_dict() if w else {}
+            attrs = w.as_dict() if w else {}
+            attrs.update(
+                sensor_explanation(
+                    self.manager._ai_language(),
+                    "workout",
+                    m,
+                )
+            )
+            return attrs
 
         e = self.manager.evaluation()
+        base_explanation = sensor_explanation(
+            self.manager._ai_language(),
+            "evaluation",
+            m,
+        )
 
         if m in ("friend_predicted_vo2max", "vo2max_percent_predicted", "cardiorespiratory_status"):
             return {
+                **base_explanation,
                 "method": METHOD_FRIEND_2017,
                 "scientific_output": (
                     "percent_predicted"
@@ -665,6 +644,7 @@ class FitnessSensor(SensorEntity):
 
         if m == "hrv_status":
             return {
+                **base_explanation,
                 "method": METHOD_PERSONAL_HRV_BASELINE,
                 "baseline_low": e.get("hrv_baseline_low"),
                 "baseline_high": e.get("hrv_baseline_high"),
@@ -672,16 +652,21 @@ class FitnessSensor(SensorEntity):
             }
 
         if m == "vo2max":
-            return {"method": e.get("vo2max_method")}
+            return {**base_explanation, "method": e.get("vo2max_method")}
 
         if m == "max_hr":
-            return {"method": e.get("max_hr_method")}
+            return {**base_explanation, "method": e.get("max_hr_method")}
 
         if m in ("training_readiness", "sleep_score", "provider_training_status", "fitness_age"):
-            return {"source_type": "provider_context", "note": "Provider metric; calculation may be proprietary."}
+            return {
+                **base_explanation,
+                "source_type": "provider_context",
+                "note": "Provider metric; calculation may be proprietary.",
+            }
 
         if m == "acute_chronic_ratio":
             return {
+                **base_explanation,
                 "note": (
                     "Training-load context only. This integration does not interpret "
                     "the ratio as an injury-risk prediction."
@@ -695,6 +680,7 @@ class FitnessSensor(SensorEntity):
                 else self.manager.ai_workout
             )
             return {
+                **base_explanation,
                 "text": full_text,
                 "generated_at": self.manager.ai_last_generated,
                 "ai_entity": self.manager.config.get("ai_entity") or "preferred_default",
@@ -724,6 +710,7 @@ class FitnessSensor(SensorEntity):
             )
             if resolved.entity_id:
                 return {
+                    **base_explanation,
                     "source": resolved.source,
                     "source_entity": resolved.entity_id,
                     "source_value": resolved.original_value,
@@ -731,4 +718,4 @@ class FitnessSensor(SensorEntity):
                     "normalized_unit": resolved.canonical_unit,
                 }
 
-        return {}
+        return base_explanation
