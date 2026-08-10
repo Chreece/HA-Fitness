@@ -292,7 +292,16 @@ class FitnessSensor(SensorEntity):
         self._attr_device_info = device_info(entry, desc.kind)
 
     async def async_added_to_hass(self):
-        self.async_on_remove(self.manager.add_listener(self._update))
+        # Every Fitness sensor receives low-frequency/general manager updates.
+        self.async_on_remove(
+            self.manager.add_listener(self._update)
+        )
+
+        # Live sensors additionally receive the high-frequency live-only path.
+        if self.entity_description.kind == "live":
+            self.async_on_remove(
+                self.manager.add_live_listener(self._update)
+            )
 
     def _update(self):
         self.async_write_ha_state()

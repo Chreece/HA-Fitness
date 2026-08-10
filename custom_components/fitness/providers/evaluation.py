@@ -172,10 +172,57 @@ def collect_provider_metrics(hass: HomeAssistant, config: dict) -> dict:
 
 
 def workout_device_entity_ids(hass: HomeAssistant, config: dict) -> list[str]:
+    """Return entities capable of signalling a completed-workout change.
+
+    Do not subscribe to every sensor belonging to a selected workout device.
+    Large provider devices such as Garmin Connect can expose hundreds of
+    frequently changing wellness sensors. Those updates are unrelated to
+    completed workouts and must not wake the Fitness workout-discovery path.
+    """
     device_ids = set(config.get(CONF_WORKOUT_DEVICE_IDS) or [])
     registry = er.async_get(hass)
-    return sorted(
-        entry.entity_id
-        for entry in registry.entities.values()
-        if entry.device_id in device_ids and entry.entity_id.startswith("sensor.")
+
+    trigger_tokens = (
+        "activity",
+        "activities",
+        "workout",
+        "workouts",
+        "exercise",
+        "exercises",
+        "session",
+        "sessions",
     )
+
+    excluded_tokens = (
+        "scheduled",
+        "planned",
+        "next_workout",
+        "workout_plan",
+        "route",
+        "polyline",
+        "gear_distance",
+    )
+
+    result: set[str] = set()
+
+    for entry in registry.entities.values():
+        if entry.device_id not in device_ids:
+            continue
+        if not entry.entity_id.startswith("sensor."):
+            continue
+
+        label = " ".join(
+            (
+                entry.entity_id,
+                entry.name or "",
+                entry.original_name or "",
+            )
+        ).lower().replace(" ", "_").replace("-", "_")
+
+        if any(token in label for token in excluded_tokens):
+            continue
+
+        if any(token in label for token in trigger_tokens):
+            result.add(entry.entity_id)
+
+    return sorted(result)

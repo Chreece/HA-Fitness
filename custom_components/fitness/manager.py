@@ -118,6 +118,7 @@ class FitnessManager:
         self.hass = hass
         self.entry = entry
         self.listeners: list[Callable[[], None]] = []
+        self.live_listeners: list[Callable[[], None]] = []
         self.remove_listeners: list[Callable[[], None]] = []
         self.store = Store(
             hass,
@@ -442,6 +443,11 @@ class FitnessManager:
         self.listeners.append(listener)
         return lambda: self.listeners.remove(listener)
 
+    def add_live_listener(self, listener):
+        """Register a listener for high-frequency live entity updates only."""
+        self.live_listeners.append(listener)
+        return lambda: self.live_listeners.remove(listener)
+
     def sensor_was_materialized(self, key: str) -> bool:
         """Return whether a sensor entity has ever had a valid value."""
         return key in self.materialized_sensor_keys
@@ -491,6 +497,16 @@ class FitnessManager:
                     "Fitness entity listener failed; continuing remaining updates"
                 )
 
+    def _notify_live(self):
+        """Notify only live Fitness entities."""
+        for listener in list(self.live_listeners):
+            try:
+                listener()
+            except Exception:  # noqa: BLE001 - entity listeners must be isolated
+                _LOGGER.exception(
+                    "Fitness live entity listener failed; continuing remaining updates"
+                )
+
     async def _save(self):
         await self.store.async_save(
             {
@@ -529,11 +545,17 @@ class FitnessManager:
         ):
             return
         self._last_live_notify_monotonic = now
-        self._notify()
+        self._notify_live()
 
     @callback
     def _async_live_source_change(self, event: Event):
         """Minimal hot path for high-frequency live workout sensor updates."""
+        # Completely ignore high-frequency live sensor traffic while Fitness is
+        # idle. No Fitness entities need to be republished until a workout is
+        # armed or active.
+        if not self.session_armed and not self.session_active:
+            return
+
         if self.session_armed and not self.session_active:
             if self._has_valid_live_workout_data():
                 self._begin_session_from_live_data()
@@ -557,8 +579,7 @@ class FitnessManager:
 
     @callback
     def _async_workout_source_change(self, event: Event):
-        """Handle completed-workout provider updates outside the live hot path."""
-        self._notify()
+        """Schedule completed-workout discovery after a relevant provider update."""
         self._schedule_external_workout_recheck()
 
     @callback
