@@ -39,7 +39,7 @@ calculations, history and recovery collection in the background.
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![HACS](https://img.shields.io/badge/HACS-Custom%20Repository-41BDF5)](https://www.hacs.xyz/)
-[![Version](https://img.shields.io/badge/version-2026.8.0--beta.24-blue)](https://github.com/Chreece/HA-Fitness/releases)
+[![Version](https://img.shields.io/badge/version-2026.8.0--beta.25-blue)](https://github.com/Chreece/HA-Fitness/releases)
 [![License](https://img.shields.io/badge/status-public%20beta-orange)](#beta-status)
 
 </div>
@@ -950,7 +950,7 @@ YYYY.MM.release
 Prereleases append their stage:
 
 ```text
-2026.8.0-beta.24
+2026.8.0-beta.25
 ```
 
 The stable version for this release line will be:
@@ -1270,3 +1270,11 @@ The provenance metadata remains deterministic and AI-free.
 
 ### Localized provenance
 Human-facing provenance descriptions follow the selected Fitness language in all 15 supported languages. Technical/scientific data such as formulas, entity IDs, method identifiers, numerical values and units remain unchanged for precision and troubleshooting.
+
+
+## Beta.25 evaluation availability hotfix
+
+Fixes `NameError: provenance_text is not defined` in the localized evaluation
+provenance path. Beta.25 also keeps the beta.24 birth-date constant fix and
+listener isolation, so one entity attribute failure cannot block updates for the
+other Fitness entities.

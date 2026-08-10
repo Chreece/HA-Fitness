@@ -18,6 +18,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
 
+from .explanations import provenance_text
 from .const import (
     ANTPLUS_DOMAINS,
     CONF_AI_ENABLED,

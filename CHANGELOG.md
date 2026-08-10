@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026.8.0-beta.25
+
+### Evaluation availability hotfix
+
+- Fixed `NameError: provenance_text is not defined` in
+  `localized_evaluation_provenance()`.
+- Added the missing `provenance_text` import in `manager.py`.
+- Added regression coverage for provenance helper imports and direct-scope
+  unresolved names.
+- Retains beta.24 birth-date constant imports and listener exception isolation.
+
 ## 2026.8.0-beta.24
 
 ### Critical evaluation availability fix
