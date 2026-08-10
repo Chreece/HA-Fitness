@@ -615,18 +615,5 @@
         "12": "十二月"
       }
     }
-  },
-  "evaluation_provenance": {
-    "calculated": "由 Fitness 计算",
-    "direct": "直接来源值",
-    "provider": "提供商值",
-    "history": "基于训练历史的计算",
-    "profile": "个人资料配置",
-    "sources": "使用的数据来源",
-    "why": "为什么有用",
-    "caveat": "科学说明",
-    "provider_note": "此值来自健身数据提供商。Fitness 不会重建或声称了解提供商的内部算法。",
-    "history_note": "此值根据已完成的训练历史计算。",
-    "direct_note": "此值在单位标准化后直接使用；Fitness 不对其进行估算。"
   }
 }

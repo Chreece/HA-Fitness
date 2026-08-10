@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026.8.0-beta.26
+
+### Hassfest translation-schema fix
+
+- Removed unsupported top-level `evaluation_provenance` sections from
+  `strings.json` and all `translations/*.json`.
+- Preserved all 15 provenance languages in Fitness' internal deterministic
+  localization catalog in `explanations.py`.
+- Runtime provenance localization still follows the selected Fitness language.
+- Added regression tests that reject custom/unsupported Home Assistant
+  translation top-level keys.
+- Retains beta.25 evaluation availability fixes.
+
 ## 2026.8.0-beta.25
 
 ### Evaluation availability hotfix

@@ -615,18 +615,5 @@
         "12": "December"
       }
     }
-  },
-  "evaluation_provenance": {
-    "calculated": "Berekend door Fitness",
-    "direct": "Directe bronwaarde",
-    "provider": "Waarde van provider",
-    "history": "Berekening uit trainingsgeschiedenis",
-    "profile": "Profielconfiguratie",
-    "sources": "Gebruikte gegevensbronnen",
-    "why": "Waarom dit nuttig is",
-    "caveat": "Wetenschappelijke opmerking",
-    "provider_note": "Deze waarde komt van de fitnessprovider. Fitness reconstrueert de interne algoritmen van de provider niet en claimt deze niet te kennen.",
-    "history_note": "Deze waarde wordt berekend uit de geschiedenis van voltooide trainingen.",
-    "direct_note": "Deze waarde wordt na eenheidsnormalisatie direct gebruikt; Fitness schat deze niet."
   }
 }

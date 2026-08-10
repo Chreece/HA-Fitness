@@ -39,7 +39,7 @@ calculations, history and recovery collection in the background.
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![HACS](https://img.shields.io/badge/HACS-Custom%20Repository-41BDF5)](https://www.hacs.xyz/)
-[![Version](https://img.shields.io/badge/version-2026.8.0--beta.25-blue)](https://github.com/Chreece/HA-Fitness/releases)
+[![Version](https://img.shields.io/badge/version-2026.8.0--beta.26-blue)](https://github.com/Chreece/HA-Fitness/releases)
 [![License](https://img.shields.io/badge/status-public%20beta-orange)](#beta-status)
 
 </div>
@@ -950,7 +950,7 @@ YYYY.MM.release
 Prereleases append their stage:
 
 ```text
-2026.8.0-beta.25
+2026.8.0-beta.26
 ```
 
 The stable version for this release line will be:
@@ -1278,3 +1278,17 @@ Fixes `NameError: provenance_text is not defined` in the localized evaluation
 provenance path. Beta.25 also keeps the beta.24 birth-date constant fix and
 listener isolation, so one entity attribute failure cannot block updates for the
 other Fitness entities.
+
+
+## Beta.26 Hassfest translation-schema fix
+
+Human-facing evaluation provenance remains localized in all 15 supported
+languages, but those strings now live exclusively in Fitness' internal
+deterministic localization catalog.
+
+They are intentionally **not** stored as a custom top-level section in
+`strings.json` or `translations/*.json`, because Home Assistant validates those
+files against its own translation schema and rejects unknown top-level keys.
+
+A regression test now checks that HA-Fitness translation files contain only
+Home Assistant-supported top-level sections.

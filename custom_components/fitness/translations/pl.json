@@ -615,18 +615,5 @@
         "12": "Grudzień"
       }
     }
-  },
-  "evaluation_provenance": {
-    "calculated": "Obliczone przez Fitness",
-    "direct": "Bezpośrednia wartość źródłowa",
-    "provider": "Wartość dostawcy",
-    "history": "Obliczenie z historii treningów",
-    "profile": "Konfiguracja profilu",
-    "sources": "Użyte źródła danych",
-    "why": "Dlaczego jest przydatne",
-    "caveat": "Uwaga naukowa",
-    "provider_note": "Ta wartość pochodzi od dostawcy fitness. Fitness nie odtwarza ani nie twierdzi, że zna jego wewnętrzny algorytm.",
-    "history_note": "Ta wartość jest obliczana na podstawie historii ukończonych treningów.",
-    "direct_note": "Ta wartość jest używana bezpośrednio po normalizacji jednostki; Fitness jej nie szacuje."
   }
 }

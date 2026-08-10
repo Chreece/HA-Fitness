@@ -615,18 +615,5 @@
         "12": "12월"
       }
     }
-  },
-  "evaluation_provenance": {
-    "calculated": "Fitness에서 계산",
-    "direct": "직접 소스 값",
-    "provider": "제공자 값",
-    "history": "운동 기록 기반 계산",
-    "profile": "프로필 설정",
-    "sources": "사용된 데이터 소스",
-    "why": "이 값이 유용한 이유",
-    "caveat": "과학적 참고",
-    "provider_note": "이 값은 피트니스 제공자에서 가져옵니다. Fitness는 제공자의 내부 알고리즘을 재현하거나 알고 있다고 주장하지 않습니다.",
-    "history_note": "이 값은 완료된 운동 기록을 기반으로 계산됩니다.",
-    "direct_note": "이 값은 단위 정규화 후 직접 사용되며 Fitness가 추정하지 않습니다."
   }
 }

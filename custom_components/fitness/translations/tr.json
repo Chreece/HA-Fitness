@@ -615,18 +615,5 @@
         "12": "Aralık"
       }
     }
-  },
-  "evaluation_provenance": {
-    "calculated": "Fitness tarafından hesaplandı",
-    "direct": "Doğrudan kaynak değeri",
-    "provider": "Sağlayıcı değeri",
-    "history": "Antrenman geçmişinden hesaplama",
-    "profile": "Profil yapılandırması",
-    "sources": "Kullanılan veri kaynakları",
-    "why": "Neden yararlıdır",
-    "caveat": "Bilimsel not",
-    "provider_note": "Bu değer fitness sağlayıcısından gelir. Fitness sağlayıcının dahili algoritmasını yeniden oluşturmaz veya bildiğini iddia etmez.",
-    "history_note": "Bu değer tamamlanmış antrenman geçmişinden hesaplanır.",
-    "direct_note": "Bu değer birim normalizasyonundan sonra doğrudan kullanılır; Fitness tarafından tahmin edilmez."
   }
 }

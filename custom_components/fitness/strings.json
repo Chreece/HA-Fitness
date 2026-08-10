@@ -615,18 +615,5 @@
         "12": "December"
       }
     }
-  },
-  "evaluation_provenance": {
-    "calculated": "Calculated by Fitness",
-    "direct": "Direct source value",
-    "provider": "Provider value",
-    "history": "Workout-history calculation",
-    "profile": "Profile configuration",
-    "sources": "Data sources used",
-    "why": "Why this is useful",
-    "caveat": "Scientific note",
-    "provider_note": "This value comes from the fitness provider. Fitness does not recreate or claim the provider's internal algorithm.",
-    "history_note": "This value is calculated from completed workout history.",
-    "direct_note": "This value is used directly after unit normalization; Fitness does not estimate it."
   }
 }

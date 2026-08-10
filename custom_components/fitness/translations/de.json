@@ -615,18 +615,5 @@
         "12": "Dezember"
       }
     }
-  },
-  "evaluation_provenance": {
-    "calculated": "Von Fitness berechnet",
-    "direct": "Direkter Quellwert",
-    "provider": "Anbieterwert",
-    "history": "Berechnung aus dem Trainingsverlauf",
-    "profile": "Profilkonfiguration",
-    "sources": "Verwendete Datenquellen",
-    "why": "Warum dieser Wert nützlich ist",
-    "caveat": "Wissenschaftlicher Hinweis",
-    "provider_note": "Dieser Wert stammt vom Fitness-Anbieter. Fitness bildet dessen internen Algorithmus nicht nach und erhebt keinen Anspruch darauf.",
-    "history_note": "Dieser Wert wird aus dem Verlauf abgeschlossener Trainings berechnet.",
-    "direct_note": "Dieser Wert wird nach der Einheiten-Normalisierung direkt verwendet; Fitness schätzt ihn nicht."
   }
 }
