@@ -73,9 +73,10 @@ def test_provider_metrics_do_not_claim_fitness_formula():
 def test_long_term_metrics_state_window_and_aggregation():
     assert "previous 7 days" in MANAGER
     assert "previous 28 days" in MANAGER
-    assert "previous 42 days" in MANAGER
     assert "previous 90 days" in MANAGER
     assert "fitness_merged_workout_history" in MANAGER
+    assert "fitness_merged_sleep_history" in MANAGER
+    assert "home_assistant_recorder_long_term_statistics" in MANAGER
 
 
 def test_explanation_module_remains_ai_free():

@@ -23,9 +23,10 @@ def test_strict_autofill_and_antplus_defaults():
     assert "('garmin_connect',CONF_THRESHOLD_PACE)" in A
     assert "('hevy',CONF_WEIGHT)" in A
     assert "('oura',CONF_VO2MAX)" in A
-    assert 'if len(v)==1' in A
-    assert 'exact_antplus_live_device_ids(self.hass)' in F
-    assert 'exact_workout_device_ids(self.hass)' in F
+    assert 'profile_entity_choices(hass, field)' in A
+    assert 'choices[0]["value"]' in A
+    assert 'live_device_choices(self.hass)' in F
+    assert 'workout_device_choices(self.hass)' in F
 
 def test_max_hr_not_autofilled():
     section=A[A.index('EXACT_PROFILE_KEYS'):A.index('WORKOUT_DOMAINS')]
