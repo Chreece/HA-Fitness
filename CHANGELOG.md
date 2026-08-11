@@ -2,6 +2,10 @@
 
 ## 2026.8.0 — First stable public release
 
+- Refactored sleep support into provider-specific sleep adapter modules for Garmin Connect, Oura, Fitbit, Withings, WHOOP, Suunto, SleepIQ, Eight Sleep and Sleep as Android.
+- Added explicit provider ownership for Suunto, Fitbit and Withings completed-workout discovery while retaining conservative normalized parsing and the generic fallback for future integrations.
+- Expanded the README with separate workout and sleep compatibility tables and capability-based support notes.
+
 - Scientific live-workout provenance: every Fitness-calculated live metric now identifies itself as calculated and exposes formula, exact data used, localized interpretation/usefulness, and a study citation where a specific scientific basis applies. Raw provider measurements remain lightweight.
 - Correct legacy localized naming for the last-workout AI evaluation without overwriting user-customized names. — First stable public release
 - Completed the localization pass for all Fitness-created devices, entities and user-facing state attributes across every supported language; device names are now concise (Evaluation, Live workout, Sleep, Workouts) and no longer repeat the integration/profile prefix. Live, completed-workout and sleep provenance labels are localized as well, while stable raw attribute keys remain unchanged for templates and automations.

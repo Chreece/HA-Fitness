@@ -24,7 +24,7 @@ EXACT_PROFILE_KEYS={
     ('hevy',CONF_WEIGHT):{'body_weight'},
     ('oura',CONF_VO2MAX):{'vo2_max','vo2max'},
 }
-WORKOUT_DOMAINS={'garmin_connect','ha_strava','strava','polar','hevy','peloton','oura','whoop','suunto'}
+WORKOUT_DOMAINS={'garmin_connect','ha_strava','strava','polar','hevy','peloton','oura','whoop','suunto','fitbit','withings'}
 SLEEP_DOMAINS={'garmin_connect','oura','fitbit','withings','whoop','suunto','sleepiq','eight_sleep','sleep_as_android'}
 LIVE_DOMAINS=set(ANTPLUS_DOMAINS)|{'stryd_ble'}
 

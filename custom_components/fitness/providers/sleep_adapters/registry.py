@@ -1,7 +1,6 @@
 """Provider-specific and generic normalized sleep adapters."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime, timezone
 import math
 from typing import Any
@@ -10,122 +9,20 @@ from homeassistant.helpers import entity_registry as er
 
 from ...const import CONF_SLEEP_DEVICE_IDS
 from ..sleep import SleepRecord, newest_sleep
-
-
-@dataclass(frozen=True, slots=True)
-class SleepAdapterSpec:
-    name: str
-    domains: tuple[str, ...]
-    fields: dict[str, tuple[str, ...]]
+from .registry_types import SleepAdapterSpec
+from . import garmin, oura, fitbit, withings, whoop, suunto, sleepiq, eight_sleep, sleep_as_android
 
 
 SPECS: tuple[SleepAdapterSpec, ...] = (
-    SleepAdapterSpec("garmin", ("garmin_connect",), {
-        "duration_s": ("total_sleep_duration", "sleep_duration"),
-        "awake_s": ("awake_duration",),
-        "light_sleep_s": ("light_sleep",),
-        "deep_sleep_s": ("deep_sleep",),
-        "rem_sleep_s": ("rem_sleep",),
-        "score": ("sleep_score",),
-        "hrv_ms": ("hrv_last_night_average", "hrv_last_night"),
-        "sleep_need_s": ("sleep_need",),
-        "start": ("bedtime",),
-        "end": ("wake_time",),
-    }),
-    SleepAdapterSpec("oura", ("oura",), {
-        "duration_s": ("total_sleep_duration",),
-        "time_in_bed_s": ("time_in_bed",),
-        "awake_s": ("awake_time",),
-        "light_sleep_s": ("light_sleep_duration",),
-        "deep_sleep_s": ("deep_sleep_duration",),
-        "rem_sleep_s": ("rem_sleep_duration",),
-        "sleep_latency_s": ("sleep_latency",),
-        "score": ("sleep_score",),
-        "efficiency_percent": ("sleep_efficiency",),
-        "average_hr": ("average_sleep_heart_rate",),
-        "minimum_hr": ("lowest_sleep_heart_rate",),
-        "hrv_ms": ("average_sleep_hrv",),
-        "readiness_score": ("readiness_score",),
-        "start": ("bedtime_start",),
-        "end": ("bedtime_end",),
-    }),
-    SleepAdapterSpec("fitbit", ("fitbit",), {
-        "duration_s": ("minutes_asleep", "minutesasleep", "sleep_duration"),
-        "time_in_bed_s": ("time_in_bed", "timeinbed"),
-        "awake_s": ("minutes_awake", "minutesawake"),
-        "sleep_latency_s": ("minutes_to_fall_asleep", "minutestofallasleep"),
-        "efficiency_percent": ("sleep_efficiency", "efficiency"),
-        "disturbance_count": ("awakenings_count", "awakeningscount"),
-    }),
-    SleepAdapterSpec("withings", ("withings",), {
-        "deep_sleep_s": ("sleep_deep_duration",),
-        "light_sleep_s": ("sleep_light_duration",),
-        "rem_sleep_s": ("sleep_rem_duration",),
-        "awake_s": ("sleep_wakeup_duration",),
-        "sleep_latency_s": ("sleep_tosleep_duration",),
-        "score": ("sleep_score",),
-        "average_hr": ("sleep_heart_rate_average",),
-        "respiratory_rate": ("sleep_respiratory_average",),
-        "disturbance_count": ("sleep_wakeup_count",),
-        "in_bed": ("in_bed",),
-    }),
-    SleepAdapterSpec("whoop", ("whoop",), {
-        "score": ("sleep_performance",),
-        "efficiency_percent": ("sleep_efficiency",),
-        "time_in_bed_s": ("time_in_bed", "total_in_bed_time"),
-        "awake_s": ("awake_time", "total_awake_time"),
-        "light_sleep_s": ("light_sleep", "total_light_sleep_time"),
-        "deep_sleep_s": ("sws_time", "slow_wave_sleep", "total_slow_wave_sleep_time"),
-        "rem_sleep_s": ("rem_sleep", "total_rem_sleep_time"),
-        "respiratory_rate": ("respiratory_rate",),
-        "sleep_cycle_count": ("sleep_cycle",),
-        "disturbance_count": ("disturbance",),
-        "sleep_need_s": ("sleep_need", "baseline_need"),
-        "sleep_debt_s": ("sleep_debt",),
-        "recovery_score": ("recovery_score",),
-        "hrv_ms": ("hrv",),
-        "average_hr": ("resting_heart_rate",),
-        "spo2_percent": ("spo2",),
-    }),
-    SleepAdapterSpec("suunto", ("suunto",), {
-        "duration_s": ("sleep_duration", "total_sleep"),
-        "deep_sleep_s": ("deep_sleep",),
-        "rem_sleep_s": ("rem_sleep",),
-        "awake_s": ("awake_time",),
-        "score": ("sleep_score",),
-        "hrv_ms": ("hrv",),
-        "average_hr": ("sleep_heart_rate", "resting_heart_rate"),
-        "recovery_score": ("recovery_score",),
-    }),
-    SleepAdapterSpec("sleepiq", ("sleepiq",), {
-        "duration_s": ("sleep_duration",),
-        "score": ("sleep_score", "sleep_number"),
-        "average_hr": ("heart_rate_avg", "heart_rate_average"),
-        "hrv_ms": ("hrv",),
-        "respiratory_rate": ("respiratory_rate_avg", "respiratory_rate_average"),
-        "in_bed": ("is_in_bed", "in_bed"),
-    }),
-    SleepAdapterSpec("eight_sleep", ("eight_sleep", "eightsleep"), {
-        "duration_s": ("sleep_duration",),
-        "score": ("sleep_score",),
-        "time_in_bed_s": ("time_in_bed",),
-        "deep_sleep_s": ("deep_sleep",),
-        "light_sleep_s": ("light_sleep",),
-        "rem_sleep_s": ("rem_sleep",),
-        "awake_s": ("awake",),
-        "average_hr": ("heart_rate",),
-        "hrv_ms": ("hrv",),
-        "respiratory_rate": ("respiratory_rate",),
-        "in_bed": ("bed_presence", "in_bed"),
-    }),
-    SleepAdapterSpec("sleep_as_android", ("sleep_as_android",), {
-        # HACS variants may expose aggregate sensors. Core HA mainly exposes
-        # event entities; those are handled below as a basic start/stop record.
-        "duration_s": ("sleep_duration",),
-        "deep_sleep_s": ("deep_sleep_duration", "deep_sleep_percent"),
-        "score": ("sleep_score", "sleep_quality"),
-        "average_hr": ("sleep_heart_rate",),
-    }),
+    garmin.SPEC,
+    oura.SPEC,
+    fitbit.SPEC,
+    withings.SPEC,
+    whoop.SPEC,
+    suunto.SPEC,
+    sleepiq.SPEC,
+    eight_sleep.SPEC,
+    sleep_as_android.SPEC,
 )
 
 EXPLICIT_DOMAINS = frozenset(domain for spec in SPECS for domain in spec.domains)
