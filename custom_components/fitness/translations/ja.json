@@ -682,6 +682,27 @@
       },
       "vo2max_trend_14_vs_previous_14": {
         "name": "VO₂max trend: last 14 vs previous 14 days"
+      },
+      "sleep_consistency": {
+        "name": "Sleep consistency"
+      },
+      "sleep_deficit_7d": {
+        "name": "Sleep deficit – 7 days"
+      },
+      "autonomic_recovery_trend": {
+        "name": "Autonomic recovery trend"
+      },
+      "cardiorespiratory_fitness_trend": {
+        "name": "Cardiorespiratory fitness trend"
+      },
+      "training_load": {
+        "name": "Training load"
+      },
+      "heart_rate_recovery": {
+        "name": "Heart-rate recovery"
+      },
+      "training_recovery_relationship": {
+        "name": "Training–recovery relationship"
       }
     },
     "button": {

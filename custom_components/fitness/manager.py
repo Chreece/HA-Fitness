@@ -8,7 +8,7 @@ import logging
 import math
 import re
 from datetime import datetime, timezone, timedelta
-from statistics import mean, pstdev
+from statistics import mean, median, pstdev
 from typing import Callable, Any
 from zoneinfo import ZoneInfo
 
@@ -3774,8 +3774,10 @@ class FitnessManager:
 
     @staticmethod
     def _summarize_stat_periods(periods: list[dict[str, Any]]) -> dict[str, Any]:
-        values = []
-        dated = []
+        """Summarize daily Recorder rows and retain a bounded daily series."""
+        values: list[float] = []
+        dated: list[tuple[datetime | None, float]] = []
+        daily: list[dict[str, Any]] = []
         for row in periods or []:
             value = row.get("mean")
             if value is None:
@@ -3784,8 +3786,18 @@ class FitnessManager:
                 number = float(value)
             except (TypeError, ValueError):
                 continue
+            start_raw = row.get("start")
+            dt = None
+            if start_raw:
+                try:
+                    dt = datetime.fromisoformat(str(start_raw).replace("Z", "+00:00"))
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                except (TypeError, ValueError):
+                    dt = None
             values.append(number)
-            dated.append((row.get("start"), number))
+            dated.append((dt, number))
+            daily.append({"start": start_raw, "value": round(number, 4)})
 
         if not values:
             return {}
@@ -3802,17 +3814,27 @@ class FitnessManager:
             if prior != 0:
                 trend_pct = (mean(recent14) - prior) / abs(prior) * 100
 
+        slope_pct_30d = None
+        valid_dated = [(dt, value) for dt, value in dated if dt is not None]
+        if len(valid_dated) >= 14:
+            x0 = valid_dated[0][0]
+            xs = [(dt - x0).total_seconds() / 86400.0 for dt, _ in valid_dated]
+            ys = [value for _, value in valid_dated]
+            xbar, ybar = mean(xs), mean(ys)
+            denom = sum((x - xbar) ** 2 for x in xs)
+            if denom > 0 and ybar != 0:
+                slope_per_day = sum((x - xbar) * (y - ybar) for x, y in zip(xs, ys)) / denom
+                slope_pct_30d = slope_per_day * 30.0 / abs(ybar) * 100.0
+
         return {
             "days_available": len(values),
             "mean_7d": round(tail_mean(7), 3) if tail_mean(7) is not None else None,
             "mean_28d": round(tail_mean(28), 3) if tail_mean(28) is not None else None,
             "mean_90d": round(tail_mean(90), 3) if tail_mean(90) is not None else None,
-            "trend_14_vs_previous_14_percent": (
-                round(trend_pct, 2)
-                if trend_pct is not None
-                else None
-            ),
+            "trend_14_vs_previous_14_percent": round(trend_pct, 2) if trend_pct is not None else None,
+            "slope_percent_per_30d": round(slope_pct_30d, 3) if slope_pct_30d is not None else None,
             "latest_daily_mean": round(values[-1], 3),
+            "daily": daily[-90:],
         }
 
     async def _async_refresh_long_term_statistics(self) -> None:
@@ -3909,7 +3931,7 @@ class FitnessManager:
             self._notify()
 
     def workout_long_term_summary(self) -> dict[str, Any]:
-        """Evidence-oriented trends from actual stored Fitness workouts."""
+        """Evidence-oriented trends from actual stored, merged Fitness workouts."""
         workouts = self.local_workouts()
         now = datetime.now(timezone.utc)
 
@@ -3922,7 +3944,7 @@ class FitnessManager:
             except (TypeError, ValueError):
                 return None
 
-        recent = []
+        recent: list[tuple[datetime, Workout]] = []
         for workout in workouts:
             dt = parse_start(workout)
             if dt is None:
@@ -3932,85 +3954,63 @@ class FitnessManager:
                 recent.append((dt, workout))
         recent.sort(key=lambda item: item[0])
 
-        def trimp_values(days):
-            return [
-                float(workout.banister_trimp)
-                for dt, workout in recent
-                if (now - dt).total_seconds() <= days * 86400
-                and workout.banister_trimp is not None
-            ]
+        def within(days: int):
+            return [(dt, w) for dt, w in recent if (now - dt).total_seconds() <= days * 86400]
 
-        def load(days):
-            values = trimp_values(days)
-            return sum(values) if values else None
+        def load(days: int):
+            vals = [float(w.banister_trimp) for _dt, w in within(days) if w.banister_trimp is not None]
+            return sum(vals) if vals else None
 
-        def avg_field(field_name, days=90, *, exclude_latest=False):
-            candidates = [
-                (dt, float(getattr(workout, field_name)))
-                for dt, workout in recent
-                if (now - dt).total_seconds() <= days * 86400
-                and getattr(workout, field_name) is not None
-            ]
-            if exclude_latest and candidates:
-                candidates = candidates[:-1]
-            values = [value for _dt_item, value in candidates]
-            return mean(values) if values else None
-
-        active_days_28 = len({
-            dt.date() for dt, _ in recent
-            if (now - dt).total_seconds() <= 28 * 86400
-        })
-
-        if not recent:
-            return {
-                "workouts_28d": None,
-                "active_training_days_28d": None,
-                "banister_trimp_7d": None,
-                "banister_trimp_28d": None,
-                "training_load_change_7_vs_28_percent": None,
-                "hrr_60s_mean_90d": None,
-                "hrr_60s_latest_vs_90d_bpm": None,
-            }
-
-        load7 = load(7)
-        load28 = load(28)
+        load7, load28 = load(7), load(28)
         change = None
         if load7 is not None and load28 is not None and load28 > 0:
-            recent_daily = load7 / 7.0
-            baseline_daily = load28 / 28.0
-            if baseline_daily > 0:
-                change = (recent_daily - baseline_daily) / baseline_daily * 100.0
+            weekly_baseline = load28 / 4.0
+            if weekly_baseline > 0:
+                change = (load7 - weekly_baseline) / weekly_baseline * 100.0
 
-        hrr_baseline = avg_field("hrr_60s", 90, exclude_latest=True)
-        latest_hrr = None
-        for _dt_item, workout in reversed(recent):
-            if workout.hrr_60s is not None:
-                latest_hrr = float(workout.hrr_60s)
-                break
+        w7, w28 = within(7), within(28)
+        duration7 = sum(float(w.duration_s or 0) for _dt, w in w7 if w.duration_s is not None)
+        duration28 = sum(float(w.duration_s or 0) for _dt, w in w28 if w.duration_s is not None)
+        distance7 = sum(float(w.distance_m or 0) for _dt, w in w7 if w.distance_m is not None)
+        distance28 = sum(float(w.distance_m or 0) for _dt, w in w28 if w.distance_m is not None)
+
+        recovery_intervals = []
+        for (prev_dt, prev), (next_dt, _next) in zip(recent, recent[1:]):
+            prev_end = prev_dt + timedelta(seconds=float(prev.duration_s or 0))
+            hours = (next_dt - prev_end).total_seconds() / 3600.0
+            if 0 <= hours <= 14 * 24:
+                recovery_intervals.append(hours)
+
+        hrr_workouts = [(dt, w) for dt, w in recent if w.hrr_60s is not None]
+        latest_hrr_workout = hrr_workouts[-1][1] if hrr_workouts else None
+        prior_hrr = [float(w.hrr_60s) for _dt, w in hrr_workouts[:-1]]
+        baseline_hrr = mean(prior_hrr) if len(prior_hrr) >= 2 else None
 
         return {
-            "workouts_28d": sum(
-                1 for dt, _ in recent
-                if (now - dt).total_seconds() <= 28 * 86400
-            ),
-            "active_training_days_28d": active_days_28,
+            "workouts_7d": len(w7) if w7 else None,
+            "workouts_28d": len(w28) if w28 else None,
+            "active_training_days_7d": len({dt.date() for dt, _ in w7}) if w7 else None,
+            "active_training_days_28d": len({dt.date() for dt, _ in w28}) if w28 else None,
+            "training_duration_7d_min": round(duration7 / 60.0, 1) if duration7 else None,
+            "training_duration_28d_min": round(duration28 / 60.0, 1) if duration28 else None,
+            "distance_7d_km": round(distance7 / 1000.0, 2) if distance7 else None,
+            "distance_28d_km": round(distance28 / 1000.0, 2) if distance28 else None,
             "banister_trimp_7d": round(load7, 1) if load7 is not None else None,
             "banister_trimp_28d": round(load28, 1) if load28 is not None else None,
-            "training_load_change_7_vs_28_percent": (
-                round(change, 1) if change is not None else None
-            ),
-            "hrr_60s_mean_90d": (
-                round(avg_field("hrr_60s"), 1)
-                if avg_field("hrr_60s") is not None else None
-            ),
-            "hrr_60s_latest_vs_90d_bpm": (
-                round(latest_hrr - hrr_baseline, 1)
-                if latest_hrr is not None and hrr_baseline is not None else None
-            ),
+            "banister_trimp_28d_weekly_equivalent": round(load28 / 4.0, 1) if load28 is not None else None,
+            "training_load_change_7_vs_28_percent": round(change, 1) if change is not None else None,
+            "median_recovery_interval_28d_h": round(median(recovery_intervals[-20:]), 1) if recovery_intervals else None,
+            "last_recovery_interval_h": round(recovery_intervals[-1], 1) if recovery_intervals else None,
+            "hrr_samples_90d": len(hrr_workouts),
+            "latest_hrr_30s": round(float(latest_hrr_workout.hrr_30s), 1) if latest_hrr_workout and latest_hrr_workout.hrr_30s is not None else None,
+            "latest_hrr_60s": round(float(latest_hrr_workout.hrr_60s), 1) if latest_hrr_workout else None,
+            "latest_hrr_120s": round(float(latest_hrr_workout.hrr_120s), 1) if latest_hrr_workout and latest_hrr_workout.hrr_120s is not None else None,
+            "hrr_60s_baseline_90d": round(baseline_hrr, 1) if baseline_hrr is not None else None,
+            "hrr_60s_latest_vs_90d_bpm": round(float(latest_hrr_workout.hrr_60s) - baseline_hrr, 1) if latest_hrr_workout and baseline_hrr is not None else None,
         }
 
     def sleep_long_term_summary(self) -> dict[str, Any]:
-        """Longitudinal sleep facts without inventing a recovery/readiness score."""
+        """Longitudinal sleep duration, regularity and HRV context."""
         records = self._sleep_records_from_history()
         now = datetime.now(timezone.utc)
         tz = ZoneInfo(getattr(self.hass.config, "time_zone", "UTC") or "UTC")
@@ -4025,80 +4025,75 @@ class FitnessManager:
                 dated.append((stamp, record))
         dated.sort(key=lambda item: item[0])
 
-        def values(field: str, days: int):
-            return [
-                float(getattr(record, field))
-                for stamp, record in dated
-                if (now - stamp).total_seconds() <= days * 86400
-                and getattr(record, field) is not None
-            ]
+        def subset(days: int):
+            return [(stamp, r) for stamp, r in dated if (now - stamp).total_seconds() <= days * 86400]
 
-        def enough_mean(field: str, days: int, minimum: int):
-            vals = values(field, days)
+        def field_values(field: str, days: int):
+            return [float(getattr(r, field)) for _stamp, r in subset(days) if getattr(r, field) is not None]
+
+        def avg(field: str, days: int, minimum: int):
+            vals = field_values(field, days)
             return mean(vals) if len(vals) >= minimum else None
 
-        duration7 = enough_mean("duration_s", 7, 3)
-        duration28 = enough_mean("duration_s", 28, 7)
-        hrv7 = enough_mean("hrv_ms", 7, 3)
-        hrv28 = enough_mean("hrv_ms", 28, 7)
-
+        duration7, duration28 = avg("duration_s", 7, 3), avg("duration_s", 28, 7)
+        hrv7, hrv28 = avg("hrv_ms", 7, 3), avg("hrv_ms", 28, 7)
         latest = self.latest_sleep()
         latest_duration = latest.duration_s if latest else None
         latest_hrv = latest.hrv_ms if latest else None
 
-        midpoint_minutes: list[float] = []
-        for stamp, record in dated:
-            if (now - stamp).total_seconds() > 14 * 86400:
-                continue
-            start = _dt(record.start)
-            end = _dt(record.end)
-            if not start or not end or end <= start:
-                continue
-            midpoint = (start + (end - start) / 2).astimezone(tz)
-            midpoint_minutes.append(midpoint.hour * 60 + midpoint.minute + midpoint.second / 60)
+        def circular_sd(kind: str, days: int, minimum: int = 5):
+            vals = []
+            for _stamp, record in subset(days):
+                start_dt, end_dt = _dt(record.start), _dt(record.end)
+                if not start_dt or not end_dt or end_dt <= start_dt:
+                    continue
+                if kind == "start": target = start_dt.astimezone(tz)
+                elif kind == "end": target = end_dt.astimezone(tz)
+                else: target = (start_dt + (end_dt - start_dt) / 2).astimezone(tz)
+                vals.append(target.hour * 60 + target.minute + target.second / 60)
+            if len(vals) < minimum:
+                return None
+            anchor = vals[0]
+            unwrapped = [anchor + (((v - anchor + 720) % 1440) - 720) for v in vals]
+            return pstdev(unwrapped)
 
-        midpoint_sd = None
-        if len(midpoint_minutes) >= 5:
-            # Circularly unwrap around the first midpoint to avoid midnight artefacts.
-            anchor = midpoint_minutes[0]
-            unwrapped = []
-            for value in midpoint_minutes:
-                delta = ((value - anchor + 720) % 1440) - 720
-                unwrapped.append(anchor + delta)
-            midpoint_sd = pstdev(unwrapped)
+        durations28 = field_values("duration_s", 28)
+        duration_sd28 = pstdev([v / 60.0 for v in durations28]) if len(durations28) >= 7 else None
+        bedtime_sd = circular_sd("start", 28)
+        waketime_sd = circular_sd("end", 28)
+        midpoint_sd = circular_sd("midpoint", 28)
 
-        sleep_shortfall_min = None
-        if latest_duration is not None and self.age() >= 18:
-            sleep_shortfall_min = max(0.0, (7 * 3600 - latest_duration) / 60.0)
+        seven = field_values("duration_s", 7)
+        twenty_eight = field_values("duration_s", 28)
+        deficit7 = None
+        nights_below7_7 = None
+        if self.age() >= 18 and len(seven) >= 5:
+            deficits = [max(0.0, 7 * 3600 - seconds) for seconds in seven]
+            deficit7 = sum(deficits) / 60.0
+            nights_below7_7 = sum(1 for seconds in seven if seconds < 7 * 3600)
+        nights_below7_28 = None
+        below7_pct28 = None
+        if self.age() >= 18 and len(twenty_eight) >= 14:
+            nights_below7_28 = sum(1 for seconds in twenty_eight if seconds < 7 * 3600)
+            below7_pct28 = nights_below7_28 / len(twenty_eight) * 100.0
 
         return {
-            "nights_28d": sum(
-                1 for stamp, _record in dated
-                if (now - stamp).total_seconds() <= 28 * 86400
-            ),
-            "sleep_duration_7d_mean_min": (
-                round(duration7 / 60.0, 1) if duration7 is not None else None
-            ),
-            "sleep_duration_28d_mean_min": (
-                round(duration28 / 60.0, 1) if duration28 is not None else None
-            ),
-            "sleep_duration_vs_28d_min": (
-                round((latest_duration - duration28) / 60.0, 1)
-                if latest_duration is not None and duration28 is not None else None
-            ),
-            "sleep_duration_shortfall_min": (
-                round(sleep_shortfall_min, 1)
-                if sleep_shortfall_min is not None else None
-            ),
-            "sleep_midpoint_variability_14d_min": (
-                round(midpoint_sd, 1) if midpoint_sd is not None else None
-            ),
-            "sleep_hrv_7d_mean_ms": (round(hrv7, 1) if hrv7 is not None else None),
-            "sleep_hrv_28d_mean_ms": (round(hrv28, 1) if hrv28 is not None else None),
-            "sleep_hrv_vs_28d_percent": (
-                round((latest_hrv - hrv28) / abs(hrv28) * 100.0, 1)
-                if latest_hrv is not None and hrv28 not in (None, 0) else None
-            ),
+            "nights_7d": len(seven) or None,
+            "nights_28d": len(twenty_eight) or None,
+            "sleep_duration_7d_mean_min": round(duration7 / 60.0, 1) if duration7 is not None else None,
+            "sleep_duration_28d_mean_min": round(duration28 / 60.0, 1) if duration28 is not None else None,
+            "sleep_duration_vs_28d_min": round((latest_duration - duration28) / 60.0, 1) if latest_duration is not None and duration28 is not None else None,
+            "sleep_duration_variability_28d_min": round(duration_sd28, 1) if duration_sd28 is not None else None,
+            "bedtime_variability_28d_min": round(bedtime_sd, 1) if bedtime_sd is not None else None,
+            "wake_time_variability_28d_min": round(waketime_sd, 1) if waketime_sd is not None else None,
+            "sleep_midpoint_variability_28d_min": round(midpoint_sd, 1) if midpoint_sd is not None else None,
+            "sleep_deficit_7d_min": round(deficit7, 1) if deficit7 is not None else None,
+            "nights_below_7h_7d": nights_below7_7,
+            "nights_below_7h_28d": nights_below7_28,
+            "nights_below_7h_28d_percent": round(below7_pct28, 1) if below7_pct28 is not None else None,
+            "sleep_hrv_7d_mean_ms": round(hrv7, 1) if hrv7 is not None else None,
+            "sleep_hrv_28d_mean_ms": round(hrv28, 1) if hrv28 is not None else None,
+            "sleep_hrv_vs_28d_percent": round((latest_hrv - hrv28) / abs(hrv28) * 100.0, 1) if latest_hrv is not None and hrv28 not in (None, 0) else None,
         }
 
     def recorder_long_term_evaluation(self) -> dict[str, Any]:
@@ -4111,24 +4106,87 @@ class FitnessManager:
         resting_stats = stat("resting_hr")
         vo2_stats = stat("vo2max")
         current_resting = provider.get("resting_hr") or self.input_value(CONF_RESTING_HR)
+        current_vo2 = provider.get("vo2max") or self.input_value(CONF_VO2MAX)
 
         resting_7 = resting_stats.get("mean_7d") if resting_stats.get("days_available", 0) >= 3 else None
         resting_28 = resting_stats.get("mean_28d") if resting_stats.get("days_available", 0) >= 7 else None
         vo2_28 = vo2_stats.get("mean_28d") if vo2_stats.get("days_available", 0) >= 7 else None
-        vo2_trend = (
-            vo2_stats.get("trend_14_vs_previous_14_percent")
-            if vo2_stats.get("days_available", 0) >= 21 else None
-        )
+        vo2_90 = vo2_stats.get("mean_90d") if vo2_stats.get("days_available", 0) >= 30 else None
+        vo2_short = vo2_stats.get("trend_14_vs_previous_14_percent") if vo2_stats.get("days_available", 0) >= 21 else None
+        vo2_slope = vo2_stats.get("slope_percent_per_30d") if vo2_stats.get("days_available", 0) >= 30 else None
 
         return {
+            "resting_hr_current": current_resting,
             "resting_hr_7d_mean": resting_7,
             "resting_hr_28d_mean": resting_28,
-            "resting_hr_vs_28d": (
-                round(float(current_resting) - float(resting_28), 1)
-                if current_resting is not None and resting_28 is not None else None
-            ),
+            "resting_hr_vs_28d": round(float(current_resting) - float(resting_28), 1) if current_resting is not None and resting_28 is not None else None,
+            "vo2max_current": current_vo2,
             "vo2max_28d_mean": vo2_28,
-            "vo2max_trend_14_vs_previous_14_percent": vo2_trend,
+            "vo2max_90d_mean": vo2_90,
+            "vo2max_trend_14_vs_previous_14_percent": vo2_short,
+            "vo2max_slope_percent_per_30d": vo2_slope,
+        }
+
+    @staticmethod
+    def _pearson_correlation(pairs: list[tuple[float, float]]) -> float | None:
+        if len(pairs) < 6:
+            return None
+        xs = [x for x, _ in pairs]
+        ys = [y for _, y in pairs]
+        xbar, ybar = mean(xs), mean(ys)
+        sx = sum((x - xbar) ** 2 for x in xs)
+        sy = sum((y - ybar) ** 2 for y in ys)
+        if sx <= 0 or sy <= 0:
+            return None
+        return sum((x - xbar) * (y - ybar) for x, y in pairs) / math.sqrt(sx * sy)
+
+    def training_recovery_relationship_summary(self) -> dict[str, Any]:
+        """Describe personal association between workout TRIMP and next sleep."""
+        now = datetime.now(timezone.utc)
+        workouts = []
+        for workout in self.local_workouts():
+            if workout.banister_trimp is None or not workout.start:
+                continue
+            start = _dt(workout.start)
+            if start is None or (now - start).total_seconds() > 90 * 86400:
+                continue
+            end = _dt(workout.end)
+            if end is None:
+                end = start + timedelta(seconds=float(workout.duration_s or 0))
+            workouts.append((end, float(workout.banister_trimp)))
+        workouts.sort(key=lambda item: item[0])
+
+        duration_pairs: list[tuple[float, float]] = []
+        hrv_pairs: list[tuple[float, float]] = []
+        used_workout_ends: set[str] = set()
+        for sleep in self._sleep_records_from_history():
+            sleep_start = _dt(sleep.start)
+            if sleep_start is None or (now - sleep_start).total_seconds() > 90 * 86400:
+                continue
+            candidates = [(end, load) for end, load in workouts if 0 <= (sleep_start - end).total_seconds() <= 18 * 3600]
+            if not candidates:
+                continue
+            end, load = candidates[-1]
+            key = end.isoformat()
+            if key in used_workout_ends:
+                continue
+            used_workout_ends.add(key)
+            if sleep.duration_s is not None:
+                duration_pairs.append((load, float(sleep.duration_s) / 60.0))
+            if sleep.hrv_ms is not None:
+                hrv_pairs.append((load, float(sleep.hrv_ms)))
+
+        sleep_r = self._pearson_correlation(duration_pairs)
+        hrv_r = self._pearson_correlation(hrv_pairs)
+        primary = sleep_r if sleep_r is not None else hrv_r
+        return {
+            "primary_correlation": round(primary, 3) if primary is not None else None,
+            "primary_measure": "next_sleep_duration" if sleep_r is not None else ("next_sleep_hrv" if hrv_r is not None else None),
+            "trimp_vs_next_sleep_duration_r": round(sleep_r, 3) if sleep_r is not None else None,
+            "trimp_vs_next_sleep_hrv_r": round(hrv_r, 3) if hrv_r is not None else None,
+            "sleep_duration_pairs": len(duration_pairs),
+            "sleep_hrv_pairs": len(hrv_pairs),
+            "window_days": 90,
         }
 
     def _profile_input_provenance(

@@ -682,6 +682,27 @@
       },
       "vo2max_trend_14_vs_previous_14": {
         "name": "Τάση VO₂max: τελευταίες 14 έναντι προηγούμενων 14 ημερών"
+      },
+      "sleep_consistency": {
+        "name": "Συνέπεια ύπνου"
+      },
+      "sleep_deficit_7d": {
+        "name": "Έλλειμμα ύπνου – 7 ημέρες"
+      },
+      "autonomic_recovery_trend": {
+        "name": "Τάση αυτόνομης αποκατάστασης"
+      },
+      "cardiorespiratory_fitness_trend": {
+        "name": "Τάση καρδιοαναπνευστικής ικανότητας"
+      },
+      "training_load": {
+        "name": "Προπονητικό φορτίο"
+      },
+      "heart_rate_recovery": {
+        "name": "Ανάκαμψη καρδιακού ρυθμού"
+      },
+      "training_recovery_relationship": {
+        "name": "Σχέση προπόνησης–αποκατάστασης"
       }
     },
     "button": {

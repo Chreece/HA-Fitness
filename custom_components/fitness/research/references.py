@@ -1,6 +1,24 @@
 """Research registry for every implemented deterministic scientific method."""
 
 REFERENCES = {
+    "cardiorespiratory_fitness_meta_2024": {
+        "title": "Cardiorespiratory fitness and mortality: systematic review and meta-analysis",
+        "year": 2024,
+        "pmid": "39271056",
+        "limitation": "Fitness reports measured/provider VO₂max trends descriptively and does not infer mortality risk for an individual.",
+    },
+    "exercise_sleep_meta_2024": {
+        "title": "Exercise and sleep outcomes: systematic review and meta-analysis",
+        "year": 2024,
+        "pmid": "39556996",
+        "limitation": "Population evidence does not establish causation in a user's short-term personal correlations; Fitness labels these as descriptive associations only.",
+    },
+    "hrr_training_status_review_2012": {
+        "title": "Heart rate recovery after exercise: a systematic review of training-status applications",
+        "year": 2012,
+        "pmid": "22357753",
+        "limitation": "HRR depends on exercise intensity, duration, environmental conditions and individual context; Fitness emphasizes longitudinal comparison.",
+    },
     "heart_rate_recovery_1999": {
         "title": "Heart-rate recovery immediately after exercise as a predictor of mortality",
         "year": 1999,

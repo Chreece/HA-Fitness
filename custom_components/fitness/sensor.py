@@ -152,29 +152,15 @@ DESCRIPTIONS = (
     Desc(key="last_sleep_recovery_score", translation_key="last_sleep_recovery_score", kind="sleep", metric="sleep_recovery_score"),
     Desc(key="last_sleep_readiness_score", translation_key="last_sleep_readiness_score", kind="sleep", metric="sleep_readiness_score"),
 
-    # Evaluation device — evidence-based and non-duplicative.
-    # Provider facts stay on their source/Sleep/Workout devices. Fitness adds
-    # only reference comparisons and longitudinal context requiring real data.
+    # Evaluation device — compact evidence-based domains.
+    Desc(key="sleep_consistency", translation_key="sleep_consistency", kind="evaluation", metric="sleep_consistency", unit="min"),
+    Desc(key="sleep_deficit_7d", translation_key="sleep_deficit_7d", kind="evaluation", metric="sleep_deficit_7d", unit="min"),
+    Desc(key="autonomic_recovery_trend", translation_key="autonomic_recovery_trend", kind="evaluation", metric="autonomic_recovery_trend", unit="ms"),
+    Desc(key="cardiorespiratory_fitness_trend", translation_key="cardiorespiratory_fitness_trend", kind="evaluation", metric="cardiorespiratory_fitness_trend", unit="mL/kg/min"),
     Desc(key="vo2max_percent_predicted", translation_key="vo2max_percent_predicted", kind="evaluation", metric="vo2max_percent_predicted", unit="%"),
-    Desc(key="training_load_7d", translation_key="training_load_7d", kind="evaluation", metric="training_load_7d"),
-    Desc(key="training_load_28d", translation_key="training_load_28d", kind="evaluation", metric="training_load_28d"),
-    Desc(key="training_load_change_7_vs_28", translation_key="training_load_change_7_vs_28", kind="evaluation", metric="training_load_change_7_vs_28", unit="%"),
-    Desc(key="training_days_28d", translation_key="training_days_28d", kind="evaluation", metric="training_days_28d", unit="d"),
-    Desc(key="hrr_60s_long_term", translation_key="hrr_60s_long_term", kind="evaluation", metric="hrr_60s_long_term", unit="bpm"),
-    Desc(key="hrr_60s_vs_90d", translation_key="hrr_60s_vs_90d", kind="evaluation", metric="hrr_60s_vs_90d", unit="bpm"),
-    Desc(key="sleep_duration_7d_mean", translation_key="sleep_duration_7d_mean", kind="evaluation", metric="sleep_duration_7d_mean", unit="min"),
-    Desc(key="sleep_duration_28d_mean", translation_key="sleep_duration_28d_mean", kind="evaluation", metric="sleep_duration_28d_mean", unit="min"),
-    Desc(key="sleep_duration_vs_28d", translation_key="sleep_duration_vs_28d", kind="evaluation", metric="sleep_duration_vs_28d", unit="min"),
-    Desc(key="sleep_duration_shortfall", translation_key="sleep_duration_shortfall", kind="evaluation", metric="sleep_duration_shortfall", unit="min"),
-    Desc(key="sleep_midpoint_variability_14d", translation_key="sleep_midpoint_variability_14d", kind="evaluation", metric="sleep_midpoint_variability_14d", unit="min"),
-    Desc(key="sleep_hrv_7d_mean", translation_key="sleep_hrv_7d_mean", kind="evaluation", metric="sleep_hrv_7d_mean", unit="ms"),
-    Desc(key="sleep_hrv_28d_mean", translation_key="sleep_hrv_28d_mean", kind="evaluation", metric="sleep_hrv_28d_mean", unit="ms"),
-    Desc(key="sleep_hrv_vs_28d", translation_key="sleep_hrv_vs_28d", kind="evaluation", metric="sleep_hrv_vs_28d", unit="%"),
-    Desc(key="resting_hr_7d_mean", translation_key="resting_hr_7d_mean", kind="evaluation", metric="resting_hr_7d_mean", unit="bpm"),
-    Desc(key="resting_hr_28d_mean", translation_key="resting_hr_28d_mean", kind="evaluation", metric="resting_hr_28d_mean", unit="bpm"),
-    Desc(key="resting_hr_vs_28d", translation_key="resting_hr_vs_28d", kind="evaluation", metric="resting_hr_vs_28d", unit="bpm"),
-    Desc(key="vo2max_28d_mean", translation_key="vo2max_28d_mean", kind="evaluation", metric="vo2max_28d_mean", unit="mL/kg/min"),
-    Desc(key="vo2max_trend_14_vs_previous_14", translation_key="vo2max_trend_14_vs_previous_14", kind="evaluation", metric="vo2max_trend_14_vs_previous_14", unit="%"),
+    Desc(key="training_load", translation_key="training_load", kind="evaluation", metric="training_load", unit="min"),
+    Desc(key="heart_rate_recovery", translation_key="heart_rate_recovery", kind="evaluation", metric="heart_rate_recovery", unit="bpm"),
+    Desc(key="training_recovery_relationship", translation_key="training_recovery_relationship", kind="evaluation", metric="training_recovery_relationship"),
     Desc(key="ai_general_evaluation", translation_key="ai_general_evaluation", kind="evaluation", metric="ai_general"),
     Desc(key="ai_workout_evaluation", translation_key="ai_workout_evaluation", kind="evaluation", metric="ai_workout"),
 
@@ -202,6 +188,13 @@ async def async_setup_entry(hass, entry, async_add_entities):
         "sleep_score_context", "acute_training_load", "chronic_training_load",
         "acute_chronic_ratio", "provider_training_status", "training_load_42d",
         "aerobic_decoupling_long_term", "aerobic_efficiency_long_term",
+        "training_load_7d", "training_load_28d", "training_load_change_7_vs_28",
+        "training_days_28d", "hrr_60s_long_term", "hrr_60s_vs_90d",
+        "sleep_duration_7d_mean", "sleep_duration_28d_mean", "sleep_duration_vs_28d",
+        "sleep_duration_shortfall", "sleep_midpoint_variability_14d",
+        "sleep_hrv_7d_mean", "sleep_hrv_28d_mean", "sleep_hrv_vs_28d",
+        "resting_hr_7d_mean", "resting_hr_28d_mean", "resting_hr_vs_28d",
+        "vo2max_28d_mean", "vo2max_trend_14_vs_previous_14",
     }
     prefix = f"{entry.entry_id}_"
     for registry_entry in list(registry.entities.values()):
@@ -585,29 +578,56 @@ class FitnessSensor(SensorEntity):
         workout_long_term = e.get("workout_long_term") or {}
         sleep_long_term = e.get("sleep_long_term") or {}
         recorder_long_term = e.get("recorder_long_term") or {}
-        long_term_map = {
-            "training_load_7d": workout_long_term.get("banister_trimp_7d"),
-            "training_load_28d": workout_long_term.get("banister_trimp_28d"),
-            "training_load_change_7_vs_28": workout_long_term.get("training_load_change_7_vs_28_percent"),
-            "training_days_28d": workout_long_term.get("active_training_days_28d"),
-            "hrr_60s_long_term": workout_long_term.get("hrr_60s_mean_90d"),
-            "hrr_60s_vs_90d": workout_long_term.get("hrr_60s_latest_vs_90d_bpm"),
-            "sleep_duration_7d_mean": sleep_long_term.get("sleep_duration_7d_mean_min"),
-            "sleep_duration_28d_mean": sleep_long_term.get("sleep_duration_28d_mean_min"),
-            "sleep_duration_vs_28d": sleep_long_term.get("sleep_duration_vs_28d_min"),
-            "sleep_duration_shortfall": sleep_long_term.get("sleep_duration_shortfall_min"),
-            "sleep_midpoint_variability_14d": sleep_long_term.get("sleep_midpoint_variability_14d_min"),
-            "sleep_hrv_7d_mean": sleep_long_term.get("sleep_hrv_7d_mean_ms"),
-            "sleep_hrv_28d_mean": sleep_long_term.get("sleep_hrv_28d_mean_ms"),
-            "sleep_hrv_vs_28d": sleep_long_term.get("sleep_hrv_vs_28d_percent"),
-            "resting_hr_7d_mean": recorder_long_term.get("resting_hr_7d_mean"),
-            "resting_hr_28d_mean": recorder_long_term.get("resting_hr_28d_mean"),
-            "resting_hr_vs_28d": recorder_long_term.get("resting_hr_vs_28d"),
-            "vo2max_28d_mean": recorder_long_term.get("vo2max_28d_mean"),
-            "vo2max_trend_14_vs_previous_14": recorder_long_term.get("vo2max_trend_14_vs_previous_14_percent"),
+        relationship = e.get("training_recovery_relationship") or {}
+        latest_sleep = self.manager.latest_sleep()
+        compact_map = {
+            # Domain states use one stable physical quantity. Related longitudinal
+            # calculations progressively populate attributes without changing the
+            # state unit or meaning.
+            "sleep_consistency": (
+                latest_sleep.duration_s / 60.0
+                if latest_sleep is not None and latest_sleep.duration_s is not None
+                else sleep_long_term.get("sleep_duration_7d_mean_min")
+            ),
+            "sleep_deficit_7d": (
+                sleep_long_term.get("sleep_deficit_7d_min")
+                if sleep_long_term.get("sleep_deficit_7d_min") is not None
+                else (
+                    max(0.0, 420.0 - latest_sleep.duration_s / 60.0)
+                    if self.manager.age() >= 18
+                    and latest_sleep is not None
+                    and latest_sleep.duration_s is not None
+                    else None
+                )
+            ),
+            "autonomic_recovery_trend": (
+                latest_sleep.hrv_ms
+                if latest_sleep is not None and latest_sleep.hrv_ms is not None
+                else sleep_long_term.get("sleep_hrv_7d_mean_ms")
+            ),
+            "cardiorespiratory_fitness_trend": (
+                recorder_long_term.get("vo2max_current")
+                if recorder_long_term.get("vo2max_current") is not None
+                else recorder_long_term.get("vo2max_28d_mean")
+            ),
+            "training_load": (
+                workout_long_term.get("training_duration_7d_min")
+                if workout_long_term.get("training_duration_7d_min") is not None
+                else workout_long_term.get("training_duration_28d_min")
+            ),
+            "heart_rate_recovery": (
+                workout_long_term.get("latest_hrr_60s")
+                if workout_long_term.get("latest_hrr_60s") is not None
+                else (
+                    workout_long_term.get("latest_hrr_30s")
+                    if workout_long_term.get("latest_hrr_30s") is not None
+                    else workout_long_term.get("latest_hrr_120s")
+                )
+            ),
+            "training_recovery_relationship": relationship.get("primary_correlation"),
         }
-        if m in long_term_map:
-            return long_term_map[m]
+        if m in compact_map:
+            return compact_map[m]
 
         value = e.get(m)
         if isinstance(value, float):
@@ -705,31 +725,96 @@ class FitnessSensor(SensorEntity):
         base_explanation.update(provenance)
         attrs = base_explanation
 
-        evidence = {
-            "vo2max_percent_predicted": ("friend_2017", "reference_equation"),
-            "training_load_7d": ("training_load_consensus_2017", "supported"),
-            "training_load_28d": ("training_load_consensus_2017", "supported"),
-            "training_load_change_7_vs_28": ("training_load_consensus_2017", "descriptive"),
-            "training_days_28d": ("training_load_consensus_2017", "descriptive"),
-            "hrr_60s_long_term": ("heart_rate_recovery_1999", "established"),
-            "hrr_60s_vs_90d": ("heart_rate_recovery_1999", "longitudinal_context"),
-            "sleep_duration_7d_mean": ("adult_sleep_duration_consensus_2015", "descriptive"),
-            "sleep_duration_28d_mean": ("adult_sleep_duration_consensus_2015", "descriptive"),
-            "sleep_duration_vs_28d": ("adult_sleep_duration_consensus_2015", "personal_context"),
-            "sleep_duration_shortfall": ("adult_sleep_duration_consensus_2015", "consensus_threshold"),
-            "sleep_midpoint_variability_14d": ("sleep_regularity_metrics_2021", "descriptive"),
-            "sleep_hrv_7d_mean": ("hrv_training_status_meta_2016", "longitudinal_context"),
-            "sleep_hrv_28d_mean": ("hrv_training_status_meta_2016", "longitudinal_context"),
-            "sleep_hrv_vs_28d": ("hrv_training_status_meta_2016", "longitudinal_context"),
-            "resting_hr_7d_mean": ("hr_monitoring_training_status_2014", "longitudinal_context"),
-            "resting_hr_28d_mean": ("hr_monitoring_training_status_2014", "longitudinal_context"),
-            "resting_hr_vs_28d": ("hr_monitoring_training_status_2014", "longitudinal_context"),
-            "vo2max_28d_mean": ("friend_2017", "descriptive"),
-            "vo2max_trend_14_vs_previous_14": ("friend_2017", "descriptive"),
+        e = self.manager.evaluation()
+        workout = e.get("workout_long_term") or {}
+        sleep = e.get("sleep_long_term") or {}
+        recorder = e.get("recorder_long_term") or {}
+        relation = e.get("training_recovery_relationship") or {}
+
+        grouped = {
+            "sleep_consistency": {
+                "research_reference": "sleep_regularity_metrics_2021",
+                "evidence_level": "descriptive_longitudinal",
+                "samples_7d": sleep.get("nights_7d"),
+                "samples_28d": sleep.get("nights_28d"),
+                "average_duration_7d_min": sleep.get("sleep_duration_7d_mean_min"),
+                "average_duration_28d_min": sleep.get("sleep_duration_28d_mean_min"),
+                "duration_variability_28d_min": sleep.get("sleep_duration_variability_28d_min"),
+                "bedtime_variability_28d_min": sleep.get("bedtime_variability_28d_min"),
+                "wake_time_variability_28d_min": sleep.get("wake_time_variability_28d_min"),
+                "midpoint_variability_28d_min": sleep.get("sleep_midpoint_variability_28d_min"),
+                "nights_below_7h_7d": sleep.get("nights_below_7h_7d"),
+                "nights_below_7h_28d": sleep.get("nights_below_7h_28d"),
+                "nights_below_7h_28d_percent": sleep.get("nights_below_7h_28d_percent"),
+            },
+            "sleep_deficit_7d": {
+                "research_reference": "adult_sleep_duration_consensus_2015",
+                "evidence_level": "consensus_reference",
+                "nights_observed": sleep.get("nights_7d"),
+                "nights_below_7h": sleep.get("nights_below_7h_7d"),
+                "reference_minimum_hours": 7,
+            },
+            "autonomic_recovery_trend": {
+                "research_reference": "hrv_training_status_meta_2016",
+                "evidence_level": "longitudinal_context",
+                "sleep_hrv_7d_mean_ms": sleep.get("sleep_hrv_7d_mean_ms"),
+                "sleep_hrv_28d_mean_ms": sleep.get("sleep_hrv_28d_mean_ms"),
+                "sleep_hrv_vs_28d_percent": sleep.get("sleep_hrv_vs_28d_percent"),
+                "resting_hr_current_bpm": recorder.get("resting_hr_current"),
+                "resting_hr_7d_mean_bpm": recorder.get("resting_hr_7d_mean"),
+                "resting_hr_28d_mean_bpm": recorder.get("resting_hr_28d_mean"),
+                "resting_hr_vs_28d_bpm": recorder.get("resting_hr_vs_28d"),
+            },
+            "cardiorespiratory_fitness_trend": {
+                "research_reference": "cardiorespiratory_fitness_meta_2024",
+                "evidence_level": "strong_longitudinal_context",
+                "current_vo2max_ml_kg_min": recorder.get("vo2max_current"),
+                "vo2max_28d_mean_ml_kg_min": recorder.get("vo2max_28d_mean"),
+                "vo2max_90d_mean_ml_kg_min": recorder.get("vo2max_90d_mean"),
+                "short_term_change_percent": recorder.get("vo2max_trend_14_vs_previous_14_percent"),
+                "slope_percent_per_30d": recorder.get("vo2max_slope_percent_per_30d"),
+                "percent_predicted": e.get("vo2max_percent_predicted"),
+            },
+            "training_load": {
+                "research_reference": "training_load_consensus_2017",
+                "evidence_level": "monitoring_context",
+                "trimp_7d": workout.get("banister_trimp_7d"),
+                "trimp_28d": workout.get("banister_trimp_28d"),
+                "trimp_28d_weekly_equivalent": workout.get("banister_trimp_28d_weekly_equivalent"),
+                "workouts_7d": workout.get("workouts_7d"),
+                "workouts_28d": workout.get("workouts_28d"),
+                "active_days_7d": workout.get("active_training_days_7d"),
+                "active_days_28d": workout.get("active_training_days_28d"),
+                "training_duration_7d_min": workout.get("training_duration_7d_min"),
+                "training_duration_28d_min": workout.get("training_duration_28d_min"),
+                "distance_7d_km": workout.get("distance_7d_km"),
+                "distance_28d_km": workout.get("distance_28d_km"),
+                "last_recovery_interval_h": workout.get("last_recovery_interval_h"),
+                "median_recovery_interval_28d_h": workout.get("median_recovery_interval_28d_h"),
+            },
+            "heart_rate_recovery": {
+                "research_reference": "heart_rate_recovery_1999",
+                "evidence_level": "established_measurement_context",
+                "hrr_30s_bpm": workout.get("latest_hrr_30s"),
+                "hrr_60s_bpm": workout.get("latest_hrr_60s"),
+                "hrr_120s_bpm": workout.get("latest_hrr_120s"),
+                "personal_90d_baseline_bpm": workout.get("hrr_60s_baseline_90d"),
+                "latest_vs_baseline_bpm": workout.get("hrr_60s_latest_vs_90d_bpm"),
+                "samples_90d": workout.get("hrr_samples_90d"),
+            },
+            "training_recovery_relationship": {
+                "research_reference": "exercise_sleep_meta_2024",
+                "evidence_level": "descriptive_personal_association",
+                **relation,
+                "causal_interpretation": False,
+            },
+            "vo2max_percent_predicted": {
+                "research_reference": "friend_2017",
+                "evidence_level": "reference_equation",
+            },
         }.get(m)
-        if evidence:
-            attrs["research_reference"] = evidence[0]
-            attrs["evidence_level"] = evidence[1]
+        if grouped:
+            attrs.update({k: v for k, v in grouped.items() if v is not None})
 
         if m in ("ai_general", "ai_workout"):
             full_text = self.manager.ai_general if m == "ai_general" else self.manager.ai_workout
