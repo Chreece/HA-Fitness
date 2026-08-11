@@ -252,465 +252,2288 @@
   "entity": {
     "sensor": {
       "session_status": {
-        "name": "Session status"
+        "name": "Статус сессии",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          }
+        }
       },
       "session_duration": {
-        "name": "Session duration"
+        "name": "Длительность сессии",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "current_heart_rate": {
-        "name": "Current heart rate"
+        "name": "Текущий частота пульса",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          }
+        }
       },
       "current_power": {
-        "name": "Current power"
+        "name": "Текущий мощность",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          }
+        }
       },
       "current_cadence": {
-        "name": "Current cadence"
+        "name": "Текущий cadence",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          }
+        }
       },
       "current_speed": {
-        "name": "Current speed"
+        "name": "Текущий скорость",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          }
+        }
       },
       "current_distance": {
-        "name": "Current distance"
+        "name": "Текущий distance",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          }
+        }
       },
       "current_altitude": {
-        "name": "Current altitude"
+        "name": "Текущий altitude",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          }
+        }
       },
       "last_workout": {
-        "name": "Last workout"
+        "name": "Последняя тренировка",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_source": {
-        "name": "Last workout source"
+        "name": "Последняя тренировка источник",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_duration": {
-        "name": "Last workout duration"
+        "name": "Последняя тренировка длительность",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_distance": {
-        "name": "Last workout distance"
+        "name": "Последняя тренировка distance",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_avg_hr": {
-        "name": "Last workout average heart rate"
+        "name": "Последняя тренировка average частота пульса",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_max_hr": {
-        "name": "Last workout maximum heart rate"
+        "name": "Последняя тренировка maximum частота пульса",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_avg_power": {
-        "name": "Last workout average power"
+        "name": "Последняя тренировка average мощность",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_max_power": {
-        "name": "Last workout maximum power"
+        "name": "Последняя тренировка maximum мощность",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_avg_cadence": {
-        "name": "Last workout average cadence"
+        "name": "Последняя тренировка average cadence",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_elevation_gain": {
-        "name": "Last workout elevation gain"
+        "name": "Последняя тренировка elevation gain",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "age": {
-        "name": "Age"
+        "name": "Возраст"
       },
       "weight": {
-        "name": "Weight"
+        "name": "Вес"
       },
       "resting_hr": {
-        "name": "Resting heart rate"
+        "name": "Пульс в покое"
       },
       "maximum_hr": {
-        "name": "Maximum heart rate"
+        "name": "Максимальный частота пульса"
       },
       "heart_rate_reserve": {
-        "name": "Heart rate reserve"
+        "name": "Резерв ЧСС"
       },
       "vo2max": {
         "name": "VO₂max"
       },
       "friend_predicted_vo2max": {
-        "name": "FRIEND predicted VO₂max"
+        "name": "FRIEND прогнозируемый VO₂max"
       },
       "vo2max_percent_predicted": {
-        "name": "VO₂max percent predicted"
+        "name": "VO₂max percent прогнозируемый",
+        "state_attributes": {
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "cardiorespiratory_status": {
-        "name": "Cardiorespiratory fitness status"
+        "name": "Cardiorespiratory fitness статус"
       },
       "hrv_weekly": {
-        "name": "HRV weekly average"
+        "name": "HRV среднее за неделю"
       },
       "hrv_last_night": {
-        "name": "HRV last night average"
+        "name": "HRV среднее за прошлую ночь"
       },
       "hrv_status": {
-        "name": "HRV status"
+        "name": "HRV статус"
       },
       "threshold_hr": {
-        "name": "Threshold heart rate"
+        "name": "Threshold частота пульса"
       },
       "threshold_pace": {
-        "name": "Threshold pace"
+        "name": "Threshold темп"
       },
       "threshold_power": {
-        "name": "Threshold power"
+        "name": "Threshold мощность"
       },
       "threshold_power_to_weight": {
-        "name": "Threshold power-to-weight"
+        "name": "Threshold мощность-to-weight"
       },
       "fitness_age": {
-        "name": "Fitness age"
+        "name": "Фитнес-возраст"
       },
       "fitness_age_difference": {
-        "name": "Fitness age difference"
+        "name": "Фитнес-возраст difference"
       },
       "training_readiness_context": {
-        "name": "Training readiness context"
+        "name": "Training readiness контекст"
       },
       "sleep_score_context": {
-        "name": "Sleep score context"
+        "name": "Сон оценка контекст"
       },
       "acute_training_load": {
-        "name": "Acute training load"
+        "name": "Acute тренировочная нагрузка"
       },
       "chronic_training_load": {
-        "name": "Chronic training load"
+        "name": "Chronic тренировочная нагрузка"
       },
       "acute_chronic_ratio": {
-        "name": "Acute/chronic load ratio"
+        "name": "Соотношение острой/хронической нагрузки"
       },
       "provider_training_status": {
-        "name": "Provider training status"
+        "name": "Provider training статус"
       },
       "ai_general_evaluation": {
-        "name": "AI general evaluation"
+        "name": "Общая оценка ИИ",
+        "state_attributes": {
+          "text": {
+            "name": "Текст оценки"
+          },
+          "generated_at": {
+            "name": "Создано"
+          },
+          "ai_entity": {
+            "name": "Поставщик ИИ"
+          },
+          "role": {
+            "name": "Роль"
+          }
+        }
       },
       "ai_workout_evaluation": {
-        "name": "AI workout evaluation"
+        "name": "ИИ-оценка последней тренировки",
+        "state_attributes": {
+          "text": {
+            "name": "Текст оценки"
+          },
+          "generated_at": {
+            "name": "Создано"
+          },
+          "ai_entity": {
+            "name": "Поставщик ИИ"
+          },
+          "role": {
+            "name": "Роль"
+          }
+        }
       },
       "heart_rate_percent_max": {
-        "name": "Пульс в % от максимума"
+        "name": "Частота пульса % of maximum",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "heart_rate_reserve_percent": {
-        "name": "Резерв пульса %"
+        "name": "Резерв ЧСС %",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "heart_rate_intensity": {
-        "name": "Интенсивность по пульсу"
+        "name": "Частота пульса intensity",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "heart_rate_relative_threshold": {
-        "name": "Пульс относительно порога"
+        "name": "Частота пульса relative to порог",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "current_power_to_weight": {
-        "name": "Текущая мощность на кг"
+        "name": "Текущий мощность-to-weight",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "power_relative_threshold": {
-        "name": "Мощность относительно порога"
+        "name": "Мощность relative to порог",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "current_pace": {
-        "name": "Текущий темп"
+        "name": "Текущий темп",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "speed_relative_threshold": {
-        "name": "Скорость относительно порога"
+        "name": "Скорость relative to порог",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "last_workout_calories": {
-        "name": "Last workout calories"
+        "name": "Калории последней тренировки",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_moving_time": {
-        "name": "Last workout moving time"
+        "name": "Последняя тренировка moving time",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_elapsed_time": {
-        "name": "Last workout elapsed time"
+        "name": "Последняя тренировка elapsed time",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_average_speed": {
-        "name": "Last workout average speed"
+        "name": "Последняя тренировка average скорость",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_max_speed": {
-        "name": "Last workout maximum speed"
+        "name": "Последняя тренировка maximum скорость",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_weighted_power": {
-        "name": "Last workout weighted / normalized power"
+        "name": "Последняя тренировка weighted / normalized мощность",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_max_cadence": {
-        "name": "Last workout maximum cadence"
+        "name": "Последняя тренировка maximum cadence",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_elevation_loss": {
-        "name": "Last workout elevation loss"
+        "name": "Последняя тренировка elevation loss",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_training_load": {
-        "name": "Last workout training load"
+        "name": "Последняя тренировка тренировочная нагрузка",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_aerobic_effect": {
-        "name": "Last workout aerobic training effect"
+        "name": "Последняя тренировка аэробный training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_anaerobic_effect": {
-        "name": "Last workout anaerobic training effect"
+        "name": "Последняя тренировка анаэробный training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_training_effect": {
-        "name": "Last workout training effect"
+        "name": "Последняя тренировка training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_vo2max": {
-        "name": "Last workout VO₂max"
+        "name": "Последняя тренировка VO₂max",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_relative_effort": {
-        "name": "Last workout relative effort"
+        "name": "Последняя тренировка relative effort",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_kilojoules": {
-        "name": "Last workout energy"
+        "name": "Последняя тренировка energy",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_total_reps": {
-        "name": "Last workout total reps"
+        "name": "Последняя тренировка total reps",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_exercise_count": {
-        "name": "Last workout exercise count"
+        "name": "Последняя тренировка exercise count",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_volume": {
-        "name": "Last workout training volume"
+        "name": "Последняя тренировка training volume",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_device": {
-        "name": "Last workout device"
+        "name": "Последняя тренировка device",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_gear": {
-        "name": "Last workout gear"
+        "name": "Последняя тренировка gear",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_sources": {
-        "name": "Last workout data sources"
+        "name": "Последняя тренировка data источники",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "live_average_heart_rate": {
-        "name": "Live average heart rate"
+        "name": "В реальном времени average частота пульса",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "live_maximum_heart_rate": {
-        "name": "Live maximum heart rate"
+        "name": "В реальном времени maximum частота пульса",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "live_average_power": {
-        "name": "Live average power"
+        "name": "В реальном времени average мощность",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "live_maximum_power": {
-        "name": "Live maximum power"
+        "name": "В реальном времени maximum мощность",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "live_average_cadence": {
-        "name": "Live average cadence"
+        "name": "В реальном времени average cadence",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "live_average_speed": {
-        "name": "Live average speed"
+        "name": "В реальном времени average скорость",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "live_banister_trimp": {
-        "name": "Live Banister TRIMP"
+        "name": "В реальном времени Banister TRIMP",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "live_mechanical_work": {
-        "name": "Live mechanical work"
+        "name": "В реальном времени mechanical work",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "live_aerobic_efficiency": {
-        "name": "Live aerobic efficiency"
+        "name": "В реальном времени аэробный эффективность",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "live_aerobic_decoupling": {
-        "name": "Live aerobic decoupling"
+        "name": "В реальном времени аэробный рассогласование",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "live_time_moderate": {
-        "name": "Time at moderate intensity"
+        "name": "Время в умеренной интенсивности",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "live_time_vigorous": {
-        "name": "Time at vigorous intensity"
+        "name": "Время в высокой интенсивности",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "live_time_near_maximal": {
-        "name": "Time at near-maximal intensity"
+        "name": "Время в почти максимальной интенсивности",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Исходная сущность"
+          },
+          "source_device_name": {
+            "name": "Исходное устройство"
+          },
+          "source_integration": {
+            "name": "Исходная интеграция"
+          },
+          "calculated_by_fitness": {
+            "name": "Рассчитано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "last_workout_banister_trimp": {
-        "name": "Last workout Banister TRIMP"
+        "name": "Последняя тренировка Banister TRIMP",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_trimp_per_hour": {
-        "name": "Last workout TRIMP per hour"
+        "name": "Последняя тренировка TRIMP per hour",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_mechanical_work": {
-        "name": "Last workout mechanical work"
+        "name": "Последняя тренировка mechanical work",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_aerobic_efficiency": {
-        "name": "Last workout aerobic efficiency"
+        "name": "Последняя тренировка аэробный эффективность",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_aerobic_decoupling": {
-        "name": "Last workout aerobic decoupling"
+        "name": "Последняя тренировка аэробный рассогласование",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_hrr_10s": {
-        "name": "Last workout heart-rate recovery 10 s"
+        "name": "Последняя тренировка восстановление ЧСС 10 s",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_hrr_30s": {
-        "name": "Last workout heart-rate recovery 30 s"
+        "name": "Последняя тренировка восстановление ЧСС 30 s",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_hrr_60s": {
-        "name": "Last workout heart-rate recovery 60 s"
+        "name": "Последняя тренировка восстановление ЧСС 60 s",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_hrr_120s": {
-        "name": "Last workout heart-rate recovery 120 s"
+        "name": "Последняя тренировка восстановление ЧСС 120 s",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_time_moderate": {
-        "name": "Last workout moderate-intensity time"
+        "name": "Последняя тренировка moderate-intensity time",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_time_vigorous": {
-        "name": "Last workout vigorous-intensity time"
+        "name": "Последняя тренировка vigorous-intensity time",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_time_near_maximal": {
-        "name": "Last workout near-maximal time"
+        "name": "Последняя тренировка near-maximal time",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "training_load_7d": {
-        "name": "Banister training load 7 days"
+        "name": "Banister тренировочная нагрузка 7 дней"
       },
       "training_load_28d": {
-        "name": "Banister training load 28 days"
+        "name": "Banister тренировочная нагрузка 28 дней"
       },
       "training_load_42d": {
-        "name": "Banister training load 42 days"
+        "name": "Banister тренировочная нагрузка 42 дней"
       },
       "training_days_28d": {
-        "name": "Active training days 28 days"
+        "name": "Активные тренировочные дни 28 дней"
       },
       "hrr_60s_long_term": {
-        "name": "90-day mean heart-rate recovery 60 s"
+        "name": "90-день mean восстановление ЧСС 60 s"
       },
       "aerobic_decoupling_long_term": {
-        "name": "90-day mean aerobic decoupling"
+        "name": "90-день mean аэробный рассогласование"
       },
       "aerobic_efficiency_long_term": {
-        "name": "90-day mean aerobic efficiency"
+        "name": "90-день mean аэробный эффективность"
       },
       "last_workout_comparable_count": {
-        "name": "Comparable prior workouts"
+        "name": "Сопоставимые прошлые тренировки",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_efficiency_vs_baseline": {
-        "name": "Aerobic efficiency vs personal baseline"
+        "name": "Аэробный эффективность vs личный базовый уровень",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_decoupling_vs_baseline": {
-        "name": "Aerobic decoupling vs personal baseline"
+        "name": "Аэробный рассогласование vs личный базовый уровень",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_hr_vs_baseline": {
-        "name": "Average heart rate vs personal baseline"
+        "name": "Средний частота пульса vs личный базовый уровень",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_power_vs_baseline": {
-        "name": "Average power vs personal baseline"
+        "name": "Средний мощность vs личный базовый уровень",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_speed_vs_baseline": {
-        "name": "Average speed vs personal baseline"
+        "name": "Средний скорость vs личный базовый уровень",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_trimp_vs_recent": {
-        "name": "TRIMP vs comparable recent workouts"
+        "name": "TRIMP vs comparable недавние тренировки",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_load_context": {
-        "name": "Workout load context"
+        "name": "Тренировка load контекст",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_workout_personal_context": {
-        "name": "Workout personal context"
+        "name": "Тренировка personal контекст",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_sleep_source": {
-        "name": "Last sleep source"
+        "name": "Последний сон источник",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "sleep_start": {
+            "name": "Начало сна"
+          },
+          "sleep_end": {
+            "name": "Окончание сна"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_sleep_duration": {
-        "name": "Last sleep duration"
+        "name": "Последний сон длительность",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "sleep_start": {
+            "name": "Начало сна"
+          },
+          "sleep_end": {
+            "name": "Окончание сна"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_sleep_score": {
-        "name": "Last sleep score"
+        "name": "Последний сон оценка",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "sleep_start": {
+            "name": "Начало сна"
+          },
+          "sleep_end": {
+            "name": "Окончание сна"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_sleep_efficiency": {
-        "name": "Last sleep efficiency"
+        "name": "Последний сон эффективность",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "sleep_start": {
+            "name": "Начало сна"
+          },
+          "sleep_end": {
+            "name": "Окончание сна"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_sleep_time_in_bed": {
-        "name": "Last sleep time in bed"
+        "name": "Последний сон time in bed",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "sleep_start": {
+            "name": "Начало сна"
+          },
+          "sleep_end": {
+            "name": "Окончание сна"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_sleep_awake": {
-        "name": "Last sleep awake"
+        "name": "Последний сон бодрствование",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "sleep_start": {
+            "name": "Начало сна"
+          },
+          "sleep_end": {
+            "name": "Окончание сна"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_sleep_light": {
-        "name": "Last light sleep"
+        "name": "Последний лёгкий сон",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "sleep_start": {
+            "name": "Начало сна"
+          },
+          "sleep_end": {
+            "name": "Окончание сна"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_sleep_deep": {
-        "name": "Last deep sleep"
+        "name": "Последний глубокий сон",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "sleep_start": {
+            "name": "Начало сна"
+          },
+          "sleep_end": {
+            "name": "Окончание сна"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_sleep_rem": {
-        "name": "Last REM sleep"
+        "name": "Последний REM-сон",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "sleep_start": {
+            "name": "Начало сна"
+          },
+          "sleep_end": {
+            "name": "Окончание сна"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_sleep_hrv": {
-        "name": "Last sleep HRV"
+        "name": "Последний сон HRV",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "sleep_start": {
+            "name": "Начало сна"
+          },
+          "sleep_end": {
+            "name": "Окончание сна"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_sleep_average_hr": {
-        "name": "Last sleep average heart rate"
+        "name": "Последний сон average частота пульса",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "sleep_start": {
+            "name": "Начало сна"
+          },
+          "sleep_end": {
+            "name": "Окончание сна"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_sleep_respiratory_rate": {
-        "name": "Last sleep respiratory rate"
+        "name": "Последний сон частота дыхания",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "sleep_start": {
+            "name": "Начало сна"
+          },
+          "sleep_end": {
+            "name": "Окончание сна"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_sleep_spo2": {
-        "name": "Last sleep SpO₂"
+        "name": "Последний сон SpO₂",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "sleep_start": {
+            "name": "Начало сна"
+          },
+          "sleep_end": {
+            "name": "Окончание сна"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_sleep_recovery_score": {
-        "name": "Last recovery score"
+        "name": "Последний оценка восстановления",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "sleep_start": {
+            "name": "Начало сна"
+          },
+          "sleep_end": {
+            "name": "Окончание сна"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "last_sleep_readiness_score": {
-        "name": "Last readiness score"
+        "name": "Последний оценка готовности",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "sleep_start": {
+            "name": "Начало сна"
+          },
+          "sleep_end": {
+            "name": "Окончание сна"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       },
       "training_load_change_7_vs_28": {
-        "name": "7-day training load vs 28-day baseline"
+        "name": "7-день тренировочная нагрузка vs 28-день базовый уровень"
       },
       "hrr_60s_vs_90d": {
-        "name": "Latest 60 s heart-rate recovery vs 90-day baseline"
+        "name": "Latest 60 s восстановление ЧСС vs 90-день базовый уровень"
       },
       "sleep_duration_7d_mean": {
-        "name": "Mean sleep duration (7 days)"
+        "name": "Среднее сон длительность (7 дней)"
       },
       "sleep_duration_28d_mean": {
-        "name": "Mean sleep duration (28 days)"
+        "name": "Среднее сон длительность (28 дней)"
       },
       "sleep_duration_vs_28d": {
-        "name": "Last sleep duration vs 28-day baseline"
+        "name": "Последний сон длительность vs 28-день базовый уровень"
       },
       "sleep_duration_shortfall": {
-        "name": "Sleep duration shortfall vs 7 h adult minimum"
+        "name": "Сон длительность shortfall vs 7 h adult minimum"
       },
       "sleep_midpoint_variability_14d": {
-        "name": "Sleep midpoint variability (14 days)"
+        "name": "Сон midpoint variability (14 дней)"
       },
       "sleep_hrv_7d_mean": {
-        "name": "Mean sleep HRV (7 days)"
+        "name": "Среднее сон HRV (7 дней)"
       },
       "sleep_hrv_28d_mean": {
-        "name": "Mean sleep HRV (28 days)"
+        "name": "Среднее сон HRV (28 дней)"
       },
       "sleep_hrv_vs_28d": {
-        "name": "Last sleep HRV vs 28-day baseline"
+        "name": "Последний сон HRV vs 28-день базовый уровень"
       },
       "resting_hr_7d_mean": {
-        "name": "Mean resting heart rate (7 days)"
+        "name": "Среднее пульс в покое (7 дней)"
       },
       "resting_hr_28d_mean": {
-        "name": "Mean resting heart rate (28 days)"
+        "name": "Среднее пульс в покое (28 дней)"
       },
       "resting_hr_vs_28d": {
-        "name": "Resting heart rate vs 28-day baseline"
+        "name": "Пульс в покое vs 28-день базовый уровень"
       },
       "vo2max_28d_mean": {
-        "name": "Mean VO₂max (28 days)"
+        "name": "Среднее VO₂max (28 дней)"
       },
       "vo2max_trend_14_vs_previous_14": {
-        "name": "VO₂max trend: last 14 vs previous 14 days"
+        "name": "Тренд VO₂max: последние 14 против предыдущих 14 дней"
       },
       "sleep_consistency": {
-        "name": "Sleep consistency"
+        "name": "Регулярность сна",
+        "state_attributes": {
+          "samples_7d": {
+            "name": "Измерения (7 дней)"
+          },
+          "samples_28d": {
+            "name": "Измерения (28 дней)"
+          },
+          "average_duration_7d_min": {
+            "name": "Среднее сон длительность (7 дней)"
+          },
+          "average_duration_28d_min": {
+            "name": "Среднее сон длительность (28 дней)"
+          },
+          "duration_variability_28d_min": {
+            "name": "Вариабельность длительности сна (28 дней)"
+          },
+          "bedtime_variability_28d_min": {
+            "name": "Вариабельность времени отхода ко сну (28 дней)"
+          },
+          "wake_time_variability_28d_min": {
+            "name": "Вариабельность времени пробуждения (28 дней)"
+          },
+          "midpoint_variability_28d_min": {
+            "name": "Вариабельность середины сна (28 дней)"
+          },
+          "nights_below_7h_7d": {
+            "name": "Ночей менее 7 h (7 дней)"
+          },
+          "nights_below_7h_28d": {
+            "name": "Ночей менее 7 h (28 дней)"
+          },
+          "nights_below_7h_28d_percent": {
+            "name": "Ночей менее 7 h (28 дней, %)"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "sleep_deficit_7d": {
-        "name": "Sleep deficit – 7 days"
+        "name": "Дефицит сна – 7 дней",
+        "state_attributes": {
+          "nights_observed": {
+            "name": "Наблюдаемые ночи"
+          },
+          "nights_below_7h": {
+            "name": "Ночей менее 7 h"
+          },
+          "reference_minimum_hours": {
+            "name": "Референсный минимум"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "autonomic_recovery_trend": {
-        "name": "Autonomic recovery trend"
+        "name": "Тренд автономного восстановления",
+        "state_attributes": {
+          "sleep_hrv_7d_mean_ms": {
+            "name": "Среднее сон HRV (7 дней)"
+          },
+          "sleep_hrv_28d_mean_ms": {
+            "name": "Среднее сон HRV (28 дней)"
+          },
+          "sleep_hrv_vs_28d_percent": {
+            "name": "Latest сон HRV vs 28-день базовый уровень"
+          },
+          "resting_hr_current_bpm": {
+            "name": "Текущий пульс в покое"
+          },
+          "resting_hr_7d_mean_bpm": {
+            "name": "Среднее пульс в покое (7 дней)"
+          },
+          "resting_hr_28d_mean_bpm": {
+            "name": "Среднее пульс в покое (28 дней)"
+          },
+          "resting_hr_vs_28d_bpm": {
+            "name": "Пульс в покое vs 28-день базовый уровень"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "cardiorespiratory_fitness_trend": {
-        "name": "Cardiorespiratory fitness trend"
+        "name": "Тренд кардиореспираторной формы",
+        "state_attributes": {
+          "current_vo2max_ml_kg_min": {
+            "name": "Текущий VO₂max"
+          },
+          "vo2max_28d_mean_ml_kg_min": {
+            "name": "Среднее VO₂max (28 дней)"
+          },
+          "vo2max_90d_mean_ml_kg_min": {
+            "name": "Среднее VO₂max (90 дней)"
+          },
+          "short_term_change_percent": {
+            "name": "Краткосрочное изменение"
+          },
+          "slope_percent_per_30d": {
+            "name": "Тренд за 30 дней"
+          },
+          "percent_predicted": {
+            "name": "Процент от прогнозируемого"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "training_load": {
-        "name": "Training load"
+        "name": "Тренировочная нагрузка",
+        "state_attributes": {
+          "trimp_7d": {
+            "name": "TRIMP (7 дней)"
+          },
+          "trimp_28d": {
+            "name": "TRIMP (28 дней)"
+          },
+          "trimp_28d_weekly_equivalent": {
+            "name": "TRIMP 28-день недельный эквивалент"
+          },
+          "workouts_7d": {
+            "name": "Тренировки (7 дней)"
+          },
+          "workouts_28d": {
+            "name": "Тренировки (28 дней)"
+          },
+          "active_days_7d": {
+            "name": "Активные тренировочные дни (7 дней)"
+          },
+          "active_days_28d": {
+            "name": "Активные тренировочные дни (28 дней)"
+          },
+          "training_duration_7d_min": {
+            "name": "Длительность тренировок (7 дней)"
+          },
+          "training_duration_28d_min": {
+            "name": "Длительность тренировок (28 дней)"
+          },
+          "distance_7d_km": {
+            "name": "Дистанция (7 дней)"
+          },
+          "distance_28d_km": {
+            "name": "Дистанция (28 дней)"
+          },
+          "last_recovery_interval_h": {
+            "name": "Последний recovery interval"
+          },
+          "median_recovery_interval_28d_h": {
+            "name": "Медианный интервал восстановления (28 дней)"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "heart_rate_recovery": {
-        "name": "Heart-rate recovery"
+        "name": "Восстановление ЧСС",
+        "state_attributes": {
+          "hrr_30s_bpm": {
+            "name": "Восстановление ЧСС (30 s)"
+          },
+          "hrr_60s_bpm": {
+            "name": "Восстановление ЧСС (60 s)"
+          },
+          "hrr_120s_bpm": {
+            "name": "Восстановление ЧСС (120 s)"
+          },
+          "personal_90d_baseline_bpm": {
+            "name": "Личный базовый уровень за 90 дней"
+          },
+          "latest_vs_baseline_bpm": {
+            "name": "Последнее vs личный базовый уровень"
+          },
+          "samples_90d": {
+            "name": "Измерения (90 дней)"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       },
       "training_recovery_relationship": {
-        "name": "Training–recovery relationship"
+        "name": "Связь тренировка–восстановление",
+        "state_attributes": {
+          "primary_correlation": {
+            "name": "Основная корреляция"
+          },
+          "primary_measure": {
+            "name": "Основной показатель восстановления"
+          },
+          "trimp_vs_next_sleep_duration_r": {
+            "name": "TRIMP vs next-сон длительность (r)"
+          },
+          "trimp_vs_next_sleep_hrv_r": {
+            "name": "TRIMP vs next-сон HRV (r)"
+          },
+          "sleep_duration_pairs": {
+            "name": "Тренировка–сон длительность pairs"
+          },
+          "sleep_hrv_pairs": {
+            "name": "Тренировка–сон HRV pairs"
+          },
+          "window_days": {
+            "name": "Окно анализа"
+          },
+          "causal_interpretation": {
+            "name": "Причинная интерпретация"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          }
+        }
       }
     },
     "button": {
       "start_workout": {
-        "name": "Начать тренировку"
+        "name": "Start тренировка"
       },
       "stop_workout": {
-        "name": "Остановить тренировку"
+        "name": "Stop тренировка"
       },
       "regenerate_ai_evaluation": {
         "name": "Обновить оценку ИИ"
@@ -718,7 +2541,7 @@
     },
     "select": {
       "workout_room": {
-        "name": "Комната тренировки"
+        "name": "Тренировка room"
       }
     }
   },

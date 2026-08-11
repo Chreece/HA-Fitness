@@ -3,7 +3,7 @@
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_LANGUAGE, DOMAIN, SUPPORTED_LANGUAGES
+from .const import CONF_LANGUAGE, CONF_PROFILE_NAME, DOMAIN, SUPPORTED_LANGUAGES
 from .manager import FitnessManager
 
 PLATFORMS = ["sensor", "button", "select"]
@@ -54,6 +54,12 @@ async def async_migrate_entry(
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    # Keep the config-entry title concise as well. Older releases prefixed it
+    # with "Fitness –", which duplicated the integration name in the UI.
+    profile_name = str(entry.options.get(CONF_PROFILE_NAME, entry.data.get(CONF_PROFILE_NAME, entry.title)) or entry.title)
+    if entry.title != profile_name:
+        hass.config_entries.async_update_entry(entry, title=profile_name)
+
     hass.data.setdefault(DOMAIN, {})
     manager = FitnessManager(hass, entry)
     hass.data[DOMAIN][entry.entry_id] = manager

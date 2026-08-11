@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026.8.0
+
+- Scientific live-workout provenance: every Fitness-calculated live metric now identifies itself as calculated and exposes formula, exact data used, localized interpretation/usefulness, and a study citation where a specific scientific basis applies. Raw provider measurements remain lightweight.
+- Correct legacy localized naming for the last-workout AI evaluation without overwriting user-customized names. — First stable public release
+- Completed the localization pass for all Fitness-created devices, entities and user-facing state attributes across every supported language; device names are now concise (Evaluation, Live workout, Sleep, Workouts) and no longer repeat the integration/profile prefix. Live, completed-workout and sleep provenance labels are localized as well, while stable raw attribute keys remain unchanged for templates and automations.
+- Fitness output devices are centrally excluded from every setup source selector so Evaluation/Live/Sleep/Workout devices can never feed back into Fitness as inputs.
+- Completed-workout provenance uses human-readable provider names where possible, while exact entity IDs remain untouched.
+
+Fitness 2026.8.0 consolidates the complete prerelease line into the first stable public release.
+
+### Highlights
+
+- Capability-aware setup suggests only profile, live-workout, completed-workout and sleep sources that Fitness can actually parse.
+- Multi-source live workouts select metrics independently, use sticky failover, normalize units, and keep high-frequency updates isolated to Live entities.
+- Completed workouts from multiple providers are conservatively deduplicated and merged without losing complementary fields or provenance.
+- Sleep records from multiple supported providers are merged by sleep episode/night without merging unrelated naps or separate periods.
+- Evaluation is organized into compact evidence-based domains for sleep consistency/deficit, autonomic recovery, cardiorespiratory fitness, training load, heart-rate recovery and training/recovery relationships.
+- Evaluation entities materialize progressively as valid evidence becomes available and enrich themselves as longer history accumulates.
+- Home Assistant Recorder history and personal baselines are preferred over one-off population interpretations where appropriate.
+- Evaluation attributes now emphasize metric-specific evidence, windows, baselines, sample counts and research references instead of generic repeated boilerplate. All user-facing Evaluation attribute labels are localized through Home Assistant translation keys; legacy developer metadata is kept internal.
+- Optional AI is interpretation-only: deterministic calculations remain independent of AI. AI prompts receive curated fitness-semantic context rather than raw Recorder/provider dumps and enforce the profile language.
+- Full localization is included for English, Greek, German, French, Spanish, Italian, Portuguese, Dutch, Polish, Russian, Ukrainian, Turkish, Chinese, Japanese and Korean.
+- Room-aware lights, TTS, notifications, ANT+ capture ownership, post-workout recovery, scientific references and automated validation/testing are included.
+
+### Upgrade note
+
+The stable release keeps the lazy entity lifecycle introduced during prereleases. Obsolete fine-grained Evaluation mirrors from older betas are migrated away; grouped Evaluation domains retain the scientifically useful information as state plus attributes.
+
+---
+
+## Prerelease development history
+
+The entries below document the development path to 2026.8.0. They are retained for traceability; separate `RELEASE_NOTES_*.md` files are no longer used.
+
 ## 2026.8.0-beta.26
 
 ### Hassfest translation-schema fix

@@ -38,6 +38,9 @@ from .engine.live import (
 )
 from .providers.entities import resolve_number_or_entity
 from .explanations import sensor_explanation  # Deterministic; never AI-generated.
+from .evaluation_details import evaluation_user_details
+from .live_details import CALCULATED_LIVE_METRICS, live_user_details
+from .providers.evaluation import collect_provider_metrics
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -327,6 +330,20 @@ class FitnessSensor(SensorEntity):
         self._attr_device_info = device_info(entry, desc.kind)
 
     async def async_added_to_hass(self):
+        # Clear only known legacy auto-generated names. This lets the current
+        # translation_key supply the corrected localized title without touching
+        # genuinely user-customized entity names.
+        if self.entity_description.key == "ai_workout_evaluation":
+            registry = er.async_get(self.hass)
+            registry_entry = registry.async_get(self.entity_id)
+            if registry_entry is not None and registry_entry.name in {
+                "Τελευταίας προπόνησης με AI",
+                "Προπόνησης με AI",
+                "Last workout with AI",
+                "Last workout AI",
+            }:
+                registry.async_update_entity(self.entity_id, name=None)
+
         # Every Fitness sensor receives low-frequency/general manager updates.
         self.async_on_remove(
             self.manager.add_listener(self._update)
@@ -374,7 +391,7 @@ class FitnessSensor(SensorEntity):
         return self.entity_description.unit
 
     @staticmethod
-    def _sleep_source_name(record):
+    def _sleep_source_names(record):
         names = {
             "garmin_connect": "Garmin Connect",
             "sleep_as_android": "Sleep as Android",
@@ -390,9 +407,40 @@ class FitnessSensor(SensorEntity):
         domains = list(record.provider_domains or [])
         if not domains and record.provider_domain and record.provider_domain != "merged":
             domains = [record.provider_domain]
-        if not domains:
-            return None
-        return " + ".join(names.get(domain, domain.replace("_", " ").title()) for domain in domains)
+        return [names.get(domain, domain.replace("_", " ").title()) for domain in domains]
+
+    @classmethod
+    def _sleep_source_name(cls, record):
+        names = cls._sleep_source_names(record)
+        return " + ".join(names) if names else None
+
+    @staticmethod
+    def _provider_display_name(value):
+        """Return a human-readable provider name without altering entity IDs."""
+        if not isinstance(value, str):
+            return value
+        if "." in value:
+            # Entity IDs are valuable provenance and must stay exact.
+            return value
+        names = {
+            "garmin_connect": "Garmin Connect",
+            "sleep_as_android": "Sleep as Android",
+            "antplus": "ANT+",
+            "ant_plus": "ANT+",
+            "stryd_ble": "Stryd",
+            "google_fit": "Google Fit",
+            "health_connect": "Health Connect",
+            "samsung_health": "Samsung Health",
+            "eight_sleep": "Eight Sleep",
+            "eightsleep": "Eight Sleep",
+            "withings": "Withings",
+            "fitbit": "Fitbit",
+            "oura": "Oura",
+            "whoop": "WHOOP",
+            "suunto": "Suunto",
+            "hevy": "Hevy",
+        }
+        return names.get(value, value.replace("_", " ").title())
 
     @property
     def native_value(self):
@@ -634,6 +682,175 @@ class FitnessSensor(SensorEntity):
             return round(value, 2)
         return value
 
+    def _evaluation_data_used(self, metric: str, evaluation: dict) -> list[str]:
+        """Return exact source entities/profile values used by an Evaluation domain."""
+        items: list[str] = []
+        seen: set[str] = set()
+
+        def add_entity(entity_id: str | None):
+            if not entity_id or entity_id in seen:
+                return
+            state = self.hass.states.get(entity_id)
+            if state is None or state.state in ("unknown", "unavailable", "", None):
+                return
+            unit = state.attributes.get("unit_of_measurement")
+            text = f"{entity_id} = {state.state}" + (f" {unit}" if unit else "")
+            items.append(text)
+            seen.add(entity_id)
+
+        def add_profile(label: str, value, unit: str | None = None):
+            if value is None:
+                return
+            text = f"{label} = {value}" + (f" {unit}" if unit else "")
+            if text not in seen:
+                items.append(text)
+                seen.add(text)
+
+        provider = collect_provider_metrics(self.hass, self.manager.config)
+        latest_sleep = self.manager.latest_sleep()
+        latest_workout = self.manager.latest_workout()
+        statistics = self.manager.long_term_statistics
+
+        if metric in {"cardiorespiratory_fitness_trend", "vo2max_percent_predicted"}:
+            summary = statistics.get("vo2max") or {}
+            add_entity(summary.get("entity_id") if isinstance(summary, dict) else None)
+            add_entity(provider.get("vo2max_entity"))
+            configured = self.manager.config.get("vo2max")
+            if isinstance(configured, str) and configured.startswith(("sensor.", "input_number.")):
+                add_entity(configured)
+            if metric == "vo2max_percent_predicted":
+                add_profile("profile.age", evaluation.get("age"), "years")
+                add_profile("profile.sex", self.manager.config.get("sex"))
+                weight = self.manager.config.get("weight")
+                if isinstance(weight, str) and weight.startswith(("sensor.", "input_number.")):
+                    add_entity(weight)
+                else:
+                    add_profile("profile.weight", evaluation.get("weight"), "kg")
+
+        if metric == "autonomic_recovery_trend":
+            summary = statistics.get("resting_hr") or {}
+            add_entity(summary.get("entity_id") if isinstance(summary, dict) else None)
+            add_entity(provider.get("resting_hr_entity"))
+            if latest_sleep:
+                add_entity((latest_sleep.field_sources or {}).get("hrv_ms"))
+
+        if metric in {"sleep_consistency", "sleep_deficit_7d"}:
+            if latest_sleep:
+                for field in ("duration_s", "start", "end"):
+                    add_entity((latest_sleep.field_sources or {}).get(field))
+                for source in latest_sleep.sources or []:
+                    if isinstance(source, str) and source.startswith(("sensor.", "binary_sensor.", "event.")):
+                        add_entity(source)
+
+        if metric in {"training_load", "heart_rate_recovery", "training_recovery_relationship"}:
+            if latest_workout:
+                for source in latest_workout.sources or []:
+                    add_entity(source)
+                for source in (latest_workout.field_sources or {}).values():
+                    add_entity(source)
+            if metric == "training_load":
+                for key, label, unit in (("resting_hr", "profile.resting_hr", "bpm"), ("max_hr", "profile.maximum_hr", "bpm")):
+                    configured = self.manager.config.get(key)
+                    if isinstance(configured, str) and configured.startswith(("sensor.", "input_number.")):
+                        add_entity(configured)
+                    else:
+                        add_profile(label, evaluation.get(key), unit)
+            if metric == "training_recovery_relationship" and latest_sleep:
+                for source in latest_sleep.sources or []:
+                    if isinstance(source, str) and source.startswith(("sensor.", "binary_sensor.", "event.")):
+                        add_entity(source)
+                for source in (latest_sleep.field_sources or {}).values():
+                    add_entity(source)
+
+        return items[:12]
+
+    def _live_input_value(self, metric: str) -> str | None:
+        info = self.manager.live_source_info(metric)
+        entity_id = info.get("source_entity")
+        if not entity_id:
+            return None
+        state = self.hass.states.get(entity_id)
+        if state is None:
+            return entity_id
+        unit = state.attributes.get("unit_of_measurement")
+        value = state.state
+        return f"{entity_id} = {value}{(' ' + str(unit)) if unit else ''}"
+
+    def _live_calculation_data_used(self, metric: str) -> list[str]:
+        """Return compact exact inputs for a Fitness-calculated live metric."""
+        ctx = self.manager._session_profile_context or {}
+        session_stats = self.manager.live_session_statistics()
+        items: list[str] = []
+
+        def source(name: str):
+            value = self._live_input_value(name)
+            if value and value not in items:
+                items.append(value)
+
+        def profile(label: str, key: str, unit: str = ""):
+            value = ctx.get(key)
+            if value is not None:
+                text = f"{label} = {value}{(' ' + unit) if unit else ''}"
+                if text not in items:
+                    items.append(text)
+
+        if metric in {"heart_rate_percent_max", "heart_rate_reserve_percent",
+                      "heart_rate_intensity", "heart_rate_relative_threshold"}:
+            source(METRIC_HEART_RATE)
+        if metric in {"heart_rate_percent_max", "heart_rate_reserve_percent",
+                      "heart_rate_intensity", "live_time_moderate",
+                      "live_time_vigorous", "live_time_near_maximal",
+                      "live_banister_trimp"}:
+            profile("maximum HR", "max_hr", "bpm")
+        if metric in {"heart_rate_reserve_percent", "heart_rate_intensity",
+                      "live_time_moderate", "live_time_vigorous",
+                      "live_time_near_maximal", "live_banister_trimp"}:
+            profile("resting HR", "resting_hr", "bpm")
+        if metric == "heart_rate_relative_threshold":
+            profile("threshold HR", "threshold_hr", "bpm")
+
+        if metric in {"current_power_to_weight", "power_relative_threshold"}:
+            source(METRIC_POWER)
+        if metric == "current_power_to_weight":
+            profile("body mass", "weight", "kg")
+        if metric == "power_relative_threshold":
+            profile("threshold power", "threshold_power", "W")
+
+        if metric in {"current_pace", "speed_relative_threshold"}:
+            source(METRIC_SPEED)
+        if metric == "speed_relative_threshold":
+            profile("threshold pace", "threshold_pace", "min/km")
+
+        if metric in {"live_average_hr", "live_maximum_hr", "live_banister_trimp",
+                      "live_aerobic_efficiency", "live_aerobic_decoupling",
+                      "live_time_moderate", "live_time_vigorous",
+                      "live_time_near_maximal"}:
+            source(METRIC_HEART_RATE)
+        if metric in {"live_average_power", "live_maximum_power",
+                      "live_mechanical_work", "live_aerobic_efficiency",
+                      "live_aerobic_decoupling"}:
+            source(METRIC_POWER)
+        if metric in {"live_average_cadence"}:
+            source(METRIC_CADENCE)
+        if metric in {"live_average_speed", "live_aerobic_efficiency",
+                      "live_aerobic_decoupling"}:
+            source(METRIC_SPEED)
+
+        if metric == "live_banister_trimp":
+            items.append(f"session duration = {round(self.manager.session_duration()/60, 2)} min")
+            avg = session_stats.get("average_hr")
+            if avg is not None:
+                items.append(f"session mean HR = {round(avg, 2)} bpm")
+            sex = self.manager.config.get("sex")
+            if sex:
+                items.append(f"sex = {sex}")
+        elif metric == "session_duration":
+            items.append("Fitness workout start timestamp")
+        elif metric.startswith("live_"):
+            items.append(f"valid session samples = {len(self.manager.samples)}")
+
+        return items[:10]
+
     @property
     def extra_state_attributes(self):
         """Return intentionally small attributes.
@@ -658,7 +875,7 @@ class FitnessSensor(SensorEntity):
                 "speed_relative_threshold": METRIC_SPEED,
             }.get(m, m)
             info = self.manager.live_source_info(source_metric)
-            return {
+            attrs = {
                 key: info.get(key)
                 for key in (
                     "source_entity",
@@ -667,6 +884,13 @@ class FitnessSensor(SensorEntity):
                 )
                 if info.get(key) is not None
             }
+            if m in CALCULATED_LIVE_METRICS:
+                attrs.update(live_user_details(
+                    self.manager._ai_language(),
+                    m,
+                    self._live_calculation_data_used(m),
+                ))
+            return attrs
 
         if kind == "workout":
             workout = self.manager.latest_workout()
@@ -675,12 +899,14 @@ class FitnessSensor(SensorEntity):
             attrs = {}
             sources = workout.provider_domains or workout.sources
             if sources:
-                attrs["sources"] = list(dict.fromkeys(sources))
+                attrs["sources"] = list(dict.fromkeys(
+                    self._provider_display_name(source) for source in sources
+                ))
             if workout.start:
                 attrs["workout_start"] = workout.start
             field_source = (workout.field_sources or {}).get(m.removeprefix("workout_"))
             if field_source:
-                attrs["field_source"] = field_source
+                attrs["field_source"] = self._provider_display_name(field_source)
             return attrs
 
         if kind == "sleep":
@@ -688,9 +914,9 @@ class FitnessSensor(SensorEntity):
             if sleep is None:
                 return {}
             attrs = {}
-            sources = sleep.provider_domains or sleep.sources
-            if sources:
-                attrs["sources"] = list(dict.fromkeys(sources))
+            source_names = self._sleep_source_names(sleep)
+            if source_names:
+                attrs["sources"] = list(dict.fromkeys(source_names))
             if sleep.start:
                 attrs["sleep_start"] = sleep.start
             if sleep.end:
@@ -716,14 +942,28 @@ class FitnessSensor(SensorEntity):
 
         # Evaluation attributes are deliberately transparent: these are Fitness
         # calculations/interpretations rather than measurements from another device.
-        base_explanation = sensor_explanation(
-            self.manager._ai_language(),
-            "evaluation",
-            m,
-        )
-        provenance = self.manager.localized_evaluation_provenance(m)
-        base_explanation.update(provenance)
-        attrs = base_explanation
+        # Evaluation domains expose concrete evidence, not generic boilerplate.
+        # Formula/provenance metadata is retained only for metrics where there is
+        # one specific deterministic calculation to explain.
+        grouped_metrics = {
+            "sleep_consistency", "sleep_deficit_7d", "autonomic_recovery_trend",
+            "cardiorespiratory_fitness_trend", "training_load",
+            "heart_rate_recovery", "training_recovery_relationship",
+        }
+        scientific_metrics = grouped_metrics | {"vo2max_percent_predicted"}
+        if m in scientific_metrics:
+            # Scientific Evaluation entities expose only user-facing evidence:
+            # calculation-specific values, study citation, formula, exact data
+            # used, and concise localized interpretation. Legacy developer
+            # metadata (method/calculation/inputs/value_origin/etc.) stays internal.
+            attrs = {}
+        elif m in ("ai_general", "ai_workout"):
+            attrs = {}
+        else:
+            attrs = sensor_explanation(
+                self.manager._ai_language(), "evaluation", m,
+            )
+            attrs.update(self.manager.localized_evaluation_provenance(m))
 
         e = self.manager.evaluation()
         workout = e.get("workout_long_term") or {}
@@ -733,8 +973,6 @@ class FitnessSensor(SensorEntity):
 
         grouped = {
             "sleep_consistency": {
-                "research_reference": "sleep_regularity_metrics_2021",
-                "evidence_level": "descriptive_longitudinal",
                 "samples_7d": sleep.get("nights_7d"),
                 "samples_28d": sleep.get("nights_28d"),
                 "average_duration_7d_min": sleep.get("sleep_duration_7d_mean_min"),
@@ -748,15 +986,11 @@ class FitnessSensor(SensorEntity):
                 "nights_below_7h_28d_percent": sleep.get("nights_below_7h_28d_percent"),
             },
             "sleep_deficit_7d": {
-                "research_reference": "adult_sleep_duration_consensus_2015",
-                "evidence_level": "consensus_reference",
                 "nights_observed": sleep.get("nights_7d"),
                 "nights_below_7h": sleep.get("nights_below_7h_7d"),
                 "reference_minimum_hours": 7,
             },
             "autonomic_recovery_trend": {
-                "research_reference": "hrv_training_status_meta_2016",
-                "evidence_level": "longitudinal_context",
                 "sleep_hrv_7d_mean_ms": sleep.get("sleep_hrv_7d_mean_ms"),
                 "sleep_hrv_28d_mean_ms": sleep.get("sleep_hrv_28d_mean_ms"),
                 "sleep_hrv_vs_28d_percent": sleep.get("sleep_hrv_vs_28d_percent"),
@@ -766,8 +1000,6 @@ class FitnessSensor(SensorEntity):
                 "resting_hr_vs_28d_bpm": recorder.get("resting_hr_vs_28d"),
             },
             "cardiorespiratory_fitness_trend": {
-                "research_reference": "cardiorespiratory_fitness_meta_2024",
-                "evidence_level": "strong_longitudinal_context",
                 "current_vo2max_ml_kg_min": recorder.get("vo2max_current"),
                 "vo2max_28d_mean_ml_kg_min": recorder.get("vo2max_28d_mean"),
                 "vo2max_90d_mean_ml_kg_min": recorder.get("vo2max_90d_mean"),
@@ -776,8 +1008,6 @@ class FitnessSensor(SensorEntity):
                 "percent_predicted": e.get("vo2max_percent_predicted"),
             },
             "training_load": {
-                "research_reference": "training_load_consensus_2017",
-                "evidence_level": "monitoring_context",
                 "trimp_7d": workout.get("banister_trimp_7d"),
                 "trimp_28d": workout.get("banister_trimp_28d"),
                 "trimp_28d_weekly_equivalent": workout.get("banister_trimp_28d_weekly_equivalent"),
@@ -793,8 +1023,6 @@ class FitnessSensor(SensorEntity):
                 "median_recovery_interval_28d_h": workout.get("median_recovery_interval_28d_h"),
             },
             "heart_rate_recovery": {
-                "research_reference": "heart_rate_recovery_1999",
-                "evidence_level": "established_measurement_context",
                 "hrr_30s_bpm": workout.get("latest_hrr_30s"),
                 "hrr_60s_bpm": workout.get("latest_hrr_60s"),
                 "hrr_120s_bpm": workout.get("latest_hrr_120s"),
@@ -803,18 +1031,23 @@ class FitnessSensor(SensorEntity):
                 "samples_90d": workout.get("hrr_samples_90d"),
             },
             "training_recovery_relationship": {
-                "research_reference": "exercise_sleep_meta_2024",
-                "evidence_level": "descriptive_personal_association",
                 **relation,
                 "causal_interpretation": False,
             },
             "vo2max_percent_predicted": {
-                "research_reference": "friend_2017",
-                "evidence_level": "reference_equation",
             },
         }.get(m)
         if grouped:
             attrs.update({k: v for k, v in grouped.items() if v is not None})
+
+        if m in scientific_metrics:
+            attrs.update(
+                evaluation_user_details(
+                    self.manager._ai_language(),
+                    m,
+                    self._evaluation_data_used(m, e),
+                )
+            )
 
         if m in ("ai_general", "ai_workout"):
             full_text = self.manager.ai_general if m == "ai_general" else self.manager.ai_workout

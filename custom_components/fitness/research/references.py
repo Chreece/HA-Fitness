@@ -1,6 +1,18 @@
 """Research registry for every implemented deterministic scientific method."""
 
 REFERENCES = {
+    "banister_trimp_validation_2014": {
+        "title": "Training load quantification in elite swimmers using a modified version of the training impulse method",
+        "year": 2014,
+        "pmid": "24942164",
+        "limitation": "Banister TRIMP is an internal-load estimate based on heart rate and duration; it should be interpreted longitudinally and is not a diagnosis.",
+    },
+    "cardiovascular_drift_2001": {
+        "title": "Cardiovascular drift during prolonged exercise: new perspectives",
+        "year": 2001,
+        "pmid": "11337829",
+        "limitation": "Cardiovascular drift depends on exercise duration, heat, hydration and workload; Fitness reports decoupling descriptively rather than as a universal cutoff.",
+    },
     "cardiorespiratory_fitness_meta_2024": {
         "title": "Cardiorespiratory fitness and mortality: systematic review and meta-analysis",
         "year": 2024,

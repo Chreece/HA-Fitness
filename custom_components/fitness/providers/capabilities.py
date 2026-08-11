@@ -155,8 +155,17 @@ def _entry_label(hass: HomeAssistant, entry) -> str:
 
 
 def _all_devices(hass: HomeAssistant):
+    """Return selectable source devices, never Fitness's own output devices."""
+    devices = []
+    for device in dr.async_get(hass).devices.values():
+        # Fitness-generated Evaluation/Live/Sleep/Workout devices are outputs,
+        # never valid inputs. Excluding them centrally guarantees every setup
+        # selector follows the same no-feedback-loop rule.
+        if "fitness" in set(_device_domains(hass, device)):
+            continue
+        devices.append(device)
     return sorted(
-        dr.async_get(hass).devices.values(),
+        devices,
         key=lambda device: (_device_name(device).lower(), device.id),
     )
 

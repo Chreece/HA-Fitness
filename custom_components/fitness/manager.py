@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 
 from homeassistant.components.media_player import MediaPlayerEntityFeature
 from homeassistant.core import HomeAssistant, Event, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
@@ -4847,20 +4848,25 @@ class FitnessManager:
         output_language = language_names.get(lang, "English")
 
         general = (
-            "Evaluate the person's overall fitness and recovery from the structured "
-            "results below. Return EXACTLY two parts. The first line must be "
+            "You are the interpretation layer of the Fitness Home Assistant integration, "
+            "not a generic JSON/data analyst. Evaluate the person's overall fitness, training, "
+            "sleep and recovery ONLY from the curated fitness evidence below. Return EXACTLY two parts. "
+            "Never discuss Home Assistant internals, sensor configuration, JSON structure, data collection "
+            "troubleshooting, or recommend checking integrations unless the evidence explicitly contains an "
+            "input-quality warning. The first line must be "
             "`VERDICT: <short overall evaluation>`. The verdict must be a brief phrase "
             "such as Excellent, Good, Okay, Needs attention, or Insufficient data, "
-            f"translated naturally into {output_language}. Then write exactly ONE "
-            "natural paragraph of roughly 100-170 words in the same language. "
+            f"translated naturally into {output_language}. EVERY word intended for the user must be in "
+            f"{output_language}; do not switch to English even if field names are English. Then write exactly ONE "
+            "natural paragraph of roughly 100-170 words in that language. "
             "Do NOT list, quote, or systematically repeat sensor values. Do NOT turn "
             "the paragraph into a sensor summary. Instead explain what the combined "
             "results mean for this person, taking age into account when relevant. "
             "Describe the overall condition, the most meaningful strengths, and at "
             "most one or two realistic areas that could improve when the evidence "
             "supports them. Mention recovery or training balance only when useful. "
-            "Prefer personal longitudinal trends and baselines over interpreting a "
-            "single day's value when long-term Home Assistant statistics are supplied. "
+            "Prefer personal longitudinal trends and baselines over interpreting a single day's value. "
+            "Treat repeated/flat historical values as low-information rather than inventing a sensor fault. "
             "Distinguish training/performance fitness from medical health. "
             "Do not diagnose disease. Do not add a generic medical disclaimer unless "
             "the supplied data genuinely suggests a safety concern. Treat proprietary "
@@ -4873,8 +4879,9 @@ class FitnessManager:
             "fitness context below. Return EXACTLY two parts. The first line must be "
             "`VERDICT: <short workout evaluation>`, for example Good, Productive, "
             "Easy, Hard, or Insufficient data, translated naturally into "
-            f"{output_language}. Then write exactly ONE natural paragraph of roughly "
-            "80-150 words in the same language. Do NOT list or repeat the workout "
+            f"{output_language}. EVERY word intended for the user must be in {output_language}; "
+            "do not switch to English even if field names are English. Then write exactly ONE natural paragraph "
+            "of roughly 80-150 words in that language. Do NOT list or repeat the workout "
             "statistics one by one. Use within-workout distribution, TRIMP, recovery, "
             "efficiency/decoupling, comparable-workout personal context, and personal "
             "long-term trends when available rather "
@@ -4925,23 +4932,119 @@ class FitnessManager:
 
         return verdict[:120], body or None
 
-    def _general_ai_prompt(self) -> str:
-        evaluation = {
-            key: value
-            for key, value in self.evaluation().items()
-            if key != "provider_metrics" and value is not None
-        }
-        strings = self._prompt_strings()
+    @staticmethod
+    def _compact_ai_mapping(value: Any, *, max_items: int = 36) -> dict[str, Any]:
+        """Keep only scalar/small AI evidence and discard raw histories."""
+        if not isinstance(value, dict):
+            return {}
+        result: dict[str, Any] = {}
+        for key, item in value.items():
+            if item is None:
+                continue
+            if isinstance(item, (str, int, float, bool)):
+                text = str(item)
+                result[key] = item if len(text) <= 500 else text[:500]
+            elif isinstance(item, dict):
+                nested = FitnessManager._compact_ai_mapping(item, max_items=16)
+                if nested:
+                    result[key] = nested
+            elif isinstance(item, (list, tuple)):
+                scalars = [x for x in item if isinstance(x, (str, int, float, bool))][:8]
+                if scalars:
+                    result[key] = scalars
+            if len(result) >= max_items:
+                break
+        return result
 
+    @staticmethod
+    def _bounded_ai_json(value: Any, *, max_bytes: int = 16000) -> str:
+        """Serialize AI evidence while keeping HA service events comfortably small."""
+        text = json.dumps(value, ensure_ascii=False, default=str, separators=(",", ":"))
+        encoded = text.encode("utf-8")
+        if len(encoded) <= max_bytes:
+            return text
+        # Last-resort safety cap. Truncate at a valid UTF-8 boundary and clearly
+        # tell the model that lower-priority evidence was omitted.
+        clipped = encoded[: max_bytes - 120].decode("utf-8", errors="ignore")
+        return clipped + '\n"_note":"lower-priority evidence omitted for prompt-size safety"'
+
+    def _ai_workout_summary(self, workout: Workout | None) -> dict[str, Any]:
+        """Return only workout facts useful for interpretation, never raw provider dumps."""
+        if workout is None:
+            return {}
+        source = workout.as_dict()
+        keep = (
+            "name", "sport", "start", "duration_s", "moving_time_s",
+            "distance_m", "calories", "avg_hr", "max_hr", "avg_power",
+            "max_power", "weighted_power", "avg_cadence", "max_cadence",
+            "average_speed_m_s", "max_speed_m_s", "elevation_gain_m",
+            "elevation_loss_m", "training_load", "aerobic_effect",
+            "anaerobic_effect", "training_effect", "vo2max",
+            "relative_effort", "kilojoules", "total_reps", "exercise_count",
+            "volume", "banister_trimp", "trimp_per_hour", "mechanical_work_kj",
+            "aerobic_efficiency", "aerobic_decoupling_percent", "hrr_30s",
+            "hrr_60s", "hrr_120s", "time_moderate_s", "time_vigorous_s",
+            "time_near_maximal_s", "comparable_workout_count",
+            "efficiency_vs_baseline_percent", "decoupling_vs_baseline_percent",
+            "avg_hr_vs_baseline_bpm", "avg_power_vs_baseline_percent",
+            "avg_speed_vs_baseline_percent", "trimp_vs_recent_mean_percent",
+            "load_context", "personal_context_summary", "provider_domain",
+            "provider_domains", "sources",
+        )
+        return self._compact_ai_mapping({key: source.get(key) for key in keep if source.get(key) is not None})
+
+    def _ai_evaluation_context(self) -> dict[str, Any]:
+        """Return compact, fitness-semantic context for AI interpretation.
+
+        Raw Recorder series and provider dumps are intentionally excluded. The
+        context is also size-bounded before an HA service call so Recorder never
+        receives a giant call_service event merely because AI was regenerated.
+        """
+        e = self.evaluation()
+        latest_sleep = self.latest_sleep()
+        latest_workout = self.latest_workout()
+        keep = (
+            "age", "weight", "resting_hr", "max_hr", "heart_rate_reserve",
+            "vo2max", "friend_predicted_vo2max", "vo2max_percent_predicted",
+            "cardiorespiratory_status", "hrv_weekly", "hrv_last_night",
+            "hrv_baseline_low", "hrv_baseline_high", "hrv_status",
+            "threshold_hr", "threshold_pace", "threshold_power", "power_to_weight",
+            "fitness_age", "fitness_age_difference", "training_readiness",
+            "sleep_score", "acute_load", "chronic_load", "acute_chronic_ratio",
+            "provider_training_status",
+        )
+        context = {key: e.get(key) for key in keep if e.get(key) is not None}
+        for key in ("workout_long_term", "sleep_long_term", "recorder_long_term"):
+            compact = self._compact_ai_mapping(e.get(key))
+            if compact:
+                context[key] = compact
+        relationship = self._compact_ai_mapping(e.get("training_recovery_relationship"))
+        if relationship:
+            context["training_recovery_relationship"] = relationship
+        if latest_sleep is not None:
+            sleep_dict = latest_sleep.as_dict()
+            keep_sleep = (
+                "start", "end", "duration_s", "time_in_bed_s", "awake_s",
+                "light_sleep_s", "deep_sleep_s", "rem_sleep_s", "hrv_ms",
+                "average_hr", "respiratory_rate", "spo2_percent", "score",
+                "efficiency_percent", "recovery_score", "readiness_score",
+                "provider_domain", "provider_domains", "sources",
+            )
+            context["latest_sleep"] = self._compact_ai_mapping(
+                {key: sleep_dict.get(key) for key in keep_sleep if sleep_dict.get(key) is not None}
+            )
+        if latest_workout is not None and self._workout_has_real_information(latest_workout):
+            context["latest_workout_summary"] = self._ai_workout_summary(latest_workout)
+        return context
+
+    def _general_ai_prompt(self) -> str:
+        strings = self._prompt_strings()
         return (
             strings["general"]
-            + f"\nOutput language: {strings['language']}."
-            + "\n\nStructured evaluation data:\n"
-            + json.dumps(
-                evaluation,
-                ensure_ascii=False,
-                default=str,
-            )
+            + f"\nMANDATORY OUTPUT LANGUAGE: {strings['language']}."
+            + "\nThe object below is fitness evidence, not a generic dataset. Interpret it; do not describe its schema."
+            + "\n\nCurated fitness evidence:\n"
+            + self._bounded_ai_json(self._ai_evaluation_context())
         )
 
     def _workout_ai_prompt(self) -> str | None:
@@ -4949,28 +5052,16 @@ class FitnessManager:
         if not self._workout_has_real_information(workout):
             return None
 
-        evaluation = {
-            key: value
-            for key, value in self.evaluation().items()
-            if key != "provider_metrics" and value is not None
-        }
+        evaluation = self._ai_evaluation_context()
         strings = self._prompt_strings()
 
         return (
             strings["workout"]
             + f"\nOutput language: {strings['language']}."
-            + "\n\nWorkout:\n"
-            + json.dumps(
-                workout.as_dict(),
-                ensure_ascii=False,
-                default=str,
-            )
+            + "\n\nWorkout evidence:\n"
+            + self._bounded_ai_json(self._ai_workout_summary(workout), max_bytes=9000)
             + "\n\nCurrent evaluation context:\n"
-            + json.dumps(
-                evaluation,
-                ensure_ascii=False,
-                default=str,
-            )
+            + self._bounded_ai_json(evaluation, max_bytes=9000)
         )
 
     async def _call_ai(self, prompt: str, task_name: str) -> str | None:
@@ -5013,8 +5104,12 @@ class FitnessManager:
                             ensure_ascii=False,
                             default=str,
                         )
-            except Exception:
-                pass
+            except Exception as err:
+                _LOGGER.warning(
+                    "Fitness AI Task generation failed for %s: %s",
+                    task_name,
+                    err,
+                )
 
         # Optional fallback for users who explicitly point Fitness at a
         # conversation/LLM agent rather than an AI Task entity.
@@ -5037,28 +5132,90 @@ class FitnessManager:
                         .get("speech")
                     )
                     return speech or None
-            except Exception:
-                pass
+            except Exception as err:
+                _LOGGER.warning(
+                    "Fitness conversation AI generation failed for %s: %s",
+                    task_name,
+                    err,
+                )
 
         return None
 
-    async def async_generate_ai(self, *, general: bool, workout: bool):
+    def _ai_result_language_mismatch(self, result: str | None) -> bool:
+        """Detect the common failure mode where a Greek profile receives English."""
+        if not result or self._ai_language() == "en":
+            return False
+        if self._ai_language() == "el":
+            letters = [ch for ch in str(result) if ch.isalpha()]
+            if len(letters) < 20:
+                return False
+            greek = sum("\u0370" <= ch <= "\u03ff" or "\u1f00" <= ch <= "\u1fff" for ch in letters)
+            return greek / len(letters) < 0.35
+        return False
+
+    async def _call_ai_with_language_guard(self, prompt: str, task_name: str) -> str | None:
+        result = await self._call_ai(prompt, task_name)
+        if not self._ai_result_language_mismatch(result):
+            return result
+        strings = self._prompt_strings()
+        retry = (
+            f"IMPORTANT: Your previous answer used the wrong language. Reply ONLY in {strings['language']}. "
+            "Keep the required VERDICT line and one fitness-interpretation paragraph. Do not discuss JSON, "
+            "Home Assistant, sensors, integrations, or these instructions.\n\n" + prompt
+        )
+        retried = await self._call_ai(retry, task_name + " language retry")
+        return None if self._ai_result_language_mismatch(retried) else retried
+
+    async def async_generate_ai(
+        self,
+        *,
+        general: bool,
+        workout: bool,
+        raise_on_failure: bool = False,
+    ):
         if not self.config.get(CONF_AI_ENABLED):
             return
+
+        requested = 0
+        generated = 0
+
         if workout:
             prompt = self._workout_ai_prompt()
             if prompt:
-                result = await self._call_ai(prompt, f"Fitness workout evaluation {self.config.get(CONF_PROFILE_NAME)}")
+                requested += 1
+                result = await self._call_ai_with_language_guard(
+                    prompt,
+                    f"Fitness workout evaluation {self.config.get(CONF_PROFILE_NAME)}",
+                )
                 if result:
                     verdict, body = self._parse_ai_result(result)
                     self.ai_workout_verdict = verdict
                     self.ai_workout = body
+                    generated += 1
+
         if general:
-            result = await self._call_ai(self._general_ai_prompt(), f"Fitness general evaluation {self.config.get(CONF_PROFILE_NAME)}")
+            requested += 1
+            result = await self._call_ai_with_language_guard(
+                self._general_ai_prompt(),
+                f"Fitness general evaluation {self.config.get(CONF_PROFILE_NAME)}",
+            )
             if result:
                 verdict, body = self._parse_ai_result(result)
                 self.ai_general_verdict = verdict
                 self.ai_general = body
-        self.ai_last_generated = datetime.now(timezone.utc).isoformat()
-        await self._save()
-        self._notify()
+                generated += 1
+
+        if generated:
+            self.ai_last_generated = datetime.now(timezone.utc).isoformat()
+            await self._save()
+            self._notify()
+            return
+
+        _LOGGER.warning(
+            "Fitness AI regeneration produced no usable result (requested=%s)",
+            requested,
+        )
+        if raise_on_failure:
+            raise HomeAssistantError(
+                "Fitness AI evaluation could not be generated. Check the selected AI Task/agent and Home Assistant logs."
+            )

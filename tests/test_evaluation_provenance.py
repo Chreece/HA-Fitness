@@ -12,9 +12,11 @@ EXPLANATIONS = (
 ).read_text(encoding="utf-8")
 
 
-def test_every_evaluation_sensor_attaches_provenance():
-    assert "provenance = self.manager.localized_evaluation_provenance(m)" in SENSOR
-    assert "base_explanation.update(provenance)" in SENSOR
+def test_evaluation_attributes_use_specific_domain_evidence():
+    assert "grouped_metrics = {" in SENSOR
+    assert 'attrs = {"evaluation_scope": m}' not in SENSOR
+    assert "attrs.update(self.manager.localized_evaluation_provenance(m))" in SENSOR
+    assert 'elif m in ("ai_general", "ai_workout")' in SENSOR
 
 
 def test_provenance_exposes_formula_and_concrete_inputs():

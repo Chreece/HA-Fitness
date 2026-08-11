@@ -172,6 +172,18 @@ def _label(hass, entry):
     )).lower().replace("-", "_").replace(" ", "_")
 
 
+def _alias_matches(label: str, alias: str) -> bool:
+    """Match a normalized alias as a complete underscore-delimited phrase.
+
+    This deliberately prevents aliases such as ``wake_time`` from matching
+    ``awake_time``. The old substring matching could interpret a duration as a
+    timestamp and produce dates near the Unix epoch.
+    """
+    normalized_label = f"_{label.strip('_')}_"
+    normalized_alias = f"_{str(alias).strip('_')}_"
+    return normalized_alias in normalized_label
+
+
 def _num(value):
     try:
         number = float(value)
@@ -202,7 +214,12 @@ def _timestamp(value):
         number = float(text)
         if number > 10_000_000_000:
             number /= 1000
-        return datetime.fromtimestamp(number, tz=timezone.utc).isoformat()
+        # Modern sleep timestamps must be real calendar timestamps. Values
+        # below 2000-01-01 are almost certainly durations/time-of-day values
+        # from provider entities and must never become 1970 dates.
+        if 946_684_800 <= number <= 4_102_444_800:
+            return datetime.fromtimestamp(number, tz=timezone.utc).isoformat()
+        return None
     except (TypeError, ValueError, OverflowError, OSError):
         pass
     try:
@@ -262,7 +279,7 @@ def _sleep_tracking_event(hass, entry) -> bool:
 
 def _matching_fields(hass, entry, fields_map):
     label = _label(hass, entry)
-    return [field for field, aliases in fields_map.items() if any(alias in label for alias in aliases)]
+    return [field for field, aliases in fields_map.items() if any(_alias_matches(label, alias) for alias in aliases)]
 
 
 def sleep_device_entity_ids(hass, config):
@@ -310,7 +327,7 @@ def _parse_provider(hass, entries, domain, fields_map) -> SleepRecord | None:
         candidates = []
         for entry in entries:
             label = _label(hass, entry)
-            if any(alias in label for alias in aliases):
+            if any(_alias_matches(label, alias) for alias in aliases):
                 value = _value(hass, entry, field)
                 if value is not None:
                     candidates.append((entry.entity_id, value))
@@ -370,7 +387,7 @@ def _parse_provider(hass, entries, domain, fields_map) -> SleepRecord | None:
         provider_domain=domain or "generic",
         sources=sorted(set(sources.values()) or {source}),
         provider_domains=[domain or "generic"],
-        field_sources={key: domain or "generic" for key in sources},
+        field_sources=dict(sources),
         provider_values={domain or "generic": raw},
         **values,
     )

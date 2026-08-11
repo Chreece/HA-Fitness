@@ -252,465 +252,2288 @@
   "entity": {
     "sensor": {
       "session_status": {
-        "name": "Session status"
+        "name": "Sessiestatus",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          }
+        }
       },
       "session_duration": {
-        "name": "Session duration"
+        "name": "Sessieduur",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "current_heart_rate": {
-        "name": "Current heart rate"
+        "name": "Huidig hartslag",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          }
+        }
       },
       "current_power": {
-        "name": "Current power"
+        "name": "Huidig vermogen",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          }
+        }
       },
       "current_cadence": {
-        "name": "Current cadence"
+        "name": "Huidig cadence",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          }
+        }
       },
       "current_speed": {
-        "name": "Current speed"
+        "name": "Huidig snelheid",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          }
+        }
       },
       "current_distance": {
-        "name": "Current distance"
+        "name": "Huidig distance",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          }
+        }
       },
       "current_altitude": {
-        "name": "Current altitude"
+        "name": "Huidig altitude",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          }
+        }
       },
       "last_workout": {
-        "name": "Last workout"
+        "name": "Laatste training",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_source": {
-        "name": "Last workout source"
+        "name": "Laatste training bron",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_duration": {
-        "name": "Last workout duration"
+        "name": "Laatste training duur",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_distance": {
-        "name": "Last workout distance"
+        "name": "Laatste training distance",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_avg_hr": {
-        "name": "Last workout average heart rate"
+        "name": "Laatste training average hartslag",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_max_hr": {
-        "name": "Last workout maximum heart rate"
+        "name": "Laatste training maximum hartslag",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_avg_power": {
-        "name": "Last workout average power"
+        "name": "Laatste training average vermogen",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_max_power": {
-        "name": "Last workout maximum power"
+        "name": "Laatste training maximum vermogen",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_avg_cadence": {
-        "name": "Last workout average cadence"
+        "name": "Laatste training average cadence",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_elevation_gain": {
-        "name": "Last workout elevation gain"
+        "name": "Laatste training elevation gain",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "age": {
-        "name": "Age"
+        "name": "Leeftijd"
       },
       "weight": {
-        "name": "Weight"
+        "name": "Gewicht"
       },
       "resting_hr": {
-        "name": "Resting heart rate"
+        "name": "Rusthartslag"
       },
       "maximum_hr": {
-        "name": "Maximum heart rate"
+        "name": "Maximale hartslag"
       },
       "heart_rate_reserve": {
-        "name": "Heart rate reserve"
+        "name": "Hartslagreserve"
       },
       "vo2max": {
         "name": "VO₂max"
       },
       "friend_predicted_vo2max": {
-        "name": "FRIEND predicted VO₂max"
+        "name": "FRIEND voorspeld VO₂max"
       },
       "vo2max_percent_predicted": {
-        "name": "VO₂max percent predicted"
+        "name": "VO₂max percent voorspeld",
+        "state_attributes": {
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "cardiorespiratory_status": {
-        "name": "Cardiorespiratory fitness status"
+        "name": "Cardiorespiratoire fitheidsstatus"
       },
       "hrv_weekly": {
-        "name": "HRV weekly average"
+        "name": "HRV weekgemiddelde"
       },
       "hrv_last_night": {
-        "name": "HRV last night average"
+        "name": "HRV gemiddelde afgelopen nacht"
       },
       "hrv_status": {
-        "name": "HRV status"
+        "name": "HRV-status"
       },
       "threshold_hr": {
-        "name": "Threshold heart rate"
+        "name": "Threshold hartslag"
       },
       "threshold_pace": {
-        "name": "Threshold pace"
+        "name": "Threshold tempo"
       },
       "threshold_power": {
-        "name": "Threshold power"
+        "name": "Threshold vermogen"
       },
       "threshold_power_to_weight": {
-        "name": "Threshold power-to-weight"
+        "name": "Threshold vermogen-to-weight"
       },
       "fitness_age": {
-        "name": "Fitness age"
+        "name": "Fitnessleeftijd"
       },
       "fitness_age_difference": {
-        "name": "Fitness age difference"
+        "name": "Fitnessleeftijd difference"
       },
       "training_readiness_context": {
-        "name": "Training readiness context"
+        "name": "Context trainingsgereedheid"
       },
       "sleep_score_context": {
-        "name": "Sleep score context"
+        "name": "Slaap score context"
       },
       "acute_training_load": {
-        "name": "Acute training load"
+        "name": "Acute trainingsbelasting"
       },
       "chronic_training_load": {
-        "name": "Chronic training load"
+        "name": "Chronic trainingsbelasting"
       },
       "acute_chronic_ratio": {
-        "name": "Acute/chronic load ratio"
+        "name": "Verhouding acute/chronische belasting"
       },
       "provider_training_status": {
-        "name": "Provider training status"
+        "name": "Trainingsstatus van provider"
       },
       "ai_general_evaluation": {
-        "name": "AI general evaluation"
+        "name": "Algemene AI-evaluatie",
+        "state_attributes": {
+          "text": {
+            "name": "Evaluatietekst"
+          },
+          "generated_at": {
+            "name": "Gegenereerd op"
+          },
+          "ai_entity": {
+            "name": "AI-provider"
+          },
+          "role": {
+            "name": "Rol"
+          }
+        }
       },
       "ai_workout_evaluation": {
-        "name": "AI workout evaluation"
+        "name": "AI-evaluatie van laatste training",
+        "state_attributes": {
+          "text": {
+            "name": "Evaluatietekst"
+          },
+          "generated_at": {
+            "name": "Gegenereerd op"
+          },
+          "ai_entity": {
+            "name": "AI-provider"
+          },
+          "role": {
+            "name": "Rol"
+          }
+        }
       },
       "heart_rate_percent_max": {
-        "name": "Hartslag % van maximum"
+        "name": "Hartslag % of maximum",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "heart_rate_reserve_percent": {
-        "name": "Hartslagreserve %"
+        "name": "Hartslagreserve %",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "heart_rate_intensity": {
-        "name": "Hartslagintensiteit"
+        "name": "Hartslag intensity",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "heart_rate_relative_threshold": {
-        "name": "Hartslag relatief aan drempel"
+        "name": "Hartslag relative to drempel",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "current_power_to_weight": {
-        "name": "Huidig vermogen per kg"
+        "name": "Huidig vermogen-to-weight",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "power_relative_threshold": {
-        "name": "Vermogen relatief aan drempel"
+        "name": "Vermogen relative to drempel",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "current_pace": {
-        "name": "Huidig tempo"
+        "name": "Huidig tempo",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "speed_relative_threshold": {
-        "name": "Snelheid relatief aan drempel"
+        "name": "Snelheid relative to drempel",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "last_workout_calories": {
-        "name": "Last workout calories"
+        "name": "Calorieën laatste training",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_moving_time": {
-        "name": "Last workout moving time"
+        "name": "Laatste training moving time",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_elapsed_time": {
-        "name": "Last workout elapsed time"
+        "name": "Laatste training elapsed time",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_average_speed": {
-        "name": "Last workout average speed"
+        "name": "Laatste training average snelheid",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_max_speed": {
-        "name": "Last workout maximum speed"
+        "name": "Laatste training maximum snelheid",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_weighted_power": {
-        "name": "Last workout weighted / normalized power"
+        "name": "Laatste training weighted / normalized vermogen",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_max_cadence": {
-        "name": "Last workout maximum cadence"
+        "name": "Laatste training maximum cadence",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_elevation_loss": {
-        "name": "Last workout elevation loss"
+        "name": "Laatste training elevation loss",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_training_load": {
-        "name": "Last workout training load"
+        "name": "Laatste training trainingsbelasting",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_aerobic_effect": {
-        "name": "Last workout aerobic training effect"
+        "name": "Laatste training aerobe training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_anaerobic_effect": {
-        "name": "Last workout anaerobic training effect"
+        "name": "Laatste training anaerobe training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_training_effect": {
-        "name": "Last workout training effect"
+        "name": "Laatste training training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_vo2max": {
-        "name": "Last workout VO₂max"
+        "name": "Laatste training VO₂max",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_relative_effort": {
-        "name": "Last workout relative effort"
+        "name": "Laatste training relative effort",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_kilojoules": {
-        "name": "Last workout energy"
+        "name": "Laatste training energy",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_total_reps": {
-        "name": "Last workout total reps"
+        "name": "Laatste training total reps",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_exercise_count": {
-        "name": "Last workout exercise count"
+        "name": "Laatste training exercise count",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_volume": {
-        "name": "Last workout training volume"
+        "name": "Laatste training training volume",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_device": {
-        "name": "Last workout device"
+        "name": "Laatste training device",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_gear": {
-        "name": "Last workout gear"
+        "name": "Laatste training gear",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_sources": {
-        "name": "Last workout data sources"
+        "name": "Laatste training data bronnen",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "live_average_heart_rate": {
-        "name": "Live average heart rate"
+        "name": "Live average hartslag",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "live_maximum_heart_rate": {
-        "name": "Live maximum heart rate"
+        "name": "Live maximum hartslag",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "live_average_power": {
-        "name": "Live average power"
+        "name": "Live average vermogen",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "live_maximum_power": {
-        "name": "Live maximum power"
+        "name": "Live maximum vermogen",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "live_average_cadence": {
-        "name": "Live average cadence"
+        "name": "Live average cadence",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "live_average_speed": {
-        "name": "Live average speed"
+        "name": "Live average snelheid",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "live_banister_trimp": {
-        "name": "Live Banister TRIMP"
+        "name": "Live Banister TRIMP",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "live_mechanical_work": {
-        "name": "Live mechanical work"
+        "name": "Live mechanical work",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "live_aerobic_efficiency": {
-        "name": "Live aerobic efficiency"
+        "name": "Live aerobe efficiëntie",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "live_aerobic_decoupling": {
-        "name": "Live aerobic decoupling"
+        "name": "Live aerobe ontkoppeling",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "live_time_moderate": {
-        "name": "Time at moderate intensity"
+        "name": "Tijd op matige intensiteit",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "live_time_vigorous": {
-        "name": "Time at vigorous intensity"
+        "name": "Tijd op hoge intensiteit",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "live_time_near_maximal": {
-        "name": "Time at near-maximal intensity"
+        "name": "Tijd op bijna maximale intensiteit",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Bronentiteit"
+          },
+          "source_device_name": {
+            "name": "Bronapparaat"
+          },
+          "source_integration": {
+            "name": "Bronintegratie"
+          },
+          "calculated_by_fitness": {
+            "name": "Door Fitness berekend"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "last_workout_banister_trimp": {
-        "name": "Last workout Banister TRIMP"
+        "name": "Laatste training Banister TRIMP",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_trimp_per_hour": {
-        "name": "Last workout TRIMP per hour"
+        "name": "Laatste training TRIMP per hour",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_mechanical_work": {
-        "name": "Last workout mechanical work"
+        "name": "Laatste training mechanical work",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_aerobic_efficiency": {
-        "name": "Last workout aerobic efficiency"
+        "name": "Laatste training aerobe efficiëntie",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_aerobic_decoupling": {
-        "name": "Last workout aerobic decoupling"
+        "name": "Laatste training aerobe ontkoppeling",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_hrr_10s": {
-        "name": "Last workout heart-rate recovery 10 s"
+        "name": "Laatste training hartslagherstel 10 s",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_hrr_30s": {
-        "name": "Last workout heart-rate recovery 30 s"
+        "name": "Laatste training hartslagherstel 30 s",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_hrr_60s": {
-        "name": "Last workout heart-rate recovery 60 s"
+        "name": "Laatste training hartslagherstel 60 s",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_hrr_120s": {
-        "name": "Last workout heart-rate recovery 120 s"
+        "name": "Laatste training hartslagherstel 120 s",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_time_moderate": {
-        "name": "Last workout moderate-intensity time"
+        "name": "Laatste training moderate-intensity time",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_time_vigorous": {
-        "name": "Last workout vigorous-intensity time"
+        "name": "Laatste training vigorous-intensity time",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_time_near_maximal": {
-        "name": "Last workout near-maximal time"
+        "name": "Laatste training near-maximal time",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "training_load_7d": {
-        "name": "Banister training load 7 days"
+        "name": "Banister trainingsbelasting 7 dagen"
       },
       "training_load_28d": {
-        "name": "Banister training load 28 days"
+        "name": "Banister trainingsbelasting 28 dagen"
       },
       "training_load_42d": {
-        "name": "Banister training load 42 days"
+        "name": "Banister trainingsbelasting 42 dagen"
       },
       "training_days_28d": {
-        "name": "Active training days 28 days"
+        "name": "Actieve trainingsdagen 28 dagen"
       },
       "hrr_60s_long_term": {
-        "name": "90-day mean heart-rate recovery 60 s"
+        "name": "90-dag mean hartslagherstel 60 s"
       },
       "aerobic_decoupling_long_term": {
-        "name": "90-day mean aerobic decoupling"
+        "name": "90-dag mean aerobe ontkoppeling"
       },
       "aerobic_efficiency_long_term": {
-        "name": "90-day mean aerobic efficiency"
+        "name": "90-dag mean aerobe efficiëntie"
       },
       "last_workout_comparable_count": {
-        "name": "Comparable prior workouts"
+        "name": "Vergelijkbare eerdere trainingen",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_efficiency_vs_baseline": {
-        "name": "Aerobic efficiency vs personal baseline"
+        "name": "Aerobe efficiëntie vs persoonlijke basislijn",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_decoupling_vs_baseline": {
-        "name": "Aerobic decoupling vs personal baseline"
+        "name": "Aerobe ontkoppeling vs persoonlijke basislijn",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_hr_vs_baseline": {
-        "name": "Average heart rate vs personal baseline"
+        "name": "Gemiddelde hartslag vs persoonlijke basislijn",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_power_vs_baseline": {
-        "name": "Average power vs personal baseline"
+        "name": "Gemiddelde vermogen vs persoonlijke basislijn",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_speed_vs_baseline": {
-        "name": "Average speed vs personal baseline"
+        "name": "Gemiddelde snelheid vs persoonlijke basislijn",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_trimp_vs_recent": {
-        "name": "TRIMP vs comparable recent workouts"
+        "name": "TRIMP vs comparable recente trainingen",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_load_context": {
-        "name": "Workout load context"
+        "name": "Training load context",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_workout_personal_context": {
-        "name": "Workout personal context"
+        "name": "Training personal context",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_sleep_source": {
-        "name": "Last sleep source"
+        "name": "Laatste slaap bron",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "sleep_start": {
+            "name": "Begin slaap"
+          },
+          "sleep_end": {
+            "name": "Einde slaap"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_sleep_duration": {
-        "name": "Last sleep duration"
+        "name": "Laatste slaap duur",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "sleep_start": {
+            "name": "Begin slaap"
+          },
+          "sleep_end": {
+            "name": "Einde slaap"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_sleep_score": {
-        "name": "Last sleep score"
+        "name": "Laatste slaap score",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "sleep_start": {
+            "name": "Begin slaap"
+          },
+          "sleep_end": {
+            "name": "Einde slaap"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_sleep_efficiency": {
-        "name": "Last sleep efficiency"
+        "name": "Laatste slaap efficiëntie",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "sleep_start": {
+            "name": "Begin slaap"
+          },
+          "sleep_end": {
+            "name": "Einde slaap"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_sleep_time_in_bed": {
-        "name": "Last sleep time in bed"
+        "name": "Laatste slaap time in bed",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "sleep_start": {
+            "name": "Begin slaap"
+          },
+          "sleep_end": {
+            "name": "Einde slaap"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_sleep_awake": {
-        "name": "Last sleep awake"
+        "name": "Laatste slaap wakker",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "sleep_start": {
+            "name": "Begin slaap"
+          },
+          "sleep_end": {
+            "name": "Einde slaap"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_sleep_light": {
-        "name": "Last light sleep"
+        "name": "Laatste lichte slaap",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "sleep_start": {
+            "name": "Begin slaap"
+          },
+          "sleep_end": {
+            "name": "Einde slaap"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_sleep_deep": {
-        "name": "Last deep sleep"
+        "name": "Laatste diepe slaap",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "sleep_start": {
+            "name": "Begin slaap"
+          },
+          "sleep_end": {
+            "name": "Einde slaap"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_sleep_rem": {
-        "name": "Last REM sleep"
+        "name": "Laatste REM-slaap",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "sleep_start": {
+            "name": "Begin slaap"
+          },
+          "sleep_end": {
+            "name": "Einde slaap"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_sleep_hrv": {
-        "name": "Last sleep HRV"
+        "name": "Laatste slaap HRV",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "sleep_start": {
+            "name": "Begin slaap"
+          },
+          "sleep_end": {
+            "name": "Einde slaap"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_sleep_average_hr": {
-        "name": "Last sleep average heart rate"
+        "name": "Laatste slaap average hartslag",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "sleep_start": {
+            "name": "Begin slaap"
+          },
+          "sleep_end": {
+            "name": "Einde slaap"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_sleep_respiratory_rate": {
-        "name": "Last sleep respiratory rate"
+        "name": "Laatste slaap ademhalingsfrequentie",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "sleep_start": {
+            "name": "Begin slaap"
+          },
+          "sleep_end": {
+            "name": "Einde slaap"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_sleep_spo2": {
-        "name": "Last sleep SpO₂"
+        "name": "Laatste slaap SpO₂",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "sleep_start": {
+            "name": "Begin slaap"
+          },
+          "sleep_end": {
+            "name": "Einde slaap"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_sleep_recovery_score": {
-        "name": "Last recovery score"
+        "name": "Laatste herstelscore",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "sleep_start": {
+            "name": "Begin slaap"
+          },
+          "sleep_end": {
+            "name": "Einde slaap"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "last_sleep_readiness_score": {
-        "name": "Last readiness score"
+        "name": "Laatste gereedheidsscore",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "sleep_start": {
+            "name": "Begin slaap"
+          },
+          "sleep_end": {
+            "name": "Einde slaap"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       },
       "training_load_change_7_vs_28": {
-        "name": "7-day training load vs 28-day baseline"
+        "name": "7-dag trainingsbelasting vs 28-dag basislijn"
       },
       "hrr_60s_vs_90d": {
-        "name": "Latest 60 s heart-rate recovery vs 90-day baseline"
+        "name": "Latest 60 s hartslagherstel vs 90-dag basislijn"
       },
       "sleep_duration_7d_mean": {
-        "name": "Mean sleep duration (7 days)"
+        "name": "Gemiddelde slaap duur (7 dagen)"
       },
       "sleep_duration_28d_mean": {
-        "name": "Mean sleep duration (28 days)"
+        "name": "Gemiddelde slaap duur (28 dagen)"
       },
       "sleep_duration_vs_28d": {
-        "name": "Last sleep duration vs 28-day baseline"
+        "name": "Laatste slaap duur vs 28-dag basislijn"
       },
       "sleep_duration_shortfall": {
-        "name": "Sleep duration shortfall vs 7 h adult minimum"
+        "name": "Slaap duur shortfall vs 7 h adult minimum"
       },
       "sleep_midpoint_variability_14d": {
-        "name": "Sleep midpoint variability (14 days)"
+        "name": "Slaap midpoint variability (14 dagen)"
       },
       "sleep_hrv_7d_mean": {
-        "name": "Mean sleep HRV (7 days)"
+        "name": "Gemiddelde slaap HRV (7 dagen)"
       },
       "sleep_hrv_28d_mean": {
-        "name": "Mean sleep HRV (28 days)"
+        "name": "Gemiddelde slaap HRV (28 dagen)"
       },
       "sleep_hrv_vs_28d": {
-        "name": "Last sleep HRV vs 28-day baseline"
+        "name": "Laatste slaap HRV vs 28-dag basislijn"
       },
       "resting_hr_7d_mean": {
-        "name": "Mean resting heart rate (7 days)"
+        "name": "Gemiddelde rusthartslag (7 dagen)"
       },
       "resting_hr_28d_mean": {
-        "name": "Mean resting heart rate (28 days)"
+        "name": "Gemiddelde rusthartslag (28 dagen)"
       },
       "resting_hr_vs_28d": {
-        "name": "Resting heart rate vs 28-day baseline"
+        "name": "Rusthartslag vs 28-dag basislijn"
       },
       "vo2max_28d_mean": {
-        "name": "Mean VO₂max (28 days)"
+        "name": "Gemiddelde VO₂max (28 dagen)"
       },
       "vo2max_trend_14_vs_previous_14": {
-        "name": "VO₂max trend: last 14 vs previous 14 days"
+        "name": "VO₂max-trend: laatste 14 vs vorige 14 dagen"
       },
       "sleep_consistency": {
-        "name": "Sleep consistency"
+        "name": "Slaapregelmaat",
+        "state_attributes": {
+          "samples_7d": {
+            "name": "Metingen (7 dagen)"
+          },
+          "samples_28d": {
+            "name": "Metingen (28 dagen)"
+          },
+          "average_duration_7d_min": {
+            "name": "Gemiddelde slaap duur (7 dagen)"
+          },
+          "average_duration_28d_min": {
+            "name": "Gemiddelde slaap duur (28 dagen)"
+          },
+          "duration_variability_28d_min": {
+            "name": "Variatie in slaapduur (28 dagen)"
+          },
+          "bedtime_variability_28d_min": {
+            "name": "Variatie in bedtijd (28 dagen)"
+          },
+          "wake_time_variability_28d_min": {
+            "name": "Variatie in wektijd (28 dagen)"
+          },
+          "midpoint_variability_28d_min": {
+            "name": "Variatie in slaapmiddelpunt (28 dagen)"
+          },
+          "nights_below_7h_7d": {
+            "name": "Nachten onder 7 h (7 dagen)"
+          },
+          "nights_below_7h_28d": {
+            "name": "Nachten onder 7 h (28 dagen)"
+          },
+          "nights_below_7h_28d_percent": {
+            "name": "Nachten onder 7 h (28 dagen, %)"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "sleep_deficit_7d": {
-        "name": "Sleep deficit – 7 days"
+        "name": "Slaaptekort – 7 dagen",
+        "state_attributes": {
+          "nights_observed": {
+            "name": "Waargenomen nachten"
+          },
+          "nights_below_7h": {
+            "name": "Nachten onder 7 h"
+          },
+          "reference_minimum_hours": {
+            "name": "Referentieminimum"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "autonomic_recovery_trend": {
-        "name": "Autonomic recovery trend"
+        "name": "Trend autonoom herstel",
+        "state_attributes": {
+          "sleep_hrv_7d_mean_ms": {
+            "name": "Gemiddelde slaap HRV (7 dagen)"
+          },
+          "sleep_hrv_28d_mean_ms": {
+            "name": "Gemiddelde slaap HRV (28 dagen)"
+          },
+          "sleep_hrv_vs_28d_percent": {
+            "name": "Latest slaap HRV vs 28-dag basislijn"
+          },
+          "resting_hr_current_bpm": {
+            "name": "Huidig rusthartslag"
+          },
+          "resting_hr_7d_mean_bpm": {
+            "name": "Gemiddelde rusthartslag (7 dagen)"
+          },
+          "resting_hr_28d_mean_bpm": {
+            "name": "Gemiddelde rusthartslag (28 dagen)"
+          },
+          "resting_hr_vs_28d_bpm": {
+            "name": "Rusthartslag vs 28-dag basislijn"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "cardiorespiratory_fitness_trend": {
-        "name": "Cardiorespiratory fitness trend"
+        "name": "Trend cardiorespiratoire fitheid",
+        "state_attributes": {
+          "current_vo2max_ml_kg_min": {
+            "name": "Huidig VO₂max"
+          },
+          "vo2max_28d_mean_ml_kg_min": {
+            "name": "Gemiddelde VO₂max (28 dagen)"
+          },
+          "vo2max_90d_mean_ml_kg_min": {
+            "name": "Gemiddelde VO₂max (90 dagen)"
+          },
+          "short_term_change_percent": {
+            "name": "Kortetermijnverandering"
+          },
+          "slope_percent_per_30d": {
+            "name": "Trend per 30 dagen"
+          },
+          "percent_predicted": {
+            "name": "Percentage voorspeld"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "training_load": {
-        "name": "Training load"
+        "name": "Trainingsbelasting",
+        "state_attributes": {
+          "trimp_7d": {
+            "name": "TRIMP (7 dagen)"
+          },
+          "trimp_28d": {
+            "name": "TRIMP (28 dagen)"
+          },
+          "trimp_28d_weekly_equivalent": {
+            "name": "TRIMP 28-dag wekelijks equivalent"
+          },
+          "workouts_7d": {
+            "name": "Trainingen (7 dagen)"
+          },
+          "workouts_28d": {
+            "name": "Trainingen (28 dagen)"
+          },
+          "active_days_7d": {
+            "name": "Actieve trainingsdagen (7 dagen)"
+          },
+          "active_days_28d": {
+            "name": "Actieve trainingsdagen (28 dagen)"
+          },
+          "training_duration_7d_min": {
+            "name": "Trainingsduur (7 dagen)"
+          },
+          "training_duration_28d_min": {
+            "name": "Trainingsduur (28 dagen)"
+          },
+          "distance_7d_km": {
+            "name": "Afstand (7 dagen)"
+          },
+          "distance_28d_km": {
+            "name": "Afstand (28 dagen)"
+          },
+          "last_recovery_interval_h": {
+            "name": "Laatste recovery interval"
+          },
+          "median_recovery_interval_28d_h": {
+            "name": "Mediane herstelinterval (28 dagen)"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "heart_rate_recovery": {
-        "name": "Heart-rate recovery"
+        "name": "Hartslagherstel",
+        "state_attributes": {
+          "hrr_30s_bpm": {
+            "name": "Hartslagherstel (30 s)"
+          },
+          "hrr_60s_bpm": {
+            "name": "Hartslagherstel (60 s)"
+          },
+          "hrr_120s_bpm": {
+            "name": "Hartslagherstel (120 s)"
+          },
+          "personal_90d_baseline_bpm": {
+            "name": "Persoonlijke 90-dagenbasislijn"
+          },
+          "latest_vs_baseline_bpm": {
+            "name": "Laatste vs persoonlijke basislijn"
+          },
+          "samples_90d": {
+            "name": "Metingen (90 dagen)"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       },
       "training_recovery_relationship": {
-        "name": "Training–recovery relationship"
+        "name": "Relatie training–herstel",
+        "state_attributes": {
+          "primary_correlation": {
+            "name": "Primaire correlatie"
+          },
+          "primary_measure": {
+            "name": "Primaire herstelmaat"
+          },
+          "trimp_vs_next_sleep_duration_r": {
+            "name": "TRIMP vs next-slaap duur (r)"
+          },
+          "trimp_vs_next_sleep_hrv_r": {
+            "name": "TRIMP vs next-slaap HRV (r)"
+          },
+          "sleep_duration_pairs": {
+            "name": "Training–slaap duur pairs"
+          },
+          "sleep_hrv_pairs": {
+            "name": "Training–slaap HRV pairs"
+          },
+          "window_days": {
+            "name": "Analysevenster"
+          },
+          "causal_interpretation": {
+            "name": "Causale interpretatie"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          }
+        }
       }
     },
     "button": {
       "start_workout": {
-        "name": "Training starten"
+        "name": "Start training"
       },
       "stop_workout": {
-        "name": "Training stoppen"
+        "name": "Stop training"
       },
       "regenerate_ai_evaluation": {
         "name": "AI-evaluatie opnieuw genereren"
@@ -718,7 +2541,7 @@
     },
     "select": {
       "workout_room": {
-        "name": "Trainingsruimte"
+        "name": "Training room"
       }
     }
   },

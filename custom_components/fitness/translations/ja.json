@@ -252,465 +252,2288 @@
   "entity": {
     "sensor": {
       "session_status": {
-        "name": "Session status"
+        "name": "セッション状態",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          }
+        }
       },
       "session_duration": {
-        "name": "Session duration"
+        "name": "セッション時間",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "current_heart_rate": {
-        "name": "Current heart rate"
+        "name": "現在の 心拍数",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          }
+        }
       },
       "current_power": {
-        "name": "Current power"
+        "name": "現在の パワー",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          }
+        }
       },
       "current_cadence": {
-        "name": "Current cadence"
+        "name": "現在の cadence",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          }
+        }
       },
       "current_speed": {
-        "name": "Current speed"
+        "name": "現在の 速度",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          }
+        }
       },
       "current_distance": {
-        "name": "Current distance"
+        "name": "現在の distance",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          }
+        }
       },
       "current_altitude": {
-        "name": "Current altitude"
+        "name": "現在の altitude",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          }
+        }
       },
       "last_workout": {
-        "name": "Last workout"
+        "name": "前回のワークアウト",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_source": {
-        "name": "Last workout source"
+        "name": "前回のワークアウト ソース",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_duration": {
-        "name": "Last workout duration"
+        "name": "前回のワークアウト 時間",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_distance": {
-        "name": "Last workout distance"
+        "name": "前回のワークアウト distance",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_avg_hr": {
-        "name": "Last workout average heart rate"
+        "name": "前回のワークアウト average 心拍数",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_max_hr": {
-        "name": "Last workout maximum heart rate"
+        "name": "前回のワークアウト maximum 心拍数",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_avg_power": {
-        "name": "Last workout average power"
+        "name": "前回のワークアウト average パワー",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_max_power": {
-        "name": "Last workout maximum power"
+        "name": "前回のワークアウト maximum パワー",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_avg_cadence": {
-        "name": "Last workout average cadence"
+        "name": "前回のワークアウト average cadence",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_elevation_gain": {
-        "name": "Last workout elevation gain"
+        "name": "前回のワークアウト elevation gain",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "age": {
-        "name": "Age"
+        "name": "年齢"
       },
       "weight": {
-        "name": "Weight"
+        "name": "体重"
       },
       "resting_hr": {
-        "name": "Resting heart rate"
+        "name": "安静時心拍数"
       },
       "maximum_hr": {
-        "name": "Maximum heart rate"
+        "name": "最大 心拍数"
       },
       "heart_rate_reserve": {
-        "name": "Heart rate reserve"
+        "name": "心拍予備能"
       },
       "vo2max": {
         "name": "VO₂max"
       },
       "friend_predicted_vo2max": {
-        "name": "FRIEND predicted VO₂max"
+        "name": "FRIEND 予測 VO₂max"
       },
       "vo2max_percent_predicted": {
-        "name": "VO₂max percent predicted"
+        "name": "VO₂max percent 予測",
+        "state_attributes": {
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "cardiorespiratory_status": {
-        "name": "Cardiorespiratory fitness status"
+        "name": "Cardiorespiratory fitness 状態"
       },
       "hrv_weekly": {
-        "name": "HRV weekly average"
+        "name": "HRV 週間平均"
       },
       "hrv_last_night": {
-        "name": "HRV last night average"
+        "name": "HRV 昨夜平均"
       },
       "hrv_status": {
-        "name": "HRV status"
+        "name": "HRV 状態"
       },
       "threshold_hr": {
-        "name": "Threshold heart rate"
+        "name": "Threshold 心拍数"
       },
       "threshold_pace": {
-        "name": "Threshold pace"
+        "name": "Threshold ペース"
       },
       "threshold_power": {
-        "name": "Threshold power"
+        "name": "Threshold パワー"
       },
       "threshold_power_to_weight": {
-        "name": "Threshold power-to-weight"
+        "name": "Threshold パワー-to-weight"
       },
       "fitness_age": {
-        "name": "Fitness age"
+        "name": "フィットネス年齢"
       },
       "fitness_age_difference": {
-        "name": "Fitness age difference"
+        "name": "フィットネス年齢 difference"
       },
       "training_readiness_context": {
-        "name": "Training readiness context"
+        "name": "Training readiness コンテキスト"
       },
       "sleep_score_context": {
-        "name": "Sleep score context"
+        "name": "睡眠 スコア コンテキスト"
       },
       "acute_training_load": {
-        "name": "Acute training load"
+        "name": "Acute トレーニング負荷"
       },
       "chronic_training_load": {
-        "name": "Chronic training load"
+        "name": "Chronic トレーニング負荷"
       },
       "acute_chronic_ratio": {
-        "name": "Acute/chronic load ratio"
+        "name": "急性/慢性負荷比"
       },
       "provider_training_status": {
-        "name": "Provider training status"
+        "name": "Provider training 状態"
       },
       "ai_general_evaluation": {
-        "name": "AI general evaluation"
+        "name": "AI総合評価",
+        "state_attributes": {
+          "text": {
+            "name": "評価テキスト"
+          },
+          "generated_at": {
+            "name": "生成日時"
+          },
+          "ai_entity": {
+            "name": "AIプロバイダー"
+          },
+          "role": {
+            "name": "役割"
+          }
+        }
       },
       "ai_workout_evaluation": {
-        "name": "AI workout evaluation"
+        "name": "前回ワークアウトのAI評価",
+        "state_attributes": {
+          "text": {
+            "name": "評価テキスト"
+          },
+          "generated_at": {
+            "name": "生成日時"
+          },
+          "ai_entity": {
+            "name": "AIプロバイダー"
+          },
+          "role": {
+            "name": "役割"
+          }
+        }
       },
       "heart_rate_percent_max": {
-        "name": "最大心拍数に対する割合"
+        "name": "心拍数 % of maximum",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "heart_rate_reserve_percent": {
-        "name": "心拍予備率 %"
+        "name": "心拍予備能 %",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "heart_rate_intensity": {
-        "name": "心拍強度"
+        "name": "心拍数 intensity",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "heart_rate_relative_threshold": {
-        "name": "閾値に対する心拍数"
+        "name": "心拍数 relative to しきい値",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "current_power_to_weight": {
-        "name": "現在のパワーウェイトレシオ"
+        "name": "現在の パワー-to-weight",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "power_relative_threshold": {
-        "name": "閾値に対するパワー"
+        "name": "パワー relative to しきい値",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "current_pace": {
-        "name": "現在のペース"
+        "name": "現在の ペース",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "speed_relative_threshold": {
-        "name": "閾値に対する速度"
+        "name": "速度 relative to しきい値",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "last_workout_calories": {
-        "name": "Last workout calories"
+        "name": "前回ワークアウトの消費カロリー",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_moving_time": {
-        "name": "Last workout moving time"
+        "name": "前回のワークアウト moving time",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_elapsed_time": {
-        "name": "Last workout elapsed time"
+        "name": "前回のワークアウト elapsed time",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_average_speed": {
-        "name": "Last workout average speed"
+        "name": "前回のワークアウト average 速度",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_max_speed": {
-        "name": "Last workout maximum speed"
+        "name": "前回のワークアウト maximum 速度",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_weighted_power": {
-        "name": "Last workout weighted / normalized power"
+        "name": "前回のワークアウト weighted / normalized パワー",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_max_cadence": {
-        "name": "Last workout maximum cadence"
+        "name": "前回のワークアウト maximum cadence",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_elevation_loss": {
-        "name": "Last workout elevation loss"
+        "name": "前回のワークアウト elevation loss",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_training_load": {
-        "name": "Last workout training load"
+        "name": "前回のワークアウト トレーニング負荷",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_aerobic_effect": {
-        "name": "Last workout aerobic training effect"
+        "name": "前回のワークアウト 有酸素 training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_anaerobic_effect": {
-        "name": "Last workout anaerobic training effect"
+        "name": "前回のワークアウト 無酸素 training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_training_effect": {
-        "name": "Last workout training effect"
+        "name": "前回のワークアウト training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_vo2max": {
-        "name": "Last workout VO₂max"
+        "name": "前回のワークアウト VO₂max",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_relative_effort": {
-        "name": "Last workout relative effort"
+        "name": "前回のワークアウト relative effort",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_kilojoules": {
-        "name": "Last workout energy"
+        "name": "前回のワークアウト energy",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_total_reps": {
-        "name": "Last workout total reps"
+        "name": "前回のワークアウト total reps",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_exercise_count": {
-        "name": "Last workout exercise count"
+        "name": "前回のワークアウト exercise count",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_volume": {
-        "name": "Last workout training volume"
+        "name": "前回のワークアウト training volume",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_device": {
-        "name": "Last workout device"
+        "name": "前回のワークアウト device",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_gear": {
-        "name": "Last workout gear"
+        "name": "前回のワークアウト gear",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_sources": {
-        "name": "Last workout data sources"
+        "name": "前回のワークアウト data ソース",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "live_average_heart_rate": {
-        "name": "Live average heart rate"
+        "name": "ライブ average 心拍数",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "live_maximum_heart_rate": {
-        "name": "Live maximum heart rate"
+        "name": "ライブ maximum 心拍数",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "live_average_power": {
-        "name": "Live average power"
+        "name": "ライブ average パワー",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "live_maximum_power": {
-        "name": "Live maximum power"
+        "name": "ライブ maximum パワー",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "live_average_cadence": {
-        "name": "Live average cadence"
+        "name": "ライブ average cadence",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "live_average_speed": {
-        "name": "Live average speed"
+        "name": "ライブ average 速度",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "live_banister_trimp": {
-        "name": "Live Banister TRIMP"
+        "name": "ライブ Banister TRIMP",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "live_mechanical_work": {
-        "name": "Live mechanical work"
+        "name": "ライブ mechanical work",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "live_aerobic_efficiency": {
-        "name": "Live aerobic efficiency"
+        "name": "ライブ 有酸素 効率",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "live_aerobic_decoupling": {
-        "name": "Live aerobic decoupling"
+        "name": "ライブ 有酸素 デカップリング",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "live_time_moderate": {
-        "name": "Time at moderate intensity"
+        "name": "時間： 中強度",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "live_time_vigorous": {
-        "name": "Time at vigorous intensity"
+        "name": "時間： 高強度",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "live_time_near_maximal": {
-        "name": "Time at near-maximal intensity"
+        "name": "時間： ほぼ最大強度",
+        "state_attributes": {
+          "source_entity": {
+            "name": "ソースエンティティ"
+          },
+          "source_device_name": {
+            "name": "ソースデバイス"
+          },
+          "source_integration": {
+            "name": "ソース統合"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness による計算"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "last_workout_banister_trimp": {
-        "name": "Last workout Banister TRIMP"
+        "name": "前回のワークアウト Banister TRIMP",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_trimp_per_hour": {
-        "name": "Last workout TRIMP per hour"
+        "name": "前回のワークアウト TRIMP per hour",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_mechanical_work": {
-        "name": "Last workout mechanical work"
+        "name": "前回のワークアウト mechanical work",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_aerobic_efficiency": {
-        "name": "Last workout aerobic efficiency"
+        "name": "前回のワークアウト 有酸素 効率",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_aerobic_decoupling": {
-        "name": "Last workout aerobic decoupling"
+        "name": "前回のワークアウト 有酸素 デカップリング",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_hrr_10s": {
-        "name": "Last workout heart-rate recovery 10 s"
+        "name": "前回のワークアウト 心拍回復 10 s",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_hrr_30s": {
-        "name": "Last workout heart-rate recovery 30 s"
+        "name": "前回のワークアウト 心拍回復 30 s",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_hrr_60s": {
-        "name": "Last workout heart-rate recovery 60 s"
+        "name": "前回のワークアウト 心拍回復 60 s",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_hrr_120s": {
-        "name": "Last workout heart-rate recovery 120 s"
+        "name": "前回のワークアウト 心拍回復 120 s",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_time_moderate": {
-        "name": "Last workout moderate-intensity time"
+        "name": "前回のワークアウト moderate-intensity time",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_time_vigorous": {
-        "name": "Last workout vigorous-intensity time"
+        "name": "前回のワークアウト vigorous-intensity time",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_time_near_maximal": {
-        "name": "Last workout near-maximal time"
+        "name": "前回のワークアウト near-maximal time",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "training_load_7d": {
-        "name": "Banister training load 7 days"
+        "name": "Banister トレーニング負荷 7 日"
       },
       "training_load_28d": {
-        "name": "Banister training load 28 days"
+        "name": "Banister トレーニング負荷 28 日"
       },
       "training_load_42d": {
-        "name": "Banister training load 42 days"
+        "name": "Banister トレーニング負荷 42 日"
       },
       "training_days_28d": {
-        "name": "Active training days 28 days"
+        "name": "アクティブなトレーニング日 28 日"
       },
       "hrr_60s_long_term": {
-        "name": "90-day mean heart-rate recovery 60 s"
+        "name": "90-日 mean 心拍回復 60 s"
       },
       "aerobic_decoupling_long_term": {
-        "name": "90-day mean aerobic decoupling"
+        "name": "90-日 mean 有酸素 デカップリング"
       },
       "aerobic_efficiency_long_term": {
-        "name": "90-day mean aerobic efficiency"
+        "name": "90-日 mean 有酸素 効率"
       },
       "last_workout_comparable_count": {
-        "name": "Comparable prior workouts"
+        "name": "比較可能な過去のワークアウト",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_efficiency_vs_baseline": {
-        "name": "Aerobic efficiency vs personal baseline"
+        "name": "有酸素 効率 vs 個人ベースライン",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_decoupling_vs_baseline": {
-        "name": "Aerobic decoupling vs personal baseline"
+        "name": "有酸素 デカップリング vs 個人ベースライン",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_hr_vs_baseline": {
-        "name": "Average heart rate vs personal baseline"
+        "name": "平均 心拍数 vs 個人ベースライン",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_power_vs_baseline": {
-        "name": "Average power vs personal baseline"
+        "name": "平均 パワー vs 個人ベースライン",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_speed_vs_baseline": {
-        "name": "Average speed vs personal baseline"
+        "name": "平均 速度 vs 個人ベースライン",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_trimp_vs_recent": {
-        "name": "TRIMP vs comparable recent workouts"
+        "name": "TRIMP vs comparable 最近のワークアウト",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_load_context": {
-        "name": "Workout load context"
+        "name": "ワークアウト load コンテキスト",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_workout_personal_context": {
-        "name": "Workout personal context"
+        "name": "ワークアウト personal コンテキスト",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_sleep_source": {
-        "name": "Last sleep source"
+        "name": "前回の睡眠 ソース",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "sleep_start": {
+            "name": "睡眠開始"
+          },
+          "sleep_end": {
+            "name": "睡眠終了"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_sleep_duration": {
-        "name": "Last sleep duration"
+        "name": "前回の睡眠 時間",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "sleep_start": {
+            "name": "睡眠開始"
+          },
+          "sleep_end": {
+            "name": "睡眠終了"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_sleep_score": {
-        "name": "Last sleep score"
+        "name": "前回の睡眠 スコア",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "sleep_start": {
+            "name": "睡眠開始"
+          },
+          "sleep_end": {
+            "name": "睡眠終了"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_sleep_efficiency": {
-        "name": "Last sleep efficiency"
+        "name": "前回の睡眠 効率",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "sleep_start": {
+            "name": "睡眠開始"
+          },
+          "sleep_end": {
+            "name": "睡眠終了"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_sleep_time_in_bed": {
-        "name": "Last sleep time in bed"
+        "name": "前回の睡眠 time in bed",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "sleep_start": {
+            "name": "睡眠開始"
+          },
+          "sleep_end": {
+            "name": "睡眠終了"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_sleep_awake": {
-        "name": "Last sleep awake"
+        "name": "前回の睡眠 覚醒",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "sleep_start": {
+            "name": "睡眠開始"
+          },
+          "sleep_end": {
+            "name": "睡眠終了"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_sleep_light": {
-        "name": "Last light sleep"
+        "name": "前回の 浅い睡眠",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "sleep_start": {
+            "name": "睡眠開始"
+          },
+          "sleep_end": {
+            "name": "睡眠終了"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_sleep_deep": {
-        "name": "Last deep sleep"
+        "name": "前回の 深い睡眠",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "sleep_start": {
+            "name": "睡眠開始"
+          },
+          "sleep_end": {
+            "name": "睡眠終了"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_sleep_rem": {
-        "name": "Last REM sleep"
+        "name": "前回の REM睡眠",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "sleep_start": {
+            "name": "睡眠開始"
+          },
+          "sleep_end": {
+            "name": "睡眠終了"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_sleep_hrv": {
-        "name": "Last sleep HRV"
+        "name": "前回の睡眠 HRV",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "sleep_start": {
+            "name": "睡眠開始"
+          },
+          "sleep_end": {
+            "name": "睡眠終了"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_sleep_average_hr": {
-        "name": "Last sleep average heart rate"
+        "name": "前回の睡眠 average 心拍数",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "sleep_start": {
+            "name": "睡眠開始"
+          },
+          "sleep_end": {
+            "name": "睡眠終了"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_sleep_respiratory_rate": {
-        "name": "Last sleep respiratory rate"
+        "name": "前回の睡眠 呼吸数",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "sleep_start": {
+            "name": "睡眠開始"
+          },
+          "sleep_end": {
+            "name": "睡眠終了"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_sleep_spo2": {
-        "name": "Last sleep SpO₂"
+        "name": "前回の睡眠 SpO₂",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "sleep_start": {
+            "name": "睡眠開始"
+          },
+          "sleep_end": {
+            "name": "睡眠終了"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_sleep_recovery_score": {
-        "name": "Last recovery score"
+        "name": "前回の 回復スコア",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "sleep_start": {
+            "name": "睡眠開始"
+          },
+          "sleep_end": {
+            "name": "睡眠終了"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "last_sleep_readiness_score": {
-        "name": "Last readiness score"
+        "name": "前回の 準備度スコア",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "sleep_start": {
+            "name": "睡眠開始"
+          },
+          "sleep_end": {
+            "name": "睡眠終了"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       },
       "training_load_change_7_vs_28": {
-        "name": "7-day training load vs 28-day baseline"
+        "name": "7-日 トレーニング負荷 vs 28-日 ベースライン"
       },
       "hrr_60s_vs_90d": {
-        "name": "Latest 60 s heart-rate recovery vs 90-day baseline"
+        "name": "Latest 60 s 心拍回復 vs 90-日 ベースライン"
       },
       "sleep_duration_7d_mean": {
-        "name": "Mean sleep duration (7 days)"
+        "name": "平均 睡眠 時間 (7 日)"
       },
       "sleep_duration_28d_mean": {
-        "name": "Mean sleep duration (28 days)"
+        "name": "平均 睡眠 時間 (28 日)"
       },
       "sleep_duration_vs_28d": {
-        "name": "Last sleep duration vs 28-day baseline"
+        "name": "前回の睡眠 時間 vs 28-日 ベースライン"
       },
       "sleep_duration_shortfall": {
-        "name": "Sleep duration shortfall vs 7 h adult minimum"
+        "name": "睡眠 時間 shortfall vs 7 h adult minimum"
       },
       "sleep_midpoint_variability_14d": {
-        "name": "Sleep midpoint variability (14 days)"
+        "name": "睡眠 midpoint variability (14 日)"
       },
       "sleep_hrv_7d_mean": {
-        "name": "Mean sleep HRV (7 days)"
+        "name": "平均 睡眠 HRV (7 日)"
       },
       "sleep_hrv_28d_mean": {
-        "name": "Mean sleep HRV (28 days)"
+        "name": "平均 睡眠 HRV (28 日)"
       },
       "sleep_hrv_vs_28d": {
-        "name": "Last sleep HRV vs 28-day baseline"
+        "name": "前回の睡眠 HRV vs 28-日 ベースライン"
       },
       "resting_hr_7d_mean": {
-        "name": "Mean resting heart rate (7 days)"
+        "name": "平均 安静時心拍数 (7 日)"
       },
       "resting_hr_28d_mean": {
-        "name": "Mean resting heart rate (28 days)"
+        "name": "平均 安静時心拍数 (28 日)"
       },
       "resting_hr_vs_28d": {
-        "name": "Resting heart rate vs 28-day baseline"
+        "name": "安静時心拍数 vs 28-日 ベースライン"
       },
       "vo2max_28d_mean": {
-        "name": "Mean VO₂max (28 days)"
+        "name": "平均 VO₂max (28 日)"
       },
       "vo2max_trend_14_vs_previous_14": {
-        "name": "VO₂max trend: last 14 vs previous 14 days"
+        "name": "VO₂maxトレンド：直近14日 vs その前14日"
       },
       "sleep_consistency": {
-        "name": "Sleep consistency"
+        "name": "睡眠の規則性",
+        "state_attributes": {
+          "samples_7d": {
+            "name": "サンプル (7 日)"
+          },
+          "samples_28d": {
+            "name": "サンプル (28 日)"
+          },
+          "average_duration_7d_min": {
+            "name": "平均 睡眠 時間 (7 日)"
+          },
+          "average_duration_28d_min": {
+            "name": "平均 睡眠 時間 (28 日)"
+          },
+          "duration_variability_28d_min": {
+            "name": "睡眠時間の変動 (28 日)"
+          },
+          "bedtime_variability_28d_min": {
+            "name": "就寝時刻の変動 (28 日)"
+          },
+          "wake_time_variability_28d_min": {
+            "name": "起床時刻の変動 (28 日)"
+          },
+          "midpoint_variability_28d_min": {
+            "name": "睡眠中点の変動 (28 日)"
+          },
+          "nights_below_7h_7d": {
+            "name": "未満の夜 7 h (7 日)"
+          },
+          "nights_below_7h_28d": {
+            "name": "未満の夜 7 h (28 日)"
+          },
+          "nights_below_7h_28d_percent": {
+            "name": "未満の夜 7 h (28 日, %)"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "sleep_deficit_7d": {
-        "name": "Sleep deficit – 7 days"
+        "name": "睡眠不足 – 7 日",
+        "state_attributes": {
+          "nights_observed": {
+            "name": "観察した夜数"
+          },
+          "nights_below_7h": {
+            "name": "未満の夜 7 h"
+          },
+          "reference_minimum_hours": {
+            "name": "基準最小値"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "autonomic_recovery_trend": {
-        "name": "Autonomic recovery trend"
+        "name": "自律神経回復トレンド",
+        "state_attributes": {
+          "sleep_hrv_7d_mean_ms": {
+            "name": "平均 睡眠 HRV (7 日)"
+          },
+          "sleep_hrv_28d_mean_ms": {
+            "name": "平均 睡眠 HRV (28 日)"
+          },
+          "sleep_hrv_vs_28d_percent": {
+            "name": "Latest 睡眠 HRV vs 28-日 ベースライン"
+          },
+          "resting_hr_current_bpm": {
+            "name": "現在の 安静時心拍数"
+          },
+          "resting_hr_7d_mean_bpm": {
+            "name": "平均 安静時心拍数 (7 日)"
+          },
+          "resting_hr_28d_mean_bpm": {
+            "name": "平均 安静時心拍数 (28 日)"
+          },
+          "resting_hr_vs_28d_bpm": {
+            "name": "安静時心拍数 vs 28-日 ベースライン"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "cardiorespiratory_fitness_trend": {
-        "name": "Cardiorespiratory fitness trend"
+        "name": "心肺フィットネストレンド",
+        "state_attributes": {
+          "current_vo2max_ml_kg_min": {
+            "name": "現在の VO₂max"
+          },
+          "vo2max_28d_mean_ml_kg_min": {
+            "name": "平均 VO₂max (28 日)"
+          },
+          "vo2max_90d_mean_ml_kg_min": {
+            "name": "平均 VO₂max (90 日)"
+          },
+          "short_term_change_percent": {
+            "name": "短期変化"
+          },
+          "slope_percent_per_30d": {
+            "name": "あたりの傾向 30 日"
+          },
+          "percent_predicted": {
+            "name": "予測値に対する割合"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "training_load": {
-        "name": "Training load"
+        "name": "トレーニング負荷",
+        "state_attributes": {
+          "trimp_7d": {
+            "name": "TRIMP (7 日)"
+          },
+          "trimp_28d": {
+            "name": "TRIMP (28 日)"
+          },
+          "trimp_28d_weekly_equivalent": {
+            "name": "TRIMP 28-日 週換算"
+          },
+          "workouts_7d": {
+            "name": "ワークアウト (7 日)"
+          },
+          "workouts_28d": {
+            "name": "ワークアウト (28 日)"
+          },
+          "active_days_7d": {
+            "name": "アクティブなトレーニング日 (7 日)"
+          },
+          "active_days_28d": {
+            "name": "アクティブなトレーニング日 (28 日)"
+          },
+          "training_duration_7d_min": {
+            "name": "トレーニング時間 (7 日)"
+          },
+          "training_duration_28d_min": {
+            "name": "トレーニング時間 (28 日)"
+          },
+          "distance_7d_km": {
+            "name": "距離 (7 日)"
+          },
+          "distance_28d_km": {
+            "name": "距離 (28 日)"
+          },
+          "last_recovery_interval_h": {
+            "name": "前回の recovery interval"
+          },
+          "median_recovery_interval_28d_h": {
+            "name": "回復間隔の中央値 (28 日)"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "heart_rate_recovery": {
-        "name": "Heart-rate recovery"
+        "name": "心拍回復",
+        "state_attributes": {
+          "hrr_30s_bpm": {
+            "name": "心拍回復 (30 s)"
+          },
+          "hrr_60s_bpm": {
+            "name": "心拍回復 (60 s)"
+          },
+          "hrr_120s_bpm": {
+            "name": "心拍回復 (120 s)"
+          },
+          "personal_90d_baseline_bpm": {
+            "name": "個人90日ベースライン"
+          },
+          "latest_vs_baseline_bpm": {
+            "name": "最新値と比較 個人ベースライン"
+          },
+          "samples_90d": {
+            "name": "サンプル (90 日)"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       },
       "training_recovery_relationship": {
-        "name": "Training–recovery relationship"
+        "name": "トレーニング–回復関係",
+        "state_attributes": {
+          "primary_correlation": {
+            "name": "主要相関"
+          },
+          "primary_measure": {
+            "name": "主要回復指標"
+          },
+          "trimp_vs_next_sleep_duration_r": {
+            "name": "TRIMP vs next-睡眠 時間 (r)"
+          },
+          "trimp_vs_next_sleep_hrv_r": {
+            "name": "TRIMP vs next-睡眠 HRV (r)"
+          },
+          "sleep_duration_pairs": {
+            "name": "ワークアウト–睡眠 時間 pairs"
+          },
+          "sleep_hrv_pairs": {
+            "name": "ワークアウト–睡眠 HRV pairs"
+          },
+          "window_days": {
+            "name": "分析期間"
+          },
+          "causal_interpretation": {
+            "name": "因果解釈"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          }
+        }
       }
     },
     "button": {
       "start_workout": {
-        "name": "ワークアウトを開始"
+        "name": "Start ワークアウト"
       },
       "stop_workout": {
-        "name": "ワークアウトを停止"
+        "name": "Stop ワークアウト"
       },
       "regenerate_ai_evaluation": {
         "name": "AI評価を再生成"
@@ -718,7 +2541,7 @@
     },
     "select": {
       "workout_room": {
-        "name": "ワークアウトルーム"
+        "name": "ワークアウト room"
       }
     }
   },

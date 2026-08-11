@@ -2,20 +2,32 @@
 
 from homeassistant.helpers.device_registry import DeviceInfo
 
-from .const import DOMAIN
+from .const import CONF_LANGUAGE, DOMAIN
+from .device_translations import device_name
+
+
+def _entry_language(entry) -> str:
+    """Return the configured Fitness profile language."""
+    return str(
+        entry.options.get(
+            CONF_LANGUAGE,
+            entry.data.get(CONF_LANGUAGE, "en"),
+        )
+        or "en"
+    )
 
 
 def device_info(entry, kind: str) -> DeviceInfo:
-    suffix = {
-        "live": "Live",
-        "workout": "Workout",
-        "sleep": "Sleep",
-        "evaluation": "Evaluation",
-    }[kind]
-    profile = entry.data.get("profile_name", entry.title)
+    """Return stable device identifiers with a localized, uncluttered name.
+
+    Names intentionally do not repeat the integration name or profile name.
+    The identifiers stay unchanged, so existing entities, history, dashboards
+    and automations survive the display-name migration.
+    """
+    label = device_name(_entry_language(entry), kind)
     return DeviceInfo(
         identifiers={(DOMAIN, f"{entry.entry_id}_{kind}")},
-        name=f"Fitness – {profile} – {suffix}",
+        name=label,
         manufacturer="Fitness",
-        model=f"Fitness {suffix}",
+        model=label,
     )

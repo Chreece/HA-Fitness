@@ -252,465 +252,2288 @@
   "entity": {
     "sensor": {
       "session_status": {
-        "name": "Session status"
+        "name": "SitzungsStatus",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          }
+        }
       },
       "session_duration": {
-        "name": "Session duration"
+        "name": "Sitzungsdauer",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "current_heart_rate": {
-        "name": "Current heart rate"
+        "name": "Aktuell Herzfrequenz",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          }
+        }
       },
       "current_power": {
-        "name": "Current power"
+        "name": "Aktuell Leistung",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          }
+        }
       },
       "current_cadence": {
-        "name": "Current cadence"
+        "name": "Aktuell Kadenz",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          }
+        }
       },
       "current_speed": {
-        "name": "Current speed"
+        "name": "Aktuell Geschwindigkeit",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          }
+        }
       },
       "current_distance": {
-        "name": "Current distance"
+        "name": "Aktuell Distanz",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          }
+        }
       },
       "current_altitude": {
-        "name": "Current altitude"
+        "name": "Aktuell Höhe",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          }
+        }
       },
       "last_workout": {
-        "name": "Last workout"
+        "name": "Letztes Training",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_source": {
-        "name": "Last workout source"
+        "name": "Letztes Training Quelle",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_duration": {
-        "name": "Last workout duration"
+        "name": "Letztes Training Dauer",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_distance": {
-        "name": "Last workout distance"
+        "name": "Letztes Training Distanz",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_avg_hr": {
-        "name": "Last workout average heart rate"
+        "name": "Letztes Training average Herzfrequenz",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_max_hr": {
-        "name": "Last workout maximum heart rate"
+        "name": "Letztes Training maximum Herzfrequenz",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_avg_power": {
-        "name": "Last workout average power"
+        "name": "Letztes Training average Leistung",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_max_power": {
-        "name": "Last workout maximum power"
+        "name": "Letztes Training maximum Leistung",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_avg_cadence": {
-        "name": "Last workout average cadence"
+        "name": "Letztes Training average Kadenz",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_elevation_gain": {
-        "name": "Last workout elevation gain"
+        "name": "Letztes Training elevation gain",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "age": {
-        "name": "Age"
+        "name": "Alter"
       },
       "weight": {
-        "name": "Weight"
+        "name": "Gewicht"
       },
       "resting_hr": {
-        "name": "Resting heart rate"
+        "name": "Ruheherzfrequenz"
       },
       "maximum_hr": {
-        "name": "Maximum heart rate"
+        "name": "Maximale Herzfrequenz"
       },
       "heart_rate_reserve": {
-        "name": "Heart rate reserve"
+        "name": "Herzfrequenzreserve"
       },
       "vo2max": {
         "name": "VO₂max"
       },
       "friend_predicted_vo2max": {
-        "name": "FRIEND predicted VO₂max"
+        "name": "FRIEND prognostiziert VO₂max"
       },
       "vo2max_percent_predicted": {
-        "name": "VO₂max percent predicted"
+        "name": "VO₂max Prozent des Sollwerts",
+        "state_attributes": {
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "cardiorespiratory_status": {
-        "name": "Cardiorespiratory fitness status"
+        "name": "Kardiorespiratorischer FitnessStatus"
       },
       "hrv_weekly": {
-        "name": "HRV weekly average"
+        "name": "HRV Wochendurchschnitt"
       },
       "hrv_last_night": {
-        "name": "HRV last night average"
+        "name": "HRV Durchschnitt letzte Nacht"
       },
       "hrv_status": {
-        "name": "HRV status"
+        "name": "HRV Status"
       },
       "threshold_hr": {
-        "name": "Threshold heart rate"
+        "name": "Schwelle Herzfrequenz"
       },
       "threshold_pace": {
-        "name": "Threshold pace"
+        "name": "Schwelle Tempo"
       },
       "threshold_power": {
-        "name": "Threshold power"
+        "name": "Schwelle Leistung"
       },
       "threshold_power_to_weight": {
-        "name": "Threshold power-to-weight"
+        "name": "Schwelle Leistung-Gewicht"
       },
       "fitness_age": {
-        "name": "Fitness age"
+        "name": "Fitnessalter"
       },
       "fitness_age_difference": {
-        "name": "Fitness age difference"
+        "name": "Differenz Fitnessalter"
       },
       "training_readiness_context": {
-        "name": "Training readiness context"
+        "name": "Kontext Trainingsbereitschaft"
       },
       "sleep_score_context": {
-        "name": "Sleep score context"
+        "name": "Kontext Schlafbewertung"
       },
       "acute_training_load": {
-        "name": "Acute training load"
+        "name": "Akute Trainingsbelastung"
       },
       "chronic_training_load": {
-        "name": "Chronic training load"
+        "name": "Chronische Trainingsbelastung"
       },
       "acute_chronic_ratio": {
-        "name": "Acute/chronic load ratio"
+        "name": "Akute/chronic load ratio"
       },
       "provider_training_status": {
-        "name": "Provider training status"
+        "name": "TrainingsStatus des Anbieters"
       },
       "ai_general_evaluation": {
-        "name": "AI general evaluation"
+        "name": "Allgemeine KI-Auswertung",
+        "state_attributes": {
+          "text": {
+            "name": "Auswertungstext"
+          },
+          "generated_at": {
+            "name": "Erstellt am"
+          },
+          "ai_entity": {
+            "name": "KI-Anbieter"
+          },
+          "role": {
+            "name": "Rolle"
+          }
+        }
       },
       "ai_workout_evaluation": {
-        "name": "AI workout evaluation"
+        "name": "KI-Auswertung des letzten Trainings",
+        "state_attributes": {
+          "text": {
+            "name": "Auswertungstext"
+          },
+          "generated_at": {
+            "name": "Erstellt am"
+          },
+          "ai_entity": {
+            "name": "KI-Anbieter"
+          },
+          "role": {
+            "name": "Rolle"
+          }
+        }
       },
       "heart_rate_percent_max": {
-        "name": "Herzfrequenz in % des Maximums"
+        "name": "Herzfrequenz % of maximum",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "heart_rate_reserve_percent": {
-        "name": "Herzfrequenzreserve %"
+        "name": "Herzfrequenzreserve %",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "heart_rate_intensity": {
-        "name": "Herzfrequenz-Intensität"
+        "name": "Herzfrequenzintensität",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "heart_rate_relative_threshold": {
-        "name": "Herzfrequenz relativ zur Schwelle"
+        "name": "Herzfrequenz relativ zu Schwelle",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "current_power_to_weight": {
-        "name": "Aktuelle Leistung pro kg"
+        "name": "Aktuell Leistung-Gewicht",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "power_relative_threshold": {
-        "name": "Leistung relativ zur Schwelle"
+        "name": "Leistung relativ zu Schwelle",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "current_pace": {
-        "name": "Aktuelles Tempo"
+        "name": "Aktuell Tempo",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "speed_relative_threshold": {
-        "name": "Geschwindigkeit relativ zur Schwelle"
+        "name": "Geschwindigkeit relativ zu Schwelle",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "last_workout_calories": {
-        "name": "Last workout calories"
+        "name": "Letztes Training Kalorien",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_moving_time": {
-        "name": "Last workout moving time"
+        "name": "Letztes Training moving time",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_elapsed_time": {
-        "name": "Last workout elapsed time"
+        "name": "Letztes Training elapsed time",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_average_speed": {
-        "name": "Last workout average speed"
+        "name": "Letztes Training average Geschwindigkeit",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_max_speed": {
-        "name": "Last workout maximum speed"
+        "name": "Letztes Training maximum Geschwindigkeit",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_weighted_power": {
-        "name": "Last workout weighted / normalized power"
+        "name": "Letztes Training weighted / normalized Leistung",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_max_cadence": {
-        "name": "Last workout maximum cadence"
+        "name": "Letztes Training maximum Kadenz",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_elevation_loss": {
-        "name": "Last workout elevation loss"
+        "name": "Letztes Training elevation loss",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_training_load": {
-        "name": "Last workout training load"
+        "name": "Letztes Training Trainingsbelastung",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_aerobic_effect": {
-        "name": "Last workout aerobic training effect"
+        "name": "Letztes Training aerobe training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_anaerobic_effect": {
-        "name": "Last workout anaerobic training effect"
+        "name": "Letztes Training anaerobe training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_training_effect": {
-        "name": "Last workout training effect"
+        "name": "Letztes Training training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_vo2max": {
-        "name": "Last workout VO₂max"
+        "name": "Letztes Training VO₂max",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_relative_effort": {
-        "name": "Last workout relative effort"
+        "name": "Letztes Training relative effort",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_kilojoules": {
-        "name": "Last workout energy"
+        "name": "Letztes Training energy",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_total_reps": {
-        "name": "Last workout total reps"
+        "name": "Letztes Training total reps",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_exercise_count": {
-        "name": "Last workout exercise count"
+        "name": "Letztes Training exercise count",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_volume": {
-        "name": "Last workout training volume"
+        "name": "Letztes Training training volume",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_device": {
-        "name": "Last workout device"
+        "name": "Letztes Training device",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_gear": {
-        "name": "Last workout gear"
+        "name": "Letztes Training gear",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_sources": {
-        "name": "Last workout data sources"
+        "name": "Letztes Training data Quellen",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "live_average_heart_rate": {
-        "name": "Live average heart rate"
+        "name": "Live average Herzfrequenz",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "live_maximum_heart_rate": {
-        "name": "Live maximum heart rate"
+        "name": "Live maximum Herzfrequenz",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "live_average_power": {
-        "name": "Live average power"
+        "name": "Live average Leistung",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "live_maximum_power": {
-        "name": "Live maximum power"
+        "name": "Live maximum Leistung",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "live_average_cadence": {
-        "name": "Live average cadence"
+        "name": "Live average Kadenz",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "live_average_speed": {
-        "name": "Live average speed"
+        "name": "Live average Geschwindigkeit",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "live_banister_trimp": {
-        "name": "Live Banister TRIMP"
+        "name": "Live Banister TRIMP",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "live_mechanical_work": {
-        "name": "Live mechanical work"
+        "name": "Live mechanische Arbeit",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "live_aerobic_efficiency": {
-        "name": "Live aerobic efficiency"
+        "name": "Live aerobe Effizienz",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "live_aerobic_decoupling": {
-        "name": "Live aerobic decoupling"
+        "name": "Live aerobe Entkopplung",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "live_time_moderate": {
-        "name": "Time at moderate intensity"
+        "name": "Zeit bei moderater Intensität",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "live_time_vigorous": {
-        "name": "Time at vigorous intensity"
+        "name": "Zeit bei hoher Intensität",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "live_time_near_maximal": {
-        "name": "Time at near-maximal intensity"
+        "name": "Zeit bei nahezu maximaler Intensität",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Quellentität"
+          },
+          "source_device_name": {
+            "name": "Quellgerät"
+          },
+          "source_integration": {
+            "name": "Quellintegration"
+          },
+          "calculated_by_fitness": {
+            "name": "Von Fitness berechnet"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "last_workout_banister_trimp": {
-        "name": "Last workout Banister TRIMP"
+        "name": "Letztes Training Banister TRIMP",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_trimp_per_hour": {
-        "name": "Last workout TRIMP per hour"
+        "name": "Letztes Training TRIMP per hour",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_mechanical_work": {
-        "name": "Last workout mechanical work"
+        "name": "Letztes Training mechanische Arbeit",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_aerobic_efficiency": {
-        "name": "Last workout aerobic efficiency"
+        "name": "Letztes Training aerobe Effizienz",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_aerobic_decoupling": {
-        "name": "Last workout aerobic decoupling"
+        "name": "Letztes Training aerobe Entkopplung",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_hrr_10s": {
-        "name": "Last workout heart-rate recovery 10 s"
+        "name": "Letztes Training Herzfrequenz-Erholung 10 s",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_hrr_30s": {
-        "name": "Last workout heart-rate recovery 30 s"
+        "name": "Letztes Training Herzfrequenz-Erholung 30 s",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_hrr_60s": {
-        "name": "Last workout heart-rate recovery 60 s"
+        "name": "Letztes Training Herzfrequenz-Erholung 60 s",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_hrr_120s": {
-        "name": "Last workout heart-rate recovery 120 s"
+        "name": "Letztes Training Herzfrequenz-Erholung 120 s",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_time_moderate": {
-        "name": "Last workout moderate-intensity time"
+        "name": "Letztes Training moderate-intensity time",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_time_vigorous": {
-        "name": "Last workout vigorous-intensity time"
+        "name": "Letztes Training vigorous-intensity time",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_time_near_maximal": {
-        "name": "Last workout near-maximal time"
+        "name": "Letztes Training near-maximal time",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "training_load_7d": {
-        "name": "Banister training load 7 days"
+        "name": "Banister Trainingsbelastung 7 Tage"
       },
       "training_load_28d": {
-        "name": "Banister training load 28 days"
+        "name": "Banister Trainingsbelastung 28 Tage"
       },
       "training_load_42d": {
-        "name": "Banister training load 42 days"
+        "name": "Banister Trainingsbelastung 42 Tage"
       },
       "training_days_28d": {
-        "name": "Active training days 28 days"
+        "name": "Aktive Trainingstage 28 Tage"
       },
       "hrr_60s_long_term": {
-        "name": "90-day mean heart-rate recovery 60 s"
+        "name": "90-Tag mean Herzfrequenz-Erholung 60 s"
       },
       "aerobic_decoupling_long_term": {
-        "name": "90-day mean aerobic decoupling"
+        "name": "90-Tag mean aerobe Entkopplung"
       },
       "aerobic_efficiency_long_term": {
-        "name": "90-day mean aerobic efficiency"
+        "name": "90-Tag mean aerobe Effizienz"
       },
       "last_workout_comparable_count": {
-        "name": "Comparable prior workouts"
+        "name": "Vergleichbare frühere Trainings",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_efficiency_vs_baseline": {
-        "name": "Aerobic efficiency vs personal baseline"
+        "name": "Aerobe Effizienz vs persönlicher Basiswert",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_decoupling_vs_baseline": {
-        "name": "Aerobic decoupling vs personal baseline"
+        "name": "Aerobe Entkopplung vs persönlicher Basiswert",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_hr_vs_baseline": {
-        "name": "Average heart rate vs personal baseline"
+        "name": "Durchschnittliche Herzfrequenz vs persönlicher Basiswert",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_power_vs_baseline": {
-        "name": "Average power vs personal baseline"
+        "name": "Durchschnittliche Leistung vs persönlicher Basiswert",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_speed_vs_baseline": {
-        "name": "Average speed vs personal baseline"
+        "name": "Durchschnittliche Geschwindigkeit vs persönlicher Basiswert",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_trimp_vs_recent": {
-        "name": "TRIMP vs comparable recent workouts"
+        "name": "TRIMP vs comparable jüngsten Trainings",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_load_context": {
-        "name": "Workout load context"
+        "name": "Training load Kontext",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_workout_personal_context": {
-        "name": "Workout personal context"
+        "name": "Training personal Kontext",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "workout_start": {
+            "name": "Trainingsbeginn"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_sleep_source": {
-        "name": "Last sleep source"
+        "name": "Letzter Schlaf Quelle",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "sleep_start": {
+            "name": "Schlafbeginn"
+          },
+          "sleep_end": {
+            "name": "Schlafende"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_sleep_duration": {
-        "name": "Last sleep duration"
+        "name": "Letzter Schlaf Dauer",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "sleep_start": {
+            "name": "Schlafbeginn"
+          },
+          "sleep_end": {
+            "name": "Schlafende"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_sleep_score": {
-        "name": "Last sleep score"
+        "name": "Letzter Schlaf Bewertung",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "sleep_start": {
+            "name": "Schlafbeginn"
+          },
+          "sleep_end": {
+            "name": "Schlafende"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_sleep_efficiency": {
-        "name": "Last sleep efficiency"
+        "name": "Letzter Schlaf Effizienz",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "sleep_start": {
+            "name": "Schlafbeginn"
+          },
+          "sleep_end": {
+            "name": "Schlafende"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_sleep_time_in_bed": {
-        "name": "Last sleep time in bed"
+        "name": "Letzter Schlaf time in bed",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "sleep_start": {
+            "name": "Schlafbeginn"
+          },
+          "sleep_end": {
+            "name": "Schlafende"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_sleep_awake": {
-        "name": "Last sleep awake"
+        "name": "Letzter Schlaf Wachzeit",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "sleep_start": {
+            "name": "Schlafbeginn"
+          },
+          "sleep_end": {
+            "name": "Schlafende"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_sleep_light": {
-        "name": "Last light sleep"
+        "name": "Letzte Leichtschlaf",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "sleep_start": {
+            "name": "Schlafbeginn"
+          },
+          "sleep_end": {
+            "name": "Schlafende"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_sleep_deep": {
-        "name": "Last deep sleep"
+        "name": "Letzte Tiefschlaf",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "sleep_start": {
+            "name": "Schlafbeginn"
+          },
+          "sleep_end": {
+            "name": "Schlafende"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_sleep_rem": {
-        "name": "Last REM sleep"
+        "name": "Letzte REM-Schlaf",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "sleep_start": {
+            "name": "Schlafbeginn"
+          },
+          "sleep_end": {
+            "name": "Schlafende"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_sleep_hrv": {
-        "name": "Last sleep HRV"
+        "name": "Letzter Schlaf HRV",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "sleep_start": {
+            "name": "Schlafbeginn"
+          },
+          "sleep_end": {
+            "name": "Schlafende"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_sleep_average_hr": {
-        "name": "Last sleep average heart rate"
+        "name": "Letzter Schlaf average Herzfrequenz",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "sleep_start": {
+            "name": "Schlafbeginn"
+          },
+          "sleep_end": {
+            "name": "Schlafende"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_sleep_respiratory_rate": {
-        "name": "Last sleep respiratory rate"
+        "name": "Letzter Schlaf Atemfrequenz",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "sleep_start": {
+            "name": "Schlafbeginn"
+          },
+          "sleep_end": {
+            "name": "Schlafende"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_sleep_spo2": {
-        "name": "Last sleep SpO₂"
+        "name": "Letzter Schlaf SpO₂",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "sleep_start": {
+            "name": "Schlafbeginn"
+          },
+          "sleep_end": {
+            "name": "Schlafende"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_sleep_recovery_score": {
-        "name": "Last recovery score"
+        "name": "Letzte Erholungswert",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "sleep_start": {
+            "name": "Schlafbeginn"
+          },
+          "sleep_end": {
+            "name": "Schlafende"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "last_sleep_readiness_score": {
-        "name": "Last readiness score"
+        "name": "Letzte Bereitschaftswert",
+        "state_attributes": {
+          "sources": {
+            "name": "Datenquellen"
+          },
+          "sleep_start": {
+            "name": "Schlafbeginn"
+          },
+          "sleep_end": {
+            "name": "Schlafende"
+          },
+          "field_source": {
+            "name": "Feldquelle"
+          }
+        }
       },
       "training_load_change_7_vs_28": {
-        "name": "7-day training load vs 28-day baseline"
+        "name": "7-Tag Trainingsbelastung vs 28-Tag Basiswert"
       },
       "hrr_60s_vs_90d": {
-        "name": "Latest 60 s heart-rate recovery vs 90-day baseline"
+        "name": "Latest 60 s Herzfrequenz-Erholung vs 90-Tag Basiswert"
       },
       "sleep_duration_7d_mean": {
-        "name": "Mean sleep duration (7 days)"
+        "name": "Mittelwert Schlaf Dauer (7 Tage)"
       },
       "sleep_duration_28d_mean": {
-        "name": "Mean sleep duration (28 days)"
+        "name": "Mittelwert Schlaf Dauer (28 Tage)"
       },
       "sleep_duration_vs_28d": {
-        "name": "Last sleep duration vs 28-day baseline"
+        "name": "Letzter Schlaf Dauer vs 28-Tag Basiswert"
       },
       "sleep_duration_shortfall": {
-        "name": "Sleep duration shortfall vs 7 h adult minimum"
+        "name": "Schlaf Dauer shortfall vs 7 h adult minimum"
       },
       "sleep_midpoint_variability_14d": {
-        "name": "Sleep midpoint variability (14 days)"
+        "name": "Schlaf midpoint variability (14 Tage)"
       },
       "sleep_hrv_7d_mean": {
-        "name": "Mean sleep HRV (7 days)"
+        "name": "Mittelwert Schlaf HRV (7 Tage)"
       },
       "sleep_hrv_28d_mean": {
-        "name": "Mean sleep HRV (28 days)"
+        "name": "Mittelwert Schlaf HRV (28 Tage)"
       },
       "sleep_hrv_vs_28d": {
-        "name": "Last sleep HRV vs 28-day baseline"
+        "name": "Letzter Schlaf HRV vs 28-Tag Basiswert"
       },
       "resting_hr_7d_mean": {
-        "name": "Mean resting heart rate (7 days)"
+        "name": "Mittelwert Ruheherzfrequenz (7 Tage)"
       },
       "resting_hr_28d_mean": {
-        "name": "Mean resting heart rate (28 days)"
+        "name": "Mittelwert Ruheherzfrequenz (28 Tage)"
       },
       "resting_hr_vs_28d": {
-        "name": "Resting heart rate vs 28-day baseline"
+        "name": "Ruheherzfrequenz vs 28-Tag Basiswert"
       },
       "vo2max_28d_mean": {
-        "name": "Mean VO₂max (28 days)"
+        "name": "Mittelwert VO₂max (28 Tage)"
       },
       "vo2max_trend_14_vs_previous_14": {
-        "name": "VO₂max trend: last 14 vs previous 14 days"
+        "name": "VO₂max-Trend: letzte 14 gegenüber vorherigen 14 Tagen"
       },
       "sleep_consistency": {
-        "name": "Sleep consistency"
+        "name": "Schlafkonsistenz",
+        "state_attributes": {
+          "samples_7d": {
+            "name": "Messwerte (7 Tage)"
+          },
+          "samples_28d": {
+            "name": "Messwerte (28 Tage)"
+          },
+          "average_duration_7d_min": {
+            "name": "Mittelwert Schlaf Dauer (7 Tage)"
+          },
+          "average_duration_28d_min": {
+            "name": "Mittelwert Schlaf Dauer (28 Tage)"
+          },
+          "duration_variability_28d_min": {
+            "name": "Variabilität der Schlafdauer (28 Tage)"
+          },
+          "bedtime_variability_28d_min": {
+            "name": "Variabilität der Schlafenszeit (28 Tage)"
+          },
+          "wake_time_variability_28d_min": {
+            "name": "Variabilität der Aufwachzeit (28 Tage)"
+          },
+          "midpoint_variability_28d_min": {
+            "name": "Variabilität der Schlafmitte (28 Tage)"
+          },
+          "nights_below_7h_7d": {
+            "name": "Nächte unter 7 h (7 Tage)"
+          },
+          "nights_below_7h_28d": {
+            "name": "Nächte unter 7 h (28 Tage)"
+          },
+          "nights_below_7h_28d_percent": {
+            "name": "Nächte unter 7 h (28 Tage, %)"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "sleep_deficit_7d": {
-        "name": "Sleep deficit – 7 days"
+        "name": "Schlafdefizit – 7 Tage",
+        "state_attributes": {
+          "nights_observed": {
+            "name": "Beobachtete Nächte"
+          },
+          "nights_below_7h": {
+            "name": "Nächte unter 7 h"
+          },
+          "reference_minimum_hours": {
+            "name": "Referenzminimum"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "autonomic_recovery_trend": {
-        "name": "Autonomic recovery trend"
+        "name": "Trend der autonomen Erholung",
+        "state_attributes": {
+          "sleep_hrv_7d_mean_ms": {
+            "name": "Mittelwert Schlaf HRV (7 Tage)"
+          },
+          "sleep_hrv_28d_mean_ms": {
+            "name": "Mittelwert Schlaf HRV (28 Tage)"
+          },
+          "sleep_hrv_vs_28d_percent": {
+            "name": "Latest Schlaf HRV vs 28-Tag Basiswert"
+          },
+          "resting_hr_current_bpm": {
+            "name": "Aktuell Ruheherzfrequenz"
+          },
+          "resting_hr_7d_mean_bpm": {
+            "name": "Mittelwert Ruheherzfrequenz (7 Tage)"
+          },
+          "resting_hr_28d_mean_bpm": {
+            "name": "Mittelwert Ruheherzfrequenz (28 Tage)"
+          },
+          "resting_hr_vs_28d_bpm": {
+            "name": "Ruheherzfrequenz vs 28-Tag Basiswert"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "cardiorespiratory_fitness_trend": {
-        "name": "Cardiorespiratory fitness trend"
+        "name": "Trend der kardiorespiratorischen Fitness",
+        "state_attributes": {
+          "current_vo2max_ml_kg_min": {
+            "name": "Aktuell VO₂max"
+          },
+          "vo2max_28d_mean_ml_kg_min": {
+            "name": "Mittelwert VO₂max (28 Tage)"
+          },
+          "vo2max_90d_mean_ml_kg_min": {
+            "name": "Mittelwert VO₂max (90 Tage)"
+          },
+          "short_term_change_percent": {
+            "name": "Kurzfristige Änderung"
+          },
+          "slope_percent_per_30d": {
+            "name": "Trend pro 30 Tage"
+          },
+          "percent_predicted": {
+            "name": "Prozent des Sollwerts"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "training_load": {
-        "name": "Training load"
+        "name": "Trainingsbelastung",
+        "state_attributes": {
+          "trimp_7d": {
+            "name": "TRIMP (7 Tage)"
+          },
+          "trimp_28d": {
+            "name": "TRIMP (28 Tage)"
+          },
+          "trimp_28d_weekly_equivalent": {
+            "name": "TRIMP 28-Tag wöchentliches Äquivalent"
+          },
+          "workouts_7d": {
+            "name": "Trainings (7 Tage)"
+          },
+          "workouts_28d": {
+            "name": "Trainings (28 Tage)"
+          },
+          "active_days_7d": {
+            "name": "Aktive Trainingstage (7 Tage)"
+          },
+          "active_days_28d": {
+            "name": "Aktive Trainingstage (28 Tage)"
+          },
+          "training_duration_7d_min": {
+            "name": "Trainingsdauer (7 Tage)"
+          },
+          "training_duration_28d_min": {
+            "name": "Trainingsdauer (28 Tage)"
+          },
+          "distance_7d_km": {
+            "name": "Distanz (7 Tage)"
+          },
+          "distance_28d_km": {
+            "name": "Distanz (28 Tage)"
+          },
+          "last_recovery_interval_h": {
+            "name": "Letzte recovery interval"
+          },
+          "median_recovery_interval_28d_h": {
+            "name": "Medianes Erholungsintervall (28 Tage)"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "heart_rate_recovery": {
-        "name": "Heart-rate recovery"
+        "name": "Herzfrequenz-Erholung",
+        "state_attributes": {
+          "hrr_30s_bpm": {
+            "name": "Herzfrequenz-Erholung (30 s)"
+          },
+          "hrr_60s_bpm": {
+            "name": "Herzfrequenz-Erholung (60 s)"
+          },
+          "hrr_120s_bpm": {
+            "name": "Herzfrequenz-Erholung (120 s)"
+          },
+          "personal_90d_baseline_bpm": {
+            "name": "Persönlicher 90-Tage-Basiswert"
+          },
+          "latest_vs_baseline_bpm": {
+            "name": "Aktuell gegenüber persönlicher Basiswert"
+          },
+          "samples_90d": {
+            "name": "Messwerte (90 Tage)"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       },
       "training_recovery_relationship": {
-        "name": "Training–recovery relationship"
+        "name": "Zusammenhang Training–Erholung",
+        "state_attributes": {
+          "primary_correlation": {
+            "name": "Primäre Korrelation"
+          },
+          "primary_measure": {
+            "name": "Primäres Erholungsmaß"
+          },
+          "trimp_vs_next_sleep_duration_r": {
+            "name": "TRIMP vs next-Schlaf Dauer (r)"
+          },
+          "trimp_vs_next_sleep_hrv_r": {
+            "name": "TRIMP vs next-Schlaf HRV (r)"
+          },
+          "sleep_duration_pairs": {
+            "name": "Training–Schlaf Dauer pairs"
+          },
+          "sleep_hrv_pairs": {
+            "name": "Training–Schlaf HRV pairs"
+          },
+          "window_days": {
+            "name": "Analysefenster"
+          },
+          "causal_interpretation": {
+            "name": "Kausale Interpretation"
+          },
+          "scientific_basis": {
+            "name": "Wissenschaftliche Grundlage"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "data_used": {
+            "name": "Verwendete Daten"
+          },
+          "what_it_means": {
+            "name": "Was das bedeutet"
+          },
+          "why_useful": {
+            "name": "Warum das nützlich ist"
+          }
+        }
       }
     },
     "button": {
       "start_workout": {
-        "name": "Training starten"
+        "name": "Start Training"
       },
       "stop_workout": {
-        "name": "Training stoppen"
+        "name": "Stop Training"
       },
       "regenerate_ai_evaluation": {
         "name": "KI-Auswertung neu erstellen"
@@ -718,7 +2541,7 @@
     },
     "select": {
       "workout_room": {
-        "name": "Trainingsraum"
+        "name": "Training room"
       }
     }
   },

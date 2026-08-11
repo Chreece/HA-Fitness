@@ -252,58 +252,274 @@
   "entity": {
     "sensor": {
       "session_status": {
-        "name": "Κατάσταση συνεδρίας"
+        "name": "Κατάσταση συνεδρίας",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          }
+        }
       },
       "session_duration": {
-        "name": "Διάρκεια συνεδρίας"
+        "name": "Διάρκεια συνεδρίας",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "current_heart_rate": {
-        "name": "Τρέχοντες καρδιακοί παλμοί"
+        "name": "Τρέχοντες καρδιακοί παλμοί",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          }
+        }
       },
       "current_power": {
-        "name": "Τρέχουσα ισχύς"
+        "name": "Τρέχουσα ισχύς",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          }
+        }
       },
       "current_cadence": {
-        "name": "Τρέχουσα συχνότητα βημάτων"
+        "name": "Τρέχουσα συχνότητα βημάτων",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          }
+        }
       },
       "current_speed": {
-        "name": "Τρέχουσα ταχύτητα"
+        "name": "Τρέχουσα ταχύτητα",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          }
+        }
       },
       "current_distance": {
-        "name": "Τρέχουσα απόσταση"
+        "name": "Τρέχουσα απόσταση",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          }
+        }
       },
       "current_altitude": {
-        "name": "Τρέχον υψόμετρο"
+        "name": "Τρέχον υψόμετρο",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          }
+        }
       },
       "last_workout": {
-        "name": "Τελευταία προπόνηση"
+        "name": "Τελευταία προπόνηση",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_source": {
-        "name": "Πηγή τελευταίας προπόνησης"
+        "name": "Πηγή τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_duration": {
-        "name": "Διάρκεια τελευταίας προπόνησης"
+        "name": "Διάρκεια τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_distance": {
-        "name": "Απόσταση τελευταίας προπόνησης"
+        "name": "Απόσταση τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_avg_hr": {
-        "name": "Μέσοι παλμοί τελευταίας προπόνησης"
+        "name": "Μέσοι παλμοί τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_max_hr": {
-        "name": "Μέγιστοι παλμοί τελευταίας προπόνησης"
+        "name": "Μέγιστοι παλμοί τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_avg_power": {
-        "name": "Μέση ισχύς τελευταίας προπόνησης"
+        "name": "Μέση ισχύς τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_max_power": {
-        "name": "Μέγιστη ισχύς τελευταίας προπόνησης"
+        "name": "Μέγιστη ισχύς τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_avg_cadence": {
-        "name": "Μέση συχνότητα βημάτων τελευταίας προπόνησης"
+        "name": "Μέση συχνότητα βημάτων τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_elevation_gain": {
-        "name": "Υψομετρική άνοδος τελευταίας προπόνησης"
+        "name": "Υψομετρική άνοδος τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "age": {
         "name": "Ηλικία"
@@ -327,7 +543,24 @@
         "name": "Αναμενόμενο VO₂max βάσει FRIEND"
       },
       "vo2max_percent_predicted": {
-        "name": "VO₂max ως % της προβλεπόμενης τιμής αναφοράς"
+        "name": "VO₂max ως % της προβλεπόμενης τιμής αναφοράς",
+        "state_attributes": {
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "cardiorespiratory_status": {
         "name": "Καρδιοαναπνευστική ικανότητα"
@@ -378,172 +611,1172 @@
         "name": "Κατάσταση προπόνησης από τον πάροχο"
       },
       "ai_general_evaluation": {
-        "name": "Συνολική αξιολόγηση AI"
+        "name": "Συνολική αξιολόγηση AI",
+        "state_attributes": {
+          "text": {
+            "name": "Κείμενο αξιολόγησης"
+          },
+          "generated_at": {
+            "name": "Δημιουργήθηκε στις"
+          },
+          "ai_entity": {
+            "name": "Πάροχος AI"
+          },
+          "role": {
+            "name": "Ρόλος"
+          }
+        }
       },
       "ai_workout_evaluation": {
-        "name": "Αξιολόγηση προπόνησης με AI"
+        "name": "Αξιολόγηση τελευταίας προπόνησης με AI",
+        "state_attributes": {
+          "text": {
+            "name": "Κείμενο αξιολόγησης"
+          },
+          "generated_at": {
+            "name": "Δημιουργήθηκε στις"
+          },
+          "ai_entity": {
+            "name": "Πάροχος AI"
+          },
+          "role": {
+            "name": "Ρόλος"
+          }
+        }
       },
       "heart_rate_percent_max": {
-        "name": "Καρδιακοί παλμοί ως % του μέγιστου"
+        "name": "Καρδιακοί παλμοί ως % του μέγιστου",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "heart_rate_reserve_percent": {
-        "name": "Ποσοστό αποθέματος καρδιακής συχνότητας"
+        "name": "Ποσοστό αποθέματος καρδιακής συχνότητας",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "heart_rate_intensity": {
-        "name": "Ένταση βάσει καρδιακής συχνότητας"
+        "name": "Ένταση βάσει καρδιακής συχνότητας",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "heart_rate_relative_threshold": {
-        "name": "Καρδιακοί παλμοί σε σχέση με το κατώφλι"
+        "name": "Καρδιακοί παλμοί σε σχέση με το κατώφλι",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "current_power_to_weight": {
-        "name": "Τρέχουσα ισχύς ανά κιλό"
+        "name": "Τρέχουσα ισχύς ανά κιλό",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "power_relative_threshold": {
-        "name": "Ισχύς σε σχέση με το κατώφλι"
+        "name": "Ισχύς σε σχέση με το κατώφλι",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "current_pace": {
-        "name": "Τρέχων ρυθμός"
+        "name": "Τρέχων ρυθμός",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "speed_relative_threshold": {
-        "name": "Ταχύτητα σε σχέση με το κατώφλι"
+        "name": "Ταχύτητα σε σχέση με το κατώφλι",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "last_workout_calories": {
-        "name": "Θερμίδες τελευταίας προπόνησης"
+        "name": "Θερμίδες τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_moving_time": {
-        "name": "Χρόνος κίνησης τελευταίας προπόνησης"
+        "name": "Χρόνος κίνησης τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_elapsed_time": {
-        "name": "Συνολικός χρόνος τελευταίας προπόνησης"
+        "name": "Συνολικός χρόνος τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_average_speed": {
-        "name": "Μέση ταχύτητα τελευταίας προπόνησης"
+        "name": "Μέση ταχύτητα τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_max_speed": {
-        "name": "Μέγιστη ταχύτητα τελευταίας προπόνησης"
+        "name": "Μέγιστη ταχύτητα τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_weighted_power": {
-        "name": "Σταθμισμένη / κανονικοποιημένη ισχύς"
+        "name": "Σταθμισμένη / κανονικοποιημένη ισχύς",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_max_cadence": {
-        "name": "Μέγιστη συχνότητα τελευταίας προπόνησης"
+        "name": "Μέγιστη συχνότητα τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_elevation_loss": {
-        "name": "Υψομετρική κάθοδος τελευταίας προπόνησης"
+        "name": "Υψομετρική κάθοδος τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_training_load": {
-        "name": "Προπονητικό φορτίο τελευταίας προπόνησης"
+        "name": "Προπονητικό φορτίο τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_aerobic_effect": {
-        "name": "Αερόβια επίδραση τελευταίας προπόνησης"
+        "name": "Αερόβια επίδραση τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_anaerobic_effect": {
-        "name": "Αναερόβια επίδραση τελευταίας προπόνησης"
+        "name": "Αναερόβια επίδραση τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_training_effect": {
-        "name": "Επίδραση τελευταίας προπόνησης"
+        "name": "Επίδραση τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_vo2max": {
-        "name": "VO₂max τελευταίας προπόνησης"
+        "name": "VO₂max τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_relative_effort": {
-        "name": "Σχετική προσπάθεια τελευταίας προπόνησης"
+        "name": "Σχετική προσπάθεια τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_kilojoules": {
-        "name": "Ενέργεια τελευταίας προπόνησης"
+        "name": "Ενέργεια τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_total_reps": {
-        "name": "Συνολικές επαναλήψεις τελευταίας προπόνησης"
+        "name": "Συνολικές επαναλήψεις τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_exercise_count": {
-        "name": "Αριθμός ασκήσεων τελευταίας προπόνησης"
+        "name": "Αριθμός ασκήσεων τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_volume": {
-        "name": "Όγκος τελευταίας προπόνησης"
+        "name": "Όγκος τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_device": {
-        "name": "Συσκευή τελευταίας προπόνησης"
+        "name": "Συσκευή τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_gear": {
-        "name": "Εξοπλισμός τελευταίας προπόνησης"
+        "name": "Εξοπλισμός τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_sources": {
-        "name": "Πηγές δεδομένων τελευταίας προπόνησης"
+        "name": "Πηγές δεδομένων τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "live_average_heart_rate": {
-        "name": "Μέσος καρδιακός ρυθμός προπόνησης"
+        "name": "Μέσος καρδιακός ρυθμός προπόνησης",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "live_maximum_heart_rate": {
-        "name": "Μέγιστος καρδιακός ρυθμός προπόνησης"
+        "name": "Μέγιστος καρδιακός ρυθμός προπόνησης",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "live_average_power": {
-        "name": "Μέση ισχύς προπόνησης"
+        "name": "Μέση ισχύς προπόνησης",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "live_maximum_power": {
-        "name": "Μέγιστη ισχύς προπόνησης"
+        "name": "Μέγιστη ισχύς προπόνησης",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "live_average_cadence": {
-        "name": "Μέση συχνότητα προπόνησης"
+        "name": "Μέση συχνότητα προπόνησης",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "live_average_speed": {
-        "name": "Μέση ταχύτητα προπόνησης"
+        "name": "Μέση ταχύτητα προπόνησης",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "live_banister_trimp": {
-        "name": "Τρέχον Banister TRIMP"
+        "name": "Τρέχον Banister TRIMP",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "live_mechanical_work": {
-        "name": "Τρέχον μηχανικό έργο"
+        "name": "Τρέχον μηχανικό έργο",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "live_aerobic_efficiency": {
-        "name": "Τρέχουσα αερόβια αποδοτικότητα"
+        "name": "Τρέχουσα αερόβια αποδοτικότητα",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "live_aerobic_decoupling": {
-        "name": "Τρέχουσα αερόβια αποσύζευξη"
+        "name": "Τρέχουσα αερόβια αποσύζευξη",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "live_time_moderate": {
-        "name": "Χρόνος σε μέτρια ένταση"
+        "name": "Χρόνος σε μέτρια ένταση",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "live_time_vigorous": {
-        "name": "Χρόνος σε έντονη ένταση"
+        "name": "Χρόνος σε έντονη ένταση",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "live_time_near_maximal": {
-        "name": "Χρόνος σε σχεδόν μέγιστη ένταση"
+        "name": "Χρόνος σε σχεδόν μέγιστη ένταση",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Οντότητα πηγής"
+          },
+          "source_device_name": {
+            "name": "Συσκευή πηγής"
+          },
+          "source_integration": {
+            "name": "Ενσωμάτωση πηγής"
+          },
+          "calculated_by_fitness": {
+            "name": "Υπολογίζεται από το Fitness"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "last_workout_banister_trimp": {
-        "name": "Banister TRIMP τελευταίας προπόνησης"
+        "name": "Banister TRIMP τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_trimp_per_hour": {
-        "name": "TRIMP ανά ώρα τελευταίας προπόνησης"
+        "name": "TRIMP ανά ώρα τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_mechanical_work": {
-        "name": "Μηχανικό έργο τελευταίας προπόνησης"
+        "name": "Μηχανικό έργο τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_aerobic_efficiency": {
-        "name": "Αερόβια αποδοτικότητα τελευταίας προπόνησης"
+        "name": "Αερόβια αποδοτικότητα τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_aerobic_decoupling": {
-        "name": "Αερόβια αποσύζευξη τελευταίας προπόνησης"
+        "name": "Αερόβια αποσύζευξη τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_hrr_10s": {
-        "name": "Ανάκαμψη καρδιακού ρυθμού 10 δευτ."
+        "name": "Ανάκαμψη καρδιακού ρυθμού 10 δευτ.",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_hrr_30s": {
-        "name": "Ανάκαμψη καρδιακού ρυθμού 30 δευτ."
+        "name": "Ανάκαμψη καρδιακού ρυθμού 30 δευτ.",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_hrr_60s": {
-        "name": "Ανάκαμψη καρδιακού ρυθμού 60 δευτ."
+        "name": "Ανάκαμψη καρδιακού ρυθμού 60 δευτ.",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_hrr_120s": {
-        "name": "Ανάκαμψη καρδιακού ρυθμού 120 δευτ."
+        "name": "Ανάκαμψη καρδιακού ρυθμού 120 δευτ.",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_time_moderate": {
-        "name": "Χρόνος μέτριας έντασης τελευταίας προπόνησης"
+        "name": "Χρόνος μέτριας έντασης τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_time_vigorous": {
-        "name": "Χρόνος έντονης έντασης τελευταίας προπόνησης"
+        "name": "Χρόνος έντονης έντασης τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_time_near_maximal": {
-        "name": "Χρόνος σχεδόν μέγιστης έντασης"
+        "name": "Χρόνος σχεδόν μέγιστης έντασης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "training_load_7d": {
         "name": "Προπονητικό φορτίο 7 ημερών (TRIMP)"
@@ -567,76 +1800,385 @@
         "name": "Μέση αερόβια αποδοτικότητα 90 ημερών"
       },
       "last_workout_comparable_count": {
-        "name": "Συγκρίσιμες προηγούμενες προπονήσεις"
+        "name": "Συγκρίσιμες προηγούμενες προπονήσεις",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_efficiency_vs_baseline": {
-        "name": "Αερόβια αποδοτικότητα έναντι προσωπικής βάσης"
+        "name": "Αερόβια αποδοτικότητα έναντι προσωπικής βάσης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_decoupling_vs_baseline": {
-        "name": "Αερόβια αποσύζευξη έναντι προσωπικής βάσης"
+        "name": "Αερόβια αποσύζευξη έναντι προσωπικής βάσης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_hr_vs_baseline": {
-        "name": "Μέσος καρδιακός ρυθμός έναντι προσωπικής βάσης"
+        "name": "Μέσος καρδιακός ρυθμός έναντι προσωπικής βάσης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_power_vs_baseline": {
-        "name": "Μέση ισχύς έναντι προσωπικής βάσης"
+        "name": "Μέση ισχύς έναντι προσωπικής βάσης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_speed_vs_baseline": {
-        "name": "Μέση ταχύτητα έναντι προσωπικής βάσης"
+        "name": "Μέση ταχύτητα έναντι προσωπικής βάσης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_trimp_vs_recent": {
-        "name": "TRIMP έναντι παρόμοιων πρόσφατων προπονήσεων"
+        "name": "TRIMP έναντι παρόμοιων πρόσφατων προπονήσεων",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_load_context": {
-        "name": "Σχετικό φορτίο προπόνησης"
+        "name": "Σχετικό φορτίο προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_workout_personal_context": {
-        "name": "Προσωπικό πλαίσιο προπόνησης"
+        "name": "Προσωπικό πλαίσιο προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_sleep_source": {
-        "name": "Πηγή τελευταίου ύπνου"
+        "name": "Πηγή τελευταίου ύπνου",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "sleep_start": {
+            "name": "Έναρξη ύπνου"
+          },
+          "sleep_end": {
+            "name": "Λήξη ύπνου"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_sleep_duration": {
-        "name": "Διάρκεια τελευταίου ύπνου"
+        "name": "Διάρκεια τελευταίου ύπνου",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "sleep_start": {
+            "name": "Έναρξη ύπνου"
+          },
+          "sleep_end": {
+            "name": "Λήξη ύπνου"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_sleep_score": {
-        "name": "Βαθμολογία τελευταίου ύπνου"
+        "name": "Βαθμολογία τελευταίου ύπνου",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "sleep_start": {
+            "name": "Έναρξη ύπνου"
+          },
+          "sleep_end": {
+            "name": "Λήξη ύπνου"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_sleep_efficiency": {
-        "name": "Αποδοτικότητα τελευταίου ύπνου"
+        "name": "Αποδοτικότητα τελευταίου ύπνου",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "sleep_start": {
+            "name": "Έναρξη ύπνου"
+          },
+          "sleep_end": {
+            "name": "Λήξη ύπνου"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_sleep_time_in_bed": {
-        "name": "Χρόνος στο κρεβάτι τελευταίου ύπνου"
+        "name": "Χρόνος στο κρεβάτι τελευταίου ύπνου",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "sleep_start": {
+            "name": "Έναρξη ύπνου"
+          },
+          "sleep_end": {
+            "name": "Λήξη ύπνου"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_sleep_awake": {
-        "name": "Χρόνος αφύπνισης τελευταίου ύπνου"
+        "name": "Χρόνος αφύπνισης τελευταίου ύπνου",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "sleep_start": {
+            "name": "Έναρξη ύπνου"
+          },
+          "sleep_end": {
+            "name": "Λήξη ύπνου"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_sleep_light": {
-        "name": "Ελαφρύς ύπνος"
+        "name": "Ελαφρύς ύπνος",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "sleep_start": {
+            "name": "Έναρξη ύπνου"
+          },
+          "sleep_end": {
+            "name": "Λήξη ύπνου"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_sleep_deep": {
-        "name": "Βαθύς ύπνος"
+        "name": "Βαθύς ύπνος",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "sleep_start": {
+            "name": "Έναρξη ύπνου"
+          },
+          "sleep_end": {
+            "name": "Λήξη ύπνου"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_sleep_rem": {
-        "name": "Ύπνος REM"
+        "name": "Ύπνος REM",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "sleep_start": {
+            "name": "Έναρξη ύπνου"
+          },
+          "sleep_end": {
+            "name": "Λήξη ύπνου"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_sleep_hrv": {
-        "name": "HRV τελευταίου ύπνου"
+        "name": "HRV τελευταίου ύπνου",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "sleep_start": {
+            "name": "Έναρξη ύπνου"
+          },
+          "sleep_end": {
+            "name": "Λήξη ύπνου"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_sleep_average_hr": {
-        "name": "Μέσος καρδιακός ρυθμός ύπνου"
+        "name": "Μέσος καρδιακός ρυθμός ύπνου",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "sleep_start": {
+            "name": "Έναρξη ύπνου"
+          },
+          "sleep_end": {
+            "name": "Λήξη ύπνου"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_sleep_respiratory_rate": {
-        "name": "Μέσος ρυθμός αναπνοής ύπνου"
+        "name": "Μέσος ρυθμός αναπνοής ύπνου",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "sleep_start": {
+            "name": "Έναρξη ύπνου"
+          },
+          "sleep_end": {
+            "name": "Λήξη ύπνου"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_sleep_spo2": {
-        "name": "SpO₂ ύπνου"
+        "name": "SpO₂ ύπνου",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "sleep_start": {
+            "name": "Έναρξη ύπνου"
+          },
+          "sleep_end": {
+            "name": "Λήξη ύπνου"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_sleep_recovery_score": {
-        "name": "Βαθμολογία αποκατάστασης ύπνου"
+        "name": "Βαθμολογία αποκατάστασης ύπνου",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "sleep_start": {
+            "name": "Έναρξη ύπνου"
+          },
+          "sleep_end": {
+            "name": "Λήξη ύπνου"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "last_sleep_readiness_score": {
-        "name": "Βαθμολογία ετοιμότητας ύπνου"
+        "name": "Βαθμολογία ετοιμότητας ύπνου",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "sleep_start": {
+            "name": "Έναρξη ύπνου"
+          },
+          "sleep_end": {
+            "name": "Λήξη ύπνου"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       },
       "training_load_change_7_vs_28": {
         "name": "Φορτίο 7 ημερών έναντι βάσης 28 ημερών"
@@ -684,25 +2226,306 @@
         "name": "Τάση VO₂max: τελευταίες 14 έναντι προηγούμενων 14 ημερών"
       },
       "sleep_consistency": {
-        "name": "Συνέπεια ύπνου"
+        "name": "Συνέπεια ύπνου",
+        "state_attributes": {
+          "samples_7d": {
+            "name": "Δείγματα 7 ημερών"
+          },
+          "samples_28d": {
+            "name": "Δείγματα 28 ημερών"
+          },
+          "average_duration_7d_min": {
+            "name": "Μέση διάρκεια ύπνου 7 ημερών"
+          },
+          "average_duration_28d_min": {
+            "name": "Μέση διάρκεια ύπνου 28 ημερών"
+          },
+          "duration_variability_28d_min": {
+            "name": "Μεταβλητότητα διάρκειας ύπνου 28 ημερών"
+          },
+          "bedtime_variability_28d_min": {
+            "name": "Μεταβλητότητα ώρας κατάκλισης 28 ημερών"
+          },
+          "wake_time_variability_28d_min": {
+            "name": "Μεταβλητότητα ώρας αφύπνισης 28 ημερών"
+          },
+          "midpoint_variability_28d_min": {
+            "name": "Μεταβλητότητα μέσου σημείου ύπνου 28 ημερών"
+          },
+          "nights_below_7h_7d": {
+            "name": "Νύχτες κάτω από 7 ώρες (7 ημέρες)"
+          },
+          "nights_below_7h_28d": {
+            "name": "Νύχτες κάτω από 7 ώρες (28 ημέρες)"
+          },
+          "nights_below_7h_28d_percent": {
+            "name": "Νύχτες κάτω από 7 ώρες (28 ημέρες, %)"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "sleep_deficit_7d": {
-        "name": "Έλλειμμα ύπνου – 7 ημέρες"
+        "name": "Έλλειμμα ύπνου – 7 ημέρες",
+        "state_attributes": {
+          "nights_observed": {
+            "name": "Νύχτες που αναλύθηκαν"
+          },
+          "nights_below_7h": {
+            "name": "Νύχτες κάτω από 7 ώρες"
+          },
+          "reference_minimum_hours": {
+            "name": "Ελάχιστη τιμή αναφοράς"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "autonomic_recovery_trend": {
-        "name": "Τάση αυτόνομης αποκατάστασης"
+        "name": "Τάση αυτόνομης αποκατάστασης",
+        "state_attributes": {
+          "sleep_hrv_7d_mean_ms": {
+            "name": "Μέσο HRV ύπνου 7 ημερών"
+          },
+          "sleep_hrv_28d_mean_ms": {
+            "name": "Μέσο HRV ύπνου 28 ημερών"
+          },
+          "sleep_hrv_vs_28d_percent": {
+            "name": "Τελευταίο HRV ύπνου έναντι βάσης 28 ημερών"
+          },
+          "resting_hr_current_bpm": {
+            "name": "Τρέχοντες παλμοί ηρεμίας"
+          },
+          "resting_hr_7d_mean_bpm": {
+            "name": "Μέσοι παλμοί ηρεμίας 7 ημερών"
+          },
+          "resting_hr_28d_mean_bpm": {
+            "name": "Μέσοι παλμοί ηρεμίας 28 ημερών"
+          },
+          "resting_hr_vs_28d_bpm": {
+            "name": "Παλμοί ηρεμίας έναντι βάσης 28 ημερών"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "cardiorespiratory_fitness_trend": {
-        "name": "Τάση καρδιοαναπνευστικής ικανότητας"
+        "name": "Τάση καρδιοαναπνευστικής ικανότητας",
+        "state_attributes": {
+          "current_vo2max_ml_kg_min": {
+            "name": "Τρέχον VO₂max"
+          },
+          "vo2max_28d_mean_ml_kg_min": {
+            "name": "Μέσο VO₂max 28 ημερών"
+          },
+          "vo2max_90d_mean_ml_kg_min": {
+            "name": "Μέσο VO₂max 90 ημερών"
+          },
+          "short_term_change_percent": {
+            "name": "Βραχυπρόθεσμη μεταβολή"
+          },
+          "slope_percent_per_30d": {
+            "name": "Τάση ανά 30 ημέρες"
+          },
+          "percent_predicted": {
+            "name": "Ποσοστό της προβλεπόμενης τιμής"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "training_load": {
-        "name": "Προπονητικό φορτίο"
+        "name": "Προπονητικό φορτίο",
+        "state_attributes": {
+          "trimp_7d": {
+            "name": "TRIMP 7 ημερών"
+          },
+          "trimp_28d": {
+            "name": "TRIMP 28 ημερών"
+          },
+          "trimp_28d_weekly_equivalent": {
+            "name": "Εβδομαδιαίο ισοδύναμο TRIMP 28 ημερών"
+          },
+          "workouts_7d": {
+            "name": "Προπονήσεις 7 ημερών"
+          },
+          "workouts_28d": {
+            "name": "Προπονήσεις 28 ημερών"
+          },
+          "active_days_7d": {
+            "name": "Ενεργές ημέρες προπόνησης 7 ημερών"
+          },
+          "active_days_28d": {
+            "name": "Ενεργές ημέρες προπόνησης 28 ημερών"
+          },
+          "training_duration_7d_min": {
+            "name": "Διάρκεια προπόνησης 7 ημερών"
+          },
+          "training_duration_28d_min": {
+            "name": "Διάρκεια προπόνησης 28 ημερών"
+          },
+          "distance_7d_km": {
+            "name": "Απόσταση 7 ημερών"
+          },
+          "distance_28d_km": {
+            "name": "Απόσταση 28 ημερών"
+          },
+          "last_recovery_interval_h": {
+            "name": "Τελευταίο διάστημα αποκατάστασης"
+          },
+          "median_recovery_interval_28d_h": {
+            "name": "Διάμεσο διάστημα αποκατάστασης 28 ημερών"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "heart_rate_recovery": {
-        "name": "Ανάκαμψη καρδιακού ρυθμού"
+        "name": "Ανάκαμψη καρδιακού ρυθμού",
+        "state_attributes": {
+          "hrr_30s_bpm": {
+            "name": "Ανάκαμψη καρδιακού ρυθμού 30 δευτ."
+          },
+          "hrr_60s_bpm": {
+            "name": "Ανάκαμψη καρδιακού ρυθμού 60 δευτ."
+          },
+          "hrr_120s_bpm": {
+            "name": "Ανάκαμψη καρδιακού ρυθμού 120 δευτ."
+          },
+          "personal_90d_baseline_bpm": {
+            "name": "Προσωπική βάση 90 ημερών"
+          },
+          "latest_vs_baseline_bpm": {
+            "name": "Τελευταία τιμή έναντι προσωπικής βάσης"
+          },
+          "samples_90d": {
+            "name": "Δείγματα 90 ημερών"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       },
       "training_recovery_relationship": {
-        "name": "Σχέση προπόνησης–αποκατάστασης"
+        "name": "Σχέση προπόνησης–αποκατάστασης",
+        "state_attributes": {
+          "primary_correlation": {
+            "name": "Κύρια συσχέτιση"
+          },
+          "primary_measure": {
+            "name": "Κύρια μέτρηση αποκατάστασης"
+          },
+          "trimp_vs_next_sleep_duration_r": {
+            "name": "TRIMP έναντι διάρκειας επόμενου ύπνου (r)"
+          },
+          "trimp_vs_next_sleep_hrv_r": {
+            "name": "TRIMP έναντι HRV επόμενου ύπνου (r)"
+          },
+          "sleep_duration_pairs": {
+            "name": "Ζεύγη προπόνησης–διάρκειας ύπνου"
+          },
+          "sleep_hrv_pairs": {
+            "name": "Ζεύγη προπόνησης–HRV ύπνου"
+          },
+          "window_days": {
+            "name": "Παράθυρο ανάλυσης"
+          },
+          "causal_interpretation": {
+            "name": "Αιτιώδης ερμηνεία"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          }
+        }
       }
     },
     "button": {

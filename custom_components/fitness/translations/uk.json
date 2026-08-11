@@ -252,465 +252,2288 @@
   "entity": {
     "sensor": {
       "session_status": {
-        "name": "Session status"
+        "name": "Стан сесії",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          }
+        }
       },
       "session_duration": {
-        "name": "Session duration"
+        "name": "Тривалість сесії",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "current_heart_rate": {
-        "name": "Current heart rate"
+        "name": "Поточний частота пульсу",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          }
+        }
       },
       "current_power": {
-        "name": "Current power"
+        "name": "Поточний потужність",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          }
+        }
       },
       "current_cadence": {
-        "name": "Current cadence"
+        "name": "Поточний cadence",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          }
+        }
       },
       "current_speed": {
-        "name": "Current speed"
+        "name": "Поточний швидкість",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          }
+        }
       },
       "current_distance": {
-        "name": "Current distance"
+        "name": "Поточний distance",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          }
+        }
       },
       "current_altitude": {
-        "name": "Current altitude"
+        "name": "Поточний altitude",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          }
+        }
       },
       "last_workout": {
-        "name": "Last workout"
+        "name": "Останнє тренування",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_source": {
-        "name": "Last workout source"
+        "name": "Останнє тренування джерело",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_duration": {
-        "name": "Last workout duration"
+        "name": "Останнє тренування тривалість",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_distance": {
-        "name": "Last workout distance"
+        "name": "Останнє тренування distance",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_avg_hr": {
-        "name": "Last workout average heart rate"
+        "name": "Останнє тренування average частота пульсу",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_max_hr": {
-        "name": "Last workout maximum heart rate"
+        "name": "Останнє тренування maximum частота пульсу",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_avg_power": {
-        "name": "Last workout average power"
+        "name": "Останнє тренування average потужність",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_max_power": {
-        "name": "Last workout maximum power"
+        "name": "Останнє тренування maximum потужність",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_avg_cadence": {
-        "name": "Last workout average cadence"
+        "name": "Останнє тренування average cadence",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_elevation_gain": {
-        "name": "Last workout elevation gain"
+        "name": "Останнє тренування elevation gain",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "age": {
-        "name": "Age"
+        "name": "Вік"
       },
       "weight": {
-        "name": "Weight"
+        "name": "Вага"
       },
       "resting_hr": {
-        "name": "Resting heart rate"
+        "name": "Пульс у спокої"
       },
       "maximum_hr": {
-        "name": "Maximum heart rate"
+        "name": "Максимальний частота пульсу"
       },
       "heart_rate_reserve": {
-        "name": "Heart rate reserve"
+        "name": "Резерв ЧСС"
       },
       "vo2max": {
         "name": "VO₂max"
       },
       "friend_predicted_vo2max": {
-        "name": "FRIEND predicted VO₂max"
+        "name": "FRIEND прогнозований VO₂max"
       },
       "vo2max_percent_predicted": {
-        "name": "VO₂max percent predicted"
+        "name": "VO₂max percent прогнозований",
+        "state_attributes": {
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "cardiorespiratory_status": {
-        "name": "Cardiorespiratory fitness status"
+        "name": "Cardiorespiratory fitness стан"
       },
       "hrv_weekly": {
-        "name": "HRV weekly average"
+        "name": "HRV середнє за тиждень"
       },
       "hrv_last_night": {
-        "name": "HRV last night average"
+        "name": "HRV середнє за минулу ніч"
       },
       "hrv_status": {
-        "name": "HRV status"
+        "name": "HRV стан"
       },
       "threshold_hr": {
-        "name": "Threshold heart rate"
+        "name": "Threshold частота пульсу"
       },
       "threshold_pace": {
-        "name": "Threshold pace"
+        "name": "Threshold темп"
       },
       "threshold_power": {
-        "name": "Threshold power"
+        "name": "Threshold потужність"
       },
       "threshold_power_to_weight": {
-        "name": "Threshold power-to-weight"
+        "name": "Threshold потужність-to-weight"
       },
       "fitness_age": {
-        "name": "Fitness age"
+        "name": "Фітнес-вік"
       },
       "fitness_age_difference": {
-        "name": "Fitness age difference"
+        "name": "Фітнес-вік difference"
       },
       "training_readiness_context": {
-        "name": "Training readiness context"
+        "name": "Training readiness контекст"
       },
       "sleep_score_context": {
-        "name": "Sleep score context"
+        "name": "Сон оцінка контекст"
       },
       "acute_training_load": {
-        "name": "Acute training load"
+        "name": "Acute тренувальне навантаження"
       },
       "chronic_training_load": {
-        "name": "Chronic training load"
+        "name": "Chronic тренувальне навантаження"
       },
       "acute_chronic_ratio": {
-        "name": "Acute/chronic load ratio"
+        "name": "Співвідношення гострого/хронічного навантаження"
       },
       "provider_training_status": {
-        "name": "Provider training status"
+        "name": "Provider training стан"
       },
       "ai_general_evaluation": {
-        "name": "AI general evaluation"
+        "name": "Загальна оцінка ШІ",
+        "state_attributes": {
+          "text": {
+            "name": "Текст оцінки"
+          },
+          "generated_at": {
+            "name": "Створено"
+          },
+          "ai_entity": {
+            "name": "Постачальник ШІ"
+          },
+          "role": {
+            "name": "Роль"
+          }
+        }
       },
       "ai_workout_evaluation": {
-        "name": "AI workout evaluation"
+        "name": "ШІ-оцінка останнього тренування",
+        "state_attributes": {
+          "text": {
+            "name": "Текст оцінки"
+          },
+          "generated_at": {
+            "name": "Створено"
+          },
+          "ai_entity": {
+            "name": "Постачальник ШІ"
+          },
+          "role": {
+            "name": "Роль"
+          }
+        }
       },
       "heart_rate_percent_max": {
-        "name": "Пульс у % від максимуму"
+        "name": "Частота пульсу % of maximum",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "heart_rate_reserve_percent": {
-        "name": "Резерв пульсу %"
+        "name": "Резерв ЧСС %",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "heart_rate_intensity": {
-        "name": "Інтенсивність за пульсом"
+        "name": "Частота пульсу intensity",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "heart_rate_relative_threshold": {
-        "name": "Пульс відносно порогу"
+        "name": "Частота пульсу relative to поріг",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "current_power_to_weight": {
-        "name": "Поточна потужність на кг"
+        "name": "Поточний потужність-to-weight",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "power_relative_threshold": {
-        "name": "Потужність відносно порогу"
+        "name": "Потужність relative to поріг",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "current_pace": {
-        "name": "Поточний темп"
+        "name": "Поточний темп",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "speed_relative_threshold": {
-        "name": "Швидкість відносно порогу"
+        "name": "Швидкість relative to поріг",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "last_workout_calories": {
-        "name": "Last workout calories"
+        "name": "Калорії останнього тренування",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_moving_time": {
-        "name": "Last workout moving time"
+        "name": "Останнє тренування moving time",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_elapsed_time": {
-        "name": "Last workout elapsed time"
+        "name": "Останнє тренування elapsed time",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_average_speed": {
-        "name": "Last workout average speed"
+        "name": "Останнє тренування average швидкість",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_max_speed": {
-        "name": "Last workout maximum speed"
+        "name": "Останнє тренування maximum швидкість",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_weighted_power": {
-        "name": "Last workout weighted / normalized power"
+        "name": "Останнє тренування weighted / normalized потужність",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_max_cadence": {
-        "name": "Last workout maximum cadence"
+        "name": "Останнє тренування maximum cadence",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_elevation_loss": {
-        "name": "Last workout elevation loss"
+        "name": "Останнє тренування elevation loss",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_training_load": {
-        "name": "Last workout training load"
+        "name": "Останнє тренування тренувальне навантаження",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_aerobic_effect": {
-        "name": "Last workout aerobic training effect"
+        "name": "Останнє тренування аеробний training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_anaerobic_effect": {
-        "name": "Last workout anaerobic training effect"
+        "name": "Останнє тренування анаеробний training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_training_effect": {
-        "name": "Last workout training effect"
+        "name": "Останнє тренування training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_vo2max": {
-        "name": "Last workout VO₂max"
+        "name": "Останнє тренування VO₂max",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_relative_effort": {
-        "name": "Last workout relative effort"
+        "name": "Останнє тренування relative effort",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_kilojoules": {
-        "name": "Last workout energy"
+        "name": "Останнє тренування energy",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_total_reps": {
-        "name": "Last workout total reps"
+        "name": "Останнє тренування total reps",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_exercise_count": {
-        "name": "Last workout exercise count"
+        "name": "Останнє тренування exercise count",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_volume": {
-        "name": "Last workout training volume"
+        "name": "Останнє тренування training volume",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_device": {
-        "name": "Last workout device"
+        "name": "Останнє тренування device",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_gear": {
-        "name": "Last workout gear"
+        "name": "Останнє тренування gear",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_sources": {
-        "name": "Last workout data sources"
+        "name": "Останнє тренування data джерела",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "live_average_heart_rate": {
-        "name": "Live average heart rate"
+        "name": "Наживо average частота пульсу",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "live_maximum_heart_rate": {
-        "name": "Live maximum heart rate"
+        "name": "Наживо maximum частота пульсу",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "live_average_power": {
-        "name": "Live average power"
+        "name": "Наживо average потужність",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "live_maximum_power": {
-        "name": "Live maximum power"
+        "name": "Наживо maximum потужність",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "live_average_cadence": {
-        "name": "Live average cadence"
+        "name": "Наживо average cadence",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "live_average_speed": {
-        "name": "Live average speed"
+        "name": "Наживо average швидкість",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "live_banister_trimp": {
-        "name": "Live Banister TRIMP"
+        "name": "Наживо Banister TRIMP",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "live_mechanical_work": {
-        "name": "Live mechanical work"
+        "name": "Наживо mechanical work",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "live_aerobic_efficiency": {
-        "name": "Live aerobic efficiency"
+        "name": "Наживо аеробний ефективність",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "live_aerobic_decoupling": {
-        "name": "Live aerobic decoupling"
+        "name": "Наживо аеробний роз’єднання",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "live_time_moderate": {
-        "name": "Time at moderate intensity"
+        "name": "Час у помірній інтенсивності",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "live_time_vigorous": {
-        "name": "Time at vigorous intensity"
+        "name": "Час у високій інтенсивності",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "live_time_near_maximal": {
-        "name": "Time at near-maximal intensity"
+        "name": "Час у майже максимальній інтенсивності",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Вихідна сутність"
+          },
+          "source_device_name": {
+            "name": "Вихідний пристрій"
+          },
+          "source_integration": {
+            "name": "Вихідна інтеграція"
+          },
+          "calculated_by_fitness": {
+            "name": "Розраховано Fitness"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "last_workout_banister_trimp": {
-        "name": "Last workout Banister TRIMP"
+        "name": "Останнє тренування Banister TRIMP",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_trimp_per_hour": {
-        "name": "Last workout TRIMP per hour"
+        "name": "Останнє тренування TRIMP per hour",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_mechanical_work": {
-        "name": "Last workout mechanical work"
+        "name": "Останнє тренування mechanical work",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_aerobic_efficiency": {
-        "name": "Last workout aerobic efficiency"
+        "name": "Останнє тренування аеробний ефективність",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_aerobic_decoupling": {
-        "name": "Last workout aerobic decoupling"
+        "name": "Останнє тренування аеробний роз’єднання",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_hrr_10s": {
-        "name": "Last workout heart-rate recovery 10 s"
+        "name": "Останнє тренування відновлення ЧСС 10 s",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_hrr_30s": {
-        "name": "Last workout heart-rate recovery 30 s"
+        "name": "Останнє тренування відновлення ЧСС 30 s",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_hrr_60s": {
-        "name": "Last workout heart-rate recovery 60 s"
+        "name": "Останнє тренування відновлення ЧСС 60 s",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_hrr_120s": {
-        "name": "Last workout heart-rate recovery 120 s"
+        "name": "Останнє тренування відновлення ЧСС 120 s",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_time_moderate": {
-        "name": "Last workout moderate-intensity time"
+        "name": "Останнє тренування moderate-intensity time",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_time_vigorous": {
-        "name": "Last workout vigorous-intensity time"
+        "name": "Останнє тренування vigorous-intensity time",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_time_near_maximal": {
-        "name": "Last workout near-maximal time"
+        "name": "Останнє тренування near-maximal time",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "training_load_7d": {
-        "name": "Banister training load 7 days"
+        "name": "Banister тренувальне навантаження 7 днів"
       },
       "training_load_28d": {
-        "name": "Banister training load 28 days"
+        "name": "Banister тренувальне навантаження 28 днів"
       },
       "training_load_42d": {
-        "name": "Banister training load 42 days"
+        "name": "Banister тренувальне навантаження 42 днів"
       },
       "training_days_28d": {
-        "name": "Active training days 28 days"
+        "name": "Активні тренувальні дні 28 днів"
       },
       "hrr_60s_long_term": {
-        "name": "90-day mean heart-rate recovery 60 s"
+        "name": "90-день mean відновлення ЧСС 60 s"
       },
       "aerobic_decoupling_long_term": {
-        "name": "90-day mean aerobic decoupling"
+        "name": "90-день mean аеробний роз’єднання"
       },
       "aerobic_efficiency_long_term": {
-        "name": "90-day mean aerobic efficiency"
+        "name": "90-день mean аеробний ефективність"
       },
       "last_workout_comparable_count": {
-        "name": "Comparable prior workouts"
+        "name": "Порівнювані попередні тренування",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_efficiency_vs_baseline": {
-        "name": "Aerobic efficiency vs personal baseline"
+        "name": "Аеробний ефективність vs особистий базовий рівень",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_decoupling_vs_baseline": {
-        "name": "Aerobic decoupling vs personal baseline"
+        "name": "Аеробний роз’єднання vs особистий базовий рівень",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_hr_vs_baseline": {
-        "name": "Average heart rate vs personal baseline"
+        "name": "Середній частота пульсу vs особистий базовий рівень",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_power_vs_baseline": {
-        "name": "Average power vs personal baseline"
+        "name": "Середній потужність vs особистий базовий рівень",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_speed_vs_baseline": {
-        "name": "Average speed vs personal baseline"
+        "name": "Середній швидкість vs особистий базовий рівень",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_trimp_vs_recent": {
-        "name": "TRIMP vs comparable recent workouts"
+        "name": "TRIMP vs comparable недавні тренування",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_load_context": {
-        "name": "Workout load context"
+        "name": "Тренування load контекст",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_workout_personal_context": {
-        "name": "Workout personal context"
+        "name": "Тренування personal контекст",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_sleep_source": {
-        "name": "Last sleep source"
+        "name": "Останній сон джерело",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "sleep_start": {
+            "name": "Початок сну"
+          },
+          "sleep_end": {
+            "name": "Кінець сну"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_sleep_duration": {
-        "name": "Last sleep duration"
+        "name": "Останній сон тривалість",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "sleep_start": {
+            "name": "Початок сну"
+          },
+          "sleep_end": {
+            "name": "Кінець сну"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_sleep_score": {
-        "name": "Last sleep score"
+        "name": "Останній сон оцінка",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "sleep_start": {
+            "name": "Початок сну"
+          },
+          "sleep_end": {
+            "name": "Кінець сну"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_sleep_efficiency": {
-        "name": "Last sleep efficiency"
+        "name": "Останній сон ефективність",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "sleep_start": {
+            "name": "Початок сну"
+          },
+          "sleep_end": {
+            "name": "Кінець сну"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_sleep_time_in_bed": {
-        "name": "Last sleep time in bed"
+        "name": "Останній сон time in bed",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "sleep_start": {
+            "name": "Початок сну"
+          },
+          "sleep_end": {
+            "name": "Кінець сну"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_sleep_awake": {
-        "name": "Last sleep awake"
+        "name": "Останній сон неспання",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "sleep_start": {
+            "name": "Початок сну"
+          },
+          "sleep_end": {
+            "name": "Кінець сну"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_sleep_light": {
-        "name": "Last light sleep"
+        "name": "Останній легкий сон",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "sleep_start": {
+            "name": "Початок сну"
+          },
+          "sleep_end": {
+            "name": "Кінець сну"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_sleep_deep": {
-        "name": "Last deep sleep"
+        "name": "Останній глибокий сон",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "sleep_start": {
+            "name": "Початок сну"
+          },
+          "sleep_end": {
+            "name": "Кінець сну"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_sleep_rem": {
-        "name": "Last REM sleep"
+        "name": "Останній REM-сон",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "sleep_start": {
+            "name": "Початок сну"
+          },
+          "sleep_end": {
+            "name": "Кінець сну"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_sleep_hrv": {
-        "name": "Last sleep HRV"
+        "name": "Останній сон HRV",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "sleep_start": {
+            "name": "Початок сну"
+          },
+          "sleep_end": {
+            "name": "Кінець сну"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_sleep_average_hr": {
-        "name": "Last sleep average heart rate"
+        "name": "Останній сон average частота пульсу",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "sleep_start": {
+            "name": "Початок сну"
+          },
+          "sleep_end": {
+            "name": "Кінець сну"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_sleep_respiratory_rate": {
-        "name": "Last sleep respiratory rate"
+        "name": "Останній сон частота дихання",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "sleep_start": {
+            "name": "Початок сну"
+          },
+          "sleep_end": {
+            "name": "Кінець сну"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_sleep_spo2": {
-        "name": "Last sleep SpO₂"
+        "name": "Останній сон SpO₂",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "sleep_start": {
+            "name": "Початок сну"
+          },
+          "sleep_end": {
+            "name": "Кінець сну"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_sleep_recovery_score": {
-        "name": "Last recovery score"
+        "name": "Останній оцінка відновлення",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "sleep_start": {
+            "name": "Початок сну"
+          },
+          "sleep_end": {
+            "name": "Кінець сну"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "last_sleep_readiness_score": {
-        "name": "Last readiness score"
+        "name": "Останній оцінка готовності",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "sleep_start": {
+            "name": "Початок сну"
+          },
+          "sleep_end": {
+            "name": "Кінець сну"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       },
       "training_load_change_7_vs_28": {
-        "name": "7-day training load vs 28-day baseline"
+        "name": "7-день тренувальне навантаження vs 28-день базовий рівень"
       },
       "hrr_60s_vs_90d": {
-        "name": "Latest 60 s heart-rate recovery vs 90-day baseline"
+        "name": "Latest 60 s відновлення ЧСС vs 90-день базовий рівень"
       },
       "sleep_duration_7d_mean": {
-        "name": "Mean sleep duration (7 days)"
+        "name": "Середнє сон тривалість (7 днів)"
       },
       "sleep_duration_28d_mean": {
-        "name": "Mean sleep duration (28 days)"
+        "name": "Середнє сон тривалість (28 днів)"
       },
       "sleep_duration_vs_28d": {
-        "name": "Last sleep duration vs 28-day baseline"
+        "name": "Останній сон тривалість vs 28-день базовий рівень"
       },
       "sleep_duration_shortfall": {
-        "name": "Sleep duration shortfall vs 7 h adult minimum"
+        "name": "Сон тривалість shortfall vs 7 h adult minimum"
       },
       "sleep_midpoint_variability_14d": {
-        "name": "Sleep midpoint variability (14 days)"
+        "name": "Сон midpoint variability (14 днів)"
       },
       "sleep_hrv_7d_mean": {
-        "name": "Mean sleep HRV (7 days)"
+        "name": "Середнє сон HRV (7 днів)"
       },
       "sleep_hrv_28d_mean": {
-        "name": "Mean sleep HRV (28 days)"
+        "name": "Середнє сон HRV (28 днів)"
       },
       "sleep_hrv_vs_28d": {
-        "name": "Last sleep HRV vs 28-day baseline"
+        "name": "Останній сон HRV vs 28-день базовий рівень"
       },
       "resting_hr_7d_mean": {
-        "name": "Mean resting heart rate (7 days)"
+        "name": "Середнє пульс у спокої (7 днів)"
       },
       "resting_hr_28d_mean": {
-        "name": "Mean resting heart rate (28 days)"
+        "name": "Середнє пульс у спокої (28 днів)"
       },
       "resting_hr_vs_28d": {
-        "name": "Resting heart rate vs 28-day baseline"
+        "name": "Пульс у спокої vs 28-день базовий рівень"
       },
       "vo2max_28d_mean": {
-        "name": "Mean VO₂max (28 days)"
+        "name": "Середнє VO₂max (28 днів)"
       },
       "vo2max_trend_14_vs_previous_14": {
-        "name": "VO₂max trend: last 14 vs previous 14 days"
+        "name": "Тренд VO₂max: останні 14 проти попередніх 14 днів"
       },
       "sleep_consistency": {
-        "name": "Sleep consistency"
+        "name": "Регулярність сну",
+        "state_attributes": {
+          "samples_7d": {
+            "name": "Вимірювання (7 днів)"
+          },
+          "samples_28d": {
+            "name": "Вимірювання (28 днів)"
+          },
+          "average_duration_7d_min": {
+            "name": "Середнє сон тривалість (7 днів)"
+          },
+          "average_duration_28d_min": {
+            "name": "Середнє сон тривалість (28 днів)"
+          },
+          "duration_variability_28d_min": {
+            "name": "Варіабельність тривалості сну (28 днів)"
+          },
+          "bedtime_variability_28d_min": {
+            "name": "Варіабельність часу засинання (28 днів)"
+          },
+          "wake_time_variability_28d_min": {
+            "name": "Варіабельність часу пробудження (28 днів)"
+          },
+          "midpoint_variability_28d_min": {
+            "name": "Варіабельність середини сну (28 днів)"
+          },
+          "nights_below_7h_7d": {
+            "name": "Ночей менше 7 h (7 днів)"
+          },
+          "nights_below_7h_28d": {
+            "name": "Ночей менше 7 h (28 днів)"
+          },
+          "nights_below_7h_28d_percent": {
+            "name": "Ночей менше 7 h (28 днів, %)"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "sleep_deficit_7d": {
-        "name": "Sleep deficit – 7 days"
+        "name": "Дефіцит сну – 7 днів",
+        "state_attributes": {
+          "nights_observed": {
+            "name": "Спостережувані ночі"
+          },
+          "nights_below_7h": {
+            "name": "Ночей менше 7 h"
+          },
+          "reference_minimum_hours": {
+            "name": "Референсний мінімум"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "autonomic_recovery_trend": {
-        "name": "Autonomic recovery trend"
+        "name": "Тренд автономного відновлення",
+        "state_attributes": {
+          "sleep_hrv_7d_mean_ms": {
+            "name": "Середнє сон HRV (7 днів)"
+          },
+          "sleep_hrv_28d_mean_ms": {
+            "name": "Середнє сон HRV (28 днів)"
+          },
+          "sleep_hrv_vs_28d_percent": {
+            "name": "Latest сон HRV vs 28-день базовий рівень"
+          },
+          "resting_hr_current_bpm": {
+            "name": "Поточний пульс у спокої"
+          },
+          "resting_hr_7d_mean_bpm": {
+            "name": "Середнє пульс у спокої (7 днів)"
+          },
+          "resting_hr_28d_mean_bpm": {
+            "name": "Середнє пульс у спокої (28 днів)"
+          },
+          "resting_hr_vs_28d_bpm": {
+            "name": "Пульс у спокої vs 28-день базовий рівень"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "cardiorespiratory_fitness_trend": {
-        "name": "Cardiorespiratory fitness trend"
+        "name": "Тренд кардіореспіраторної форми",
+        "state_attributes": {
+          "current_vo2max_ml_kg_min": {
+            "name": "Поточний VO₂max"
+          },
+          "vo2max_28d_mean_ml_kg_min": {
+            "name": "Середнє VO₂max (28 днів)"
+          },
+          "vo2max_90d_mean_ml_kg_min": {
+            "name": "Середнє VO₂max (90 днів)"
+          },
+          "short_term_change_percent": {
+            "name": "Короткострокова зміна"
+          },
+          "slope_percent_per_30d": {
+            "name": "Тренд за 30 днів"
+          },
+          "percent_predicted": {
+            "name": "Відсоток від прогнозованого"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "training_load": {
-        "name": "Training load"
+        "name": "Тренувальне навантаження",
+        "state_attributes": {
+          "trimp_7d": {
+            "name": "TRIMP (7 днів)"
+          },
+          "trimp_28d": {
+            "name": "TRIMP (28 днів)"
+          },
+          "trimp_28d_weekly_equivalent": {
+            "name": "TRIMP 28-день тижневий еквівалент"
+          },
+          "workouts_7d": {
+            "name": "Тренування (7 днів)"
+          },
+          "workouts_28d": {
+            "name": "Тренування (28 днів)"
+          },
+          "active_days_7d": {
+            "name": "Активні тренувальні дні (7 днів)"
+          },
+          "active_days_28d": {
+            "name": "Активні тренувальні дні (28 днів)"
+          },
+          "training_duration_7d_min": {
+            "name": "Тривалість тренувань (7 днів)"
+          },
+          "training_duration_28d_min": {
+            "name": "Тривалість тренувань (28 днів)"
+          },
+          "distance_7d_km": {
+            "name": "Відстань (7 днів)"
+          },
+          "distance_28d_km": {
+            "name": "Відстань (28 днів)"
+          },
+          "last_recovery_interval_h": {
+            "name": "Останній recovery interval"
+          },
+          "median_recovery_interval_28d_h": {
+            "name": "Медіанний інтервал відновлення (28 днів)"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "heart_rate_recovery": {
-        "name": "Heart-rate recovery"
+        "name": "Відновлення ЧСС",
+        "state_attributes": {
+          "hrr_30s_bpm": {
+            "name": "Відновлення ЧСС (30 s)"
+          },
+          "hrr_60s_bpm": {
+            "name": "Відновлення ЧСС (60 s)"
+          },
+          "hrr_120s_bpm": {
+            "name": "Відновлення ЧСС (120 s)"
+          },
+          "personal_90d_baseline_bpm": {
+            "name": "Особистий базовий рівень за 90 днів"
+          },
+          "latest_vs_baseline_bpm": {
+            "name": "Останнє vs особистий базовий рівень"
+          },
+          "samples_90d": {
+            "name": "Вимірювання (90 днів)"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       },
       "training_recovery_relationship": {
-        "name": "Training–recovery relationship"
+        "name": "Зв’язок тренування–відновлення",
+        "state_attributes": {
+          "primary_correlation": {
+            "name": "Основна кореляція"
+          },
+          "primary_measure": {
+            "name": "Основний показник відновлення"
+          },
+          "trimp_vs_next_sleep_duration_r": {
+            "name": "TRIMP vs next-сон тривалість (r)"
+          },
+          "trimp_vs_next_sleep_hrv_r": {
+            "name": "TRIMP vs next-сон HRV (r)"
+          },
+          "sleep_duration_pairs": {
+            "name": "Тренування–сон тривалість pairs"
+          },
+          "sleep_hrv_pairs": {
+            "name": "Тренування–сон HRV pairs"
+          },
+          "window_days": {
+            "name": "Вікно аналізу"
+          },
+          "causal_interpretation": {
+            "name": "Причинна інтерпретація"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          }
+        }
       }
     },
     "button": {
       "start_workout": {
-        "name": "Почати тренування"
+        "name": "Start тренування"
       },
       "stop_workout": {
-        "name": "Зупинити тренування"
+        "name": "Stop тренування"
       },
       "regenerate_ai_evaluation": {
         "name": "Оновити оцінку ШІ"
@@ -718,7 +2541,7 @@
     },
     "select": {
       "workout_room": {
-        "name": "Кімната тренування"
+        "name": "Тренування room"
       }
     }
   },

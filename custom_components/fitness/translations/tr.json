@@ -252,473 +252,2296 @@
   "entity": {
     "sensor": {
       "session_status": {
-        "name": "Session status"
+        "name": "Oturum durumu",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          }
+        }
       },
       "session_duration": {
-        "name": "Session duration"
+        "name": "Oturum süresi",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "current_heart_rate": {
-        "name": "Current heart rate"
+        "name": "Mevcut kalp hızı",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          }
+        }
       },
       "current_power": {
-        "name": "Current power"
+        "name": "Mevcut güç",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          }
+        }
       },
       "current_cadence": {
-        "name": "Current cadence"
+        "name": "Mevcut cadence",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          }
+        }
       },
       "current_speed": {
-        "name": "Current speed"
+        "name": "Mevcut hız",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          }
+        }
       },
       "current_distance": {
-        "name": "Current distance"
+        "name": "Mevcut distance",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          }
+        }
       },
       "current_altitude": {
-        "name": "Current altitude"
+        "name": "Mevcut altitude",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          }
+        }
       },
       "last_workout": {
-        "name": "Last workout"
+        "name": "Son antrenman",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_source": {
-        "name": "Last workout source"
+        "name": "Son antrenman kaynak",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_duration": {
-        "name": "Last workout duration"
+        "name": "Son antrenman süre",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_distance": {
-        "name": "Last workout distance"
+        "name": "Son antrenman distance",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_avg_hr": {
-        "name": "Last workout average heart rate"
+        "name": "Son antrenman average kalp hızı",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_max_hr": {
-        "name": "Last workout maximum heart rate"
+        "name": "Son antrenman maximum kalp hızı",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_avg_power": {
-        "name": "Last workout average power"
+        "name": "Son antrenman average güç",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_max_power": {
-        "name": "Last workout maximum power"
+        "name": "Son antrenman maximum güç",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_avg_cadence": {
-        "name": "Last workout average cadence"
+        "name": "Son antrenman average cadence",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_elevation_gain": {
-        "name": "Last workout elevation gain"
+        "name": "Son antrenman elevation gain",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "age": {
-        "name": "Age"
+        "name": "Yaş"
       },
       "weight": {
-        "name": "Weight"
+        "name": "Ağırlık"
       },
       "resting_hr": {
-        "name": "Resting heart rate"
+        "name": "Dinlenik kalp hızı"
       },
       "maximum_hr": {
-        "name": "Maximum heart rate"
+        "name": "Maksimum kalp hızı"
       },
       "heart_rate_reserve": {
-        "name": "Heart rate reserve"
+        "name": "Kalp hızı rezervi"
       },
       "vo2max": {
         "name": "VO₂max"
       },
       "friend_predicted_vo2max": {
-        "name": "FRIEND predicted VO₂max"
+        "name": "FRIEND öngörülen VO₂max"
       },
       "vo2max_percent_predicted": {
-        "name": "VO₂max percent predicted"
+        "name": "VO₂max percent öngörülen",
+        "state_attributes": {
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "cardiorespiratory_status": {
-        "name": "Cardiorespiratory fitness status"
+        "name": "Cardiorespiratory fitness durum"
       },
       "hrv_weekly": {
-        "name": "HRV weekly average"
+        "name": "HRV haftalık ortalama"
       },
       "hrv_last_night": {
-        "name": "HRV last night average"
+        "name": "HRV son gece ortalaması"
       },
       "hrv_status": {
-        "name": "HRV status"
+        "name": "HRV durum"
       },
       "threshold_hr": {
-        "name": "Threshold heart rate"
+        "name": "Threshold kalp hızı"
       },
       "threshold_pace": {
-        "name": "Threshold pace"
+        "name": "Threshold tempo"
       },
       "threshold_power": {
-        "name": "Threshold power"
+        "name": "Threshold güç"
       },
       "threshold_power_to_weight": {
-        "name": "Threshold power-to-weight"
+        "name": "Threshold güç-to-weight"
       },
       "fitness_age": {
-        "name": "Fitness age"
+        "name": "Fitness yaşı"
       },
       "fitness_age_difference": {
-        "name": "Fitness age difference"
+        "name": "Fitness yaşı difference"
       },
       "training_readiness_context": {
-        "name": "Training readiness context"
+        "name": "Training readiness bağlam"
       },
       "sleep_score_context": {
-        "name": "Sleep score context"
+        "name": "Uyku puan bağlam"
       },
       "acute_training_load": {
-        "name": "Acute training load"
+        "name": "Acute antrenman yükü"
       },
       "chronic_training_load": {
-        "name": "Chronic training load"
+        "name": "Chronic antrenman yükü"
       },
       "acute_chronic_ratio": {
-        "name": "Acute/chronic load ratio"
+        "name": "Akut/kronik yük oranı"
       },
       "provider_training_status": {
-        "name": "Provider training status"
+        "name": "Provider training durum"
       },
       "ai_general_evaluation": {
-        "name": "AI general evaluation"
+        "name": "Genel yapay zekâ değerlendirmesi",
+        "state_attributes": {
+          "text": {
+            "name": "Değerlendirme metni"
+          },
+          "generated_at": {
+            "name": "Oluşturulma"
+          },
+          "ai_entity": {
+            "name": "Yapay zekâ sağlayıcısı"
+          },
+          "role": {
+            "name": "Rol"
+          }
+        }
       },
       "ai_workout_evaluation": {
-        "name": "AI workout evaluation"
+        "name": "Son antrenmanın yapay zekâ değerlendirmesi",
+        "state_attributes": {
+          "text": {
+            "name": "Değerlendirme metni"
+          },
+          "generated_at": {
+            "name": "Oluşturulma"
+          },
+          "ai_entity": {
+            "name": "Yapay zekâ sağlayıcısı"
+          },
+          "role": {
+            "name": "Rol"
+          }
+        }
       },
       "heart_rate_percent_max": {
-        "name": "Maksimumun %'si olarak nabız"
+        "name": "Kalp hızı % of maximum",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "heart_rate_reserve_percent": {
-        "name": "Nabız rezervi %"
+        "name": "Kalp hızı rezervi %",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "heart_rate_intensity": {
-        "name": "Nabız yoğunluğu"
+        "name": "Kalp hızı intensity",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "heart_rate_relative_threshold": {
-        "name": "Eşiğe göre nabız"
+        "name": "Kalp hızı relative to eşik",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "current_power_to_weight": {
-        "name": "Güncel güç / kg"
+        "name": "Mevcut güç-to-weight",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "power_relative_threshold": {
-        "name": "Eşiğe göre güç"
+        "name": "Güç relative to eşik",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "current_pace": {
-        "name": "Güncel tempo"
+        "name": "Mevcut tempo",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "speed_relative_threshold": {
-        "name": "Eşiğe göre hız"
+        "name": "Hız relative to eşik",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "last_workout_calories": {
-        "name": "Last workout calories"
+        "name": "Son antrenman calories",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_moving_time": {
-        "name": "Last workout moving time"
+        "name": "Son antrenman moving time",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_elapsed_time": {
-        "name": "Last workout elapsed time"
+        "name": "Son antrenman elapsed time",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_average_speed": {
-        "name": "Last workout average speed"
+        "name": "Son antrenman average hız",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_max_speed": {
-        "name": "Last workout maximum speed"
+        "name": "Son antrenman maximum hız",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_weighted_power": {
-        "name": "Last workout weighted / normalized power"
+        "name": "Son antrenman weighted / normalized güç",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_max_cadence": {
-        "name": "Last workout maximum cadence"
+        "name": "Son antrenman maximum cadence",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_elevation_loss": {
-        "name": "Last workout elevation loss"
+        "name": "Son antrenman elevation loss",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_training_load": {
-        "name": "Last workout training load"
+        "name": "Son antrenman antrenman yükü",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_aerobic_effect": {
-        "name": "Last workout aerobic training effect"
+        "name": "Son antrenman aerobik training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_anaerobic_effect": {
-        "name": "Last workout anaerobic training effect"
+        "name": "Son antrenman anaerobik training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_training_effect": {
-        "name": "Last workout training effect"
+        "name": "Son antrenman training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_vo2max": {
-        "name": "Last workout VO₂max"
+        "name": "Son antrenman VO₂max",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_relative_effort": {
-        "name": "Last workout relative effort"
+        "name": "Son antrenman relative effort",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_kilojoules": {
-        "name": "Last workout energy"
+        "name": "Son antrenman energy",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_total_reps": {
-        "name": "Last workout total reps"
+        "name": "Son antrenman total reps",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_exercise_count": {
-        "name": "Last workout exercise count"
+        "name": "Son antrenman exercise count",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_volume": {
-        "name": "Last workout training volume"
+        "name": "Son antrenman training volume",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_device": {
-        "name": "Last workout device"
+        "name": "Son antrenman device",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_gear": {
-        "name": "Last workout gear"
+        "name": "Son antrenman gear",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_sources": {
-        "name": "Last workout data sources"
+        "name": "Son antrenman data kaynaklar",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "live_average_heart_rate": {
-        "name": "Live average heart rate"
+        "name": "Canlı average kalp hızı",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "live_maximum_heart_rate": {
-        "name": "Live maximum heart rate"
+        "name": "Canlı maximum kalp hızı",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "live_average_power": {
-        "name": "Live average power"
+        "name": "Canlı average güç",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "live_maximum_power": {
-        "name": "Live maximum power"
+        "name": "Canlı maximum güç",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "live_average_cadence": {
-        "name": "Live average cadence"
+        "name": "Canlı average cadence",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "live_average_speed": {
-        "name": "Live average speed"
+        "name": "Canlı average hız",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "live_banister_trimp": {
-        "name": "Live Banister TRIMP"
+        "name": "Canlı Banister TRIMP",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "live_mechanical_work": {
-        "name": "Live mechanical work"
+        "name": "Canlı mechanical work",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "live_aerobic_efficiency": {
-        "name": "Live aerobic efficiency"
+        "name": "Canlı aerobik verimlilik",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "live_aerobic_decoupling": {
-        "name": "Live aerobic decoupling"
+        "name": "Canlı aerobik ayrışma",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "live_time_moderate": {
-        "name": "Time at moderate intensity"
+        "name": "Süre: orta yoğunluk",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "live_time_vigorous": {
-        "name": "Time at vigorous intensity"
+        "name": "Süre: yüksek yoğunluk",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "live_time_near_maximal": {
-        "name": "Time at near-maximal intensity"
+        "name": "Süre: maksimale yakın yoğunluk",
+        "state_attributes": {
+          "source_entity": {
+            "name": "Kaynak varlık"
+          },
+          "source_device_name": {
+            "name": "Kaynak cihaz"
+          },
+          "source_integration": {
+            "name": "Kaynak entegrasyon"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness tarafından hesaplandı"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "last_workout_banister_trimp": {
-        "name": "Last workout Banister TRIMP"
+        "name": "Son antrenman Banister TRIMP",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_trimp_per_hour": {
-        "name": "Last workout TRIMP per hour"
+        "name": "Son antrenman TRIMP per hour",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_mechanical_work": {
-        "name": "Last workout mechanical work"
+        "name": "Son antrenman mechanical work",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_aerobic_efficiency": {
-        "name": "Last workout aerobic efficiency"
+        "name": "Son antrenman aerobik verimlilik",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_aerobic_decoupling": {
-        "name": "Last workout aerobic decoupling"
+        "name": "Son antrenman aerobik ayrışma",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_hrr_10s": {
-        "name": "Last workout heart-rate recovery 10 s"
+        "name": "Son antrenman kalp hızı toparlanması 10 s",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_hrr_30s": {
-        "name": "Last workout heart-rate recovery 30 s"
+        "name": "Son antrenman kalp hızı toparlanması 30 s",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_hrr_60s": {
-        "name": "Last workout heart-rate recovery 60 s"
+        "name": "Son antrenman kalp hızı toparlanması 60 s",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_hrr_120s": {
-        "name": "Last workout heart-rate recovery 120 s"
+        "name": "Son antrenman kalp hızı toparlanması 120 s",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_time_moderate": {
-        "name": "Last workout moderate-intensity time"
+        "name": "Son antrenman moderate-intensity time",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_time_vigorous": {
-        "name": "Last workout vigorous-intensity time"
+        "name": "Son antrenman vigorous-intensity time",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_time_near_maximal": {
-        "name": "Last workout near-maximal time"
+        "name": "Son antrenman near-maximal time",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "training_load_7d": {
-        "name": "Banister training load 7 days"
+        "name": "Banister antrenman yükü 7 gün"
       },
       "training_load_28d": {
-        "name": "Banister training load 28 days"
+        "name": "Banister antrenman yükü 28 gün"
       },
       "training_load_42d": {
-        "name": "Banister training load 42 days"
+        "name": "Banister antrenman yükü 42 gün"
       },
       "training_days_28d": {
-        "name": "Active training days 28 days"
+        "name": "Aktif antrenman günleri 28 gün"
       },
       "hrr_60s_long_term": {
-        "name": "90-day mean heart-rate recovery 60 s"
+        "name": "90-gün mean kalp hızı toparlanması 60 s"
       },
       "aerobic_decoupling_long_term": {
-        "name": "90-day mean aerobic decoupling"
+        "name": "90-gün mean aerobik ayrışma"
       },
       "aerobic_efficiency_long_term": {
-        "name": "90-day mean aerobic efficiency"
+        "name": "90-gün mean aerobik verimlilik"
       },
       "last_workout_comparable_count": {
-        "name": "Comparable prior workouts"
+        "name": "Karşılaştırılabilir önceki antrenmanlar",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_efficiency_vs_baseline": {
-        "name": "Aerobic efficiency vs personal baseline"
+        "name": "Aerobik verimlilik vs kişisel baz değer",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_decoupling_vs_baseline": {
-        "name": "Aerobic decoupling vs personal baseline"
+        "name": "Aerobik ayrışma vs kişisel baz değer",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_hr_vs_baseline": {
-        "name": "Average heart rate vs personal baseline"
+        "name": "Ortalama kalp hızı vs kişisel baz değer",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_power_vs_baseline": {
-        "name": "Average power vs personal baseline"
+        "name": "Ortalama güç vs kişisel baz değer",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_speed_vs_baseline": {
-        "name": "Average speed vs personal baseline"
+        "name": "Ortalama hız vs kişisel baz değer",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_trimp_vs_recent": {
-        "name": "TRIMP vs comparable recent workouts"
+        "name": "TRIMP vs comparable yakın tarihli antrenmanlar",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_load_context": {
-        "name": "Workout load context"
+        "name": "Antrenman load bağlam",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_workout_personal_context": {
-        "name": "Workout personal context"
+        "name": "Antrenman personal bağlam",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_sleep_source": {
-        "name": "Last sleep source"
+        "name": "Son uyku kaynak",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "sleep_start": {
+            "name": "Uyku başlangıcı"
+          },
+          "sleep_end": {
+            "name": "Uyku bitişi"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_sleep_duration": {
-        "name": "Last sleep duration"
+        "name": "Son uyku süre",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "sleep_start": {
+            "name": "Uyku başlangıcı"
+          },
+          "sleep_end": {
+            "name": "Uyku bitişi"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_sleep_score": {
-        "name": "Last sleep score"
+        "name": "Son uyku puan",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "sleep_start": {
+            "name": "Uyku başlangıcı"
+          },
+          "sleep_end": {
+            "name": "Uyku bitişi"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_sleep_efficiency": {
-        "name": "Last sleep efficiency"
+        "name": "Son uyku verimlilik",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "sleep_start": {
+            "name": "Uyku başlangıcı"
+          },
+          "sleep_end": {
+            "name": "Uyku bitişi"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_sleep_time_in_bed": {
-        "name": "Last sleep time in bed"
+        "name": "Son uyku time in bed",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "sleep_start": {
+            "name": "Uyku başlangıcı"
+          },
+          "sleep_end": {
+            "name": "Uyku bitişi"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_sleep_awake": {
-        "name": "Last sleep awake"
+        "name": "Son uyku uyanık",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "sleep_start": {
+            "name": "Uyku başlangıcı"
+          },
+          "sleep_end": {
+            "name": "Uyku bitişi"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_sleep_light": {
-        "name": "Last light sleep"
+        "name": "Son hafif uyku",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "sleep_start": {
+            "name": "Uyku başlangıcı"
+          },
+          "sleep_end": {
+            "name": "Uyku bitişi"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_sleep_deep": {
-        "name": "Last deep sleep"
+        "name": "Son derin uyku",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "sleep_start": {
+            "name": "Uyku başlangıcı"
+          },
+          "sleep_end": {
+            "name": "Uyku bitişi"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_sleep_rem": {
-        "name": "Last REM sleep"
+        "name": "Son REM uykusu",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "sleep_start": {
+            "name": "Uyku başlangıcı"
+          },
+          "sleep_end": {
+            "name": "Uyku bitişi"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_sleep_hrv": {
-        "name": "Last sleep HRV"
+        "name": "Son uyku HRV",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "sleep_start": {
+            "name": "Uyku başlangıcı"
+          },
+          "sleep_end": {
+            "name": "Uyku bitişi"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_sleep_average_hr": {
-        "name": "Last sleep average heart rate"
+        "name": "Son uyku average kalp hızı",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "sleep_start": {
+            "name": "Uyku başlangıcı"
+          },
+          "sleep_end": {
+            "name": "Uyku bitişi"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_sleep_respiratory_rate": {
-        "name": "Last sleep respiratory rate"
+        "name": "Son uyku solunum hızı",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "sleep_start": {
+            "name": "Uyku başlangıcı"
+          },
+          "sleep_end": {
+            "name": "Uyku bitişi"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_sleep_spo2": {
-        "name": "Last sleep SpO₂"
+        "name": "Son uyku SpO₂",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "sleep_start": {
+            "name": "Uyku başlangıcı"
+          },
+          "sleep_end": {
+            "name": "Uyku bitişi"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_sleep_recovery_score": {
-        "name": "Last recovery score"
+        "name": "Son toparlanma puanı",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "sleep_start": {
+            "name": "Uyku başlangıcı"
+          },
+          "sleep_end": {
+            "name": "Uyku bitişi"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "last_sleep_readiness_score": {
-        "name": "Last readiness score"
+        "name": "Son hazır olma puanı",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "sleep_start": {
+            "name": "Uyku başlangıcı"
+          },
+          "sleep_end": {
+            "name": "Uyku bitişi"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       },
       "training_load_change_7_vs_28": {
-        "name": "7-day training load vs 28-day baseline"
+        "name": "7-gün antrenman yükü vs 28-gün baz değer"
       },
       "hrr_60s_vs_90d": {
-        "name": "Latest 60 s heart-rate recovery vs 90-day baseline"
+        "name": "Latest 60 s kalp hızı toparlanması vs 90-gün baz değer"
       },
       "sleep_duration_7d_mean": {
-        "name": "Mean sleep duration (7 days)"
+        "name": "Ortalama uyku süre (7 gün)"
       },
       "sleep_duration_28d_mean": {
-        "name": "Mean sleep duration (28 days)"
+        "name": "Ortalama uyku süre (28 gün)"
       },
       "sleep_duration_vs_28d": {
-        "name": "Last sleep duration vs 28-day baseline"
+        "name": "Son uyku süre vs 28-gün baz değer"
       },
       "sleep_duration_shortfall": {
-        "name": "Sleep duration shortfall vs 7 h adult minimum"
+        "name": "Uyku süre shortfall vs 7 h adult minimum"
       },
       "sleep_midpoint_variability_14d": {
-        "name": "Sleep midpoint variability (14 days)"
+        "name": "Uyku midpoint variability (14 gün)"
       },
       "sleep_hrv_7d_mean": {
-        "name": "Mean sleep HRV (7 days)"
+        "name": "Ortalama uyku HRV (7 gün)"
       },
       "sleep_hrv_28d_mean": {
-        "name": "Mean sleep HRV (28 days)"
+        "name": "Ortalama uyku HRV (28 gün)"
       },
       "sleep_hrv_vs_28d": {
-        "name": "Last sleep HRV vs 28-day baseline"
+        "name": "Son uyku HRV vs 28-gün baz değer"
       },
       "resting_hr_7d_mean": {
-        "name": "Mean resting heart rate (7 days)"
+        "name": "Ortalama dinlenik kalp hızı (7 gün)"
       },
       "resting_hr_28d_mean": {
-        "name": "Mean resting heart rate (28 days)"
+        "name": "Ortalama dinlenik kalp hızı (28 gün)"
       },
       "resting_hr_vs_28d": {
-        "name": "Resting heart rate vs 28-day baseline"
+        "name": "Dinlenik kalp hızı vs 28-gün baz değer"
       },
       "vo2max_28d_mean": {
-        "name": "Mean VO₂max (28 days)"
+        "name": "Ortalama VO₂max (28 gün)"
       },
       "vo2max_trend_14_vs_previous_14": {
-        "name": "VO₂max trend: last 14 vs previous 14 days"
+        "name": "VO₂max eğilimi: son 14 gün / önceki 14 gün"
       },
       "sleep_consistency": {
-        "name": "Sleep consistency"
+        "name": "Uyku düzenliliği",
+        "state_attributes": {
+          "samples_7d": {
+            "name": "Örnekler (7 gün)"
+          },
+          "samples_28d": {
+            "name": "Örnekler (28 gün)"
+          },
+          "average_duration_7d_min": {
+            "name": "Ortalama uyku süre (7 gün)"
+          },
+          "average_duration_28d_min": {
+            "name": "Ortalama uyku süre (28 gün)"
+          },
+          "duration_variability_28d_min": {
+            "name": "Uyku süresi değişkenliği (28 gün)"
+          },
+          "bedtime_variability_28d_min": {
+            "name": "Yatma saati değişkenliği (28 gün)"
+          },
+          "wake_time_variability_28d_min": {
+            "name": "Uyanma saati değişkenliği (28 gün)"
+          },
+          "midpoint_variability_28d_min": {
+            "name": "Uyku orta noktası değişkenliği (28 gün)"
+          },
+          "nights_below_7h_7d": {
+            "name": "Şunun altındaki geceler 7 h (7 gün)"
+          },
+          "nights_below_7h_28d": {
+            "name": "Şunun altındaki geceler 7 h (28 gün)"
+          },
+          "nights_below_7h_28d_percent": {
+            "name": "Şunun altındaki geceler 7 h (28 gün, %)"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "sleep_deficit_7d": {
-        "name": "Sleep deficit – 7 days"
+        "name": "Uyku açığı – 7 gün",
+        "state_attributes": {
+          "nights_observed": {
+            "name": "Gözlenen geceler"
+          },
+          "nights_below_7h": {
+            "name": "Şunun altındaki geceler 7 h"
+          },
+          "reference_minimum_hours": {
+            "name": "Referans minimum"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "autonomic_recovery_trend": {
-        "name": "Autonomic recovery trend"
+        "name": "Otonom toparlanma eğilimi",
+        "state_attributes": {
+          "sleep_hrv_7d_mean_ms": {
+            "name": "Ortalama uyku HRV (7 gün)"
+          },
+          "sleep_hrv_28d_mean_ms": {
+            "name": "Ortalama uyku HRV (28 gün)"
+          },
+          "sleep_hrv_vs_28d_percent": {
+            "name": "Latest uyku HRV vs 28-gün baz değer"
+          },
+          "resting_hr_current_bpm": {
+            "name": "Mevcut dinlenik kalp hızı"
+          },
+          "resting_hr_7d_mean_bpm": {
+            "name": "Ortalama dinlenik kalp hızı (7 gün)"
+          },
+          "resting_hr_28d_mean_bpm": {
+            "name": "Ortalama dinlenik kalp hızı (28 gün)"
+          },
+          "resting_hr_vs_28d_bpm": {
+            "name": "Dinlenik kalp hızı vs 28-gün baz değer"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "cardiorespiratory_fitness_trend": {
-        "name": "Cardiorespiratory fitness trend"
+        "name": "Kardiyorespiratuvar fitness eğilimi",
+        "state_attributes": {
+          "current_vo2max_ml_kg_min": {
+            "name": "Mevcut VO₂max"
+          },
+          "vo2max_28d_mean_ml_kg_min": {
+            "name": "Ortalama VO₂max (28 gün)"
+          },
+          "vo2max_90d_mean_ml_kg_min": {
+            "name": "Ortalama VO₂max (90 gün)"
+          },
+          "short_term_change_percent": {
+            "name": "Kısa vadeli değişim"
+          },
+          "slope_percent_per_30d": {
+            "name": "Trend / 30 gün"
+          },
+          "percent_predicted": {
+            "name": "Öngörülen yüzde"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "training_load": {
-        "name": "Training load"
+        "name": "Antrenman yükü",
+        "state_attributes": {
+          "trimp_7d": {
+            "name": "TRIMP (7 gün)"
+          },
+          "trimp_28d": {
+            "name": "TRIMP (28 gün)"
+          },
+          "trimp_28d_weekly_equivalent": {
+            "name": "TRIMP 28-gün haftalık eşdeğer"
+          },
+          "workouts_7d": {
+            "name": "Antrenmanlar (7 gün)"
+          },
+          "workouts_28d": {
+            "name": "Antrenmanlar (28 gün)"
+          },
+          "active_days_7d": {
+            "name": "Aktif antrenman günleri (7 gün)"
+          },
+          "active_days_28d": {
+            "name": "Aktif antrenman günleri (28 gün)"
+          },
+          "training_duration_7d_min": {
+            "name": "Antrenman süresi (7 gün)"
+          },
+          "training_duration_28d_min": {
+            "name": "Antrenman süresi (28 gün)"
+          },
+          "distance_7d_km": {
+            "name": "Mesafe (7 gün)"
+          },
+          "distance_28d_km": {
+            "name": "Mesafe (28 gün)"
+          },
+          "last_recovery_interval_h": {
+            "name": "Son recovery interval"
+          },
+          "median_recovery_interval_28d_h": {
+            "name": "Medyan toparlanma aralığı (28 gün)"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "heart_rate_recovery": {
-        "name": "Heart-rate recovery"
+        "name": "Kalp hızı toparlanması",
+        "state_attributes": {
+          "hrr_30s_bpm": {
+            "name": "Kalp hızı toparlanması (30 s)"
+          },
+          "hrr_60s_bpm": {
+            "name": "Kalp hızı toparlanması (60 s)"
+          },
+          "hrr_120s_bpm": {
+            "name": "Kalp hızı toparlanması (120 s)"
+          },
+          "personal_90d_baseline_bpm": {
+            "name": "Kişisel 90 günlük baz değer"
+          },
+          "latest_vs_baseline_bpm": {
+            "name": "Son vs kişisel baz değer"
+          },
+          "samples_90d": {
+            "name": "Örnekler (90 gün)"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       },
       "training_recovery_relationship": {
-        "name": "Training–recovery relationship"
+        "name": "Antrenman–toparlanma ilişkisi",
+        "state_attributes": {
+          "primary_correlation": {
+            "name": "Ana korelasyon"
+          },
+          "primary_measure": {
+            "name": "Ana toparlanma ölçütü"
+          },
+          "trimp_vs_next_sleep_duration_r": {
+            "name": "TRIMP vs next-uyku süre (r)"
+          },
+          "trimp_vs_next_sleep_hrv_r": {
+            "name": "TRIMP vs next-uyku HRV (r)"
+          },
+          "sleep_duration_pairs": {
+            "name": "Antrenman–uyku süre pairs"
+          },
+          "sleep_hrv_pairs": {
+            "name": "Antrenman–uyku HRV pairs"
+          },
+          "window_days": {
+            "name": "Analiz penceresi"
+          },
+          "causal_interpretation": {
+            "name": "Nedensel yorum"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          }
+        }
       }
     },
     "button": {
       "start_workout": {
-        "name": "Antrenmanı başlat"
+        "name": "Start antrenman"
       },
       "stop_workout": {
-        "name": "Antrenmanı durdur"
+        "name": "Stop antrenman"
       },
       "regenerate_ai_evaluation": {
-        "name": "Yapay zekâ değerlendirmesini yenile"
+        "name": "Yapay zekâ değerlendirmesini yeniden oluştur"
       }
     },
     "select": {
       "workout_room": {
-        "name": "Antrenman odası"
+        "name": "Antrenman room"
       }
     }
   },

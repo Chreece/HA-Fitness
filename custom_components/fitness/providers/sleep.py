@@ -51,7 +51,9 @@ def _dt(value: str | None) -> datetime | None:
         number = float(text)
         if number > 10_000_000_000:
             number /= 1000
-        return datetime.fromtimestamp(number, tz=timezone.utc)
+        if 946_684_800 <= number <= 4_102_444_800:
+            return datetime.fromtimestamp(number, tz=timezone.utc)
+        return None
     except (TypeError, ValueError, OverflowError, OSError):
         pass
     try:
@@ -175,7 +177,10 @@ def merge_sleep_records(group: list[SleepRecord]) -> SleepRecord:
         winner = max(candidates, key=lambda record: _candidate_rank(record, field_name))
         value = getattr(winner, field_name)
         setattr(merged, field_name, value)
-        merged.field_sources[field_name] = winner.provider_domain
+        merged.field_sources[field_name] = (
+            (winner.field_sources or {}).get(field_name)
+            or winner.provider_domain
+        )
 
         for record in candidates:
             candidate_value = getattr(record, field_name)

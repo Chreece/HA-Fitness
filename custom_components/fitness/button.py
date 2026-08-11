@@ -72,4 +72,4 @@ class RegenerateEvaluationButton(BaseFitnessButton):
         self._attr_device_info = device_info(entry, "evaluation")
 
     async def async_press(self):
-        await self.manager.async_generate_ai(general=True, workout=True)
+        await self.manager.async_generate_ai(general=True, workout=True, raise_on_failure=True)

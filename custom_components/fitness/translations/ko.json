@@ -252,465 +252,2288 @@
   "entity": {
     "sensor": {
       "session_status": {
-        "name": "Session status"
+        "name": "세션 상태",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          }
+        }
       },
       "session_duration": {
-        "name": "Session duration"
+        "name": "세션 시간",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "current_heart_rate": {
-        "name": "Current heart rate"
+        "name": "현재 심박수",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          }
+        }
       },
       "current_power": {
-        "name": "Current power"
+        "name": "현재 파워",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          }
+        }
       },
       "current_cadence": {
-        "name": "Current cadence"
+        "name": "현재 cadence",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          }
+        }
       },
       "current_speed": {
-        "name": "Current speed"
+        "name": "현재 속도",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          }
+        }
       },
       "current_distance": {
-        "name": "Current distance"
+        "name": "현재 distance",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          }
+        }
       },
       "current_altitude": {
-        "name": "Current altitude"
+        "name": "현재 altitude",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          }
+        }
       },
       "last_workout": {
-        "name": "Last workout"
+        "name": "최근 운동",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_source": {
-        "name": "Last workout source"
+        "name": "최근 운동 소스",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_duration": {
-        "name": "Last workout duration"
+        "name": "최근 운동 시간",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_distance": {
-        "name": "Last workout distance"
+        "name": "최근 운동 distance",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_avg_hr": {
-        "name": "Last workout average heart rate"
+        "name": "최근 운동 average 심박수",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_max_hr": {
-        "name": "Last workout maximum heart rate"
+        "name": "최근 운동 maximum 심박수",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_avg_power": {
-        "name": "Last workout average power"
+        "name": "최근 운동 average 파워",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_max_power": {
-        "name": "Last workout maximum power"
+        "name": "최근 운동 maximum 파워",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_avg_cadence": {
-        "name": "Last workout average cadence"
+        "name": "최근 운동 average cadence",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_elevation_gain": {
-        "name": "Last workout elevation gain"
+        "name": "최근 운동 elevation gain",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "age": {
-        "name": "Age"
+        "name": "나이"
       },
       "weight": {
-        "name": "Weight"
+        "name": "체중"
       },
       "resting_hr": {
-        "name": "Resting heart rate"
+        "name": "안정 시 심박수"
       },
       "maximum_hr": {
-        "name": "Maximum heart rate"
+        "name": "최대 심박수"
       },
       "heart_rate_reserve": {
-        "name": "Heart rate reserve"
+        "name": "심박수 예비력"
       },
       "vo2max": {
         "name": "VO₂max"
       },
       "friend_predicted_vo2max": {
-        "name": "FRIEND predicted VO₂max"
+        "name": "FRIEND 예측 VO₂max"
       },
       "vo2max_percent_predicted": {
-        "name": "VO₂max percent predicted"
+        "name": "VO₂max percent 예측",
+        "state_attributes": {
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "cardiorespiratory_status": {
-        "name": "Cardiorespiratory fitness status"
+        "name": "Cardiorespiratory fitness 상태"
       },
       "hrv_weekly": {
-        "name": "HRV weekly average"
+        "name": "HRV 주간 평균"
       },
       "hrv_last_night": {
-        "name": "HRV last night average"
+        "name": "HRV 지난밤 평균"
       },
       "hrv_status": {
-        "name": "HRV status"
+        "name": "HRV 상태"
       },
       "threshold_hr": {
-        "name": "Threshold heart rate"
+        "name": "Threshold 심박수"
       },
       "threshold_pace": {
-        "name": "Threshold pace"
+        "name": "Threshold 페이스"
       },
       "threshold_power": {
-        "name": "Threshold power"
+        "name": "Threshold 파워"
       },
       "threshold_power_to_weight": {
-        "name": "Threshold power-to-weight"
+        "name": "Threshold 파워-to-weight"
       },
       "fitness_age": {
-        "name": "Fitness age"
+        "name": "피트니스 나이"
       },
       "fitness_age_difference": {
-        "name": "Fitness age difference"
+        "name": "피트니스 나이 difference"
       },
       "training_readiness_context": {
-        "name": "Training readiness context"
+        "name": "Training readiness 맥락"
       },
       "sleep_score_context": {
-        "name": "Sleep score context"
+        "name": "수면 점수 맥락"
       },
       "acute_training_load": {
-        "name": "Acute training load"
+        "name": "Acute 훈련 부하"
       },
       "chronic_training_load": {
-        "name": "Chronic training load"
+        "name": "Chronic 훈련 부하"
       },
       "acute_chronic_ratio": {
-        "name": "Acute/chronic load ratio"
+        "name": "급성/만성 부하 비율"
       },
       "provider_training_status": {
-        "name": "Provider training status"
+        "name": "Provider training 상태"
       },
       "ai_general_evaluation": {
-        "name": "AI general evaluation"
+        "name": "AI 종합 평가",
+        "state_attributes": {
+          "text": {
+            "name": "평가 텍스트"
+          },
+          "generated_at": {
+            "name": "생성 시각"
+          },
+          "ai_entity": {
+            "name": "AI 제공자"
+          },
+          "role": {
+            "name": "역할"
+          }
+        }
       },
       "ai_workout_evaluation": {
-        "name": "AI workout evaluation"
+        "name": "최근 운동 AI 평가",
+        "state_attributes": {
+          "text": {
+            "name": "평가 텍스트"
+          },
+          "generated_at": {
+            "name": "생성 시각"
+          },
+          "ai_entity": {
+            "name": "AI 제공자"
+          },
+          "role": {
+            "name": "역할"
+          }
+        }
       },
       "heart_rate_percent_max": {
-        "name": "최대 심박수 대비 %"
+        "name": "심박수 % of maximum",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "heart_rate_reserve_percent": {
-        "name": "심박수 예비율 %"
+        "name": "심박수 예비력 %",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "heart_rate_intensity": {
-        "name": "심박수 강도"
+        "name": "심박수 intensity",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "heart_rate_relative_threshold": {
-        "name": "역치 대비 심박수"
+        "name": "심박수 relative to 역치",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "current_power_to_weight": {
-        "name": "현재 체중당 파워"
+        "name": "현재 파워-to-weight",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "power_relative_threshold": {
-        "name": "역치 대비 파워"
+        "name": "파워 relative to 역치",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "current_pace": {
-        "name": "현재 페이스"
+        "name": "현재 페이스",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "speed_relative_threshold": {
-        "name": "역치 대비 속도"
+        "name": "속도 relative to 역치",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "last_workout_calories": {
-        "name": "Last workout calories"
+        "name": "최근 운동 칼로리",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_moving_time": {
-        "name": "Last workout moving time"
+        "name": "최근 운동 moving time",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_elapsed_time": {
-        "name": "Last workout elapsed time"
+        "name": "최근 운동 elapsed time",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_average_speed": {
-        "name": "Last workout average speed"
+        "name": "최근 운동 average 속도",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_max_speed": {
-        "name": "Last workout maximum speed"
+        "name": "최근 운동 maximum 속도",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_weighted_power": {
-        "name": "Last workout weighted / normalized power"
+        "name": "최근 운동 weighted / normalized 파워",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_max_cadence": {
-        "name": "Last workout maximum cadence"
+        "name": "최근 운동 maximum cadence",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_elevation_loss": {
-        "name": "Last workout elevation loss"
+        "name": "최근 운동 elevation loss",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_training_load": {
-        "name": "Last workout training load"
+        "name": "최근 운동 훈련 부하",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_aerobic_effect": {
-        "name": "Last workout aerobic training effect"
+        "name": "최근 운동 유산소 training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_anaerobic_effect": {
-        "name": "Last workout anaerobic training effect"
+        "name": "최근 운동 무산소 training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_training_effect": {
-        "name": "Last workout training effect"
+        "name": "최근 운동 training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_vo2max": {
-        "name": "Last workout VO₂max"
+        "name": "최근 운동 VO₂max",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_relative_effort": {
-        "name": "Last workout relative effort"
+        "name": "최근 운동 relative effort",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_kilojoules": {
-        "name": "Last workout energy"
+        "name": "최근 운동 energy",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_total_reps": {
-        "name": "Last workout total reps"
+        "name": "최근 운동 total reps",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_exercise_count": {
-        "name": "Last workout exercise count"
+        "name": "최근 운동 exercise count",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_volume": {
-        "name": "Last workout training volume"
+        "name": "최근 운동 training volume",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_device": {
-        "name": "Last workout device"
+        "name": "최근 운동 device",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_gear": {
-        "name": "Last workout gear"
+        "name": "최근 운동 gear",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_sources": {
-        "name": "Last workout data sources"
+        "name": "최근 운동 data 소스",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "live_average_heart_rate": {
-        "name": "Live average heart rate"
+        "name": "실시간 average 심박수",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "live_maximum_heart_rate": {
-        "name": "Live maximum heart rate"
+        "name": "실시간 maximum 심박수",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "live_average_power": {
-        "name": "Live average power"
+        "name": "실시간 average 파워",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "live_maximum_power": {
-        "name": "Live maximum power"
+        "name": "실시간 maximum 파워",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "live_average_cadence": {
-        "name": "Live average cadence"
+        "name": "실시간 average cadence",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "live_average_speed": {
-        "name": "Live average speed"
+        "name": "실시간 average 속도",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "live_banister_trimp": {
-        "name": "Live Banister TRIMP"
+        "name": "실시간 Banister TRIMP",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "live_mechanical_work": {
-        "name": "Live mechanical work"
+        "name": "실시간 mechanical work",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "live_aerobic_efficiency": {
-        "name": "Live aerobic efficiency"
+        "name": "실시간 유산소 효율",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "live_aerobic_decoupling": {
-        "name": "Live aerobic decoupling"
+        "name": "실시간 유산소 디커플링",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "live_time_moderate": {
-        "name": "Time at moderate intensity"
+        "name": "시간: 중강도",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "live_time_vigorous": {
-        "name": "Time at vigorous intensity"
+        "name": "시간: 고강도",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "live_time_near_maximal": {
-        "name": "Time at near-maximal intensity"
+        "name": "시간: 거의 최대 강도",
+        "state_attributes": {
+          "source_entity": {
+            "name": "소스 엔터티"
+          },
+          "source_device_name": {
+            "name": "소스 기기"
+          },
+          "source_integration": {
+            "name": "소스 통합"
+          },
+          "calculated_by_fitness": {
+            "name": "Fitness 계산값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "last_workout_banister_trimp": {
-        "name": "Last workout Banister TRIMP"
+        "name": "최근 운동 Banister TRIMP",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_trimp_per_hour": {
-        "name": "Last workout TRIMP per hour"
+        "name": "최근 운동 TRIMP per hour",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_mechanical_work": {
-        "name": "Last workout mechanical work"
+        "name": "최근 운동 mechanical work",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_aerobic_efficiency": {
-        "name": "Last workout aerobic efficiency"
+        "name": "최근 운동 유산소 효율",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_aerobic_decoupling": {
-        "name": "Last workout aerobic decoupling"
+        "name": "최근 운동 유산소 디커플링",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_hrr_10s": {
-        "name": "Last workout heart-rate recovery 10 s"
+        "name": "최근 운동 심박수 회복 10 s",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_hrr_30s": {
-        "name": "Last workout heart-rate recovery 30 s"
+        "name": "최근 운동 심박수 회복 30 s",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_hrr_60s": {
-        "name": "Last workout heart-rate recovery 60 s"
+        "name": "최근 운동 심박수 회복 60 s",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_hrr_120s": {
-        "name": "Last workout heart-rate recovery 120 s"
+        "name": "최근 운동 심박수 회복 120 s",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_time_moderate": {
-        "name": "Last workout moderate-intensity time"
+        "name": "최근 운동 moderate-intensity time",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_time_vigorous": {
-        "name": "Last workout vigorous-intensity time"
+        "name": "최근 운동 vigorous-intensity time",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_time_near_maximal": {
-        "name": "Last workout near-maximal time"
+        "name": "최근 운동 near-maximal time",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "training_load_7d": {
-        "name": "Banister training load 7 days"
+        "name": "Banister 훈련 부하 7 일"
       },
       "training_load_28d": {
-        "name": "Banister training load 28 days"
+        "name": "Banister 훈련 부하 28 일"
       },
       "training_load_42d": {
-        "name": "Banister training load 42 days"
+        "name": "Banister 훈련 부하 42 일"
       },
       "training_days_28d": {
-        "name": "Active training days 28 days"
+        "name": "활동 훈련 일수 28 일"
       },
       "hrr_60s_long_term": {
-        "name": "90-day mean heart-rate recovery 60 s"
+        "name": "90-일 mean 심박수 회복 60 s"
       },
       "aerobic_decoupling_long_term": {
-        "name": "90-day mean aerobic decoupling"
+        "name": "90-일 mean 유산소 디커플링"
       },
       "aerobic_efficiency_long_term": {
-        "name": "90-day mean aerobic efficiency"
+        "name": "90-일 mean 유산소 효율"
       },
       "last_workout_comparable_count": {
-        "name": "Comparable prior workouts"
+        "name": "비교 가능한 이전 운동",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_efficiency_vs_baseline": {
-        "name": "Aerobic efficiency vs personal baseline"
+        "name": "유산소 효율 vs 개인 기준선",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_decoupling_vs_baseline": {
-        "name": "Aerobic decoupling vs personal baseline"
+        "name": "유산소 디커플링 vs 개인 기준선",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_hr_vs_baseline": {
-        "name": "Average heart rate vs personal baseline"
+        "name": "평균 심박수 vs 개인 기준선",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_power_vs_baseline": {
-        "name": "Average power vs personal baseline"
+        "name": "평균 파워 vs 개인 기준선",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_speed_vs_baseline": {
-        "name": "Average speed vs personal baseline"
+        "name": "평균 속도 vs 개인 기준선",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_trimp_vs_recent": {
-        "name": "TRIMP vs comparable recent workouts"
+        "name": "TRIMP vs comparable 최근 운동",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_load_context": {
-        "name": "Workout load context"
+        "name": "운동 load 맥락",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_workout_personal_context": {
-        "name": "Workout personal context"
+        "name": "운동 personal 맥락",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_sleep_source": {
-        "name": "Last sleep source"
+        "name": "최근 수면 소스",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "sleep_start": {
+            "name": "수면 시작"
+          },
+          "sleep_end": {
+            "name": "수면 종료"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_sleep_duration": {
-        "name": "Last sleep duration"
+        "name": "최근 수면 시간",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "sleep_start": {
+            "name": "수면 시작"
+          },
+          "sleep_end": {
+            "name": "수면 종료"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_sleep_score": {
-        "name": "Last sleep score"
+        "name": "최근 수면 점수",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "sleep_start": {
+            "name": "수면 시작"
+          },
+          "sleep_end": {
+            "name": "수면 종료"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_sleep_efficiency": {
-        "name": "Last sleep efficiency"
+        "name": "최근 수면 효율",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "sleep_start": {
+            "name": "수면 시작"
+          },
+          "sleep_end": {
+            "name": "수면 종료"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_sleep_time_in_bed": {
-        "name": "Last sleep time in bed"
+        "name": "최근 수면 time in bed",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "sleep_start": {
+            "name": "수면 시작"
+          },
+          "sleep_end": {
+            "name": "수면 종료"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_sleep_awake": {
-        "name": "Last sleep awake"
+        "name": "최근 수면 깨어 있음",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "sleep_start": {
+            "name": "수면 시작"
+          },
+          "sleep_end": {
+            "name": "수면 종료"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_sleep_light": {
-        "name": "Last light sleep"
+        "name": "최근 얕은 수면",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "sleep_start": {
+            "name": "수면 시작"
+          },
+          "sleep_end": {
+            "name": "수면 종료"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_sleep_deep": {
-        "name": "Last deep sleep"
+        "name": "최근 깊은 수면",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "sleep_start": {
+            "name": "수면 시작"
+          },
+          "sleep_end": {
+            "name": "수면 종료"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_sleep_rem": {
-        "name": "Last REM sleep"
+        "name": "최근 REM 수면",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "sleep_start": {
+            "name": "수면 시작"
+          },
+          "sleep_end": {
+            "name": "수면 종료"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_sleep_hrv": {
-        "name": "Last sleep HRV"
+        "name": "최근 수면 HRV",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "sleep_start": {
+            "name": "수면 시작"
+          },
+          "sleep_end": {
+            "name": "수면 종료"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_sleep_average_hr": {
-        "name": "Last sleep average heart rate"
+        "name": "최근 수면 average 심박수",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "sleep_start": {
+            "name": "수면 시작"
+          },
+          "sleep_end": {
+            "name": "수면 종료"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_sleep_respiratory_rate": {
-        "name": "Last sleep respiratory rate"
+        "name": "최근 수면 호흡수",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "sleep_start": {
+            "name": "수면 시작"
+          },
+          "sleep_end": {
+            "name": "수면 종료"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_sleep_spo2": {
-        "name": "Last sleep SpO₂"
+        "name": "최근 수면 SpO₂",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "sleep_start": {
+            "name": "수면 시작"
+          },
+          "sleep_end": {
+            "name": "수면 종료"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_sleep_recovery_score": {
-        "name": "Last recovery score"
+        "name": "최근 회복 점수",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "sleep_start": {
+            "name": "수면 시작"
+          },
+          "sleep_end": {
+            "name": "수면 종료"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "last_sleep_readiness_score": {
-        "name": "Last readiness score"
+        "name": "최근 준비도 점수",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "sleep_start": {
+            "name": "수면 시작"
+          },
+          "sleep_end": {
+            "name": "수면 종료"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       },
       "training_load_change_7_vs_28": {
-        "name": "7-day training load vs 28-day baseline"
+        "name": "7-일 훈련 부하 vs 28-일 기준선"
       },
       "hrr_60s_vs_90d": {
-        "name": "Latest 60 s heart-rate recovery vs 90-day baseline"
+        "name": "Latest 60 s 심박수 회복 vs 90-일 기준선"
       },
       "sleep_duration_7d_mean": {
-        "name": "Mean sleep duration (7 days)"
+        "name": "평균 수면 시간 (7 일)"
       },
       "sleep_duration_28d_mean": {
-        "name": "Mean sleep duration (28 days)"
+        "name": "평균 수면 시간 (28 일)"
       },
       "sleep_duration_vs_28d": {
-        "name": "Last sleep duration vs 28-day baseline"
+        "name": "최근 수면 시간 vs 28-일 기준선"
       },
       "sleep_duration_shortfall": {
-        "name": "Sleep duration shortfall vs 7 h adult minimum"
+        "name": "수면 시간 shortfall vs 7 h adult minimum"
       },
       "sleep_midpoint_variability_14d": {
-        "name": "Sleep midpoint variability (14 days)"
+        "name": "수면 midpoint variability (14 일)"
       },
       "sleep_hrv_7d_mean": {
-        "name": "Mean sleep HRV (7 days)"
+        "name": "평균 수면 HRV (7 일)"
       },
       "sleep_hrv_28d_mean": {
-        "name": "Mean sleep HRV (28 days)"
+        "name": "평균 수면 HRV (28 일)"
       },
       "sleep_hrv_vs_28d": {
-        "name": "Last sleep HRV vs 28-day baseline"
+        "name": "최근 수면 HRV vs 28-일 기준선"
       },
       "resting_hr_7d_mean": {
-        "name": "Mean resting heart rate (7 days)"
+        "name": "평균 안정 시 심박수 (7 일)"
       },
       "resting_hr_28d_mean": {
-        "name": "Mean resting heart rate (28 days)"
+        "name": "평균 안정 시 심박수 (28 일)"
       },
       "resting_hr_vs_28d": {
-        "name": "Resting heart rate vs 28-day baseline"
+        "name": "안정 시 심박수 vs 28-일 기준선"
       },
       "vo2max_28d_mean": {
-        "name": "Mean VO₂max (28 days)"
+        "name": "평균 VO₂max (28 일)"
       },
       "vo2max_trend_14_vs_previous_14": {
-        "name": "VO₂max trend: last 14 vs previous 14 days"
+        "name": "VO₂max 추세: 최근 14일 vs 이전 14일"
       },
       "sleep_consistency": {
-        "name": "Sleep consistency"
+        "name": "수면 규칙성",
+        "state_attributes": {
+          "samples_7d": {
+            "name": "샘플 (7 일)"
+          },
+          "samples_28d": {
+            "name": "샘플 (28 일)"
+          },
+          "average_duration_7d_min": {
+            "name": "평균 수면 시간 (7 일)"
+          },
+          "average_duration_28d_min": {
+            "name": "평균 수면 시간 (28 일)"
+          },
+          "duration_variability_28d_min": {
+            "name": "수면 시간 변동성 (28 일)"
+          },
+          "bedtime_variability_28d_min": {
+            "name": "취침 시각 변동성 (28 일)"
+          },
+          "wake_time_variability_28d_min": {
+            "name": "기상 시각 변동성 (28 일)"
+          },
+          "midpoint_variability_28d_min": {
+            "name": "수면 중간 시각 변동성 (28 일)"
+          },
+          "nights_below_7h_7d": {
+            "name": "미만인 밤 7 h (7 일)"
+          },
+          "nights_below_7h_28d": {
+            "name": "미만인 밤 7 h (28 일)"
+          },
+          "nights_below_7h_28d_percent": {
+            "name": "미만인 밤 7 h (28 일, %)"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "sleep_deficit_7d": {
-        "name": "Sleep deficit – 7 days"
+        "name": "수면 부족 – 7 일",
+        "state_attributes": {
+          "nights_observed": {
+            "name": "관찰한 밤 수"
+          },
+          "nights_below_7h": {
+            "name": "미만인 밤 7 h"
+          },
+          "reference_minimum_hours": {
+            "name": "기준 최소값"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "autonomic_recovery_trend": {
-        "name": "Autonomic recovery trend"
+        "name": "자율신경 회복 추세",
+        "state_attributes": {
+          "sleep_hrv_7d_mean_ms": {
+            "name": "평균 수면 HRV (7 일)"
+          },
+          "sleep_hrv_28d_mean_ms": {
+            "name": "평균 수면 HRV (28 일)"
+          },
+          "sleep_hrv_vs_28d_percent": {
+            "name": "Latest 수면 HRV vs 28-일 기준선"
+          },
+          "resting_hr_current_bpm": {
+            "name": "현재 안정 시 심박수"
+          },
+          "resting_hr_7d_mean_bpm": {
+            "name": "평균 안정 시 심박수 (7 일)"
+          },
+          "resting_hr_28d_mean_bpm": {
+            "name": "평균 안정 시 심박수 (28 일)"
+          },
+          "resting_hr_vs_28d_bpm": {
+            "name": "안정 시 심박수 vs 28-일 기준선"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "cardiorespiratory_fitness_trend": {
-        "name": "Cardiorespiratory fitness trend"
+        "name": "심폐 체력 추세",
+        "state_attributes": {
+          "current_vo2max_ml_kg_min": {
+            "name": "현재 VO₂max"
+          },
+          "vo2max_28d_mean_ml_kg_min": {
+            "name": "평균 VO₂max (28 일)"
+          },
+          "vo2max_90d_mean_ml_kg_min": {
+            "name": "평균 VO₂max (90 일)"
+          },
+          "short_term_change_percent": {
+            "name": "단기 변화"
+          },
+          "slope_percent_per_30d": {
+            "name": "당 추세 30 일"
+          },
+          "percent_predicted": {
+            "name": "예측값 대비 비율"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "training_load": {
-        "name": "Training load"
+        "name": "훈련 부하",
+        "state_attributes": {
+          "trimp_7d": {
+            "name": "TRIMP (7 일)"
+          },
+          "trimp_28d": {
+            "name": "TRIMP (28 일)"
+          },
+          "trimp_28d_weekly_equivalent": {
+            "name": "TRIMP 28-일 주간 환산"
+          },
+          "workouts_7d": {
+            "name": "운동 (7 일)"
+          },
+          "workouts_28d": {
+            "name": "운동 (28 일)"
+          },
+          "active_days_7d": {
+            "name": "활동 훈련 일수 (7 일)"
+          },
+          "active_days_28d": {
+            "name": "활동 훈련 일수 (28 일)"
+          },
+          "training_duration_7d_min": {
+            "name": "훈련 시간 (7 일)"
+          },
+          "training_duration_28d_min": {
+            "name": "훈련 시간 (28 일)"
+          },
+          "distance_7d_km": {
+            "name": "거리 (7 일)"
+          },
+          "distance_28d_km": {
+            "name": "거리 (28 일)"
+          },
+          "last_recovery_interval_h": {
+            "name": "최근 recovery interval"
+          },
+          "median_recovery_interval_28d_h": {
+            "name": "회복 간격 중앙값 (28 일)"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "heart_rate_recovery": {
-        "name": "Heart-rate recovery"
+        "name": "심박수 회복",
+        "state_attributes": {
+          "hrr_30s_bpm": {
+            "name": "심박수 회복 (30 s)"
+          },
+          "hrr_60s_bpm": {
+            "name": "심박수 회복 (60 s)"
+          },
+          "hrr_120s_bpm": {
+            "name": "심박수 회복 (120 s)"
+          },
+          "personal_90d_baseline_bpm": {
+            "name": "개인 90일 기준선"
+          },
+          "latest_vs_baseline_bpm": {
+            "name": "최근값 대비 개인 기준선"
+          },
+          "samples_90d": {
+            "name": "샘플 (90 일)"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       },
       "training_recovery_relationship": {
-        "name": "Training–recovery relationship"
+        "name": "훈련–회복 관계",
+        "state_attributes": {
+          "primary_correlation": {
+            "name": "주요 상관관계"
+          },
+          "primary_measure": {
+            "name": "주요 회복 지표"
+          },
+          "trimp_vs_next_sleep_duration_r": {
+            "name": "TRIMP vs next-수면 시간 (r)"
+          },
+          "trimp_vs_next_sleep_hrv_r": {
+            "name": "TRIMP vs next-수면 HRV (r)"
+          },
+          "sleep_duration_pairs": {
+            "name": "운동–수면 시간 pairs"
+          },
+          "sleep_hrv_pairs": {
+            "name": "운동–수면 HRV pairs"
+          },
+          "window_days": {
+            "name": "분석 기간"
+          },
+          "causal_interpretation": {
+            "name": "인과 해석"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          }
+        }
       }
     },
     "button": {
       "start_workout": {
-        "name": "운동 시작"
+        "name": "Start 운동"
       },
       "stop_workout": {
-        "name": "운동 중지"
+        "name": "Stop 운동"
       },
       "regenerate_ai_evaluation": {
         "name": "AI 평가 다시 생성"
@@ -718,7 +2541,7 @@
     },
     "select": {
       "workout_room": {
-        "name": "운동 공간"
+        "name": "운동 room"
       }
     }
   },

@@ -252,465 +252,2288 @@
   "entity": {
     "sensor": {
       "session_status": {
-        "name": "Session status"
+        "name": "训练状态",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          }
+        }
       },
       "session_duration": {
-        "name": "Session duration"
+        "name": "训练时长",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "current_heart_rate": {
-        "name": "Current heart rate"
+        "name": "当前 心率",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          }
+        }
       },
       "current_power": {
-        "name": "Current power"
+        "name": "当前 功率",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          }
+        }
       },
       "current_cadence": {
-        "name": "Current cadence"
+        "name": "当前 cadence",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          }
+        }
       },
       "current_speed": {
-        "name": "Current speed"
+        "name": "当前 速度",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          }
+        }
       },
       "current_distance": {
-        "name": "Current distance"
+        "name": "当前 distance",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          }
+        }
       },
       "current_altitude": {
-        "name": "Current altitude"
+        "name": "当前 altitude",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          }
+        }
       },
       "last_workout": {
-        "name": "Last workout"
+        "name": "上次训练",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_source": {
-        "name": "Last workout source"
+        "name": "上次训练 来源",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_duration": {
-        "name": "Last workout duration"
+        "name": "上次训练 时长",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_distance": {
-        "name": "Last workout distance"
+        "name": "上次训练 distance",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_avg_hr": {
-        "name": "Last workout average heart rate"
+        "name": "上次训练 average 心率",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_max_hr": {
-        "name": "Last workout maximum heart rate"
+        "name": "上次训练 maximum 心率",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_avg_power": {
-        "name": "Last workout average power"
+        "name": "上次训练 average 功率",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_max_power": {
-        "name": "Last workout maximum power"
+        "name": "上次训练 maximum 功率",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_avg_cadence": {
-        "name": "Last workout average cadence"
+        "name": "上次训练 average cadence",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_elevation_gain": {
-        "name": "Last workout elevation gain"
+        "name": "上次训练 elevation gain",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "age": {
-        "name": "Age"
+        "name": "年龄"
       },
       "weight": {
-        "name": "Weight"
+        "name": "体重"
       },
       "resting_hr": {
-        "name": "Resting heart rate"
+        "name": "静息心率"
       },
       "maximum_hr": {
-        "name": "Maximum heart rate"
+        "name": "最大 心率"
       },
       "heart_rate_reserve": {
-        "name": "Heart rate reserve"
+        "name": "心率储备"
       },
       "vo2max": {
         "name": "VO₂max"
       },
       "friend_predicted_vo2max": {
-        "name": "FRIEND predicted VO₂max"
+        "name": "FRIEND 预测 VO₂max"
       },
       "vo2max_percent_predicted": {
-        "name": "VO₂max percent predicted"
+        "name": "VO₂max percent 预测",
+        "state_attributes": {
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "cardiorespiratory_status": {
-        "name": "Cardiorespiratory fitness status"
+        "name": "Cardiorespiratory fitness 状态"
       },
       "hrv_weekly": {
-        "name": "HRV weekly average"
+        "name": "HRV 周平均"
       },
       "hrv_last_night": {
-        "name": "HRV last night average"
+        "name": "HRV 昨夜平均"
       },
       "hrv_status": {
-        "name": "HRV status"
+        "name": "HRV 状态"
       },
       "threshold_hr": {
-        "name": "Threshold heart rate"
+        "name": "Threshold 心率"
       },
       "threshold_pace": {
-        "name": "Threshold pace"
+        "name": "Threshold 配速"
       },
       "threshold_power": {
-        "name": "Threshold power"
+        "name": "Threshold 功率"
       },
       "threshold_power_to_weight": {
-        "name": "Threshold power-to-weight"
+        "name": "Threshold 功率-to-weight"
       },
       "fitness_age": {
-        "name": "Fitness age"
+        "name": "体能年龄"
       },
       "fitness_age_difference": {
-        "name": "Fitness age difference"
+        "name": "体能年龄 difference"
       },
       "training_readiness_context": {
-        "name": "Training readiness context"
+        "name": "Training readiness 背景"
       },
       "sleep_score_context": {
-        "name": "Sleep score context"
+        "name": "睡眠 评分 背景"
       },
       "acute_training_load": {
-        "name": "Acute training load"
+        "name": "Acute 训练负荷"
       },
       "chronic_training_load": {
-        "name": "Chronic training load"
+        "name": "Chronic 训练负荷"
       },
       "acute_chronic_ratio": {
-        "name": "Acute/chronic load ratio"
+        "name": "急性/慢性负荷比"
       },
       "provider_training_status": {
-        "name": "Provider training status"
+        "name": "Provider training 状态"
       },
       "ai_general_evaluation": {
-        "name": "AI general evaluation"
+        "name": "AI 综合评估",
+        "state_attributes": {
+          "text": {
+            "name": "评估文本"
+          },
+          "generated_at": {
+            "name": "生成时间"
+          },
+          "ai_entity": {
+            "name": "AI 提供方"
+          },
+          "role": {
+            "name": "角色"
+          }
+        }
       },
       "ai_workout_evaluation": {
-        "name": "AI workout evaluation"
+        "name": "上次训练 AI 评估",
+        "state_attributes": {
+          "text": {
+            "name": "评估文本"
+          },
+          "generated_at": {
+            "name": "生成时间"
+          },
+          "ai_entity": {
+            "name": "AI 提供方"
+          },
+          "role": {
+            "name": "角色"
+          }
+        }
       },
       "heart_rate_percent_max": {
-        "name": "心率占最大心率百分比"
+        "name": "心率 % of maximum",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "heart_rate_reserve_percent": {
-        "name": "心率储备百分比"
+        "name": "心率储备 %",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "heart_rate_intensity": {
-        "name": "心率强度"
+        "name": "心率 intensity",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "heart_rate_relative_threshold": {
-        "name": "心率相对阈值"
+        "name": "心率 relative to 阈值",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "current_power_to_weight": {
-        "name": "当前功率体重比"
+        "name": "当前 功率-to-weight",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "power_relative_threshold": {
-        "name": "功率相对阈值"
+        "name": "功率 relative to 阈值",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "current_pace": {
-        "name": "当前配速"
+        "name": "当前 配速",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "speed_relative_threshold": {
-        "name": "速度相对阈值"
+        "name": "速度 relative to 阈值",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "last_workout_calories": {
-        "name": "Last workout calories"
+        "name": "上次训练消耗热量",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_moving_time": {
-        "name": "Last workout moving time"
+        "name": "上次训练 moving time",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_elapsed_time": {
-        "name": "Last workout elapsed time"
+        "name": "上次训练 elapsed time",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_average_speed": {
-        "name": "Last workout average speed"
+        "name": "上次训练 average 速度",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_max_speed": {
-        "name": "Last workout maximum speed"
+        "name": "上次训练 maximum 速度",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_weighted_power": {
-        "name": "Last workout weighted / normalized power"
+        "name": "上次训练 weighted / normalized 功率",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_max_cadence": {
-        "name": "Last workout maximum cadence"
+        "name": "上次训练 maximum cadence",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_elevation_loss": {
-        "name": "Last workout elevation loss"
+        "name": "上次训练 elevation loss",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_training_load": {
-        "name": "Last workout training load"
+        "name": "上次训练 训练负荷",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_aerobic_effect": {
-        "name": "Last workout aerobic training effect"
+        "name": "上次训练 有氧 training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_anaerobic_effect": {
-        "name": "Last workout anaerobic training effect"
+        "name": "上次训练 无氧 training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_training_effect": {
-        "name": "Last workout training effect"
+        "name": "上次训练 training effect",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_vo2max": {
-        "name": "Last workout VO₂max"
+        "name": "上次训练 VO₂max",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_relative_effort": {
-        "name": "Last workout relative effort"
+        "name": "上次训练 relative effort",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_kilojoules": {
-        "name": "Last workout energy"
+        "name": "上次训练 energy",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_total_reps": {
-        "name": "Last workout total reps"
+        "name": "上次训练 total reps",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_exercise_count": {
-        "name": "Last workout exercise count"
+        "name": "上次训练 exercise count",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_volume": {
-        "name": "Last workout training volume"
+        "name": "上次训练 training volume",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_device": {
-        "name": "Last workout device"
+        "name": "上次训练 device",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_gear": {
-        "name": "Last workout gear"
+        "name": "上次训练 gear",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_sources": {
-        "name": "Last workout data sources"
+        "name": "上次训练 data 来源",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "live_average_heart_rate": {
-        "name": "Live average heart rate"
+        "name": "实时 average 心率",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "live_maximum_heart_rate": {
-        "name": "Live maximum heart rate"
+        "name": "实时 maximum 心率",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "live_average_power": {
-        "name": "Live average power"
+        "name": "实时 average 功率",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "live_maximum_power": {
-        "name": "Live maximum power"
+        "name": "实时 maximum 功率",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "live_average_cadence": {
-        "name": "Live average cadence"
+        "name": "实时 average cadence",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "live_average_speed": {
-        "name": "Live average speed"
+        "name": "实时 average 速度",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "live_banister_trimp": {
-        "name": "Live Banister TRIMP"
+        "name": "实时 Banister TRIMP",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "live_mechanical_work": {
-        "name": "Live mechanical work"
+        "name": "实时 mechanical work",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "live_aerobic_efficiency": {
-        "name": "Live aerobic efficiency"
+        "name": "实时 有氧 效率",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "live_aerobic_decoupling": {
-        "name": "Live aerobic decoupling"
+        "name": "实时 有氧 解耦",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "live_time_moderate": {
-        "name": "Time at moderate intensity"
+        "name": "处于 中等强度时间",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "live_time_vigorous": {
-        "name": "Time at vigorous intensity"
+        "name": "处于 高强度时间",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "live_time_near_maximal": {
-        "name": "Time at near-maximal intensity"
+        "name": "处于 接近最大强度时间",
+        "state_attributes": {
+          "source_entity": {
+            "name": "来源实体"
+          },
+          "source_device_name": {
+            "name": "来源设备"
+          },
+          "source_integration": {
+            "name": "来源集成"
+          },
+          "calculated_by_fitness": {
+            "name": "由 Fitness 计算"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "last_workout_banister_trimp": {
-        "name": "Last workout Banister TRIMP"
+        "name": "上次训练 Banister TRIMP",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_trimp_per_hour": {
-        "name": "Last workout TRIMP per hour"
+        "name": "上次训练 TRIMP per hour",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_mechanical_work": {
-        "name": "Last workout mechanical work"
+        "name": "上次训练 mechanical work",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_aerobic_efficiency": {
-        "name": "Last workout aerobic efficiency"
+        "name": "上次训练 有氧 效率",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_aerobic_decoupling": {
-        "name": "Last workout aerobic decoupling"
+        "name": "上次训练 有氧 解耦",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_hrr_10s": {
-        "name": "Last workout heart-rate recovery 10 s"
+        "name": "上次训练 心率恢复 10 s",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_hrr_30s": {
-        "name": "Last workout heart-rate recovery 30 s"
+        "name": "上次训练 心率恢复 30 s",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_hrr_60s": {
-        "name": "Last workout heart-rate recovery 60 s"
+        "name": "上次训练 心率恢复 60 s",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_hrr_120s": {
-        "name": "Last workout heart-rate recovery 120 s"
+        "name": "上次训练 心率恢复 120 s",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_time_moderate": {
-        "name": "Last workout moderate-intensity time"
+        "name": "上次训练 moderate-intensity time",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_time_vigorous": {
-        "name": "Last workout vigorous-intensity time"
+        "name": "上次训练 vigorous-intensity time",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_time_near_maximal": {
-        "name": "Last workout near-maximal time"
+        "name": "上次训练 near-maximal time",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "training_load_7d": {
-        "name": "Banister training load 7 days"
+        "name": "Banister 训练负荷 7 天"
       },
       "training_load_28d": {
-        "name": "Banister training load 28 days"
+        "name": "Banister 训练负荷 28 天"
       },
       "training_load_42d": {
-        "name": "Banister training load 42 days"
+        "name": "Banister 训练负荷 42 天"
       },
       "training_days_28d": {
-        "name": "Active training days 28 days"
+        "name": "活跃训练天数 28 天"
       },
       "hrr_60s_long_term": {
-        "name": "90-day mean heart-rate recovery 60 s"
+        "name": "90-天 mean 心率恢复 60 s"
       },
       "aerobic_decoupling_long_term": {
-        "name": "90-day mean aerobic decoupling"
+        "name": "90-天 mean 有氧 解耦"
       },
       "aerobic_efficiency_long_term": {
-        "name": "90-day mean aerobic efficiency"
+        "name": "90-天 mean 有氧 效率"
       },
       "last_workout_comparable_count": {
-        "name": "Comparable prior workouts"
+        "name": "可比较的历史训练",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_efficiency_vs_baseline": {
-        "name": "Aerobic efficiency vs personal baseline"
+        "name": "有氧 效率 vs 个人基线",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_decoupling_vs_baseline": {
-        "name": "Aerobic decoupling vs personal baseline"
+        "name": "有氧 解耦 vs 个人基线",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_hr_vs_baseline": {
-        "name": "Average heart rate vs personal baseline"
+        "name": "平均 心率 vs 个人基线",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_power_vs_baseline": {
-        "name": "Average power vs personal baseline"
+        "name": "平均 功率 vs 个人基线",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_speed_vs_baseline": {
-        "name": "Average speed vs personal baseline"
+        "name": "平均 速度 vs 个人基线",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_trimp_vs_recent": {
-        "name": "TRIMP vs comparable recent workouts"
+        "name": "TRIMP vs comparable 近期训练",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_load_context": {
-        "name": "Workout load context"
+        "name": "训练 load 背景",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_workout_personal_context": {
-        "name": "Workout personal context"
+        "name": "训练 personal 背景",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_sleep_source": {
-        "name": "Last sleep source"
+        "name": "上次睡眠 来源",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "sleep_start": {
+            "name": "睡眠开始"
+          },
+          "sleep_end": {
+            "name": "睡眠结束"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_sleep_duration": {
-        "name": "Last sleep duration"
+        "name": "上次睡眠 时长",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "sleep_start": {
+            "name": "睡眠开始"
+          },
+          "sleep_end": {
+            "name": "睡眠结束"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_sleep_score": {
-        "name": "Last sleep score"
+        "name": "上次睡眠 评分",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "sleep_start": {
+            "name": "睡眠开始"
+          },
+          "sleep_end": {
+            "name": "睡眠结束"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_sleep_efficiency": {
-        "name": "Last sleep efficiency"
+        "name": "上次睡眠 效率",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "sleep_start": {
+            "name": "睡眠开始"
+          },
+          "sleep_end": {
+            "name": "睡眠结束"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_sleep_time_in_bed": {
-        "name": "Last sleep time in bed"
+        "name": "上次睡眠 time in bed",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "sleep_start": {
+            "name": "睡眠开始"
+          },
+          "sleep_end": {
+            "name": "睡眠结束"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_sleep_awake": {
-        "name": "Last sleep awake"
+        "name": "上次睡眠 清醒",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "sleep_start": {
+            "name": "睡眠开始"
+          },
+          "sleep_end": {
+            "name": "睡眠结束"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_sleep_light": {
-        "name": "Last light sleep"
+        "name": "上次 浅睡",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "sleep_start": {
+            "name": "睡眠开始"
+          },
+          "sleep_end": {
+            "name": "睡眠结束"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_sleep_deep": {
-        "name": "Last deep sleep"
+        "name": "上次 深睡",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "sleep_start": {
+            "name": "睡眠开始"
+          },
+          "sleep_end": {
+            "name": "睡眠结束"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_sleep_rem": {
-        "name": "Last REM sleep"
+        "name": "上次 REM 睡眠",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "sleep_start": {
+            "name": "睡眠开始"
+          },
+          "sleep_end": {
+            "name": "睡眠结束"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_sleep_hrv": {
-        "name": "Last sleep HRV"
+        "name": "上次睡眠 HRV",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "sleep_start": {
+            "name": "睡眠开始"
+          },
+          "sleep_end": {
+            "name": "睡眠结束"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_sleep_average_hr": {
-        "name": "Last sleep average heart rate"
+        "name": "上次睡眠 average 心率",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "sleep_start": {
+            "name": "睡眠开始"
+          },
+          "sleep_end": {
+            "name": "睡眠结束"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_sleep_respiratory_rate": {
-        "name": "Last sleep respiratory rate"
+        "name": "上次睡眠 呼吸频率",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "sleep_start": {
+            "name": "睡眠开始"
+          },
+          "sleep_end": {
+            "name": "睡眠结束"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_sleep_spo2": {
-        "name": "Last sleep SpO₂"
+        "name": "上次睡眠 SpO₂",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "sleep_start": {
+            "name": "睡眠开始"
+          },
+          "sleep_end": {
+            "name": "睡眠结束"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_sleep_recovery_score": {
-        "name": "Last recovery score"
+        "name": "上次 恢复评分",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "sleep_start": {
+            "name": "睡眠开始"
+          },
+          "sleep_end": {
+            "name": "睡眠结束"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "last_sleep_readiness_score": {
-        "name": "Last readiness score"
+        "name": "上次 准备度评分",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "sleep_start": {
+            "name": "睡眠开始"
+          },
+          "sleep_end": {
+            "name": "睡眠结束"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       },
       "training_load_change_7_vs_28": {
-        "name": "7-day training load vs 28-day baseline"
+        "name": "7-天 训练负荷 vs 28-天 基线"
       },
       "hrr_60s_vs_90d": {
-        "name": "Latest 60 s heart-rate recovery vs 90-day baseline"
+        "name": "Latest 60 s 心率恢复 vs 90-天 基线"
       },
       "sleep_duration_7d_mean": {
-        "name": "Mean sleep duration (7 days)"
+        "name": "平均 睡眠 时长 (7 天)"
       },
       "sleep_duration_28d_mean": {
-        "name": "Mean sleep duration (28 days)"
+        "name": "平均 睡眠 时长 (28 天)"
       },
       "sleep_duration_vs_28d": {
-        "name": "Last sleep duration vs 28-day baseline"
+        "name": "上次睡眠 时长 vs 28-天 基线"
       },
       "sleep_duration_shortfall": {
-        "name": "Sleep duration shortfall vs 7 h adult minimum"
+        "name": "睡眠 时长 shortfall vs 7 h adult minimum"
       },
       "sleep_midpoint_variability_14d": {
-        "name": "Sleep midpoint variability (14 days)"
+        "name": "睡眠 midpoint variability (14 天)"
       },
       "sleep_hrv_7d_mean": {
-        "name": "Mean sleep HRV (7 days)"
+        "name": "平均 睡眠 HRV (7 天)"
       },
       "sleep_hrv_28d_mean": {
-        "name": "Mean sleep HRV (28 days)"
+        "name": "平均 睡眠 HRV (28 天)"
       },
       "sleep_hrv_vs_28d": {
-        "name": "Last sleep HRV vs 28-day baseline"
+        "name": "上次睡眠 HRV vs 28-天 基线"
       },
       "resting_hr_7d_mean": {
-        "name": "Mean resting heart rate (7 days)"
+        "name": "平均 静息心率 (7 天)"
       },
       "resting_hr_28d_mean": {
-        "name": "Mean resting heart rate (28 days)"
+        "name": "平均 静息心率 (28 天)"
       },
       "resting_hr_vs_28d": {
-        "name": "Resting heart rate vs 28-day baseline"
+        "name": "静息心率 vs 28-天 基线"
       },
       "vo2max_28d_mean": {
-        "name": "Mean VO₂max (28 days)"
+        "name": "平均 VO₂max (28 天)"
       },
       "vo2max_trend_14_vs_previous_14": {
-        "name": "VO₂max trend: last 14 vs previous 14 days"
+        "name": "VO₂max 趋势：最近 14 天对比此前 14 天"
       },
       "sleep_consistency": {
-        "name": "Sleep consistency"
+        "name": "睡眠规律性",
+        "state_attributes": {
+          "samples_7d": {
+            "name": "样本 (7 天)"
+          },
+          "samples_28d": {
+            "name": "样本 (28 天)"
+          },
+          "average_duration_7d_min": {
+            "name": "平均 睡眠 时长 (7 天)"
+          },
+          "average_duration_28d_min": {
+            "name": "平均 睡眠 时长 (28 天)"
+          },
+          "duration_variability_28d_min": {
+            "name": "睡眠时长变异 (28 天)"
+          },
+          "bedtime_variability_28d_min": {
+            "name": "入睡时间变异 (28 天)"
+          },
+          "wake_time_variability_28d_min": {
+            "name": "起床时间变异 (28 天)"
+          },
+          "midpoint_variability_28d_min": {
+            "name": "睡眠中点变异 (28 天)"
+          },
+          "nights_below_7h_7d": {
+            "name": "低于该值的夜晚 7 h (7 天)"
+          },
+          "nights_below_7h_28d": {
+            "name": "低于该值的夜晚 7 h (28 天)"
+          },
+          "nights_below_7h_28d_percent": {
+            "name": "低于该值的夜晚 7 h (28 天, %)"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "sleep_deficit_7d": {
-        "name": "Sleep deficit – 7 days"
+        "name": "睡眠不足 – 7 天",
+        "state_attributes": {
+          "nights_observed": {
+            "name": "观察夜数"
+          },
+          "nights_below_7h": {
+            "name": "低于该值的夜晚 7 h"
+          },
+          "reference_minimum_hours": {
+            "name": "参考下限"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "autonomic_recovery_trend": {
-        "name": "Autonomic recovery trend"
+        "name": "自主神经恢复趋势",
+        "state_attributes": {
+          "sleep_hrv_7d_mean_ms": {
+            "name": "平均 睡眠 HRV (7 天)"
+          },
+          "sleep_hrv_28d_mean_ms": {
+            "name": "平均 睡眠 HRV (28 天)"
+          },
+          "sleep_hrv_vs_28d_percent": {
+            "name": "Latest 睡眠 HRV vs 28-天 基线"
+          },
+          "resting_hr_current_bpm": {
+            "name": "当前 静息心率"
+          },
+          "resting_hr_7d_mean_bpm": {
+            "name": "平均 静息心率 (7 天)"
+          },
+          "resting_hr_28d_mean_bpm": {
+            "name": "平均 静息心率 (28 天)"
+          },
+          "resting_hr_vs_28d_bpm": {
+            "name": "静息心率 vs 28-天 基线"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "cardiorespiratory_fitness_trend": {
-        "name": "Cardiorespiratory fitness trend"
+        "name": "心肺适能趋势",
+        "state_attributes": {
+          "current_vo2max_ml_kg_min": {
+            "name": "当前 VO₂max"
+          },
+          "vo2max_28d_mean_ml_kg_min": {
+            "name": "平均 VO₂max (28 天)"
+          },
+          "vo2max_90d_mean_ml_kg_min": {
+            "name": "平均 VO₂max (90 天)"
+          },
+          "short_term_change_percent": {
+            "name": "短期变化"
+          },
+          "slope_percent_per_30d": {
+            "name": "每 30 天"
+          },
+          "percent_predicted": {
+            "name": "预测值百分比"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "training_load": {
-        "name": "Training load"
+        "name": "训练负荷",
+        "state_attributes": {
+          "trimp_7d": {
+            "name": "TRIMP (7 天)"
+          },
+          "trimp_28d": {
+            "name": "TRIMP (28 天)"
+          },
+          "trimp_28d_weekly_equivalent": {
+            "name": "TRIMP 28-天 每周等效值"
+          },
+          "workouts_7d": {
+            "name": "训练 (7 天)"
+          },
+          "workouts_28d": {
+            "name": "训练 (28 天)"
+          },
+          "active_days_7d": {
+            "name": "活跃训练天数 (7 天)"
+          },
+          "active_days_28d": {
+            "name": "活跃训练天数 (28 天)"
+          },
+          "training_duration_7d_min": {
+            "name": "训练时长 (7 天)"
+          },
+          "training_duration_28d_min": {
+            "name": "训练时长 (28 天)"
+          },
+          "distance_7d_km": {
+            "name": "距离 (7 天)"
+          },
+          "distance_28d_km": {
+            "name": "距离 (28 天)"
+          },
+          "last_recovery_interval_h": {
+            "name": "上次 recovery interval"
+          },
+          "median_recovery_interval_28d_h": {
+            "name": "恢复间隔中位数 (28 天)"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "heart_rate_recovery": {
-        "name": "Heart-rate recovery"
+        "name": "心率恢复",
+        "state_attributes": {
+          "hrr_30s_bpm": {
+            "name": "心率恢复 (30 s)"
+          },
+          "hrr_60s_bpm": {
+            "name": "心率恢复 (60 s)"
+          },
+          "hrr_120s_bpm": {
+            "name": "心率恢复 (120 s)"
+          },
+          "personal_90d_baseline_bpm": {
+            "name": "个人 90 天基线"
+          },
+          "latest_vs_baseline_bpm": {
+            "name": "最新值对比 个人基线"
+          },
+          "samples_90d": {
+            "name": "样本 (90 天)"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       },
       "training_recovery_relationship": {
-        "name": "Training–recovery relationship"
+        "name": "训练–恢复关系",
+        "state_attributes": {
+          "primary_correlation": {
+            "name": "主要相关性"
+          },
+          "primary_measure": {
+            "name": "主要恢复指标"
+          },
+          "trimp_vs_next_sleep_duration_r": {
+            "name": "TRIMP vs next-睡眠 时长 (r)"
+          },
+          "trimp_vs_next_sleep_hrv_r": {
+            "name": "TRIMP vs next-睡眠 HRV (r)"
+          },
+          "sleep_duration_pairs": {
+            "name": "训练–睡眠 时长 pairs"
+          },
+          "sleep_hrv_pairs": {
+            "name": "训练–睡眠 HRV pairs"
+          },
+          "window_days": {
+            "name": "分析窗口"
+          },
+          "causal_interpretation": {
+            "name": "因果解释"
+          },
+          "scientific_basis": {
+            "name": "科学依据"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "data_used": {
+            "name": "使用的数据"
+          },
+          "what_it_means": {
+            "name": "这意味着什么"
+          },
+          "why_useful": {
+            "name": "为什么有用"
+          }
+        }
       }
     },
     "button": {
       "start_workout": {
-        "name": "开始训练"
+        "name": "Start 训练"
       },
       "stop_workout": {
-        "name": "停止训练"
+        "name": "Stop 训练"
       },
       "regenerate_ai_evaluation": {
         "name": "重新生成 AI 评估"
@@ -718,7 +2541,7 @@
     },
     "select": {
       "workout_room": {
-        "name": "训练房间"
+        "name": "训练 room"
       }
     }
   },
