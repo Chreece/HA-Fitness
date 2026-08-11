@@ -172,57 +172,89 @@ def collect_provider_metrics(hass: HomeAssistant, config: dict) -> dict:
 
 
 def workout_device_entity_ids(hass: HomeAssistant, config: dict) -> list[str]:
-    """Return entities capable of signalling a completed-workout change.
+    """Return only entities that can signal a parseable completed workout.
 
-    Do not subscribe to every sensor belonging to a selected workout device.
-    Large provider devices such as Garmin Connect can expose hundreds of
-    frequently changing wellness sensors. Those updates are unrelated to
-    completed workouts and must not wake the Fitness workout-discovery path.
+    This contract is shared by setup capability discovery and runtime listeners:
+    if a device is offered in setup, these are the exact entities Fitness will
+    watch. High-frequency wellness/live sensors are deliberately excluded.
     """
     device_ids = set(config.get(CONF_WORKOUT_DEVICE_IDS) or [])
     registry = er.async_get(hass)
-
-    trigger_tokens = (
-        "activity",
-        "activities",
-        "workout",
-        "workouts",
-        "exercise",
-        "exercises",
-        "session",
-        "sessions",
-    )
-
-    excluded_tokens = (
-        "scheduled",
-        "planned",
-        "next_workout",
-        "workout_plan",
-        "route",
-        "polyline",
-        "gear_distance",
-    )
-
     result: set[str] = set()
 
-    for entry in registry.entities.values():
-        if entry.device_id not in device_ids:
-            continue
-        if not entry.entity_id.startswith("sensor."):
-            continue
+    def domain(entry):
+        config_entry_id = getattr(entry, "config_entry_id", None)
+        if not config_entry_id:
+            return "unknown"
+        config_entry = hass.config_entries.async_get_entry(config_entry_id)
+        return config_entry.domain if config_entry is not None else "unknown"
 
-        label = " ".join(
+    def label(entry):
+        state = hass.states.get(entry.entity_id)
+        return " ".join(
             (
                 entry.entity_id,
                 entry.name or "",
                 entry.original_name or "",
+                str(getattr(entry, "translation_key", None) or ""),
+                str(state.attributes.get("friendly_name") or "") if state else "",
             )
         ).lower().replace(" ", "_").replace("-", "_")
 
-        if any(token in label for token in excluded_tokens):
+    by_device: dict[str, list] = {}
+    for entry in registry.entities.values():
+        if entry.device_id not in device_ids:
             continue
+        if not entry.entity_id.startswith(("sensor.", "binary_sensor.")):
+            continue
+        by_device.setdefault(entry.device_id, []).append(entry)
 
-        if any(token in label for token in trigger_tokens):
-            result.add(entry.entity_id)
+    excluded = (
+        "scheduled", "planned", "next_workout", "workout_plan", "route",
+        "polyline", "gear_distance", "summary", "year_to_date", "all_time",
+    )
+
+    for _device_id, entries in by_device.items():
+        domains = {domain(entry) for entry in entries}
+        device_hits: set[str] = set()
+
+        for entry in entries:
+            text = label(entry)
+            if any(token in text for token in excluded):
+                continue
+
+            matched = False
+            if "garmin_connect" in domains:
+                matched = any(token in text for token in ("last_activity", "last_activities", "last_workout", "last_workouts"))
+            elif domains.intersection({"ha_strava", "strava"}):
+                matched = "activity" in text and not any(token in text for token in ("recent", "total", "gear"))
+            elif "polar" in domains:
+                matched = "last_exercise" in text or "exercise" in text
+            elif "hevy" in domains:
+                matched = "last_workout" in text
+            elif "peloton" in domains:
+                matched = any(token in text for token in (
+                    "start_time", "end_time", "workout_duration", "duration",
+                    "workout_distance", "average_heart_rate", "max_heart_rate",
+                    "average_cadence", "max_cadence", "power_output",
+                ))
+            elif "oura" in domains:
+                matched = "last_workout" in text or "workout_type" in text
+            elif "whoop" in domains:
+                matched = "workout_overview" in text or "last_workout" in text
+            elif "suunto" in domains:
+                matched = "last_workout" in text or "last_activity" in text
+            else:
+                matched = any(token in text for token in (
+                    "last_activity", "latest_activity", "last_workout",
+                    "latest_workout", "last_exercise", "latest_exercise",
+                ))
+
+            if matched:
+                device_hits.add(entry.entity_id)
+
+        # Generic providers are accepted only when a concrete activity/workout
+        # contract was recognized; known adapters can use their exact signals.
+        result.update(device_hits)
 
     return sorted(result)

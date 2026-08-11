@@ -107,6 +107,16 @@
           "periodic_live_announcements": "Включает голосовую оценку текущей тренировки через заданный интервал.",
           "periodic_live_interval_minutes": "Минуты между оценками; перед каждой обновляется последняя статистика тренировки."
         }
+      },
+      "sleep_devices": {
+        "title": "Источники данных сна",
+        "description": "Выберите устройства, предоставляющие данные о сне и восстановлении.",
+        "data": {
+          "sleep_device_ids": "Устройства сна"
+        },
+        "data_description": {
+          "sleep_device_ids": "Показываются только устройства с данными сна, которые Fitness умеет обрабатывать."
+        }
       }
     },
     "error": {
@@ -127,7 +137,8 @@
           "live_devices": "Источники данных тренировки в реальном времени",
           "workout_devices": "Тренировки / долгосрочные данные",
           "ai": "Интерпретация ИИ",
-          "feedback": "Коучинг, свет и объявления"
+          "feedback": "Коучинг, свет и объявления",
+          "sleep_devices": "Устройства сна"
         }
       },
       "profile": {
@@ -224,6 +235,16 @@
           "feedback_area_ids": "Комнаты тренировки для контекстных ламп и media player.",
           "periodic_live_announcements": "Включает голосовую оценку текущей тренировки через заданный интервал.",
           "periodic_live_interval_minutes": "Минуты между оценками; перед каждой обновляется последняя статистика тренировки."
+        }
+      },
+      "sleep_devices": {
+        "title": "Источники данных сна",
+        "description": "Выберите устройства, предоставляющие данные о сне и восстановлении.",
+        "data": {
+          "sleep_device_ids": "Устройства сна"
+        },
+        "data_description": {
+          "sleep_device_ids": "Показываются только устройства с данными сна, которые Fitness умеет обрабатывать."
         }
       }
     }
@@ -571,6 +592,96 @@
       },
       "last_workout_personal_context": {
         "name": "Workout personal context"
+      },
+      "last_sleep_source": {
+        "name": "Last sleep source"
+      },
+      "last_sleep_duration": {
+        "name": "Last sleep duration"
+      },
+      "last_sleep_score": {
+        "name": "Last sleep score"
+      },
+      "last_sleep_efficiency": {
+        "name": "Last sleep efficiency"
+      },
+      "last_sleep_time_in_bed": {
+        "name": "Last sleep time in bed"
+      },
+      "last_sleep_awake": {
+        "name": "Last sleep awake"
+      },
+      "last_sleep_light": {
+        "name": "Last light sleep"
+      },
+      "last_sleep_deep": {
+        "name": "Last deep sleep"
+      },
+      "last_sleep_rem": {
+        "name": "Last REM sleep"
+      },
+      "last_sleep_hrv": {
+        "name": "Last sleep HRV"
+      },
+      "last_sleep_average_hr": {
+        "name": "Last sleep average heart rate"
+      },
+      "last_sleep_respiratory_rate": {
+        "name": "Last sleep respiratory rate"
+      },
+      "last_sleep_spo2": {
+        "name": "Last sleep SpO₂"
+      },
+      "last_sleep_recovery_score": {
+        "name": "Last recovery score"
+      },
+      "last_sleep_readiness_score": {
+        "name": "Last readiness score"
+      },
+      "training_load_change_7_vs_28": {
+        "name": "7-day training load vs 28-day baseline"
+      },
+      "hrr_60s_vs_90d": {
+        "name": "Latest 60 s heart-rate recovery vs 90-day baseline"
+      },
+      "sleep_duration_7d_mean": {
+        "name": "Mean sleep duration (7 days)"
+      },
+      "sleep_duration_28d_mean": {
+        "name": "Mean sleep duration (28 days)"
+      },
+      "sleep_duration_vs_28d": {
+        "name": "Last sleep duration vs 28-day baseline"
+      },
+      "sleep_duration_shortfall": {
+        "name": "Sleep duration shortfall vs 7 h adult minimum"
+      },
+      "sleep_midpoint_variability_14d": {
+        "name": "Sleep midpoint variability (14 days)"
+      },
+      "sleep_hrv_7d_mean": {
+        "name": "Mean sleep HRV (7 days)"
+      },
+      "sleep_hrv_28d_mean": {
+        "name": "Mean sleep HRV (28 days)"
+      },
+      "sleep_hrv_vs_28d": {
+        "name": "Last sleep HRV vs 28-day baseline"
+      },
+      "resting_hr_7d_mean": {
+        "name": "Mean resting heart rate (7 days)"
+      },
+      "resting_hr_28d_mean": {
+        "name": "Mean resting heart rate (28 days)"
+      },
+      "resting_hr_vs_28d": {
+        "name": "Resting heart rate vs 28-day baseline"
+      },
+      "vo2max_28d_mean": {
+        "name": "Mean VO₂max (28 days)"
+      },
+      "vo2max_trend_14_vs_previous_14": {
+        "name": "VO₂max trend: last 14 vs previous 14 days"
       }
     },
     "button": {

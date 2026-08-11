@@ -37,14 +37,17 @@ from .const import (
     CONF_VO2MAX,
     CONF_WEIGHT,
     CONF_WORKOUT_DEVICE_IDS,
+    CONF_SLEEP_DEVICE_IDS,
     DOMAIN,
     SUPPORTED_LANGUAGES,
 )
-from .providers.entities import convert_to_canonical, validate_number_or_entity
-from .providers.autofill import (
-    exact_antplus_live_device_ids,
-    exact_profile_defaults,
-    exact_workout_device_ids,
+from .providers.entities import is_entity_reference, validate_number_or_entity
+from .providers.autofill import exact_profile_defaults
+from .providers.capabilities import (
+    live_device_choices,
+    profile_entity_choices,
+    sleep_device_choices,
+    workout_device_choices,
 )
 
 
@@ -93,43 +96,8 @@ _PROFILE_ENTITY_QUANTITY = {
 
 
 def _compatible_profile_entities(hass, field: str) -> list[dict[str, str]]:
-    """Return currently compatible sensor entities for one profile field."""
-    quantity = _PROFILE_ENTITY_QUANTITY[field]
-    result = []
-
-    for state in sorted(
-        hass.states.async_all("sensor"),
-        key=lambda item: item.entity_id,
-    ):
-        if state.state in ("unknown", "unavailable", ""):
-            continue
-        try:
-            value = float(state.state)
-        except (TypeError, ValueError):
-            continue
-
-        unit = state.attributes.get("unit_of_measurement")
-        converted, canonical = convert_to_canonical(
-            value,
-            unit,
-            quantity,
-        )
-        if converted is None:
-            continue
-
-        friendly = state.attributes.get("friendly_name") or state.entity_id
-        label = f"{friendly} — {state.entity_id}"
-        if unit:
-            label += f" [{unit}]"
-
-        result.append(
-            {
-                "value": state.entity_id,
-                "label": label,
-            }
-        )
-
-    return result
+    """Return only entities the runtime profile parser can safely consume."""
+    return profile_entity_choices(hass, field)
 
 
 def _number_or_entity_selector(hass, field: str):
@@ -144,7 +112,23 @@ def _number_or_entity_selector(hass, field: str):
 
 
 def _device_multi():
+    """Legacy unrestricted device selector kept for migrations/tests."""
     return selector.DeviceSelector(selector.DeviceSelectorConfig(multiple=True))
+
+
+def _supported_device_multi(choices):
+    """Select only devices proven parseable by the runtime capability catalog."""
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=[item.as_selector_option() for item in choices],
+            multiple=True,
+            mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )
+
+
+def _choice_ids(choices) -> list[str]:
+    return [item.value for item in choices]
 
 
 def _area_multi():
@@ -204,16 +188,22 @@ def _number(min_v, max_v):
     )
 
 
-def _validate(user_input, specs):
+def _validate(hass, user_input, specs):
     errors = {}
     for key, (minimum, maximum, required) in specs.items():
+        value = user_input.get(key)
         if not validate_number_or_entity(
-            user_input.get(key),
+            value,
             min_value=minimum,
             max_value=maximum,
             required=required,
         ):
             errors[key] = "invalid_number_or_entity"
+            continue
+        if is_entity_reference(value):
+            supported = {item["value"] for item in profile_entity_choices(hass, key)}
+            if str(value).strip() not in supported:
+                errors[key] = "invalid_number_or_entity"
     return errors
 
 
@@ -283,6 +273,7 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             errors = _validate(
+                self.hass,
                 user_input,
                 {
                     CONF_WEIGHT: (20, 500, True),
@@ -308,6 +299,7 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             errors = _validate(
+                self.hass,
                 user_input,
                 {
                     CONF_HEIGHT: (50, 260, False),
@@ -349,7 +341,7 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="live_devices",
             data_schema=vol.Schema(
-                {vol.Optional(CONF_LIVE_DEVICE_IDS, default=exact_antplus_live_device_ids(self.hass)): _device_multi()}
+                {vol.Optional(CONF_LIVE_DEVICE_IDS, default=_choice_ids(live_device_choices(self.hass))): _supported_device_multi(live_device_choices(self.hass))}
             ),
         )
 
@@ -358,12 +350,25 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ids = list(user_input.get(CONF_WORKOUT_DEVICE_IDS) or [])
             if ids:
                 self._data[CONF_WORKOUT_DEVICE_IDS] = ids
-            return await self.async_step_ai()
+            return await self.async_step_sleep_devices()
 
         return self.async_show_form(
             step_id="workout_devices",
             data_schema=vol.Schema(
-                {vol.Optional(CONF_WORKOUT_DEVICE_IDS, default=exact_workout_device_ids(self.hass)): _device_multi()}
+                {vol.Optional(CONF_WORKOUT_DEVICE_IDS, default=_choice_ids(workout_device_choices(self.hass))): _supported_device_multi(workout_device_choices(self.hass))}
+            ),
+        )
+
+    async def async_step_sleep_devices(self, user_input=None):
+        if user_input is not None:
+            ids = list(user_input.get(CONF_SLEEP_DEVICE_IDS) or [])
+            if ids:
+                self._data[CONF_SLEEP_DEVICE_IDS] = ids
+            return await self.async_step_ai()
+        return self.async_show_form(
+            step_id="sleep_devices",
+            data_schema=vol.Schema(
+                {vol.Optional(CONF_SLEEP_DEVICE_IDS, default=_choice_ids(sleep_device_choices(self.hass))): _supported_device_multi(sleep_device_choices(self.hass))}
             ),
         )
 
@@ -522,6 +527,7 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 "fitness_inputs",
                 "live_devices",
                 "workout_devices",
+                "sleep_devices",
                 "ai",
                 "feedback",
             ],
@@ -616,6 +622,7 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
 
         if user_input is not None:
             errors = _validate(
+                self.hass,
                 user_input,
                 {
                     CONF_WEIGHT: (20, 500, True),
@@ -714,10 +721,11 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 {
                     vol.Optional(
                         CONF_LIVE_DEVICE_IDS,
-                        default=list(
-                            current.get(CONF_LIVE_DEVICE_IDS) or []
-                        ),
-                    ): _device_multi()
+                        default=[
+                            item for item in (current.get(CONF_LIVE_DEVICE_IDS) or [])
+                            if item in set(_choice_ids(live_device_choices(self.hass)))
+                        ],
+                    ): _supported_device_multi(live_device_choices(self.hass))
                 }
             ),
         )
@@ -740,11 +748,25 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 {
                     vol.Optional(
                         CONF_WORKOUT_DEVICE_IDS,
-                        default=list(
-                            current.get(CONF_WORKOUT_DEVICE_IDS) or []
-                        ),
-                    ): _device_multi()
+                        default=[
+                            item for item in (current.get(CONF_WORKOUT_DEVICE_IDS) or [])
+                            if item in set(_choice_ids(workout_device_choices(self.hass)))
+                        ],
+                    ): _supported_device_multi(workout_device_choices(self.hass))
                 }
+            ),
+        )
+
+    async def async_step_sleep_devices(self, user_input=None):
+        current = self._current()
+        if user_input is not None:
+            return await self._save_merge(
+                {CONF_SLEEP_DEVICE_IDS: list(user_input.get(CONF_SLEEP_DEVICE_IDS) or [])}
+            )
+        return self.async_show_form(
+            step_id="sleep_devices",
+            data_schema=vol.Schema(
+                {vol.Optional(CONF_SLEEP_DEVICE_IDS, default=[item for item in (current.get(CONF_SLEEP_DEVICE_IDS) or []) if item in set(_choice_ids(sleep_device_choices(self.hass)))]): _supported_device_multi(sleep_device_choices(self.hass))}
             ),
         )
 

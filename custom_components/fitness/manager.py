@@ -5,10 +5,12 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import re
 from datetime import datetime, timezone, timedelta
-from statistics import mean
+from statistics import mean, pstdev
 from typing import Callable, Any
+from zoneinfo import ZoneInfo
 
 from homeassistant.components.media_player import MediaPlayerEntityFeature
 from homeassistant.core import HomeAssistant, Event, callback
@@ -37,6 +39,7 @@ from .const import (
     CONF_PERIODIC_LIVE_ANNOUNCEMENTS,
     CONF_PERIODIC_LIVE_INTERVAL_MINUTES,
     CONF_PROFILE_NAME,
+    CONF_SLEEP_DEVICE_IDS,
     CONF_RESTING_HR,
     CONF_SEX,
     CONF_VO2MAX,
@@ -102,11 +105,18 @@ from .providers.entities import (
     resolve_number_or_entity,
 )
 from .providers.evaluation import collect_provider_metrics, workout_device_entity_ids
+from .providers.sleep import SleepRecord, merged_sleeps, newest_sleep
+from .providers.sleep_adapters.registry import (
+    discover_sleep_records,
+    latest_sleep as discover_latest_sleep,
+    sleep_device_entity_ids,
+)
 from .providers.workouts import (
     Workout,
     _dt,
     _sport_key,
     discover_external_workouts,
+    merged_workouts,
     newest,
 )
 
@@ -119,6 +129,12 @@ class FitnessManager:
         self.entry = entry
         self.listeners: list[Callable[[], None]] = []
         self.live_listeners: list[Callable[[], None]] = []
+        self.sleep_listeners: list[Callable[[], None]] = []
+        self._sleep_tracking_started_at: str | None = None
+        self._sleep_event_record: SleepRecord | None = None
+        # Canonical merged nightly records retained for evidence-based sleep
+        # trends. These are Fitness facts, not provider-specific duplicates.
+        self.sleep_history: list[dict[str, Any]] = []
         self.remove_listeners: list[Callable[[], None]] = []
         self.store = Store(
             hass,
@@ -259,6 +275,7 @@ class FitnessManager:
         self.long_term_statistics_updated = stored.get(
             "long_term_statistics_updated"
         )
+        self.sleep_history = list(stored.get("sleep_history") or [])
         self.materialized_sensor_keys = set(
             stored.get("materialized_sensor_keys") or []
         )
@@ -309,6 +326,14 @@ class FitnessManager:
         workout_ids = set(
             workout_device_entity_ids(self.hass, self.config)
         )
+        sleep_ids = set(sleep_device_entity_ids(self.hass, self.config))
+        self._latest_sleep_cache = discover_latest_sleep(self.hass, self.config)
+        if self._latest_sleep_cache is not None:
+            self._remember_sleep_record(self._latest_sleep_cache, persist=False)
+        elif self.sleep_history:
+            # Avoid a transient unavailable state during provider restoration.
+            restored = self._sleep_records_from_history()
+            self._latest_sleep_cache = newest_sleep(restored)
         profile_ids: set[str] = set()
 
         for key in (
@@ -355,8 +380,15 @@ class FitnessManager:
                 )
             )
 
+        if sleep_ids:
+            self.remove_listeners.append(
+                async_track_state_change_event(
+                    self.hass, sorted(sleep_ids), self._async_sleep_source_change
+                )
+            )
+
         # Profile-input changes do not need workout-provider discovery.
-        profile_only_ids = profile_ids - live_ids - workout_ids
+        profile_only_ids = profile_ids - live_ids - workout_ids - sleep_ids
         if profile_only_ids:
             self.remove_listeners.append(
                 async_track_state_change_event(
@@ -448,6 +480,10 @@ class FitnessManager:
         self.live_listeners.append(listener)
         return lambda: self.live_listeners.remove(listener)
 
+    def add_sleep_listener(self, listener):
+        self.sleep_listeners.append(listener)
+        return lambda: self.sleep_listeners.remove(listener)
+
     def sensor_was_materialized(self, key: str) -> bool:
         """Return whether a sensor entity has ever had a valid value."""
         return key in self.materialized_sensor_keys
@@ -507,6 +543,114 @@ class FitnessManager:
                     "Fitness live entity listener failed; continuing remaining updates"
                 )
 
+    def _notify_sleep(self):
+        for listener in list(self.sleep_listeners):
+            try:
+                listener()
+            except Exception:
+                _LOGGER.exception("Fitness sleep entity listener failed")
+
+    def _sleep_records_from_history(self) -> list[SleepRecord]:
+        records: list[SleepRecord] = []
+        valid_fields = set(SleepRecord.__dataclass_fields__)
+        for item in self.sleep_history:
+            if not isinstance(item, dict):
+                continue
+            payload = {key: value for key, value in item.items() if key in valid_fields}
+            try:
+                records.append(SleepRecord(**payload))
+            except (TypeError, ValueError):
+                continue
+        return records
+
+    def _remember_sleep_record(
+        self,
+        record: SleepRecord | None,
+        *,
+        persist: bool = True,
+    ) -> bool:
+        """Merge one canonical sleep into bounded longitudinal history."""
+        if record is None or not (record.start or record.end or record.duration_s):
+            return False
+
+        before = json.dumps(self.sleep_history, sort_keys=True, default=str)
+        records = self._sleep_records_from_history()
+        records.append(record)
+        merged = merged_sleeps(records)
+        merged.sort(
+            key=lambda item: _dt(item.end or item.start)
+            or datetime.min.replace(tzinfo=timezone.utc)
+        )
+        # Keep enough history for 90-day trends plus modest gaps.
+        self.sleep_history = [item.as_dict() for item in merged[-120:]]
+        after = json.dumps(self.sleep_history, sort_keys=True, default=str)
+        changed = before != after
+        if changed and persist:
+            self.hass.async_create_task(self._save())
+        return changed
+
+    def latest_sleep(self):
+        return getattr(self, "_latest_sleep_cache", None)
+
+    @callback
+    def _async_sleep_source_change(self, event: Event):
+        """Refresh merged sleep state from exact provider trigger entities.
+
+        Sleep as Android's core integration is event based. Track its start/stop
+        events in memory so it can contribute a basic sleep interval that is
+        merged with richer Garmin/Oura/etc. records for the same night.
+        """
+        entity_id = str(event.data.get("entity_id") or "")
+        new_state = event.data.get("new_state")
+
+        if entity_id.startswith("event.") and new_state is not None:
+            event_type = str(new_state.attributes.get("event_type") or "").lower()
+            if event_type == "started":
+                stamp = getattr(new_state, "last_changed", None)
+                self._sleep_tracking_started_at = (
+                    stamp.isoformat() if stamp is not None
+                    else datetime.now(timezone.utc).isoformat()
+                )
+            elif event_type == "stopped" and self._sleep_tracking_started_at:
+                stamp = getattr(new_state, "last_changed", None)
+                end = stamp if stamp is not None else datetime.now(timezone.utc)
+                start = _dt(self._sleep_tracking_started_at)
+                if start is not None and end > start:
+                    duration = (end - start).total_seconds()
+                    if 60 <= duration <= 24 * 3600:
+                        self._sleep_event_record = SleepRecord(
+                            source=entity_id,
+                            provider_domain="sleep_as_android",
+                            start=start.isoformat(),
+                            end=end.isoformat(),
+                            duration_s=duration,
+                            sources=[entity_id],
+                            provider_domains=["sleep_as_android"],
+                            field_sources={
+                                "start": "sleep_as_android",
+                                "end": "sleep_as_android",
+                                "duration_s": "sleep_as_android",
+                            },
+                            provider_values={
+                                "sleep_as_android": {
+                                    "event_type": event_type,
+                                    "start": start.isoformat(),
+                                    "end": end.isoformat(),
+                                }
+                            },
+                        )
+                self._sleep_tracking_started_at = None
+
+        records = discover_sleep_records(self.hass, self.config)
+        if self._sleep_event_record is not None:
+            records.append(self._sleep_event_record)
+        self._latest_sleep_cache = newest_sleep(records)
+        changed = self._remember_sleep_record(self._latest_sleep_cache)
+        self._notify_sleep()
+        if changed:
+            # Sleep changes are infrequent; refresh Evaluation/materialization once.
+            self._notify()
+
     async def _save(self):
         await self.store.async_save(
             {
@@ -518,6 +662,7 @@ class FitnessManager:
                 "ai_last_generated": self.ai_last_generated,
                 "long_term_statistics": self.long_term_statistics,
                 "long_term_statistics_updated": self.long_term_statistics_updated,
+                "sleep_history": self.sleep_history[-120:],
                 "materialized_sensor_keys": sorted(
                     self.materialized_sensor_keys
                 ),
@@ -2221,6 +2366,10 @@ class FitnessManager:
         if not self._workout_has_real_information(workout):
             return
 
+        if self._remember_completed_workout(workout):
+            await self._save()
+            self._notify()
+
         if self.config.get(CONF_AI_ENABLED):
             await self.async_generate_ai(
                 general=True,
@@ -3525,6 +3674,22 @@ class FitnessManager:
 
         return self._apply_personal_workout_context(workout)
 
+    def _remember_completed_workout(self, workout: Workout | None) -> bool:
+        """Merge a completed workout into persistent history without duplicates."""
+        if workout is None or not workout.start:
+            return False
+        before = json.dumps(self.history, sort_keys=True, default=str)
+        records = self.local_workouts()
+        records.append(workout)
+        merged = merged_workouts(records)
+        merged.sort(
+            key=lambda item: _dt(item.start)
+            or datetime.min.replace(tzinfo=timezone.utc)
+        )
+        self.history = [item.as_dict() for item in merged[-MAX_STORED_WORKOUTS:]]
+        after = json.dumps(self.history, sort_keys=True, default=str)
+        return before != after
+
     def local_workouts(self) -> list[Workout]:
         result = []
         for item in self.history:
@@ -3744,15 +3909,13 @@ class FitnessManager:
             self._notify()
 
     def workout_long_term_summary(self) -> dict[str, Any]:
-        """Event-based trends from actual stored Fitness live workouts."""
+        """Evidence-oriented trends from actual stored Fitness workouts."""
         workouts = self.local_workouts()
         now = datetime.now(timezone.utc)
 
         def parse_start(workout):
             try:
-                dt = datetime.fromisoformat(
-                    str(workout.start).replace("Z", "+00:00")
-                )
+                dt = datetime.fromisoformat(str(workout.start).replace("Z", "+00:00"))
                 if dt.tzinfo is None:
                     dt = dt.replace(tzinfo=timezone.utc)
                 return dt
@@ -3765,32 +3928,36 @@ class FitnessManager:
             if dt is None:
                 continue
             age_days = (now - dt).total_seconds() / 86400
-            if age_days <= 90:
+            if 0 <= age_days <= 90:
                 recent.append((dt, workout))
-
         recent.sort(key=lambda item: item[0])
 
-        def load(days):
-            return sum(
-                workout.banister_trimp or 0.0
+        def trimp_values(days):
+            return [
+                float(workout.banister_trimp)
                 for dt, workout in recent
                 if (now - dt).total_seconds() <= days * 86400
-            )
-
-        def avg_field(field_name, days=90):
-            vals = [
-                float(getattr(workout, field_name))
-                for dt, workout in recent
-                if (
-                    (now - dt).total_seconds() <= days * 86400
-                    and getattr(workout, field_name) is not None
-                )
+                and workout.banister_trimp is not None
             ]
-            return mean(vals) if vals else None
+
+        def load(days):
+            values = trimp_values(days)
+            return sum(values) if values else None
+
+        def avg_field(field_name, days=90, *, exclude_latest=False):
+            candidates = [
+                (dt, float(getattr(workout, field_name)))
+                for dt, workout in recent
+                if (now - dt).total_seconds() <= days * 86400
+                and getattr(workout, field_name) is not None
+            ]
+            if exclude_latest and candidates:
+                candidates = candidates[:-1]
+            values = [value for _dt_item, value in candidates]
+            return mean(values) if values else None
 
         active_days_28 = len({
-            dt.date()
-            for dt, _ in recent
+            dt.date() for dt, _ in recent
             if (now - dt).total_seconds() <= 28 * 86400
         })
 
@@ -3800,11 +3967,26 @@ class FitnessManager:
                 "active_training_days_28d": None,
                 "banister_trimp_7d": None,
                 "banister_trimp_28d": None,
-                "banister_trimp_42d": None,
+                "training_load_change_7_vs_28_percent": None,
                 "hrr_60s_mean_90d": None,
-                "aerobic_decoupling_mean_90d": None,
-                "aerobic_efficiency_mean_90d": None,
+                "hrr_60s_latest_vs_90d_bpm": None,
             }
+
+        load7 = load(7)
+        load28 = load(28)
+        change = None
+        if load7 is not None and load28 is not None and load28 > 0:
+            recent_daily = load7 / 7.0
+            baseline_daily = load28 / 28.0
+            if baseline_daily > 0:
+                change = (recent_daily - baseline_daily) / baseline_daily * 100.0
+
+        hrr_baseline = avg_field("hrr_60s", 90, exclude_latest=True)
+        latest_hrr = None
+        for _dt_item, workout in reversed(recent):
+            if workout.hrr_60s is not None:
+                latest_hrr = float(workout.hrr_60s)
+                break
 
         return {
             "workouts_28d": sum(
@@ -3812,24 +3994,141 @@ class FitnessManager:
                 if (now - dt).total_seconds() <= 28 * 86400
             ),
             "active_training_days_28d": active_days_28,
-            "banister_trimp_7d": round(load(7), 1),
-            "banister_trimp_28d": round(load(28), 1),
-            "banister_trimp_42d": round(load(42), 1),
+            "banister_trimp_7d": round(load7, 1) if load7 is not None else None,
+            "banister_trimp_28d": round(load28, 1) if load28 is not None else None,
+            "training_load_change_7_vs_28_percent": (
+                round(change, 1) if change is not None else None
+            ),
             "hrr_60s_mean_90d": (
                 round(avg_field("hrr_60s"), 1)
-                if avg_field("hrr_60s") is not None
-                else None
+                if avg_field("hrr_60s") is not None else None
             ),
-            "aerobic_decoupling_mean_90d": (
-                round(avg_field("aerobic_decoupling_percent"), 2)
-                if avg_field("aerobic_decoupling_percent") is not None
-                else None
+            "hrr_60s_latest_vs_90d_bpm": (
+                round(latest_hrr - hrr_baseline, 1)
+                if latest_hrr is not None and hrr_baseline is not None else None
             ),
-            "aerobic_efficiency_mean_90d": (
-                round(avg_field("aerobic_efficiency"), 5)
-                if avg_field("aerobic_efficiency") is not None
-                else None
+        }
+
+    def sleep_long_term_summary(self) -> dict[str, Any]:
+        """Longitudinal sleep facts without inventing a recovery/readiness score."""
+        records = self._sleep_records_from_history()
+        now = datetime.now(timezone.utc)
+        tz = ZoneInfo(getattr(self.hass.config, "time_zone", "UTC") or "UTC")
+
+        dated: list[tuple[datetime, SleepRecord]] = []
+        for record in records:
+            stamp = _dt(record.end or record.start)
+            if stamp is None:
+                continue
+            age_days = (now - stamp).total_seconds() / 86400
+            if 0 <= age_days <= 90:
+                dated.append((stamp, record))
+        dated.sort(key=lambda item: item[0])
+
+        def values(field: str, days: int):
+            return [
+                float(getattr(record, field))
+                for stamp, record in dated
+                if (now - stamp).total_seconds() <= days * 86400
+                and getattr(record, field) is not None
+            ]
+
+        def enough_mean(field: str, days: int, minimum: int):
+            vals = values(field, days)
+            return mean(vals) if len(vals) >= minimum else None
+
+        duration7 = enough_mean("duration_s", 7, 3)
+        duration28 = enough_mean("duration_s", 28, 7)
+        hrv7 = enough_mean("hrv_ms", 7, 3)
+        hrv28 = enough_mean("hrv_ms", 28, 7)
+
+        latest = self.latest_sleep()
+        latest_duration = latest.duration_s if latest else None
+        latest_hrv = latest.hrv_ms if latest else None
+
+        midpoint_minutes: list[float] = []
+        for stamp, record in dated:
+            if (now - stamp).total_seconds() > 14 * 86400:
+                continue
+            start = _dt(record.start)
+            end = _dt(record.end)
+            if not start or not end or end <= start:
+                continue
+            midpoint = (start + (end - start) / 2).astimezone(tz)
+            midpoint_minutes.append(midpoint.hour * 60 + midpoint.minute + midpoint.second / 60)
+
+        midpoint_sd = None
+        if len(midpoint_minutes) >= 5:
+            # Circularly unwrap around the first midpoint to avoid midnight artefacts.
+            anchor = midpoint_minutes[0]
+            unwrapped = []
+            for value in midpoint_minutes:
+                delta = ((value - anchor + 720) % 1440) - 720
+                unwrapped.append(anchor + delta)
+            midpoint_sd = pstdev(unwrapped)
+
+        sleep_shortfall_min = None
+        if latest_duration is not None and self.age() >= 18:
+            sleep_shortfall_min = max(0.0, (7 * 3600 - latest_duration) / 60.0)
+
+        return {
+            "nights_28d": sum(
+                1 for stamp, _record in dated
+                if (now - stamp).total_seconds() <= 28 * 86400
             ),
+            "sleep_duration_7d_mean_min": (
+                round(duration7 / 60.0, 1) if duration7 is not None else None
+            ),
+            "sleep_duration_28d_mean_min": (
+                round(duration28 / 60.0, 1) if duration28 is not None else None
+            ),
+            "sleep_duration_vs_28d_min": (
+                round((latest_duration - duration28) / 60.0, 1)
+                if latest_duration is not None and duration28 is not None else None
+            ),
+            "sleep_duration_shortfall_min": (
+                round(sleep_shortfall_min, 1)
+                if sleep_shortfall_min is not None else None
+            ),
+            "sleep_midpoint_variability_14d_min": (
+                round(midpoint_sd, 1) if midpoint_sd is not None else None
+            ),
+            "sleep_hrv_7d_mean_ms": (round(hrv7, 1) if hrv7 is not None else None),
+            "sleep_hrv_28d_mean_ms": (round(hrv28, 1) if hrv28 is not None else None),
+            "sleep_hrv_vs_28d_percent": (
+                round((latest_hrv - hrv28) / abs(hrv28) * 100.0, 1)
+                if latest_hrv is not None and hrv28 not in (None, 0) else None
+            ),
+        }
+
+    def recorder_long_term_evaluation(self) -> dict[str, Any]:
+        """Derive transparent trends from HA Recorder statistics when present."""
+        def stat(metric: str) -> dict[str, Any]:
+            value = self.long_term_statistics.get(metric)
+            return value if isinstance(value, dict) else {}
+
+        provider = collect_provider_metrics(self.hass, self.config)
+        resting_stats = stat("resting_hr")
+        vo2_stats = stat("vo2max")
+        current_resting = provider.get("resting_hr") or self.input_value(CONF_RESTING_HR)
+
+        resting_7 = resting_stats.get("mean_7d") if resting_stats.get("days_available", 0) >= 3 else None
+        resting_28 = resting_stats.get("mean_28d") if resting_stats.get("days_available", 0) >= 7 else None
+        vo2_28 = vo2_stats.get("mean_28d") if vo2_stats.get("days_available", 0) >= 7 else None
+        vo2_trend = (
+            vo2_stats.get("trend_14_vs_previous_14_percent")
+            if vo2_stats.get("days_available", 0) >= 21 else None
+        )
+
+        return {
+            "resting_hr_7d_mean": resting_7,
+            "resting_hr_28d_mean": resting_28,
+            "resting_hr_vs_28d": (
+                round(float(current_resting) - float(resting_28), 1)
+                if current_resting is not None and resting_28 is not None else None
+            ),
+            "vo2max_28d_mean": vo2_28,
+            "vo2max_trend_14_vs_previous_14_percent": vo2_trend,
         }
 
     def _profile_input_provenance(
@@ -4243,20 +4542,17 @@ class FitnessManager:
             "training_load_28d": (
                 "Σ(Banister_TRIMP for completed workouts during previous 28 days)"
             ),
-            "training_load_42d": (
-                "Σ(Banister_TRIMP for completed workouts during previous 42 days)"
+            "training_load_change_7_vs_28": (
+                "compare daily TRIMP rate over 7 days with daily TRIMP rate over 28 days"
             ),
             "training_days_28d": (
                 "count(unique calendar days with a completed workout during previous 28 days)"
             ),
             "hrr_60s_long_term": (
-                "mean(60-second post-exercise HR recovery over comparable workouts in previous 90 days)"
+                "mean(60-second post-exercise HR recovery over workouts in previous 90 days)"
             ),
-            "aerobic_decoupling_long_term": (
-                "mean(aerobic decoupling percent over comparable workouts in previous 90 days)"
-            ),
-            "aerobic_efficiency_long_term": (
-                "mean(aerobic efficiency over comparable workouts in previous 90 days)"
+            "hrr_60s_vs_90d": (
+                "latest 60-second HR recovery minus prior 90-day mean HR recovery"
             ),
         }
         if metric in history_formulas:
@@ -4279,6 +4575,50 @@ class FitnessManager:
             return {
                 "value_origin": "fitness_history_aggregation",
                 "formula": history_formulas[metric],
+                "input_sources": inputs,
+            }
+
+        sleep_history_metrics = {
+            "sleep_duration_7d_mean", "sleep_duration_28d_mean",
+            "sleep_duration_vs_28d", "sleep_duration_shortfall",
+            "sleep_midpoint_variability_14d", "sleep_hrv_7d_mean",
+            "sleep_hrv_28d_mean", "sleep_hrv_vs_28d",
+        }
+        if metric in sleep_history_metrics:
+            sleep = self.latest_sleep()
+            add({
+                "role": "merged_sleep_history",
+                "source_type": "fitness_merged_sleep_history",
+                "history_records_available": len(self._sleep_records_from_history()),
+                "latest_sleep_sources": (
+                    list(sleep.provider_domains) if sleep else []
+                ),
+            })
+            return {
+                "value_origin": "fitness_sleep_history_aggregation",
+                "formula": "See method/calculation attributes; only merged, de-duplicated sleep records are used.",
+                "input_sources": inputs,
+            }
+
+        recorder_metrics = {
+            "resting_hr_7d_mean": "resting_hr",
+            "resting_hr_28d_mean": "resting_hr",
+            "resting_hr_vs_28d": "resting_hr",
+            "vo2max_28d_mean": "vo2max",
+            "vo2max_trend_14_vs_previous_14": "vo2max",
+        }
+        if metric in recorder_metrics:
+            source_metric = recorder_metrics[metric]
+            summary = self.long_term_statistics.get(source_metric) or {}
+            add({
+                "role": source_metric,
+                "source_type": "home_assistant_recorder_long_term_statistics",
+                "entity_id": summary.get("entity_id") if isinstance(summary, dict) else None,
+                "statistics_updated": self.long_term_statistics_updated,
+            })
+            return {
+                "value_origin": "home_assistant_long_term_statistics_history",
+                "formula": "See method/calculation attributes; daily Recorder statistics are aggregated longitudinally.",
                 "input_sources": inputs,
             }
 
@@ -4326,11 +4666,10 @@ class FitnessManager:
             max_hr = latest.max_hr
             max_hr_method = "observed_workout_peak"
 
+        # Evaluation reference comparisons require a provider/user VO2max. Do not
+        # manufacture a cardiorespiratory status from a fallback estimate.
         vo2 = provider.get("vo2max") or self.input_value(CONF_VO2MAX)
-        vo2_method = "provider_or_user"
-        if vo2 is None and resting:
-            vo2 = uth_vo2max(max_hr, resting)
-            vo2_method = METHOD_UTH_2004 if vo2 is not None else None
+        vo2_method = "provider_or_user" if vo2 is not None else None
 
         predicted = friend_predicted_vo2max(
             self.age(),
@@ -4364,6 +4703,10 @@ class FitnessManager:
         if ratio is None and acute is not None and chronic:
             ratio = acute / chronic
 
+        workout_summary = self.workout_long_term_summary()
+        sleep_summary = self.sleep_long_term_summary()
+        recorder_summary = self.recorder_long_term_evaluation()
+
         return {
             "age": self.age(),
             "weight": weight,
@@ -4396,7 +4739,9 @@ class FitnessManager:
             "chronic_load": chronic,
             "acute_chronic_ratio": ratio,
             "provider_training_status": provider.get("provider_training_status"),
-            "workout_long_term": self.workout_long_term_summary(),
+            "workout_long_term": workout_summary,
+            "sleep_long_term": sleep_summary,
+            "recorder_long_term": recorder_summary,
             "home_assistant_long_term_statistics": self.long_term_statistics,
             "home_assistant_long_term_statistics_updated": (
                 self.long_term_statistics_updated

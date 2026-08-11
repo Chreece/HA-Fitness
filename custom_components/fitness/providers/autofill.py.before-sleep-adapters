@@ -24,9 +24,7 @@ EXACT_PROFILE_KEYS={
     ('hevy',CONF_WEIGHT):{'body_weight'},
     ('oura',CONF_VO2MAX):{'vo2_max','vo2max'},
 }
-WORKOUT_DOMAINS={'garmin_connect','ha_strava','strava','polar','hevy','peloton','oura','whoop','suunto'}
-SLEEP_DOMAINS={'garmin_connect','oura','fitbit','withings','whoop','suunto','sleepiq','eight_sleep','sleep_as_android'}
-LIVE_DOMAINS=set(ANTPLUS_DOMAINS)|{'stryd_ble'}
+WORKOUT_DOMAINS={'garmin_connect','ha_strava','strava','polar','hevy','peloton','oura'}
 
 def _domain(hass, config_entry_id):
     if not config_entry_id: return None
@@ -70,15 +68,7 @@ def exact_profile_candidates(hass):
     return {k:sorted(set(v)) for k,v in result.items()}
 
 def exact_profile_defaults(hass):
-    """Choose the best setup-safe physiological entity for each field."""
-    from .capabilities import profile_entity_choices
-
-    result = {}
-    for field in PROFILE_QUANTITY:
-        choices = profile_entity_choices(hass, field)
-        if choices:
-            result[field] = choices[0]["value"]
-    return result
+    return {k:v[0] for k,v in exact_profile_candidates(hass).items() if len(v)==1}
 
 def _device_domains(hass,device):
     ids=set(getattr(device,'config_entries',None) or [])
@@ -96,7 +86,7 @@ def exact_antplus_live_device_ids(hass):
     devices=dr.async_get(hass); entries=er.async_get(hass); by=_by_device(entries); result=[]
     tokens=('heart_rate','heartrate','power','cadence','speed','distance','altitude','elevation')
     for device in devices.devices.values():
-        if not _device_domains(hass,device).intersection(LIVE_DOMAINS): continue
+        if not _device_domains(hass,device).intersection(ANTPLUS_DOMAINS): continue
         sensors=[e for e in by.get(device.id,[]) if e.entity_id.startswith('sensor.')]
         if any(any(t in key for t in tokens) for e in sensors for key in _entry_keys(hass,e)):
             result.append(device.id)
@@ -121,18 +111,5 @@ def exact_workout_device_ids(hass):
         elif 'hevy' in domains: match=_has(keys,'last','workout','start')
         elif 'peloton' in domains: match=_has(keys,'start','time') and (_has(keys,'duration') or _has(keys,'distance') or _has(keys,'heart','rate'))
         elif 'oura' in domains: match=_has(keys,'last','workout','type') and (_has(keys,'last','workout','duration') or _has(keys,'last','workout','distance') or _has(keys,'last','workout','calories'))
-        elif 'whoop' in domains: match=any('workout_overview' in k or 'last_workout_overview' in k for k in keys)
-        elif 'suunto' in domains: match=any('last_workout' in k or 'last_activity' in k for k in keys)
         if match: result.append(device.id)
-    return sorted(set(result))
-
-def exact_sleep_device_ids(hass):
-    devices=dr.async_get(hass); entries=er.async_get(hass); by=_by_device(entries); result=[]
-    tokens=('sleep','bedtime','wake_time','in_bed','bed_presence','hrv_last_night','recovery_score')
-    for device in devices.devices.values():
-        if not _device_domains(hass,device).intersection(SLEEP_DOMAINS): continue
-        keys=set()
-        for e in by.get(device.id,[]):
-            if e.entity_id.startswith(('sensor.','binary_sensor.')): keys.update(_entry_keys(hass,e))
-        if any(any(token in key for token in tokens) for key in keys): result.append(device.id)
     return sorted(set(result))

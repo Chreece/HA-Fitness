@@ -1,6 +1,45 @@
 """Research registry for every implemented deterministic scientific method."""
 
 REFERENCES = {
+    "heart_rate_recovery_1999": {
+        "title": "Heart-rate recovery immediately after exercise as a predictor of mortality",
+        "year": 1999,
+        "doi": "10.1056/NEJM199910283411804",
+        "pmid": "10536127",
+        "limitation": "Interpret longitudinally and in context; Fitness does not use HRR as a diagnosis or mortality-risk prediction.",
+    },
+    "adult_sleep_duration_consensus_2015": {
+        "title": "Recommended Amount of Sleep for a Healthy Adult: A Joint Consensus Statement of the AASM and SRS",
+        "year": 2015,
+        "doi": "10.5664/jcsm.4758",
+        "pmid": "25979105",
+        "limitation": "Population guidance; individual sleep need varies and longer sleep can be appropriate in several circumstances.",
+    },
+    "hrv_guided_training_review_2021": {
+        "title": "Monitoring and adapting endurance training on the basis of heart rate variability monitored by wearable technologies: A systematic review with meta-analysis",
+        "year": 2021,
+        "doi": "10.1016/j.jsams.2021.04.012",
+        "pmid": "34489178",
+        "limitation": "HRV is most useful longitudinally with standardized measurements; Fitness does not convert a single HRV value into a proprietary readiness score.",
+    },
+    "hrv_training_status_meta_2016": {
+        "title": "Monitoring Athletic Training Status Through Autonomic Heart Rate Regulation: A Systematic Review and Meta-Analysis",
+        "year": 2016,
+        "pmid": "26888648",
+        "limitation": "Measurement conditions and within-person longitudinal interpretation matter; no single-night proprietary readiness score is inferred.",
+    },
+    "sleep_regularity_metrics_2021": {
+        "title": "Sleep regularity: theoretical properties and practical usage of existing metrics",
+        "year": 2021,
+        "pmid": "33864369",
+        "limitation": "Fitness reports timing variability descriptively; it does not label a specific variability value as diagnostic or universally healthy/unhealthy.",
+    },
+    "hr_monitoring_training_status_2014": {
+        "title": "Monitoring training status with HR measures: do all roads lead to Rome?",
+        "year": 2014,
+        "pmid": "24578692",
+        "limitation": "Resting/recovery HR trends are contextual monitoring tools and should not be interpreted as a diagnosis or standalone readiness score.",
+    },
     "acsm_hrr_intensity_2011": {
         "title": "Quantity and Quality of Exercise for Developing and Maintaining Cardiorespiratory, Musculoskeletal, and Neuromotor Fitness in Apparently Healthy Adults",
         "organization": "American College of Sports Medicine",

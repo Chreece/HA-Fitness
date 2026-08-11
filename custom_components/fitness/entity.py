@@ -9,6 +9,7 @@ def device_info(entry, kind: str) -> DeviceInfo:
     suffix = {
         "live": "Live",
         "workout": "Workout",
+        "sleep": "Sleep",
         "evaluation": "Evaluation",
     }[kind]
     profile = entry.data.get("profile_name", entry.title)

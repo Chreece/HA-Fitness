@@ -135,40 +135,50 @@ DESCRIPTIONS = (
     Desc(key="last_workout_load_context", translation_key="last_workout_load_context", kind="workout", metric="workout_load_context"),
     Desc(key="last_workout_personal_context", translation_key="last_workout_personal_context", kind="workout", metric="workout_personal_context"),
 
-    # Evaluation device
-    Desc(key="age", translation_key="age", kind="evaluation", metric="age", unit="yr"),
-    Desc(key="weight", translation_key="weight", kind="evaluation", metric="weight", unit="kg"),
-    Desc(key="resting_hr", translation_key="resting_hr", kind="evaluation", metric="resting_hr", unit="bpm"),
-    Desc(key="maximum_hr", translation_key="maximum_hr", kind="evaluation", metric="max_hr", unit="bpm"),
-    Desc(key="heart_rate_reserve", translation_key="heart_rate_reserve", kind="evaluation", metric="heart_rate_reserve", unit="bpm"),
-    Desc(key="vo2max", translation_key="vo2max", kind="evaluation", metric="vo2max", unit="mL/kg/min"),
-    Desc(key="friend_predicted_vo2max", translation_key="friend_predicted_vo2max", kind="evaluation", metric="friend_predicted_vo2max", unit="mL/kg/min"),
+    # Sleep device
+    Desc(key="last_sleep_source", translation_key="last_sleep_source", kind="sleep", metric="sleep_source"),
+    Desc(key="last_sleep_duration", translation_key="last_sleep_duration", kind="sleep", metric="sleep_duration", unit="min"),
+    Desc(key="last_sleep_score", translation_key="last_sleep_score", kind="sleep", metric="sleep_score"),
+    Desc(key="last_sleep_efficiency", translation_key="last_sleep_efficiency", kind="sleep", metric="sleep_efficiency", unit="%"),
+    Desc(key="last_sleep_time_in_bed", translation_key="last_sleep_time_in_bed", kind="sleep", metric="sleep_time_in_bed", unit="min"),
+    Desc(key="last_sleep_awake", translation_key="last_sleep_awake", kind="sleep", metric="sleep_awake", unit="min"),
+    Desc(key="last_sleep_light", translation_key="last_sleep_light", kind="sleep", metric="sleep_light", unit="min"),
+    Desc(key="last_sleep_deep", translation_key="last_sleep_deep", kind="sleep", metric="sleep_deep", unit="min"),
+    Desc(key="last_sleep_rem", translation_key="last_sleep_rem", kind="sleep", metric="sleep_rem", unit="min"),
+    Desc(key="last_sleep_hrv", translation_key="last_sleep_hrv", kind="sleep", metric="sleep_hrv", unit="ms"),
+    Desc(key="last_sleep_average_hr", translation_key="last_sleep_average_hr", kind="sleep", metric="sleep_average_hr", unit="bpm"),
+    Desc(key="last_sleep_respiratory_rate", translation_key="last_sleep_respiratory_rate", kind="sleep", metric="sleep_respiratory_rate", unit="1/min"),
+    Desc(key="last_sleep_spo2", translation_key="last_sleep_spo2", kind="sleep", metric="sleep_spo2", unit="%"),
+    Desc(key="last_sleep_recovery_score", translation_key="last_sleep_recovery_score", kind="sleep", metric="sleep_recovery_score"),
+    Desc(key="last_sleep_readiness_score", translation_key="last_sleep_readiness_score", kind="sleep", metric="sleep_readiness_score"),
+
+    # Evaluation device — evidence-based and non-duplicative.
+    # Provider facts stay on their source/Sleep/Workout devices. Fitness adds
+    # only reference comparisons and longitudinal context requiring real data.
     Desc(key="vo2max_percent_predicted", translation_key="vo2max_percent_predicted", kind="evaluation", metric="vo2max_percent_predicted", unit="%"),
-    Desc(key="cardiorespiratory_status", translation_key="cardiorespiratory_status", kind="evaluation", metric="cardiorespiratory_status"),
-    Desc(key="hrv_weekly", translation_key="hrv_weekly", kind="evaluation", metric="hrv_weekly", unit="ms"),
-    Desc(key="hrv_last_night", translation_key="hrv_last_night", kind="evaluation", metric="hrv_last_night", unit="ms"),
-    Desc(key="hrv_status", translation_key="hrv_status", kind="evaluation", metric="hrv_status"),
-    Desc(key="threshold_hr", translation_key="threshold_hr", kind="evaluation", metric="threshold_hr", unit="bpm"),
-    Desc(key="threshold_pace", translation_key="threshold_pace", kind="evaluation", metric="threshold_pace", unit="min/km"),
-    Desc(key="threshold_power", translation_key="threshold_power", kind="evaluation", metric="threshold_power", unit="W"),
-    Desc(key="threshold_power_to_weight", translation_key="threshold_power_to_weight", kind="evaluation", metric="power_to_weight", unit="W/kg"),
-    Desc(key="fitness_age", translation_key="fitness_age", kind="evaluation", metric="fitness_age", unit="yr"),
-    Desc(key="fitness_age_difference", translation_key="fitness_age_difference", kind="evaluation", metric="fitness_age_difference", unit="yr"),
-    Desc(key="training_readiness_context", translation_key="training_readiness_context", kind="evaluation", metric="training_readiness", unit="%"),
-    Desc(key="sleep_score_context", translation_key="sleep_score_context", kind="evaluation", metric="sleep_score"),
-    Desc(key="acute_training_load", translation_key="acute_training_load", kind="evaluation", metric="acute_load"),
-    Desc(key="chronic_training_load", translation_key="chronic_training_load", kind="evaluation", metric="chronic_load"),
-    Desc(key="acute_chronic_ratio", translation_key="acute_chronic_ratio", kind="evaluation", metric="acute_chronic_ratio"),
-    Desc(key="provider_training_status", translation_key="provider_training_status", kind="evaluation", metric="provider_training_status"),
     Desc(key="training_load_7d", translation_key="training_load_7d", kind="evaluation", metric="training_load_7d"),
     Desc(key="training_load_28d", translation_key="training_load_28d", kind="evaluation", metric="training_load_28d"),
-    Desc(key="training_load_42d", translation_key="training_load_42d", kind="evaluation", metric="training_load_42d"),
+    Desc(key="training_load_change_7_vs_28", translation_key="training_load_change_7_vs_28", kind="evaluation", metric="training_load_change_7_vs_28", unit="%"),
     Desc(key="training_days_28d", translation_key="training_days_28d", kind="evaluation", metric="training_days_28d", unit="d"),
     Desc(key="hrr_60s_long_term", translation_key="hrr_60s_long_term", kind="evaluation", metric="hrr_60s_long_term", unit="bpm"),
-    Desc(key="aerobic_decoupling_long_term", translation_key="aerobic_decoupling_long_term", kind="evaluation", metric="aerobic_decoupling_long_term", unit="%"),
-    Desc(key="aerobic_efficiency_long_term", translation_key="aerobic_efficiency_long_term", kind="evaluation", metric="aerobic_efficiency_long_term"),
+    Desc(key="hrr_60s_vs_90d", translation_key="hrr_60s_vs_90d", kind="evaluation", metric="hrr_60s_vs_90d", unit="bpm"),
+    Desc(key="sleep_duration_7d_mean", translation_key="sleep_duration_7d_mean", kind="evaluation", metric="sleep_duration_7d_mean", unit="min"),
+    Desc(key="sleep_duration_28d_mean", translation_key="sleep_duration_28d_mean", kind="evaluation", metric="sleep_duration_28d_mean", unit="min"),
+    Desc(key="sleep_duration_vs_28d", translation_key="sleep_duration_vs_28d", kind="evaluation", metric="sleep_duration_vs_28d", unit="min"),
+    Desc(key="sleep_duration_shortfall", translation_key="sleep_duration_shortfall", kind="evaluation", metric="sleep_duration_shortfall", unit="min"),
+    Desc(key="sleep_midpoint_variability_14d", translation_key="sleep_midpoint_variability_14d", kind="evaluation", metric="sleep_midpoint_variability_14d", unit="min"),
+    Desc(key="sleep_hrv_7d_mean", translation_key="sleep_hrv_7d_mean", kind="evaluation", metric="sleep_hrv_7d_mean", unit="ms"),
+    Desc(key="sleep_hrv_28d_mean", translation_key="sleep_hrv_28d_mean", kind="evaluation", metric="sleep_hrv_28d_mean", unit="ms"),
+    Desc(key="sleep_hrv_vs_28d", translation_key="sleep_hrv_vs_28d", kind="evaluation", metric="sleep_hrv_vs_28d", unit="%"),
+    Desc(key="resting_hr_7d_mean", translation_key="resting_hr_7d_mean", kind="evaluation", metric="resting_hr_7d_mean", unit="bpm"),
+    Desc(key="resting_hr_28d_mean", translation_key="resting_hr_28d_mean", kind="evaluation", metric="resting_hr_28d_mean", unit="bpm"),
+    Desc(key="resting_hr_vs_28d", translation_key="resting_hr_vs_28d", kind="evaluation", metric="resting_hr_vs_28d", unit="bpm"),
+    Desc(key="vo2max_28d_mean", translation_key="vo2max_28d_mean", kind="evaluation", metric="vo2max_28d_mean", unit="mL/kg/min"),
+    Desc(key="vo2max_trend_14_vs_previous_14", translation_key="vo2max_trend_14_vs_previous_14", kind="evaluation", metric="vo2max_trend_14_vs_previous_14", unit="%"),
     Desc(key="ai_general_evaluation", translation_key="ai_general_evaluation", kind="evaluation", metric="ai_general"),
     Desc(key="ai_workout_evaluation", translation_key="ai_workout_evaluation", kind="evaluation", metric="ai_workout"),
+
+
 )
 
 
@@ -180,6 +190,39 @@ async def async_setup_entry(hass, entry, async_add_entities):
     """
     manager = hass.data[DOMAIN][entry.entry_id]
     registry = er.async_get(hass)
+
+    # Remove obsolete Evaluation mirrors from older betas instead of leaving
+    # permanent unavailable ghost entities in the device registry.
+    deprecated_evaluation_keys = {
+        "age", "weight", "resting_hr", "maximum_hr", "heart_rate_reserve",
+        "vo2max", "friend_predicted_vo2max", "cardiorespiratory_status",
+        "hrv_weekly", "hrv_last_night", "hrv_status", "threshold_hr",
+        "threshold_pace", "threshold_power", "threshold_power_to_weight",
+        "fitness_age", "fitness_age_difference", "training_readiness_context",
+        "sleep_score_context", "acute_training_load", "chronic_training_load",
+        "acute_chronic_ratio", "provider_training_status", "training_load_42d",
+        "aerobic_decoupling_long_term", "aerobic_efficiency_long_term",
+    }
+    prefix = f"{entry.entry_id}_"
+    for registry_entry in list(registry.entities.values()):
+        if registry_entry.platform != DOMAIN:
+            continue
+        unique_id = registry_entry.unique_id or ""
+        if not unique_id.startswith(prefix):
+            continue
+        key = unique_id[len(prefix):]
+        if key in deprecated_evaluation_keys:
+            registry.async_remove(registry_entry.entity_id)
+            manager.materialized_sensor_keys.discard(key)
+            continue
+
+        # beta.28 could materialize Garmin's broad daytime "Awake duration"
+        # as last-sleep awake time. Revalidate that one key during migration.
+        if key == "last_sleep_awake":
+            sleep = manager.latest_sleep()
+            if sleep is None or sleep.awake_s is None:
+                registry.async_remove(registry_entry.entity_id)
+                manager.materialized_sensor_keys.discard(key)
 
     descriptions = {
         desc.key: desc
@@ -193,7 +236,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
     # Preserve entities already created by older Fitness versions. This also
     # makes an alpha.31 -> alpha.32 upgrade non-destructive.
     registry_keys: set[str] = set()
-    prefix = f"{entry.entry_id}_"
 
     for registry_entry in registry.entities.values():
         if registry_entry.platform != DOMAIN:
@@ -302,6 +344,10 @@ class FitnessSensor(SensorEntity):
             self.async_on_remove(
                 self.manager.add_live_listener(self._update)
             )
+        elif self.entity_description.kind == "sleep":
+            self.async_on_remove(
+                self.manager.add_sleep_listener(self._update)
+            )
 
     def _update(self):
         self.async_write_ha_state()
@@ -324,6 +370,7 @@ class FitnessSensor(SensorEntity):
             "cardiorespiratory_status",
             "hrv_status",
             "provider_training_status",
+            "sleep_source",
         }
         if self.entity_description.metric in textual:
             return None
@@ -332,6 +379,27 @@ class FitnessSensor(SensorEntity):
     @property
     def native_unit_of_measurement(self):
         return self.entity_description.unit
+
+    @staticmethod
+    def _sleep_source_name(record):
+        names = {
+            "garmin_connect": "Garmin Connect",
+            "sleep_as_android": "Sleep as Android",
+            "oura": "Oura",
+            "fitbit": "Fitbit",
+            "withings": "Withings",
+            "whoop": "WHOOP",
+            "suunto": "Suunto",
+            "sleepiq": "SleepIQ",
+            "eight_sleep": "Eight Sleep",
+            "eightsleep": "Eight Sleep",
+        }
+        domains = list(record.provider_domains or [])
+        if not domains and record.provider_domain and record.provider_domain != "merged":
+            domains = [record.provider_domain]
+        if not domains:
+            return None
+        return " + ".join(names.get(domain, domain.replace("_", " ").title()) for domain in domains)
 
     @property
     def native_value(self):
@@ -411,6 +479,40 @@ class FitnessSensor(SensorEntity):
             value = live_stats_map.get(m)
             return round(value, 2) if value is not None else None
 
+        if self.entity_description.kind == "sleep":
+            r = self.manager.latest_sleep()
+            if r is None:
+                return None
+            values = {
+                "sleep_source": self._sleep_source_name(r),
+                "sleep_duration": r.duration_s / 60 if r.duration_s is not None else None,
+                "sleep_score": r.score,
+                "sleep_efficiency": r.efficiency_percent,
+                "sleep_time_in_bed": r.time_in_bed_s / 60 if r.time_in_bed_s is not None else None,
+                "sleep_awake": r.awake_s / 60 if r.awake_s is not None else None,
+                "sleep_light": r.light_sleep_s / 60 if r.light_sleep_s is not None else None,
+                "sleep_deep": r.deep_sleep_s / 60 if r.deep_sleep_s is not None else None,
+                "sleep_rem": r.rem_sleep_s / 60 if r.rem_sleep_s is not None else None,
+                "sleep_hrv": r.hrv_ms,
+                "sleep_average_hr": r.average_hr,
+                "sleep_respiratory_rate": r.respiratory_rate,
+                "sleep_spo2": r.spo2_percent,
+                "sleep_recovery_score": r.recovery_score,
+                "sleep_readiness_score": r.readiness_score,
+            }
+            value = values.get(m)
+            return round(value, 2) if isinstance(value, (int, float)) else value
+
+        if self.entity_description.kind == "sleep":
+            record = self.manager.latest_sleep()
+            if record is None:
+                return {}
+            return {
+                **record.as_dict(),
+                "merged_sources": list(record.provider_domains),
+                "source_count": len(record.provider_domains),
+            }
+
         if self.entity_description.kind == "workout":
             w = self.manager.latest_workout()
             if w is None:
@@ -481,14 +583,28 @@ class FitnessSensor(SensorEntity):
             )
 
         workout_long_term = e.get("workout_long_term") or {}
+        sleep_long_term = e.get("sleep_long_term") or {}
+        recorder_long_term = e.get("recorder_long_term") or {}
         long_term_map = {
             "training_load_7d": workout_long_term.get("banister_trimp_7d"),
             "training_load_28d": workout_long_term.get("banister_trimp_28d"),
-            "training_load_42d": workout_long_term.get("banister_trimp_42d"),
+            "training_load_change_7_vs_28": workout_long_term.get("training_load_change_7_vs_28_percent"),
             "training_days_28d": workout_long_term.get("active_training_days_28d"),
             "hrr_60s_long_term": workout_long_term.get("hrr_60s_mean_90d"),
-            "aerobic_decoupling_long_term": workout_long_term.get("aerobic_decoupling_mean_90d"),
-            "aerobic_efficiency_long_term": workout_long_term.get("aerobic_efficiency_mean_90d"),
+            "hrr_60s_vs_90d": workout_long_term.get("hrr_60s_latest_vs_90d_bpm"),
+            "sleep_duration_7d_mean": sleep_long_term.get("sleep_duration_7d_mean_min"),
+            "sleep_duration_28d_mean": sleep_long_term.get("sleep_duration_28d_mean_min"),
+            "sleep_duration_vs_28d": sleep_long_term.get("sleep_duration_vs_28d_min"),
+            "sleep_duration_shortfall": sleep_long_term.get("sleep_duration_shortfall_min"),
+            "sleep_midpoint_variability_14d": sleep_long_term.get("sleep_midpoint_variability_14d_min"),
+            "sleep_hrv_7d_mean": sleep_long_term.get("sleep_hrv_7d_mean_ms"),
+            "sleep_hrv_28d_mean": sleep_long_term.get("sleep_hrv_28d_mean_ms"),
+            "sleep_hrv_vs_28d": sleep_long_term.get("sleep_hrv_vs_28d_percent"),
+            "resting_hr_7d_mean": recorder_long_term.get("resting_hr_7d_mean"),
+            "resting_hr_28d_mean": recorder_long_term.get("resting_hr_28d_mean"),
+            "resting_hr_vs_28d": recorder_long_term.get("resting_hr_vs_28d"),
+            "vo2max_28d_mean": recorder_long_term.get("vo2max_28d_mean"),
+            "vo2max_trend_14_vs_previous_14": recorder_long_term.get("vo2max_trend_14_vs_previous_14_percent"),
         }
         if m in long_term_map:
             return long_term_map[m]
@@ -500,14 +616,17 @@ class FitnessSensor(SensorEntity):
 
     @property
     def extra_state_attributes(self):
+        """Return intentionally small attributes.
+
+        Raw Live/Workout/Sleep entities expose provenance only. Methodology,
+        explanations and scientific references are reserved for Fitness-owned
+        Evaluation outputs, keeping high-frequency state rows small and avoiding
+        duplicated provider diagnostics in Recorder.
+        """
         m = self.entity_description.metric
+        kind = self.entity_description.kind
 
-        if self.entity_description.kind == "live":
-            attrs = {
-                "capture_control": self.manager.capture_control,
-                "samples_collected": len(self.manager.samples),
-            }
-
+        if kind == "live":
             source_metric = {
                 "heart_rate_percent_max": METRIC_HEART_RATE,
                 "heart_rate_reserve_percent": METRIC_HEART_RATE,
@@ -518,118 +637,65 @@ class FitnessSensor(SensorEntity):
                 "current_pace": METRIC_SPEED,
                 "speed_relative_threshold": METRIC_SPEED,
             }.get(m, m)
-
-            attrs.update(
-                self.manager.live_source_info(source_metric)
-            )
-            attrs.update(
-                sensor_explanation(
-                    self.manager._ai_language(),
-                    "live",
-                    m,
+            info = self.manager.live_source_info(source_metric)
+            return {
+                key: info.get(key)
+                for key in (
+                    "source_entity",
+                    "source_device_name",
+                    "source_integration",
                 )
-            )
+                if info.get(key) is not None
+            }
 
-            evaluation = self.manager.evaluation()
-
-            if m == "heart_rate_percent_max":
-                attrs.update(
-                    {
-                        "reference_hr": evaluation.get("max_hr"),
-                        "method": "percent_max_heart_rate",
-                        "note": (
-                            "Descriptive %HRmax only. Individual physiological "
-                            "thresholds can differ substantially at the same %HRmax."
-                        ),
-                    }
-                )
-
-            elif m in ("heart_rate_reserve_percent", "heart_rate_intensity"):
-                attrs.update(
-                    {
-                        "resting_hr": evaluation.get("resting_hr"),
-                        "max_hr": evaluation.get("max_hr"),
-                        "method": METHOD_ACSM_HRR_INTENSITY,
-                        "ranges_percent_hrr": {
-                            "very_light": "<30",
-                            "light": "30-39",
-                            "moderate": "40-59",
-                            "vigorous": "60-89",
-                            "near_maximal": ">=90",
-                        },
-                        "note": (
-                            "HRR-based population intensity classification. "
-                            "Measured ventilatory/metabolic thresholds are more "
-                            "individualized when available."
-                        ),
-                    }
-                )
-
-                if m == "heart_rate_intensity":
-                    attrs.update(
-                        self.manager.live_feedback_diagnostics()
-                    )
-
-            elif m == "heart_rate_relative_threshold":
-                attrs.update(
-                    {
-                        "threshold_hr": evaluation.get("threshold_hr"),
-                        "method": METHOD_THRESHOLD_RELATIVE,
-                    }
-                )
-
-            elif m == "current_power_to_weight":
-                attrs.update(
-                    {
-                        "weight_kg": evaluation.get("weight"),
-                        "method": "instantaneous_power_per_body_mass",
-                    }
-                )
-
-            elif m == "power_relative_threshold":
-                attrs.update(
-                    {
-                        "threshold_power_w": evaluation.get("threshold_power"),
-                        "method": METHOD_THRESHOLD_RELATIVE,
-                        "note": (
-                            "Relative to the configured/provider threshold power. "
-                            "FTP, critical power and lactate-threshold power are not "
-                            "assumed to be physiologically identical."
-                        ),
-                    }
-                )
-
-            elif m == "current_pace":
-                attrs.update(
-                    {
-                        "normalized_speed_unit": "km/h",
-                        "method": "pace_from_speed",
-                    }
-                )
-
-            elif m == "speed_relative_threshold":
-                attrs.update(
-                    {
-                        "threshold_pace_min_km": evaluation.get("threshold_pace"),
-                        "method": METHOD_THRESHOLD_RELATIVE,
-                    }
-                )
-
+        if kind == "workout":
+            workout = self.manager.latest_workout()
+            if workout is None:
+                return {}
+            attrs = {}
+            sources = workout.provider_domains or workout.sources
+            if sources:
+                attrs["sources"] = list(dict.fromkeys(sources))
+            if workout.start:
+                attrs["workout_start"] = workout.start
+            field_source = (workout.field_sources or {}).get(m.removeprefix("workout_"))
+            if field_source:
+                attrs["field_source"] = field_source
             return attrs
 
-        if self.entity_description.kind == "workout":
-            w = self.manager.latest_workout()
-            attrs = w.as_dict() if w else {}
-            attrs.update(
-                sensor_explanation(
-                    self.manager._ai_language(),
-                    "workout",
-                    m,
-                )
-            )
+        if kind == "sleep":
+            sleep = self.manager.latest_sleep()
+            if sleep is None:
+                return {}
+            attrs = {}
+            sources = sleep.provider_domains or sleep.sources
+            if sources:
+                attrs["sources"] = list(dict.fromkeys(sources))
+            if sleep.start:
+                attrs["sleep_start"] = sleep.start
+            if sleep.end:
+                attrs["sleep_end"] = sleep.end
+            field_name = {
+                "sleep_duration": "duration_s",
+                "sleep_time_in_bed": "time_in_bed_s",
+                "sleep_awake": "awake_s",
+                "sleep_light": "light_sleep_s",
+                "sleep_deep": "deep_sleep_s",
+                "sleep_rem": "rem_sleep_s",
+                "sleep_hrv": "hrv_ms",
+                "sleep_average_hr": "average_hr",
+                "sleep_respiratory_rate": "respiratory_rate",
+                "sleep_spo2": "spo2_percent",
+                "sleep_score": "score",
+                "sleep_efficiency": "efficiency_percent",
+            }.get(m)
+            field_source = (sleep.field_sources or {}).get(field_name) if field_name else None
+            if field_source:
+                attrs["field_source"] = field_source
             return attrs
 
-        e = self.manager.evaluation()
+        # Evaluation attributes are deliberately transparent: these are Fitness
+        # calculations/interpretations rather than measurements from another device.
         base_explanation = sensor_explanation(
             self.manager._ai_language(),
             "evaluation",
@@ -637,101 +703,41 @@ class FitnessSensor(SensorEntity):
         )
         provenance = self.manager.localized_evaluation_provenance(m)
         base_explanation.update(provenance)
+        attrs = base_explanation
 
-        if m in ("friend_predicted_vo2max", "vo2max_percent_predicted", "cardiorespiratory_status"):
-            return {
-                **base_explanation,
-                "method": METHOD_FRIEND_2017,
-                "scientific_output": (
-                    "percent_predicted"
-                    if m in ("vo2max_percent_predicted", "cardiorespiratory_status")
-                    else "reference_vo2max"
-                ),
-                "note": (
-                    "Status bands are display conventions; percent-predicted is the "
-                    "underlying scientific comparison."
-                ),
-            }
-
-        if m == "hrv_status":
-            return {
-                **base_explanation,
-                "method": METHOD_PERSONAL_HRV_BASELINE,
-                "baseline_low": e.get("hrv_baseline_low"),
-                "baseline_high": e.get("hrv_baseline_high"),
-                "note": "Individual baseline comparison, not a population diagnostic cutoff.",
-            }
-
-        if m == "vo2max":
-            return {**base_explanation, "method": e.get("vo2max_method")}
-
-        if m == "max_hr":
-            return {**base_explanation, "method": e.get("max_hr_method")}
-
-        if m in ("training_readiness", "sleep_score", "provider_training_status", "fitness_age"):
-            return {
-                **base_explanation,
-                "source_type": "provider_context",
-                "note": (
-                    "The value is supplied by the provider. Fitness exposes the "
-                    "concrete source entity in input_sources and does not claim "
-                    "the provider's proprietary algorithm as a Fitness formula."
-                ),
-            }
-
-        if m == "acute_chronic_ratio":
-            return {
-                **base_explanation,
-                "note": (
-                    "Training-load context only. This integration does not interpret "
-                    "the ratio as an injury-risk prediction."
-                )
-            }
+        evidence = {
+            "vo2max_percent_predicted": ("friend_2017", "reference_equation"),
+            "training_load_7d": ("training_load_consensus_2017", "supported"),
+            "training_load_28d": ("training_load_consensus_2017", "supported"),
+            "training_load_change_7_vs_28": ("training_load_consensus_2017", "descriptive"),
+            "training_days_28d": ("training_load_consensus_2017", "descriptive"),
+            "hrr_60s_long_term": ("heart_rate_recovery_1999", "established"),
+            "hrr_60s_vs_90d": ("heart_rate_recovery_1999", "longitudinal_context"),
+            "sleep_duration_7d_mean": ("adult_sleep_duration_consensus_2015", "descriptive"),
+            "sleep_duration_28d_mean": ("adult_sleep_duration_consensus_2015", "descriptive"),
+            "sleep_duration_vs_28d": ("adult_sleep_duration_consensus_2015", "personal_context"),
+            "sleep_duration_shortfall": ("adult_sleep_duration_consensus_2015", "consensus_threshold"),
+            "sleep_midpoint_variability_14d": ("sleep_regularity_metrics_2021", "descriptive"),
+            "sleep_hrv_7d_mean": ("hrv_training_status_meta_2016", "longitudinal_context"),
+            "sleep_hrv_28d_mean": ("hrv_training_status_meta_2016", "longitudinal_context"),
+            "sleep_hrv_vs_28d": ("hrv_training_status_meta_2016", "longitudinal_context"),
+            "resting_hr_7d_mean": ("hr_monitoring_training_status_2014", "longitudinal_context"),
+            "resting_hr_28d_mean": ("hr_monitoring_training_status_2014", "longitudinal_context"),
+            "resting_hr_vs_28d": ("hr_monitoring_training_status_2014", "longitudinal_context"),
+            "vo2max_28d_mean": ("friend_2017", "descriptive"),
+            "vo2max_trend_14_vs_previous_14": ("friend_2017", "descriptive"),
+        }.get(m)
+        if evidence:
+            attrs["research_reference"] = evidence[0]
+            attrs["evidence_level"] = evidence[1]
 
         if m in ("ai_general", "ai_workout"):
-            full_text = (
-                self.manager.ai_general
-                if m == "ai_general"
-                else self.manager.ai_workout
-            )
-            return {
-                **base_explanation,
+            full_text = self.manager.ai_general if m == "ai_general" else self.manager.ai_workout
+            attrs.update({
                 "text": full_text,
                 "generated_at": self.manager.ai_last_generated,
                 "ai_entity": self.manager.config.get("ai_entity") or "preferred_default",
                 "role": "interpretation_only",
-                "note": (
-                    "The full AI assessment is stored in the text attribute "
-                    "because Home Assistant entity states are limited to 255 characters. "
-                    "AI does not perform the deterministic scientific calculations."
-                ),
-            }
+            })
+        return attrs
 
-        configured_quantity = {
-            "weight": ("weight", "weight"),
-            "resting_hr": ("resting_hr", "heart_rate"),
-            "max_hr": ("max_hr", "heart_rate"),
-            "vo2max": ("vo2max", "vo2max"),
-            "threshold_hr": ("threshold_hr", "heart_rate"),
-            "threshold_pace": ("threshold_pace", "pace"),
-            "threshold_power": ("threshold_power", "power"),
-        }
-        if m in configured_quantity:
-            key, quantity = configured_quantity[m]
-            resolved = resolve_number_or_entity(
-                self.manager.hass,
-                self.manager.config.get(key),
-                quantity=quantity,
-            )
-            if resolved.entity_id:
-                return {
-                    **base_explanation,
-                    "source": resolved.source,
-                    "source_entity": resolved.entity_id,
-                    "source_value": resolved.original_value,
-                    "source_unit": resolved.original_unit,
-                    "normalized_unit": resolved.canonical_unit,
-                    "value_used": resolved.value,
-                }
-
-        return base_explanation

@@ -7,7 +7,7 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant
 
-from . import garmin, generic, hevy, oura, peloton, polar, strava, whoop
+from . import garmin, generic, hevy, oura, peloton, polar, strava
 from .base import (
     WorkoutAdapterSpec,
     selected_device_ids_for_domains,
@@ -21,7 +21,6 @@ ADAPTERS: tuple[WorkoutAdapterSpec, ...] = (
     WorkoutAdapterSpec("hevy", hevy.DOMAINS, hevy.discover),
     WorkoutAdapterSpec("peloton", peloton.DOMAINS, peloton.discover),
     WorkoutAdapterSpec("oura", oura.DOMAINS, oura.discover),
-    WorkoutAdapterSpec("whoop", whoop.DOMAINS, whoop.discover),
 )
 
 EXPLICIT_DOMAINS = frozenset(
