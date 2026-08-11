@@ -1,6 +1,6 @@
 # Changelog
 
-## 2026.8.0
+## 2026.8.0 — First stable public release
 
 - Scientific live-workout provenance: every Fitness-calculated live metric now identifies itself as calculated and exposes formula, exact data used, localized interpretation/usefulness, and a study citation where a specific scientific basis applies. Raw provider measurements remain lightweight.
 - Correct legacy localized naming for the last-workout AI evaluation without overwriting user-customized names. — First stable public release
