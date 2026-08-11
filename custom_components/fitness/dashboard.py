@@ -24,7 +24,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 _RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"
-_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.4"
+_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.4.3"
 _SETUP_KEY = "_dashboard_frontend_setup"
 
 _DASHBOARD_TEXT: dict[str, dict[str, str]] = {

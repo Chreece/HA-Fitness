@@ -52,7 +52,7 @@ calculations, history and recovery collection in the background.
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![HACS](https://img.shields.io/badge/HACS-Custom%20Repository-41BDF5)](https://www.hacs.xyz/)
-[![Version](https://img.shields.io/badge/version-2026.8.4-blue)](https://github.com/Chreece/HA-Fitness/releases)
+[![Version](https://img.shields.io/badge/version-2026.8.0-blue)](https://github.com/Chreece/HA-Fitness/releases)
 [![Status](https://img.shields.io/badge/status-stable-brightgreen)](#release-status)
 
 </div>
@@ -156,7 +156,9 @@ The strategy is **capability-aware**. If a profile has no power, VO₂max, sleep
 
 ### GPS workout maps
 
-Fitness looks for route/polyline data on the selected completed-workout source devices. Garmin Connect is supported through its `Last Activity Route` sensor and `polyline` attribute; other providers can work when they expose a recognizable route/coordinates/track attribute. The dashboard does not require Garmin-specific card configuration.
+Fitness looks for route/polyline data on the selected completed-workout source devices. Garmin Connect is supported through its `Last Activity Route` sensor and `polyline` attribute; other providers can work when they expose a recognizable route/coordinates/track attribute. The dashboard does not require Garmin-specific card configuration. When adding the **Fitness workout route** card manually, its visual editor asks only for the **Fitness user/profile**. Fitness then follows that profile’s selected completed-workout devices and automatically chooses the compatible route entity and route attribute. If there is only one Fitness profile, the card can resolve it automatically.
+
+All bundled Fitness custom cards support Home Assistant's **visual card editor**. For **Workout route**, **Baseline comparison**, and **Sleep stages**, the normal setup is simply to choose the Fitness user/profile. Fitness then resolves the appropriate route source, comparison metrics, or sleep-stage entities automatically. If only one Fitness profile exists, it is selected automatically. Advanced YAML configuration with explicit entities remains supported for backwards compatibility.
 
 The route card contains no third-party JavaScript dependency. When the card is actually displayed, map tiles are requested from **OpenStreetMap** and the required attribution is shown. If no route exists, Fitness omits the route section entirely.
 
@@ -1031,9 +1033,9 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`RELEASE_CHECKLIST.md`](RELEASE_CH
 
 # Release status
 
-**Current stable release: 2026.8.4.**
+**2026.8.0 is the first stable public release of Fitness for Home Assistant.**
 
-2026.8.0 remains the first stable public release of Fitness for Home Assistant. The current release adds the adaptive Community dashboard on top of the supported baseline: capability-aware setup, multi-source live workouts, conservative workout and sleep merging, evidence-based Evaluation domains, long-term Recorder context, localized deterministic metadata, pause/resume workout handling, provider adapters, and optional AI interpretation/coaching.
+The release combines the work developed through the prerelease series into one supported baseline: capability-aware setup, multi-source live workouts, conservative workout and sleep merging, evidence-based Evaluation domains, long-term Recorder context, localized deterministic metadata, and optional AI interpretation/coaching.
 
 Bug reports are especially useful when they include the Home Assistant version, Fitness version, source integration/provider, relevant entity states and attributes, diagnostics, and logs around the affected workout or update.
 

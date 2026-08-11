@@ -62,3 +62,14 @@ def test_readme_documents_dashboard_and_manual_resource_fallback():
     assert "Community dashboards" in text
     assert "/fitness/frontend/fitness-dashboard.js" in text
     assert "OpenStreetMap" in text
+
+
+def test_route_card_editor_selects_profile_and_auto_resolves_source():
+    text = FRONTEND.read_text()
+    assert 'static getConfigElement()' in text
+    assert 'fitness-route-card-editor' in text
+    assert 'profile_entry_id' in text
+    assert 'type: "fitness/dashboard/config"' in text
+    assert 'this._resolved = (profile?.route_candidates || [])[0] || null' in text
+    assert 'entity: route.entity_id' not in text
+    assert 'profile_entry_id: profile.entry_id' in text

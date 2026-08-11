@@ -2,15 +2,20 @@
 
 ## 2026.8.4
 
-- Added the **Fitness community dashboard strategy** for Home Assistant 2026.5+ with adaptive, localized Overview, Progress, Workouts, and Recovery & Sleep views.
-- Added modern, data-aware visualizations for cardiorespiratory fitness, VO₂max, autonomic recovery, heart-rate recovery, training load, sleep duration/consistency/deficit, and workout comparisons against the user's personal baseline.
-- Added a localized sleep-stage donut card that appears only when sleep-stage entities are available.
-- Added a provider-independent workout route card. Fitness discovers GPS route/polyline entities on the selected completed-workout devices (including Garmin Connect's Last Activity Route) and renders the latest route on an OpenStreetMap-backed map only when route data exists.
-- Added a visual workout-vs-baseline comparison card for efficiency, decoupling, heart rate, power, speed and TRIMP comparisons when those metrics exist.
-- Dashboard content is capability-aware: metrics that have never materialized, unavailable route capabilities and disabled AI sections are omitted; already-materialized entities remain on the dashboard even when temporarily unavailable so live workout cards do not disappear while idle. Multiple Fitness profiles generate separate localized view groups.
-- The bundled frontend module is served by the integration and safely auto-registered as a Lovelace module resource in storage mode after Lovelace setup. YAML resource mode is never modified and receives a documented manual-resource fallback.
-- Dashboard labels are localized for all Fitness-supported languages: English, Greek, German, French, Spanish, Italian, Portuguese, Dutch, Polish, Russian, Ukrainian, Turkish, Chinese, Japanese and Korean.
-- Workout route rendering has no external JavaScript dependency; OpenStreetMap tile requests occur only while a route card is displayed and include map attribution.
+- Fixed Community card discovery by versioning the bundled frontend resource on dashboard UI revisions, forcing Home Assistant/browser caches to load the current card registrations and visual editors.
+- Stopped the workout-route card from rebuilding its OpenStreetMap tile DOM on every Home Assistant state update; route source lookup and rendering are now cached and only refreshed when the route data or card width actually changes, eliminating map blinking/reloads.
+- Added explicit Home Assistant card-picker metadata for Fitness route, baseline comparison and sleep-stage cards.
+ — Adaptive dashboards
+
+- Added native visual editors for all bundled Fitness custom cards. Baseline comparison and sleep-stage cards now ask only for a Fitness user/profile and automatically resolve the compatible Fitness entities, matching the route-card experience.
+- Manual custom-card configuration remains backward compatible with explicit `metrics`, `entities`, or route `entity`/`attribute` values for advanced users.
+
+- Added a modern, localized Fitness Community dashboard with Overview, Progress, Workouts, and Recovery & Sleep views.
+- Added capability-aware visualizations for long-term Fitness evaluation, workout comparison, sleep stages, and available Recorder statistics.
+- Added automatic workout-route discovery from selected completed-workout providers, including Garmin Connect route/polyline data, with an OpenStreetMap route card.
+- Added a visual editor for the Fitness workout route card: users select only their Fitness profile, while Fitness automatically resolves the compatible workout provider entity and GPS/route attribute. With a single Fitness profile, even that selection is automatic.
+- Kept advanced manual `entity`/`attribute` route-card configuration backward compatible while removing it from the normal user workflow.
+- Localized the route-card profile selector, explanation, route title, empty state, and privacy text across every language supported by Fitness.
 
 ## 2026.8.0 — First stable public release
 
