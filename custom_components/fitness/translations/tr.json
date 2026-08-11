@@ -2532,6 +2532,12 @@
       "start_workout": {
         "name": "Start antrenman"
       },
+      "pause_workout": {
+        "name": "Antrenmanı duraklat"
+      },
+      "resume_workout": {
+        "name": "Antrenmana devam et"
+      },
       "stop_workout": {
         "name": "Stop antrenman"
       },

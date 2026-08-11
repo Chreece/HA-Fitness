@@ -2532,6 +2532,12 @@
       "start_workout": {
         "name": "Start 운동"
       },
+      "pause_workout": {
+        "name": "운동 일시 중지"
+      },
+      "resume_workout": {
+        "name": "운동 재개"
+      },
       "stop_workout": {
         "name": "Stop 운동"
       },

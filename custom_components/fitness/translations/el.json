@@ -2532,6 +2532,12 @@
       "start_workout": {
         "name": "Έναρξη προπόνησης"
       },
+      "pause_workout": {
+        "name": "Παύση προπόνησης"
+      },
+      "resume_workout": {
+        "name": "Συνέχιση προπόνησης"
+      },
       "stop_workout": {
         "name": "Τερματισμός προπόνησης"
       },

@@ -145,7 +145,13 @@ class FitnessManager:
         self.history: list[dict] = []
         self.session_armed = False
         self.session_active = False
+        self.session_paused = False
         self.session_started: datetime | None = None
+        self._session_pause_started: datetime | None = None
+        self._session_paused_seconds = 0.0
+        self._session_segment = 0
+        self._pause_distance_raw: float | None = None
+        self._session_distance_excluded = 0.0
         self.samples: list[dict[str, Any]] = []
         self.capture_control = "idle"
 
@@ -706,7 +712,7 @@ class FitnessManager:
             if self._has_valid_live_workout_data():
                 self._begin_session_from_live_data()
 
-        if self.session_active:
+        if self.session_active and not self.session_paused:
             self._capture_sample()
             self._check_live_intensity_feedback()
 
@@ -721,6 +727,8 @@ class FitnessManager:
                         )
                     )
 
+        # Raw live sensors deliberately keep publishing while paused. Fitness
+        # simply stops consuming those values for workout calculations.
         self._notify_live_throttled()
 
     @callback
@@ -1824,7 +1832,7 @@ class FitnessManager:
 
     def _compute_live_calculation_snapshot(self) -> None:
         """Refresh all derived live calculations from the canonical samples."""
-        if not self.session_active:
+        if not self.session_active or self.session_paused:
             self._live_session_statistics_cache = {}
             self._live_derived_cache = {}
             self._live_coaching_context_cache = {}
@@ -1883,18 +1891,29 @@ class FitnessManager:
         try:
             while self.session_active:
                 await asyncio.sleep(30.0)
-                if not self.session_active: break
+                if not self.session_active:
+                    break
+                if self.session_paused:
+                    continue
                 self._compute_live_calculation_snapshot()
                 self._notify()
         except asyncio.CancelledError:
             return
 
     def live_derived_values(self) -> dict[str, Any]:
-        return self._live_derived_cache if self.session_active else {}
+        return (
+            self._live_derived_cache
+            if self.session_active and not self.session_paused
+            else {}
+        )
 
     def live_coaching_context(self) -> dict:
         """Return cached 30-second coaching context."""
-        return dict(self._live_coaching_context_cache) if self.session_active else {}
+        return (
+            dict(self._live_coaching_context_cache)
+            if self.session_active and not self.session_paused
+            else {}
+        )
 
     def _periodic_live_interval_seconds(self) -> float:
         """Return configured periodic announcement cadence in seconds."""
@@ -2596,8 +2615,14 @@ class FitnessManager:
 
         self.session_armed = False
         self.session_active = True
+        self.session_paused = False
         self.recovery_active = False
         self.session_started = datetime.now(timezone.utc)
+        self._session_pause_started = None
+        self._session_paused_seconds = 0.0
+        self._session_segment = 0
+        self._pause_distance_raw = None
+        self._session_distance_excluded = 0.0
         self.samples = []
 
         # Re-rank all live candidates at the beginning of each workout.
@@ -2675,12 +2700,15 @@ class FitnessManager:
         self._notify()
 
     def _capture_sample(self, *, force: bool = False) -> bool:
-        """Capture at most one canonical sample per second.
+        """Capture at most one canonical active-workout sample per second.
 
-        High-frequency ANT+/BLE entity updates otherwise create several near-
-        identical samples per second, increasing memory, Recorder/entity churn
-        and end-of-workout calculation cost without adding useful resolution.
+        Pause windows are never sampled. ``_timestamp_epoch`` follows active
+        workout time instead of wall-clock time so integration-based metrics
+        cannot accidentally integrate across a pause gap.
         """
+        if self.session_paused:
+            return False
+
         loop_now = asyncio.get_running_loop().time()
         if (
             not force
@@ -2693,11 +2721,26 @@ class FitnessManager:
         if not any(v is not None for v in values.values()):
             return False
 
+        raw_distance = values.get(METRIC_DISTANCE)
+        if raw_distance is not None and self._session_distance_excluded:
+            try:
+                values[METRIC_DISTANCE] = (
+                    float(raw_distance) - self._session_distance_excluded
+                )
+            except (TypeError, ValueError):
+                pass
+
         now = datetime.now(timezone.utc)
+        active_epoch = (
+            self.session_started.timestamp() + self.session_duration(now=now)
+            if self.session_started is not None
+            else now.timestamp()
+        )
         self.samples.append(
             {
                 "timestamp": now.isoformat(),
-                "_timestamp_epoch": now.timestamp(),
+                "_timestamp_epoch": active_epoch,
+                "_segment": self._session_segment,
                 **values,
             }
         )
@@ -3021,7 +3064,13 @@ class FitnessManager:
 
         self.recovery_active = False
         self.session_armed = True
+        self.session_paused = False
         self.session_started = None
+        self._session_pause_started = None
+        self._session_paused_seconds = 0.0
+        self._session_segment = 0
+        self._pause_distance_raw = None
+        self._session_distance_excluded = 0.0
         self.samples = []
 
         self._last_live_intensity = None
@@ -3044,6 +3093,119 @@ class FitnessManager:
             self._queue_session_status_waiting_red()
             self._queue_session_guidance("waiting_live")
             self._notify()
+
+    async def async_pause_session(self):
+        """Pause Fitness consumption while leaving live source capture running."""
+        if not self.session_active or self.session_paused:
+            return
+
+        # Capture the final active point before the exclusion window starts.
+        self._capture_sample(force=True)
+        self._compute_live_calculation_snapshot()
+
+        raw_distance = self.live_values(raw=True).get(METRIC_DISTANCE)
+        try:
+            self._pause_distance_raw = (
+                float(raw_distance) if raw_distance is not None else None
+            )
+        except (TypeError, ValueError):
+            self._pause_distance_raw = None
+
+        self.session_paused = True
+        self._session_pause_started = datetime.now(timezone.utc)
+        self._candidate_live_intensity = None
+        self._candidate_live_intensity_since = None
+        self._last_live_intensity = None
+        self._last_live_intensity_accepted_at = None
+
+        # Derived values are intentionally unavailable during pause. Direct
+        # source sensors still update through the live-only notification path.
+        self._live_session_statistics_cache = {}
+        self._live_derived_cache = {}
+        self._live_coaching_context_cache = {}
+
+        if (
+            self._live_calculation_task
+            and not self._live_calculation_task.done()
+        ):
+            self._live_calculation_task.cancel()
+        self._live_calculation_task = None
+
+        if (
+            self._periodic_live_announcement_task
+            and not self._periodic_live_announcement_task.done()
+        ):
+            self._periodic_live_announcement_task.cancel()
+        self._periodic_live_announcement_task = None
+
+        if self._feedback_scene_active:
+            await self._async_restore_feedback_lights(clear_snapshot=True)
+
+        self._notify()
+        self._notify_live()
+
+    async def async_resume_session(self):
+        """Resume workout calculations after a paused exclusion window."""
+        if not self.session_active or not self.session_paused:
+            return
+
+        now = datetime.now(timezone.utc)
+        if self._session_pause_started is not None:
+            self._session_paused_seconds += max(
+                0.0,
+                (now - self._session_pause_started).total_seconds(),
+            )
+
+        raw_distance = self.live_values(raw=True).get(METRIC_DISTANCE)
+        try:
+            resumed_distance = (
+                float(raw_distance) if raw_distance is not None else None
+            )
+        except (TypeError, ValueError):
+            resumed_distance = None
+
+        if (
+            self._pause_distance_raw is not None
+            and resumed_distance is not None
+            and resumed_distance >= self._pause_distance_raw
+        ):
+            self._session_distance_excluded += (
+                resumed_distance - self._pause_distance_raw
+            )
+
+        self._session_pause_started = None
+        self._pause_distance_raw = None
+        self.session_paused = False
+        self._session_segment += 1
+        self._last_sample_monotonic = None
+        self._last_live_notify_monotonic = None
+
+        # The first resumed sample starts a fresh active segment. Its adjusted
+        # cumulative distance is continuous with the pre-pause workout.
+        self._capture_sample(force=True)
+        self._compute_live_calculation_snapshot()
+
+        if (
+            self._live_calculation_task is None
+            or self._live_calculation_task.done()
+        ):
+            self._live_calculation_task = self.hass.async_create_task(
+                self._async_live_calculation_loop()
+            )
+
+        if self.config.get(CONF_PERIODIC_LIVE_ANNOUNCEMENTS):
+            if (
+                self._periodic_live_announcement_task is None
+                or self._periodic_live_announcement_task.done()
+            ):
+                self._periodic_live_announcement_task = (
+                    self.hass.async_create_task(
+                        self._async_periodic_live_announcements()
+                    )
+                )
+
+        self._notify()
+        self._notify_live()
 
     async def async_stop_session(self):
         """Stop workout timing; optionally keep capture for 120 s HR recovery."""
@@ -3085,6 +3247,8 @@ class FitnessManager:
         # unavailable even if ANT capture remains on for recovery.
         self.session_active = False
         self.session_armed = False
+        self.session_paused = False
+        self._session_pause_started = None
 
         # Visual indication that workout timing is over and post-exercise
         # handling has begun. It restores the exact pre-cue light state.
@@ -3236,18 +3400,27 @@ class FitnessManager:
                 self._async_refresh_long_term_statistics()
             )
 
-    def session_duration(self) -> float:
+    def session_duration(self, *, now: datetime | None = None) -> float:
+        """Return active workout seconds, excluding all pause windows."""
         if not self.session_active or not self.session_started:
             return 0.0
+
+        current = now or datetime.now(timezone.utc)
+        paused = self._session_paused_seconds
+        if self.session_paused and self._session_pause_started is not None:
+            paused += max(
+                0.0,
+                (current - self._session_pause_started).total_seconds(),
+            )
+
         return max(
             0.0,
-            (
-                datetime.now(timezone.utc)
-                - self.session_started
-            ).total_seconds(),
+            (current - self.session_started).total_seconds() - paused,
         )
 
     def session_status(self) -> str:
+        if self.session_active and self.session_paused:
+            return "paused"
         if self.session_active:
             return "active"
         if self.session_armed:
@@ -3549,7 +3722,7 @@ class FitnessManager:
         if self.session_started is None:
             return None
 
-        duration = (stop_time - self.session_started).total_seconds()
+        duration = self.session_duration(now=stop_time)
         if duration < MIN_LOCAL_WORKOUT_SECONDS or len(self.samples) < MIN_LOCAL_WORKOUT_SAMPLES:
             return None
 
@@ -3578,9 +3751,20 @@ class FitnessManager:
             return None
 
         elevation_gain = None
-        if len(altitude) >= 2:
+        altitude_points = [
+            (
+                sample.get("_segment", 0),
+                float(sample[METRIC_ALTITUDE]),
+            )
+            for sample in self.samples
+            if sample.get(METRIC_ALTITUDE) is not None
+        ]
+        if len(altitude_points) >= 2:
             elevation_gain = sum(
-                max(0.0, b - a) for a, b in zip(altitude, altitude[1:])
+                max(0.0, b_value - a_value)
+                for (a_segment, a_value), (b_segment, b_value)
+                in zip(altitude_points, altitude_points[1:])
+                if a_segment == b_segment
             )
 
         distance_m = None
@@ -3767,7 +3951,11 @@ class FitnessManager:
 
     def live_session_statistics(self) -> dict[str, Any]:
         """Return cached derived session statistics refreshed every 30 seconds."""
-        return self._live_session_statistics_cache if self.session_active else {}
+        return (
+            self._live_session_statistics_cache
+            if self.session_active and not self.session_paused
+            else {}
+        )
 
     async def _async_delayed_long_term_refresh(self) -> None:
         await asyncio.sleep(8)

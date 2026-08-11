@@ -10,6 +10,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
     manager = hass.data[DOMAIN][entry.entry_id]
     entities = [
         StartWorkoutButton(manager, entry),
+        PauseWorkoutButton(manager, entry),
+        ResumeWorkoutButton(manager, entry),
         StopWorkoutButton(manager, entry),
     ]
     if manager.config.get("ai_enabled"):
@@ -45,6 +47,38 @@ class StartWorkoutButton(BaseFitnessButton):
 
     async def async_press(self):
         await self.manager.async_start_session()
+
+
+class PauseWorkoutButton(BaseFitnessButton):
+    _attr_translation_key = "pause_workout"
+
+    def __init__(self, manager, entry):
+        super().__init__(manager, entry)
+        self._attr_unique_id = f"{entry.entry_id}_pause_workout"
+        self._attr_device_info = device_info(entry, "live")
+
+    @property
+    def available(self):
+        return self.manager.session_active and not self.manager.session_paused
+
+    async def async_press(self):
+        await self.manager.async_pause_session()
+
+
+class ResumeWorkoutButton(BaseFitnessButton):
+    _attr_translation_key = "resume_workout"
+
+    def __init__(self, manager, entry):
+        super().__init__(manager, entry)
+        self._attr_unique_id = f"{entry.entry_id}_resume_workout"
+        self._attr_device_info = device_info(entry, "live")
+
+    @property
+    def available(self):
+        return self.manager.session_active and self.manager.session_paused
+
+    async def async_press(self):
+        await self.manager.async_resume_session()
 
 
 class StopWorkoutButton(BaseFitnessButton):

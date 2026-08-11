@@ -2532,6 +2532,12 @@
       "start_workout": {
         "name": "Start entraînement"
       },
+      "pause_workout": {
+        "name": "Mettre l’entraînement en pause"
+      },
+      "resume_workout": {
+        "name": "Reprendre l’entraînement"
+      },
       "stop_workout": {
         "name": "Stop entraînement"
       },

@@ -2532,6 +2532,12 @@
       "start_workout": {
         "name": "Start 训练"
       },
+      "pause_workout": {
+        "name": "暂停训练"
+      },
+      "resume_workout": {
+        "name": "继续训练"
+      },
       "stop_workout": {
         "name": "Stop 训练"
       },

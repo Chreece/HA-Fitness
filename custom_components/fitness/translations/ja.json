@@ -2532,6 +2532,12 @@
       "start_workout": {
         "name": "Start ワークアウト"
       },
+      "pause_workout": {
+        "name": "ワークアウトを一時停止"
+      },
+      "resume_workout": {
+        "name": "ワークアウトを再開"
+      },
       "stop_workout": {
         "name": "Stop ワークアウト"
       },
