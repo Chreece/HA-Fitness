@@ -10,7 +10,7 @@ CHANGELOG = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
 
 def test_stable_version_and_single_changelog():
     manifest = json.loads((ROOT / "custom_components/fitness/manifest.json").read_text())
-    assert manifest["version"] == "2026.8.0"
+    assert manifest["version"] == "2026.8.1"
     assert not list(ROOT.glob("RELEASE_NOTES_*.md"))
     assert "2026.8.0 — First stable public release" in CHANGELOG
     assert "status-stable" in README
