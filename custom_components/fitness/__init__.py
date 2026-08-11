@@ -5,6 +5,7 @@ from homeassistant.core import HomeAssistant
 
 from .const import CONF_LANGUAGE, CONF_PROFILE_NAME, DOMAIN, SUPPORTED_LANGUAGES
 from .manager import FitnessManager
+from .dashboard import async_setup_dashboard
 
 PLATFORMS = ["sensor", "button", "select"]
 
@@ -61,6 +62,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.config_entries.async_update_entry(entry, title=profile_name)
 
     hass.data.setdefault(DOMAIN, {})
+    await async_setup_dashboard(hass)
     manager = FitnessManager(hass, entry)
     hass.data[DOMAIN][entry.entry_id] = manager
 

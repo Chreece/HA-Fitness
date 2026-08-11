@@ -52,7 +52,7 @@ calculations, history and recovery collection in the background.
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Integration-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![HACS](https://img.shields.io/badge/HACS-Custom%20Repository-41BDF5)](https://www.hacs.xyz/)
-[![Version](https://img.shields.io/badge/version-2026.8.0-blue)](https://github.com/Chreece/HA-Fitness/releases)
+[![Version](https://img.shields.io/badge/version-2026.8.4-blue)](https://github.com/Chreece/HA-Fitness/releases)
 [![Status](https://img.shields.io/badge/status-stable-brightgreen)](#release-status)
 
 </div>
@@ -132,6 +132,46 @@ Support is **capability-based**: not every device/account/source integration exp
 
 The Home Assistant Android companion app can expose Health Connect-derived fitness and sleep sensors. Those can participate through capability discovery when they expose a recognizable contract; they are intentionally not hard-coded as a vendor-specific provider.
 
+
+## Fitness dashboard
+
+Fitness 2026.8.4 includes a **Community dashboard strategy** for Home Assistant. It builds a modern dashboard from the entities that actually exist for each configured Fitness profile, so users do not need to manually maintain a large Lovelace YAML configuration.
+
+After installing/updating Fitness and restarting Home Assistant:
+
+1. Go to **Settings → Dashboards → Add dashboard**.
+2. Under **Community dashboards**, choose **Fitness**.
+3. Accept or change the suggested title/icon and create the dashboard.
+
+The dashboard automatically adapts to the configured profile language and available capabilities. It provides four views:
+
+| View | What it shows |
+|---|---|
+| **Overview** | Current/live workout, workout controls, key Evaluation metrics, latest workout, latest sleep and optional AI evaluation |
+| **Progress** | Long-term cardiorespiratory, VO₂max, recovery, training-load and sleep trends using Home Assistant statistics |
+| **Workouts** | Latest workout metrics, AI workout evaluation, personal-baseline comparisons and a GPS route map when available |
+| **Recovery & Sleep** | Latest sleep, visual sleep-stage distribution, HRV/recovery context, sleep consistency/deficit and recovery trends |
+
+The strategy is **capability-aware**. If a profile has no power, VO₂max, sleep-stage, GPS-route or AI data, those cards are simply not generated. Multiple Fitness profiles can be represented in the same generated dashboard with separate localized view groups.
+
+### GPS workout maps
+
+Fitness looks for route/polyline data on the selected completed-workout source devices. Garmin Connect is supported through its `Last Activity Route` sensor and `polyline` attribute; other providers can work when they expose a recognizable route/coordinates/track attribute. The dashboard does not require Garmin-specific card configuration.
+
+The route card contains no third-party JavaScript dependency. When the card is actually displayed, map tiles are requested from **OpenStreetMap** and the required attribution is shown. If no route exists, Fitness omits the route section entirely.
+
+### Dashboard resource registration
+
+In normal Home Assistant Lovelace **storage mode**, Fitness safely registers its bundled JavaScript module after the Lovelace integration has loaded. Existing Lovelace resources are loaded before Fitness inspects or creates the resource entry.
+
+If dashboard resources are managed in YAML/manual mode, Fitness leaves them untouched. Add this module resource manually instead:
+
+```yaml
+url: /fitness/frontend/fitness-dashboard.js?v=2026.8.4
+type: module
+```
+
+Then refresh Home Assistant and reopen the **Add dashboard** dialog.
 
 # Installation
 
@@ -991,9 +1031,9 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`RELEASE_CHECKLIST.md`](RELEASE_CH
 
 # Release status
 
-**2026.8.0 is the first stable public release of Fitness for Home Assistant.**
+**Current stable release: 2026.8.4.**
 
-The release combines the work developed through the prerelease series into one supported baseline: capability-aware setup, multi-source live workouts, conservative workout and sleep merging, evidence-based Evaluation domains, long-term Recorder context, localized deterministic metadata, and optional AI interpretation/coaching.
+2026.8.0 remains the first stable public release of Fitness for Home Assistant. The current release adds the adaptive Community dashboard on top of the supported baseline: capability-aware setup, multi-source live workouts, conservative workout and sleep merging, evidence-based Evaluation domains, long-term Recorder context, localized deterministic metadata, pause/resume workout handling, provider adapters, and optional AI interpretation/coaching.
 
 Bug reports are especially useful when they include the Home Assistant version, Fitness version, source integration/provider, relevant entity states and attributes, diagnostics, and logs around the affected workout or update.
 

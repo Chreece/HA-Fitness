@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026.8.4
+
+- Added the **Fitness community dashboard strategy** for Home Assistant 2026.5+ with adaptive, localized Overview, Progress, Workouts, and Recovery & Sleep views.
+- Added modern, data-aware visualizations for cardiorespiratory fitness, VO₂max, autonomic recovery, heart-rate recovery, training load, sleep duration/consistency/deficit, and workout comparisons against the user's personal baseline.
+- Added a localized sleep-stage donut card that appears only when sleep-stage entities are available.
+- Added a provider-independent workout route card. Fitness discovers GPS route/polyline entities on the selected completed-workout devices (including Garmin Connect's Last Activity Route) and renders the latest route on an OpenStreetMap-backed map only when route data exists.
+- Added a visual workout-vs-baseline comparison card for efficiency, decoupling, heart rate, power, speed and TRIMP comparisons when those metrics exist.
+- Dashboard content is capability-aware: metrics that have never materialized, unavailable route capabilities and disabled AI sections are omitted; already-materialized entities remain on the dashboard even when temporarily unavailable so live workout cards do not disappear while idle. Multiple Fitness profiles generate separate localized view groups.
+- The bundled frontend module is served by the integration and safely auto-registered as a Lovelace module resource in storage mode after Lovelace setup. YAML resource mode is never modified and receives a documented manual-resource fallback.
+- Dashboard labels are localized for all Fitness-supported languages: English, Greek, German, French, Spanish, Italian, Portuguese, Dutch, Polish, Russian, Ukrainian, Turkish, Chinese, Japanese and Korean.
+- Workout route rendering has no external JavaScript dependency; OpenStreetMap tile requests occur only while a route card is displayed and include map attribution.
+
 ## 2026.8.0 — First stable public release
 
 - Refactored sleep support into provider-specific sleep adapter modules for Garmin Connect, Oura, Fitbit, Withings, WHOOP, Suunto, SleepIQ, Eight Sleep and Sleep as Android.
