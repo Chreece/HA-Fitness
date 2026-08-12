@@ -110,6 +110,15 @@ _FIELD_KEYS: dict[str, tuple[str, ...]] = {
     "relative_effort": (
         "relative_effort", "relativeEffort", "suffer_score", "sufferScore",
     ),
+    "session_rpe": (
+        "rpe", "RPE", "session_rpe", "sessionRpe",
+        "ratingOfPerceivedExertion", "rating_of_perceived_exertion",
+        "perceivedEffort", "perceived_effort",
+        "perceivedExertion", "perceived_exertion",
+        "activityRPE", "activity_rpe",
+        "directWorkoutRpe", "direct_workout_rpe",
+        "selfEvaluation", "self_evaluation",
+    ),
     "kilojoules": ("kilojoules", "kJ", "kj"),
     "total_reps": ("total_reps", "totalReps", "reps"),
     "exercise_count": ("exercise_count", "exerciseCount"),
@@ -154,6 +163,14 @@ class Workout:
     average_speed_m_s: float | None = None
     max_speed_m_s: float | None = None
     relative_effort: float | None = None
+    session_rpe: float | None = None
+    session_rpe_load: float | None = None
+    session_rpe_load_vs_28d_percent: float | None = None
+    fitness_aerobic_load: float | None = None
+    fitness_high_intensity_load: float | None = None
+    strength_total_sets: float | None = None
+    strength_best_estimated_1rm_kg: float | None = None
+    strength_progression_percent: float | None = None
     kilojoules: float | None = None
     total_reps: float | None = None
     exercise_count: float | None = None
@@ -254,6 +271,59 @@ def _get(attrs: dict[str, Any], *keys):
         if _valid(value):
             return value
     return None
+
+
+# Providers/adapters with a documented user-entered *session* RPE.
+# This intentionally excludes algorithmic strain/load scores and per-set RPE.
+SESSION_RPE_PROVIDER_CAPABILITIES = {
+    "garmin_connect": "user_session_rpe_1_10",
+    "polar": "user_session_rpe_1_10",
+}
+
+
+def session_rpe_provider_capability(provider_domain: str | None) -> str | None:
+    """Return documented session-RPE capability for a provider domain."""
+    return SESSION_RPE_PROVIDER_CAPABILITIES.get(str(provider_domain or ""))
+
+
+def _normalize_session_rpe(value: Any, key: str | None = None) -> int | None:
+    """Normalize a genuine session RPE to Fitness' integer 1-10 scale.
+
+    Garmin Connect data seen in third-party clients may expose directWorkoutRpe
+    on a 0-100 representation (70 means 7/10).  Other explicit RPE fields are
+    expected to be on a 1-10 scale.  Nested self-evaluation objects are also
+    supported.  We never reinterpret provider strain/training-effect scores as
+    subjective RPE.
+    """
+    if isinstance(value, dict):
+        preferred = (
+            "directWorkoutRpe", "direct_workout_rpe",
+            "perceivedEffort", "perceived_effort",
+            "perceivedExertion", "perceived_exertion",
+            "ratingOfPerceivedExertion", "rating_of_perceived_exertion",
+            "sessionRpe", "session_rpe", "rpe", "RPE",
+        )
+        normalized = {_norm_key(k): (k, v) for k, v in value.items()}
+        for candidate in preferred:
+            item = normalized.get(_norm_key(candidate))
+            if item is None:
+                continue
+            result = _normalize_session_rpe(item[1], item[0])
+            if result is not None:
+                return result
+        return None
+
+    numeric = _num(value)
+    if numeric is None:
+        return None
+
+    key_norm = _norm_key(key or "")
+    if "directworkoutrpe" in key_norm and 10 < numeric <= 100:
+        numeric /= 10.0
+
+    if not 1 <= numeric <= 10:
+        return None
+    return max(1, min(10, int(round(numeric))))
 
 
 def _provider_domain(hass: HomeAssistant, entry) -> str:
@@ -459,6 +529,8 @@ def _extract_record(
             kwargs[field_name] = end_dt.isoformat() if end_dt else None
         elif field_name in ("duration_s", "moving_time_s", "elapsed_time_s"):
             kwargs[field_name] = _normalize_duration(value, matched_key)
+        elif field_name == "session_rpe":
+            kwargs[field_name] = _normalize_session_rpe(value, matched_key)
         else:
             kwargs[field_name] = _num(value)
 
@@ -476,6 +548,20 @@ def _extract_record(
             continue
         if _valid(value):
             extra[str(key)] = _safe_extra_value(value)
+
+    if kwargs.get("session_rpe") is not None:
+        extra["fitness_rpe"] = {
+            "active_source": "provider",
+            "provider": provider_domain,
+            "provider_capability": session_rpe_provider_capability(provider_domain),
+            "normalized_rpe": int(round(kwargs["session_rpe"])),
+        }
+    elif (capability := session_rpe_provider_capability(provider_domain)) is not None:
+        extra["fitness_rpe"] = {
+            "active_source": "missing_provider_value",
+            "provider": provider_domain,
+            "provider_capability": capability,
+        }
 
     kwargs["extra"] = extra
     kwargs["provider_values"] = {
@@ -773,7 +859,13 @@ def workout_identity(workout: Workout) -> tuple[str, int] | None:
 
 
 def _sports_compatible(a: Workout, b: Workout) -> bool:
-    """Require matching normalized sports unless one provider is generic."""
+    """Require compatible sports while treating live-capture inference as provisional.
+
+    A Fitness live capture may begin with only HR/general sensors. Its temporary
+    sport label must never block a later authoritative watch/provider record for
+    the same physical workout from merging. Time/duration/end evidence still has
+    to pass the normal conservative workout matching rules.
+    """
     sa = _sport_key(a.sport)
     sb = _sport_key(b.sport)
 
@@ -781,7 +873,12 @@ def _sports_compatible(a: Workout, b: Workout) -> bool:
         return True
 
     generic = {"", "workout", "activity", "exercise", "session"}
-    return sa in generic or sb in generic
+    if sa in generic or sb in generic:
+        return True
+
+    a_live = a.source == "fitness_live_capture" or "fitness_live_capture" in (a.sources or [])
+    b_live = b.source == "fitness_live_capture" or "fitness_live_capture" in (b.sources or [])
+    return a_live != b_live
 
 
 def _relative_difference(
@@ -1018,6 +1115,83 @@ def merge_workouts(group: list[Workout]) -> Workout:
                 merged.provider_values.setdefault(
                     provider, {}
                 )[f"normalized_{field_name}"] = value
+
+    # Promote the canonical RPE provenance out of namespaced provider extras so
+    # the Workout card/number entity can show the provider value as its editable
+    # base even after multiple provider representations were merged.
+    rpe_provider = merged.field_sources.get("session_rpe")
+    if merged.session_rpe is not None:
+        for workout in ordered:
+            provider = workout.provider_domains[0] if workout.provider_domains else workout.source
+            if provider != rpe_provider or workout.session_rpe is None:
+                continue
+            meta = (workout.extra or {}).get("fitness_rpe") if isinstance(workout.extra, dict) else None
+            if isinstance(meta, dict):
+                merged.extra["fitness_rpe"] = dict(meta)
+                break
+        if "fitness_rpe" not in merged.extra:
+            merged.extra["fitness_rpe"] = {
+                "active_source": "provider",
+                "provider": rpe_provider,
+                "provider_capability": session_rpe_provider_capability(rpe_provider),
+                "normalized_rpe": int(round(merged.session_rpe)),
+            }
+    else:
+        for provider in merged.provider_domains:
+            capability = session_rpe_provider_capability(provider)
+            if capability is not None:
+                merged.extra["fitness_rpe"] = {
+                    "active_source": "missing_provider_value",
+                    "provider": provider,
+                    "provider_capability": capability,
+                }
+                break
+
+    # When a live capture and a provider/watch representation describe the same
+    # workout, provider identity fields are authoritative while Fitness-owned
+    # calculated fields from the live capture remain available. This prevents a
+    # provisional "Evening Workout/Ride" label from replacing an explicit
+    # provider sport/name after sync.
+    live_records = [
+        item for item in ordered
+        if item.source == "fitness_live_capture"
+        or "fitness_live_capture" in (item.sources or [])
+    ]
+    external_records = [item for item in ordered if item not in live_records]
+    if live_records and external_records:
+        explicit = next(
+            (item for item in external_records if _sport_key(item.sport) not in {"", "workout", "activity", "exercise", "session"}),
+            external_records[0],
+        )
+        if explicit.sport:
+            merged.sport = explicit.sport
+            merged.field_sources["sport"] = (
+                explicit.provider_domains[0] if explicit.provider_domains else explicit.source
+            )
+        if explicit.name:
+            merged.name = explicit.name
+            merged.field_sources["name"] = (
+                explicit.provider_domains[0] if explicit.provider_domains else explicit.source
+            )
+
+    # RPE has explicit precedence independent of generic richness: a user
+    # override wins, otherwise an adapter/provider RPE is the editable base.
+    rpe_candidates = []
+    for item in ordered:
+        if item.session_rpe is None:
+            continue
+        meta = item.extra.get("fitness_rpe") if isinstance(item.extra, dict) else None
+        active_source = meta.get("active_source") if isinstance(meta, dict) else None
+        priority = 3 if active_source == "user_override" else 2 if active_source == "provider" else 1
+        rpe_candidates.append((priority, item))
+    if rpe_candidates:
+        _, chosen_rpe = max(rpe_candidates, key=lambda pair: pair[0])
+        merged.session_rpe = int(round(float(chosen_rpe.session_rpe)))
+        provider = chosen_rpe.provider_domains[0] if chosen_rpe.provider_domains else chosen_rpe.source
+        merged.field_sources["session_rpe"] = provider
+        meta = chosen_rpe.extra.get("fitness_rpe") if isinstance(chosen_rpe.extra, dict) else None
+        if isinstance(meta, dict):
+            merged.extra["fitness_rpe"] = dict(meta)
 
     merged.source = (
         merged.sources[0]

@@ -68,10 +68,12 @@
         "title": "Treino / dados de longo prazo",
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data"
+          "workout_device_ids": "Devices providing workout / fitness history data",
+          "detailed_strength_analysis": "Análise detalhada de força"
         },
         "data_description": {
-          "workout_device_ids": "Dispositivos de histórico. Apenas contratos exatos suportados Garmin, Strava, Polar, Hevy, Peloton e Oura são pré-selecionados."
+          "workout_device_ids": "Dispositivos de histórico. Apenas contratos exatos suportados Garmin, Strava, Polar, Hevy, Peloton e Oura são pré-selecionados.",
+          "detailed_strength_analysis": "Analisa exercícios/séries, 1RM estimado e progressão por exercício quando existem dados de força."
         }
       },
       "ai": {
@@ -197,10 +199,12 @@
         "title": "Treino / dados de longo prazo",
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data"
+          "workout_device_ids": "Devices providing workout / fitness history data",
+          "detailed_strength_analysis": "Análise detalhada de força"
         },
         "data_description": {
-          "workout_device_ids": "Dispositivos de histórico. Apenas contratos exatos suportados Garmin, Strava, Polar, Hevy, Peloton e Oura são pré-selecionados."
+          "workout_device_ids": "Dispositivos de histórico. Apenas contratos exatos suportados Garmin, Strava, Polar, Hevy, Peloton e Oura são pré-selecionados.",
+          "detailed_strength_analysis": "Analisa exercícios/séries, 1RM estimado e progressão por exercício quando existem dados de força."
         }
       },
       "ai": {
@@ -2529,6 +2533,118 @@
       },
       "readiness": {
         "name": "Prontidão para treinar"
+      },
+      "last_workout_rpe": {
+        "name": "RPE do último treino",
+        "state_attributes": {
+          "sources": {
+            "name": "Fontes de dados"
+          },
+          "workout_start": {
+            "name": "Início do treino"
+          },
+          "field_source": {
+            "name": "Fonte do campo"
+          }
+        }
+      },
+      "last_workout_session_rpe_load": {
+        "name": "Carga session-RPE",
+        "state_attributes": {
+          "sources": {
+            "name": "Fontes de dados"
+          },
+          "workout_start": {
+            "name": "Início do treino"
+          },
+          "field_source": {
+            "name": "Fonte do campo"
+          }
+        }
+      },
+      "last_workout_rpe_load_vs_baseline": {
+        "name": "Carga RPE vs referência",
+        "state_attributes": {
+          "sources": {
+            "name": "Fontes de dados"
+          },
+          "workout_start": {
+            "name": "Início do treino"
+          },
+          "field_source": {
+            "name": "Fonte do campo"
+          }
+        }
+      },
+      "last_workout_fitness_aerobic_load": {
+        "name": "Carga aeróbica Fitness",
+        "state_attributes": {
+          "sources": {
+            "name": "Fontes de dados"
+          },
+          "workout_start": {
+            "name": "Início do treino"
+          },
+          "field_source": {
+            "name": "Fonte do campo"
+          }
+        }
+      },
+      "last_workout_fitness_high_intensity_load": {
+        "name": "Carga de alta intensidade Fitness",
+        "state_attributes": {
+          "sources": {
+            "name": "Fontes de dados"
+          },
+          "workout_start": {
+            "name": "Início do treino"
+          },
+          "field_source": {
+            "name": "Fonte do campo"
+          }
+        }
+      },
+      "last_workout_strength_sets": {
+        "name": "Séries de força",
+        "state_attributes": {
+          "sources": {
+            "name": "Fontes de dados"
+          },
+          "workout_start": {
+            "name": "Início do treino"
+          },
+          "field_source": {
+            "name": "Fonte do campo"
+          }
+        }
+      },
+      "last_workout_estimated_1rm": {
+        "name": "1RM estimado",
+        "state_attributes": {
+          "sources": {
+            "name": "Fontes de dados"
+          },
+          "workout_start": {
+            "name": "Início do treino"
+          },
+          "field_source": {
+            "name": "Fonte do campo"
+          }
+        }
+      },
+      "last_workout_strength_progression": {
+        "name": "Progressão de força",
+        "state_attributes": {
+          "sources": {
+            "name": "Fontes de dados"
+          },
+          "workout_start": {
+            "name": "Início do treino"
+          },
+          "field_source": {
+            "name": "Fonte do campo"
+          }
+        }
       }
     },
     "button": {
@@ -2551,6 +2667,11 @@
     "select": {
       "workout_room": {
         "name": "Treino room"
+      }
+    },
+    "number": {
+      "session_rpe": {
+        "name": "RPE da sessão"
       }
     }
   },

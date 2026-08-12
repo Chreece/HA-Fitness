@@ -22,6 +22,7 @@ from .const import (
     CONF_TTS_ENTITY_ID,
     CONF_TTS_MEDIA_PLAYER_IDS,
     CONF_DATE_OF_BIRTH,
+    CONF_DETAILED_STRENGTH_ANALYSIS,
     CONF_HEIGHT,
     CONF_LANGUAGE,
     CONF_LIVE_DEVICE_IDS,
@@ -350,12 +351,15 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ids = list(user_input.get(CONF_WORKOUT_DEVICE_IDS) or [])
             if ids:
                 self._data[CONF_WORKOUT_DEVICE_IDS] = ids
+            self._data[CONF_DETAILED_STRENGTH_ANALYSIS] = bool(
+                user_input.get(CONF_DETAILED_STRENGTH_ANALYSIS, False)
+            )
             return await self.async_step_sleep_devices()
 
         return self.async_show_form(
             step_id="workout_devices",
             data_schema=vol.Schema(
-                {vol.Optional(CONF_WORKOUT_DEVICE_IDS, default=_choice_ids(workout_device_choices(self.hass))): _supported_device_multi(workout_device_choices(self.hass))}
+                {vol.Optional(CONF_WORKOUT_DEVICE_IDS, default=_choice_ids(workout_device_choices(self.hass))): _supported_device_multi(workout_device_choices(self.hass)), vol.Optional(CONF_DETAILED_STRENGTH_ANALYSIS, default=False): bool}
             ),
         )
 
@@ -738,7 +742,10 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 {
                     CONF_WORKOUT_DEVICE_IDS: list(
                         user_input.get(CONF_WORKOUT_DEVICE_IDS) or []
-                    )
+                    ),
+                    CONF_DETAILED_STRENGTH_ANALYSIS: bool(
+                        user_input.get(CONF_DETAILED_STRENGTH_ANALYSIS, False)
+                    ),
                 }
             )
 
@@ -752,7 +759,11 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                             item for item in (current.get(CONF_WORKOUT_DEVICE_IDS) or [])
                             if item in set(_choice_ids(workout_device_choices(self.hass)))
                         ],
-                    ): _supported_device_multi(workout_device_choices(self.hass))
+                    ): _supported_device_multi(workout_device_choices(self.hass)),
+                    vol.Optional(
+                        CONF_DETAILED_STRENGTH_ANALYSIS,
+                        default=bool(current.get(CONF_DETAILED_STRENGTH_ANALYSIS, False)),
+                    ): bool,
                 }
             ),
         )

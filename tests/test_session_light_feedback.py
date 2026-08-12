@@ -50,14 +50,15 @@ def test_stop_and_recovery_colors():
     # Workout stop.
     assert 'self._queue_session_status_cue("red")' in MANAGER
 
-    # Post-exercise checkpoints.
+    # Post-exercise visual feedback is every 30 seconds.
     for seconds, color in (
-        (10, "orange"),
         (30, "yellow"),
-        (60, "blue"),
+        (60, "orange"),
+        (90, "blue"),
         (120, "green"),
     ):
         assert f'{seconds}: "{color}"' in MANAGER
+    assert '10: "orange"' not in MANAGER
 
 
 def test_recovery_cues_are_three_seconds_and_nonblocking():

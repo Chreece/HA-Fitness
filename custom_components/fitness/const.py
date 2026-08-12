@@ -41,6 +41,7 @@ CONF_THRESHOLD_POWER = "threshold_power"
 
 CONF_LIVE_DEVICE_IDS = "live_device_ids"
 CONF_WORKOUT_DEVICE_IDS = "workout_device_ids"
+CONF_DETAILED_STRENGTH_ANALYSIS = "detailed_strength_analysis"
 CONF_SLEEP_DEVICE_IDS = "sleep_device_ids"
 
 CONF_AI_ENABLED = "ai_enabled"

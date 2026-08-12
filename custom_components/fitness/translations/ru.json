@@ -68,10 +68,12 @@
         "title": "Тренировки / долгосрочные данные",
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data"
+          "workout_device_ids": "Devices providing workout / fitness history data",
+          "detailed_strength_analysis": "Подробный анализ силовых тренировок"
         },
         "data_description": {
-          "workout_device_ids": "Устройства истории. Заранее выбираются только точные поддерживаемые контракты Garmin, Strava, Polar, Hevy, Peloton и Oura."
+          "workout_device_ids": "Устройства истории. Заранее выбираются только точные поддерживаемые контракты Garmin, Strava, Polar, Hevy, Peloton и Oura.",
+          "detailed_strength_analysis": "Анализ упражнений/подходов, расчётного 1RM и прогресса по упражнениям при наличии данных."
         }
       },
       "ai": {
@@ -197,10 +199,12 @@
         "title": "Тренировки / долгосрочные данные",
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data"
+          "workout_device_ids": "Devices providing workout / fitness history data",
+          "detailed_strength_analysis": "Подробный анализ силовых тренировок"
         },
         "data_description": {
-          "workout_device_ids": "Устройства истории. Заранее выбираются только точные поддерживаемые контракты Garmin, Strava, Polar, Hevy, Peloton и Oura."
+          "workout_device_ids": "Устройства истории. Заранее выбираются только точные поддерживаемые контракты Garmin, Strava, Polar, Hevy, Peloton и Oura.",
+          "detailed_strength_analysis": "Анализ упражнений/подходов, расчётного 1RM и прогресса по упражнениям при наличии данных."
         }
       },
       "ai": {
@@ -2529,6 +2533,118 @@
       },
       "readiness": {
         "name": "Готовность к тренировке"
+      },
+      "last_workout_rpe": {
+        "name": "RPE последней тренировки",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
+      },
+      "last_workout_session_rpe_load": {
+        "name": "Нагрузка session-RPE",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
+      },
+      "last_workout_rpe_load_vs_baseline": {
+        "name": "RPE-нагрузка к базовой",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
+      },
+      "last_workout_fitness_aerobic_load": {
+        "name": "Аэробная нагрузка Fitness",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
+      },
+      "last_workout_fitness_high_intensity_load": {
+        "name": "Высокоинтенсивная нагрузка Fitness",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
+      },
+      "last_workout_strength_sets": {
+        "name": "Силовые подходы",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
+      },
+      "last_workout_estimated_1rm": {
+        "name": "Расчётный 1RM",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
+      },
+      "last_workout_strength_progression": {
+        "name": "Силовой прогресс",
+        "state_attributes": {
+          "sources": {
+            "name": "Источники данных"
+          },
+          "workout_start": {
+            "name": "Начало тренировки"
+          },
+          "field_source": {
+            "name": "Источник поля"
+          }
+        }
       }
     },
     "button": {
@@ -2551,6 +2667,11 @@
     "select": {
       "workout_room": {
         "name": "Тренировка room"
+      }
+    },
+    "number": {
+      "session_rpe": {
+        "name": "RPE тренировки"
       }
     }
   },

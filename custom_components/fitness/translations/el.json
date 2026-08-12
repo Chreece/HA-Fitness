@@ -68,10 +68,12 @@
         "title": "Συσκευές προπονήσεων και μακροχρόνιων δεδομένων",
         "description": "Επίλεξε συσκευές με ολοκληρωμένες προπονήσεις ή μακροχρόνια δεδομένα φυσικής κατάστασης/αποκατάστασης, όπως Garmin Connect ή Strava.",
         "data": {
-          "workout_device_ids": "Συσκευές με ιστορικό προπονήσεων / φυσικής κατάστασης"
+          "workout_device_ids": "Συσκευές με ιστορικό προπονήσεων / φυσικής κατάστασης",
+          "detailed_strength_analysis": "Αναλυτική αξιολόγηση ενδυνάμωσης"
         },
         "data_description": {
-          "workout_device_ids": "Συσκευές ολοκληρωμένων προπονήσεων/ιστορικού. Προεπιλέγονται μόνο ακριβή υποστηριζόμενα contracts Garmin, Strava, Polar, Hevy, Peloton και Oura."
+          "workout_device_ids": "Συσκευές ολοκληρωμένων προπονήσεων/ιστορικού. Προεπιλέγονται μόνο ακριβή υποστηριζόμενα contracts Garmin, Strava, Polar, Hevy, Peloton και Oura.",
+          "detailed_strength_analysis": "Ανάλυση ασκήσεων/σετ, εκτίμηση 1RM και προόδου ανά άσκηση όταν υπάρχουν δεδομένα ενδυνάμωσης."
         }
       },
       "ai": {
@@ -197,10 +199,12 @@
         "title": "Συσκευές προπονήσεων και μακροχρόνιων δεδομένων",
         "description": "Επίλεξε συσκευές με ολοκληρωμένες προπονήσεις ή μακροχρόνια δεδομένα.",
         "data": {
-          "workout_device_ids": "Συσκευές με ιστορικό προπονήσεων / φυσικής κατάστασης"
+          "workout_device_ids": "Συσκευές με ιστορικό προπονήσεων / φυσικής κατάστασης",
+          "detailed_strength_analysis": "Αναλυτική αξιολόγηση ενδυνάμωσης"
         },
         "data_description": {
-          "workout_device_ids": "Συσκευές ολοκληρωμένων προπονήσεων/ιστορικού. Προεπιλέγονται μόνο ακριβή υποστηριζόμενα contracts Garmin, Strava, Polar, Hevy, Peloton και Oura."
+          "workout_device_ids": "Συσκευές ολοκληρωμένων προπονήσεων/ιστορικού. Προεπιλέγονται μόνο ακριβή υποστηριζόμενα contracts Garmin, Strava, Polar, Hevy, Peloton και Oura.",
+          "detailed_strength_analysis": "Ανάλυση ασκήσεων/σετ, εκτίμηση 1RM και προόδου ανά άσκηση όταν υπάρχουν δεδομένα ενδυνάμωσης."
         }
       },
       "ai": {
@@ -2529,6 +2533,118 @@
       },
       "readiness": {
         "name": "Ετοιμότητα προπόνησης"
+      },
+      "last_workout_rpe": {
+        "name": "RPE τελευταίας προπόνησης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
+      },
+      "last_workout_session_rpe_load": {
+        "name": "Φορτίο session-RPE",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
+      },
+      "last_workout_rpe_load_vs_baseline": {
+        "name": "Φορτίο RPE έναντι βάσης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
+      },
+      "last_workout_fitness_aerobic_load": {
+        "name": "Αερόβιο φορτίο Fitness",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
+      },
+      "last_workout_fitness_high_intensity_load": {
+        "name": "Φορτίο υψηλής έντασης Fitness",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
+      },
+      "last_workout_strength_sets": {
+        "name": "Σετ ενδυνάμωσης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
+      },
+      "last_workout_estimated_1rm": {
+        "name": "Εκτιμώμενο 1RM",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
+      },
+      "last_workout_strength_progression": {
+        "name": "Πρόοδος ενδυνάμωσης",
+        "state_attributes": {
+          "sources": {
+            "name": "Πηγές δεδομένων"
+          },
+          "workout_start": {
+            "name": "Έναρξη προπόνησης"
+          },
+          "field_source": {
+            "name": "Πηγή πεδίου"
+          }
+        }
       }
     },
     "button": {
@@ -2551,6 +2667,11 @@
     "select": {
       "workout_room": {
         "name": "Δωμάτιο προπόνησης"
+      }
+    },
+    "number": {
+      "session_rpe": {
+        "name": "RPE προπόνησης"
       }
     }
   },

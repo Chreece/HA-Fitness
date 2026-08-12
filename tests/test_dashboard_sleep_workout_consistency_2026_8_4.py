@@ -8,10 +8,11 @@ def test_sleep_stage_total_uses_merged_duration_entity():
     assert "const displayTotal" in JS
     assert "${displayTotal}" in JS
 
-def test_gps_workout_does_not_duplicate_highlights_above_map():
+def test_workout_metrics_always_remain_visible_and_route_is_optional():
     assert "const hasRoute = (this._profile.route_candidates || []).length > 0" in JS
-    assert '? [this._mount("fitness-route-card"' in JS
-    assert ': [this._mount("fitness-workout-highlights-card")]' in JS
+    assert 'const children = [this._mount("fitness-workout-highlights-card")]' in JS
+    assert 'if (hasRoute)' in JS
+    assert 'children.push(this._mount("fitness-route-card"' in JS
 
 def test_route_summary_has_full_normalized_workout_metrics():
     for key in ("last_workout_max_hr", "last_workout_vo2max", "last_workout_banister_trimp"):

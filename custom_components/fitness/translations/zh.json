@@ -68,10 +68,12 @@
         "title": "训练 / 长期数据",
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data"
+          "workout_device_ids": "Devices providing workout / fitness history data",
+          "detailed_strength_analysis": "详细力量分析"
         },
         "data_description": {
-          "workout_device_ids": "历史设备。仅预选明确支持的 Garmin、Strava、Polar、Hevy、Peloton 和 Oura 适配器契约。"
+          "workout_device_ids": "历史设备。仅预选明确支持的 Garmin、Strava、Polar、Hevy、Peloton 和 Oura 适配器契约。",
+          "detailed_strength_analysis": "有力量训练数据时，分析动作/组数、估算1RM和各动作进展。"
         }
       },
       "ai": {
@@ -197,10 +199,12 @@
         "title": "训练 / 长期数据",
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data"
+          "workout_device_ids": "Devices providing workout / fitness history data",
+          "detailed_strength_analysis": "详细力量分析"
         },
         "data_description": {
-          "workout_device_ids": "历史设备。仅预选明确支持的 Garmin、Strava、Polar、Hevy、Peloton 和 Oura 适配器契约。"
+          "workout_device_ids": "历史设备。仅预选明确支持的 Garmin、Strava、Polar、Hevy、Peloton 和 Oura 适配器契约。",
+          "detailed_strength_analysis": "有力量训练数据时，分析动作/组数、估算1RM和各动作进展。"
         }
       },
       "ai": {
@@ -2529,6 +2533,118 @@
       },
       "readiness": {
         "name": "训练准备度"
+      },
+      "last_workout_rpe": {
+        "name": "上次训练RPE",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
+      },
+      "last_workout_session_rpe_load": {
+        "name": "Session-RPE负荷",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
+      },
+      "last_workout_rpe_load_vs_baseline": {
+        "name": "RPE负荷与基线对比",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
+      },
+      "last_workout_fitness_aerobic_load": {
+        "name": "Fitness有氧负荷",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
+      },
+      "last_workout_fitness_high_intensity_load": {
+        "name": "Fitness高强度负荷",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
+      },
+      "last_workout_strength_sets": {
+        "name": "力量训练组数",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
+      },
+      "last_workout_estimated_1rm": {
+        "name": "估算1RM",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
+      },
+      "last_workout_strength_progression": {
+        "name": "力量进展",
+        "state_attributes": {
+          "sources": {
+            "name": "数据来源"
+          },
+          "workout_start": {
+            "name": "训练开始"
+          },
+          "field_source": {
+            "name": "字段来源"
+          }
+        }
       }
     },
     "button": {
@@ -2551,6 +2667,11 @@
     "select": {
       "workout_room": {
         "name": "训练 room"
+      }
+    },
+    "number": {
+      "session_rpe": {
+        "name": "训练RPE"
       }
     }
   },

@@ -68,10 +68,12 @@
         "title": "Тренування / довгострокові дані",
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data"
+          "workout_device_ids": "Devices providing workout / fitness history data",
+          "detailed_strength_analysis": "Детальний аналіз силових тренувань"
         },
         "data_description": {
-          "workout_device_ids": "Пристрої історії. Попередньо вибираються лише точні підтримувані контракти Garmin, Strava, Polar, Hevy, Peloton та Oura."
+          "workout_device_ids": "Пристрої історії. Попередньо вибираються лише точні підтримувані контракти Garmin, Strava, Polar, Hevy, Peloton та Oura.",
+          "detailed_strength_analysis": "Аналіз вправ/підходів, оціненого 1RM і прогресу за вправами за наявності даних."
         }
       },
       "ai": {
@@ -197,10 +199,12 @@
         "title": "Тренування / довгострокові дані",
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data"
+          "workout_device_ids": "Devices providing workout / fitness history data",
+          "detailed_strength_analysis": "Детальний аналіз силових тренувань"
         },
         "data_description": {
-          "workout_device_ids": "Пристрої історії. Попередньо вибираються лише точні підтримувані контракти Garmin, Strava, Polar, Hevy, Peloton та Oura."
+          "workout_device_ids": "Пристрої історії. Попередньо вибираються лише точні підтримувані контракти Garmin, Strava, Polar, Hevy, Peloton та Oura.",
+          "detailed_strength_analysis": "Аналіз вправ/підходів, оціненого 1RM і прогресу за вправами за наявності даних."
         }
       },
       "ai": {
@@ -2529,6 +2533,118 @@
       },
       "readiness": {
         "name": "Готовність до тренування"
+      },
+      "last_workout_rpe": {
+        "name": "RPE останнього тренування",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
+      },
+      "last_workout_session_rpe_load": {
+        "name": "Навантаження session-RPE",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
+      },
+      "last_workout_rpe_load_vs_baseline": {
+        "name": "RPE-навантаження до бази",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
+      },
+      "last_workout_fitness_aerobic_load": {
+        "name": "Аеробне навантаження Fitness",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
+      },
+      "last_workout_fitness_high_intensity_load": {
+        "name": "Високоінтенсивне навантаження Fitness",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
+      },
+      "last_workout_strength_sets": {
+        "name": "Силові підходи",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
+      },
+      "last_workout_estimated_1rm": {
+        "name": "Оцінений 1RM",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
+      },
+      "last_workout_strength_progression": {
+        "name": "Силовий прогрес",
+        "state_attributes": {
+          "sources": {
+            "name": "Джерела даних"
+          },
+          "workout_start": {
+            "name": "Початок тренування"
+          },
+          "field_source": {
+            "name": "Джерело поля"
+          }
+        }
       }
     },
     "button": {
@@ -2551,6 +2667,11 @@
     "select": {
       "workout_room": {
         "name": "Тренування room"
+      }
+    },
+    "number": {
+      "session_rpe": {
+        "name": "RPE тренування"
       }
     }
   },

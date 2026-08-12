@@ -68,10 +68,12 @@
         "title": "ワークアウト / 長期データ",
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data"
+          "workout_device_ids": "Devices providing workout / fitness history data",
+          "detailed_strength_analysis": "詳細な筋力分析"
         },
         "data_description": {
-          "workout_device_ids": "履歴デバイス。明確に対応する Garmin、Strava、Polar、Hevy、Peloton、Oura の契約だけを事前選択します。"
+          "workout_device_ids": "履歴デバイス。明確に対応する Garmin、Strava、Polar、Hevy、Peloton、Oura の契約だけを事前選択します。",
+          "detailed_strength_analysis": "筋力データがある場合、種目/セット、推定1RM、種目ごとの進捗を分析します。"
         }
       },
       "ai": {
@@ -197,10 +199,12 @@
         "title": "ワークアウト / 長期データ",
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data"
+          "workout_device_ids": "Devices providing workout / fitness history data",
+          "detailed_strength_analysis": "詳細な筋力分析"
         },
         "data_description": {
-          "workout_device_ids": "履歴デバイス。明確に対応する Garmin、Strava、Polar、Hevy、Peloton、Oura の契約だけを事前選択します。"
+          "workout_device_ids": "履歴デバイス。明確に対応する Garmin、Strava、Polar、Hevy、Peloton、Oura の契約だけを事前選択します。",
+          "detailed_strength_analysis": "筋力データがある場合、種目/セット、推定1RM、種目ごとの進捗を分析します。"
         }
       },
       "ai": {
@@ -2529,6 +2533,118 @@
       },
       "readiness": {
         "name": "トレーニング準備度"
+      },
+      "last_workout_rpe": {
+        "name": "前回ワークアウトRPE",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
+      },
+      "last_workout_session_rpe_load": {
+        "name": "Session-RPE負荷",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
+      },
+      "last_workout_rpe_load_vs_baseline": {
+        "name": "RPE負荷 対ベースライン",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
+      },
+      "last_workout_fitness_aerobic_load": {
+        "name": "Fitness有酸素負荷",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
+      },
+      "last_workout_fitness_high_intensity_load": {
+        "name": "Fitness高強度負荷",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
+      },
+      "last_workout_strength_sets": {
+        "name": "筋力セット",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
+      },
+      "last_workout_estimated_1rm": {
+        "name": "推定1RM",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
+      },
+      "last_workout_strength_progression": {
+        "name": "筋力進捗",
+        "state_attributes": {
+          "sources": {
+            "name": "データソース"
+          },
+          "workout_start": {
+            "name": "ワークアウト開始"
+          },
+          "field_source": {
+            "name": "フィールドのソース"
+          }
+        }
       }
     },
     "button": {
@@ -2551,6 +2667,11 @@
     "select": {
       "workout_room": {
         "name": "ワークアウト room"
+      }
+    },
+    "number": {
+      "session_rpe": {
+        "name": "セッションRPE"
       }
     }
   },

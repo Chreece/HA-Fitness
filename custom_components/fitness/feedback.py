@@ -6,11 +6,21 @@ from dataclasses import dataclass
 
 
 INTENSITY_RGB = {
+    # Scientific ACSM intensity labels retained for existing entities/lifecycle cues.
     "very_light": (70, 130, 255),
     "light": (50, 205, 90),
     "moderate": (255, 205, 40),
     "vigorous": (255, 120, 20),
     "near_maximal": (255, 35, 35),
+
+    # Optical HRR-zone palette. This is display feedback only and does not
+    # change the ACSM intensity calculations exposed by Fitness sensors.
+    "under_zone_1": (170, 70, 220),
+    "zone_1": (70, 130, 255),
+    "zone_2": (50, 205, 90),
+    "zone_3": (255, 205, 40),
+    "zone_4": (255, 120, 20),
+    "zone_5": (255, 35, 35),
 }
 
 
@@ -434,6 +444,26 @@ _SESSION_LIFECYCLE_EXTRAS = {
 for _code, _values in _SESSION_LIFECYCLE_EXTRAS.items():
     _SESSION_MESSAGES.setdefault(_code, {}).update(_values)
 
+_RPE_REMINDERS = {
+    "en":"Before you move on, rate how hard that workout felt from 1 to 10 using a whole number.",
+    "el":"Πριν συνεχίσεις, βαθμολόγησε πόσο δύσκολη σου φάνηκε η προπόνηση από 1 έως 10, με ακέραιο αριθμό.",
+    "de":"Bevor du weitermachst, bewerte die gefühlte Anstrengung des Trainings mit einer ganzen Zahl von 1 bis 10.",
+    "fr":"Avant de continuer, note l'effort ressenti de cette séance de 1 à 10 avec un nombre entier.",
+    "es":"Antes de continuar, valora el esfuerzo percibido del entrenamiento del 1 al 10 con un número entero.",
+    "it":"Prima di continuare, valuta lo sforzo percepito dell'allenamento da 1 a 10 con un numero intero.",
+    "pt":"Antes de continuar, avalia o esforço percebido do treino de 1 a 10 com um número inteiro.",
+    "nl":"Beoordeel voordat je verdergaat hoe zwaar de training voelde met een geheel getal van 1 tot 10.",
+    "pl":"Zanim przejdziesz dalej, oceń odczuwany wysiłek treningu całkowitą liczbą od 1 do 10.",
+    "ru":"Прежде чем продолжить, оцени ощущаемую нагрузку тренировки целым числом от 1 до 10.",
+    "uk":"Перш ніж продовжити, оціни відчуте навантаження тренування цілим числом від 1 до 10.",
+    "tr":"Devam etmeden önce antrenmanın ne kadar zor hissettirdiğini 1 ile 10 arasında tam sayı ile değerlendir.",
+    "zh":"继续之前，请用 1 到 10 的整数评价这次训练的主观用力程度。",
+    "ja":"次に進む前に、このワークアウトのきつさを1から10の整数で評価してください。",
+    "ko":"계속하기 전에 이번 운동이 얼마나 힘들었는지 1부터 10까지 정수로 평가해 주세요.",
+}
+for _code, _message in _RPE_REMINDERS.items():
+    _SESSION_MESSAGES.setdefault(_code, {})["rpe_reminder"] = _message
+
 
 _SESSION_MOTIVATION = {
     "en": "Start controlled, stay consistent, and make this session yours.",
@@ -617,28 +647,41 @@ _PERIODIC_TEMPLATES = {
 }
 
 _LIVE_PARTS = {
-    "en": {
-        "hr": "heart rate {v} bpm",
-        "intensity": "intensity {v}",
-        "power": "power {v} watts",
-        "cadence": "cadence {v} per minute",
-        "pace": "pace {v} min/km",
-    },
-    "el": {
-        "hr": "καρδιακοί παλμοί {v} bpm",
-        "intensity": "ένταση {v}",
-        "power": "ισχύς {v} watt",
-        "cadence": "συχνότητα {v} ανά λεπτό",
-        "pace": "ρυθμός {v} min/km",
-    },
-    "de": {
-        "hr": "Herzfrequenz {v} bpm",
-        "intensity": "Intensität {v}",
-        "power": "Leistung {v} Watt",
-        "cadence": "Kadenz {v} pro Minute",
-        "pace": "Tempo {v} min/km",
-    },
+    "en": {"hr":"heart rate {v} bpm","intensity":"intensity {v}","power":"power {v} watts","cadence":"cadence {v} per minute","pace":"pace {v} min/km"},
+    "el": {"hr":"καρδιακοί παλμοί {v} bpm","intensity":"ένταση {v}","power":"ισχύς {v} watt","cadence":"συχνότητα {v} ανά λεπτό","pace":"ρυθμός {v} min/km"},
+    "de": {"hr":"Herzfrequenz {v} bpm","intensity":"Intensität {v}","power":"Leistung {v} Watt","cadence":"Kadenz {v} pro Minute","pace":"Tempo {v} min/km"},
+    "fr": {"hr":"fréquence cardiaque {v} bpm","intensity":"intensité {v}","power":"puissance {v} watts","cadence":"cadence {v} par minute","pace":"allure {v} min/km"},
+    "es": {"hr":"frecuencia cardíaca {v} bpm","intensity":"intensidad {v}","power":"potencia {v} vatios","cadence":"cadencia {v} por minuto","pace":"ritmo {v} min/km"},
+    "it": {"hr":"frequenza cardiaca {v} bpm","intensity":"intensità {v}","power":"potenza {v} watt","cadence":"cadenza {v} al minuto","pace":"passo {v} min/km"},
+    "pt": {"hr":"frequência cardíaca {v} bpm","intensity":"intensidade {v}","power":"potência {v} watts","cadence":"cadência {v} por minuto","pace":"ritmo {v} min/km"},
+    "nl": {"hr":"hartslag {v} bpm","intensity":"intensiteit {v}","power":"vermogen {v} watt","cadence":"cadans {v} per minuut","pace":"tempo {v} min/km"},
+    "pl": {"hr":"tętno {v} bpm","intensity":"intensywność {v}","power":"moc {v} watów","cadence":"kadencja {v} na minutę","pace":"tempo {v} min/km"},
+    "ru": {"hr":"пульс {v} уд/мин","intensity":"интенсивность {v}","power":"мощность {v} Вт","cadence":"каденс {v} в минуту","pace":"темп {v} мин/км"},
+    "uk": {"hr":"пульс {v} уд/хв","intensity":"інтенсивність {v}","power":"потужність {v} Вт","cadence":"каденс {v} за хвилину","pace":"темп {v} хв/км"},
+    "tr": {"hr":"kalp hızı {v} bpm","intensity":"yoğunluk {v}","power":"güç {v} watt","cadence":"kadans dakikada {v}","pace":"tempo {v} dk/km"},
+    "zh": {"hr":"心率 {v} bpm","intensity":"强度 {v}","power":"功率 {v} 瓦","cadence":"步频每分钟 {v}","pace":"配速 {v} 分/公里"},
+    "ja": {"hr":"心拍数 {v} bpm","intensity":"強度 {v}","power":"パワー {v} W","cadence":"ケイデンス毎分 {v}","pace":"ペース {v} 分/km"},
+    "ko": {"hr":"심박수 {v} bpm","intensity":"강도 {v}","power":"파워 {v} W","cadence":"케이던스 분당 {v}","pace":"페이스 {v} 분/km"},
 }
+
+_INTENSITY_NAMES = {
+    "en": {"very_light":"very light","light":"light","moderate":"moderate","vigorous":"vigorous","near_maximal":"near maximal"},
+    "el": {"very_light":"πολύ χαμηλή","light":"χαμηλή","moderate":"μέτρια","vigorous":"υψηλή","near_maximal":"σχεδόν μέγιστη"},
+    "de": {"very_light":"sehr niedrig","light":"niedrig","moderate":"moderat","vigorous":"hoch","near_maximal":"nahe maximal"},
+    "fr": {"very_light":"très faible","light":"faible","moderate":"modérée","vigorous":"élevée","near_maximal":"presque maximale"},
+    "es": {"very_light":"muy baja","light":"baja","moderate":"moderada","vigorous":"alta","near_maximal":"casi máxima"},
+    "it": {"very_light":"molto bassa","light":"bassa","moderate":"moderata","vigorous":"alta","near_maximal":"quasi massima"},
+    "pt": {"very_light":"muito baixa","light":"baixa","moderate":"moderada","vigorous":"alta","near_maximal":"quase máxima"},
+    "nl": {"very_light":"zeer laag","light":"laag","moderate":"matig","vigorous":"hoog","near_maximal":"bijna maximaal"},
+    "pl": {"very_light":"bardzo niska","light":"niska","moderate":"umiarkowana","vigorous":"wysoka","near_maximal":"prawie maksymalna"},
+    "ru": {"very_light":"очень низкая","light":"низкая","moderate":"умеренная","vigorous":"высокая","near_maximal":"почти максимальная"},
+    "uk": {"very_light":"дуже низька","light":"низька","moderate":"помірна","vigorous":"висока","near_maximal":"майже максимальна"},
+    "tr": {"very_light":"çok düşük","light":"düşük","moderate":"orta","vigorous":"yüksek","near_maximal":"maksimale yakın"},
+    "zh": {"very_light":"非常低","light":"低","moderate":"中等","vigorous":"高","near_maximal":"接近最大"},
+    "ja": {"very_light":"非常に低い","light":"低い","moderate":"中程度","vigorous":"高い","near_maximal":"最大に近い"},
+    "ko": {"very_light":"매우 낮음","light":"낮음","moderate":"중간","vigorous":"높음","near_maximal":"최대에 가까움"},
+}
+
 
 
 def static_intensity_message(
@@ -682,7 +725,10 @@ def static_periodic_live_message(
     if heart_rate is not None:
         parts.append(labels["hr"].format(v=int(round(heart_rate))))
     if intensity is not None:
-        parts.append(labels["intensity"].format(v=intensity))
+        intensity_name = _INTENSITY_NAMES.get(code, _INTENSITY_NAMES["en"]).get(
+            intensity, intensity
+        )
+        parts.append(labels["intensity"].format(v=intensity_name))
     if power is not None:
         parts.append(labels["power"].format(v=int(round(power))))
     if cadence is not None:

@@ -33,6 +33,7 @@ from .const import (
     CONF_TTS_ENTITY_ID,
     CONF_TTS_MEDIA_PLAYER_IDS,
     CONF_DATE_OF_BIRTH,
+    CONF_DETAILED_STRENGTH_ANALYSIS,
     CONF_BIRTH_DAY,
     CONF_BIRTH_MONTH,
     CONF_BIRTH_YEAR,
@@ -116,6 +117,7 @@ from .providers.sleep_adapters.registry import (
     sleep_device_entity_ids,
 )
 from .providers.sleep_adapters.sleep_as_android import record_from_event_history, records_from_event_history
+from .strength import analyze_strength
 from .providers.workouts import (
     Workout,
     _dt,
@@ -123,6 +125,7 @@ from .providers.workouts import (
     discover_external_workouts,
     merged_workouts,
     newest,
+    workout_sport_kind,
 )
 
 
@@ -160,6 +163,7 @@ class FitnessManager:
         self._session_distance_excluded = 0.0
         self.samples: list[dict[str, Any]] = []
         self.capture_control = "idle"
+        self.session_rpe: int | None = None
 
         # Live sensors may update many times per second. Keep the hot path small:
         # cache discovered source mappings, record at most one workout sample per
@@ -938,14 +942,35 @@ class FitnessManager:
         await self._async_handle_new_workout(latest)
 
     def _current_live_intensity(self) -> str | None:
-        """Calculate HRR zone from cached session physiology only."""
+        """Return the optical HRR zone used only for light feedback.
+
+        The six-color optical scale intentionally stays separate from the
+        scientific ACSM intensity entity: under Zone 1 is purple, then
+        Zones 1-5 are blue/green/yellow/orange/red.
+        """
         live = self.live_values()
         hrr = percent_hrr(
             live.get(METRIC_HEART_RATE),
             self._session_intensity_max_hr,
             self._session_intensity_resting_hr,
         )
-        return acsm_hrr_intensity(hrr)
+        if hrr is None:
+            return None
+        try:
+            value = float(hrr)
+        except (TypeError, ValueError):
+            return None
+        if value < 30:
+            return "under_zone_1"
+        if value < 40:
+            return "zone_1"
+        if value < 60:
+            return "zone_2"
+        if value < 75:
+            return "zone_3"
+        if value < 90:
+            return "zone_4"
+        return "zone_5"
 
     def _check_live_intensity_feedback(self):
         """Give optical zone feedback only after 10 stable seconds."""
@@ -1476,7 +1501,7 @@ class FitnessManager:
                     await self.hass.services.async_call(
                         "light",
                         "turn_off",
-                        {},
+                        {"transition": 0},
                         target={"entity_id": entity_id},
                         blocking=True,
                     )
@@ -1536,6 +1561,7 @@ class FitnessManager:
                 if effect not in (None, "none", "None"):
                     service_data["effect"] = effect
 
+                service_data["transition"] = 0
                 await self.hass.services.async_call(
                     "light",
                     "turn_on",
@@ -1597,6 +1623,7 @@ class FitnessManager:
                     {
                         "rgb_color": list(rgb),
                         "brightness_pct": 100,
+                        "transition": 0,
                     },
                     target={"entity_id": entity_id},
                     blocking=True,
@@ -1689,6 +1716,7 @@ class FitnessManager:
             "recovery_wait",
             "recovery_checkpoint",
             "recovery_complete",
+            "rpe_reminder",
             "no_recovery",
         }:
             return None
@@ -1756,8 +1784,14 @@ class FitnessManager:
                 "State the supplied remaining seconds."
             ),
             "recovery_complete": (
-                "Say post-exercise heart-rate recovery collection is complete, all "
-                "available recovery data has been saved, and everything is ready."
+                "Say the post-exercise heart-rate recovery test is complete and all "
+                "available recovery data has been saved. Do not ask for RPE in this "
+                "sentence because a separate RPE reminder follows when needed."
+            ),
+            "rpe_reminder": (
+                "Tell the user the recovery test is done when this follows recovery, "
+                "then ask how hard the completed exercise felt and request one whole "
+                "RPE number from 1 to 10 using the Fitness RPE control. Keep it friendly."
             ),
             "no_recovery": (
                 "Say the workout ended but post-exercise heart-rate recovery could "
@@ -1944,8 +1978,14 @@ class FitnessManager:
         threshold_speed=speed_from_pace_min_km(threshold_pace); speed_thr=relative_percent(current_speed,threshold_speed)
         p2w=current_power/weight if current_power is not None and weight else None
         self._live_derived_cache={'heart_rate_percent_max':hrmax_pct,'heart_rate_reserve_percent':hrr_pct,'heart_rate_intensity':acsm_hrr_intensity(hrr_pct),'heart_rate_relative_threshold':hr_thr,'current_power_to_weight':p2w,'power_relative_threshold':power_thr,'current_pace':pace,'speed_relative_threshold':speed_thr}
+        inferred_sport = self._infer_sport().lower()
+        activity_kind = (
+            'running' if inferred_sport == 'run'
+            else 'cycling' if inferred_sport == 'ride'
+            else 'exercise'
+        )
         self._live_coaching_context_cache={
-            'session_duration_minutes':round(duration/60.0,1),'heart_rate_bpm':round(heart_rate) if heart_rate is not None else None,
+            'session_duration_minutes':round(duration/60.0,1),'activity_kind':activity_kind,'heart_rate_bpm':round(heart_rate) if heart_rate is not None else None,
             'heart_rate_percent_max':round(hrmax_pct,1) if hrmax_pct is not None else None,'heart_rate_reserve_percent':round(hrr_pct,1) if hrr_pct is not None else None,
             'heart_rate_intensity':acsm_hrr_intensity(hrr_pct),'heart_rate_relative_threshold_percent':round(hr_thr,1) if hr_thr is not None else None,
             'power_w':round(current_power) if current_power is not None else None,'power_to_weight_w_kg':round(p2w,2) if p2w is not None else None,
@@ -2037,16 +2077,23 @@ class FitnessManager:
             prompt = (
                 "Give ONE concise spoken coaching update for an ongoing workout. "
                 f"MANDATORY OUTPUT LANGUAGE: {strings['language']}. "
-                "Use every value in available_live_metrics as context and do not "
-                "ignore an available primary live sensor. Interpret the structured "
-                "data instead of merely reading fields aloud. "
-                "Prioritize individualized relative intensity: %HRR, heart rate "
+                "Always state elapsed workout time. Always state the actual current "
+                "heart rate when available and the actual current speed when available. "
+                "Then use the most useful available calculated Fitness values (for "
+                "example %HRR/intensity, threshold-relative HR/power/speed, power-to-"
+                "weight, pace, or recent trend) to interpret the effort. Use every "
+                "primary live value from available_live_metrics as context but keep "
+                "the spoken result concise. "
+                "Call the activity running only when activity_kind is running, cycling "
+                "only when activity_kind is cycling; otherwise call it a workout or "
+                "exercise and do not guess a sport. Prioritize individualized relative "
+                "intensity: %HRR, heart rate "
                 "versus threshold, power versus threshold, current power-to-weight, "
                 "and pace/speed versus threshold when available. Use recent trends "
                 "to notice useful patterns such as heart rate rising while power is "
                 "stable, or power increasing while heart rate remains stable. "
-                "Do not claim cardiac drift from a short trend alone. Mention current "
-                "BPM naturally. Mention no more than three numerical values total. "
+                "Do not claim cardiac drift from a short trend alone. Keep exact live "
+                "values truthful and never substitute averages for current values. "
                 "Use simple athlete-friendly language to say whether the effort looks "
                 "easy, steady, near threshold, above threshold, or changing only when "
                 "the supplied relative data supports that interpretation. Give one "
@@ -2118,6 +2165,41 @@ class FitnessManager:
 
         return " ".join(parts)
 
+    def _static_periodic_calculated_message(self, context: dict) -> str:
+        """Return the most useful localized calculated live context for plain TTS."""
+        code = self._ai_language()
+        labels = {
+            "en": ("HR reserve", "of HR threshold", "of power threshold", "of speed threshold"),
+            "el": ("καρδιακό απόθεμα", "του ορίου παλμών", "του ορίου ισχύος", "του ορίου ταχύτητας"),
+            "de": ("Herzfrequenzreserve", "der Herzfrequenzschwelle", "der Leistungsschwelle", "der Geschwindigkeitsschwelle"),
+            "fr": ("réserve cardiaque", "du seuil cardiaque", "du seuil de puissance", "du seuil de vitesse"),
+            "es": ("reserva cardíaca", "del umbral cardíaco", "del umbral de potencia", "del umbral de velocidad"),
+            "it": ("riserva cardiaca", "della soglia cardiaca", "della soglia di potenza", "della soglia di velocità"),
+            "pt": ("reserva cardíaca", "do limiar cardíaco", "do limiar de potência", "do limiar de velocidade"),
+            "nl": ("hartslagreserve", "van de hartslagdrempel", "van de vermogensdrempel", "van de snelheidsdrempel"),
+            "pl": ("rezerwa tętna", "progu tętna", "progu mocy", "progu prędkości"),
+            "ru": ("резерв пульса", "от порога пульса", "от порога мощности", "от порога скорости"),
+            "uk": ("резерв пульсу", "від порогу пульсу", "від порогу потужності", "від порогу швидкості"),
+            "tr": ("kalp hızı rezervi", "kalp hızı eşiğinin", "güç eşiğinin", "hız eşiğinin"),
+            "zh": ("心率储备", "心率阈值的", "功率阈值的", "速度阈值的"),
+            "ja": ("心拍予備率", "心拍閾値の", "パワー閾値の", "速度閾値の"),
+            "ko": ("심박 예비율", "심박 역치의", "파워 역치의", "속도 역치의"),
+        }.get(code, ("HR reserve", "of HR threshold", "of power threshold", "of speed threshold"))
+        candidates = [
+            (context.get("heart_rate_reserve_percent"), f"{labels[0]} {{:.0f}}%."),
+            (context.get("heart_rate_relative_threshold_percent"), f"{{:.0f}}% {labels[1]}."),
+            (context.get("power_relative_threshold_percent"), f"{{:.0f}}% {labels[2]}."),
+            (context.get("speed_relative_threshold_percent"), f"{{:.0f}}% {labels[3]}."),
+        ]
+        parts = []
+        for value, template in candidates:
+            if value is None:
+                continue
+            parts.append(template.format(float(value)))
+            if len(parts) >= 2:
+                break
+        return " ".join(parts)
+
     def _static_smart_live_message(
         self,
         context: dict,
@@ -2135,11 +2217,10 @@ class FitnessManager:
         )
 
         more = self._static_periodic_extra_message(context)
+        calculated = self._static_periodic_calculated_message(context)
 
-        if base and more:
-            base = f"{base} {more}"
-        elif more:
-            base = more
+        pieces = [piece for piece in (base, more, calculated) if piece]
+        base = " ".join(pieces)
 
         if not base:
             return None
@@ -2172,9 +2253,26 @@ class FitnessManager:
                 extra = "Heart rate is above your configured threshold."
 
         if language == "en" and extra:
-            return f"{base} {extra}"
+            base = f"{base} {extra}"
 
-        return base
+        motivation = {
+            "en": "Keep it controlled and keep moving—you are building the session one minute at a time.",
+            "el": "Κράτησε τον έλεγχο και συνέχισε—χτίζεις την προπόνηση λεπτό προς λεπτό.",
+            "de": "Bleib kontrolliert und mach weiter—Minute für Minute baust du diese Einheit auf.",
+            "fr": "Reste maîtrisé et continue—tu construis ta séance minute après minute.",
+            "es": "Mantén el control y sigue—estás construyendo la sesión minuto a minuto.",
+            "it": "Resta in controllo e continua—stai costruendo la sessione minuto dopo minuto.",
+            "pt": "Mantém o controlo e continua—estás a construir o treino minuto a minuto.",
+            "nl": "Blijf gecontroleerd doorgaan—minuut voor minuut bouw je deze training op.",
+            "pl": "Zachowaj kontrolę i działaj dalej—budujesz ten trening minuta po minucie.",
+            "ru": "Сохраняй контроль и продолжай—ты строишь тренировку минуту за минутой.",
+            "uk": "Зберігай контроль і продовжуй—ти будуєш тренування хвилина за хвилиною.",
+            "tr": "Kontrollü kal ve devam et—antrenmanı dakika dakika oluşturuyorsun.",
+            "zh": "保持控制并继续前进——你正在一分一秒地完成这次训练。",
+            "ja": "コントロールを保って続けましょう。一分一分がこのセッションを作っています。",
+            "ko": "컨트롤을 유지하며 계속하세요. 한 분 한 분이 이번 운동을 만들어 갑니다.",
+        }.get(language, "Keep it controlled and keep moving—you are building the session one minute at a time.")
+        return f"{base} {motivation}"
 
     async def _async_periodic_live_announcements(self):
         """Evaluate and speak the ongoing workout every configured X minutes."""
@@ -2528,6 +2626,8 @@ class FitnessManager:
         if not self._workout_has_real_information(workout):
             return
 
+        workout = self._apply_beta2_workout_metrics(workout)
+
         if self._remember_completed_workout(workout):
             await self._save()
             self._notify()
@@ -2596,6 +2696,12 @@ class FitnessManager:
             title=static_title,
             message=message,
         )
+        if (
+            workout.session_rpe is None
+            and workout.source != "fitness_live_capture"
+            and "fitness_live_capture" not in (workout.sources or [])
+        ):
+            self._queue_session_guidance("rpe_reminder")
 
     def age(self) -> int:
         dob = datetime.fromisoformat(self.config[CONF_DATE_OF_BIRTH]).date()
@@ -3249,6 +3355,7 @@ class FitnessManager:
         self._pause_distance_raw = None
         self._session_distance_excluded = 0.0
         self.samples = []
+        self.session_rpe = None
 
         self._last_live_intensity = None
         self._last_live_intensity_accepted_at = None
@@ -3467,6 +3574,8 @@ class FitnessManager:
             self.capture_control = await self._async_antplus_control(False)
             if workout is not None:
                 self._queue_session_guidance("no_recovery")
+                if workout.session_rpe is None:
+                    self._queue_session_guidance("rpe_reminder")
 
         latest = self.latest_workout()
         latest_signature = self._workout_signature(latest)
@@ -3505,16 +3614,19 @@ class FitnessManager:
             return
 
         checkpoints = (
-            (10, "hrr_10s"),
-            (30, "hrr_30s"),
-            (60, "hrr_60s"),
-            (120, "hrr_120s"),
+            # Keep the scientifically useful 10 s sample, but do not interrupt
+            # the user with a 10-second announcement/light cue.
+            (10, "hrr_10s", False),
+            (30, "hrr_30s", True),
+            (60, "hrr_60s", True),
+            (90, None, True),
+            (120, "hrr_120s", False),
         )
         elapsed = 0
         recovery_completed = False
 
         try:
-            for seconds, field_name in checkpoints:
+            for seconds, field_name, announce_checkpoint in checkpoints:
                 await asyncio.sleep(seconds - elapsed)
                 elapsed = seconds
 
@@ -3524,32 +3636,34 @@ class FitnessManager:
                 remaining = max(0, 120 - seconds)
 
                 checkpoint_color = {
-                    10: "orange",
                     30: "yellow",
-                    60: "blue",
+                    60: "orange",
+                    90: "blue",
                     120: "green",
                 }.get(seconds)
                 if checkpoint_color is not None:
-                    self._queue_session_status_cue(
-                        checkpoint_color,
-                    )
+                    self._queue_session_status_cue(checkpoint_color)
 
-                self._queue_session_guidance(
-                    "recovery_checkpoint",
-                    seconds=seconds,
-                    remaining=remaining,
-                    collected=(hr is not None),
-                )
+                # Speak only 30/60/90 s checkpoints. At 120 s the dedicated
+                # completion message replaces an awkward "0 seconds left" cue.
+                if announce_checkpoint:
+                    self._queue_session_guidance(
+                        "recovery_checkpoint",
+                        seconds=seconds,
+                        remaining=remaining,
+                        collected=(hr is not None),
+                    )
 
                 if hr is None:
                     continue
 
                 recovery = max(0.0, reference - float(hr))
 
-                for item in reversed(self.history):
-                    if item.get("start") == workout_start:
-                        item[field_name] = round(recovery, 1)
-                        break
+                if field_name is not None:
+                    for item in reversed(self.history):
+                        if item.get("start") == workout_start:
+                            item[field_name] = round(recovery, 1)
+                            break
 
                 await self._save()
                 self._notify()
@@ -3574,6 +3688,11 @@ class FitnessManager:
                 await self._async_announce_session_guidance(
                     "recovery_complete"
                 )
+                completed = self.latest_workout()
+                if completed is not None and completed.session_rpe is None:
+                    await self._async_announce_session_guidance(
+                        "rpe_reminder"
+                    )
 
             # The completed workout evaluation/summary now sees all available
             # HR-recovery checkpoints rather than the pre-recovery workout.
@@ -3624,14 +3743,28 @@ class FitnessManager:
         return "idle"
 
     def _infer_sport(self) -> str:
-        # Device/entity naming is only used to name the workout, never for
-        # physiological calculations.
+        """Infer a sport only from strong live-source evidence.
+
+        Heart-rate-only sessions and generic cadence sensors are deliberately
+        named Workout. A provider sync may later supply the authoritative sport
+        when both records are merged.
+        """
+        sources = self.live_sources()
         text = " ".join(
-            source.entity_id for source in self.live_sources().values()
+            f"{metric} {source.entity_id}"
+            for metric, source in sources.items()
         ).lower()
-        if any(x in text for x in ("stryd", "run", "footpod", "foot_pod")):
+        has_running_evidence = any(
+            token in text
+            for token in ("stryd", "footpod", "foot_pod", "running_power", "run_speed")
+        )
+        has_cycling_evidence = any(
+            token in text
+            for token in ("cycling", "bicycle", "bike_power", "bike_speed", "trainer")
+        )
+        if has_running_evidence:
             return "Run"
-        if any(x in text for x in ("bike", "cycling", "bicycle", "cadence")) and "stryd" not in text:
+        if has_cycling_evidence:
             return "Ride"
         return "Workout"
 
@@ -3912,6 +4045,119 @@ class FitnessManager:
 
         return workout
 
+    def session_rpe_value(self) -> int | None:
+        """Return current live RPE or RPE of the latest completed workout."""
+        if self.session_active or self.session_armed:
+            return self.session_rpe
+        workout = self.latest_workout()
+        if workout is None or workout.session_rpe is None:
+            return None
+        return int(round(workout.session_rpe))
+
+    @staticmethod
+    def _fitness_load_decomposition(workout: Workout) -> tuple[float | None, float | None]:
+        """Transparent Fitness-owned intensity-time load split (not energy systems)."""
+        zones = (
+            (workout.time_very_light_s, 0.5, 0.0),
+            (workout.time_light_s, 1.0, 0.0),
+            (workout.time_moderate_s, 1.5, 0.15),
+            (workout.time_vigorous_s, 2.0, 0.55),
+            (workout.time_near_maximal_s, 2.5, 0.85),
+        )
+        available=[z for z in zones if z[0] is not None]
+        if not available:
+            return None, None
+        total=sum(float(seconds)*weight for seconds,weight,_high in available)
+        if total <= 0:
+            return None, None
+        high=sum(float(seconds)*weight*high for seconds,weight,high in available)
+        high_pct=max(0.0,min(100.0,high/total*100.0))
+        return round(100.0-high_pct,1), round(high_pct,1)
+
+    def _apply_beta2_workout_metrics(self, workout: Workout) -> Workout:
+        """Apply provider-independent RPE/load and optional strength analysis."""
+        if workout.session_rpe is not None:
+            raw_rpe=float(workout.session_rpe)
+            if 1 <= raw_rpe <= 10:
+                rpe=int(round(raw_rpe))
+                workout.session_rpe=float(rpe)
+                if workout.duration_s is not None and workout.duration_s > 0:
+                    workout.session_rpe_load=round(rpe*(float(workout.duration_s)/60.0),1)
+            else:
+                workout.session_rpe=None
+                workout.session_rpe_load=None
+        aerobic, high=self._fitness_load_decomposition(workout)
+        workout.fitness_aerobic_load=aerobic
+        workout.fitness_high_intensity_load=high
+
+        prior=self.local_workouts()
+        if workout.session_rpe_load is not None:
+            historical=[float(w.session_rpe_load) for w in prior[-28:] if w.session_rpe_load is not None]
+            if len(historical) >= 2:
+                baseline=mean(historical)
+                if baseline > 0:
+                    workout.session_rpe_load_vs_28d_percent=round((workout.session_rpe_load-baseline)/baseline*100.0,1)
+
+        if self.config.get(CONF_DETAILED_STRENGTH_ANALYSIS) and workout_sport_kind(workout) == "strength":
+            details=analyze_strength(workout, prior)
+            if details:
+                workout.extra=dict(workout.extra or {})
+                workout.extra["fitness_strength"]=details
+                workout.strength_total_sets=float(details.get("total_sets") or 0) or None
+                workout.strength_best_estimated_1rm_kg=details.get("best_estimated_1rm_kg")
+                workout.strength_progression_percent=details.get("mean_e1rm_change_percent")
+                if workout.exercise_count is None: workout.exercise_count=details.get("exercise_count")
+                if workout.total_reps is None: workout.total_reps=details.get("total_reps")
+                if workout.volume_kg is None: workout.volume_kg=details.get("volume_kg")
+        return workout
+
+    async def async_set_session_rpe(self, value: int) -> None:
+        """Set integer RPE for current session or latest completed workout and recalculate."""
+        value=max(1,min(10,int(round(value))))
+        if self.session_active or self.session_armed:
+            self.session_rpe=value
+            self._notify()
+            return
+        latest=self.latest_workout()
+        if latest is None:
+            self.session_rpe=value
+            self._notify()
+            return
+        target_start=latest.start
+        changed=False
+        for idx in range(len(self.history)-1,-1,-1):
+            if self.history[idx].get("start") == target_start:
+                updated=Workout(**self.history[idx])
+                previous_rpe = updated.session_rpe
+                updated.extra = dict(updated.extra or {})
+                rpe_meta = dict(updated.extra.get("fitness_rpe") or {})
+                if previous_rpe is not None and rpe_meta.get("provider"):
+                    rpe_meta.setdefault("provider_base_rpe", int(round(previous_rpe)))
+                rpe_meta["active_source"] = "user_override"
+                rpe_meta["user_override_rpe"] = value
+                updated.extra["fitness_rpe"] = rpe_meta
+                updated.session_rpe=float(value)
+                updated=self._apply_beta2_workout_metrics(updated)
+                updated=self._apply_personal_workout_context(updated)
+                self.history[idx]=updated.as_dict()
+                changed=True
+                break
+        if not changed:
+            previous_rpe = latest.session_rpe
+            latest.extra = dict(latest.extra or {})
+            rpe_meta = dict(latest.extra.get("fitness_rpe") or {})
+            if previous_rpe is not None and rpe_meta.get("provider"):
+                rpe_meta.setdefault("provider_base_rpe", int(round(previous_rpe)))
+            rpe_meta["active_source"] = "user_override"
+            rpe_meta["user_override_rpe"] = value
+            latest.extra["fitness_rpe"] = rpe_meta
+            latest.session_rpe=float(value)
+            latest=self._apply_beta2_workout_metrics(latest)
+            self._remember_completed_workout(latest)
+        await self._save()
+        self._notify()
+        await self._async_refresh_long_term_statistics()
+
     def _finalize_local_workout(self, stop_time: datetime) -> Workout | None:
         if self.session_started is None:
             return None
@@ -4023,6 +4269,7 @@ class FitnessManager:
             avg_cadence=mean(cadence) if cadence else None,
             elevation_gain_m=elevation_gain,
             sample_count=len(self.samples),
+            session_rpe=self.session_rpe,
             banister_trimp=trimp,
             trimp_per_hour=trimp_per_hour,
             mechanical_work_kj=work_kj,
@@ -4051,6 +4298,7 @@ class FitnessManager:
             ),
         )
 
+        workout = self._apply_beta2_workout_metrics(workout)
         return self._apply_personal_workout_context(workout)
 
     def _remember_completed_workout(self, workout: Workout | None) -> bool:
@@ -4299,6 +4547,12 @@ class FitnessManager:
         latest_hrr_workout = hrr_workouts[-1][1] if hrr_workouts else None
         prior_hrr = [float(w.hrr_60s) for _dt, w in hrr_workouts[:-1]]
         baseline_hrr = mean(prior_hrr) if len(prior_hrr) >= 2 else None
+        hrr120_workouts = [(dt, w) for dt, w in recent if w.hrr_120s is not None]
+        latest_hrr120 = hrr120_workouts[-1][1] if hrr120_workouts else None
+        prior_hrr120 = [float(w.hrr_120s) for _dt, w in hrr120_workouts[:-1]]
+        baseline_hrr120 = mean(prior_hrr120) if len(prior_hrr120) >= 2 else None
+        rpe_load7 = sum(float(w.session_rpe_load) for _dt,w in w7 if w.session_rpe_load is not None) or None
+        rpe_load28 = sum(float(w.session_rpe_load) for _dt,w in w28 if w.session_rpe_load is not None) or None
 
         return {
             "history_valid": bool(workouts),
@@ -4327,6 +4581,11 @@ class FitnessManager:
             "latest_hrr_120s": round(float(latest_hrr_workout.hrr_120s), 1) if latest_hrr_workout and latest_hrr_workout.hrr_120s is not None else None,
             "hrr_60s_baseline_90d": round(baseline_hrr, 1) if baseline_hrr is not None else None,
             "hrr_60s_latest_vs_90d_bpm": round(float(latest_hrr_workout.hrr_60s) - baseline_hrr, 1) if latest_hrr_workout and baseline_hrr is not None else None,
+            "hrr_120s_samples_90d": len(hrr120_workouts),
+            "hrr_120s_baseline_90d": round(baseline_hrr120, 1) if baseline_hrr120 is not None else None,
+            "hrr_120s_latest_vs_90d_bpm": round(float(latest_hrr120.hrr_120s) - baseline_hrr120, 1) if latest_hrr120 and baseline_hrr120 is not None else None,
+            "session_rpe_load_7d": round(rpe_load7,1) if rpe_load7 is not None else None,
+            "session_rpe_load_28d": round(rpe_load28,1) if rpe_load28 is not None else None,
         }
 
     def sleep_long_term_summary(self) -> dict[str, Any]:

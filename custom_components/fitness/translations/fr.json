@@ -68,10 +68,12 @@
         "title": "Entraînement / données à long terme",
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data"
+          "workout_device_ids": "Devices providing workout / fitness history data",
+          "detailed_strength_analysis": "Analyse détaillée de musculation"
         },
         "data_description": {
-          "workout_device_ids": "Appareils d'historique. Seuls les contrats exacts Garmin, Strava, Polar, Hevy, Peloton et Oura pris en charge sont présélectionnés."
+          "workout_device_ids": "Appareils d'historique. Seuls les contrats exacts Garmin, Strava, Polar, Hevy, Peloton et Oura pris en charge sont présélectionnés.",
+          "detailed_strength_analysis": "Analyser exercices/séries, 1RM estimé et progression par exercice lorsque les données sont disponibles."
         }
       },
       "ai": {
@@ -197,10 +199,12 @@
         "title": "Entraînement / données à long terme",
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data"
+          "workout_device_ids": "Devices providing workout / fitness history data",
+          "detailed_strength_analysis": "Analyse détaillée de musculation"
         },
         "data_description": {
-          "workout_device_ids": "Appareils d'historique. Seuls les contrats exacts Garmin, Strava, Polar, Hevy, Peloton et Oura pris en charge sont présélectionnés."
+          "workout_device_ids": "Appareils d'historique. Seuls les contrats exacts Garmin, Strava, Polar, Hevy, Peloton et Oura pris en charge sont présélectionnés.",
+          "detailed_strength_analysis": "Analyser exercices/séries, 1RM estimé et progression par exercice lorsque les données sont disponibles."
         }
       },
       "ai": {
@@ -2529,6 +2533,118 @@
       },
       "readiness": {
         "name": "Préparation à l’entraînement"
+      },
+      "last_workout_rpe": {
+        "name": "RPE du dernier entraînement",
+        "state_attributes": {
+          "sources": {
+            "name": "Sources de données"
+          },
+          "workout_start": {
+            "name": "Début de l’entraînement"
+          },
+          "field_source": {
+            "name": "Source du champ"
+          }
+        }
+      },
+      "last_workout_session_rpe_load": {
+        "name": "Charge session-RPE",
+        "state_attributes": {
+          "sources": {
+            "name": "Sources de données"
+          },
+          "workout_start": {
+            "name": "Début de l’entraînement"
+          },
+          "field_source": {
+            "name": "Source du champ"
+          }
+        }
+      },
+      "last_workout_rpe_load_vs_baseline": {
+        "name": "Charge RPE vs référence",
+        "state_attributes": {
+          "sources": {
+            "name": "Sources de données"
+          },
+          "workout_start": {
+            "name": "Début de l’entraînement"
+          },
+          "field_source": {
+            "name": "Source du champ"
+          }
+        }
+      },
+      "last_workout_fitness_aerobic_load": {
+        "name": "Charge aérobie Fitness",
+        "state_attributes": {
+          "sources": {
+            "name": "Sources de données"
+          },
+          "workout_start": {
+            "name": "Début de l’entraînement"
+          },
+          "field_source": {
+            "name": "Source du champ"
+          }
+        }
+      },
+      "last_workout_fitness_high_intensity_load": {
+        "name": "Charge haute intensité Fitness",
+        "state_attributes": {
+          "sources": {
+            "name": "Sources de données"
+          },
+          "workout_start": {
+            "name": "Début de l’entraînement"
+          },
+          "field_source": {
+            "name": "Source du champ"
+          }
+        }
+      },
+      "last_workout_strength_sets": {
+        "name": "Séries de musculation",
+        "state_attributes": {
+          "sources": {
+            "name": "Sources de données"
+          },
+          "workout_start": {
+            "name": "Début de l’entraînement"
+          },
+          "field_source": {
+            "name": "Source du champ"
+          }
+        }
+      },
+      "last_workout_estimated_1rm": {
+        "name": "1RM estimé",
+        "state_attributes": {
+          "sources": {
+            "name": "Sources de données"
+          },
+          "workout_start": {
+            "name": "Début de l’entraînement"
+          },
+          "field_source": {
+            "name": "Source du champ"
+          }
+        }
+      },
+      "last_workout_strength_progression": {
+        "name": "Progression en musculation",
+        "state_attributes": {
+          "sources": {
+            "name": "Sources de données"
+          },
+          "workout_start": {
+            "name": "Début de l’entraînement"
+          },
+          "field_source": {
+            "name": "Source du champ"
+          }
+        }
       }
     },
     "button": {
@@ -2551,6 +2667,11 @@
     "select": {
       "workout_room": {
         "name": "Entraînement room"
+      }
+    },
+    "number": {
+      "session_rpe": {
+        "name": "RPE de séance"
       }
     }
   },

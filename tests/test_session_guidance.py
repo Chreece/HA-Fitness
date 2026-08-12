@@ -73,30 +73,29 @@ def test_recovery_checkpoints_are_spoken_and_nonblocking():
     end = MANAGER.index("def session_duration", start)
     recovery = MANAGER[start:end]
 
-    # Recovery timing remains non-blocking: checkpoint speech is queued rather
-    # than awaited inside the measurement loop.
-    assert 'self._queue_session_guidance(' in recovery
+    # 10 seconds is still collected silently; spoken/light feedback is every
+    # 30 seconds and 120 seconds uses the dedicated completion message.
+    assert '(10, "hrr_10s", False)' in recovery
+    assert '(30, "hrr_30s", True)' in recovery
+    assert '(60, "hrr_60s", True)' in recovery
+    assert '(90, None, True)' in recovery
+    assert '(120, "hrr_120s", False)' in recovery
     assert '"recovery_checkpoint"' in recovery
-    assert "seconds=seconds" in recovery
     assert "remaining=remaining" in recovery
     assert "collected=(hr is not None)" in recovery
-
-    # All four checkpoints remain present.
-    assert '(10, "hrr_10s")' in recovery
-    assert '(30, "hrr_30s")' in recovery
-    assert '(60, "hrr_60s")' in recovery
-    assert '(120, "hrr_120s")' in recovery
-
-    # Completion is deliberately awaited after the 120-second collection so it
-    # is heard before the final workout summary and cannot reorder behind it.
     assert 'await self._async_announce_session_guidance(' in recovery
     assert '"recovery_complete"' in recovery
 
+
 def test_recovery_milestones_remain_for_collection_and_lights():
-    assert '(10, "hrr_10s")' in MANAGER
-    assert '(30, "hrr_30s")' in MANAGER
-    assert '(60, "hrr_60s")' in MANAGER
-    assert '(120, "hrr_120s")' in MANAGER
+    for value in (
+        '(10, "hrr_10s", False)',
+        '(30, "hrr_30s", True)',
+        '(60, "hrr_60s", True)',
+        '(90, None, True)',
+        '(120, "hrr_120s", False)',
+    ):
+        assert value in MANAGER
     assert "recovery_complete" in MANAGER
 
 

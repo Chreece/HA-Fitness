@@ -68,10 +68,12 @@
         "title": "Training / langetermijngegevens",
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data"
+          "workout_device_ids": "Devices providing workout / fitness history data",
+          "detailed_strength_analysis": "Gedetailleerde krachtanalyse"
         },
         "data_description": {
-          "workout_device_ids": "Historische apparaten. Alleen exact ondersteunde Garmin-, Strava-, Polar-, Hevy-, Peloton- en Oura-contracten worden voorgeselecteerd."
+          "workout_device_ids": "Historische apparaten. Alleen exact ondersteunde Garmin-, Strava-, Polar-, Hevy-, Peloton- en Oura-contracten worden voorgeselecteerd.",
+          "detailed_strength_analysis": "Analyseer oefeningen/sets, geschatte 1RM en voortgang per oefening wanneer krachtdata beschikbaar is."
         }
       },
       "ai": {
@@ -197,10 +199,12 @@
         "title": "Training / langetermijngegevens",
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data"
+          "workout_device_ids": "Devices providing workout / fitness history data",
+          "detailed_strength_analysis": "Gedetailleerde krachtanalyse"
         },
         "data_description": {
-          "workout_device_ids": "Historische apparaten. Alleen exact ondersteunde Garmin-, Strava-, Polar-, Hevy-, Peloton- en Oura-contracten worden voorgeselecteerd."
+          "workout_device_ids": "Historische apparaten. Alleen exact ondersteunde Garmin-, Strava-, Polar-, Hevy-, Peloton- en Oura-contracten worden voorgeselecteerd.",
+          "detailed_strength_analysis": "Analyseer oefeningen/sets, geschatte 1RM en voortgang per oefening wanneer krachtdata beschikbaar is."
         }
       },
       "ai": {
@@ -2529,6 +2533,118 @@
       },
       "readiness": {
         "name": "Trainingsbereidheid"
+      },
+      "last_workout_rpe": {
+        "name": "RPE laatste training",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
+      },
+      "last_workout_session_rpe_load": {
+        "name": "Sessie-RPE-belasting",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
+      },
+      "last_workout_rpe_load_vs_baseline": {
+        "name": "RPE-belasting vs basis",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
+      },
+      "last_workout_fitness_aerobic_load": {
+        "name": "Fitness aerobe belasting",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
+      },
+      "last_workout_fitness_high_intensity_load": {
+        "name": "Fitness hoge-intensiteitsbelasting",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
+      },
+      "last_workout_strength_sets": {
+        "name": "Krachtsets",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
+      },
+      "last_workout_estimated_1rm": {
+        "name": "Geschatte 1RM",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
+      },
+      "last_workout_strength_progression": {
+        "name": "Krachtprogressie",
+        "state_attributes": {
+          "sources": {
+            "name": "Gegevensbronnen"
+          },
+          "workout_start": {
+            "name": "Start training"
+          },
+          "field_source": {
+            "name": "Veldbron"
+          }
+        }
       }
     },
     "button": {
@@ -2551,6 +2667,11 @@
     "select": {
       "workout_room": {
         "name": "Training room"
+      }
+    },
+    "number": {
+      "session_rpe": {
+        "name": "Sessie-RPE"
       }
     }
   },

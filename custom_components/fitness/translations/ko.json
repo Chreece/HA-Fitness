@@ -68,10 +68,12 @@
         "title": "운동 / 장기 데이터",
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data"
+          "workout_device_ids": "Devices providing workout / fitness history data",
+          "detailed_strength_analysis": "상세 근력 분석"
         },
         "data_description": {
-          "workout_device_ids": "기록 장치. 명확히 지원되는 Garmin, Strava, Polar, Hevy, Peloton, Oura 계약만 미리 선택합니다."
+          "workout_device_ids": "기록 장치. 명확히 지원되는 Garmin, Strava, Polar, Hevy, Peloton, Oura 계약만 미리 선택합니다.",
+          "detailed_strength_analysis": "근력 데이터가 있을 때 운동/세트, 추정 1RM, 운동별 진행 상황을 분석합니다."
         }
       },
       "ai": {
@@ -197,10 +199,12 @@
         "title": "운동 / 장기 데이터",
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data"
+          "workout_device_ids": "Devices providing workout / fitness history data",
+          "detailed_strength_analysis": "상세 근력 분석"
         },
         "data_description": {
-          "workout_device_ids": "기록 장치. 명확히 지원되는 Garmin, Strava, Polar, Hevy, Peloton, Oura 계약만 미리 선택합니다."
+          "workout_device_ids": "기록 장치. 명확히 지원되는 Garmin, Strava, Polar, Hevy, Peloton, Oura 계약만 미리 선택합니다.",
+          "detailed_strength_analysis": "근력 데이터가 있을 때 운동/세트, 추정 1RM, 운동별 진행 상황을 분석합니다."
         }
       },
       "ai": {
@@ -2529,6 +2533,118 @@
       },
       "readiness": {
         "name": "훈련 준비도"
+      },
+      "last_workout_rpe": {
+        "name": "최근 운동 RPE",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
+      },
+      "last_workout_session_rpe_load": {
+        "name": "Session-RPE 부하",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
+      },
+      "last_workout_rpe_load_vs_baseline": {
+        "name": "RPE 부하 대비 기준선",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
+      },
+      "last_workout_fitness_aerobic_load": {
+        "name": "Fitness 유산소 부하",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
+      },
+      "last_workout_fitness_high_intensity_load": {
+        "name": "Fitness 고강도 부하",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
+      },
+      "last_workout_strength_sets": {
+        "name": "근력 세트",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
+      },
+      "last_workout_estimated_1rm": {
+        "name": "추정 1RM",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
+      },
+      "last_workout_strength_progression": {
+        "name": "근력 진행",
+        "state_attributes": {
+          "sources": {
+            "name": "데이터 소스"
+          },
+          "workout_start": {
+            "name": "운동 시작"
+          },
+          "field_source": {
+            "name": "필드 소스"
+          }
+        }
       }
     },
     "button": {
@@ -2551,6 +2667,11 @@
     "select": {
       "workout_room": {
         "name": "운동 room"
+      }
+    },
+    "number": {
+      "session_rpe": {
+        "name": "세션 RPE"
       }
     }
   },

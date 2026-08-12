@@ -25,7 +25,7 @@ from .providers.workouts import workout_sport_kind
 _LOGGER = logging.getLogger(__name__)
 
 _RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"
-_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.6.2"
+_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.10.2"
 _SETUP_KEY = "_dashboard_frontend_setup"
 
 _PACE_TEXT: dict[str, str] = {
@@ -402,6 +402,28 @@ _DASHBOARD_TEXT: dict[str, dict[str, str]] = {
 }
 
 
+
+_RPE_DASHBOARD_TEXT: dict[str, dict[str, str]] = {
+    "en": {"rpe_title": "Perceived effort", "rpe_hint": "How hard did this workout feel? Choose a whole number from 1 to 10.", "rpe_saved": "Saved to this workout. Changing it recalculates RPE-based load and comparisons."},
+    "el": {"rpe_title": "Αντιληπτή προσπάθεια", "rpe_hint": "Πόσο δύσκολη σου φάνηκε αυτή η προπόνηση; Επίλεξε έναν ακέραιο αριθμό από 1 έως 10.", "rpe_saved": "Αποθηκεύεται σε αυτή την προπόνηση. Η αλλαγή του επανυπολογίζει το φορτίο RPE και τις συγκρίσεις."},
+    "de": {"rpe_title": "Empfundene Anstrengung", "rpe_hint": "Wie anstrengend war dieses Training? Wähle eine ganze Zahl von 1 bis 10.", "rpe_saved": "Wird für dieses Training gespeichert. Änderungen berechnen RPE-Last und Vergleiche neu."},
+    "fr": {"rpe_title": "Effort perçu", "rpe_hint": "À quel point cet entraînement était-il difficile ? Choisissez un nombre entier de 1 à 10.", "rpe_saved": "Enregistré pour cet entraînement. Toute modification recalcule la charge RPE et les comparaisons."},
+    "es": {"rpe_title": "Esfuerzo percibido", "rpe_hint": "¿Qué tan duro se sintió este entrenamiento? Elige un número entero del 1 al 10.", "rpe_saved": "Se guarda en este entrenamiento. Al cambiarlo se recalculan la carga RPE y las comparaciones."},
+    "it": {"rpe_title": "Sforzo percepito", "rpe_hint": "Quanto è stato impegnativo questo allenamento? Scegli un numero intero da 1 a 10.", "rpe_saved": "Viene salvato in questo allenamento. Modificarlo ricalcola il carico RPE e i confronti."},
+    "pt": {"rpe_title": "Esforço percebido", "rpe_hint": "Quão difícil foi este treino? Escolhe um número inteiro de 1 a 10.", "rpe_saved": "É guardado neste treino. Alterá-lo recalcula a carga RPE e as comparações."},
+    "nl": {"rpe_title": "Ervaren inspanning", "rpe_hint": "Hoe zwaar voelde deze training? Kies een geheel getal van 1 tot 10.", "rpe_saved": "Wordt bij deze training opgeslagen. Wijzigen herberekent RPE-belasting en vergelijkingen."},
+    "pl": {"rpe_title": "Odczuwany wysiłek", "rpe_hint": "Jak trudny był ten trening? Wybierz liczbę całkowitą od 1 do 10.", "rpe_saved": "Zostaje zapisane dla tego treningu. Zmiana przelicza obciążenie RPE i porównania."},
+    "ru": {"rpe_title": "Субъективная нагрузка", "rpe_hint": "Насколько тяжёлой была эта тренировка? Выберите целое число от 1 до 10.", "rpe_saved": "Сохраняется для этой тренировки. Изменение пересчитывает RPE-нагрузку и сравнения."},
+    "uk": {"rpe_title": "Суб’єктивне навантаження", "rpe_hint": "Наскільки важким було це тренування? Виберіть ціле число від 1 до 10.", "rpe_saved": "Зберігається для цього тренування. Зміна перераховує RPE-навантаження та порівняння."},
+    "tr": {"rpe_title": "Algılanan efor", "rpe_hint": "Bu antrenman ne kadar zor hissettirdi? 1 ile 10 arasında tam sayı seçin.", "rpe_saved": "Bu antrenmana kaydedilir. Değişiklik RPE yükünü ve karşılaştırmaları yeniden hesaplar."},
+    "zh": {"rpe_title": "主观用力程度", "rpe_hint": "这次训练感觉有多难？请选择 1 到 10 的整数。", "rpe_saved": "会保存到本次训练。修改后会重新计算 RPE 负荷和相关比较。"},
+    "ja": {"rpe_title": "主観的運動強度", "rpe_hint": "このワークアウトはどのくらいきつく感じましたか？1〜10 の整数を選んでください。", "rpe_saved": "このワークアウトに保存されます。変更すると RPE 負荷と比較が再計算されます。"},
+    "ko": {"rpe_title": "주관적 운동 강도", "rpe_hint": "이번 운동이 얼마나 힘들게 느껴졌나요? 1에서 10 사이의 정수를 선택하세요.", "rpe_saved": "이 운동에 저장됩니다. 변경하면 RPE 부하와 비교가 다시 계산됩니다."},
+}
+
+for _code, _rpe_labels in _RPE_DASHBOARD_TEXT.items():
+    _DASHBOARD_TEXT.setdefault(_code, {}).update(_rpe_labels)
+
 def _language(entry) -> str:
     raw = str(entry.options.get(CONF_LANGUAGE, entry.data.get(CONF_LANGUAGE, "en")) or "en")
     return raw if raw in _DASHBOARD_TEXT else "en"
@@ -418,10 +440,51 @@ def _entity_key(entry_id: str, unique_id: str | None) -> str | None:
     return unique_id[len(prefix):]
 
 
+def _route_matches_latest_workout(state, workout) -> bool:
+    """Reject an explicitly stale route belonging to another workout."""
+    if workout is None:
+        return False
+    attrs = state.attributes
+
+    def norm(value):
+        return str(value or "").strip().casefold()
+
+    workout_name = norm(workout.name)
+    route_names = [
+        norm(attrs.get(key))
+        for key in (
+            "activity_name", "activityName", "workout_name",
+            "workoutName", "name", "title",
+        )
+        if attrs.get(key) not in (None, "")
+    ]
+    if route_names and workout_name and workout_name not in route_names:
+        return False
+
+    provider_values = workout.provider_values or {}
+    workout_ids = set()
+    for values in provider_values.values():
+        if not isinstance(values, dict):
+            continue
+        for key in ("activityId", "activity_id", "workoutId", "workout_id", "id"):
+            value = values.get(key)
+            if value not in (None, ""):
+                workout_ids.add(str(value))
+    route_ids = {
+        str(attrs.get(key))
+        for key in ("activityId", "activity_id", "workoutId", "workout_id")
+        if attrs.get(key) not in (None, "")
+    }
+    if workout_ids and route_ids and workout_ids.isdisjoint(route_ids):
+        return False
+    return True
+
+
 def _route_candidates(hass: HomeAssistant, manager) -> list[dict[str, str]]:
-    """Return selected workout-source entities exposing usable route data."""
+    """Return route data only when it belongs to the current merged workout."""
     selected = set(manager.config.get(CONF_WORKOUT_DEVICE_IDS) or [])
-    if not selected:
+    latest = manager.latest_workout()
+    if not selected or latest is None:
         return []
     registry = er.async_get(hass)
     result: list[dict[str, str]] = []
@@ -429,16 +492,14 @@ def _route_candidates(hass: HomeAssistant, manager) -> list[dict[str, str]]:
         if registry_entry.device_id not in selected:
             continue
         state = hass.states.get(registry_entry.entity_id)
-        if state is None:
+        if state is None or not _route_matches_latest_workout(state, latest):
             continue
         attrs = state.attributes
-        label = " ".join(
-            (
-                registry_entry.entity_id,
-                registry_entry.name or "",
-                registry_entry.original_name or "",
-            )
-        ).lower()
+        label = " ".join((
+            registry_entry.entity_id,
+            registry_entry.name or "",
+            registry_entry.original_name or "",
+        )).lower()
         for attribute in ("polyline", "route", "coordinates", "track", "gps_points"):
             value = attrs.get(attribute)
             if value not in (None, "", [], {}):
@@ -485,6 +546,26 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                     for code, labels in _DASHBOARD_TEXT.items()
                 },
                 "entities": entities,
+                "live_entity_keys": [
+                    key for key in entities
+                    if key in {
+                        "session_status", "session_duration", "current_heart_rate",
+                        "current_power", "current_cadence", "current_speed",
+                        "current_distance", "current_altitude",
+                        "heart_rate_percent_max", "heart_rate_reserve_percent",
+                        "heart_rate_intensity", "heart_rate_relative_threshold",
+                        "current_power_to_weight", "power_relative_threshold",
+                        "current_pace", "speed_relative_threshold",
+                        "live_average_heart_rate", "live_maximum_heart_rate",
+                        "live_average_power", "live_maximum_power",
+                        "live_average_cadence", "live_average_speed",
+                        "live_banister_trimp", "live_mechanical_work",
+                        "live_aerobic_efficiency", "live_aerobic_decoupling",
+                        "live_time_moderate", "live_time_vigorous",
+                        "live_time_near_maximal", "start_workout",
+                        "pause_workout", "resume_workout", "stop_workout",
+                    }
+                ],
                 "latest_workout": {
                     "sport": workout_sport_kind(manager.latest_workout()),
                     "name": (

@@ -108,6 +108,14 @@ DESCRIPTIONS = (
     Desc(key="last_workout_anaerobic_effect", translation_key="last_workout_anaerobic_effect", kind="workout", metric="workout_anaerobic_effect"),
     Desc(key="last_workout_training_effect", translation_key="last_workout_training_effect", kind="workout", metric="workout_training_effect"),
     Desc(key="last_workout_vo2max", translation_key="last_workout_vo2max", kind="workout", metric="workout_vo2max", unit="mL/kg/min"),
+    Desc(key="last_workout_rpe", translation_key="last_workout_rpe", kind="workout", metric="workout_rpe"),
+    Desc(key="last_workout_session_rpe_load", translation_key="last_workout_session_rpe_load", kind="workout", metric="workout_session_rpe_load"),
+    Desc(key="last_workout_rpe_load_vs_baseline", translation_key="last_workout_rpe_load_vs_baseline", kind="workout", metric="workout_rpe_load_vs_baseline", unit="%"),
+    Desc(key="last_workout_fitness_aerobic_load", translation_key="last_workout_fitness_aerobic_load", kind="workout", metric="workout_fitness_aerobic_load", unit="%"),
+    Desc(key="last_workout_fitness_high_intensity_load", translation_key="last_workout_fitness_high_intensity_load", kind="workout", metric="workout_fitness_high_intensity_load", unit="%"),
+    Desc(key="last_workout_strength_sets", translation_key="last_workout_strength_sets", kind="workout", metric="workout_strength_sets"),
+    Desc(key="last_workout_estimated_1rm", translation_key="last_workout_estimated_1rm", kind="workout", metric="workout_estimated_1rm", unit="kg"),
+    Desc(key="last_workout_strength_progression", translation_key="last_workout_strength_progression", kind="workout", metric="workout_strength_progression", unit="%"),
     Desc(key="last_workout_relative_effort", translation_key="last_workout_relative_effort", kind="workout", metric="workout_relative_effort"),
     Desc(key="last_workout_kilojoules", translation_key="last_workout_kilojoules", kind="workout", metric="workout_kilojoules", unit="kJ"),
     Desc(key="last_workout_total_reps", translation_key="last_workout_total_reps", kind="workout", metric="workout_total_reps"),
@@ -587,6 +595,14 @@ class FitnessSensor(SensorEntity):
                 "workout_training_effect": w.training_effect_label,
                 "workout_vo2max": round(w.vo2max, 1) if w.vo2max is not None else None,
                 "workout_relative_effort": round(w.relative_effort, 1) if w.relative_effort is not None else None,
+                "workout_rpe": int(round(w.session_rpe)) if w.session_rpe is not None else None,
+                "workout_session_rpe_load": round(w.session_rpe_load, 1) if w.session_rpe_load is not None else None,
+                "workout_rpe_load_vs_baseline": round(w.session_rpe_load_vs_28d_percent, 1) if w.session_rpe_load_vs_28d_percent is not None else None,
+                "workout_fitness_aerobic_load": round(w.fitness_aerobic_load, 1) if w.fitness_aerobic_load is not None else None,
+                "workout_fitness_high_intensity_load": round(w.fitness_high_intensity_load, 1) if w.fitness_high_intensity_load is not None else None,
+                "workout_strength_sets": round(w.strength_total_sets) if w.strength_total_sets is not None else None,
+                "workout_estimated_1rm": round(w.strength_best_estimated_1rm_kg, 1) if w.strength_best_estimated_1rm_kg is not None else None,
+                "workout_strength_progression": round(w.strength_progression_percent, 1) if w.strength_progression_percent is not None else None,
                 "workout_kilojoules": round(w.kilojoules, 1) if w.kilojoules is not None else None,
                 "workout_total_reps": round(w.total_reps) if w.total_reps is not None else None,
                 "workout_exercise_count": round(w.exercise_count) if w.exercise_count is not None else None,
@@ -907,6 +923,16 @@ class FitnessSensor(SensorEntity):
             field_source = (workout.field_sources or {}).get(m.removeprefix("workout_"))
             if field_source:
                 attrs["field_source"] = self._provider_display_name(field_source)
+            if m in {"workout_rpe", "workout_session_rpe_load", "workout_rpe_load_vs_baseline"}:
+                rpe_meta = (workout.extra or {}).get("fitness_rpe") if isinstance(workout.extra, dict) else None
+                if isinstance(rpe_meta, dict):
+                    attrs["rpe_source"] = rpe_meta.get("active_source")
+                    attrs["rpe_provider"] = rpe_meta.get("provider")
+                    attrs["rpe_provider_capability"] = rpe_meta.get("provider_capability")
+                    if rpe_meta.get("provider_base_rpe") is not None:
+                        attrs["provider_base_rpe"] = rpe_meta.get("provider_base_rpe")
+                    if rpe_meta.get("user_override_rpe") is not None:
+                        attrs["user_override_rpe"] = rpe_meta.get("user_override_rpe")
             return attrs
 
         if kind == "sleep":
@@ -956,6 +982,12 @@ class FitnessSensor(SensorEntity):
             field_source = (sleep.field_sources or {}).get(field_name) if field_name else None
             if field_source:
                 attrs["field_source"] = field_source
+            if m in {"workout_strength_sets", "workout_estimated_1rm", "workout_strength_progression"}:
+                details = (w.extra or {}).get("fitness_strength") if isinstance(w.extra, dict) else None
+                if isinstance(details, dict):
+                    attrs["strength_analysis"] = details
+                    attrs["method"] = details.get("method")
+                    attrs["estimated_1rm_formula"] = details.get("estimated_1rm_formula")
             return attrs
 
         # Evaluation attributes are deliberately transparent: these are Fitness
@@ -1052,6 +1084,9 @@ class FitnessSensor(SensorEntity):
                 "hrr_30s_bpm": workout.get("latest_hrr_30s"),
                 "hrr_60s_bpm": workout.get("latest_hrr_60s"),
                 "hrr_120s_bpm": workout.get("latest_hrr_120s"),
+                "hrr_120s_personal_90d_baseline_bpm": workout.get("hrr_120s_baseline_90d"),
+                "hrr_120s_latest_vs_baseline_bpm": workout.get("hrr_120s_latest_vs_90d_bpm"),
+                "hrr_120s_samples_90d": workout.get("hrr_120s_samples_90d"),
                 "personal_90d_baseline_bpm": workout.get("hrr_60s_baseline_90d"),
                 "latest_vs_baseline_bpm": workout.get("hrr_60s_latest_vs_90d_bpm"),
                 "samples_90d": workout.get("hrr_samples_90d"),

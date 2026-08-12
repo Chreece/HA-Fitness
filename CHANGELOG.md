@@ -1,5 +1,28 @@
 # Changelog
 
+- RPE provider provenance is now adapter-aware. Fitness uses a provider-supplied session RPE as the initial completed-workout value when available, while keeping the Workout-card control editable; user overrides preserve the provider baseline and immediately recalculate session-RPE load and long-term RPE statistics.
+- Added documented session-RPE handling for Garmin self-evaluation data and Polar Training Load Pro. Garmin 1-10/self-evaluation fields and common `directWorkoutRpe` representations are normalized conservatively; Polar RPE uses the explicit value when available or derives it from documented Perceived Load = RPE × duration. Algorithmic WHOOP Strain, Suunto 1-5 feeling, and Hevy per-set RPE are deliberately not misclassified as session RPE.
+- Fixed live/provider workout reconciliation: live-capture sport is provisional, authoritative provider sport/name can replace it after sync, while Fitness-owned live metrics/HRR/RPE and provider metrics are merged into the same physical workout using conservative time/duration/end matching.
+- Live capture no longer infers cycling from generic cadence or heart-rate-only sources; running/cycling names require strong source evidence, otherwise the session remains a generic Workout until a provider supplies the sport.
+- Workout GPS routes are now tied to the current merged workout identity, preventing a previous provider route from appearing on a newer non-GPS workout. The Workout card always retains normalized workout highlights even when a valid route exists.
+- The Live Workout card now renders all currently available non-config entities belonging to the Live device, while hiding unknown/unavailable values and keeping completed-workout RPE on the Workout card.
+- Updated optical HR-zone feedback to the requested six-color scale: below Zone 1 purple, Zone 1 blue, Zone 2 green, Zone 3 yellow, Zone 4 orange, Zone 5 red. The scientific ACSM intensity entities remain unchanged.
+- Light feedback/restore service calls now request zero transition to avoid a visible intermediate color/fade before the saved light snapshot is restored.
+- Periodic AI coaching now explicitly includes elapsed time, actual current HR and speed when available, the most useful calculated relative/trend context, and a motivational line; it only calls the session running/cycling with strong live-source evidence. Deterministic TTS now follows the same structure with localized live/calculated values and motivation.
+- HRR collection keeps the 10-second sample silently, gives light/spoken checkpoint feedback at 30/60/90 seconds, and uses the 120-second completion message instead of announcing zero seconds remaining. Missing RPE is requested only after HRR completion for live workouts.
+
+
+## 2026.8.9-beta2
+
+- Added integer 1–10 session RPE as a native Fitness Number entity and modern Live Workout card input. Provider-supplied RPE is normalized when available; Fitness only asks the user for RPE when the completed workout does not already contain one.
+- Added localized AI/static RPE reminders after locally stopped workouts and external workout announcements. Editing RPE after completion immediately recalculates session-RPE load, relative load context and long-term Fitness summaries.
+- Added session-RPE load (RPE × duration minutes), 7/28-day RPE-load history, and completed-workout RPE/load entities.
+- Promoted 2-minute heart-rate recovery into personal 90-day baseline/comparison attributes alongside the existing 30/60/120-second collection.
+- Added optional Detailed strength analysis (off by default): conservative exercise/set parsing, volume, best-set Epley estimated 1RM, and per-exercise progression stored in canonical workout attributes without creating one entity per exercise.
+- Added Fitness-owned aerobic/high-intensity load decomposition from validated intensity-zone time. It is explicitly a transparent training heuristic, not a measured energy-system split.
+- Expanded the Live and completed Workout cards with modern RPE, load, strength and progression presentation when those capabilities are available.
+
+
 ## 2026.8.9-beta1
 
 - Completed the spoken workout lifecycle: waiting/ready/start, pause, resume, all 10/30/60/120-second heart-rate-recovery checkpoints, recovery completion and final workout feedback now use AI guidance with localized deterministic TTS fallback.

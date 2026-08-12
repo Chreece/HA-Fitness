@@ -68,10 +68,12 @@
         "title": "Antrenman / uzun dönem verileri",
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data"
+          "workout_device_ids": "Devices providing workout / fitness history data",
+          "detailed_strength_analysis": "Ayrıntılı kuvvet analizi"
         },
         "data_description": {
-          "workout_device_ids": "Geçmiş cihazları. Yalnızca tam desteklenen Garmin, Strava, Polar, Hevy, Peloton ve Oura sözleşmeleri önceden seçilir."
+          "workout_device_ids": "Geçmiş cihazları. Yalnızca tam desteklenen Garmin, Strava, Polar, Hevy, Peloton ve Oura sözleşmeleri önceden seçilir.",
+          "detailed_strength_analysis": "Kuvvet verileri varsa egzersiz/set ayrıntıları, tahmini 1RM ve egzersiz bazlı ilerlemeyi analiz et."
         }
       },
       "ai": {
@@ -197,10 +199,12 @@
         "title": "Antrenman / uzun dönem verileri",
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data"
+          "workout_device_ids": "Devices providing workout / fitness history data",
+          "detailed_strength_analysis": "Ayrıntılı kuvvet analizi"
         },
         "data_description": {
-          "workout_device_ids": "Geçmiş cihazları. Yalnızca tam desteklenen Garmin, Strava, Polar, Hevy, Peloton ve Oura sözleşmeleri önceden seçilir."
+          "workout_device_ids": "Geçmiş cihazları. Yalnızca tam desteklenen Garmin, Strava, Polar, Hevy, Peloton ve Oura sözleşmeleri önceden seçilir.",
+          "detailed_strength_analysis": "Kuvvet verileri varsa egzersiz/set ayrıntıları, tahmini 1RM ve egzersiz bazlı ilerlemeyi analiz et."
         }
       },
       "ai": {
@@ -2529,6 +2533,118 @@
       },
       "readiness": {
         "name": "Antrenman hazırlığı"
+      },
+      "last_workout_rpe": {
+        "name": "Son antrenman RPE",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
+      },
+      "last_workout_session_rpe_load": {
+        "name": "Seans-RPE yükü",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
+      },
+      "last_workout_rpe_load_vs_baseline": {
+        "name": "RPE yükü ve temel değer",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
+      },
+      "last_workout_fitness_aerobic_load": {
+        "name": "Fitness aerobik yükü",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
+      },
+      "last_workout_fitness_high_intensity_load": {
+        "name": "Fitness yüksek yoğunluk yükü",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
+      },
+      "last_workout_strength_sets": {
+        "name": "Kuvvet setleri",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
+      },
+      "last_workout_estimated_1rm": {
+        "name": "Tahmini 1RM",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
+      },
+      "last_workout_strength_progression": {
+        "name": "Kuvvet ilerlemesi",
+        "state_attributes": {
+          "sources": {
+            "name": "Veri kaynakları"
+          },
+          "workout_start": {
+            "name": "Antrenman başlangıcı"
+          },
+          "field_source": {
+            "name": "Alan kaynağı"
+          }
+        }
       }
     },
     "button": {
@@ -2551,6 +2667,11 @@
     "select": {
       "workout_room": {
         "name": "Antrenman room"
+      }
+    },
+    "number": {
+      "session_rpe": {
+        "name": "Seans RPE"
       }
     }
   },
