@@ -25,7 +25,7 @@ from .providers.workouts import workout_sport_kind
 _LOGGER = logging.getLogger(__name__)
 
 _RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"
-_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.10.3"
+_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.10.4"
 _SETUP_KEY = "_dashboard_frontend_setup"
 
 _PACE_TEXT: dict[str, str] = {

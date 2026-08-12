@@ -44,5 +44,5 @@ def test_evaluation_exposes_auditable_history_series():
     assert '"daily_series": recorder.get("vo2max_daily") or []' in SENSOR
     assert '"minimum_days_28d": 21' in SENSOR
     assert '"minimum_days_90d": 60' in SENSOR
-    assert 'class="history"' in FRONTEND
+    assert 'class="history' in FRONTEND
     assert 'aria-label="VO2max history"' in FRONTEND

@@ -1,4 +1,4 @@
-const FITNESS_DASHBOARD_VERSION = "2026.8.10.3";
+const FITNESS_DASHBOARD_VERSION = "2026.8.10.4";
 
 
 const FITNESS_READINESS_TEXT = {
@@ -119,6 +119,7 @@ class FitnessRouteCard extends HTMLElement {
     if (!config) throw new Error("fitness-route-card requires a configuration");
     this.config = config;
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    _fitnessBindMoreInfo(this);
     if (this._zoomDelta === undefined) this._zoomDelta = 0;
     if (this._panX === undefined) this._panX = 0;
     if (this._panY === undefined) this._panY = 0;
@@ -327,12 +328,14 @@ class FitnessRouteCard extends HTMLElement {
         return {
           name: this._profile?.labels?.pace || "Pace",
           value: runPace,
+          entityId,
         };
       }
       const unit = state.attributes?.unit_of_measurement || "";
       return {
         name: entityName(this._hass, entityId),
         value: `${state.state}${unit ? ` ${unit}` : ""}`,
+        entityId,
       };
     }).filter(Boolean);
     if (running && runPace && !e.last_workout_average_speed) {
@@ -340,6 +343,7 @@ class FitnessRouteCard extends HTMLElement {
       items.splice(insertAt, 0, {
         name: this._profile?.labels?.pace || "Pace",
         value: runPace,
+        entityId: e.last_workout_average_speed || e.last_workout_distance || e.last_workout_duration,
       });
     }
     return items;
@@ -599,7 +603,7 @@ class FitnessRouteCard extends HTMLElement {
     const summary = this._workoutSummary();
     this.shadowRoot.innerHTML = `
       <ha-card>
-        <div class="header"><div class="title">${this._escape(title)}</div><div class="meta">${points.length} GPS</div></div>
+        <div class="header entity-link" data-more-info="${this._escape(entityId || "")}"><div class="title">${this._escape(title)}</div><div class="meta">${points.length} GPS</div></div>
         <div class="map" style="height:${height}px" title="Drag to move · pinch or wheel to zoom · double tap to fit route">
           <div class="map-scene">
             ${tiles.join("")}
@@ -611,10 +615,10 @@ class FitnessRouteCard extends HTMLElement {
           </div>
           <div class="attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></div>
         </div>
-        ${summary.length ? `<div class="workout-summary">${summary.map((item) => `<div class="summary-item"><span>${this._escape(item.name)}</span><strong>${this._escape(item.value)}</strong></div>`).join("")}</div>` : ""}
+        ${summary.length ? `<div class="workout-summary">${summary.map((item) => `<div class="summary-item entity-link" data-more-info="${this._escape(item.entityId || "")}"><span>${this._escape(item.name)}</span><strong>${this._escape(item.value)}</strong></div>`).join("")}</div>` : ""}
       </ha-card>
       <style>
-        ha-card{overflow:hidden}.header{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 12px}.title{font-size:18px;font-weight:600}.meta{font-size:12px;color:var(--secondary-text-color)}
+        ha-card{overflow:hidden}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.header{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 12px}.title{font-size:18px;font-weight:600}.meta{font-size:12px;color:var(--secondary-text-color)}
         .map{position:relative;overflow:hidden;background:var(--secondary-background-color);touch-action:none;cursor:grab;overscroll-behavior:contain}.map:active{cursor:grabbing}.map-scene{position:absolute;inset:0;will-change:transform}.tile{position:absolute;width:256px;height:256px;user-select:none;-webkit-user-drag:none;pointer-events:none}svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.start{fill:#2e7d32;stroke:white;stroke-width:2}.end{fill:#c62828;stroke:white;stroke-width:2}.workout-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;padding:12px 16px 14px}.summary-item{background:var(--secondary-background-color);border-radius:12px;padding:9px 11px;min-width:0}.summary-item span{display:block;color:var(--secondary-text-color);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.summary-item strong{display:block;margin-top:3px;font-size:14px}.attribution{position:absolute;right:4px;bottom:3px;background:rgba(255,255,255,.78);font-size:10px;padding:1px 4px;border-radius:3px;color:#333}.attribution a{color:#333}.privacy{padding:8px 16px 12px;font-size:11px;color:var(--secondary-text-color)}
       </style>`;
     this._bindMapGestures();
@@ -754,6 +758,7 @@ class FitnessComparisonCard extends HTMLElement {
   setConfig(config) {
     this.config = config || {};
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    _fitnessBindMoreInfo(this);
   }
 
   static getConfigElement() { return document.createElement("fitness-comparison-card-editor"); }
@@ -805,7 +810,7 @@ class FitnessComparisonCard extends HTMLElement {
       const pct = Math.min(50, Math.abs(value) / max * 50);
       const left = value < 0 ? 50 - pct : 50;
       const unit = state.attributes.unit_of_measurement || metric.unit || "";
-      return `<div class="row"><div class="line"><span>${this._escape(metric.name || entityName(this._hass, metric.entity))}</span><strong>${value > 0 ? "+" : ""}${value.toFixed(metric.decimals ?? 1)}${unit ? ` ${this._escape(unit)}` : ""}</strong></div><div class="axis"><div class="zero"></div><div class="bar" style="left:${left}%;width:${pct}%"></div></div></div>`;
+      return `<div class="row entity-link" data-more-info="${this._escape(metric.entity)}"><div class="line"><span>${this._escape(metric.name || entityName(this._hass, metric.entity))}</span><strong>${value > 0 ? "+" : ""}${value.toFixed(metric.decimals ?? 1)}${unit ? ` ${this._escape(unit)}` : ""}</strong></div><div class="axis"><div class="zero"></div><div class="bar" style="left:${left}%;width:${pct}%"></div></div></div>`;
     }).filter(Boolean).join("");
     const labels = this._profile?.labels || {};
     const title = this.config.title || labels.workout_comparison || "Compared with your baseline";
@@ -813,7 +818,7 @@ class FitnessComparisonCard extends HTMLElement {
       this.shadowRoot.innerHTML = `<ha-card><div class="empty"><strong>${this._escape(title)}</strong><div>${this._escape(labels.no_comparison || "No compatible baseline comparison data is currently available.")}</div></div></ha-card><style>.empty{padding:24px;color:var(--secondary-text-color)}strong{display:block;color:var(--primary-text-color);margin-bottom:8px}</style>`;
       return;
     }
-    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="rows">${rows}</div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 8px}.rows{padding:0 16px 16px}.row{margin:12px 0}.line{display:flex;justify-content:space-between;gap:16px;font-size:13px}.line span{color:var(--secondary-text-color)}.axis{height:8px;position:relative;background:var(--secondary-background-color);border-radius:5px;margin-top:6px;overflow:hidden}.zero{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--divider-color)}.bar{position:absolute;top:0;bottom:0;background:var(--primary-color);border-radius:5px}</style>`;
+    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="rows">${rows}</div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 8px}.rows{padding:0 16px 16px}.row{margin:12px 0}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.line{display:flex;justify-content:space-between;gap:16px;font-size:13px}.line span{color:var(--secondary-text-color)}.axis{height:8px;position:relative;background:var(--secondary-background-color);border-radius:5px;margin-top:6px;overflow:hidden}.zero{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--divider-color)}.bar{position:absolute;top:0;bottom:0;background:var(--primary-color);border-radius:5px}</style>`;
   }
 
   _escape(value) { return String(value ?? "").replace(/[&<>"']/g, (ch) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch])); }
@@ -823,6 +828,7 @@ class FitnessSleepStageCard extends HTMLElement {
   setConfig(config) {
     this.config = config || {};
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    _fitnessBindMoreInfo(this);
   }
 
   static getConfigElement() { return document.createElement("fitness-sleep-stage-card-editor"); }
@@ -909,9 +915,9 @@ class FitnessSleepStageCard extends HTMLElement {
       const state = this._hass.states[item.entity];
       const unit = state?.attributes?.unit_of_measurement || "";
       const pct = item.value / total * 100;
-      return `<div class="legend-row"><span class="dot" style="background:${item.color}"></span><span class="label">${this._escape(entityName(this._hass, item.entity))}</span><strong>${this._formatMinutes(item.value, unit)}</strong><span class="pct">${pct.toFixed(0)}%</span></div>`;
+      return `<div class="legend-row entity-link" data-more-info="${this._escape(item.entity)}"><span class="dot" style="background:${item.color}"></span><span class="label">${this._escape(entityName(this._hass, item.entity))}</span><strong>${this._formatMinutes(item.value, unit)}</strong><span class="pct">${pct.toFixed(0)}%</span></div>`;
     }).join("");
-    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="body"><div class="donut" style="background:conic-gradient(${stops})"><div class="hole"><strong>${displayTotal}</strong></div></div><div class="legend">${legend}</div></div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 6px}.body{display:flex;flex-direction:column;align-items:center;gap:16px;padding:10px 16px 18px;min-width:0}.donut{width:124px;height:124px;border-radius:50%;display:grid;place-items:center}.hole{width:76px;height:76px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color));display:flex;flex-direction:column;align-items:center;justify-content:center}.hole strong{font-size:18px;text-align:center;line-height:1.15;padding:4px}.hole span{font-size:11px;color:var(--secondary-text-color)}.legend{width:100%;min-width:0}.legend-row{display:grid;grid-template-columns:10px minmax(0,1fr) minmax(72px,max-content) 38px;column-gap:10px;align-items:center;min-width:0;padding:7px 0;font-size:12px}.dot{width:9px;height:9px;border-radius:50%}.label{color:var(--secondary-text-color);min-width:0;white-space:normal;overflow-wrap:normal;word-break:normal;hyphens:auto}.legend-row strong{text-align:right;white-space:nowrap;line-height:1.3}.pct{text-align:right;white-space:nowrap;color:var(--secondary-text-color)}</style>`;
+    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="body"><div class="donut" style="background:conic-gradient(${stops})"><div class="hole"><strong>${displayTotal}</strong></div></div><div class="legend">${legend}</div></div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 6px}.body{display:flex;flex-direction:column;align-items:center;gap:16px;padding:10px 16px 18px;min-width:0}.donut{width:124px;height:124px;border-radius:50%;display:grid;place-items:center}.hole{width:76px;height:76px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color));display:flex;flex-direction:column;align-items:center;justify-content:center}.hole strong{font-size:18px;text-align:center;line-height:1.15;padding:4px}.hole span{font-size:11px;color:var(--secondary-text-color)}.legend{width:100%;min-width:0}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.legend-row{display:grid;grid-template-columns:10px minmax(0,1fr) minmax(72px,max-content) 38px;column-gap:10px;align-items:center;min-width:0;padding:7px 0;font-size:12px}.dot{width:9px;height:9px;border-radius:50%}.label{color:var(--secondary-text-color);min-width:0;white-space:normal;overflow-wrap:normal;word-break:normal;hyphens:auto}.legend-row strong{text-align:right;white-space:nowrap;line-height:1.3}.pct{text-align:right;white-space:nowrap;color:var(--secondary-text-color)}</style>`;
   }
 
   _escape(value) { return String(value ?? "").replace(/[&<>"']/g, (ch) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch])); }
@@ -933,6 +939,27 @@ const _fitnessEscape = (value) => String(value ?? "").replace(
   /[&<>"']/g,
   (ch) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]),
 );
+
+const _fitnessOpenMoreInfo = (host, entityId) => {
+  if (!host || !entityId || !host._hass?.states?.[entityId]) return;
+  host.dispatchEvent(new CustomEvent("hass-more-info", {
+    bubbles: true,
+    composed: true,
+    detail: { entityId },
+  }));
+};
+
+const _fitnessBindMoreInfo = (host) => {
+  if (!host?.shadowRoot || host._fitnessMoreInfoBound) return;
+  host._fitnessMoreInfoBound = true;
+  host.shadowRoot.addEventListener("click", (event) => {
+    const node = event.composedPath().find((item) => item?.dataset?.moreInfo);
+    if (!node) return;
+    if (event.composedPath().some((item) => item?.tagName === "BUTTON")) return;
+    _fitnessOpenMoreInfo(host, node.dataset.moreInfo);
+  });
+};
+
 const _fitnessDisplay = (state, decimals = 1) => {
   if (!state || state.state === "unknown" || state.state === "unavailable") return "—";
   const n = Number(state.state);
@@ -1023,6 +1050,7 @@ class FitnessAutoProfileCard extends HTMLElement {
   setConfig(config) {
     this.config = config || {};
     if (!this.shadowRoot) this.attachShadow({mode:"open"});
+    _fitnessBindMoreInfo(this);
     this._resolvedKey = null;
   }
   static getConfigElement() { return document.createElement("fitness-profile-card-editor"); }
@@ -1076,10 +1104,10 @@ class FitnessTodayCard extends FitnessAutoProfileCard {
     const items = ids.map((id) => {
       const state = this._hass.states[id];
       if (!state || ["unknown","unavailable"].includes(state.state)) return "";
-      return `<div class="today-item"><span>${_fitnessEscape(entityName(this._hass,id))}</span><strong>${_fitnessDisplay(state,1)}</strong></div>`;
+      return `<div class="today-item entity-link" data-more-info="${_fitnessEscape(id)}"><span>${_fitnessEscape(entityName(this._hass,id))}</span><strong>${_fitnessDisplay(state,1)}</strong></div>`;
     }).filter(Boolean).join("");
     this.shadowRoot.innerHTML = `<ha-card><div class="today-head"><div><strong>${_fitnessEscape(this.config.title || l.overview || "Today")}</strong><span>${_fitnessEscape(this._profile?.profile_name || "")}</span></div><ha-icon icon="mdi:heart-pulse"></ha-icon></div><div class="today-grid">${items || `<small>No current Fitness data is available yet.</small>`}</div></ha-card><style>
-      ha-card{padding:18px}.today-head{display:flex;justify-content:space-between;align-items:center}.today-head strong{font-size:20px}.today-head span{display:block;color:var(--secondary-text-color);font-size:12px;margin-top:3px}.today-head ha-icon{color:var(--primary-color);--mdc-icon-size:30px}.today-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:16px}.today-item{padding:11px 12px;border-radius:13px;background:var(--secondary-background-color)}.today-item span{display:block;font-size:10px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.today-item strong{display:block;margin-top:4px;font-size:15px}@media(max-width:420px){.today-grid{grid-template-columns:1fr}}</style>`;
+      ha-card{padding:18px}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.today-head{display:flex;justify-content:space-between;align-items:center}.today-head strong{font-size:20px}.today-head span{display:block;color:var(--secondary-text-color);font-size:12px;margin-top:3px}.today-head ha-icon{color:var(--primary-color);--mdc-icon-size:30px}.today-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:16px}.today-item{padding:11px 12px;border-radius:13px;background:var(--secondary-background-color)}.today-item span{display:block;font-size:10px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.today-item strong{display:block;margin-top:4px;font-size:15px}@media(max-width:420px){.today-grid{grid-template-columns:1fr}}</style>`;
   }
 }
 
@@ -1112,21 +1140,21 @@ class FitnessWorkoutHighlightsCard extends FitnessAutoProfileCard {
       if (zeroIsMissing.has(key) && Number.isFinite(numeric) && Math.abs(numeric) < 1e-12) return "";
       if (running && key === "last_workout_average_speed") {
         return runPace
-          ? `<div class="hi"><span>${_fitnessEscape(l.pace || "Pace")}</span><strong>${_fitnessEscape(runPace)}</strong></div>`
+          ? `<div class="hi entity-link" data-more-info="${_fitnessEscape(id)}"><span>${_fitnessEscape(l.pace || "Pace")}</span><strong>${_fitnessEscape(runPace)}</strong></div>`
           : "";
       }
-      return `<div class="hi"><span>${_fitnessEscape(entityName(this._hass,id))}</span><strong>${_fitnessEscape(_fitnessDisplay(state,1))}</strong></div>`;
+      return `<div class="hi entity-link" data-more-info="${_fitnessEscape(id)}"><span>${_fitnessEscape(entityName(this._hass,id))}</span><strong>${_fitnessEscape(_fitnessDisplay(state,1))}</strong></div>`;
     }).filter(Boolean);
     if (running && runPace && !e.last_workout_average_speed) {
       itemList.splice(Math.min(2, itemList.length), 0,
-        `<div class="hi"><span>${_fitnessEscape(l.pace || "Pace")}</span><strong>${_fitnessEscape(runPace)}</strong></div>`);
+        `<div class="hi entity-link" data-more-info="${_fitnessEscape(id)}"><span>${_fitnessEscape(l.pace || "Pace")}</span><strong>${_fitnessEscape(runPace)}</strong></div>`);
     }
     const items = itemList.join("");
     this.shadowRoot.innerHTML = `<ha-card>
-      ${workoutName ? `<div class="workout-name">${_fitnessEscape(workoutName)}</div>` : ""}
+      ${workoutName ? `<div class="workout-name entity-link" data-more-info="${_fitnessEscape(e.last_workout || "")}">${_fitnessEscape(workoutName)}</div>` : ""}
       <div class="hi-grid">${items || `<small>${_fitnessEscape(l.no_workout_data || "No completed workout data is available yet.")}</small>`}</div>
     </ha-card><style>
-      ha-card{padding:18px;min-width:0;overflow:hidden}
+      ha-card{padding:18px;min-width:0;overflow:hidden}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}
       .workout-name{font-size:20px;font-weight:700;line-height:1.25;min-width:0;max-width:100%;overflow-wrap:anywhere;word-break:normal;white-space:normal}
       .hi-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px;min-width:0}
       .hi{padding:10px;border-radius:12px;background:var(--secondary-background-color);min-width:0;max-width:100%;overflow:hidden}
@@ -1170,12 +1198,12 @@ class FitnessStrengthDetailsCard extends FitnessAutoProfileCard {
     const totalReps = _fitnessNumber(details?.total_reps);
     const totalVolume = _fitnessNumber(details?.volume_kg);
     this.shadowRoot.innerHTML = `<ha-card>
-      <div class="strength-head"><div><strong>Strength progression</strong><span>${exercises.length} exercises${totalSets != null ? ` · ${totalSets.toFixed(0)} sets` : ""}${totalReps != null ? ` · ${totalReps.toFixed(0)} reps` : ""}</span></div><ha-icon icon="mdi:dumbbell"></ha-icon></div>
+      <div class="strength-head entity-link" data-more-info="${_fitnessEscape(source?.entity_id || e.last_workout_strength_sets || e.last_workout_estimated_1rm || e.last_workout_strength_progression || "")}"><div><strong>Strength progression</strong><span>${exercises.length} exercises${totalSets != null ? ` · ${totalSets.toFixed(0)} sets` : ""}${totalReps != null ? ` · ${totalReps.toFixed(0)} reps` : ""}</span></div><ha-icon icon="mdi:dumbbell"></ha-icon></div>
       ${totalVolume != null ? `<div class="volume-hero"><span>Total volume</span><strong>${totalVolume.toFixed(0)} kg</strong></div>` : ""}
-      <div class="strength-list">${rows}</div>
+      <div class="strength-list entity-link" data-more-info="${_fitnessEscape(source?.entity_id || e.last_workout_strength_sets || e.last_workout_estimated_1rm || e.last_workout_strength_progression || "")}">${rows}</div>
       <small class="method">Estimated 1RM uses the Epley formula from valid 1–12 rep sets; it is not a measured 1RM.</small>
     </ha-card><style>
-      ha-card{padding:18px}.strength-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.strength-head strong{display:block;font-size:18px}.strength-head span{display:block;margin-top:3px;color:var(--secondary-text-color);font-size:11px}.strength-head ha-icon{color:var(--primary-color);--mdc-icon-size:28px}.volume-hero{display:flex;justify-content:space-between;align-items:end;margin:14px 0;padding:12px 14px;border-radius:13px;background:color-mix(in srgb,var(--primary-color) 10%,var(--secondary-background-color))}.volume-hero span{color:var(--secondary-text-color);font-size:11px}.volume-hero strong{font-size:20px}.strength-list{display:grid;gap:7px;margin-top:12px}.strength-row{display:grid;grid-template-columns:minmax(125px,1.6fr) minmax(72px,.7fr) minmax(72px,.7fr) minmax(58px,.55fr);gap:8px;align-items:center;padding:10px 11px;border-radius:12px;background:var(--secondary-background-color)}.strength-main{min-width:0}.strength-main strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.strength-main span,.strength-stat span{display:block;color:var(--secondary-text-color);font-size:10px;margin-top:2px}.strength-stat strong{display:block;font-size:12px;margin-top:2px}.strength-trend{text-align:right;font-weight:700;color:var(--secondary-text-color)}.strength-trend.up{color:var(--success-color,#43a047)}.strength-trend.down{color:var(--error-color,#db4437)}.method{display:block;margin-top:11px;color:var(--secondary-text-color);font-size:10px;line-height:1.4}@media(max-width:520px){.strength-row{grid-template-columns:minmax(120px,1fr) 1fr}.strength-trend{text-align:left}.strength-stat:nth-of-type(3){display:none}}
+      ha-card{padding:18px}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.strength-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.strength-head strong{display:block;font-size:18px}.strength-head span{display:block;margin-top:3px;color:var(--secondary-text-color);font-size:11px}.strength-head ha-icon{color:var(--primary-color);--mdc-icon-size:28px}.volume-hero{display:flex;justify-content:space-between;align-items:end;margin:14px 0;padding:12px 14px;border-radius:13px;background:color-mix(in srgb,var(--primary-color) 10%,var(--secondary-background-color))}.volume-hero span{color:var(--secondary-text-color);font-size:11px}.volume-hero strong{font-size:20px}.strength-list{display:grid;gap:7px;margin-top:12px}.strength-row{display:grid;grid-template-columns:minmax(125px,1.6fr) minmax(72px,.7fr) minmax(72px,.7fr) minmax(58px,.55fr);gap:8px;align-items:center;padding:10px 11px;border-radius:12px;background:var(--secondary-background-color)}.strength-main{min-width:0}.strength-main strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.strength-main span,.strength-stat span{display:block;color:var(--secondary-text-color);font-size:10px;margin-top:2px}.strength-stat strong{display:block;font-size:12px;margin-top:2px}.strength-trend{text-align:right;font-weight:700;color:var(--secondary-text-color)}.strength-trend.up{color:var(--success-color,#43a047)}.strength-trend.down{color:var(--error-color,#db4437)}.method{display:block;margin-top:11px;color:var(--secondary-text-color);font-size:10px;line-height:1.4}@media(max-width:520px){.strength-row{grid-template-columns:minmax(120px,1fr) 1fr}.strength-trend{text-align:left}.strength-stat:nth-of-type(3){display:none}}
     </style>`;
   }
 }
@@ -1206,15 +1234,15 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
     if (series.length >= 5) {
       const vals = series.map(x => x.v), lo = Math.min(...vals), hi = Math.max(...vals), span = Math.max(hi-lo, 0.1);
       const pts = series.map((x,i) => `${(i/(series.length-1)*100).toFixed(2)},${(34-((x.v-lo)/span)*28).toFixed(2)}`).join(" ");
-      spark = `<div class="history"><div class="history-head"><span>${_fitnessEscape(l.history || "History")}</span><small>${series.length} ${_fitnessEscape(l.days_90 || "days")}</small></div><svg viewBox="0 0 100 38" preserveAspectRatio="none" aria-label="VO2max history"><polyline points="${pts}"/></svg></div>`;
+      spark = `<div class="history entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || "")}"><div class="history-head"><span>${_fitnessEscape(l.history || "History")}</span><small>${series.length} ${_fitnessEscape(l.days_90 || "days")}</small></div><svg viewBox="0 0 100 38" preserveAspectRatio="none" aria-label="VO2max history"><polyline points="${pts}"/></svg></div>`;
     }
 
     this.shadowRoot.innerHTML = `<ha-card>
       <div class="head"><div><div class="title">${_fitnessEscape(this.config.title || l.progress_snapshot || "Fitness progress")}</div><div class="sub">${_fitnessEscape(status)}</div></div><div class="trend">${arrow}${slope == null ? "" : ` ${slope > 0 ? "+" : ""}${slope.toFixed(2)}%`}</div></div>
-      <div class="hero"><strong>${current == null ? "—" : current.toFixed(1)}</strong><span>mL/kg/min</span><small>${_fitnessEscape(l.current_vo2max || "Current VO₂max")}</small></div>
+      <div class="hero entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || e.vo2max_percent_predicted || "")}"><strong>${current == null ? "—" : current.toFixed(1)}</strong><span>mL/kg/min</span><small>${_fitnessEscape(l.current_vo2max || "Current VO₂max")}</small></div>
       <div class="progress"><div style="width:${bar}%"></div></div>
       ${spark}
-      <div class="metrics">
+      <div class="metrics entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || e.vo2max_percent_predicted || "")}">
         ${this._metric(l.mean_28d || "28-day mean", mean28, "mL/kg/min")}
         ${this._metric(l.mean_90d || "90-day mean", mean90, "mL/kg/min")}
         ${this._metric(l.predicted_percent || "% of predicted", pctPred, "%")}
@@ -1228,7 +1256,7 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
   }
   _style() {
     return `<style>
-      ha-card{padding:18px}.head{display:flex;justify-content:space-between;align-items:flex-start}.title{font-size:19px;font-weight:650}.sub{font-size:12px;color:var(--secondary-text-color);margin-top:3px}.trend{font-size:16px;font-weight:700;color:var(--primary-color)}
+      ha-card{padding:18px}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.head{display:flex;justify-content:space-between;align-items:flex-start}.title{font-size:19px;font-weight:650}.sub{font-size:12px;color:var(--secondary-text-color);margin-top:3px}.trend{font-size:16px;font-weight:700;color:var(--primary-color)}
       .hero{display:grid;grid-template-columns:auto auto 1fr;align-items:end;gap:6px;margin:20px 0 10px}.hero strong{font-size:40px;line-height:1}.hero span{font-size:12px;color:var(--secondary-text-color);padding-bottom:4px}.hero small{text-align:right;color:var(--secondary-text-color)}
       .progress{height:8px;background:var(--secondary-background-color);border-radius:999px;overflow:hidden}.progress div{height:100%;background:var(--primary-color);border-radius:999px}
       .history{margin-top:16px;padding:10px 12px;border-radius:12px;background:var(--secondary-background-color)}.history-head{display:flex;justify-content:space-between;color:var(--secondary-text-color);font-size:11px}.history svg{width:100%;height:76px;margin-top:7px;overflow:visible}.history polyline{fill:none;stroke:var(--primary-color);stroke-width:1.8;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}
@@ -1287,24 +1315,25 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
 
     this.shadowRoot.innerHTML = `<ha-card class="tone-${tone}">
       <div class="title">${_fitnessEscape(this.config.title || l.recovery_snapshot || "Recovery snapshot")}</div>
-      <div class="readiness-hero">
+      <div class="readiness-hero entity-link" data-more-info="${_fitnessEscape(e.readiness || "")}">
         <div class="readiness-ring" style="--p:${bounded * 3.6}deg"><div><strong>${score == null ? "—" : score.toFixed(0)}</strong><span>/ 100</span></div></div>
         <div class="readiness-copy"><small>${_fitnessEscape(readinessName)}</small><strong>${_fitnessEscape(levelText)}</strong>${confidence == null ? "" : `<span>${confidence.toFixed(0)}% confidence from available evidence</span>`}</div>
       </div>
-      ${componentRows ? `<div class="components">${componentRows}</div>` : ""}
+      ${componentRows ? `<div class="components entity-link" data-more-info="${_fitnessEscape(e.readiness || "")}">${componentRows}</div>` : ""}
       <div class="context">
         ${hrvVs == null ? "" : `<span>HRV ${hrvVs > 0 ? "+" : ""}${hrvVs.toFixed(1)}% vs 28d</span>`}
         ${rhrVs == null ? "" : `<span>RHR ${rhrVs > 0 ? "+" : ""}${rhrVs.toFixed(1)} bpm vs 28d</span>`}
       </div>
       <div class="metrics">
-        ${this._sleepScoreMetric(l.sleep_score || "Sleep score", sleepScore)}
-        ${this._metric(l.sleep_duration || "Sleep duration", effectiveSleepDuration, true)}
-        ${this._metric(l.sleep_hrv || "Sleep HRV", sleepHrv)}
-        ${this._metric(l.sleep_deficit || "7-day sleep deficit", deficit, true)}
+        ${this._sleepScoreMetric(l.sleep_score || "Sleep score", sleepScore, e.last_sleep_score)}
+        ${this._metric(l.sleep_duration || "Sleep duration", effectiveSleepDuration, true, e.last_sleep_duration)}
+        ${this._metric(l.sleep_hrv || "Sleep HRV", sleepHrv, false, e.last_sleep_hrv)}
+        ${this._metric(l.sleep_deficit || "7-day sleep deficit", deficit, true, e.sleep_deficit_7d)}
       </div>
     </ha-card><style>
       ha-card{padding:18px;--readiness:#78909c;--readiness-soft:color-mix(in srgb,var(--readiness) 14%,transparent)}
       ha-card.tone-excellent{--readiness:#2e7d32}ha-card.tone-high{--readiness:#00897b}ha-card.tone-moderate{--readiness:#f9a825}ha-card.tone-low{--readiness:#ef6c00}ha-card.tone-very-low{--readiness:#c62828}
+      .entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}
       .title{font-size:19px;font-weight:650}.readiness-hero{display:grid;grid-template-columns:116px minmax(0,1fr);align-items:center;gap:18px;margin-top:16px;padding:14px;border-radius:18px;background:linear-gradient(135deg,var(--readiness-soft),var(--secondary-background-color))}
       .readiness-ring{width:104px;height:104px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--readiness) var(--p),color-mix(in srgb,var(--readiness) 16%,var(--secondary-background-color)) 0);box-shadow:0 0 0 1px color-mix(in srgb,var(--readiness) 25%,transparent)}.readiness-ring>div{width:76px;height:76px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color));display:flex;align-items:baseline;justify-content:center}.readiness-ring strong{font-size:31px;line-height:76px;color:var(--readiness)}.readiness-ring span{font-size:10px;color:var(--secondary-text-color);margin-left:2px}
       .readiness-copy{min-width:0}.readiness-copy small{display:block;color:var(--secondary-text-color);font-size:11px}.readiness-copy strong{display:block;color:var(--readiness);font-size:24px;line-height:1.15;margin-top:3px;overflow-wrap:normal;word-break:normal}.readiness-copy span{display:block;color:var(--secondary-text-color);font-size:11px;line-height:1.35;margin-top:7px}
@@ -1314,15 +1343,15 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
       @media(max-width:430px){.readiness-hero{grid-template-columns:92px minmax(0,1fr);gap:12px;padding:12px}.readiness-ring{width:84px;height:84px}.readiness-ring>div{width:62px;height:62px}.readiness-ring strong{font-size:26px;line-height:62px}.readiness-copy strong{font-size:20px}.components{grid-template-columns:1fr}}
     </style>`;
   }
-  _sleepScoreMetric(label, state) {
+  _sleepScoreMetric(label, state, entityId = "") {
     const value = _fitnessNumber(state?.state);
     const display = value == null ? "—" : `${Math.max(0, Math.min(100, value)).toFixed(0)}%`;
-    return `<div class="metric sleep-score"><span>${_fitnessEscape(label)}</span><strong>${display}</strong></div>`;
+    return `<div class="metric sleep-score entity-link" data-more-info="${_fitnessEscape(entityId)}"><span>${_fitnessEscape(label)}</span><strong>${display}</strong></div>`;
   }
 
-  _metric(label, state, sleepDuration = false) {
+  _metric(label, state, sleepDuration = false, entityId = "") {
     const value = sleepDuration ? _fitnessSleepDuration(state) : _fitnessDisplay(state, 1);
-    return `<div class="metric"><span>${_fitnessEscape(label)}</span><strong>${_fitnessEscape(value)}</strong></div>`;
+    return `<div class="metric entity-link" data-more-info="${_fitnessEscape(entityId)}"><span>${_fitnessEscape(label)}</span><strong>${_fitnessEscape(value)}</strong></div>`;
   }
 }
 
@@ -1345,19 +1374,19 @@ class FitnessTrainingLoadCard extends FitnessAutoProfileCard {
     const ratioPct = ratio == null ? 0 : Math.max(0, Math.min(180, ratio * 100));
 
     this.shadowRoot.innerHTML = `<ha-card>
-      <div class="head"><div class="title">${_fitnessEscape(this.config.title || l.training_load_snapshot || "Training load")}</div><div class="ratio">${ratio == null ? "—" : `${ratio.toFixed(2)}×`}</div></div>
+      <div class="head entity-link" data-more-info="${_fitnessEscape(e.training_load || "")}"><div class="title">${_fitnessEscape(this.config.title || l.training_load_snapshot || "Training load")}</div><div class="ratio">${ratio == null ? "—" : `${ratio.toFixed(2)}×`}</div></div>
       <div class="scale"><div class="zone"></div><div class="marker" style="left:${Math.min(100, ratioPct / 1.8)}%"></div></div>
-      <div class="pair">
+      <div class="pair entity-link" data-more-info="${_fitnessEscape(e.training_load || "")}">
         <div><span>${_fitnessEscape(l.recent_load || "7-day TRIMP")}</span><strong>${recent == null ? "—" : recent.toFixed(1)}</strong></div>
         <div><span>${_fitnessEscape(l.baseline_load || "28-day weekly baseline")}</span><strong>${baseline == null ? "—" : baseline.toFixed(1)}</strong></div>
       </div>
-      <div class="metrics">
+      <div class="metrics entity-link" data-more-info="${_fitnessEscape(e.training_load || "")}">
         ${this._metric(l.workouts_7d || "Workouts / 7 days", workouts, "")}
         ${this._metric(l.active_days_7d || "Active days / 7 days", activeDays, "")}
         ${this._metric(l.duration_7d || "Training / 7 days", duration, "min")}
       </div>
     </ha-card><style>
-      ha-card{padding:18px}.head{display:flex;justify-content:space-between;align-items:center}.title{font-size:19px;font-weight:650}.ratio{font-size:22px;font-weight:700;color:var(--primary-color)}
+      ha-card{padding:18px}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.head{display:flex;justify-content:space-between;align-items:center}.title{font-size:19px;font-weight:650}.ratio{font-size:22px;font-weight:700;color:var(--primary-color)}
       .scale{height:12px;background:linear-gradient(90deg,var(--secondary-background-color),var(--primary-color),var(--secondary-background-color));border-radius:999px;margin:18px 0 10px;position:relative;opacity:.9}.marker{position:absolute;top:-4px;width:3px;height:20px;background:var(--primary-text-color);border-radius:2px;transform:translateX(-1px)}
       .pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}.pair>div,.metrics>div{background:var(--secondary-background-color);padding:10px 12px;border-radius:12px}.pair span,.metrics span{display:block;color:var(--secondary-text-color);font-size:10px;margin-bottom:4px}.pair strong{font-size:18px}
       .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}.metrics strong{font-size:13px}.empty{padding:18px}
@@ -1502,7 +1531,7 @@ class FitnessLiveWorkoutCard extends FitnessAutoProfileCard {
       const id = e[key];
       const state = id ? this._hass.states[id] : null;
       if (!id || !state || ["unavailable","unknown"].includes(state.state)) return "";
-      return `<div class="live-metric"><span>${_fitnessEscape(entityName(this._hass,id))}</span><strong>${_fitnessEscape(_fitnessDisplay(state,1))}</strong></div>`;
+      return `<div class="live-metric entity-link" data-more-info="${_fitnessEscape(id)}"><span>${_fitnessEscape(entityName(this._hass,id))}</span><strong>${_fitnessEscape(_fitnessDisplay(state,1))}</strong></div>`;
     }).filter(Boolean).join("");
     const controls = controlKeys.map((key) => {
       const id = e[key];
@@ -1518,7 +1547,7 @@ class FitnessLiveWorkoutCard extends FitnessAutoProfileCard {
       <div class="live-grid">${metrics || `<div class="live-empty">${_fitnessEscape(l.no_live_data || "No live workout data is available yet.")}</div>`}</div>
       ${controls ? `<div class="live-controls">${controls}</div>` : ""}
     </ha-card><style>
-      ha-card{padding:16px;overflow:hidden}.live-head{display:flex;align-items:center;gap:10px;margin:2px 2px 14px;min-width:0}.live-head>ha-icon{color:var(--primary-color);--mdc-icon-size:28px}.live-head>div{min-width:0}.live-head strong{display:block;font-size:20px;line-height:1.25;overflow-wrap:anywhere}.live-head span{display:block;color:var(--secondary-text-color);font-size:11px;margin-top:2px;overflow-wrap:anywhere}
+      ha-card{padding:16px;overflow:hidden}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.live-head{display:flex;align-items:center;gap:10px;margin:2px 2px 14px;min-width:0}.live-head>ha-icon{color:var(--primary-color);--mdc-icon-size:28px}.live-head>div{min-width:0}.live-head strong{display:block;font-size:20px;line-height:1.25;overflow-wrap:anywhere}.live-head span{display:block;color:var(--secondary-text-color);font-size:11px;margin-top:2px;overflow-wrap:anywhere}
       .live-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px}.live-metric{min-width:0;padding:11px 12px;border-radius:12px;background:var(--secondary-background-color);overflow:hidden}.live-metric span{display:block;color:var(--secondary-text-color);font-size:10px;line-height:1.3;overflow-wrap:anywhere}.live-metric strong{display:block;font-size:15px;line-height:1.3;margin-top:4px;overflow-wrap:anywhere}.live-empty{grid-column:1/-1;color:var(--secondary-text-color);padding:12px 2px}
       .live-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:12px}.live-control{appearance:none;border:1px solid var(--divider-color);background:var(--secondary-background-color);color:var(--primary-text-color);border-radius:12px;min-height:46px;padding:8px 10px;display:flex;align-items:center;justify-content:center;gap:7px;font:inherit;cursor:pointer;min-width:0}.live-control ha-icon{color:var(--primary-color);--mdc-icon-size:21px}.live-control span{min-width:0;font-size:12px;font-weight:600;line-height:1.25;overflow-wrap:anywhere}.live-control:active{transform:scale(.98)}
       @media(max-width:420px){.live-grid,.live-controls{grid-template-columns:1fr 1fr}}
@@ -1563,16 +1592,16 @@ class FitnessWorkoutRpeCard extends FitnessAutoProfileCard {
       `<button type="button" class="rpe-choice${Math.round(rpeValue || 0) === value ? " selected" : ""}" data-rpe="${value}" aria-label="${value}">${value}</button>`
     ).join("");
     const meta = [
-      load == null ? "" : `<span><ha-icon icon="mdi:chart-bell-curve-cumulative"></ha-icon>${_fitnessEscape(_fitnessDisplay(loadState,1))}</span>`,
-      compare == null ? "" : `<span class="${compare > 0 ? "up" : compare < 0 ? "down" : ""}"><ha-icon icon="mdi:compare-horizontal"></ha-icon>${compare > 0 ? "+" : ""}${compare.toFixed(0)}%</span>`,
+      load == null ? "" : `<span class="entity-link" data-more-info="${_fitnessEscape(e.last_workout_session_rpe_load || "")}"><ha-icon icon="mdi:chart-bell-curve-cumulative"></ha-icon>${_fitnessEscape(_fitnessDisplay(loadState,1))}</span>`,
+      compare == null ? "" : `<span class="entity-link ${compare > 0 ? "up" : compare < 0 ? "down" : ""}" data-more-info="${_fitnessEscape(e.last_workout_rpe_load_vs_baseline || "")}"><ha-icon icon="mdi:compare-horizontal"></ha-icon>${compare > 0 ? "+" : ""}${compare.toFixed(0)}%</span>`,
     ].filter(Boolean).join("");
 
     this.shadowRoot.innerHTML = `<ha-card>
-      <div class="head"><div class="icon"><ha-icon icon="mdi:gauge"></ha-icon></div><div class="title"><strong>${_fitnessEscape(l.rpe_title || "Perceived effort")}</strong><span>${_fitnessEscape(l.rpe_hint || "How hard did this workout feel? Choose a whole number from 1 to 10.")}</span></div><div class="score"><strong>${rpeValue == null ? "—" : Math.round(rpeValue)}</strong><span>/ 10</span></div></div>
+      <div class="head entity-link" data-more-info="${_fitnessEscape(rpeId)}"><div class="icon"><ha-icon icon="mdi:gauge"></ha-icon></div><div class="title"><strong>${_fitnessEscape(l.rpe_title || "Perceived effort")}</strong><span>${_fitnessEscape(l.rpe_hint || "How hard did this workout feel? Choose a whole number from 1 to 10.")}</span></div><div class="score"><strong>${rpeValue == null ? "—" : Math.round(rpeValue)}</strong><span>/ 10</span></div></div>
       <div class="rpe-scale">${choices}</div>
       <div class="foot"><span>${_fitnessEscape(l.rpe_saved || "Saved to this workout. Changing it recalculates RPE-based load and comparisons.")}</span>${meta ? `<div class="meta">${meta}</div>` : ""}</div>
     </ha-card><style>
-      ha-card{padding:14px 16px;overflow:hidden;background:linear-gradient(135deg,color-mix(in srgb,var(--primary-color) 7%,var(--ha-card-background,var(--card-background-color))),var(--ha-card-background,var(--card-background-color)) 58%)}
+      ha-card{padding:14px 16px;overflow:hidden}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}ha-card{background:linear-gradient(135deg,color-mix(in srgb,var(--primary-color) 7%,var(--ha-card-background,var(--card-background-color))),var(--ha-card-background,var(--card-background-color)) 58%)}
       .head{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:10px;align-items:center;min-width:0}.icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--primary-color) 14%,transparent);color:var(--primary-color)}.icon ha-icon{--mdc-icon-size:22px}.title{min-width:0}.title strong{display:block;font-size:15px;line-height:1.25}.title span{display:block;margin-top:3px;color:var(--secondary-text-color);font-size:11px;line-height:1.35;overflow-wrap:break-word}.score{display:flex;align-items:baseline;gap:3px;white-space:nowrap}.score strong{font-size:25px;line-height:1}.score span{font-size:11px;color:var(--secondary-text-color)}
       .rpe-scale{display:grid;grid-template-columns:repeat(auto-fit,minmax(38px,1fr));gap:6px;margin-top:13px}.rpe-choice{appearance:none;border:1px solid color-mix(in srgb,var(--divider-color) 75%,transparent);border-radius:11px;min-height:40px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation;transition:transform .08s ease,background .15s ease,border-color .15s ease}.rpe-choice:hover{border-color:var(--primary-color);background:color-mix(in srgb,var(--primary-color) 9%,var(--secondary-background-color))}.rpe-choice:active{transform:scale(.95)}.rpe-choice.selected{border-color:var(--primary-color);background:var(--primary-color);color:var(--text-primary-color,#fff);box-shadow:0 0 0 1px color-mix(in srgb,var(--primary-color) 35%,transparent)}
       .foot{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-top:10px;min-width:0}.foot>span{min-width:0;color:var(--secondary-text-color);font-size:10px;line-height:1.35;overflow-wrap:break-word}.meta{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.meta span{display:flex;align-items:center;gap:3px;white-space:nowrap;font-size:10px;font-weight:600}.meta ha-icon{--mdc-icon-size:14px;color:var(--primary-color)}.meta .up{color:var(--success-color,#43a047)}.meta .down{color:var(--warning-color,#fb8c00)}
