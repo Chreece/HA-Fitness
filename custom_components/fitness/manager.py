@@ -107,6 +107,7 @@ from .providers.entities import (
 )
 from .providers.evaluation import collect_provider_metrics, workout_device_entity_ids
 from .providers.sleep import SleepRecord, merged_sleeps, newest_sleep
+from .history import ingest_recorder, remember, summarize_all, validate_sleep, validate_workout
 from .providers.sleep_adapters.registry import (
     discover_sleep_records,
     latest_sleep as discover_latest_sleep,
@@ -195,6 +196,8 @@ class FitnessManager:
         # Cached Home Assistant Recorder long-term statistics.
         self.long_term_statistics: dict[str, Any] = {}
         self.long_term_statistics_updated: str | None = None
+        self.metric_history: dict[str, list[dict[str, Any]]] = {}
+        self.history_validation: dict[str, dict[str, Any]] = {}
 
         # Keys of sensor descriptions that have produced a valid value at least
         # once. These are persisted so created HA entities are never removed
@@ -287,6 +290,8 @@ class FitnessManager:
             "long_term_statistics_updated"
         )
         self.sleep_history = list(stored.get("sleep_history") or [])
+        self.metric_history = {str(k): list(v) for k, v in dict(stored.get("metric_history") or {}).items() if isinstance(v, list)}
+        self.history_validation = dict(stored.get("history_validation") or {})
         self.materialized_sensor_keys = set(
             stored.get("materialized_sensor_keys") or []
         )
@@ -719,6 +724,8 @@ class FitnessManager:
                 "ai_last_generated": self.ai_last_generated,
                 "long_term_statistics": self.long_term_statistics,
                 "long_term_statistics_updated": self.long_term_statistics_updated,
+                "metric_history": self.metric_history,
+                "history_validation": self.history_validation,
                 "sleep_history": self.sleep_history[-120:],
                 "materialized_sensor_keys": sorted(
                     self.materialized_sensor_keys
@@ -4013,188 +4020,97 @@ class FitnessManager:
 
     @staticmethod
     def _summarize_stat_periods(periods: list[dict[str, Any]]) -> dict[str, Any]:
-        """Summarize daily Recorder rows and retain a bounded daily series."""
-        values: list[float] = []
-        dated: list[tuple[datetime | None, float]] = []
-        daily: list[dict[str, Any]] = []
-        for row in periods or []:
-            value = row.get("mean")
-            if value is None:
-                value = row.get("state")
-            try:
-                number = float(value)
-            except (TypeError, ValueError):
-                continue
-            start_raw = row.get("start")
-            dt = None
-            if start_raw:
-                try:
-                    dt = datetime.fromisoformat(str(start_raw).replace("Z", "+00:00"))
-                    if dt.tzinfo is None:
-                        dt = dt.replace(tzinfo=timezone.utc)
-                except (TypeError, ValueError):
-                    dt = None
-            values.append(number)
-            dated.append((dt, number))
-            daily.append({"start": start_raw, "value": round(number, 4)})
-
-        if not values:
-            return {}
-
-        def tail_mean(n: int):
-            vals = values[-n:]
-            return mean(vals) if vals else None
-
-        recent14 = values[-14:]
-        previous14 = values[-28:-14]
-        trend_pct = None
-        if recent14 and previous14:
-            prior = mean(previous14)
-            if prior != 0:
-                trend_pct = (mean(recent14) - prior) / abs(prior) * 100
-
-        slope_pct_30d = None
-        valid_dated = [(dt, value) for dt, value in dated if dt is not None]
-        if len(valid_dated) >= 14:
-            x0 = valid_dated[0][0]
-            xs = [(dt - x0).total_seconds() / 86400.0 for dt, _ in valid_dated]
-            ys = [value for _, value in valid_dated]
-            xbar, ybar = mean(xs), mean(ys)
-            denom = sum((x - xbar) ** 2 for x in xs)
-            if denom > 0 and ybar != 0:
-                slope_per_day = sum((x - xbar) * (y - ybar) for x, y in zip(xs, ys)) / denom
-                slope_pct_30d = slope_per_day * 30.0 / abs(ybar) * 100.0
-
-        # A windowed metric is only meaningful when Recorder actually contains
-        # enough distinct historical days. Never turn a handful of samples into
-        # a 28/90-day claim merely because the requested query covered that span.
-        unique_days = {dt.date() for dt, _value in dated if dt is not None}
-        now_date = datetime.now(timezone.utc).date()
-        def window_values(days: int) -> list[float]:
-            cutoff = now_date - timedelta(days=days - 1)
-            return [value for dt, value in dated if dt is not None and cutoff <= dt.date() <= now_date]
-        v7, v28, v90 = window_values(7), window_values(28), window_values(90)
-        recent14 = window_values(14)
-        prior_start = now_date - timedelta(days=27)
-        prior_end = now_date - timedelta(days=14)
-        prior14 = [value for dt, value in dated if dt is not None and prior_start <= dt.date() <= prior_end]
-        strict_trend = None
-        if len(recent14) >= 10 and len(prior14) >= 10:
-            prior = mean(prior14)
-            if prior != 0:
-                strict_trend = (mean(recent14) - prior) / abs(prior) * 100.0
-
-        return {
-            "days_available": len(unique_days),
-            "days_7d": len(v7),
-            "days_28d": len(v28),
-            "days_90d": len(v90),
-            "mean_7d": round(mean(v7), 3) if len(v7) >= 5 else None,
-            "mean_28d": round(mean(v28), 3) if len(v28) >= 21 else None,
-            "mean_90d": round(mean(v90), 3) if len(v90) >= 60 else None,
-            "trend_14_vs_previous_14_percent": round(strict_trend, 2) if strict_trend is not None else None,
-            "slope_percent_per_30d": round(slope_pct_30d, 3) if len(v90) >= 30 and slope_pct_30d is not None else None,
-            "latest_daily_mean": round(values[-1], 3),
-            "daily": daily[-90:],
-        }
+        """Legacy helper retained for compatibility tests; validate before summarizing."""
+        temp: dict[str, list[dict[str, Any]]] = {"legacy": []}
+        ingest_recorder(temp, "legacy", periods, "recorder_legacy")
+        summaries, _audits = summarize_all(temp)
+        return summaries.get("legacy", {})
 
     async def _async_refresh_long_term_statistics(self) -> None:
-        """Cache Recorder long-term statistics for relevant profile sources."""
-        if not self.hass.services.has_service(
-            "recorder",
-            "get_statistics",
-        ):
-            return
-
-        provider = collect_provider_metrics(
-            self.hass,
-            self.config,
-        )
-
+        """Refresh canonical Fitness history; Recorder is bootstrap ingestion only."""
+        now = datetime.now(timezone.utc)
+        provider = collect_provider_metrics(self.hass, self.config)
         entity_to_metric: dict[str, str] = {}
-
-        for key in (
-            "vo2max",
-            "resting_hr",
-            "weight_kg",
-            "hrv_weekly",
-            "hrv_last_night",
-            "fitness_age",
-            "threshold_hr",
-            "threshold_speed",
-            "ftp_running",
-            "power_to_weight_running",
-            "training_readiness",
-            "sleep_score",
-        ):
+        metric_keys = (
+            "vo2max", "resting_hr", "weight_kg", "hrv_weekly",
+            "hrv_last_night", "fitness_age", "threshold_hr",
+            "threshold_speed", "ftp_running", "power_to_weight_running",
+            "training_readiness", "sleep_score",
+        )
+        for key in metric_keys:
             entity_id = provider.get(f"{key}_entity")
             if isinstance(entity_id, str):
                 entity_to_metric[entity_id] = key
 
-        for key in (
-            CONF_WEIGHT,
-            CONF_RESTING_HR,
-            CONF_MAX_HR,
-            CONF_VO2MAX,
-            "threshold_hr",
-            "threshold_pace",
-            "threshold_power",
-        ):
+        config_metrics = {
+            CONF_WEIGHT: "weight", CONF_RESTING_HR: "resting_hr",
+            CONF_MAX_HR: "max_hr", CONF_VO2MAX: "vo2max",
+            "threshold_hr": "threshold_hr", "threshold_pace": "threshold_pace",
+            "threshold_power": "threshold_power",
+        }
+        for key, metric in config_metrics.items():
             raw = self.config.get(key)
             if is_entity_reference(raw):
-                entity_to_metric[str(raw).strip()] = key
+                entity_to_metric[str(raw).strip()] = metric
 
-        if not entity_to_metric:
-            return
-
-        start = datetime.now(timezone.utc) - timedelta(days=90)
-
-        try:
-            response = await self.hass.services.async_call(
-                "recorder",
-                "get_statistics",
-                {
-                    "statistic_ids": sorted(entity_to_metric),
-                    "start_time": start.isoformat(),
-                    "period": "day",
-                    "types": ["mean", "min", "max", "state"],
-                },
-                blocking=True,
-                return_response=True,
-            )
-        except Exception:
-            return
-
-        if not isinstance(response, dict):
-            return
-
-        raw_statistics = response.get("statistics")
-        if not isinstance(raw_statistics, dict):
-            # Some HA service response handlers may directly return the map.
-            raw_statistics = response
-
-        result: dict[str, Any] = {}
-        for entity_id, metric_key in entity_to_metric.items():
-            periods = raw_statistics.get(entity_id)
-            if not isinstance(periods, list):
+        # First persist the already normalized/selected Fitness facts. They
+        # outrank any imported Recorder observation for the same day.
+        for metric in metric_keys:
+            value = provider.get(metric)
+            if value is None:
                 continue
-            summary = self._summarize_stat_periods(periods)
-            if summary:
-                summary["entity_id"] = entity_id
-                result[metric_key] = summary
-
-        if result:
-            self.long_term_statistics = result
-            self.long_term_statistics_updated = (
-                datetime.now(timezone.utc).isoformat()
+            source_entity = provider.get(f"{metric}_entity")
+            remember(
+                self.metric_history, metric, value, now,
+                source_type="fitness_merged_current",
+                source_entity=source_entity,
+                sources=[str(source_entity)] if source_entity else [],
+                imported=False, now=now,
             )
-            await self._save()
-            self._notify()
+        for config_key, metric in ((CONF_WEIGHT,"weight"),(CONF_RESTING_HR,"resting_hr"),(CONF_VO2MAX,"vo2max")):
+            value = self.input_value(config_key)
+            if value is not None:
+                remember(self.metric_history, metric, value, now, source_type="fitness_merged_current", imported=False, now=now)
+
+        # Existing installations retain up to 90 days by importing Recorder
+        # rows into Fitness storage. Recorder never directly produces a result.
+        if entity_to_metric and self.hass.services.has_service("recorder", "get_statistics"):
+            try:
+                response = await self.hass.services.async_call(
+                    "recorder", "get_statistics",
+                    {"statistic_ids": sorted(entity_to_metric),
+                     "start_time": (now - timedelta(days=90)).isoformat(),
+                     "period": "day", "types": ["mean", "min", "max", "state"]},
+                    blocking=True, return_response=True,
+                )
+            except Exception:
+                response = None
+            if isinstance(response, dict):
+                raw_statistics = response.get("statistics")
+                if not isinstance(raw_statistics, dict):
+                    raw_statistics = response
+                for entity_id, metric in entity_to_metric.items():
+                    periods = raw_statistics.get(entity_id)
+                    if isinstance(periods, list):
+                        ingest_recorder(self.metric_history, metric, periods, entity_id, now)
+
+        self.long_term_statistics, self.history_validation = summarize_all(self.metric_history, now)
+        self.long_term_statistics_updated = now.isoformat()
+        await self._save()
+        self._notify()
 
     def workout_long_term_summary(self) -> dict[str, Any]:
         """Evidence-oriented trends from actual stored, merged Fitness workouts."""
-        workouts = self.local_workouts()
+        raw_workouts = self.local_workouts()
         now = datetime.now(timezone.utc)
+        workout_rejections: dict[str, int] = {}
+        workouts = []
+        for workout in raw_workouts:
+            reason = validate_workout(workout, now)
+            if reason:
+                workout_rejections[reason] = workout_rejections.get(reason, 0) + 1
+                continue
+            workouts.append(workout)
 
         def parse_start(workout):
             try:
@@ -4248,6 +4164,12 @@ class FitnessManager:
         baseline_hrr = mean(prior_hrr) if len(prior_hrr) >= 2 else None
 
         return {
+            "history_valid": bool(workouts),
+            "history_source": "fitness_canonical_workout_history",
+            "history_raw_records": len(raw_workouts),
+            "history_valid_records": len(workouts),
+            "history_rejected_records": sum(workout_rejections.values()),
+            "history_rejection_reasons": dict(sorted(workout_rejections.items())),
             "workouts_7d": len(w7) if w7 else None,
             "workouts_28d": len(w28) if w28 else None,
             "active_training_days_7d": len({dt.date() for dt, _ in w7}) if w7 else None,
@@ -4272,8 +4194,16 @@ class FitnessManager:
 
     def sleep_long_term_summary(self) -> dict[str, Any]:
         """Longitudinal sleep duration, regularity and HRV context."""
-        records = self._sleep_records_from_history()
+        raw_records = self._sleep_records_from_history()
         now = datetime.now(timezone.utc)
+        sleep_rejections: dict[str, int] = {}
+        records = []
+        for record in raw_records:
+            reason = validate_sleep(record, now)
+            if reason:
+                sleep_rejections[reason] = sleep_rejections.get(reason, 0) + 1
+                continue
+            records.append(record)
         tz = ZoneInfo(getattr(self.hass.config, "time_zone", "UTC") or "UTC")
 
         dated: list[tuple[datetime, SleepRecord]] = []
@@ -4339,6 +4269,12 @@ class FitnessManager:
             below7_pct28 = nights_below7_28 / len(twenty_eight) * 100.0
 
         return {
+            "history_valid": bool(records),
+            "history_source": "fitness_canonical_sleep_history",
+            "history_raw_records": len(raw_records),
+            "history_valid_records": len(records),
+            "history_rejected_records": sum(sleep_rejections.values()),
+            "history_rejection_reasons": dict(sorted(sleep_rejections.items())),
             "nights_7d": len(seven) or None,
             "nights_28d": len(twenty_eight) or None,
             "sleep_duration_7d_mean_min": round(duration7 / 60.0, 1) if duration7 is not None else None,
@@ -4358,7 +4294,7 @@ class FitnessManager:
         }
 
     def recorder_long_term_evaluation(self) -> dict[str, Any]:
-        """Derive transparent trends from HA Recorder statistics when present."""
+        """Derive transparent trends from validated canonical Fitness history."""
         def stat(metric: str) -> dict[str, Any]:
             value = self.long_term_statistics.get(metric)
             return value if isinstance(value, dict) else {}

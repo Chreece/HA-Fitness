@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026.8.6 — Validated canonical history
+
+- Historical 7/28/90-day evaluation now consumes persistent canonical Fitness history after Fitness normalization/selection, validation and daily deduplication; raw provider Recorder rows no longer directly produce historical results.
+- Recorder is retained only as a 90-day bootstrap/import source for existing installations. Imported observations are materialized into Fitness storage, while current merged Fitness observations supersede imported values for the same day.
+- Added shared validation before historical calculations: real timestamps, finite numeric values, broad corruption bounds, chronological ordering, distinct-day deduplication, strict coverage and provenance/audit metadata.
+- Workout and sleep longitudinal calculations now validate Fitness-owned persisted records before calculation. Incomplete/corrupt sleep sessions and malformed workouts are rejected with auditable reasons.
+- Historical summaries expose raw/valid/rejected sample counts, rejection reasons, coverage, oldest/newest valid sample and canonical data source.
+
+
 ## 2026.8.4 dashboard history audit
 
 - Historical Evaluation metrics now require real Recorder coverage: at least 5/7 days for 7-day means, 21/28 days for 28-day means, and 60/90 days for 90-day means. Insufficient history is unavailable instead of being presented as a long-term result.
