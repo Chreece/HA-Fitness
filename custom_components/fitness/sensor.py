@@ -86,7 +86,6 @@ DESCRIPTIONS = (
 
     # Workout device
     Desc(key="last_workout", translation_key="last_workout", kind="workout", metric="workout_name"),
-    Desc(key="last_workout_source", translation_key="last_workout_source", kind="workout", metric="workout_source"),
     Desc(key="last_workout_duration", translation_key="last_workout_duration", kind="workout", metric="workout_duration", unit="min"),
     Desc(key="last_workout_distance", translation_key="last_workout_distance", kind="workout", metric="workout_distance", unit="km"),
     Desc(key="last_workout_avg_hr", translation_key="last_workout_avg_hr", kind="workout", metric="workout_avg_hr", unit="bpm"),
@@ -241,6 +240,37 @@ async def async_setup_entry(hass, entry, async_add_entities):
     # Preserve entities already created by older Fitness versions. This also
     # makes an alpha.31 -> alpha.32 upgrade non-destructive.
     registry_keys: set[str] = set()
+
+    # Keep the Workout device capability-aware. Old releases permanently
+    # materialized every metric after it had appeared once, which left stale
+    # unknown/unavailable entities when the next workout was a different type.
+    # On setup, remove the obsolete duplicate source entity and optional workout
+    # registry entries that have no meaningful value for the current workout.
+    stale_registry_entity_ids: list[str] = []
+    for registry_entry in list(registry.entities.values()):
+        if registry_entry.platform != DOMAIN:
+            continue
+        unique_id = registry_entry.unique_id or ""
+        if not unique_id.startswith(prefix):
+            continue
+        key = unique_id[len(prefix):]
+        if key == "last_workout_source":
+            stale_registry_entity_ids.append(registry_entry.entity_id)
+            manager.forget_materialized_sensor(key, persist=False)
+            continue
+        desc = descriptions.get(key)
+        if desc is None or desc.kind != "workout" or key in {"last_workout", "last_workout_sources"}:
+            continue
+        try:
+            current = FitnessSensor(manager, entry, desc).native_value
+        except Exception:
+            current = None
+        if current is None:
+            stale_registry_entity_ids.append(registry_entry.entity_id)
+            manager.forget_materialized_sensor(key, persist=False)
+
+    for entity_id in stale_registry_entity_ids:
+        registry.async_remove(entity_id)
 
     for registry_entry in registry.entities.values():
         if registry_entry.platform != DOMAIN:
@@ -451,6 +481,30 @@ class FitnessSensor(SensorEntity):
         }
         return names.get(value, value.replace("_", " ").title())
 
+    @staticmethod
+    def _meaningful_workout_value(metric: str, value):
+        """Suppress provider placeholder zeroes that mean a metric was not recorded.
+
+        Zero is retained for metrics where it is physiologically or analytically
+        meaningful (for example training effect, percentages and comparisons).
+        """
+        if value is None:
+            return None
+        zero_is_missing = {
+            "workout_distance", "workout_avg_power", "workout_max_power",
+            "workout_avg_cadence", "workout_elevation", "workout_calories",
+            "workout_moving_time", "workout_elapsed_time",
+            "workout_average_speed", "workout_max_speed",
+            "workout_weighted_power", "workout_max_cadence",
+            "workout_elevation_loss", "workout_kilojoules",
+            "workout_total_reps", "workout_exercise_count", "workout_volume",
+            "workout_strength_sets", "workout_estimated_1rm",
+            "workout_mechanical_work",
+        }
+        if metric in zero_is_missing and isinstance(value, (int, float)) and abs(float(value)) < 1e-12:
+            return None
+        return value
+
     @property
     def native_value(self):
         m = self.entity_description.metric
@@ -570,9 +624,8 @@ class FitnessSensor(SensorEntity):
             w = self.manager.latest_workout()
             if w is None:
                 return None
-            return {
+            values = {
                 "workout_name": w.name or w.sport or "Workout",
-                "workout_source": w.source,
                 "workout_duration": round(w.duration_s / 60, 1) if w.duration_s is not None else None,
                 "workout_distance": round(w.distance_m / 1000, 2) if w.distance_m is not None else None,
                 "workout_avg_hr": round(w.avg_hr) if w.avg_hr is not None else None,
@@ -631,7 +684,9 @@ class FitnessSensor(SensorEntity):
                 "workout_trimp_vs_recent": round(w.trimp_vs_recent_mean_percent, 1) if w.trimp_vs_recent_mean_percent is not None else None,
                 "workout_load_context": w.load_context,
                 "workout_personal_context": w.personal_context_summary,
-            }.get(m)
+            }
+            value = values.get(m)
+            return self._meaningful_workout_value(m, value)
 
         e = self.manager.evaluation()
         if m == "ai_general":

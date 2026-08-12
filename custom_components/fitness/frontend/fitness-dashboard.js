@@ -1,4 +1,4 @@
-const FITNESS_DASHBOARD_VERSION = "2026.8.10.2";
+const FITNESS_DASHBOARD_VERSION = "2026.8.10.3";
 
 
 const FITNESS_READINESS_TEXT = {
@@ -1088,8 +1088,13 @@ class FitnessWorkoutHighlightsCard extends FitnessAutoProfileCard {
     if (!this.shadowRoot || !this._hass) return;
     const e = this._profile?.entities || {};
     const l = this._profile?.labels || {};
+    const zeroIsMissing = new Set([
+      "last_workout_distance","last_workout_average_speed","last_workout_avg_power",
+      "last_workout_avg_cadence","last_workout_elevation_gain","last_workout_calories",
+      "last_workout_strength_sets","last_workout_estimated_1rm"
+    ]);
     const keys = [
-      "last_workout","last_workout_distance","last_workout_duration","last_workout_average_speed",
+      "last_workout_distance","last_workout_duration","last_workout_average_speed",
       "last_workout_avg_hr","last_workout_max_hr","last_workout_avg_power","last_workout_avg_cadence",
       "last_workout_elevation_gain","last_workout_calories","last_workout_banister_trimp","last_workout_vo2max",
       "last_workout_rpe","last_workout_session_rpe_load","last_workout_fitness_aerobic_load","last_workout_fitness_high_intensity_load",
@@ -1097,9 +1102,14 @@ class FitnessWorkoutHighlightsCard extends FitnessAutoProfileCard {
     ];
     const running = this._profile?.latest_workout?.sport === "running";
     const runPace = running ? _fitnessRunPace(this._profile, this._hass) : null;
+    const workoutState = e.last_workout ? this._hass.states[e.last_workout] : null;
+    const workoutName = workoutState && !["unknown","unavailable"].includes(workoutState.state)
+      ? workoutState.state : null;
     const itemList = keys.map((key) => ({key, id:e[key]})).filter((item) => item.id).map(({key,id}) => {
       const state = this._hass.states[id];
       if (!state || ["unknown","unavailable"].includes(state.state)) return "";
+      const numeric = Number(state.state);
+      if (zeroIsMissing.has(key) && Number.isFinite(numeric) && Math.abs(numeric) < 1e-12) return "";
       if (running && key === "last_workout_average_speed") {
         return runPace
           ? `<div class="hi"><span>${_fitnessEscape(l.pace || "Pace")}</span><strong>${_fitnessEscape(runPace)}</strong></div>`
@@ -1108,15 +1118,25 @@ class FitnessWorkoutHighlightsCard extends FitnessAutoProfileCard {
       return `<div class="hi"><span>${_fitnessEscape(entityName(this._hass,id))}</span><strong>${_fitnessEscape(_fitnessDisplay(state,1))}</strong></div>`;
     }).filter(Boolean);
     if (running && runPace && !e.last_workout_average_speed) {
-      itemList.splice(Math.min(3, itemList.length), 0,
+      itemList.splice(Math.min(2, itemList.length), 0,
         `<div class="hi"><span>${_fitnessEscape(l.pace || "Pace")}</span><strong>${_fitnessEscape(runPace)}</strong></div>`);
     }
     const items = itemList.join("");
-    this.shadowRoot.innerHTML = `<ha-card><div class="hi-title">${_fitnessEscape(this.config.title || l.latest_workout || "Latest workout")}</div><div class="hi-grid">${items || `<small>No completed workout data is available yet.</small>`}</div></ha-card><style>
-      ha-card{padding:18px}.hi-title{font-size:19px;font-weight:650}.hi-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}.hi{padding:10px;border-radius:12px;background:var(--secondary-background-color);min-width:0}.hi span{display:block;font-size:10px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hi strong{display:block;font-size:14px;margin-top:4px}@media(max-width:520px){.hi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}</style>`;
+    this.shadowRoot.innerHTML = `<ha-card>
+      ${workoutName ? `<div class="workout-name">${_fitnessEscape(workoutName)}</div>` : ""}
+      <div class="hi-grid">${items || `<small>${_fitnessEscape(l.no_workout_data || "No completed workout data is available yet.")}</small>`}</div>
+    </ha-card><style>
+      ha-card{padding:18px;min-width:0;overflow:hidden}
+      .workout-name{font-size:20px;font-weight:700;line-height:1.25;min-width:0;max-width:100%;overflow-wrap:anywhere;word-break:normal;white-space:normal}
+      .hi-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px;min-width:0}
+      .hi{padding:10px;border-radius:12px;background:var(--secondary-background-color);min-width:0;max-width:100%;overflow:hidden}
+      .hi span{display:block;font-size:10px;line-height:1.25;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .hi strong{display:block;font-size:14px;line-height:1.3;margin-top:4px;min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;word-break:normal}
+      .hi-grid>small{grid-column:1/-1;color:var(--secondary-text-color);line-height:1.4;overflow-wrap:anywhere}
+      @media(max-width:520px){.hi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    </style>`;
   }
 }
-
 
 class FitnessStrengthDetailsCard extends FitnessAutoProfileCard {
   _render() {

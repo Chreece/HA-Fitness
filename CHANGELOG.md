@@ -1,5 +1,7 @@
 # Changelog
 
+- Workout-device cleanup is now capability-aware: provider placeholder zeroes for unsupported movement/mechanical metrics are treated as missing, stale optional Workout registry entities are pruned on setup, and the old duplicate single-source entity is removed in favor of the merged source list.
+- Workout highlights now render the workout name as its own safely wrapping heading and suppress irrelevant zero/unknown/unavailable tiles so translated or long titles cannot escape their card.
 - RPE provider provenance is now adapter-aware. Fitness uses a provider-supplied session RPE as the initial completed-workout value when available, while keeping the Workout-card control editable; user overrides preserve the provider baseline and immediately recalculate session-RPE load and long-term RPE statistics.
 - Added documented session-RPE handling for Garmin self-evaluation data and Polar Training Load Pro. Garmin 1-10/self-evaluation fields and common `directWorkoutRpe` representations are normalized conservatively; Polar RPE uses the explicit value when available or derives it from documented Perceived Load = RPE × duration. Algorithmic WHOOP Strain, Suunto 1-5 feeling, and Hevy per-set RPE are deliberately not misclassified as session RPE.
 - Fixed live/provider workout reconciliation: live-capture sport is provisional, authoritative provider sport/name can replace it after sync, while Fitness-owned live metrics/HRR/RPE and provider metrics are merged into the same physical workout using conservative time/duration/end matching.

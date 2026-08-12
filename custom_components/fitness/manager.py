@@ -530,6 +530,20 @@ class FitnessManager:
 
         return True
 
+    def forget_materialized_sensor(
+        self,
+        key: str,
+        *,
+        persist: bool = True,
+    ) -> bool:
+        """Forget an optional sensor that no longer represents usable data."""
+        if key not in self.materialized_sensor_keys:
+            return False
+        self.materialized_sensor_keys.discard(key)
+        if persist:
+            self.hass.async_create_task(self._save())
+        return True
+
     def remember_materialized_sensors(
         self,
         keys: set[str],
