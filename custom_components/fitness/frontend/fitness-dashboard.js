@@ -1,4 +1,4 @@
-const FITNESS_DASHBOARD_VERSION = "2026.8.4.11";
+const FITNESS_DASHBOARD_VERSION = "2026.8.4.12";
 
 
 const PICKER_DESCRIPTIONS = {
@@ -276,9 +276,12 @@ class FitnessRouteCard extends HTMLElement {
     const runPace = running ? _fitnessRunPace(this._profile, this._hass) : null;
     const keys = [
       "last_workout", "last_workout_distance", "last_workout_duration",
-      "last_workout_average_speed", "last_workout_avg_hr",
-      "last_workout_avg_power", "last_workout_avg_cadence",
-      "last_workout_elevation_gain", "last_workout_calories"
+      "last_workout_average_speed", "last_workout_avg_hr", "last_workout_max_hr",
+      "last_workout_hrr_60s", "last_workout_avg_power", "last_workout_weighted_power",
+      "last_workout_avg_cadence", "last_workout_elevation_gain",
+      "last_workout_calories", "last_workout_banister_trimp",
+      "last_workout_aerobic_efficiency", "last_workout_aerobic_decoupling",
+      "last_workout_training_load", "last_workout_vo2max"
     ];
     const items = keys.map((key) => ({key, entityId: e[key]})).filter((item) => item.entityId).map(({key, entityId}) => {
       const state = this._hass.states[entityId];
@@ -807,6 +810,7 @@ class FitnessSleepStageCard extends HTMLElement {
       const profile = profiles.find((item) => item.entry_id === this.config.profile_entry_id) || (profiles.length === 1 ? profiles[0] : null);
       this._profile = profile;
       const e = profile?.entities || {};
+      this._durationEntity = e.last_sleep_duration || null;
       this._resolvedEntities = ["last_sleep_awake", "last_sleep_light", "last_sleep_deep", "last_sleep_rem"].map((key) => e[key]).filter(Boolean);
     } catch (_err) {
       this._resolvedEntities = [];
@@ -838,7 +842,13 @@ class FitnessSleepStageCard extends HTMLElement {
       const value = Number(state?.state);
       return Number.isFinite(value) && value >= 0 ? { entity, value, color: palette[index % palette.length] } : null;
     }).filter(Boolean);
-    const total = values.reduce((sum, item) => sum + item.value, 0);
+    const stageTotal = values.reduce((sum, item) => sum + item.value, 0);
+    const durationState = this._durationEntity ? this._hass.states[this._durationEntity] : null;
+    const durationValue = Number(durationState?.state);
+    const total = stageTotal;
+    const displayTotal = Number.isFinite(durationValue) && durationValue > 0
+      ? this._formatMinutes(durationValue, durationState?.attributes?.unit_of_measurement || "min")
+      : this._formatMinutes(stageTotal, "min");
     const labels = this._profile?.labels || {};
     const title = this.config.title || labels.latest_sleep || "Latest sleep";
     if (!values.length || total <= 0) {
@@ -856,7 +866,7 @@ class FitnessSleepStageCard extends HTMLElement {
       const pct = item.value / total * 100;
       return `<div class="legend-row"><span class="dot" style="background:${item.color}"></span><span class="label">${this._escape(entityName(this._hass, item.entity))}</span><strong>${this._formatMinutes(item.value, unit)}</strong><span class="pct">${pct.toFixed(0)}%</span></div>`;
     }).join("");
-    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="body"><div class="donut" style="background:conic-gradient(${stops})"><div class="hole"><strong>${this._formatMinutes(total, "min")}</strong></div></div><div class="legend">${legend}</div></div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 6px}.body{display:grid;grid-template-columns:140px 1fr;align-items:center;gap:18px;padding:10px 16px 18px}.donut{width:124px;height:124px;border-radius:50%;display:grid;place-items:center}.hole{width:76px;height:76px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color));display:flex;flex-direction:column;align-items:center;justify-content:center}.hole strong{font-size:18px;text-align:center;line-height:1.15;padding:4px}.hole span{font-size:11px;color:var(--secondary-text-color)}.legend-row{display:grid;grid-template-columns:10px 1fr auto 38px;gap:8px;align-items:center;margin:8px 0;font-size:12px}.dot{width:9px;height:9px;border-radius:50%}.label{color:var(--secondary-text-color)}.pct{text-align:right;color:var(--secondary-text-color)}@media(max-width:480px){.body{grid-template-columns:1fr}.donut{margin:auto}}</style>`;
+    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="body"><div class="donut" style="background:conic-gradient(${stops})"><div class="hole"><strong>${displayTotal}</strong></div></div><div class="legend">${legend}</div></div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 6px}.body{display:grid;grid-template-columns:140px 1fr;align-items:center;gap:18px;padding:10px 16px 18px}.donut{width:124px;height:124px;border-radius:50%;display:grid;place-items:center}.hole{width:76px;height:76px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color));display:flex;flex-direction:column;align-items:center;justify-content:center}.hole strong{font-size:18px;text-align:center;line-height:1.15;padding:4px}.hole span{font-size:11px;color:var(--secondary-text-color)}.legend-row{display:grid;grid-template-columns:10px 1fr auto 38px;gap:8px;align-items:center;margin:8px 0;font-size:12px}.dot{width:9px;height:9px;border-radius:50%}.label{color:var(--secondary-text-color)}.pct{text-align:right;color:var(--secondary-text-color)}@media(max-width:480px){.body{grid-template-columns:1fr}.donut{margin:auto}}</style>`;
   }
 
   _escape(value) { return String(value ?? "").replace(/[&<>"']/g, (ch) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch])); }
@@ -1338,10 +1348,10 @@ class FitnessWorkoutCard extends FitnessCompositeCard {
   _render() {
     if (!this.shadowRoot || !this._hass || !this._profile) return;
     const l = this._profile.labels || {};
-    const children = [this._mount("fitness-workout-highlights-card")];
-    if ((this._profile.route_candidates || []).length) {
-      children.push(this._mount("fitness-route-card", {height: Number(this.config.map_height || 330)}));
-    }
+    const hasRoute = (this._profile.route_candidates || []).length > 0;
+    const children = hasRoute
+      ? [this._mount("fitness-route-card", {height: Number(this.config.map_height || 330)})]
+      : [this._mount("fitness-workout-highlights-card")];
     const e = this._profile.entities || {};
     if (["last_workout_efficiency_vs_baseline","last_workout_decoupling_vs_baseline","last_workout_hr_vs_baseline","last_workout_power_vs_baseline","last_workout_speed_vs_baseline","last_workout_trimp_vs_recent"].some(k => e[k])) {
       children.push(this._mount("fitness-comparison-card"));

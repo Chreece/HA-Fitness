@@ -13,7 +13,7 @@ def test_three_consolidated_cards_are_registered():
 
 
 def test_workout_composite_is_capability_aware():
-    assert 'if ((this._profile.route_candidates || []).length)' in JS
+    assert 'const hasRoute = (this._profile.route_candidates || []).length > 0' in JS
     assert 'fitness-workout-highlights-card' in JS
     assert 'fitness-route-card' in JS
     assert 'fitness-comparison-card' in JS

@@ -170,11 +170,43 @@ def merge_sleep_records(group: list[SleepRecord]) -> SleepRecord:
         for domain, values in record.provider_values.items():
             merged.provider_values.setdefault(domain, {}).update(values)
 
+    # Keep the core sleep-duration/stage bundle coherent. When multiple
+    # providers describe the same physical night, do not combine a duration
+    # from provider A with Light/Deep/REM from provider B. Prefer the strongest
+    # record that contains a usable sleep duration plus at least the three
+    # physiological sleep stages, then use that record consistently for the
+    # bundle. Other provider values remain preserved in provider_values.
+    stage_bundle_fields = {
+        "duration_s", "light_sleep_s", "deep_sleep_s", "rem_sleep_s", "awake_s"
+    }
+    stage_bundle_candidates = [
+        record for record in group
+        if record.duration_s is not None
+        and all(
+            getattr(record, field_name) is not None
+            for field_name in ("light_sleep_s", "deep_sleep_s", "rem_sleep_s")
+        )
+    ]
+    stage_bundle_winner = (
+        max(
+            stage_bundle_candidates,
+            key=lambda record: _candidate_rank(record, "duration_s"),
+        )
+        if stage_bundle_candidates
+        else None
+    )
+
     for field_name in scalar_fields:
         candidates = [record for record in group if getattr(record, field_name) is not None]
         if not candidates:
             continue
-        winner = max(candidates, key=lambda record: _candidate_rank(record, field_name))
+        winner = (
+            stage_bundle_winner
+            if stage_bundle_winner is not None
+            and field_name in stage_bundle_fields
+            and getattr(stage_bundle_winner, field_name) is not None
+            else max(candidates, key=lambda record: _candidate_rank(record, field_name))
+        )
         value = getattr(winner, field_name)
         setattr(merged, field_name, value)
         merged.field_sources[field_name] = (

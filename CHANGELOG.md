@@ -2,6 +2,11 @@
 
 ## 2026.8.4
 
+- Sleep merge consistency: when multiple providers describe the same night, Fitness now keeps duration + Light/Deep/REM/Awake from one coherent stage-rich provider bundle instead of mixing a duration from one provider with stages from another. The Sleep & Recovery donut total also reads the merged `last_sleep_duration` entity directly.
+- Workout card deduplication: GPS workouts now show the map followed by the complete normalized workout metric grid only once. The separate pre-map workout summary is kept only for workouts without route data.
+- Hassfest dependency fixes: declare Home Assistant `http` as a dependency and optional Recorder integration access through `after_dependencies`.
+- GitHub Actions maintenance: update `actions/checkout` from v4 to v5 (Node 24 runtime).
+
 - Fixed Home Assistant **Add Card** discovery for the three consolidated Fitness cards: the frontend now mutates the existing `window.customCards` registry in place instead of replacing the Array object, preserving Home Assistant's registry reference.
 - Disabled automatic picker previews for the asynchronous/profile-aware Fitness summary cards. They remain fully selectable and visually configurable, but the card picker no longer instantiates live workout/sleep/evaluation content before a stable configuration exists.
 

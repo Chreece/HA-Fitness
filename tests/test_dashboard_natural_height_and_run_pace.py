@@ -12,7 +12,8 @@ def test_custom_profile_cards_use_natural_sections_height():
 
 def test_sleep_stage_card_formats_long_minutes():
     assert '_formatMinutes(value, unit = "min")' in JS
-    assert 'this._formatMinutes(total, "min")' in JS
+    assert 'const displayTotal' in JS
+    assert '${displayTotal}' in JS
     assert 'this._formatMinutes(item.value, unit)' in JS
 
 def test_merged_workout_sport_normalizes_nested_garmin_shape():
