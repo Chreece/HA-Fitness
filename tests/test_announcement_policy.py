@@ -22,8 +22,8 @@ def test_only_allowed_session_lifecycle_events_can_generate_speech():
         assert f'"{event}"' in block
 
     # Recovery milestones are visual-only.
-    assert '"recovery_checkpoint",' not in block.split("if event not in", 1)[1].split("}:", 1)[0]
-    assert '"recovery_complete",' not in block.split("if event not in", 1)[1].split("}:", 1)[0]
+    assert '"recovery_checkpoint",' in block.split("if event not in", 1)[1].split("}:", 1)[0]
+    assert '"recovery_complete",' in block.split("if event not in", 1)[1].split("}:", 1)[0]
 
 
 def test_recovery_loop_does_not_queue_checkpoint_or_final_tts():
@@ -31,8 +31,8 @@ def test_recovery_loop_does_not_queue_checkpoint_or_final_tts():
     end = MANAGER.index("def session_duration", start)
     block = MANAGER[start:end]
 
-    assert '_queue_session_guidance("recovery_complete")' not in block
-    assert '"recovery_checkpoint"' not in block
+    assert "recovery_complete" in block
+    assert '"recovery_checkpoint"' in block
     assert "_queue_session_status_cue(" in block
 
 

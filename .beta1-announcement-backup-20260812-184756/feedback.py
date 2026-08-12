@@ -365,121 +365,6 @@ _SESSION_MESSAGES = {
 }
 
 
-
-# 2026.8.9-beta1: complete spoken workout lifecycle.
-
-_SESSION_LIFECYCLE_EXTRAS = {
-    "en": {
-        "paused": "Workout paused. Paused time and movement are excluded.",
-        "resumed": "Workout resumed. Timing and workout calculations are active again.",
-    },
-    "el": {
-        "paused": "Η προπόνηση τέθηκε σε παύση. Ο χρόνος και η κίνηση της παύσης εξαιρούνται.",
-        "resumed": "Η προπόνηση συνεχίστηκε. Το χρονόμετρο και οι υπολογισμοί είναι ξανά ενεργοί.",
-    },
-    "de": {
-        "paused": "Training pausiert. Pausenzeit und Bewegung werden nicht gewertet.",
-        "resumed": "Training fortgesetzt. Timer und Trainingsberechnungen laufen wieder.",
-    },
-    "fr": {
-        "paused": "Entraînement en pause. Le temps et le mouvement de la pause sont exclus.",
-        "resumed": "Entraînement repris. Le chronomètre et les calculs sont de nouveau actifs.",
-    },
-    "es": {
-        "paused": "Entrenamiento en pausa. El tiempo y el movimiento de la pausa se excluyen.",
-        "resumed": "Entrenamiento reanudado. El tiempo y los cálculos vuelven a estar activos.",
-    },
-    "it": {
-        "paused": "Allenamento in pausa. Tempo e movimento della pausa vengono esclusi.",
-        "resumed": "Allenamento ripreso. Timer e calcoli sono di nuovo attivi.",
-    },
-    "pt": {
-        "paused": "Treino em pausa. O tempo e o movimento da pausa são excluídos.",
-        "resumed": "Treino retomado. O temporizador e os cálculos estão novamente ativos.",
-    },
-    "nl": {
-        "paused": "Training gepauzeerd. Pauzetijd en beweging tellen niet mee.",
-        "resumed": "Training hervat. De timer en trainingsberekeningen zijn weer actief.",
-    },
-    "pl": {
-        "paused": "Trening wstrzymany. Czas i ruch podczas pauzy nie są wliczane.",
-        "resumed": "Trening wznowiony. Czas i obliczenia są ponownie aktywne.",
-    },
-    "ru": {
-        "paused": "Тренировка приостановлена. Время и движение во время паузы не учитываются.",
-        "resumed": "Тренировка продолжена. Таймер и расчёты снова активны.",
-    },
-    "uk": {
-        "paused": "Тренування призупинено. Час і рух під час паузи не враховуються.",
-        "resumed": "Тренування продовжено. Таймер і розрахунки знову активні.",
-    },
-    "tr": {
-        "paused": "Antrenman duraklatıldı. Duraklama süresi ve hareket hesaba katılmaz.",
-        "resumed": "Antrenman devam ediyor. Sayaç ve hesaplamalar yeniden etkin.",
-    },
-    "zh": {
-        "paused": "训练已暂停。暂停期间的时间和运动不会计入训练。",
-        "resumed": "训练已继续。计时和训练计算已重新开始。",
-    },
-    "ja": {
-        "paused": "ワークアウトを一時停止しました。一時停止中の時間と動きは除外されます。",
-        "resumed": "ワークアウトを再開しました。タイマーと計算が再び有効になりました。",
-    },
-    "ko": {
-        "paused": "운동을 일시 중지했습니다. 일시 중지 시간과 움직임은 운동에서 제외됩니다.",
-        "resumed": "운동을 재개했습니다. 타이머와 운동 계산이 다시 활성화되었습니다.",
-    },
-}
-
-for _code, _values in _SESSION_LIFECYCLE_EXTRAS.items():
-    _SESSION_MESSAGES.setdefault(_code, {}).update(_values)
-
-
-_SESSION_MOTIVATION = {
-    "en": "Start controlled, stay consistent, and make this session yours.",
-    "el": "Ξεκίνα ελεγχόμενα, κράτησε σταθερό ρυθμό και κάνε αυτή την προπόνηση δική σου.",
-    "de": "Starte kontrolliert, bleib konstant und mach dieses Training zu deinem.",
-    "fr": "Commence de façon contrôlée, reste régulier et fais de cette séance la tienne.",
-    "es": "Empieza con control, mantén la constancia y haz tuyo este entrenamiento.",
-    "it": "Parti controllato, resta costante e rendi tuo questo allenamento.",
-    "pt": "Começa com controlo, mantém a consistência e faz deste treino o teu treino.",
-    "nl": "Begin gecontroleerd, blijf constant en maak deze training van jou.",
-    "pl": "Zacznij spokojnie, trzymaj rytm i zrób z tego treningu swoją sesję.",
-    "ru": "Начни контролируемо, держи стабильный темп и сделай эту тренировку своей.",
-    "uk": "Починай контрольовано, тримай стабільний темп і зроби це тренування своїм.",
-    "tr": "Kontrollü başla, istikrarlı kal ve bu antrenmanı kendine göre tamamla.",
-    "zh": "稳稳开始，保持节奏，把这次训练变成属于你的高质量训练。",
-    "ja": "落ち着いて始め、安定したリズムで、このセッションを自分のものにしましょう。",
-    "ko": "차분하게 시작하고 꾸준한 리듬을 유지하며 이번 운동을 좋은 세션으로 만들어 보세요.",
-}
-
-
-_SESSION_CONGRATULATION = {
-    "en": "Great work—be proud of the effort you put in today.",
-    "el": "Μπράβο για τη δουλειά σου—να είσαι περήφανος για την προσπάθεια που έκανες σήμερα.",
-    "de": "Starke Arbeit—sei stolz auf den Einsatz, den du heute gezeigt hast.",
-    "fr": "Beau travail—sois fier de l’effort fourni aujourd’hui.",
-    "es": "Gran trabajo—siéntete orgulloso del esfuerzo que has hecho hoy.",
-    "it": "Ottimo lavoro—sii orgoglioso dell’impegno che hai messo oggi.",
-    "pt": "Excelente trabalho—orgulha-te do esforço que fizeste hoje.",
-    "nl": "Sterk gewerkt—wees trots op de inzet die je vandaag hebt geleverd.",
-    "pl": "Świetna robota—bądź dumny z wysiłku, który dziś włożyłeś.",
-    "ru": "Отличная работа—гордись усилиями, которые ты сегодня приложил.",
-    "uk": "Чудова робота—пишайся зусиллями, які ти сьогодні доклав.",
-    "tr": "Harika iş—bugün gösterdiğin emekle gurur duy.",
-    "zh": "做得很好——为今天付出的努力感到骄傲。",
-    "ja": "よく頑張りました。今日積み重ねた努力を誇りに思ってください。",
-    "ko": "정말 잘했습니다. 오늘 쏟은 노력에 자부심을 가지세요.",
-}
-
-
-def static_congratulation(language: str | None) -> str:
-    code = language_code(language)
-    return _SESSION_CONGRATULATION.get(
-        code,
-        _SESSION_CONGRATULATION["en"],
-    )
-
 def static_session_message(
     language: str | None,
     event: str,
@@ -514,19 +399,11 @@ def static_session_message(
             "ko": "사용 가능한 센서",
         }.get(code, "the available sensors")
 
-    message = template.format(
+    return template.format(
         sensors=sensor_text,
         seconds=seconds if seconds is not None else 0,
         remaining=remaining if remaining is not None else 0,
     )
-
-    if event in {"started_with_live", "live_available", "resumed"}:
-        message += " " + _SESSION_MOTIVATION.get(
-            code,
-            _SESSION_MOTIVATION["en"],
-        )
-
-    return message
 
 def static_workout_message(
     language: str | None,

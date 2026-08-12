@@ -1,14 +1,5 @@
 # Changelog
 
-## 2026.8.9-beta1
-
-- Completed the spoken workout lifecycle: waiting/ready/start, pause, resume, all 10/30/60/120-second heart-rate-recovery checkpoints, recovery completion and final workout feedback now use AI guidance with localized deterministic TTS fallback.
-- HR-recovery checkpoints announce whether HR was collected and how many seconds remain.
-- Periodic coaching now receives every available canonical live measurement: heart rate, power, cadence, speed, distance and altitude, plus derived personal context and recent trends. AI coaching ends with an actionable cue and short motivational line.
-- Workout start/resume guidance includes motivation. Final workout feedback adds congratulations only when enough meaningful workout/recovery data was collected.
-- AI announcement prompts explicitly require the configured Fitness language; non-AI environments retain localized deterministic TTS.
-
-
 ## 2026.8.6
 
 - Added **Fitness Training Readiness**, a transparent 0–100 Fitness-owned readiness estimate that combines available personal autonomic recovery, sleep, training recovery and post-exercise recovery evidence. Missing domains are omitted and weights are renormalized; the entity exposes component scores, evidence, confidence, formula and scientific basis in attributes.

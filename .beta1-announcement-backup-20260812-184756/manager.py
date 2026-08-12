@@ -89,7 +89,6 @@ from .engine.live import (
 from .feedback import (
     intensity_rgb,
     static_intensity_message,
-    static_congratulation,
     static_periodic_live_message,
     static_session_message,
     static_workout_message,
@@ -1684,11 +1683,7 @@ class FitnessManager:
             "started_with_live",
             "live_available",
             "stopped_without_live",
-            "paused",
-            "resumed",
             "recovery_wait",
-            "recovery_checkpoint",
-            "recovery_complete",
             "no_recovery",
         }:
             return None
@@ -1725,25 +1720,16 @@ class FitnessManager:
             ),
             "started_with_live": (
                 "Say that the workout has started, name the supplied live sensors "
-                "naturally, say the workout timer has started, and finish with one "
-                "short original motivational line."
+                "naturally, and say the workout timer has started."
             ),
             "live_available": (
                 "Say that live data is now available, name the supplied sensors, "
-                "say the workout timer has started, tell the user they can begin, "
-                "and finish with one short original motivational line."
+                "say the workout timer has started, and tell the user they can "
+                "begin the workout."
             ),
             "stopped_without_live": (
                 "Say the workout was stopped before live sensor data arrived and "
                 "therefore no live workout was recorded."
-            ),
-            "paused": (
-                "Say the workout is paused and that paused time and movement "
-                "are excluded."
-            ),
-            "resumed": (
-                "Say the workout resumed, timing and calculations are active "
-                "again, and finish with one short encouraging motivational line."
             ),
             "recovery_wait": (
                 "Say the workout timer has stopped and ask the user to wait while "
@@ -1770,7 +1756,6 @@ class FitnessManager:
 
         prompt = (
             "Create ONE short spoken Home Assistant fitness status message. "
-            f"MANDATORY OUTPUT LANGUAGE: {self._prompt_strings()['language']}. "
             f"{instructions} "
             "Do not add medical advice, do not invent sensor names or values, "
             "and do not add information absent from the context. "
@@ -1952,19 +1937,6 @@ class FitnessManager:
             'power_relative_threshold_percent':round(power_thr,1) if power_thr is not None else None,
             'cadence_per_min':round(live.get(METRIC_CADENCE)) if live.get(METRIC_CADENCE) is not None else None,
             'speed_kmh':round(current_speed,2) if current_speed is not None else None,'pace_min_km':round(pace,2) if pace is not None else None,
-            'distance_km':round(live.get(METRIC_DISTANCE),3) if live.get(METRIC_DISTANCE) is not None else None,
-            'altitude_m':round(live.get(METRIC_ALTITUDE),1) if live.get(METRIC_ALTITUDE) is not None else None,
-            'available_live_metrics':{
-                key:value for key,value in {
-                    'heart_rate_bpm':round(heart_rate) if heart_rate is not None else None,
-                    'power_w':round(current_power) if current_power is not None else None,
-                    'cadence_per_min':round(live.get(METRIC_CADENCE)) if live.get(METRIC_CADENCE) is not None else None,
-                    'speed_kmh':round(current_speed,2) if current_speed is not None else None,
-                    'distance_km':round(live.get(METRIC_DISTANCE),3) if live.get(METRIC_DISTANCE) is not None else None,
-                    'altitude_m':round(live.get(METRIC_ALTITUDE),1) if live.get(METRIC_ALTITUDE) is not None else None,
-                }.items()
-                if value is not None
-            },
             'speed_relative_threshold_percent':round(speed_thr,1) if speed_thr is not None else None,
             'heart_rate_trend':self._recent_live_trend(METRIC_HEART_RATE),'power_trend':self._recent_live_trend(METRIC_POWER),
             'cadence_trend':self._recent_live_trend(METRIC_CADENCE),'speed_trend':self._recent_live_trend(METRIC_SPEED),
@@ -2036,10 +2008,7 @@ class FitnessManager:
 
             prompt = (
                 "Give ONE concise spoken coaching update for an ongoing workout. "
-                f"MANDATORY OUTPUT LANGUAGE: {strings['language']}. "
-                "Use every value in available_live_metrics as context and do not "
-                "ignore an available primary live sensor. Interpret the structured "
-                "data instead of merely reading fields aloud. "
+                "Interpret the structured data instead of reading fields aloud. "
                 "Prioritize individualized relative intensity: %HRR, heart rate "
                 "versus threshold, power versus threshold, current power-to-weight, "
                 "and pace/speed versus threshold when available. Use recent trends "
@@ -2049,12 +2018,10 @@ class FitnessManager:
                 "BPM naturally. Mention no more than three numerical values total. "
                 "Use simple athlete-friendly language to say whether the effort looks "
                 "easy, steady, near threshold, above threshold, or changing only when "
-                "the supplied relative data supports that interpretation. Give one "
-                "short actionable coaching cue and finish with one original "
-                "motivational quote or motivational sentence. Do not diagnose disease, "
-                "do not "
+                "the supplied relative data supports that interpretation. End with "
+                "one short actionable coaching cue. Do not diagnose disease, do not "
                 "invent zones, and do not treat FTP, critical power and lactate-"
-                "threshold power as interchangeable. Keep it about 35-65 spoken words, "
+                "threshold power as interchangeable. Keep it about 25-45 spoken words, "
                 "no bullet points, and output only the sentence in "
                 f"{strings['language']}.\n\n"
                 f"Live coaching context: "
@@ -2073,51 +2040,6 @@ class FitnessManager:
 
         return self._static_smart_live_message(context)
 
-
-    def _static_periodic_extra_message(self, context: dict) -> str:
-        """Localized extra primary live data for deterministic periodic TTS."""
-        labels = {
-            "en": ("Time", "Speed", "Distance", "Altitude"),
-            "el": ("Χρόνος", "Ταχύτητα", "Απόσταση", "Υψόμετρο"),
-            "de": ("Zeit", "Geschwindigkeit", "Distanz", "Höhe"),
-            "fr": ("Temps", "Vitesse", "Distance", "Altitude"),
-            "es": ("Tiempo", "Velocidad", "Distancia", "Altitud"),
-            "it": ("Tempo", "Velocità", "Distanza", "Altitudine"),
-            "pt": ("Tempo", "Velocidade", "Distância", "Altitude"),
-            "nl": ("Tijd", "Snelheid", "Afstand", "Hoogte"),
-            "pl": ("Czas", "Prędkość", "Dystans", "Wysokość"),
-            "ru": ("Время", "Скорость", "Дистанция", "Высота"),
-            "uk": ("Час", "Швидкість", "Дистанція", "Висота"),
-            "tr": ("Süre", "Hız", "Mesafe", "Rakım"),
-            "zh": ("时间", "速度", "距离", "海拔"),
-            "ja": ("時間", "速度", "距離", "高度"),
-            "ko": ("시간", "속도", "거리", "고도"),
-        }.get(
-            self._ai_language(),
-            ("Time", "Speed", "Distance", "Altitude"),
-        )
-
-        parts = []
-
-        duration = context.get("session_duration_minutes")
-        speed = context.get("speed_kmh")
-        distance = context.get("distance_km")
-        altitude = context.get("altitude_m")
-
-        if duration is not None:
-            parts.append(f"{labels[0]} {duration:.0f} min.")
-
-        if speed is not None:
-            parts.append(f"{labels[1]} {speed:.1f} km/h.")
-
-        if distance is not None:
-            parts.append(f"{labels[2]} {distance:.2f} km.")
-
-        if altitude is not None:
-            parts.append(f"{labels[3]} {altitude:.0f} m.")
-
-        return " ".join(parts)
-
     def _static_smart_live_message(
         self,
         context: dict,
@@ -2133,13 +2055,6 @@ class FitnessManager:
             cadence=context.get("cadence_per_min"),
             pace=context.get("pace_min_km"),
         )
-
-        more = self._static_periodic_extra_message(context)
-
-        if base and more:
-            base = f"{base} {more}"
-        elif more:
-            base = more
 
         if not base:
             return None
@@ -2550,46 +2465,11 @@ class FitnessManager:
             else static_message
         )
 
-        rich_count = sum(
-            value is not None
-            for value in (
-                workout.duration_s,
-                workout.distance_m,
-                workout.avg_hr,
-                workout.max_hr,
-                workout.avg_power,
-                workout.avg_cadence,
-                workout.banister_trimp,
-                workout.hrr_60s,
-                workout.hrr_120s,
-            )
-        )
-        rich = rich_count >= 3
-
+        # Keep spoken feedback concise even when the AI workout paragraph is long.
         spoken = message
-
         if self.config.get(CONF_AI_ENABLED) and self.ai_workout:
-            sentences = [
-                s
-                for s in re.split(r"(?<=[.!?])\s+", self.ai_workout)
-                if s.strip()
-            ]
-
-            if rich and len(sentences) > 2:
-                spoken = " ".join(
-                    [sentences[0], sentences[-1]]
-                ).strip()
-            else:
-                spoken = (
-                    " ".join(sentences[:2]).strip()
-                    or self.ai_workout
-                )
-
-        elif rich:
-            spoken = (
-                f"{static_message} "
-                f"{static_congratulation(self._ai_language())}"
-            )
+            sentences = re.split(r"(?<=[.!?])\s+", self.ai_workout)
+            spoken = " ".join(sentences[:2]).strip() or self.ai_workout
 
         await self._async_speak(spoken)
         await self._async_notify(
@@ -3318,7 +3198,6 @@ class FitnessManager:
         if self._feedback_scene_active:
             await self._async_restore_feedback_lights(clear_snapshot=True)
 
-        self._queue_session_guidance("paused")
         self._notify()
         self._notify_live()
 
@@ -3382,7 +3261,6 @@ class FitnessManager:
                     )
                 )
 
-        self._queue_session_guidance("resumed")
         self._notify()
         self._notify_live()
 
@@ -3511,7 +3389,6 @@ class FitnessManager:
             (120, "hrr_120s"),
         )
         elapsed = 0
-        recovery_completed = False
 
         try:
             for seconds, field_name in checkpoints:
@@ -3534,13 +3411,6 @@ class FitnessManager:
                         checkpoint_color,
                     )
 
-                self._queue_session_guidance(
-                    "recovery_checkpoint",
-                    seconds=seconds,
-                    remaining=remaining,
-                    collected=(hr is not None),
-                )
-
                 if hr is None:
                     continue
 
@@ -3553,8 +3423,6 @@ class FitnessManager:
 
                 await self._save()
                 self._notify()
-
-            recovery_completed = True
 
         except asyncio.CancelledError:
             return
@@ -3569,11 +3437,6 @@ class FitnessManager:
             self.capture_control = await self._async_antplus_control(False)
             await self._save()
             self._notify()
-
-            if recovery_completed:
-                await self._async_announce_session_guidance(
-                    "recovery_complete"
-                )
 
             # The completed workout evaluation/summary now sees all available
             # HR-recovery checkpoints rather than the pre-recovery workout.
@@ -5613,11 +5476,7 @@ class FitnessManager:
 
         return (
             strings["workout"]
-            + f"\nMANDATORY OUTPUT LANGUAGE: {strings['language']}."
-            + "\nIf at least three meaningful workout or recovery measurements "
-              "are present, finish with one short congratulatory motivational "
-              "sentence. Never invent records or achievements not supported "
-              "by the evidence."
+            + f"\nOutput language: {strings['language']}."
             + "\n\nWorkout evidence:\n"
             + self._bounded_ai_json(self._ai_workout_summary(workout), max_bytes=9000)
             + "\n\nCurrent evaluation context:\n"
