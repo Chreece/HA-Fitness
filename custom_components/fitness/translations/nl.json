@@ -2583,6 +2583,15 @@
   "device": {
     "recovery": {
       "name": "Herstel"
+    },
+    "evaluation": {
+      "name": "Evaluatie"
+    },
+    "live": {
+      "name": "Live training"
+    },
+    "workout": {
+      "name": "Trainingen"
     }
   }
 }

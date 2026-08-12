@@ -1182,6 +1182,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
     const autonomic = this._hass.states[e.autonomic_recovery_trend];
     const sleepDuration = this._hass.states[e.last_sleep_duration];
     const sleepHrv = this._hass.states[e.last_sleep_hrv];
+    const sleepScore = this._hass.states[e.last_sleep_score];
     const deficit = this._hass.states[e.sleep_deficit_7d];
     const classifiedSleepMinutes = [
       e.last_sleep_light, e.last_sleep_deep, e.last_sleep_rem,
@@ -1231,6 +1232,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
         ${rhrVs == null ? "" : `<span>RHR ${rhrVs > 0 ? "+" : ""}${rhrVs.toFixed(1)} bpm vs 28d</span>`}
       </div>
       <div class="metrics">
+        ${this._sleepScoreMetric(l.sleep_score || "Sleep score", sleepScore)}
         ${this._metric(l.sleep_duration || "Sleep duration", effectiveSleepDuration, true)}
         ${this._metric(l.sleep_hrv || "Sleep HRV", sleepHrv)}
         ${this._metric(l.sleep_deficit || "7-day sleep deficit", deficit, true)}
@@ -1247,6 +1249,12 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
       @media(max-width:430px){.readiness-hero{grid-template-columns:92px minmax(0,1fr);gap:12px;padding:12px}.readiness-ring{width:84px;height:84px}.readiness-ring>div{width:62px;height:62px}.readiness-ring strong{font-size:26px;line-height:62px}.readiness-copy strong{font-size:20px}.components{grid-template-columns:1fr}}
     </style>`;
   }
+  _sleepScoreMetric(label, state) {
+    const value = _fitnessNumber(state?.state);
+    const display = value == null ? "—" : `${Math.max(0, Math.min(100, value)).toFixed(0)}%`;
+    return `<div class="metric sleep-score"><span>${_fitnessEscape(label)}</span><strong>${display}</strong></div>`;
+  }
+
   _metric(label, state, sleepDuration = false) {
     const value = sleepDuration ? _fitnessSleepDuration(state) : _fitnessDisplay(state, 1);
     return `<div class="metric"><span>${_fitnessEscape(label)}</span><strong>${_fitnessEscape(value)}</strong></div>`;

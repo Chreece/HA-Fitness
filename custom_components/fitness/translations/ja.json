@@ -2583,6 +2583,15 @@
   "device": {
     "recovery": {
       "name": "リカバリー"
+    },
+    "evaluation": {
+      "name": "評価"
+    },
+    "live": {
+      "name": "ライブトレーニング"
+    },
+    "workout": {
+      "name": "ワークアウト"
     }
   }
 }

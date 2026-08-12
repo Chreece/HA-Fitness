@@ -2583,6 +2583,15 @@
   "device": {
     "recovery": {
       "name": "회복"
+    },
+    "evaluation": {
+      "name": "평가"
+    },
+    "live": {
+      "name": "실시간 운동"
+    },
+    "workout": {
+      "name": "운동 기록"
     }
   }
 }

@@ -2583,6 +2583,15 @@
   "device": {
     "recovery": {
       "name": "Recovery"
+    },
+    "evaluation": {
+      "name": "Evaluation"
+    },
+    "live": {
+      "name": "Live workout"
+    },
+    "workout": {
+      "name": "Workouts"
     }
   }
 }

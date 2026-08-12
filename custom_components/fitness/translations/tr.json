@@ -2583,6 +2583,15 @@
   "device": {
     "recovery": {
       "name": "Toparlanma"
+    },
+    "evaluation": {
+      "name": "Değerlendirme"
+    },
+    "live": {
+      "name": "Canlı antrenman"
+    },
+    "workout": {
+      "name": "Antrenmanlar"
     }
   }
 }

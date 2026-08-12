@@ -26,10 +26,21 @@ def test_readiness_entity_is_on_recovery_device():
 
 
 def test_readiness_attributes_expose_evidence():
-    assert "_readiness_data_used" in SENSOR
-    assert 'evaluation_user_details(' in SENSOR
-    assert '"readiness"' in SENSOR
+    start = SENSOR.index('if m == "readiness":', SENSOR.index("def extra_state_attributes"))
+    end = SENSOR.index("sleep = self.manager.latest_sleep()", start)
+    section = SENSOR[start:end]
 
+    # Readiness exposes its calculated evidence directly through the normal
+    # evaluation-details path; it must never call the removed helper that caused
+    # the Home Assistant AttributeError.
+    assert "self._readiness_data_used" not in section
+    assert "evaluation_user_details(" in section
+    assert '"score": readiness.get("score")' in section
+    assert '"level": readiness.get("level")' in section
+    assert '"confidence_percent": readiness.get("confidence_percent")' in section
+    assert '"available_components": readiness.get("available_components")' in section
+    assert '"components": readiness.get("components")' in section
+    assert '"data_source": readiness.get("data_source")' in section
 
 def test_all_supported_translations_have_recovery_and_readiness():
     translations = ROOT / "custom_components/fitness/translations"

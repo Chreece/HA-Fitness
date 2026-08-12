@@ -2583,6 +2583,15 @@
   "device": {
     "recovery": {
       "name": "Récupération"
+    },
+    "evaluation": {
+      "name": "Évaluation"
+    },
+    "live": {
+      "name": "Entraînement en direct"
+    },
+    "workout": {
+      "name": "Entraînements"
     }
   }
 }

@@ -917,7 +917,14 @@ class FitnessSensor(SensorEntity):
                 details = evaluation_user_details(
                     self.manager._ai_language(),
                     "readiness",
-                    self._readiness_data_used(readiness),
+                    {
+                        "score": readiness.get("score"),
+                        "level": readiness.get("level"),
+                        "confidence_percent": readiness.get("confidence_percent"),
+                        "available_components": readiness.get("available_components"),
+                        "components": readiness.get("components"),
+                        "data_source": readiness.get("data_source"),
+                    },
                 )
                 attrs.update(details)
                 return attrs
