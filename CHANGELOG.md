@@ -2,6 +2,9 @@
 
 ## 2026.8.4
 
+- Fixed Home Assistant **Add Card** discovery for the three consolidated Fitness cards: the frontend now mutates the existing `window.customCards` registry in place instead of replacing the Array object, preserving Home Assistant's registry reference.
+- Disabled automatic picker previews for the asynchronous/profile-aware Fitness summary cards. They remain fully selectable and visually configurable, but the card picker no longer instantiates live workout/sleep/evaluation content before a stable configuration exists.
+
 - Workout map interaction now behaves like a native map: mouse/touch drag pans the route, two-finger pinch zooms on touchscreens, mouse wheel/trackpad zoom works on desktop, and double-tap/double-click fits the route again. The temporary gesture transform is rendered without rebuilding OSM tiles, with a single tile redraw when the gesture finishes.
 - Removed the map navigation/zoom button cluster because direct drag/pinch/wheel interaction replaces it.
 

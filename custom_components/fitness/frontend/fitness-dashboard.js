@@ -1,4 +1,4 @@
-const FITNESS_DASHBOARD_VERSION = "2026.8.4.10";
+const FITNESS_DASHBOARD_VERSION = "2026.8.4.11";
 
 
 const PICKER_DESCRIPTIONS = {
@@ -1504,36 +1504,43 @@ const FITNESS_PUBLIC_CARDS = [
   {
     type: "fitness-workout-card",
     name: "Fitness workout",
-    preview: true,
+    preview: false,
     description: "Latest workout metrics, route and personal-baseline comparison in one adaptive card.",
     documentationURL: "https://github.com/Chreece/HA-Fitness#fitness-dashboard",
   },
   {
     type: "fitness-sleep-recovery-card",
     name: "Fitness sleep & recovery",
-    preview: true,
+    preview: false,
     description: "Sleep stages, duration, HRV and recovery context in one adaptive card.",
     documentationURL: "https://github.com/Chreece/HA-Fitness#fitness-dashboard",
   },
   {
     type: "fitness-evaluation-card",
     name: "Fitness evaluation",
-    preview: true,
+    preview: false,
     description: "Fitness progress and training-load evaluation in one adaptive card.",
     documentationURL: "https://github.com/Chreece/HA-Fitness#fitness-dashboard",
   },
 ];
 
-// Remove registrations from previous Fitness dashboard revisions, then expose
-// only the three consolidated public cards.
+// Keep the original window.customCards Array object alive. Home Assistant may
+// already hold a reference to it; replacing the Array can make newly registered
+// cards disappear from the Add Card picker until a full frontend reload.
 const publicTypes = new Set(FITNESS_PUBLIC_CARDS.map((card) => card.type));
-window.customCards = window.customCards.filter(
-  (item) => !String(item?.type || "").startsWith("fitness-") || publicTypes.has(item.type)
-);
+for (let index = window.customCards.length - 1; index >= 0; index--) {
+  const type = String(window.customCards[index]?.type || "");
+  if (type.startsWith("fitness-") && !publicTypes.has(type)) {
+    window.customCards.splice(index, 1);
+  }
+}
 for (const card of FITNESS_PUBLIC_CARDS) {
   const index = window.customCards.findIndex((item) => item.type === card.type);
-  if (index >= 0) window.customCards[index] = card;
-  else window.customCards.push(card);
+  if (index >= 0) {
+    Object.assign(window.customCards[index], card);
+  } else {
+    window.customCards.push(card);
+  }
 }
 
 console.info(`%c HA-Fitness dashboard ${FITNESS_DASHBOARD_VERSION} `, "background:#41BDF5;color:#fff;font-weight:600;padding:3px 6px;border-radius:4px");
