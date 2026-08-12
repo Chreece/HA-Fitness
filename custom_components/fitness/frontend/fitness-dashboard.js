@@ -1,4 +1,4 @@
-const FITNESS_DASHBOARD_VERSION = "2026.8.4.12";
+const FITNESS_DASHBOARD_VERSION = "2026.8.4.13";
 
 
 const PICKER_DESCRIPTIONS = {
@@ -846,9 +846,18 @@ class FitnessSleepStageCard extends HTMLElement {
     const durationState = this._durationEntity ? this._hass.states[this._durationEntity] : null;
     const durationValue = Number(durationState?.state);
     const total = stageTotal;
-    const displayTotal = Number.isFinite(durationValue) && durationValue > 0
-      ? this._formatMinutes(durationValue, durationState?.attributes?.unit_of_measurement || "min")
-      : this._formatMinutes(stageTotal, "min");
+    const durationUnit = durationState?.attributes?.unit_of_measurement || "min";
+    const normalizedDurationMinutes = Number.isFinite(durationValue) && durationValue > 0
+      ? (
+          ["h", "hr", "hour", "hours"].includes(String(durationUnit).toLowerCase())
+            ? durationValue * 60
+            : ["s", "sec", "second", "seconds"].includes(String(durationUnit).toLowerCase())
+              ? durationValue / 60
+              : durationValue
+        )
+      : 0;
+    const effectiveTotalMinutes = Math.max(stageTotal, normalizedDurationMinutes);
+    const displayTotal = this._formatMinutes(effectiveTotalMinutes, "min");
     const labels = this._profile?.labels || {};
     const title = this.config.title || labels.latest_sleep || "Latest sleep";
     if (!values.length || total <= 0) {
@@ -1128,6 +1137,16 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
     const sleepDuration = this._hass.states[e.last_sleep_duration];
     const sleepHrv = this._hass.states[e.last_sleep_hrv];
     const deficit = this._hass.states[e.sleep_deficit_7d];
+    const classifiedSleepMinutes = [
+      e.last_sleep_light, e.last_sleep_deep, e.last_sleep_rem,
+    ].map((entityId) => _fitnessMinutesFromState(this._hass.states[entityId]))
+      .filter((value) => Number.isFinite(value))
+      .reduce((sum, value) => sum + value, 0);
+    const providerSleepMinutes = _fitnessMinutesFromState(sleepDuration) || 0;
+    const effectiveSleepMinutes = Math.max(providerSleepMinutes, classifiedSleepMinutes);
+    const effectiveSleepDuration = effectiveSleepMinutes > 0
+      ? {state: String(effectiveSleepMinutes), attributes: {unit_of_measurement: "min"}}
+      : sleepDuration;
 
     const hrvVs = _fitnessNumber(_fitnessAttr(autonomic, "sleep_hrv_vs_28d_percent"));
     const rhrVs = _fitnessNumber(_fitnessAttr(autonomic, "resting_hr_vs_28d_bpm"));
@@ -1149,7 +1168,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
         </div>
       </div>
       <div class="metrics">
-        ${this._metric(l.sleep_duration || "Sleep duration", sleepDuration, true)}
+        ${this._metric(l.sleep_duration || "Sleep duration", effectiveSleepDuration, true)}
         ${this._metric(l.sleep_hrv || "Sleep HRV", sleepHrv)}
         ${this._metric(l.sleep_deficit || "7-day sleep deficit", deficit, true)}
       </div>

@@ -196,6 +196,20 @@ def merge_sleep_records(group: list[SleepRecord]) -> SleepRecord:
         else None
     )
 
+    # A provider's total sleep time cannot be shorter than the sum of all
+    # classified asleep stages. Some integrations expose a stale/partial
+    # "duration" alongside a newer stage breakdown. Preserve a longer duration
+    # (it may include unclassified sleep), but raise an impossible shorter
+    # duration to Light + Deep + REM.
+    coherent_duration_s: float | None = None
+    if stage_bundle_winner is not None:
+        classified_sleep_s = sum(
+            float(getattr(stage_bundle_winner, field_name) or 0.0)
+            for field_name in ("light_sleep_s", "deep_sleep_s", "rem_sleep_s")
+        )
+        provider_duration_s = float(stage_bundle_winner.duration_s or 0.0)
+        coherent_duration_s = max(provider_duration_s, classified_sleep_s)
+
     for field_name in scalar_fields:
         candidates = [record for record in group if getattr(record, field_name) is not None]
         if not candidates:
@@ -208,9 +222,22 @@ def merge_sleep_records(group: list[SleepRecord]) -> SleepRecord:
             else max(candidates, key=lambda record: _candidate_rank(record, field_name))
         )
         value = getattr(winner, field_name)
+        if (
+            field_name == "duration_s"
+            and stage_bundle_winner is not None
+            and winner is stage_bundle_winner
+            and coherent_duration_s is not None
+        ):
+            value = coherent_duration_s
         setattr(merged, field_name, value)
         merged.field_sources[field_name] = (
-            (winner.field_sources or {}).get(field_name)
+            (
+                f"{winner.provider_domain}:classified_sleep_stages"
+                if field_name == "duration_s"
+                and coherent_duration_s is not None
+                and coherent_duration_s != getattr(winner, field_name)
+                else (winner.field_sources or {}).get(field_name)
+            )
             or winner.provider_domain
         )
 
