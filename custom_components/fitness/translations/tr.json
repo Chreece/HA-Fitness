@@ -2526,6 +2526,9 @@
             "name": "Neden yararlı"
           }
         }
+      },
+      "readiness": {
+        "name": "Antrenman hazırlığı"
       }
     },
     "button": {
@@ -2575,6 +2578,11 @@
         "11": "Kasım",
         "12": "Aralık"
       }
+    }
+  },
+  "device": {
+    "recovery": {
+      "name": "Toparlanma"
     }
   }
 }

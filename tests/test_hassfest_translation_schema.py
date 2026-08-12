@@ -9,6 +9,7 @@ BASE = ROOT / "custom_components/fitness"
 ALLOWED_TOP_LEVEL = {
     "title",
     "config",
+    "device",
     "options",
     "selector",
     "entity",

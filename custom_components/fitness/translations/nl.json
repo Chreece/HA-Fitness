@@ -2526,6 +2526,9 @@
             "name": "Waarom dit nuttig is"
           }
         }
+      },
+      "readiness": {
+        "name": "Trainingsbereidheid"
       }
     },
     "button": {
@@ -2575,6 +2578,11 @@
         "11": "November",
         "12": "December"
       }
+    }
+  },
+  "device": {
+    "recovery": {
+      "name": "Herstel"
     }
   }
 }

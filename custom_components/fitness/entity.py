@@ -24,9 +24,11 @@ def device_info(entry, kind: str) -> DeviceInfo:
     The identifiers stay unchanged, so existing entities, history, dashboards
     and automations survive the display-name migration.
     """
+    translated_kind = "recovery" if kind == "sleep" else kind
     label = device_name(_entry_language(entry), kind)
     return DeviceInfo(
         identifiers={(DOMAIN, f"{entry.entry_id}_{kind}")},
+        translation_key=translated_kind,
         name=label,
         manufacturer="Fitness",
         model=label,

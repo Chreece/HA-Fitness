@@ -4330,6 +4330,222 @@ class FitnessManager:
         }
 
     @staticmethod
+    def _readiness_clamp(value: float, low: float = 0.0, high: float = 100.0) -> float:
+        return max(low, min(high, float(value)))
+
+    def readiness_evaluation(self) -> dict[str, Any]:
+        """Return a transparent Fitness-owned 0-100 training readiness score.
+
+        Every component uses normalized/merged Fitness data. Missing components
+        are omitted and the remaining weights are renormalized. The score is
+        unavailable until at least two independent domains are present, including
+        sleep or autonomic recovery evidence.
+        """
+        now = datetime.now(timezone.utc)
+        sleep = self.sleep_long_term_summary()
+        workout = self.workout_long_term_summary()
+        longitudinal = self.recorder_long_term_evaluation()
+        latest_sleep = self.latest_sleep()
+        latest_workout = self.latest_workout()
+
+        components: dict[str, dict[str, Any]] = {}
+
+        def add_component(key: str, score: float | None, base_weight: float, evidence: dict[str, Any]):
+            if score is None:
+                return
+            clean_evidence = {k: v for k, v in evidence.items() if v is not None}
+            components[key] = {
+                "score": round(self._readiness_clamp(score), 1),
+                "base_weight": base_weight,
+                "evidence": clean_evidence,
+            }
+
+        # Autonomic recovery: personal HRV and resting-HR deviation from the
+        # user's own validated rolling baseline. No population cutoff is used.
+        autonomic_parts: list[float] = []
+        hrv_vs = sleep.get("sleep_hrv_vs_28d_percent")
+        if hrv_vs is not None:
+            autonomic_parts.append(self._readiness_clamp(70.0 + float(hrv_vs) * 3.0, 20.0, 100.0))
+        rhr_vs = longitudinal.get("resting_hr_vs_28d")
+        if rhr_vs is not None:
+            autonomic_parts.append(self._readiness_clamp(78.0 - float(rhr_vs) * 7.0, 20.0, 100.0))
+        add_component(
+            "autonomic",
+            mean(autonomic_parts) if autonomic_parts else None,
+            0.30,
+            {
+                "sleep_hrv_latest_ms": getattr(latest_sleep, "hrv_ms", None) if latest_sleep else None,
+                "sleep_hrv_28d_mean_ms": sleep.get("sleep_hrv_28d_mean_ms"),
+                "sleep_hrv_vs_28d_percent": hrv_vs,
+                "resting_hr_current_bpm": longitudinal.get("resting_hr_current"),
+                "resting_hr_28d_mean_bpm": longitudinal.get("resting_hr_28d_mean"),
+                "resting_hr_vs_28d_bpm": rhr_vs,
+            },
+        )
+
+        # Sleep recovery: current merged sleep plus validated recent sleep
+        # history. Provider-specific scores, when present, are only one optional
+        # input inside the merged Fitness sleep record.
+        sleep_parts: list[float] = []
+        duration_h = None
+        if latest_sleep and latest_sleep.duration_s is not None:
+            duration_h = float(latest_sleep.duration_s) / 3600.0
+            if duration_h < 4.0:
+                duration_score = 20.0
+            elif duration_h < 7.0:
+                duration_score = 20.0 + (duration_h - 4.0) / 3.0 * 80.0
+            elif duration_h <= 9.0:
+                duration_score = 100.0
+            elif duration_h <= 10.0:
+                duration_score = 100.0 - (duration_h - 9.0) * 10.0
+            else:
+                duration_score = 90.0
+            sleep_parts.append(duration_score)
+        merged_sleep_score = getattr(latest_sleep, "score", None) if latest_sleep else None
+        if merged_sleep_score is not None:
+            sleep_parts.append(self._readiness_clamp(float(merged_sleep_score)))
+        deficit = sleep.get("sleep_deficit_7d_min")
+        if deficit is not None:
+            sleep_parts.append(self._readiness_clamp(100.0 - float(deficit) / 420.0 * 80.0, 20.0, 100.0))
+        midpoint_sd = sleep.get("sleep_midpoint_variability_28d_min")
+        if midpoint_sd is not None:
+            sleep_parts.append(self._readiness_clamp(110.0 - float(midpoint_sd) * 0.5, 20.0, 100.0))
+        add_component(
+            "sleep",
+            mean(sleep_parts) if sleep_parts else None,
+            0.30,
+            {
+                "last_sleep_duration_h": round(duration_h, 2) if duration_h is not None else None,
+                "merged_sleep_score": merged_sleep_score,
+                "sleep_deficit_7d_min": deficit,
+                "sleep_midpoint_variability_28d_min": midpoint_sd,
+                "nights_7d": sleep.get("nights_7d"),
+                "nights_28d": sleep.get("nights_28d"),
+            },
+        )
+
+        # Training recovery: time since the last canonical workout, recent
+        # personal load relative to the user's 28-day weekly equivalent, and
+        # the last workout's own TRIMP when available.
+        training_score = None
+        hours_since = None
+        latest_trimp = None
+        recent_load = workout.get("banister_trimp_7d")
+        baseline_load = workout.get("banister_trimp_28d_weekly_equivalent")
+        load_ratio = None
+        if latest_workout and latest_workout.start:
+            start = _dt(latest_workout.start)
+            if start is not None:
+                end = _dt(latest_workout.end) or (start + timedelta(seconds=float(latest_workout.duration_s or 0)))
+                hours_since = max(0.0, (now - end).total_seconds() / 3600.0)
+                if hours_since < 6:
+                    training_score = 30.0
+                elif hours_since < 12:
+                    training_score = 45.0
+                elif hours_since < 24:
+                    training_score = 65.0
+                elif hours_since < 36:
+                    training_score = 82.0
+                elif hours_since < 48:
+                    training_score = 90.0
+                else:
+                    training_score = 96.0
+            latest_trimp = latest_workout.banister_trimp
+        if training_score is not None and latest_trimp is not None:
+            if float(latest_trimp) >= 150:
+                training_score -= 18.0
+            elif float(latest_trimp) >= 100:
+                training_score -= 10.0
+            elif float(latest_trimp) >= 60:
+                training_score -= 4.0
+        if recent_load is not None and baseline_load not in (None, 0):
+            load_ratio = float(recent_load) / float(baseline_load)
+            if training_score is None:
+                training_score = 82.0
+            if load_ratio >= 1.6:
+                training_score -= 18.0
+            elif load_ratio >= 1.3:
+                training_score -= 10.0
+            elif load_ratio >= 1.1:
+                training_score -= 4.0
+            elif load_ratio < 0.75:
+                training_score += 4.0
+        add_component(
+            "training",
+            training_score,
+            0.25,
+            {
+                "hours_since_last_workout": round(hours_since, 1) if hours_since is not None else None,
+                "last_workout_trimp": round(float(latest_trimp), 1) if latest_trimp is not None else None,
+                "trimp_7d": recent_load,
+                "trimp_28d_weekly_equivalent": baseline_load,
+                "recent_to_baseline_load_ratio": round(load_ratio, 3) if load_ratio is not None else None,
+                "workouts_7d": workout.get("workouts_7d"),
+            },
+        )
+
+        # Post-exercise recovery response: only personal HRR comparison is used;
+        # without a personal baseline this optional component remains absent.
+        hrr_delta = workout.get("hrr_60s_latest_vs_90d_bpm")
+        recovery_score = None
+        if hrr_delta is not None:
+            recovery_score = self._readiness_clamp(75.0 + float(hrr_delta) * 2.5, 25.0, 100.0)
+        add_component(
+            "recovery_response",
+            recovery_score,
+            0.15,
+            {
+                "latest_hrr_60s_bpm": workout.get("latest_hrr_60s"),
+                "hrr_60s_personal_baseline_bpm": workout.get("hrr_60s_baseline_90d"),
+                "hrr_60s_latest_vs_baseline_bpm": hrr_delta,
+                "hrr_samples_90d": workout.get("hrr_samples_90d"),
+            },
+        )
+
+        available = list(components)
+        required_domain_present = "sleep" in components or "autonomic" in components
+        if len(available) < 2 or not required_domain_present:
+            return {
+                "score": None,
+                "level": "insufficient_data",
+                "confidence_percent": round(sum(item["base_weight"] for item in components.values()) * 100.0, 0),
+                "components_available": available,
+                "components": components,
+                "reason": "insufficient_evidence",
+                "data_source": "fitness_canonical_recovery_data",
+                "updated_at": now.isoformat(),
+            }
+
+        weight_total = sum(item["base_weight"] for item in components.values())
+        score = sum(item["score"] * item["base_weight"] for item in components.values()) / weight_total
+        score = round(self._readiness_clamp(score), 1)
+        for item in components.values():
+            item["effective_weight_percent"] = round(item["base_weight"] / weight_total * 100.0, 1)
+
+        if score >= 85:
+            level = "excellent"
+        elif score >= 70:
+            level = "high"
+        elif score >= 50:
+            level = "moderate"
+        elif score >= 30:
+            level = "low"
+        else:
+            level = "very_low"
+
+        return {
+            "score": score,
+            "level": level,
+            "confidence_percent": round(weight_total * 100.0, 0),
+            "components_available": available,
+            "components": components,
+            "reason": None,
+            "data_source": "fitness_canonical_recovery_data",
+            "updated_at": now.isoformat(),
+            "formula": "weighted mean of available Fitness recovery domains; base weights autonomic 30%, sleep 30%, training recovery 25%, post-exercise recovery response 15%; missing domains are omitted and weights are renormalized",
+        }
+
+    @staticmethod
     def _pearson_correlation(pairs: list[tuple[float, float]]) -> float | None:
         if len(pairs) < 6:
             return None
@@ -4966,6 +5182,7 @@ class FitnessManager:
         workout_summary = self.workout_long_term_summary()
         sleep_summary = self.sleep_long_term_summary()
         recorder_summary = self.recorder_long_term_evaluation()
+        readiness_summary = self.readiness_evaluation()
 
         return {
             "age": self.age(),
@@ -4999,6 +5216,7 @@ class FitnessManager:
             "chronic_load": chronic,
             "acute_chronic_ratio": ratio,
             "provider_training_status": provider.get("provider_training_status"),
+            "readiness": readiness_summary,
             "workout_long_term": workout_summary,
             "sleep_long_term": sleep_summary,
             "recorder_long_term": recorder_summary,

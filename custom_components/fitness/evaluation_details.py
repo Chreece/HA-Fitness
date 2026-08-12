@@ -34,6 +34,7 @@ _TEXT = {
         "heart_rate_recovery": ("Measures how many beats per minute heart rate falls after exercise, especially after 60 seconds.", "Helps follow post-exercise autonomic recovery over time using comparable workouts and your personal baseline."),
         "training_recovery_relationship": ("Looks for a personal statistical association between workout load and the following sleep/recovery observations.", "Can reveal patterns worth noticing, but the relationship is descriptive and does not prove that training caused the change."),
         "vo2max_percent_predicted": ("Compares your measured/provider VO₂max with the FRIEND reference equation for age, sex and body mass.", "Provides population-reference context while keeping your actual measured VO₂max separate from the reference estimate."),
+        "readiness": ("Combines your personal autonomic recovery, recent sleep, training recovery and post-exercise recovery response into one transparent readiness estimate.", "Helps decide how prepared you appear for training now while keeping every contributing Fitness signal inspectable."),
     },
     "el": {
         "sleep_consistency": ("Περιγράφει πόσο σταθερά είναι η διάρκεια και το ωράριο του ύπνου σου στις πρόσφατες νύχτες.", "Σε βοηθά να ξεχωρίζεις μια σταθερή ρουτίνα ύπνου από μεγάλες διακυμάνσεις χωρίς να αντιμετωπίζει τη μεταβλητότητα ως διάγνωση."),
@@ -44,6 +45,7 @@ _TEXT = {
         "heart_rate_recovery": ("Μετρά πόσους παλμούς ανά λεπτό πέφτει ο καρδιακός ρυθμός μετά το τέλος της άσκησης, ιδιαίτερα στα 60 δευτερόλεπτα.", "Σε βοηθά να παρακολουθείς την αποκατάσταση μετά την άσκηση διαχρονικά και σε σύγκριση με το προσωπικό σου σημείο αναφοράς."),
         "training_recovery_relationship": ("Αναζητά προσωπική στατιστική συσχέτιση ανάμεσα στο προπονητικό φορτίο και στον επόμενο ύπνο ή στις μετρήσεις αποκατάστασης.", "Μπορεί να αναδείξει χρήσιμα προσωπικά μοτίβα, αλλά η συσχέτιση είναι περιγραφική και δεν αποδεικνύει ότι η προπόνηση προκάλεσε την αλλαγή."),
         "vo2max_percent_predicted": ("Συγκρίνει το μετρημένο ή παρεχόμενο VO₂max με την εξίσωση αναφοράς FRIEND για ηλικία, φύλο και σωματικό βάρος.", "Δίνει πλαίσιο σύγκρισης με πληθυσμιακή τιμή αναφοράς χωρίς να αντικαθιστά το πραγματικό μετρημένο VO₂max."),
+        "readiness": ("Συνδυάζει την προσωπική αυτόνομη αποκατάσταση, τον πρόσφατο ύπνο, την αποκατάσταση από την προπόνηση και την απόκριση μετά την άσκηση σε έναν διαφανή δείκτη ετοιμότητας.", "Σε βοηθά να εκτιμήσεις πόσο έτοιμος φαίνεσαι για προπόνηση τώρα, με όλα τα επιμέρους δεδομένα του Fitness διαθέσιμα για έλεγχο."),
     },
 }
 
@@ -74,6 +76,7 @@ _STUDY = {
     "heart_rate_recovery": "heart_rate_recovery_1999",
     "training_recovery_relationship": "exercise_sleep_meta_2024",
     "vo2max_percent_predicted": "friend_2017",
+    "readiness": "hrv_training_status_meta_2016",
 }
 
 _FORMULA = {
@@ -85,6 +88,7 @@ _FORMULA = {
     "heart_rate_recovery": "HRRₜ = heart rate at exercise end − heart rate t seconds after exercise",
     "training_recovery_relationship": "Pearson r(workout TRIMP, next-sleep duration/HRV), using matched workout→sleep pairs",
     "vo2max_percent_predicted": "measured VO₂max / FRIEND predicted VO₂max × 100; FRIEND = 79.9 − 0.39×age − 13.7×sex − 0.127×weight(lb)",
+    "readiness": "weighted mean of available personal recovery domains: autonomic 30%, sleep 30%, training recovery 25%, post-exercise recovery response 15%; missing domains are omitted and weights are renormalized",
 }
 _FORMULA_LOCALIZED = {
     "el": {
@@ -96,6 +100,7 @@ _FORMULA_LOCALIZED = {
         "heart_rate_recovery": "HRRₜ = καρδιακός ρυθμός στο τέλος της άσκησης − καρδιακός ρυθμός t δευτερόλεπτα μετά",
         "training_recovery_relationship": "Pearson r(TRIMP προπόνησης, διάρκεια/HRV του επόμενου ύπνου), από αντιστοιχισμένα ζεύγη προπόνησης→ύπνου",
         "vo2max_percent_predicted": "μετρημένο VO₂max / προβλεπόμενο VO₂max FRIEND × 100· FRIEND = 79,9 − 0,39×ηλικία − 13,7×φύλο − 0,127×βάρος(lb)",
+        "readiness": "σταθμισμένος μέσος όρος των διαθέσιμων προσωπικών τομέων αποκατάστασης: αυτόνομη αποκατάσταση 30%, ύπνος 30%, αποκατάσταση από προπόνηση 25%, απόκριση μετά την άσκηση 15%· οι απόντες τομείς παραλείπονται και τα βάρη επανακανονικοποιούνται",
     },
 }
 
@@ -131,6 +136,22 @@ def evaluation_user_details(language: str | None, metric: str, data_used: list[s
     citation = study_citation(metric)
     if citation:
         result["scientific_basis"] = citation
+    if metric == "readiness":
+        additional = []
+        for key in ("adult_sleep_duration_consensus_2015", "training_load_consensus_2017", "heart_rate_recovery_1999"):
+            ref = REFERENCES.get(key)
+            if not ref:
+                continue
+            bits = [str(ref.get("title") or "").strip()]
+            if ref.get("year"):
+                bits.append(str(ref["year"]))
+            if ref.get("pmid"):
+                bits.append(f"PMID {ref['pmid']}")
+            elif ref.get("doi"):
+                bits.append(f"DOI {ref['doi']}")
+            additional.append(" — ".join(bit for bit in bits if bit))
+        if additional:
+            result["additional_scientific_basis"] = additional
     formula = _FORMULA_LOCALIZED.get(code, {}).get(metric) or _FORMULA.get(metric)
     if formula:
         result["formula"] = formula

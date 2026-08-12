@@ -2526,6 +2526,9 @@
             "name": "Dlaczego to jest przydatne"
           }
         }
+      },
+      "readiness": {
+        "name": "Gotowość treningowa"
       }
     },
     "button": {
@@ -2575,6 +2578,11 @@
         "11": "Listopad",
         "12": "Grudzień"
       }
+    }
+  },
+  "device": {
+    "recovery": {
+      "name": "Regeneracja"
     }
   }
 }

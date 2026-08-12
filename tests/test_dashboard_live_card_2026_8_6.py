@@ -33,18 +33,11 @@ def test_sleep_stage_legend_is_width_safe():
     end = JS.index("const _fitnessNumber")
     sleep_stage = JS[start:end]
 
-    # Pie and legend are vertically stacked so translated labels get full width.
     assert "flex-direction:column" in sleep_stage
-
-    # Legend reserves stable space for duration and percentage.
     assert "grid-template-columns:10px minmax(0,1fr) minmax(72px,max-content) 38px" in sleep_stage
-
-    # Stage names may wrap normally, but never one character at a time.
     assert "overflow-wrap:anywhere" not in sleep_stage
     assert "word-break:normal" in sleep_stage
     assert "overflow-wrap:normal" in sleep_stage
-
-    # Duration and percentage must stay intact.
     assert "white-space:nowrap" in sleep_stage
 
 def test_changelog_mentions_live_card_and_responsive_fix():

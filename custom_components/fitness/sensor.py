@@ -139,6 +139,7 @@ DESCRIPTIONS = (
     Desc(key="last_workout_personal_context", translation_key="last_workout_personal_context", kind="workout", metric="workout_personal_context"),
 
     # Sleep device
+    Desc(key="readiness", translation_key="readiness", kind="sleep", metric="readiness", unit="%"),
     Desc(key="last_sleep_source", translation_key="last_sleep_source", kind="sleep", metric="sleep_source"),
     Desc(key="last_sleep_duration", translation_key="last_sleep_duration", kind="sleep", metric="sleep_duration", unit="min"),
     Desc(key="last_sleep_score", translation_key="last_sleep_score", kind="sleep", metric="sleep_score"),
@@ -521,6 +522,9 @@ class FitnessSensor(SensorEntity):
             return round(value, 2) if value is not None else None
 
         if self.entity_description.kind == "sleep":
+            if m == "readiness":
+                value = self.manager.readiness_evaluation().get("score")
+                return round(float(value), 1) if value is not None else None
             r = self.manager.latest_sleep()
             if r is None:
                 return None
@@ -906,6 +910,17 @@ class FitnessSensor(SensorEntity):
             return attrs
 
         if kind == "sleep":
+            if m == "readiness":
+                readiness = self.manager.readiness_evaluation()
+                attrs = dict(readiness)
+                attrs.pop("score", None)
+                details = evaluation_user_details(
+                    self.manager._ai_language(),
+                    "readiness",
+                    self._readiness_data_used(readiness),
+                )
+                attrs.update(details)
+                return attrs
             sleep = self.manager.latest_sleep()
             if sleep is None:
                 return {}

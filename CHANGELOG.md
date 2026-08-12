@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026.8.6
+
+- Added **Fitness Training Readiness**, a transparent 0–100 Fitness-owned readiness estimate that combines available personal autonomic recovery, sleep, training recovery and post-exercise recovery evidence. Missing domains are omitted and weights are renormalized; the entity exposes component scores, evidence, confidence, formula and scientific basis in attributes.
+- Renamed the former Sleep device to the translated **Recovery** device using Home Assistant device-name translations while keeping the stable device identifier for migration safety.
+- Expanded the Sleep & Recovery card with a color-coded readiness hero, confidence, component bars and retained sleep detail/stage views.
+
+
 ## 2026.8.6 — Validated canonical history
 
 - Added a public **Fitness live workout** Lovelace card so the current session metrics and Start/Pause/Resume/Stop controls can be added manually from Home Assistant's card picker, while keeping the generated Live workout dashboard view.

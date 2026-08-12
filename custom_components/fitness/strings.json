@@ -2526,6 +2526,9 @@
             "name": "Why this is useful"
           }
         }
+      },
+      "readiness": {
+        "name": "Training readiness"
       }
     },
     "button": {
@@ -2575,6 +2578,11 @@
         "11": "November",
         "12": "December"
       }
+    }
+  },
+  "device": {
+    "recovery": {
+      "name": "Recovery"
     }
   }
 }
