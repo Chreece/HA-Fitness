@@ -1,4 +1,4 @@
-const FITNESS_DASHBOARD_VERSION = "2026.8.4.15";
+const FITNESS_DASHBOARD_VERSION = "2026.8.6.1";
 
 
 const PICKER_DESCRIPTIONS = {
@@ -875,7 +875,81 @@ class FitnessSleepStageCard extends HTMLElement {
       const pct = item.value / total * 100;
       return `<div class="legend-row"><span class="dot" style="background:${item.color}"></span><span class="label">${this._escape(entityName(this._hass, item.entity))}</span><strong>${this._formatMinutes(item.value, unit)}</strong><span class="pct">${pct.toFixed(0)}%</span></div>`;
     }).join("");
-    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="body"><div class="donut" style="background:conic-gradient(${stops})"><div class="hole"><strong>${displayTotal}</strong></div></div><div class="legend">${legend}</div></div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 6px}.body{display:grid;grid-template-columns:140px 1fr;align-items:center;gap:18px;padding:10px 16px 18px}.donut{width:124px;height:124px;border-radius:50%;display:grid;place-items:center}.hole{width:76px;height:76px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color));display:flex;flex-direction:column;align-items:center;justify-content:center}.hole strong{font-size:18px;text-align:center;line-height:1.15;padding:4px}.hole span{font-size:11px;color:var(--secondary-text-color)}.legend-row{display:grid;grid-template-columns:10px 1fr auto 38px;gap:8px;align-items:center;margin:8px 0;font-size:12px}.dot{width:9px;height:9px;border-radius:50%}.label{color:var(--secondary-text-color)}.pct{text-align:right;color:var(--secondary-text-color)}@media(max-width:480px){.body{grid-template-columns:1fr}.donut{margin:auto}}</style>`;
+    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="body"><div class="donut" style="background:conic-gradient(${stops})"><div class="hole"><strong>${displayTotal}</strong></div></div><div class="legend">${legend}</div></div></ha-card><style>
+.title{
+  font-size:18px;
+  font-weight:600;
+  padding:16px 16px 6px;
+}
+.body{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:16px;
+  padding:10px 16px 18px;
+  min-width:0;
+}
+.donut{
+  width:124px;
+  height:124px;
+  flex:0 0 124px;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+}
+.hole{
+  width:76px;
+  height:76px;
+  border-radius:50%;
+  background:var(--ha-card-background,var(--card-background-color));
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+}
+.hole strong{
+  font-size:18px;
+  text-align:center;
+  line-height:1.15;
+  padding:4px;
+}
+.legend{
+  width:100%;
+  min-width:0;
+}
+.legend-row{
+  display:grid;
+  grid-template-columns:10px minmax(0,1fr) minmax(72px,max-content) 38px;
+  column-gap:10px;
+  align-items:center;
+  min-width:0;
+  padding:7px 0;
+  font-size:12px;
+}
+.dot{
+  width:9px;
+  height:9px;
+  border-radius:50%;
+}
+.label{
+  color:var(--secondary-text-color);
+  min-width:0;
+  white-space:normal;
+  overflow-wrap:normal;
+  word-break:normal;
+  hyphens:auto;
+}
+.legend-row strong{
+  text-align:right;
+  white-space:nowrap;
+  line-height:1.3;
+}
+.pct{
+  text-align:right;
+  white-space:nowrap;
+  color:var(--secondary-text-color);
+}
+</style>`;
   }
 
   _escape(value) { return String(value ?? "").replace(/[&<>"']/g, (ch) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch])); }
@@ -1186,8 +1260,8 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
       ha-card{padding:18px}.title{font-size:19px;font-weight:650}.body{display:grid;grid-template-columns:120px 1fr;align-items:center;gap:18px;margin-top:16px}
       .ring{width:108px;height:108px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--primary-color) var(--p),var(--secondary-background-color) 0)}.ring>div{width:78px;height:78px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color));display:flex;flex-direction:column;align-items:center;justify-content:center}.ring strong{font-size:26px}.ring span{font-size:9px;color:var(--secondary-text-color);text-align:center}
       .status strong{display:block;font-size:18px;margin-bottom:6px}.status span{display:block;color:var(--secondary-text-color);font-size:12px;margin:3px 0}
-      .metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:16px}.metric{background:var(--secondary-background-color);padding:10px;border-radius:12px}.metric span{display:block;color:var(--secondary-text-color);font-size:10px;margin-bottom:4px}.metric strong{font-size:13px}
-      @media(max-width:480px){.metrics{grid-template-columns:1fr}.body{grid-template-columns:100px 1fr}.ring{width:94px;height:94px}.ring>div{width:68px;height:68px}}
+      .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px;margin-top:16px}.metric{background:var(--secondary-background-color);padding:10px;border-radius:12px;min-width:0;overflow:hidden}.metric span{display:block;color:var(--secondary-text-color);font-size:10px;line-height:1.3;margin-bottom:4px;overflow-wrap:anywhere}.metric strong{display:block;font-size:13px;line-height:1.35;overflow-wrap:anywhere}.status{min-width:0}.status span{overflow-wrap:anywhere}
+      @media(max-width:480px){.body{grid-template-columns:100px minmax(0,1fr)}.ring{width:94px;height:94px}.ring>div{width:68px;height:68px}}
     </style>`;
   }
   _metric(label, state, sleepDuration = false) {
@@ -1344,6 +1418,62 @@ class FitnessCompositeCard extends FitnessAutoProfileCard {
     this._compositeBuilt = true;
     this._compositeLanguage = String(this._hass?.language || "en").toLowerCase().split("-")[0];
     this._compositeSignatureValue = this._compositeSignature();
+  }
+}
+
+class FitnessLiveWorkoutCard extends FitnessAutoProfileCard {
+  _relevantEntityKeys() {
+    return [
+      "session_status","session_duration","current_heart_rate","current_power",
+      "current_cadence","current_speed","current_pace","current_distance",
+      "start_workout","pause_workout","resume_workout","stop_workout",
+    ];
+  }
+
+  _render() {
+    if (!this.shadowRoot || !this._hass || !this._profile) return;
+    const e = this._profile.entities || {};
+    const l = this._profile.labels || {};
+    const metricKeys = [
+      "session_status","session_duration","current_heart_rate","current_power",
+      "current_cadence","current_speed","current_pace","current_distance",
+    ];
+    const controlKeys = ["start_workout","pause_workout","resume_workout","stop_workout"];
+    const metrics = metricKeys.map((key) => {
+      const id = e[key];
+      const state = id ? this._hass.states[id] : null;
+      if (!id || !state || state.state === "unavailable") return "";
+      return `<div class="live-metric"><span>${_fitnessEscape(entityName(this._hass,id))}</span><strong>${_fitnessEscape(_fitnessDisplay(state,1))}</strong></div>`;
+    }).filter(Boolean).join("");
+    const controls = controlKeys.map((key) => {
+      const id = e[key];
+      const state = id ? this._hass.states[id] : null;
+      if (!id || !state || state.state === "unavailable") return "";
+      return `<button class="live-control" data-entity="${_fitnessEscape(id)}"><ha-icon icon="${
+        key === "start_workout" ? "mdi:play" : key === "pause_workout" ? "mdi:pause" : key === "resume_workout" ? "mdi:play-pause" : "mdi:stop"
+      }"></ha-icon><span>${_fitnessEscape(entityName(this._hass,id))}</span></button>`;
+    }).filter(Boolean).join("");
+
+    this.shadowRoot.innerHTML = `<ha-card>
+      <div class="live-head"><ha-icon icon="mdi:run-fast"></ha-icon><div><strong>${_fitnessEscape(this.config.title || l.live || l.current || "Live workout")}</strong><span>${_fitnessEscape(this._profile.profile_name || "")}</span></div></div>
+      <div class="live-grid">${metrics || `<div class="live-empty">${_fitnessEscape(l.no_live_data || "No live workout data is available yet.")}</div>`}</div>
+      ${controls ? `<div class="live-controls">${controls}</div>` : ""}
+    </ha-card><style>
+      ha-card{padding:16px;overflow:hidden}.live-head{display:flex;align-items:center;gap:10px;margin:2px 2px 14px;min-width:0}.live-head>ha-icon{color:var(--primary-color);--mdc-icon-size:28px}.live-head>div{min-width:0}.live-head strong{display:block;font-size:20px;line-height:1.25;overflow-wrap:anywhere}.live-head span{display:block;color:var(--secondary-text-color);font-size:11px;margin-top:2px;overflow-wrap:anywhere}
+      .live-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px}.live-metric{min-width:0;padding:11px 12px;border-radius:12px;background:var(--secondary-background-color);overflow:hidden}.live-metric span{display:block;color:var(--secondary-text-color);font-size:10px;line-height:1.3;overflow-wrap:anywhere}.live-metric strong{display:block;font-size:15px;line-height:1.3;margin-top:4px;overflow-wrap:anywhere}.live-empty{grid-column:1/-1;color:var(--secondary-text-color);padding:12px 2px}
+      .live-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:12px}.live-control{appearance:none;border:1px solid var(--divider-color);background:var(--secondary-background-color);color:var(--primary-text-color);border-radius:12px;min-height:46px;padding:8px 10px;display:flex;align-items:center;justify-content:center;gap:7px;font:inherit;cursor:pointer;min-width:0}.live-control ha-icon{color:var(--primary-color);--mdc-icon-size:21px}.live-control span{min-width:0;font-size:12px;font-weight:600;line-height:1.25;overflow-wrap:anywhere}.live-control:active{transform:scale(.98)}
+      @media(max-width:420px){.live-grid,.live-controls{grid-template-columns:1fr 1fr}}
+    </style>`;
+    for (const button of this.shadowRoot.querySelectorAll(".live-control")) {
+      button.addEventListener("click", () => {
+        const entityId = button.dataset.entity;
+        if (!entityId || button.disabled) return;
+        button.disabled = true;
+        Promise.resolve(this._hass.callService("button", "press", {entity_id: entityId}))
+          .catch(() => {})
+          .finally(() => { button.disabled = false; });
+      });
+    }
   }
 }
 
@@ -1513,6 +1643,7 @@ class FitnessSleepStageCardEditor extends FitnessProfileCardEditor {}
 if (!customElements.get("fitness-profile-card-editor")) customElements.define("fitness-profile-card-editor", FitnessProfileCardEditor);
 if (!customElements.get("fitness-today-card")) customElements.define("fitness-today-card", FitnessTodayCard);
 if (!customElements.get("fitness-workout-card")) customElements.define("fitness-workout-card", FitnessWorkoutCard);
+if (!customElements.get("fitness-live-workout-card")) customElements.define("fitness-live-workout-card", FitnessLiveWorkoutCard);
 if (!customElements.get("fitness-sleep-recovery-card")) customElements.define("fitness-sleep-recovery-card", FitnessSleepRecoveryCard);
 if (!customElements.get("fitness-evaluation-card")) customElements.define("fitness-evaluation-card", FitnessEvaluationCard);
 if (!customElements.get("fitness-workout-highlights-card")) customElements.define("fitness-workout-highlights-card", FitnessWorkoutHighlightsCard);
@@ -1540,6 +1671,13 @@ if (!window.customStrategies.some((item) => item.type === "fitness" && item.stra
 
 window.customCards = window.customCards || [];
 const FITNESS_PUBLIC_CARDS = [
+  {
+    type: "fitness-live-workout-card",
+    name: "Fitness live workout",
+    preview: false,
+    description: "Current workout metrics and Fitness session controls in one adaptive card.",
+    documentationURL: "https://github.com/Chreece/HA-Fitness#fitness-dashboard",
+  },
   {
     type: "fitness-workout-card",
     name: "Fitness workout",

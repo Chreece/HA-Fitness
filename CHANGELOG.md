@@ -2,6 +2,9 @@
 
 ## 2026.8.6 — Validated canonical history
 
+- Added a public **Fitness live workout** Lovelace card so the current session metrics and Start/Pause/Resume/Stop controls can be added manually from Home Assistant's card picker, while keeping the generated Live workout dashboard view.
+- Fixed responsive Sleep & Recovery layouts for long translated labels and values: metric tiles now auto-fit/wrap instead of overflowing the card, and the sleep-stage legend handles narrow/mobile widths more safely.
+
 - Historical 7/28/90-day evaluation now consumes persistent canonical Fitness history after Fitness normalization/selection, validation and daily deduplication; raw provider Recorder rows no longer directly produce historical results.
 - Recorder is retained only as a 90-day bootstrap/import source for existing installations. Imported observations are materialized into Fitness storage, while current merged Fitness observations supersede imported values for the same day.
 - Added shared validation before historical calculations: real timestamps, finite numeric values, broad corruption bounds, chronological ordering, distinct-day deduplication, strict coverage and provenance/audit metadata.
