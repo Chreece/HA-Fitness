@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026.8.4 dashboard history audit
+
+- Historical Evaluation metrics now require real Recorder coverage: at least 5/7 days for 7-day means, 21/28 days for 28-day means, and 60/90 days for 90-day means. Insufficient history is unavailable instead of being presented as a long-term result.
+- Sleep 7/28-day averages and variability use the same strict completed-night coverage rules; the 7-day deficit remains unavailable below five completed nights.
+- VO₂max Evaluation now exposes its actual Recorder daily series and renders a compact modern history trend when enough samples exist.
+- Historical entity attributes expose sample coverage and minimum requirements so users can verify why a trend is or is not shown.
+
+- Fixed the 7-day sleep deficit so it is derived only from completed sleep sessions in the rolling 7-day history; it no longer falls back to `7 h - latest sleep`. Sleep as Android Recorder reconstruction now imports every completed session from an 8-day window, while an in-progress sleep remains excluded until its `stopped` event. The evaluation entity exposes observed-night count, rolling average, window size, and minimum sample requirement for verification.
+
 ## 2026.8.4
 
 - Sleep merge consistency: when multiple providers describe the same night, Fitness now keeps duration + Light/Deep/REM/Awake from one coherent stage-rich provider bundle instead of mixing a duration from one provider with stages from another. The Sleep & Recovery donut total also reads the merged `last_sleep_duration` entity directly.

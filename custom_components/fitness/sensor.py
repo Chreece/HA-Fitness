@@ -637,17 +637,10 @@ class FitnessSensor(SensorEntity):
                 if latest_sleep is not None and latest_sleep.duration_s is not None
                 else sleep_long_term.get("sleep_duration_7d_mean_min")
             ),
-            "sleep_deficit_7d": (
-                sleep_long_term.get("sleep_deficit_7d_min")
-                if sleep_long_term.get("sleep_deficit_7d_min") is not None
-                else (
-                    max(0.0, 420.0 - latest_sleep.duration_s / 60.0)
-                    if self.manager.age() >= 18
-                    and latest_sleep is not None
-                    and latest_sleep.duration_s is not None
-                    else None
-                )
-            ),
+            # Never masquerade a one-night shortfall as a 7-day metric.
+            # Until enough completed nights exist in the rolling history, the
+            # 7-day deficit is unavailable rather than falling back to latest sleep.
+            "sleep_deficit_7d": sleep_long_term.get("sleep_deficit_7d_min"),
             "autonomic_recovery_trend": (
                 latest_sleep.hrv_ms
                 if latest_sleep is not None and latest_sleep.hrv_ms is not None
@@ -992,6 +985,9 @@ class FitnessSensor(SensorEntity):
                 "nights_observed": sleep.get("nights_7d"),
                 "nights_below_7h": sleep.get("nights_below_7h_7d"),
                 "reference_minimum_hours": 7,
+                "average_sleep_minutes": sleep.get("sleep_duration_7d_mean_min"),
+                "window_days": 7,
+                "minimum_nights_required": 5,
             },
             "autonomic_recovery_trend": {
                 "sleep_hrv_7d_mean_ms": sleep.get("sleep_hrv_7d_mean_ms"),
@@ -1009,6 +1005,11 @@ class FitnessSensor(SensorEntity):
                 "short_term_change_percent": recorder.get("vo2max_trend_14_vs_previous_14_percent"),
                 "slope_percent_per_30d": recorder.get("vo2max_slope_percent_per_30d"),
                 "percent_predicted": e.get("vo2max_percent_predicted"),
+                "days_28d": recorder.get("vo2max_days_28d"),
+                "days_90d": recorder.get("vo2max_days_90d"),
+                "daily_series": recorder.get("vo2max_daily") or [],
+                "minimum_days_28d": 21,
+                "minimum_days_90d": 60,
             },
             "training_load": {
                 "trimp_7d": workout.get("banister_trimp_7d"),

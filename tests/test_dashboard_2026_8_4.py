@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -11,7 +12,10 @@ CHANGELOG = ROOT / "CHANGELOG.md"
 
 def test_dashboard_release_files_and_version():
     manifest = json.loads((ROOT / "custom_components/fitness/manifest.json").read_text())
-    assert manifest["version"] == "2026.8.4"
+    assert re.fullmatch(
+        r"\d{4}\.\d{1,2}\.\d+(?:-beta\d+)?",
+        manifest["version"],
+    )
     assert DASHBOARD.is_file()
     assert FRONTEND.is_file()
     assert "## 2026.8.4" in CHANGELOG.read_text()

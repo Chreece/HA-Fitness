@@ -1,4 +1,4 @@
-const FITNESS_DASHBOARD_VERSION = "2026.8.4.13";
+const FITNESS_DASHBOARD_VERSION = "2026.8.4.15";
 
 
 const PICKER_DESCRIPTIONS = {
@@ -1099,11 +1099,20 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
     const arrow = slope == null ? "→" : slope > 0.35 ? "↗" : slope < -0.35 ? "↘" : "→";
     const delta28 = current != null && mean28 ? ((current - mean28) / mean28 * 100) : null;
     const bar = Math.max(0, Math.min(100, pctPred ?? 0));
+    const rawSeries = Array.isArray(_fitnessAttr(trend, "daily_series")) ? _fitnessAttr(trend, "daily_series") : [];
+    const series = rawSeries.map(x => ({v:_fitnessNumber(x?.value), d:String(x?.start || "")})).filter(x => x.v != null).slice(-90);
+    let spark = "";
+    if (series.length >= 5) {
+      const vals = series.map(x => x.v), lo = Math.min(...vals), hi = Math.max(...vals), span = Math.max(hi-lo, 0.1);
+      const pts = series.map((x,i) => `${(i/(series.length-1)*100).toFixed(2)},${(34-((x.v-lo)/span)*28).toFixed(2)}`).join(" ");
+      spark = `<div class="history"><div class="history-head"><span>${_fitnessEscape(l.history || "History")}</span><small>${series.length} ${_fitnessEscape(l.days_90 || "days")}</small></div><svg viewBox="0 0 100 38" preserveAspectRatio="none" aria-label="VO2max history"><polyline points="${pts}"/></svg></div>`;
+    }
 
     this.shadowRoot.innerHTML = `<ha-card>
       <div class="head"><div><div class="title">${_fitnessEscape(this.config.title || l.progress_snapshot || "Fitness progress")}</div><div class="sub">${_fitnessEscape(status)}</div></div><div class="trend">${arrow}${slope == null ? "" : ` ${slope > 0 ? "+" : ""}${slope.toFixed(2)}%`}</div></div>
       <div class="hero"><strong>${current == null ? "—" : current.toFixed(1)}</strong><span>mL/kg/min</span><small>${_fitnessEscape(l.current_vo2max || "Current VO₂max")}</small></div>
       <div class="progress"><div style="width:${bar}%"></div></div>
+      ${spark}
       <div class="metrics">
         ${this._metric(l.mean_28d || "28-day mean", mean28, "mL/kg/min")}
         ${this._metric(l.mean_90d || "90-day mean", mean90, "mL/kg/min")}
@@ -1121,6 +1130,7 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
       ha-card{padding:18px}.head{display:flex;justify-content:space-between;align-items:flex-start}.title{font-size:19px;font-weight:650}.sub{font-size:12px;color:var(--secondary-text-color);margin-top:3px}.trend{font-size:16px;font-weight:700;color:var(--primary-color)}
       .hero{display:grid;grid-template-columns:auto auto 1fr;align-items:end;gap:6px;margin:20px 0 10px}.hero strong{font-size:40px;line-height:1}.hero span{font-size:12px;color:var(--secondary-text-color);padding-bottom:4px}.hero small{text-align:right;color:var(--secondary-text-color)}
       .progress{height:8px;background:var(--secondary-background-color);border-radius:999px;overflow:hidden}.progress div{height:100%;background:var(--primary-color);border-radius:999px}
+      .history{margin-top:16px;padding:10px 12px;border-radius:12px;background:var(--secondary-background-color)}.history-head{display:flex;justify-content:space-between;color:var(--secondary-text-color);font-size:11px}.history svg{width:100%;height:76px;margin-top:7px;overflow:visible}.history polyline{fill:none;stroke:var(--primary-color);stroke-width:1.8;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}
       .metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}.metric{padding:10px 12px;border-radius:12px;background:var(--secondary-background-color)}.metric span{display:block;color:var(--secondary-text-color);font-size:11px;margin-bottom:3px}.metric strong{font-size:14px}
       .empty{padding:6px}.empty small{display:block;color:var(--secondary-text-color);margin-top:8px}
     </style>`;

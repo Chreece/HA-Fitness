@@ -66,8 +66,8 @@ def _events(states: list[Any], accepted: frozenset[str]) -> list[tuple[datetime,
     return sorted(out)
 
 
-def _latest_completed_session(events):
-    """Return only the latest STARTED...STOPPED session, never an active one."""
+def _completed_sessions(events):
+    """Return all completed STARTED...STOPPED sessions; never an active one."""
     started = active = None
     windows = []
     completed = []
@@ -91,6 +91,11 @@ def _latest_completed_session(events):
                 completed.append((started, stamp, list(windows)))
             started = active = None
             windows = []
+    return completed
+
+
+def _latest_completed_session(events):
+    completed = _completed_sessions(events)
     return completed[-1] if completed else None
 
 
@@ -101,51 +106,57 @@ def _overlap_seconds(start, end, windows):
     )
 
 
+def records_from_event_history(
+    *, tracking_entity_id: str, phase_entity_id: str | None,
+    tracking_states: list[Any], phase_states: list[Any],
+) -> list[SleepRecord]:
+    """Reconstruct every completed sleep session present in Recorder history."""
+    sessions = _completed_sessions(_events(tracking_states, TRACKING))
+    records: list[SleepRecord] = []
+    phase_events = _events(phase_states, PHASES)
+    for start, end, windows in sessions:
+        if not windows:
+            windows = [(start, end)]
+        active_s = sum((b - a).total_seconds() for a, b in windows)
+        if not 60 <= active_s <= 24 * 3600:
+            continue
+
+        phases = [event for event in phase_events if start <= event[0] <= end]
+        totals = {key: 0.0 for key in ("awake_s", "light_sleep_s", "deep_sleep_s", "rem_sleep_s")}
+        for i, (stamp, event_type) in enumerate(phases):
+            next_stamp = phases[i + 1][0] if i + 1 < len(phases) else end
+            field = STAGE_FIELD.get(event_type)
+            if field and next_stamp > stamp:
+                totals[field] += _overlap_seconds(stamp, next_stamp, windows)
+
+        sleep_s = max(0.0, active_s - totals["awake_s"])
+        field_sources = {"start": tracking_entity_id, "end": tracking_entity_id, "duration_s": tracking_entity_id}
+        if phase_entity_id:
+            field_sources.update({k: phase_entity_id for k, v in totals.items() if v > 0})
+        records.append(SleepRecord(
+            source=tracking_entity_id, provider_domain="sleep_as_android",
+            start=start.isoformat(), end=end.isoformat(), observed_at=end.isoformat(),
+            duration_s=sleep_s, awake_s=totals["awake_s"] or None,
+            light_sleep_s=totals["light_sleep_s"] or None, deep_sleep_s=totals["deep_sleep_s"] or None,
+            rem_sleep_s=totals["rem_sleep_s"] or None,
+            sources=[tracking_entity_id] + ([phase_entity_id] if phase_entity_id else []),
+            provider_domains=["sleep_as_android"], field_sources=field_sources,
+            provider_values={"sleep_as_android": {
+                "tracking_entity": tracking_entity_id, "phase_entity": phase_entity_id,
+                "stage_method": "home_assistant_recorder_event_timeline",
+                "unclassified_asleep_s": max(0.0, sleep_s - totals["light_sleep_s"] - totals["deep_sleep_s"] - totals["rem_sleep_s"]),
+            }},
+        ))
+    return records
+
+
 def record_from_event_history(
     *, tracking_entity_id: str, phase_entity_id: str | None,
     tracking_states: list[Any], phase_states: list[Any],
 ) -> SleepRecord | None:
-    session = _latest_completed_session(_events(tracking_states, TRACKING))
-    if session is None:
-        return None
-
-    start, end, windows = session
-    if not windows:
-        windows = [(start, end)]
-    active_s = sum((b-a).total_seconds() for a,b in windows)
-    if not 60 <= active_s <= 24 * 3600:
-        return None
-
-    phases = [event for event in _events(phase_states, PHASES) if start <= event[0] <= end]
-    totals = {key: 0.0 for key in ("awake_s","light_sleep_s","deep_sleep_s","rem_sleep_s")}
-    for i, (stamp, event_type) in enumerate(phases):
-        next_stamp = phases[i+1][0] if i+1 < len(phases) else end
-        field = STAGE_FIELD.get(event_type)
-        if field and next_stamp > stamp:
-            totals[field] += _overlap_seconds(stamp, next_stamp, windows)
-
-    # not_awake = asleep, but not a scientifically specific stage.
-    sleep_s = max(0.0, active_s - totals["awake_s"])
-    field_sources = {"start": tracking_entity_id, "end": tracking_entity_id, "duration_s": tracking_entity_id}
-    if phase_entity_id:
-        field_sources.update({k: phase_entity_id for k,v in totals.items() if v > 0})
-
-    return SleepRecord(
-        source=tracking_entity_id,
-        provider_domain="sleep_as_android",
-        start=start.isoformat(), end=end.isoformat(), observed_at=end.isoformat(),
-        duration_s=sleep_s,
-        awake_s=totals["awake_s"] or None,
-        light_sleep_s=totals["light_sleep_s"] or None,
-        deep_sleep_s=totals["deep_sleep_s"] or None,
-        rem_sleep_s=totals["rem_sleep_s"] or None,
-        sources=[tracking_entity_id] + ([phase_entity_id] if phase_entity_id else []),
-        provider_domains=["sleep_as_android"],
-        field_sources=field_sources,
-        provider_values={"sleep_as_android": {
-            "tracking_entity": tracking_entity_id,
-            "phase_entity": phase_entity_id,
-            "stage_method": "home_assistant_recorder_event_timeline",
-            "unclassified_asleep_s": max(0.0, sleep_s - totals["light_sleep_s"] - totals["deep_sleep_s"] - totals["rem_sleep_s"]),
-        }},
+    """Backward-compatible helper returning only the newest completed session."""
+    records = records_from_event_history(
+        tracking_entity_id=tracking_entity_id, phase_entity_id=phase_entity_id,
+        tracking_states=tracking_states, phase_states=phase_states,
     )
+    return records[-1] if records else None

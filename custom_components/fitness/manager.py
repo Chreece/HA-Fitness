@@ -113,7 +113,7 @@ from .providers.sleep_adapters.registry import (
     sleep_as_android_event_entity_ids,
     sleep_device_entity_ids,
 )
-from .providers.sleep_adapters.sleep_as_android import record_from_event_history
+from .providers.sleep_adapters.sleep_as_android import record_from_event_history, records_from_event_history
 from .providers.workouts import (
     Workout,
     _dt,
@@ -634,7 +634,7 @@ class FitnessManager:
                 partial(
                     get_significant_states,
                     self.hass,
-                    datetime.now(timezone.utc) - timedelta(hours=36),
+                    datetime.now(timezone.utc) - timedelta(days=8),
                     entity_ids=entity_ids,
                     include_start_time_state=False,
                     significant_changes_only=False,
@@ -647,22 +647,28 @@ class FitnessManager:
         except Exception as err:
             _LOGGER.debug("Sleep as Android Recorder reconstruction unavailable: %s", err)
             return
-        record = record_from_event_history(
+        reconstructed = records_from_event_history(
             tracking_entity_id=tracking,
             phase_entity_id=phase,
             tracking_states=list(history.get(tracking) or []),
             phase_states=list(history.get(phase) or []) if phase else [],
-        ) if isinstance(history, dict) else None
-        if record is None:
+        ) if isinstance(history, dict) else []
+        if not reconstructed:
             return
-        self._sleep_event_record = record
+        self._sleep_event_record = reconstructed[-1]
+        changed = False
+        # Persist every completed night in the Recorder window, not merely the
+        # latest one. This makes 7-day sleep metrics genuinely longitudinal.
+        for record in reconstructed:
+            changed = self._remember_sleep_record(record, persist=False) or changed
         records = discover_sleep_records(self.hass, self.config)
-        records.append(record)
+        records.extend(reconstructed)
         self._latest_sleep_cache = newest_sleep(records)
-        changed = self._remember_sleep_record(self._latest_sleep_cache)
-        self._notify_sleep()
+        changed = self._remember_sleep_record(self._latest_sleep_cache, persist=False) or changed
         if changed:
-            self._notify()
+            self.hass.async_create_task(self._save())
+        self._notify_sleep()
+        self._notify()
 
     @callback
     def _async_sleep_source_change(self, event: Event):
@@ -4059,13 +4065,35 @@ class FitnessManager:
                 slope_per_day = sum((x - xbar) * (y - ybar) for x, y in zip(xs, ys)) / denom
                 slope_pct_30d = slope_per_day * 30.0 / abs(ybar) * 100.0
 
+        # A windowed metric is only meaningful when Recorder actually contains
+        # enough distinct historical days. Never turn a handful of samples into
+        # a 28/90-day claim merely because the requested query covered that span.
+        unique_days = {dt.date() for dt, _value in dated if dt is not None}
+        now_date = datetime.now(timezone.utc).date()
+        def window_values(days: int) -> list[float]:
+            cutoff = now_date - timedelta(days=days - 1)
+            return [value for dt, value in dated if dt is not None and cutoff <= dt.date() <= now_date]
+        v7, v28, v90 = window_values(7), window_values(28), window_values(90)
+        recent14 = window_values(14)
+        prior_start = now_date - timedelta(days=27)
+        prior_end = now_date - timedelta(days=14)
+        prior14 = [value for dt, value in dated if dt is not None and prior_start <= dt.date() <= prior_end]
+        strict_trend = None
+        if len(recent14) >= 10 and len(prior14) >= 10:
+            prior = mean(prior14)
+            if prior != 0:
+                strict_trend = (mean(recent14) - prior) / abs(prior) * 100.0
+
         return {
-            "days_available": len(values),
-            "mean_7d": round(tail_mean(7), 3) if tail_mean(7) is not None else None,
-            "mean_28d": round(tail_mean(28), 3) if tail_mean(28) is not None else None,
-            "mean_90d": round(tail_mean(90), 3) if tail_mean(90) is not None else None,
-            "trend_14_vs_previous_14_percent": round(trend_pct, 2) if trend_pct is not None else None,
-            "slope_percent_per_30d": round(slope_pct_30d, 3) if slope_pct_30d is not None else None,
+            "days_available": len(unique_days),
+            "days_7d": len(v7),
+            "days_28d": len(v28),
+            "days_90d": len(v90),
+            "mean_7d": round(mean(v7), 3) if len(v7) >= 5 else None,
+            "mean_28d": round(mean(v28), 3) if len(v28) >= 21 else None,
+            "mean_90d": round(mean(v90), 3) if len(v90) >= 60 else None,
+            "trend_14_vs_previous_14_percent": round(strict_trend, 2) if strict_trend is not None else None,
+            "slope_percent_per_30d": round(slope_pct_30d, 3) if len(v90) >= 30 and slope_pct_30d is not None else None,
             "latest_daily_mean": round(values[-1], 3),
             "daily": daily[-90:],
         }
@@ -4268,8 +4296,8 @@ class FitnessManager:
             vals = field_values(field, days)
             return mean(vals) if len(vals) >= minimum else None
 
-        duration7, duration28 = avg("duration_s", 7, 3), avg("duration_s", 28, 7)
-        hrv7, hrv28 = avg("hrv_ms", 7, 3), avg("hrv_ms", 28, 7)
+        duration7, duration28 = avg("duration_s", 7, 5), avg("duration_s", 28, 21)
+        hrv7, hrv28 = avg("hrv_ms", 7, 5), avg("hrv_ms", 28, 21)
         latest = self.latest_sleep()
         latest_duration = latest.duration_s if latest else None
         latest_hrv = latest.hrv_ms if latest else None
@@ -4291,7 +4319,7 @@ class FitnessManager:
             return pstdev(unwrapped)
 
         durations28 = field_values("duration_s", 28)
-        duration_sd28 = pstdev([v / 60.0 for v in durations28]) if len(durations28) >= 7 else None
+        duration_sd28 = pstdev([v / 60.0 for v in durations28]) if len(durations28) >= 21 else None
         bedtime_sd = circular_sd("start", 28)
         waketime_sd = circular_sd("end", 28)
         midpoint_sd = circular_sd("midpoint", 28)
@@ -4341,12 +4369,12 @@ class FitnessManager:
         current_resting = provider.get("resting_hr") or self.input_value(CONF_RESTING_HR)
         current_vo2 = provider.get("vo2max") or self.input_value(CONF_VO2MAX)
 
-        resting_7 = resting_stats.get("mean_7d") if resting_stats.get("days_available", 0) >= 3 else None
-        resting_28 = resting_stats.get("mean_28d") if resting_stats.get("days_available", 0) >= 7 else None
-        vo2_28 = vo2_stats.get("mean_28d") if vo2_stats.get("days_available", 0) >= 7 else None
-        vo2_90 = vo2_stats.get("mean_90d") if vo2_stats.get("days_available", 0) >= 30 else None
-        vo2_short = vo2_stats.get("trend_14_vs_previous_14_percent") if vo2_stats.get("days_available", 0) >= 21 else None
-        vo2_slope = vo2_stats.get("slope_percent_per_30d") if vo2_stats.get("days_available", 0) >= 30 else None
+        resting_7 = resting_stats.get("mean_7d") if resting_stats.get("days_7d", 0) >= 5 else None
+        resting_28 = resting_stats.get("mean_28d") if resting_stats.get("days_28d", 0) >= 21 else None
+        vo2_28 = vo2_stats.get("mean_28d") if vo2_stats.get("days_28d", 0) >= 21 else None
+        vo2_90 = vo2_stats.get("mean_90d") if vo2_stats.get("days_90d", 0) >= 60 else None
+        vo2_short = vo2_stats.get("trend_14_vs_previous_14_percent")
+        vo2_slope = vo2_stats.get("slope_percent_per_30d") if vo2_stats.get("days_90d", 0) >= 30 else None
 
         return {
             "resting_hr_current": current_resting,
@@ -4358,6 +4386,11 @@ class FitnessManager:
             "vo2max_90d_mean": vo2_90,
             "vo2max_trend_14_vs_previous_14_percent": vo2_short,
             "vo2max_slope_percent_per_30d": vo2_slope,
+            "vo2max_days_28d": vo2_stats.get("days_28d", 0),
+            "vo2max_days_90d": vo2_stats.get("days_90d", 0),
+            "vo2max_daily": vo2_stats.get("daily", []),
+            "resting_hr_days_28d": resting_stats.get("days_28d", 0),
+            "resting_hr_daily": resting_stats.get("daily", []),
         }
 
     @staticmethod
