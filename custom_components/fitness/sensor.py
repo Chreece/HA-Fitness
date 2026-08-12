@@ -904,6 +904,9 @@ class FitnessSensor(SensorEntity):
                 ))
             if workout.start:
                 attrs["workout_start"] = workout.start
+            from .providers.workouts import workout_sport_kind
+            if (sport := workout_sport_kind(workout)):
+                attrs["sport"] = sport
             field_source = (workout.field_sources or {}).get(m.removeprefix("workout_"))
             if field_source:
                 attrs["field_source"] = self._provider_display_name(field_source)

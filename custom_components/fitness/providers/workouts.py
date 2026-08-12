@@ -283,6 +283,104 @@ def _safe_extra_value(value):
     return str(value)[:500]
 
 
+_SPORT_ALIASES = {
+    "run": "running",
+    "running": "running",
+    "trail_run": "running",
+    "trail_running": "running",
+    "treadmill_running": "running",
+    "treadmill_run": "running",
+    "jog": "running",
+    "jogging": "running",
+    "cycling": "cycling",
+    "bike": "cycling",
+    "biking": "cycling",
+    "ride": "cycling",
+    "swimming": "swimming",
+    "swim": "swimming",
+    "walking": "walking",
+    "walk": "walking",
+    "hiking": "hiking",
+    "hike": "hiking",
+    "strength_training": "strength",
+    "strength": "strength",
+    "weight_training": "strength",
+}
+
+
+def _sport_token(value: Any) -> str | None:
+    """Extract a canonical sport token, including nested provider objects."""
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        preferred = (
+            "sportTypeKey", "sport_type_key", "activityTypeKey",
+            "activity_type_key", "typeKey", "type_key", "key",
+            "sport", "activityType", "activity_type", "name",
+        )
+        for key in preferred:
+            if key in value and (token := _sport_token(value[key])):
+                return token
+        for nested in value.values():
+            if isinstance(nested, (dict, list, tuple)) and (token := _sport_token(nested)):
+                return token
+        return None
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            if (token := _sport_token(item)):
+                return token
+        return None
+
+    text = str(value).strip().lower()
+    normalized = re.sub(r"[^a-z0-9]+", "_", text).strip("_")
+    if normalized in _SPORT_ALIASES:
+        return _SPORT_ALIASES[normalized]
+    for alias, canonical in _SPORT_ALIASES.items():
+        if re.search(rf"(?:^|_){re.escape(alias)}(?:_|$)", normalized):
+            return canonical
+    return normalized or None
+
+
+def workout_sport_kind(workout: "Workout | None") -> str | None:
+    """Infer sport from the already-merged normalized Fitness workout."""
+    if workout is None:
+        return None
+    if (sport := _sport_token(workout.sport)) in set(_SPORT_ALIASES.values()):
+        return sport
+
+    # Provider data remains provenance, but is useful for classifying the
+    # physical workout when a provider nests sport metadata (Garmin:
+    # sportType -> sportTypeKey -> running).
+    for container in (workout.provider_values, workout.extra):
+        if isinstance(container, dict):
+            stack = [container]
+            while stack:
+                item = stack.pop()
+                if isinstance(item, dict):
+                    for key, value in item.items():
+                        key_norm = re.sub(r"[^a-z0-9]+", "", str(key).lower())
+                        if key_norm in {
+                            "sport", "sporttype", "sporttypekey",
+                            "activitytype", "activitytypekey",
+                            "workouttype", "workouttypekey",
+                        }:
+                            token = _sport_token(value)
+                            if token in set(_SPORT_ALIASES.values()):
+                                return token
+                        if isinstance(value, (dict, list, tuple)):
+                            stack.append(value)
+                elif isinstance(item, (list, tuple)):
+                    stack.extend(item)
+
+    # Last conservative fallback: workout title/name. This helps integrations
+    # that expose "Morning Run" but no explicit sport field.
+    if workout.name:
+        token = _sport_token(workout.name)
+        if token in set(_SPORT_ALIASES.values()):
+            return token
+    return None
+
+
 def _normalize_duration(value, key: str | None = None) -> float | None:
     v = _num(value)
     if v is None:
@@ -345,7 +443,16 @@ def _extract_record(
         if value is None:
             continue
 
-        if field_name in ("name", "sport", "training_effect_label", "device_name", "gear_name"):
+        if field_name == "sport":
+            # Preserve simple provider sport values verbatim for provenance and
+            # compatibility. Only unwrap structured/nested provider objects
+            # (for example Garmin sportType.sportTypeKey).
+            kwargs[field_name] = (
+                (_sport_token(value) or str(value))
+                if isinstance(value, (dict, list, tuple))
+                else str(value)
+            )
+        elif field_name in ("name", "training_effect_label", "device_name", "gear_name"):
             kwargs[field_name] = str(value)
         elif field_name == "end":
             end_dt = _dt(value)

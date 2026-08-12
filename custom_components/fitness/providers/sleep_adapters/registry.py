@@ -167,11 +167,30 @@ def _spec_for_domain(domain: str | None) -> SleepAdapterSpec | None:
     return None
 
 
-def _sleep_tracking_event(hass, entry) -> bool:
+def _sleep_as_android_event_kind(hass, entry) -> str | None:
     if _domain(hass, entry) != "sleep_as_android" or not entry.entity_id.startswith("event."):
-        return False
+        return None
     label = _label(hass, entry)
-    return "sleep_tracking" in label
+    if "sleep_tracking" in label:
+        return "tracking"
+    if "sleep_phase" in label:
+        return "phase"
+    state = hass.states.get(entry.entity_id)
+    event_types = {str(v).lower() for v in (state.attributes.get("event_types") or [])} if state else set()
+    if {"started", "stopped"}.issubset(event_types):
+        return "tracking"
+    if {"deep_sleep", "light_sleep", "rem"}.intersection(event_types):
+        return "phase"
+    return None
+
+
+def sleep_as_android_event_entity_ids(hass, config) -> dict[str, str]:
+    result = {}
+    for entry in selected_entries(hass, config):
+        kind = _sleep_as_android_event_kind(hass, entry)
+        if kind and kind not in result:
+            result[kind] = entry.entity_id
+    return result
 
 
 def _matching_fields(hass, entry, fields_map):
@@ -198,9 +217,9 @@ def sleep_device_entity_ids(hass, config):
             if matched:
                 result.add(entry.entity_id)
                 generic_hits.update(matched)
-            if _sleep_tracking_event(hass, entry):
+            if (event_kind := _sleep_as_android_event_kind(hass, entry)):
                 result.add(entry.entity_id)
-                generic_hits.add("tracking_event")
+                generic_hits.add(f"{event_kind}_event")
         # Unknown providers require a real sleep contract rather than a single
         # coincidental HR/SpO2-like entity.
         if not explicit and len(generic_hits) < 2:

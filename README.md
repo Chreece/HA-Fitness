@@ -177,6 +177,25 @@ Then refresh Home Assistant and reopen the **Add dashboard** dialog.
 
 # Installation
 
+### Visual Fitness cards
+
+Only three consolidated cards are exposed publicly in Home Assistant's card picker: **Fitness workout**, **Fitness sleep & recovery**, and **Fitness evaluation**. The route, sleep-stage, comparison, progress, recovery and training-load renderers are internal building blocks of those cards rather than separate cards users need to configure.
+
+
+The dashboard frontend also registers reusable Community cards. Every card can be configured graphically by selecting a **Fitness user/profile**; compatible Fitness entities are resolved automatically.
+
+- **Fitness progress** — current VO₂max, 28/90-day context, predicted percentage and 30-day direction.
+- **Fitness recovery** — sleep score, sleep duration, nightly HRV, sleep deficit and personal HRV/resting-HR context.
+- **Fitness training load** — recent 7-day TRIMP compared with the user's 28-day weekly baseline, plus workout frequency and training duration.
+- **Fitness workout route** — latest compatible GPS route, automatically discovered from the selected workout providers.
+- **Fitness baseline comparison** — latest workout compared with the user's personal baseline.
+- **Fitness sleep stages** — visual awake/light/deep/REM distribution.
+
+Cards only show data that exists for the selected Fitness profile. Provider-specific entity IDs are not required in normal configuration.
+
+
+The workout map supports direct interaction: drag with mouse or touch to pan, pinch with two fingers or use the mouse wheel/trackpad to zoom, and double-tap/double-click to fit the full route again.
+
 ## HACS custom repository
 
 1. Open **HACS**.

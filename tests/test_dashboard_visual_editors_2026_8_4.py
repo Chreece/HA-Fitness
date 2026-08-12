@@ -22,9 +22,10 @@ def test_profile_selector_auto_resolves_comparison_and_sleep_entities():
     assert 'VISUAL_EDITOR_COPY' in JS
 
 
-def test_dashboard_strategy_uses_profile_based_custom_cards():
-    assert 'type: "custom:fitness-comparison-card", profile_entry_id: profile.entry_id' in JS
-    assert 'type: "custom:fitness-sleep-stage-card", profile_entry_id: profile.entry_id' in JS
+def test_dashboard_strategy_uses_profile_based_consolidated_cards():
+    assert 'type: "custom:fitness-workout-card", profile_entry_id: profile.entry_id' in JS
+    assert 'type: "custom:fitness-sleep-recovery-card", profile_entry_id: profile.entry_id' in JS
+    assert 'type: "custom:fitness-evaluation-card", profile_entry_id: profile.entry_id' in JS
 
 
 def test_changelog_mentions_visual_editors():

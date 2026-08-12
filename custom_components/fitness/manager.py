@@ -110,8 +110,10 @@ from .providers.sleep import SleepRecord, merged_sleeps, newest_sleep
 from .providers.sleep_adapters.registry import (
     discover_sleep_records,
     latest_sleep as discover_latest_sleep,
+    sleep_as_android_event_entity_ids,
     sleep_device_entity_ids,
 )
+from .providers.sleep_adapters.sleep_as_android import record_from_event_history
 from .providers.workouts import (
     Workout,
     _dt,
@@ -133,6 +135,8 @@ class FitnessManager:
         self.sleep_listeners: list[Callable[[], None]] = []
         self._sleep_tracking_started_at: str | None = None
         self._sleep_event_record: SleepRecord | None = None
+        self._sleep_history_refresh_task = None
+        self._sleep_as_android_active = False
         # Canonical merged nightly records retained for evidence-based sleep
         # trends. These are Fitness facts, not provider-specific duplicates.
         self.sleep_history: list[dict[str, Any]] = []
@@ -432,6 +436,8 @@ class FitnessManager:
         self.hass.async_create_task(
             self._async_delayed_long_term_refresh()
         )
+        # Restore only the latest already-completed Sleep as Android session.
+        self._schedule_sleep_as_android_history_refresh(delay=5.0)
 
         # Generate an initial general assessment only if AI is configured and
         # there is not already a persisted one.
@@ -462,6 +468,8 @@ class FitnessManager:
 
         if self._recovery_task and not self._recovery_task.done():
             self._recovery_task.cancel()
+        if self._sleep_history_refresh_task and not self._sleep_history_refresh_task.done():
+            self._sleep_history_refresh_task.cancel()
 
         if (
             self._external_workout_debounce_task
@@ -599,54 +607,91 @@ class FitnessManager:
     def latest_sleep(self):
         return getattr(self, "_latest_sleep_cache", None)
 
+    def _schedule_sleep_as_android_history_refresh(self, *, delay: float = 1.5) -> None:
+        """Debounce a single completed-session Recorder reconstruction."""
+        if not sleep_as_android_event_entity_ids(self.hass, self.config):
+            return
+        if self._sleep_history_refresh_task and not self._sleep_history_refresh_task.done():
+            self._sleep_history_refresh_task.cancel()
+        self._sleep_history_refresh_task = self.hass.async_create_task(
+            self._async_refresh_sleep_as_android_history(delay=delay)
+        )
+
+    async def _async_refresh_sleep_as_android_history(self, *, delay: float = 0.0) -> None:
+        if delay:
+            await asyncio.sleep(delay)
+        ids = sleep_as_android_event_entity_ids(self.hass, self.config)
+        tracking = ids.get("tracking")
+        phase = ids.get("phase")
+        if not tracking:
+            return
+        entity_ids = [tracking] + ([phase] if phase else [])
+        try:
+            from functools import partial
+            from homeassistant.components.recorder import get_instance
+            from homeassistant.components.recorder.history import get_significant_states
+            history = await get_instance(self.hass).async_add_executor_job(
+                partial(
+                    get_significant_states,
+                    self.hass,
+                    datetime.now(timezone.utc) - timedelta(hours=36),
+                    entity_ids=entity_ids,
+                    include_start_time_state=False,
+                    significant_changes_only=False,
+                    minimal_response=False,
+                    no_attributes=False,
+                )
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as err:
+            _LOGGER.debug("Sleep as Android Recorder reconstruction unavailable: %s", err)
+            return
+        record = record_from_event_history(
+            tracking_entity_id=tracking,
+            phase_entity_id=phase,
+            tracking_states=list(history.get(tracking) or []),
+            phase_states=list(history.get(phase) or []) if phase else [],
+        ) if isinstance(history, dict) else None
+        if record is None:
+            return
+        self._sleep_event_record = record
+        records = discover_sleep_records(self.hass, self.config)
+        records.append(record)
+        self._latest_sleep_cache = newest_sleep(records)
+        changed = self._remember_sleep_record(self._latest_sleep_cache)
+        self._notify_sleep()
+        if changed:
+            self._notify()
+
     @callback
     def _async_sleep_source_change(self, event: Event):
-        """Refresh merged sleep state from exact provider trigger entities.
-
-        Sleep as Android's core integration is event based. Track its start/stop
-        events in memory so it can contribute a basic sleep interval that is
-        merged with richer Garmin/Oura/etc. records for the same night.
-        """
+        """Ignore an active SAA night; publish it only after tracking stops."""
         entity_id = str(event.data.get("entity_id") or "")
         new_state = event.data.get("new_state")
+        ids = sleep_as_android_event_entity_ids(self.hass, self.config)
+        tracking_entity = ids.get("tracking")
+        phase_entity = ids.get("phase")
 
-        if entity_id.startswith("event.") and new_state is not None:
+        if new_state is not None and entity_id in {tracking_entity, phase_entity}:
             event_type = str(new_state.attributes.get("event_type") or "").lower()
-            if event_type == "started":
-                stamp = getattr(new_state, "last_changed", None)
-                self._sleep_tracking_started_at = (
-                    stamp.isoformat() if stamp is not None
-                    else datetime.now(timezone.utc).isoformat()
-                )
-            elif event_type == "stopped" and self._sleep_tracking_started_at:
-                stamp = getattr(new_state, "last_changed", None)
-                end = stamp if stamp is not None else datetime.now(timezone.utc)
-                start = _dt(self._sleep_tracking_started_at)
-                if start is not None and end > start:
-                    duration = (end - start).total_seconds()
-                    if 60 <= duration <= 24 * 3600:
-                        self._sleep_event_record = SleepRecord(
-                            source=entity_id,
-                            provider_domain="sleep_as_android",
-                            start=start.isoformat(),
-                            end=end.isoformat(),
-                            duration_s=duration,
-                            sources=[entity_id],
-                            provider_domains=["sleep_as_android"],
-                            field_sources={
-                                "start": "sleep_as_android",
-                                "end": "sleep_as_android",
-                                "duration_s": "sleep_as_android",
-                            },
-                            provider_values={
-                                "sleep_as_android": {
-                                    "event_type": event_type,
-                                    "start": start.isoformat(),
-                                    "end": end.isoformat(),
-                                }
-                            },
-                        )
-                self._sleep_tracking_started_at = None
+            if entity_id == tracking_entity and event_type == "started":
+                self._sleep_as_android_active = True
+                return
+            if self._sleep_as_android_active:
+                if entity_id == tracking_entity and event_type == "stopped":
+                    self._sleep_as_android_active = False
+                    # Recorder writes asynchronously; reconstruct once after it
+                    # contains the final STOPPED and phase transition.
+                    self._schedule_sleep_as_android_history_refresh(delay=1.5)
+                # paused/resumed and every phase transition are intentionally
+                # silent: no partial sleep/history/evaluation/AI update.
+                return
+            if entity_id == tracking_entity and event_type == "stopped":
+                self._schedule_sleep_as_android_history_refresh(delay=1.5)
+                return
+            # SAA phase events outside a completed stop are never materialized.
+            return
 
         records = discover_sleep_records(self.hass, self.config)
         if self._sleep_event_record is not None:
@@ -655,7 +700,6 @@ class FitnessManager:
         changed = self._remember_sleep_record(self._latest_sleep_cache)
         self._notify_sleep()
         if changed:
-            # Sleep changes are infrequent; refresh Evaluation/materialization once.
             self._notify()
 
     async def _save(self):

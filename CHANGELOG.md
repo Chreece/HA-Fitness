@@ -2,6 +2,40 @@
 
 ## 2026.8.4
 
+- Workout map interaction now behaves like a native map: mouse/touch drag pans the route, two-finger pinch zooms on touchscreens, mouse wheel/trackpad zoom works on desktop, and double-tap/double-click fits the route again. The temporary gesture transform is rendered without rebuilding OSM tiles, with a single tile redraw when the gesture finishes.
+- Removed the map navigation/zoom button cluster because direct drag/pinch/wheel interaction replaces it.
+
+- Final dashboard stability polish: consolidated cards now keep their shadow DOM and embedded children alive across unrelated Home Assistant state updates, eliminating the periodic full-card/map blink caused by rebuilding every child on every `hass` assignment.
+- Workout map navigation now includes directional pan controls (up/down/left/right), zoom in/out, and fit/reset; manual navigation no longer causes a second redraw on the next HA state update.
+- Workout route redraws now key off the actual GPS payload and displayed workout values instead of provider `last_updated`, so unrelated provider refreshes do not reload OpenStreetMap tiles.
+- The Home Assistant card picker now exposes only the three consolidated public cards: **Fitness workout**, **Fitness sleep & recovery**, and **Fitness evaluation**. Legacy component cards remain private implementation details only.
+- The generated Community dashboard is simplified to a three-card summary Overview plus a separate native **Live workout** view for session sensors and controls.
+
+- Consolidated the adaptive dashboard into three user-focused cards: **Workout** (normalized metrics, sport-aware running pace, GPS route and baseline comparison), **Sleep & Recovery** (sleep stages, duration, HRV and recovery context), and **Fitness Evaluation** (cardiorespiratory progress and training load), while retaining long-term trend graphs without duplicating the same information across separate cards.
+- Dashboard card text now follows the **current Home Assistant UI language** when that language is supported by Fitness, independently of the Fitness profile language used for AI/TTS. All 15 Fitness dashboard translations are exposed to the frontend with English fallback.
+- Workout cards remain provider-independent by consuming normalized/merged Fitness workout entities. GPS is shown only when the selected workout sources expose a usable route, so providers without GPS simply omit the map instead of showing an empty map card.
+- Consolidated cards use natural Home Assistant Sections sizing and capability-aware child content to avoid the large gaps and overlapping card layouts seen on narrow/mobile dashboards.
+
+- Dashboard card sizing now uses Home Assistant Sections natural-height behavior (no fixed row reservation), eliminating both card overlap and large artificial gaps between adaptive Fitness cards.
+- Sleep-stage donut totals and individual stage durations now display values of 60 minutes or more as hours + minutes; the recovery card applies the same formatting to sleep deficit.
+- Running pace is now driven by the normalized **merged Fitness workout** rather than raw provider-card attributes. Nested provider sport metadata such as Garmin `sportType.sportTypeKey = running` is normalized, and pace falls back to `moving time ÷ distance` (or duration ÷ distance) when average speed is unavailable.
+
+- Dashboard layout polish: increased Home Assistant Sections grid allocation for adaptive Fitness cards so Progress, Recovery and Training Load cards no longer overlap on narrow/mobile dashboards.
+- Sleep visualizations now show durations of 60 minutes or more as hours + minutes instead of large raw minute totals.
+- Running workout summaries convert compatible average-speed values to pace in `min/km` when the completed workout is identified as running, trail running, treadmill running or jogging.
+- Removed the informational OpenStreetMap tile-loading note from the workout route card while retaining normal OpenStreetMap attribution.
+
+- Added adaptive **Fitness today** and **Workout highlights** cards inspired by modern fitness-app overview patterns; they automatically hide unavailable metrics and use the selected Fitness user's entities.
+
+- Sleep as Android now stays completely silent while sleep tracking is active; phase/paused/resumed events do not update Fitness sleep, history, evaluation or AI. The completed session is reconstructed once from Recorder after `stopped`, including Awake/Light/Deep/REM where available.
+- Fixed frontend `CustomElementRegistry` errors by registering unique constructors for every Fitness card editor instead of reusing the same constructor under multiple custom-element names.
+- Enhanced the latest-workout route card with tighter framing, interactive zoom in/out/reset controls, and an adaptive workout summary using only metrics available for the selected Fitness user.
+
+- Modern fitness visual cards: added profile-aware **Fitness progress**, **Fitness recovery**, and **Fitness training load** cards with compact personal-baseline context and visual trend cues.
+- Workout route map now frames GPS tracks more tightly while preserving route endpoints and map attribution.
+- Lovelace resource registration now reconciles duplicate Fitness resources, forces the canonical resource to `module`, and keeps one cache-busted frontend URL so Community cards load automatically without a manual `import()`.
+
+
 - Fixed Community card discovery by versioning the bundled frontend resource on dashboard UI revisions, forcing Home Assistant/browser caches to load the current card registrations and visual editors.
 - Stopped the workout-route card from rebuilding its OpenStreetMap tile DOM on every Home Assistant state update; route source lookup and rendering are now cached and only refreshed when the route data or card width actually changes, eliminating map blinking/reloads.
 - Added explicit Home Assistant card-picker metadata for Fitness route, baseline comparison and sleep-stage cards.

@@ -33,9 +33,13 @@ def test_dashboard_strategy_and_visual_cards_are_bundled():
     assert "ll-strategy-dashboard-fitness" in text
     assert "window.customStrategies" in text
     assert 'strategyType: "dashboard"' in text
-    assert "custom:fitness-route-card" in text
-    assert "custom:fitness-comparison-card" in text
-    assert "custom:fitness-sleep-stage-card" in text
+    assert "custom:fitness-workout-card" in text
+    assert "custom:fitness-sleep-recovery-card" in text
+    assert "custom:fitness-evaluation-card" in text
+    # Component cards remain bundled for advanced/manual use.
+    assert "fitness-route-card" in text
+    assert "fitness-comparison-card" in text
+    assert "fitness-sleep-stage-card" in text
     assert 'type: "statistics-graph"' in text
     assert 'type: "sections"' in text
 
