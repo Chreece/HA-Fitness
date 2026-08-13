@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026.8.10 — Recovery, readiness & personal context
+
+2026.8.10 turns the beta recovery work into a cohesive release focused on **personal baselines, explainable recovery and trustworthy history**.
+
+### Highlights
+
+- Added **Ready for the next workout**, an evidence-informed recovery-time estimate with remaining time, approximate ready-at time, recovery progress, confidence, limiting factors, uncertainty range and physiological recovery signals.
+- Added a **personal HRV baseline** using recent rolling HRV against preceding personal history, while keeping the latest-night deviation separately inspectable.
+- Improved **Training Readiness** with localized, auditable component evidence and clearer presentation alongside — but not conflated with — the recovery-time estimate.
+- Added **training adaptation status** using recent training exposure together with longer-term personal load history, VO2max trend, HRV/RHR context and readiness; immature histories return insufficient data instead of unstable load classifications.
+- Hardened **7-day sleep deficit** so one validated main sleep is counted per local wake date and duplicate provider synchronization cannot inflate the result.
+- Improved **workout reconciliation** so stale live/provider duplicates are re-clustered before they can inflate workout counts, training load or evaluation.
+- Improved completed-workout RPE handling, live/provider workout merging, GPS-route ownership, live workout presentation and HR-recovery feedback.
+- Reworked the **Recovery & Sleep dashboard** so readiness, time-to-next-workout, recovery progress/signals and last-sleep information form one clear responsive story with state-aware colors and localized labels.
+- Expanded localization and regression coverage across the supported languages and recovery/evaluation UI.
+
+### Scientific and safety boundary
+
+Fitness remains a training/wellness overview, not a medical device or health advisor. Recovery time, Training Readiness and training-adaptation states are transparent Fitness-owned interpretations informed by the methods and literature documented in [Science & methods](docs/SCIENCE.md); they are not diagnoses or guarantees of physiological recovery.
+
+---
+
 ## 2026.8.10-beta2
 
 - Added Fitness-owned estimated recovery time after the latest canonical workout, combining workout dose with personal readiness/HRV/RHR/HRR evidence and exposing confidence/method details.
