@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 
 from homeassistant.components.media_player import MediaPlayerEntityFeature
 from homeassistant.core import HomeAssistant, Event, callback
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
@@ -224,6 +225,14 @@ class FitnessManager:
         # this independently for each entity can block the event loop for many
         # seconds. Cache one coherent snapshot until source data changes.
         self._evaluation_cache: dict[str, Any] | None = None
+        # Startup-critical entity properties must never trigger provider scans or
+        # longitudinal calculations.  These caches are populated after HA has
+        # reached EVENT_HOMEASSISTANT_STARTED and invalidated on relevant changes.
+        self._latest_workout_cache: Workout | None = None
+        self._latest_workout_cache_ready = False
+        self._readiness_cache: dict[str, Any] | None = None
+        self._recovery_time_cache: dict[str, Any] | None = None
+        self.post_start_ready = False
 
         # Keys of sensor descriptions that have produced a valid value at least
         # once. These are persisted so created HA entities are never removed
@@ -302,6 +311,7 @@ class FitnessManager:
         return {**self.entry.data, **self.entry.options}
 
     async def async_setup(self):
+        """Restore persisted state without doing provider discovery during HA bootstrap."""
         stored = await self.store.async_load() or {}
         self.history = list(stored.get("history") or [])
         self.deleted_workouts = list(stored.get("deleted_workouts") or [])
@@ -311,89 +321,82 @@ class FitnessManager:
         self.ai_general_verdict = stored.get("ai_general_verdict")
         self.ai_workout_verdict = stored.get("ai_workout_verdict")
         self.ai_last_generated = stored.get("ai_last_generated")
-        self.long_term_statistics = dict(
-            stored.get("long_term_statistics") or {}
-        )
-        self.long_term_statistics_updated = stored.get(
-            "long_term_statistics_updated"
-        )
+        self.long_term_statistics = dict(stored.get("long_term_statistics") or {})
+        self.long_term_statistics_updated = stored.get("long_term_statistics_updated")
         self.sleep_history = list(stored.get("sleep_history") or [])
-        self.metric_history = {str(k): list(v) for k, v in dict(stored.get("metric_history") or {}).items() if isinstance(v, list)}
+        self.metric_history = {
+            str(k): list(v)
+            for k, v in dict(stored.get("metric_history") or {}).items()
+            if isinstance(v, list)
+        }
         self.history_validation = dict(stored.get("history_validation") or {})
-        self.materialized_sensor_keys = set(
-            stored.get("materialized_sensor_keys") or []
-        )
-        self._last_announced_workout_signature = stored.get(
-            "last_announced_workout_signature"
-        )
-        self.selected_feedback_area_id = stored.get(
-            "selected_feedback_area_id"
-        )
+        self.materialized_sensor_keys = set(stored.get("materialized_sensor_keys") or [])
+        self._last_announced_workout_signature = stored.get("last_announced_workout_signature")
+        self.selected_feedback_area_id = stored.get("selected_feedback_area_id")
 
-        # Apply the current retention policy before calendars/evaluations can
-        # observe restored history. A later normal save persists the pruned set.
         self._prune_workout_history()
 
-        valid_area_ids = {
-            area_id
-            for area_id, _name in self.available_feedback_areas()
-        }
+        # Restore only Fitness-owned persisted history here.  Provider/registry
+        # discovery is deliberately deferred until Home Assistant has announced
+        # that bootstrap is complete.
+        if self.sleep_history:
+            self._latest_sleep_cache = newest_sleep(self._sleep_records_from_history())
+        else:
+            self._latest_sleep_cache = None
 
-        # Persisted runtime room wins, but only if it still exists.
-        if (
-            self.selected_feedback_area_id
-            and self.selected_feedback_area_id not in valid_area_ids
-        ):
+        self._latest_workout_cache = newest(self.local_workouts())
+        self._latest_workout_cache_ready = True
+
+        self._external_workout_announcements_armed = False
+        self._external_workout_baseline_pending = True
+        self._last_external_signature = self._last_announced_workout_signature or None
+
+        if self.hass.is_running:
+            self.hass.async_create_task(self._async_post_start_setup())
+        else:
+            @callback
+            def _home_assistant_started(_event: Event) -> None:
+                self.hass.async_create_task(self._async_post_start_setup())
+
+            self.remove_listeners.append(
+                self.hass.bus.async_listen_once(
+                    EVENT_HOMEASSISTANT_STARTED,
+                    _home_assistant_started,
+                )
+            )
+
+    async def _async_post_start_setup(self) -> None:
+        """Initialize provider mappings only after HA bootstrap has completed."""
+        # Give HA one event-loop turn after the started event before registry work.
+        await asyncio.sleep(0)
+
+        valid_area_ids = {area_id for area_id, _name in self.available_feedback_areas()}
+        if self.selected_feedback_area_id and self.selected_feedback_area_id not in valid_area_ids:
             self.selected_feedback_area_id = None
-
-        # If no persisted runtime room exists, use the first configured feedback
-        # area as the initial Workout room. If setup did not specify an area,
-        # deliberately remain unselected. Never guess an arbitrary HA area.
         if not self.selected_feedback_area_id:
             configured_areas = [
                 area_id
-                for area_id in list(
-                    self.config.get(CONF_FEEDBACK_AREA_IDS) or []
-                )
+                for area_id in list(self.config.get(CONF_FEEDBACK_AREA_IDS) or [])
                 if area_id in valid_area_ids
             ]
-            if configured_areas:
-                self.selected_feedback_area_id = configured_areas[0]
-            else:
-                self.selected_feedback_area_id = None
+            self.selected_feedback_area_id = configured_areas[0] if configured_areas else None
 
-        live_ids = set(
-            all_live_candidate_entity_ids(self.hass, self.config)
-        )
-        workout_ids = set(
-            workout_device_entity_ids(self.hass, self.config)
-        )
+        await asyncio.sleep(0)
+        live_ids = set(all_live_candidate_entity_ids(self.hass, self.config))
+        workout_ids = set(workout_device_entity_ids(self.hass, self.config))
         sleep_ids = set(sleep_device_entity_ids(self.hass, self.config))
-        self._latest_sleep_cache = discover_latest_sleep(self.hass, self.config)
-        if self._latest_sleep_cache is not None:
-            self._remember_sleep_record(self._latest_sleep_cache, persist=False)
-        elif self.sleep_history:
-            # Avoid a transient unavailable state during provider restoration.
-            restored = self._sleep_records_from_history()
-            self._latest_sleep_cache = newest_sleep(restored)
         profile_ids: set[str] = set()
-
-        for key in (
-            CONF_WEIGHT,
-            CONF_RESTING_HR,
-            CONF_MAX_HR,
-            CONF_VO2MAX,
-        ):
+        for key in (CONF_WEIGHT, CONF_RESTING_HR, CONF_MAX_HR, CONF_VO2MAX):
             raw = self.config.get(key)
             if is_entity_reference(raw):
                 profile_ids.add(str(raw).strip())
 
-        # Resolve source ownership once. State values remain live; only the
-        # entity-to-metric mapping is cached.
-        self._live_candidates_cache = discover_candidates(
-            self.hass,
-            self.config,
-        )
+        await asyncio.sleep(0)
+        self._latest_sleep_cache = discover_latest_sleep(self.hass, self.config) or self._latest_sleep_cache
+        if self._latest_sleep_cache is not None:
+            self._remember_sleep_record(self._latest_sleep_cache, persist=False)
+
+        self._live_candidates_cache = discover_candidates(self.hass, self.config)
         self._live_sources_cache = {
             metric: items[0]
             for metric, items in self._live_candidates_cache.items()
@@ -407,68 +410,45 @@ class FitnessManager:
         if live_ids:
             self.remove_listeners.append(
                 async_track_state_change_event(
-                    self.hass,
-                    sorted(live_ids),
-                    self._async_live_source_change,
+                    self.hass, sorted(live_ids), self._async_live_source_change
                 )
             )
-
         if workout_ids:
             self.remove_listeners.append(
                 async_track_state_change_event(
-                    self.hass,
-                    sorted(workout_ids),
-                    self._async_workout_source_change,
+                    self.hass, sorted(workout_ids), self._async_workout_source_change
                 )
             )
-
         if sleep_ids:
             self.remove_listeners.append(
                 async_track_state_change_event(
                     self.hass, sorted(sleep_ids), self._async_sleep_source_change
                 )
             )
-
-        # Profile-input changes do not need workout-provider discovery.
         profile_only_ids = profile_ids - live_ids - workout_ids - sleep_ids
         if profile_only_ids:
             self.remove_listeners.append(
                 async_track_state_change_event(
-                    self.hass,
-                    sorted(profile_only_ids),
-                    self._async_profile_source_change,
+                    self.hass, sorted(profile_only_ids), self._async_profile_source_change
                 )
             )
 
-        # Completed-workout providers restore asynchronously after Home
-        # Assistant startup. During that restoration window the same workout may
-        # temporarily appear with only a subset of its attributes. Never treat
-        # startup restoration as a newly completed workout.
-        self._external_workout_announcements_armed = False
-        self._external_workout_baseline_pending = True
-        self._last_external_signature = (
-            self._last_announced_workout_signature
-            if self._last_announced_workout_signature
-            else None
-        )
-        self.hass.async_create_task(
-            self._async_arm_external_workout_announcements()
-        )
+        # Refresh the canonical completed-workout cache once after providers have
+        # restored. Entity state reads from now on are cache-only.
+        self._latest_workout_cache_ready = False
+        self.latest_workout()
 
-        # Refresh HA Recorder long-term statistics after integrations have had
-        # a moment to restore their entities. Failure is non-fatal.
-        self.hass.async_create_task(
-            self._async_delayed_long_term_refresh()
-        )
-        # Restore only the latest already-completed Sleep as Android session.
+        self.hass.async_create_task(self._async_arm_external_workout_announcements())
+        self.hass.async_create_task(self._async_delayed_long_term_refresh())
         self._schedule_sleep_as_android_history_refresh(delay=5.0, retries=0)
-
-        # Generate an initial general assessment only if AI is configured and
-        # there is not already a persisted one.
         if self.config.get(CONF_AI_ENABLED) and not self.ai_general:
-            self.hass.async_create_task(
-                self.async_generate_ai(general=True, workout=False)
-            )
+            self.hass.async_create_task(self.async_generate_ai(general=True, workout=False))
+
+        self.post_start_ready = True
+        self._invalidate_evaluation_cache()
+        self._notify()
+        self._notify_sleep()
+        self._notify_workout_history()
 
     async def async_shutdown(self):
         for remove in self.remove_listeners:
@@ -583,6 +563,8 @@ class FitnessManager:
 
     def _invalidate_evaluation_cache(self) -> None:
         self._evaluation_cache = None
+        self._readiness_cache = None
+        self._recovery_time_cache = None
 
     def _notify(self):
         self._invalidate_evaluation_cache()
@@ -614,6 +596,7 @@ class FitnessManager:
                 _LOGGER.exception("Fitness sleep entity listener failed")
 
     def _notify_workout_history(self):
+        self._latest_workout_cache_ready = False
         self._invalidate_evaluation_cache()
         """Notify only entities that render canonical workout history."""
         for listener in list(self.workout_history_listeners):
@@ -888,6 +871,7 @@ class FitnessManager:
     @callback
     def _async_workout_source_change(self, event: Event):
         """Schedule completed-workout discovery after a relevant provider update."""
+        self._latest_workout_cache_ready = False
         self._schedule_external_workout_recheck()
 
     @callback
@@ -4442,10 +4426,15 @@ class FitnessManager:
         return merged_workouts(result)
 
     def latest_workout(self) -> Workout | None:
+        """Return the canonical latest workout without repeated registry scans."""
+        if self._latest_workout_cache_ready:
+            return self._latest_workout_cache
         candidates = self.local_workouts() + discover_external_workouts(
             self.hass, self.config
         )
-        return newest(candidates)
+        self._latest_workout_cache = newest(candidates)
+        self._latest_workout_cache_ready = True
+        return self._latest_workout_cache
 
     @staticmethod
     def _workout_signature(
@@ -4928,6 +4917,8 @@ class FitnessManager:
         return max(low, min(high, float(value)))
 
     def recovery_time_evaluation(self) -> dict[str, Any]:
+        if self._recovery_time_cache is not None:
+            return self._recovery_time_cache
         """Estimate readiness timing for the next workout.
 
         The state answers a practical planning question: approximately how many
@@ -5178,7 +5169,7 @@ class FitnessManager:
         if ready is not None and ready < 35:
             limiting_factor = "overall_readiness"
 
-        return {
+        result = {
             "remaining_hours": round(remaining, 1),
             "ready_for_next_workout_at": ready_at.isoformat(),
             # Backward-compatible alias retained for existing automations/UI
@@ -5211,8 +5202,12 @@ class FitnessManager:
             "full_physiological_recovery_claimed": False,
             "diagnostic_interpretation": False,
         }
+        self._recovery_time_cache = result
+        return result
 
     def readiness_evaluation(self) -> dict[str, Any]:
+        if self._readiness_cache is not None:
+            return self._readiness_cache
         """Return a transparent Fitness-owned 0-100 training readiness score.
 
         Every component uses normalized/merged Fitness data. Missing components
@@ -5413,7 +5408,7 @@ class FitnessManager:
         else:
             level = "very_low"
 
-        return {
+        result = {
             "score": score,
             "level": level,
             "confidence_percent": round(weight_total * 100.0, 0),
@@ -5425,6 +5420,8 @@ class FitnessManager:
             "updated_at": now.isoformat(),
             "formula": "weighted mean of available Fitness recovery domains; base weights autonomic 30%, sleep 30%, training recovery 25%, post-exercise recovery response 15%; missing domains are omitted and weights are renormalized",
         }
+        self._readiness_cache = result
+        return result
 
     @staticmethod
     def _pearson_correlation(pairs: list[tuple[float, float]]) -> float | None:

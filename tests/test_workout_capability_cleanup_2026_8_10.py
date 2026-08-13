@@ -17,9 +17,13 @@ def test_provider_zero_placeholders_are_suppressed():
         assert f'"{metric}"' in S
     assert 'abs(float(value)) < 1e-12' in S
 
-def test_irrelevant_workout_registry_entities_pruned_on_setup():
+def test_workout_registry_cleanup_is_startup_safe():
     assert 'desc.kind != "workout"' in S
-    assert 'current = FitnessSensor(manager, entry, desc).native_value' in S
+    assert 'key == "last_workout_source"' in S
+    assert 'registry.async_remove(entity_id)' in S
+    assert 'Never evaluate entity state while a platform is being set up' in S
+    setup = S[S.index('# Keep the Workout device capability-aware'):S.index('for registry_entry in registry.entities.values():', S.index('# Keep the Workout device capability-aware'))]
+    assert '.native_value' not in setup
     assert 'manager.forget_materialized_sensor' in S
     assert 'def forget_materialized_sensor' in M
 

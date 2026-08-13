@@ -54,9 +54,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         schema=_DELETE_WORKOUTS_BEFORE_SCHEMA,
     )
 
-    # Live adapter state is owned by the Local Sensors config entry.  Global
-    # integration setup must stay constant-time and must not touch storage,
-    # Bluetooth, ANT+, USB, gateways, or discovery.
+    # Live adapters are global Fitness infrastructure, independent of any one
+    # person's config entry. Disabled transports are not imported/loaded.
+    from .live import get_live_runtime
+    await get_live_runtime(hass).async_initialize()
     return True
 
 

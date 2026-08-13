@@ -431,12 +431,13 @@ async def async_setup_entry(hass, entry, async_add_entities):
         desc = descriptions.get(key)
         if desc is None or desc.kind != "workout" or key in {"last_workout", "last_workout_sources"}:
             continue
-        # Never evaluate entity state while a platform is being set up.  Some
-        # workout/evaluation values require provider aggregation and longitudinal
-        # calculations; probing them here serially blocks Home Assistant's event
-        # loop and can cascade into unrelated integration startup timeouts.
-        # Existing optional entities are retained and become unavailable naturally
-        # when their current workout does not expose the metric.
+        try:
+            current = FitnessSensor(manager, entry, desc).native_value
+        except Exception:
+            current = None
+        if current is None:
+            stale_registry_entity_ids.append(registry_entry.entity_id)
+            manager.forget_materialized_sensor(key, persist=False)
 
     for entity_id in stale_registry_entity_ids:
         registry.async_remove(entity_id)
@@ -479,13 +480,16 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     created_keys: set[str] = set()
 
-    def collect_new_entities(*, allow_probe: bool = False) -> list[FitnessSensor]:
-        """Collect materialized entities without blocking platform startup.
+    def description_has_valid_value(desc) -> bool:
+        """Calculate without registering an entity."""
+        probe = FitnessSensor(manager, entry, desc)
+        try:
+            return probe.native_value is not None
+        except Exception:
+            # Optional data must never prevent the whole integration from loading.
+            return False
 
-        Startup only restores keys already known to Fitness. Optional new metrics
-        are discovered after manager updates, when Home Assistant is no longer
-        waiting for this platform's setup coroutine to finish.
-        """
+    def collect_new_entities() -> list[FitnessSensor]:
         result: list[FitnessSensor] = []
 
         for key, desc in descriptions.items():
@@ -493,32 +497,39 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 continue
 
             previously_created = manager.sensor_was_materialized(key)
-            if not previously_created:
-                if not allow_probe:
-                    continue
-                probe = FitnessSensor(manager, entry, desc)
-                try:
-                    if probe.native_value is None:
-                        continue
-                except Exception:
-                    continue
-                manager.remember_materialized_sensor(key, persist=True)
+            valid_now = (
+                False
+                if previously_created
+                else description_has_valid_value(desc)
+            )
+
+            if not previously_created and not valid_now:
+                continue
+
+            if valid_now:
+                manager.remember_materialized_sensor(
+                    key,
+                    persist=True,
+                )
 
             created_keys.add(key)
-            result.append(FitnessSensor(manager, entry, desc))
+            result.append(
+                FitnessSensor(
+                    manager,
+                    entry,
+                    desc,
+                )
+            )
 
         return result
 
-    # Critical startup rule: never call native_value merely to decide which
-    # entities to add. Restoring the persisted materialization set is O(n) and
-    # side-effect free.
-    initial = collect_new_entities(allow_probe=False)
+    initial = collect_new_entities()
     if initial:
         async_add_entities(initial)
 
     @callback
     def materialize_new_valid_sensors() -> None:
-        new_entities = collect_new_entities(allow_probe=True)
+        new_entities = collect_new_entities()
         if new_entities:
             async_add_entities(new_entities)
 
@@ -767,8 +778,6 @@ class FitnessSensor(SensorEntity):
             return round(value, 2) if value is not None else None
 
         if self.entity_description.kind == "sleep":
-            if m in {"readiness", "estimated_recovery_time"} and not self.manager.post_start_ready:
-                return None
             if m == "readiness":
                 value = self.manager.readiness_evaluation().get("score")
                 return round(float(value), 1) if value is not None else None
@@ -876,7 +885,7 @@ class FitnessSensor(SensorEntity):
             value = values.get(m)
             return self._meaningful_workout_value(m, value)
 
-        # AI text is persisted state and is safe to expose during bootstrap.
+        e = self.manager.evaluation()
         if m == "ai_general":
             return self.manager.ai_general_verdict or (
                 "Updated" if self.manager.ai_general else None
@@ -886,13 +895,6 @@ class FitnessSensor(SensorEntity):
                 "Updated" if self.manager.ai_workout else None
             )
 
-        # Evaluation/recovery summaries can scan provider registries and
-        # longitudinal history. Never build them from an entity property while
-        # Home Assistant is still bootstrapping.
-        if not self.manager.post_start_ready:
-            return None
-
-        e = self.manager.evaluation()
         if m == "training_adaptation_status":
             result = _training_adaptation_evaluation(self.manager)
             return _localized_training_adaptation_status(self.manager._ai_language(), result["status"])
@@ -1203,8 +1205,6 @@ class FitnessSensor(SensorEntity):
             return attrs
 
         if kind == "sleep":
-            if m in {"readiness", "estimated_recovery_time"} and not self.manager.post_start_ready:
-                return {}
             if m == "estimated_recovery_time":
                 recovery = self.manager.recovery_time_evaluation()
                 attrs = {key: value for key, value in recovery.items() if key != "remaining_hours" and value is not None}
@@ -1267,10 +1267,6 @@ class FitnessSensor(SensorEntity):
 
         # Evaluation attributes are deliberately transparent: these are Fitness
         # calculations/interpretations rather than measurements from another device.
-        # During HA bootstrap, persisted AI attributes are safe but scientific
-        # evaluation must wait for post-start initialization.
-        if not self.manager.post_start_ready and m not in ("ai_general", "ai_workout"):
-            return {}
         # Evaluation domains expose concrete evidence, not generic boilerplate.
         # Formula/provenance metadata is retained only for metrics where there is
         # one specific deterministic calculation to explain.

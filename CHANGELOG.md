@@ -2,6 +2,11 @@
 
 ## 2026.8.11 — Unified workout calendar & historical reconciliation
 
+- Fixed Home Assistant startup stalls caused by Fitness synchronously rebuilding provider/workout/recovery/evaluation state while entity platforms were being added. Profile startup now restores persisted Fitness state only; provider discovery/listener registration is deferred until `EVENT_HOMEASSISTANT_STARTED`.
+- Added cached canonical latest-workout, readiness and recovery snapshots so dozens of Fitness entities no longer rescan provider registries or rebuild longitudinal summaries independently during state writes.
+- Fitness Evaluation and readiness/recovery entity properties now remain unavailable during HA bootstrap instead of triggering expensive calculations on the main event loop; they refresh immediately after post-start initialization.
+- Added regression tests enforcing non-blocking startup architecture and cache-backed workout reads.
+
 - Refined the Recovery dashboard card by integrating Training Readiness into the next-workout recovery panel and reducing visual height.
 - Training Readiness now models elapsed training recovery continuously between recovery anchors instead of changing only at fixed time thresholds.
 - Added numeric endpoints/current markers to workout-baseline, VO₂max and training-load gauges; heart-rate baseline deviation now uses distance-from-baseline status colors.
