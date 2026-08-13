@@ -19,7 +19,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 AdapterStartCaptureButton(runtime, transport),
                 AdapterStopCaptureButton(runtime, transport),
             ])
-        async_add_entities(entities)
+        async_add_entities(entities, config_subentry_id=runtime.adapters_subentry_id)
         return
 
     manager = hass.data[DOMAIN][entry.entry_id]

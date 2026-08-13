@@ -12,18 +12,25 @@ async def async_setup_entry(hass, entry, async_add_entities):
     runtime = get_live_runtime(hass)
     if entry.data.get("entry_type") != HUB_ENTRY_TYPE:
         return
-    entities = []
+    adapter_entities = []
     for transport in sorted(runtime.configured_transports):
-        entities.extend(
+        adapter_entities.extend(
             [
                 AdapterAvailable(runtime, transport),
                 AdapterCapture(runtime, transport),
                 AdapterProblem(runtime, transport),
             ]
         )
-    for sensor in runtime.sensors.values():
-        entities.append(LiveSensorAvailable(runtime, sensor.sensor_id))
-    async_add_entities(entities)
+    async_add_entities(adapter_entities, config_subentry_id=runtime.adapters_subentry_id)
+
+    sensor_entities = [
+        LiveSensorAvailable(runtime, sensor.sensor_id)
+        for sensor in runtime.sensors.values()
+    ]
+    async_add_entities(
+        sensor_entities,
+        config_subentry_id=runtime.sensors_subentry_id,
+    )
 
 
 class _RuntimeEntity(BinarySensorEntity):

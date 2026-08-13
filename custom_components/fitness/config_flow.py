@@ -28,8 +28,6 @@ from .const import (
     CONF_LANGUAGE,
     CONF_LIVE_DEVICE_IDS,
     CONF_LIVE_SENSOR_IDS,
-    CONF_BLUETOOTH_ENABLED,
-    CONF_ANTPLUS_ENABLED,
     CONF_MAX_HR,
     CONF_PERIODIC_LIVE_ANNOUNCEMENTS,
     CONF_PERIODIC_LIVE_INTERVAL_MINUTES,
@@ -233,7 +231,7 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             await self.async_set_unique_id("local_sensors")
             self._abort_if_unique_id_configured()
             return self.async_create_entry(
-                title="Local Sensors",
+                title="Sensors & Adapters",
                 data={"entry_type": "live_hub"},
             )
 
@@ -439,45 +437,13 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
     async def _async_next_live_setup_step(self):
-        """Create missing global adapters before asking for live sensors."""
+        """Skip native sensor selection until an adapter is explicitly enabled."""
         from .live import get_live_runtime
         runtime = get_live_runtime(self.hass)
         await runtime.async_initialize()
-        if len(runtime.configured_transports) < 2:
-            return await self.async_step_live_transports()
         if runtime.live_enabled:
             return await self.async_step_live_devices()
         return await self.async_step_workout_devices()
-
-    async def async_step_live_transports(self, user_input=None):
-        """Create missing global Fitness live adapters before sensor selection."""
-        from .live import get_live_runtime
-        runtime = get_live_runtime(self.hass)
-        await runtime.async_initialize()
-        missing = {"bluetooth", "antplus"} - runtime.configured_transports
-        if not missing:
-            if runtime.live_enabled:
-                return await self.async_step_live_devices()
-            return await self.async_step_workout_devices()
-
-        if user_input is not None:
-            if "bluetooth" in missing and bool(user_input.get(CONF_BLUETOOTH_ENABLED, False)):
-                await runtime.async_configure_transport("bluetooth", enabled=True)
-            if "antplus" in missing and bool(user_input.get(CONF_ANTPLUS_ENABLED, False)):
-                await runtime.async_configure_transport("antplus", enabled=True)
-            if runtime.live_enabled:
-                return await self.async_step_live_devices()
-            return await self.async_step_workout_devices()
-
-        schema = {}
-        if "bluetooth" in missing:
-            schema[vol.Optional(CONF_BLUETOOTH_ENABLED, default=False)] = bool
-        if "antplus" in missing:
-            schema[vol.Optional(CONF_ANTPLUS_ENABLED, default=False)] = bool
-        return self.async_show_form(
-            step_id="live_transports",
-            data_schema=vol.Schema(schema),
-        )
 
     async def async_step_live_devices(self, user_input=None):
         from .live import get_live_runtime
@@ -738,33 +704,10 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
         runtime = get_live_runtime(self.hass)
         await runtime.async_initialize()
         menu = ["profile", "fitness_inputs"]
-        if len(runtime.configured_transports) < 2:
-            menu.append("live_transports")
         if runtime.live_enabled:
             menu.append("live_devices")
         menu.extend(["workout_devices", "history", "sleep_devices", "ai", "feedback"])
         return self.async_show_menu(step_id="init", menu_options=menu)
-
-    async def async_step_live_transports(self, user_input=None):
-        """Create any still-missing global adapter from a user configure flow."""
-        from .live import get_live_runtime
-        runtime = get_live_runtime(self.hass)
-        await runtime.async_initialize()
-        missing = {"bluetooth", "antplus"} - runtime.configured_transports
-        if not missing:
-            return self.async_abort(reason="adapters_already_configured")
-        if user_input is not None:
-            if "bluetooth" in missing and user_input.get(CONF_BLUETOOTH_ENABLED):
-                await runtime.async_configure_transport("bluetooth", enabled=True)
-            if "antplus" in missing and user_input.get(CONF_ANTPLUS_ENABLED):
-                await runtime.async_configure_transport("antplus", enabled=True)
-            return self.async_create_entry(title="", data=dict(self.config_entry.options))
-        schema = {}
-        if "bluetooth" in missing:
-            schema[vol.Optional(CONF_BLUETOOTH_ENABLED, default=False)] = bool
-        if "antplus" in missing:
-            schema[vol.Optional(CONF_ANTPLUS_ENABLED, default=False)] = bool
-        return self.async_show_form(step_id="live_transports", data_schema=vol.Schema(schema))
 
     async def async_step_profile(self, user_input=None):
         """Edit DOB/sex profile data."""

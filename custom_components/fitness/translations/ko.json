@@ -122,18 +122,6 @@
           "sleep_device_ids": "Fitness가 분석할 수 있는 수면 데이터가 있는 기기만 표시됩니다."
         }
       },
-      "live_transports": {
-        "title": "Live workout adapters",
-        "description": "Choose which native radio transports Fitness should create. Fitness creates a separate Local Sensors hub; adapters and physical sensors live there, outside every user profile.",
-        "data": {
-          "bluetooth_fitness_enabled": "Create Bluetooth Fitness adapter",
-          "antplus_enabled": "Create ANT+ adapter"
-        },
-        "data_description": {
-          "bluetooth_fitness_enabled": "Use Home Assistant Bluetooth, including compatible Bluetooth proxies, to discover and actively connect to standard fitness sensors.",
-          "antplus_enabled": "Use the native HA-ANT+ runtime for local ANT USB adapters and remote ANT+ gateways."
-        }
-      },
       "assign_live_sensor": {
         "title": "New fitness sensor discovered",
         "description": "{sensor} was discovered. Choose every Fitness user who may use this physical sensor for live workouts.",
@@ -282,18 +270,6 @@
         },
         "data_description": {
           "sleep_device_ids": "Fitness가 분석할 수 있는 수면 데이터가 있는 기기만 표시됩니다."
-        }
-      },
-      "live_transports": {
-        "title": "Live workout adapters",
-        "description": "Choose which native radio transports Fitness should create. Fitness creates a separate Local Sensors hub; adapters and physical sensors live there, outside every user profile.",
-        "data": {
-          "bluetooth_fitness_enabled": "Create Bluetooth Fitness adapter",
-          "antplus_enabled": "Create ANT+ adapter"
-        },
-        "data_description": {
-          "bluetooth_fitness_enabled": "Use Home Assistant Bluetooth, including compatible Bluetooth proxies, to discover and actively connect to standard fitness sensors.",
-          "antplus_enabled": "Use the native HA-ANT+ runtime for local ANT USB adapters and remote ANT+ gateways."
         }
       }
     }
@@ -3148,6 +3124,18 @@
     },
     "workout": {
       "name": "운동 기록"
+    },
+    "sensors_adapters": {
+      "name": "Sensors & Adapters"
+    },
+    "sensors": {
+      "name": "Sensors"
+    },
+    "antplus_adapter": {
+      "name": "ANT+ Adapter"
+    },
+    "bluetooth_adapter": {
+      "name": "Bluetooth Adapter"
     }
   }
 }

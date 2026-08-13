@@ -7,13 +7,14 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
+from types import MappingProxyType
+
+from homeassistant.config_entries import ConfigSubentry
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from ..const import (
-    CONF_ANTPLUS_ENABLED,
-    CONF_BLUETOOTH_ENABLED,
     CONF_LIVE_SENSOR_IDS,
     DOMAIN,
     LIVE_ADAPTER_STORE_KEY,
@@ -38,7 +39,13 @@ TRANSPORTS = ("bluetooth", "antplus")
 TRANSPORT_PRIORITY = ("antplus", "bluetooth")
 HUB_ENTRY_TYPE = "live_hub"
 HUB_UNIQUE_ID = "local_sensors"
-HUB_DEVICE_ID = "local_sensors"
+HUB_DEVICE_ID = "sensors_adapters"
+SENSOR_COLLECTION_DEVICE_ID = "sensors"  # legacy v2 device identifier; removed by migration
+SENSORS_SUBENTRY_TYPE = "sensors"
+SENSORS_SUBENTRY_UNIQUE_ID = "fitness_sensors"
+ADAPTERS_SUBENTRY_TYPE = "adapters"
+ADAPTERS_SUBENTRY_UNIQUE_ID = "fitness_adapters"
+ADAPTER_DEVICE_MODEL_VERSION = 1
 
 
 def _clean(value: Any) -> str:
@@ -156,6 +163,8 @@ class LiveRuntime:
         self.providers: dict[str, Any] = {}
         self.profile_entries: dict[str, Any] = {}
         self.hub_entry = None
+        self.sensors_subentry_id: str | None = None
+        self.adapters_subentry_id: str | None = None
         self.measurements: dict[str, dict[str, float]] = {}
         self.measurement_sources: dict[str, dict[str, str]] = {}
         self.measurement_time: dict[str, datetime] = {}
@@ -181,11 +190,20 @@ class LiveRuntime:
         if self._initialized:
             return
         stored = await self._store.async_load() or {}
-        configured = stored.get("configured") or {}
         enabled = stored.get("enabled") or {}
+        adapter_model = int(stored.get("adapter_device_model") or 0)
+
+        # ANT+ and Bluetooth adapter devices are permanent Fitness infrastructure.
+        # Their provider modules are loaded only when the user explicitly turns
+        # on the adapter's Enable switch.  Migrating from the old config-flow
+        # transport model therefore creates both adapters disabled.
         for name in TRANSPORTS:
-            self._configured[name] = bool(configured.get(name, False))
-            self._enabled[name] = bool(enabled.get(name, False))
+            self._configured[name] = True
+            self._enabled[name] = (
+                bool(enabled.get(name, False))
+                if adapter_model >= ADAPTER_DEVICE_MODEL_VERSION
+                else False
+            )
 
         # Restore physical identity aliases so one sensor stays one HA device
         # even when ANT+/BLE advertisements arrive in a different order.
@@ -215,6 +233,10 @@ class LiveRuntime:
                 continue
 
         self._initialized = True
+        if adapter_model < ADAPTER_DEVICE_MODEL_VERSION:
+            # Persist the new disabled-by-default adapter model outside the
+            # profile setup critical path.
+            self._schedule_save()
 
     def _serialize_sensors(self) -> list[dict[str, Any]]:
         result = []
@@ -243,8 +265,9 @@ class LiveRuntime:
     async def _async_save_adapter_config(self) -> None:
         await self._store.async_save(
             {
-                "configured": dict(self._configured),
+                "configured": {name: True for name in TRANSPORTS},
                 "enabled": dict(self._enabled),
+                "adapter_device_model": ADAPTER_DEVICE_MODEL_VERSION,
                 "physical_sensors": self._serialize_sensors(),
             }
         )
@@ -281,7 +304,10 @@ class LiveRuntime:
         await self.async_initialize()
         self.hub_entry = entry
         self._cleanup_legacy_profile_infrastructure()
-        self.ensure_hub_device()
+        self.ensure_adapters_subentry()
+        self.ensure_sensors_subentry()
+        self._remove_legacy_grouping_devices()
+        self._migrate_adapter_devices_to_subentry()
         for sensor_id in tuple(self.sensors):
             self.ensure_sensor_device(sensor_id)
 
@@ -345,28 +371,117 @@ class LiveRuntime:
     async def async_unregister_hub(self, entry_id: str) -> None:
         if self.hub_entry is not None and self.hub_entry.entry_id == entry_id:
             self.hub_entry = None
+            self.sensors_subentry_id = None
+            self.adapters_subentry_id = None
 
-    def ensure_hub_device(self):
+    def ensure_adapters_subentry(self):
+        """Ensure the adapter config subentry exists on the hub entry."""
         if self.hub_entry is None:
             return None
-        from homeassistant.helpers import device_registry as dr
-        return dr.async_get(self.hass).async_get_or_create(
-            config_entry_id=self.hub_entry.entry_id,
-            identifiers={(DOMAIN, HUB_DEVICE_ID)},
-            name="Local Sensors",
-            manufacturer="Fitness",
-            model="Local fitness sensor hub",
+        for subentry in self.hub_entry.subentries.values():
+            if (
+                subentry.subentry_type == ADAPTERS_SUBENTRY_TYPE
+                or subentry.unique_id == ADAPTERS_SUBENTRY_UNIQUE_ID
+            ):
+                self.adapters_subentry_id = subentry.subentry_id
+                if subentry.title != "Adapters":
+                    self.hass.config_entries.async_update_subentry(
+                        self.hub_entry, subentry, title="Adapters"
+                    )
+                return subentry
+        subentry = ConfigSubentry(
+            data=MappingProxyType({}),
+            subentry_type=ADAPTERS_SUBENTRY_TYPE,
+            title="Adapters",
+            unique_id=ADAPTERS_SUBENTRY_UNIQUE_ID,
         )
+        self.hass.config_entries.async_add_subentry(self.hub_entry, subentry)
+        self.adapters_subentry_id = subentry.subentry_id
+        return subentry
+
+    def ensure_sensors_subentry(self):
+        """Ensure the physical-sensor config subentry exists on the hub entry."""
+        if self.hub_entry is None:
+            return None
+
+        for subentry in self.hub_entry.subentries.values():
+            if (
+                subentry.subentry_type == SENSORS_SUBENTRY_TYPE
+                or subentry.unique_id == SENSORS_SUBENTRY_UNIQUE_ID
+            ):
+                self.sensors_subentry_id = subentry.subentry_id
+                if subentry.title != "Sensors":
+                    self.hass.config_entries.async_update_subentry(
+                        self.hub_entry, subentry, title="Sensors"
+                    )
+                return subentry
+
+        subentry = ConfigSubentry(
+            data=MappingProxyType({}),
+            subentry_type=SENSORS_SUBENTRY_TYPE,
+            title="Sensors",
+            unique_id=SENSORS_SUBENTRY_UNIQUE_ID,
+        )
+        self.hass.config_entries.async_add_subentry(self.hub_entry, subentry)
+        self.sensors_subentry_id = subentry.subentry_id
+        return subentry
+
+    def _remove_legacy_grouping_devices(self) -> None:
+        """Remove obsolete fake grouping devices; config subentries replace them."""
+        if self.hub_entry is None:
+            return
+        from homeassistant.helpers import device_registry as dr
+        registry = dr.async_get(self.hass)
+        for identifier in (HUB_DEVICE_ID, SENSOR_COLLECTION_DEVICE_ID):
+            device = registry.async_get_device_by_identifier(
+                (DOMAIN, identifier), self.hub_entry.entry_id
+            )
+            if device is not None:
+                registry.async_remove_device(device.id)
+
+    def _adapters_subentry_id(self) -> str | None:
+        if self.adapters_subentry_id:
+            return self.adapters_subentry_id
+        subentry = self.ensure_adapters_subentry()
+        return subentry.subentry_id if subentry is not None else None
+
+    def _migrate_adapter_devices_to_subentry(self) -> None:
+        """Move existing adapter devices from the parent entry into Adapters."""
+        if self.hub_entry is None:
+            return
+        subentry_id = self._adapters_subentry_id()
+        if subentry_id is None:
+            return
+        from homeassistant.helpers import device_registry as dr
+        registry = dr.async_get(self.hass)
+        for transport in TRANSPORTS:
+            device = registry.async_get_device_by_identifier(
+                (DOMAIN, f"live_adapter:{transport}"), self.hub_entry.entry_id
+            )
+            if device is not None and device.config_subentry_id != subentry_id:
+                registry.async_update_device(
+                    device.id,
+                    new_config_subentry_id=subentry_id,
+                    via_device_id=None,
+                )
+
+    def _sensor_subentry_id(self) -> str | None:
+        if self.sensors_subentry_id:
+            return self.sensors_subentry_id
+        subentry = self.ensure_sensors_subentry()
+        return subentry.subentry_id if subentry is not None else None
+
 
     def adapter_device_info(self, transport: str):
         from homeassistant.helpers.device_registry import DeviceInfo
-        hub = self.ensure_hub_device()
+        label = "ANT+ Adapter" if transport == "antplus" else "Bluetooth Adapter"
+        translation_key = "antplus_adapter" if transport == "antplus" else "bluetooth_adapter"
         return DeviceInfo(
             identifiers={(DOMAIN, f"live_adapter:{transport}")},
-            name=f"Fitness {transport.upper()} Adapter",
+            translation_key=translation_key,
+            name=label,
             manufacturer="Fitness",
-            model=f"{transport.upper()} live transport",
-            via_device_id=hub.id if hub else None,
+            model=label,
         )
 
     def sensor_device_info(self, sensor_id: str):
@@ -378,7 +493,6 @@ class LiveRuntime:
                 name=str(sensor_id),
                 manufacturer="Fitness",
                 model="Local fitness sensor",
-                via_device_id=(self.ensure_hub_device().id if self.ensure_hub_device() else None),
             )
         identifiers = {(DOMAIN, f"live_sensor:{sensor.sensor_id}")}
         for endpoint in sensor.endpoints.values():
@@ -392,7 +506,6 @@ class LiveRuntime:
             manufacturer=str(manufacturer),
             model=str(model),
             serial_number=str(serial) if serial not in (None, "") else None,
-            via_device_id=(self.ensure_hub_device().id if self.ensure_hub_device() else None),
         )
 
     def adapter_configured(self, transport: str) -> bool:
@@ -405,7 +518,7 @@ class LiveRuntime:
     def configured_transports(self) -> set[str]:
         return {name for name in TRANSPORTS if self.adapter_configured(name)}
 
-    async def async_configure_transport(self, transport: str, *, enabled: bool = True) -> None:
+    async def async_configure_transport(self, transport: str, *, enabled: bool = False) -> None:
         if transport not in TRANSPORTS:
             raise ValueError(f"Unsupported Fitness live transport: {transport}")
         await self.async_initialize()
@@ -430,16 +543,6 @@ class LiveRuntime:
     async def async_register_profile(self, entry) -> None:
         await self.async_initialize()
         self.profile_entries[entry.entry_id] = entry
-        merged = {**entry.data, **entry.options}
-        migrated = False
-        for transport, key in (("bluetooth", CONF_BLUETOOTH_ENABLED), ("antplus", CONF_ANTPLUS_ENABLED)):
-            if merged.get(key) and not self.adapter_configured(transport):
-                self._configured[transport] = True
-                self._enabled[transport] = True
-                migrated = True
-        if migrated:
-            await self._async_save_adapter_config()
-            await self.async_ensure_hub_entry()
         self._restore_legacy_profile_selections(entry)
         # Person/profile entries never start radio providers. Live transports
         # are owned exclusively by the Local Sensors hub entry.
@@ -769,22 +872,38 @@ class LiveRuntime:
             self._schedule_save()
 
     def ensure_sensor_device(self, sensor_id: str) -> None:
+        """Create or migrate one physical sensor into the Sensors subentry."""
         sensor_id = self.resolve_sensor_id(sensor_id)
         sensor = self.sensors.get(sensor_id)
         if sensor is None or self.hub_entry is None:
             return
-        self.ensure_hub_device()
+        subentry_id = self._sensor_subentry_id()
+        if subentry_id is None:
+            return
         from homeassistant.helpers import device_registry as dr
         registry = dr.async_get(self.hass)
         info = self.sensor_device_info(sensor_id)
+
+        # Migrate v2 physical devices which were owned by the parent hub entry.
+        # Do this before entity platforms are forwarded: Home Assistant may prune
+        # registry entities from the old subentry when a device moves, and the
+        # platform setup below will recreate them directly in the Sensors subentry.
+        existing = registry.async_get_device_by_identifier(
+            (DOMAIN, f"live_sensor:{sensor_id}"), self.hub_entry.entry_id
+        )
+        if existing is not None and existing.config_subentry_id != subentry_id:
+            registry.async_update_device(
+                existing.id, new_config_subentry_id=subentry_id
+            )
+
         registry.async_get_or_create(
             config_entry_id=self.hub_entry.entry_id,
+            config_subentry_id=subentry_id,
             identifiers=set(info["identifiers"]),
             name=info.get("name"),
             manufacturer=info.get("manufacturer"),
             model=info.get("model"),
             serial_number=info.get("serial_number"),
-            via_device_id=info.get("via_device_id"),
         )
 
     def request_hub_reload(self) -> None:

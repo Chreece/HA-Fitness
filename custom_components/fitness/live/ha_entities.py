@@ -113,4 +113,4 @@ async def async_setup_sensor_entities(runtime, async_add_entities) -> None:
         for metric in METRIC_META:
             if metric in sensor.capabilities:
                 entities.append(PhysicalMetricSensor(runtime, sensor.sensor_id, metric))
-    async_add_entities(entities)
+    async_add_entities(entities, config_subentry_id=runtime.sensors_subentry_id)

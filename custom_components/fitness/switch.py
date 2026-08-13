@@ -12,7 +12,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
     if entry.data.get("entry_type") != HUB_ENTRY_TYPE:
         return
     async_add_entities(
-        [AdapterEnabledSwitch(runtime, transport) for transport in sorted(runtime.configured_transports)]
+        [AdapterEnabledSwitch(runtime, transport) for transport in sorted(runtime.configured_transports)],
+        config_subentry_id=runtime.adapters_subentry_id,
     )
 
 

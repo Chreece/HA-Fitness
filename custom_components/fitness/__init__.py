@@ -1,8 +1,10 @@
 """Fitness integration."""
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import CoreState, HomeAssistant, ServiceCall, callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+import importlib
 import voluptuous as vol
 
 from .const import (
@@ -111,6 +113,54 @@ async def async_migrate_entry(
     return True
 
 
+@callback
+def _schedule_sensors_adapters_entry(hass: HomeAssistant) -> None:
+    """Self-heal the global Sensors & Adapters entry without delaying startup."""
+    from .live.runtime import HUB_ENTRY_TYPE
+
+    if any(
+        existing.data.get("entry_type") == HUB_ENTRY_TYPE
+        for existing in hass.config_entries.async_entries(DOMAIN)
+    ):
+        return
+
+    data = hass.data.setdefault(DOMAIN, {})
+    if data.get("_sensors_adapters_creation_scheduled"):
+        return
+    data["_sensors_adapters_creation_scheduled"] = True
+
+    async def _create() -> None:
+        try:
+            # Config flows are Home Assistant's supported config-entry creation
+            # API. Import the module in the executor so the invisible internal
+            # discovery flow never performs a blocking import on HA's event loop.
+            await hass.async_add_executor_job(
+                importlib.import_module, f"{__package__}.config_flow"
+            )
+            if any(
+                existing.data.get("entry_type") == HUB_ENTRY_TYPE
+                for existing in hass.config_entries.async_entries(DOMAIN)
+            ):
+                return
+            await hass.config_entries.flow.async_init(
+                DOMAIN,
+                context={"source": "integration_discovery"},
+                data={"live_hub": True},
+            )
+        finally:
+            data["_sensors_adapters_creation_scheduled"] = False
+
+    @callback
+    def _run_after_start(_event=None) -> None:
+        hass.async_create_task(_create())
+
+    if hass.state is CoreState.running:
+        _run_after_start()
+    else:
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _run_after_start)
+
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     from .live import get_live_runtime
@@ -118,8 +168,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     runtime = get_live_runtime(hass)
 
     if entry.data.get("entry_type") == HUB_ENTRY_TYPE:
-        if entry.title != "Local Sensors":
-            hass.config_entries.async_update_entry(entry, title="Local Sensors")
+        if entry.title != "Sensors & Adapters":
+            hass.config_entries.async_update_entry(entry, title="Sensors & Adapters")
         await runtime.async_register_hub(entry)
         entry.async_on_unload(entry.add_update_listener(_async_update_listener))
         await hass.config_entries.async_forward_entry_setups(entry, HUB_PLATFORMS)
@@ -138,6 +188,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await manager.async_setup()
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    _schedule_sensors_adapters_entry(hass)
     return True
 
 
