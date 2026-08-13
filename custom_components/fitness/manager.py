@@ -4689,7 +4689,16 @@ class FitnessManager:
         }
 
     def sleep_long_term_summary(self) -> dict[str, Any]:
-        """Longitudinal sleep duration, regularity and HRV context."""
+        """Longitudinal sleep duration, regularity and HRV context.
+
+        Long-term nightly metrics count one main sleep per local wake date. This
+        prevents provider duplicates or fragmented records for the same night
+        from inflating 7-day sleep deficit and sample counts.
+
+        HRV recovery uses a Fitness-owned personal baseline built from prior
+        nights only: a recent 7-night mean is compared with a preceding 28-day
+        baseline. The latest night is never included in its own baseline.
+        """
         raw_records = self._sleep_records_from_history()
         now = datetime.now(timezone.utc)
         sleep_rejections: dict[str, int] = {}
@@ -4702,15 +4711,42 @@ class FitnessManager:
             records.append(record)
         tz = ZoneInfo(getattr(self.hass.config, "time_zone", "UTC") or "UTC")
 
-        dated: list[tuple[datetime, SleepRecord]] = []
+        # One main sleep per local wake date. Provider copies of the same night
+        # can occasionally survive timestamp clustering when their boundaries
+        # differ substantially. Counting both would make a 7-day deficit grow
+        # simply because another provider synchronized later. For longitudinal
+        # nightly metrics, keep the longest/richest validated record for that
+        # wake date. Short naps therefore do not replace the main night's sleep.
+        nightly_by_date: dict[Any, tuple[datetime, SleepRecord]] = {}
+        duplicate_nightly_records = 0
         for record in records:
             stamp = _dt(record.end or record.start)
             if stamp is None:
                 continue
             age_days = (now - stamp).total_seconds() / 86400
-            if 0 <= age_days <= 90:
-                dated.append((stamp, record))
-        dated.sort(key=lambda item: item[0])
+            if not (0 <= age_days <= 90):
+                continue
+            wake_date = stamp.astimezone(tz).date()
+            current = nightly_by_date.get(wake_date)
+            if current is None:
+                nightly_by_date[wake_date] = (stamp, record)
+                continue
+            duplicate_nightly_records += 1
+            _current_stamp, current_record = current
+            current_duration = float(current_record.duration_s or 0.0)
+            candidate_duration = float(record.duration_s or 0.0)
+            current_richness = sum(
+                getattr(current_record, name) is not None
+                for name in ("duration_s", "light_sleep_s", "deep_sleep_s", "rem_sleep_s", "awake_s", "hrv_ms", "score")
+            )
+            candidate_richness = sum(
+                getattr(record, name) is not None
+                for name in ("duration_s", "light_sleep_s", "deep_sleep_s", "rem_sleep_s", "awake_s", "hrv_ms", "score")
+            )
+            if (candidate_duration, candidate_richness, stamp) > (current_duration, current_richness, _current_stamp):
+                nightly_by_date[wake_date] = (stamp, record)
+
+        dated = sorted(nightly_by_date.values(), key=lambda item: item[0])
 
         def subset(days: int):
             return [(stamp, r) for stamp, r in dated if (now - stamp).total_seconds() <= days * 86400]
@@ -4723,10 +4759,37 @@ class FitnessManager:
             return mean(vals) if len(vals) >= minimum else None
 
         duration7, duration28 = avg("duration_s", 7, 5), avg("duration_s", 28, 21)
-        hrv7, hrv28 = avg("hrv_ms", 7, 5), avg("hrv_ms", 28, 21)
+        hrv7 = avg("hrv_ms", 7, 5)
         latest = self.latest_sleep()
         latest_duration = latest.duration_s if latest else None
         latest_hrv = latest.hrv_ms if latest else None
+
+        # Personal HRV baseline: use prior nights only. A weekly average is
+        # preferred for the current/recent signal because day-to-day HRV is
+        # noisy; compare it with a longer preceding baseline. Keep the legacy
+        # 28-day field name for API compatibility, but its value now correctly
+        # excludes the newest night from the reference distribution.
+        latest_stamp = _dt(latest.end or latest.start) if latest else None
+        prior_hrv_28 = [
+            float(r.hrv_ms)
+            for stamp, r in dated
+            if r.hrv_ms is not None
+            and (latest_stamp is None or stamp < latest_stamp)
+            and (now - stamp).total_seconds() <= 28 * 86400
+        ]
+        hrv28 = mean(prior_hrv_28) if len(prior_hrv_28) >= 14 else None
+        recent_hrv_values = field_values("hrv_ms", 7)
+        recent_hrv = mean(recent_hrv_values) if len(recent_hrv_values) >= 5 else None
+        hrv_recent_vs_baseline = (
+            (recent_hrv - hrv28) / abs(hrv28) * 100.0
+            if recent_hrv is not None and hrv28 not in (None, 0)
+            else None
+        )
+        latest_hrv_vs_baseline = (
+            (float(latest_hrv) - hrv28) / abs(hrv28) * 100.0
+            if latest_hrv is not None and hrv28 not in (None, 0)
+            else None
+        )
 
         def circular_sd(kind: str, days: int, minimum: int = 5):
             vals = []
@@ -4754,10 +4817,19 @@ class FitnessManager:
         twenty_eight = field_values("duration_s", 28)
         deficit7 = None
         nights_below7_7 = None
+        nightly_deficit_series: list[dict[str, Any]] = []
         if self.age() >= 18 and len(seven) >= 5:
-            deficits = [max(0.0, 7 * 3600 - seconds) for seconds in seven]
-            deficit7 = sum(deficits) / 60.0
-            nights_below7_7 = sum(1 for seconds in seven if seconds < 7 * 3600)
+            for stamp, record in subset(7):
+                if record.duration_s is None:
+                    continue
+                deficit_min = max(0.0, 7 * 3600 - float(record.duration_s)) / 60.0
+                nightly_deficit_series.append({
+                    "date": stamp.astimezone(tz).date().isoformat(),
+                    "sleep_minutes": round(float(record.duration_s) / 60.0, 1),
+                    "deficit_minutes": round(deficit_min, 1),
+                })
+            deficit7 = sum(item["deficit_minutes"] for item in nightly_deficit_series)
+            nights_below7_7 = sum(1 for item in nightly_deficit_series if item["deficit_minutes"] > 0)
         nights_below7_28 = None
         below7_pct28 = None
         if self.age() >= 18 and len(twenty_eight) >= 14:
@@ -4769,6 +4841,8 @@ class FitnessManager:
             "history_source": "fitness_canonical_sleep_history",
             "history_raw_records": len(raw_records),
             "history_valid_records": len(records),
+            "history_unique_nights": len(dated),
+            "history_duplicate_nightly_records_ignored": duplicate_nightly_records,
             "history_rejected_records": sum(sleep_rejections.values()),
             "history_rejection_reasons": dict(sorted(sleep_rejections.items())),
             "nights_7d": len(seven) or None,
@@ -4781,12 +4855,21 @@ class FitnessManager:
             "wake_time_variability_28d_min": round(waketime_sd, 1) if waketime_sd is not None else None,
             "sleep_midpoint_variability_28d_min": round(midpoint_sd, 1) if midpoint_sd is not None else None,
             "sleep_deficit_7d_min": round(deficit7, 1) if deficit7 is not None else None,
+            "sleep_deficit_nightly_series": nightly_deficit_series,
             "nights_below_7h_7d": nights_below7_7,
             "nights_below_7h_28d": nights_below7_28,
             "nights_below_7h_28d_percent": round(below7_pct28, 1) if below7_pct28 is not None else None,
             "sleep_hrv_7d_mean_ms": round(hrv7, 1) if hrv7 is not None else None,
             "sleep_hrv_28d_mean_ms": round(hrv28, 1) if hrv28 is not None else None,
-            "sleep_hrv_vs_28d_percent": round((latest_hrv - hrv28) / abs(hrv28) * 100.0, 1) if latest_hrv is not None and hrv28 not in (None, 0) else None,
+            "sleep_hrv_baseline_28d_mean_ms": round(hrv28, 1) if hrv28 is not None else None,
+            "sleep_hrv_baseline_nights": len(prior_hrv_28),
+            "sleep_hrv_latest_vs_28d_percent": round(latest_hrv_vs_baseline, 1) if latest_hrv_vs_baseline is not None else None,
+            "sleep_hrv_7d_vs_baseline_percent": round(hrv_recent_vs_baseline, 1) if hrv_recent_vs_baseline is not None else None,
+            # Backward-compatible key: now uses the less noisy recent weekly
+            # signal when available, otherwise the latest-night deviation.
+            "sleep_hrv_vs_28d_percent": round(
+                hrv_recent_vs_baseline if hrv_recent_vs_baseline is not None else latest_hrv_vs_baseline, 1
+            ) if (hrv_recent_vs_baseline is not None or latest_hrv_vs_baseline is not None) else None,
         }
 
     def recorder_long_term_evaluation(self) -> dict[str, Any]:

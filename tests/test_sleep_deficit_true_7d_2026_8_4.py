@@ -21,4 +21,6 @@ def test_sleep_as_android_imports_completed_recorder_window():
 def test_sleep_deficit_requires_longitudinal_samples():
     manager = (ROOT / "custom_components/fitness/manager.py").read_text()
     assert "if self.age() >= 18 and len(seven) >= 5:" in manager
-    assert "deficits = [max(0.0, 7 * 3600 - seconds) for seconds in seven]" in manager
+    assert "deficit_min = max(0.0, 7 * 3600 - float(record.duration_s)) / 60.0" in manager
+    assert "sleep_deficit_nightly_series" in manager
+    assert "nightly_by_date" in manager

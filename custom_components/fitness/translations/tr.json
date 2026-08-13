@@ -2356,6 +2356,15 @@
           },
           "why_useful": {
             "name": "Neden yararlı"
+          },
+          "nightly_deficit_series": {
+            "name": "Gecelik uyku açığı dökümü"
+          },
+          "unique_nights": {
+            "name": "Geçmişteki benzersiz geceler"
+          },
+          "duplicate_nightly_records_ignored": {
+            "name": "Yoksayılan yinelenen gece kayıtları"
           }
         }
       },
@@ -2397,6 +2406,18 @@
           },
           "why_useful": {
             "name": "Neden yararlı"
+          },
+          "sleep_hrv_baseline_28d_mean_ms": {
+            "name": "Kişisel HRV tabanı (önceki 28 gün)"
+          },
+          "sleep_hrv_baseline_nights": {
+            "name": "HRV taban geceleri"
+          },
+          "sleep_hrv_latest_vs_28d_percent": {
+            "name": "Son HRV / kişisel taban"
+          },
+          "sleep_hrv_7d_vs_baseline_percent": {
+            "name": "7 günlük HRV / kişisel taban"
           }
         }
       },
@@ -2605,6 +2626,9 @@
           },
           "method": {
             "name": "Yöntem"
+          },
+          "level_display": {
+            "name": "Seviye (yerelleştirilmiş)"
           }
         }
       },

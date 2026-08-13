@@ -251,7 +251,7 @@ _METHODS = {
     "sleep_duration_shortfall": ("AASM/SRS adult sleep-duration minimum", "max(0, 420 min − last_sleep_duration_min)", ["last_sleep_duration", "age"], "use_general"),
     "sleep_midpoint_variability_14d": ("sleep timing variability", "population standard deviation of sleep midpoints over 14 days; minimum 5 timed nights", ["sleep_start", "sleep_end", "sleep_history"], "use_baseline"),
     "sleep_hrv_7d_mean": ("rolling nightly HRV mean", "mean(merged nightly HRV over previous 7 days; minimum 3 nights)", ["sleep_hrv", "sleep_history"], "use_baseline"),
-    "sleep_hrv_28d_mean": ("rolling nightly HRV mean", "mean(merged nightly HRV over previous 28 days; minimum 7 nights)", ["sleep_hrv", "sleep_history"], "use_baseline"),
+    "sleep_hrv_28d_mean": ("personal nightly HRV baseline", "mean(merged nightly HRV from prior nights over 28 days; latest night excluded; minimum 14 prior nights)", ["sleep_hrv", "sleep_history"], "use_baseline"),
     "sleep_hrv_vs_28d": ("nightly HRV personal baseline comparison", "(last_sleep_HRV − 28d_mean_HRV) / 28d_mean_HRV × 100", ["sleep_hrv", "sleep_history"], "use_baseline"),
     "resting_hr_7d_mean": ("Recorder resting-HR trend", "mean(daily resting-HR statistics over up to 7 days)", ["resting_hr_entity", "recorder_statistics"], "use_baseline"),
     "resting_hr_28d_mean": ("Recorder resting-HR baseline", "mean(daily resting-HR statistics over up to 28 days)", ["resting_hr_entity", "recorder_statistics"], "use_baseline"),

@@ -2356,6 +2356,15 @@
           },
           "why_useful": {
             "name": "役立つ理由"
+          },
+          "nightly_deficit_series": {
+            "name": "夜ごとの睡眠不足内訳"
+          },
+          "unique_nights": {
+            "name": "履歴内のユニークな夜"
+          },
+          "duplicate_nightly_records_ignored": {
+            "name": "無視した重複夜間記録"
           }
         }
       },
@@ -2397,6 +2406,18 @@
           },
           "why_useful": {
             "name": "役立つ理由"
+          },
+          "sleep_hrv_baseline_28d_mean_ms": {
+            "name": "個人HRVベースライン（過去28日）"
+          },
+          "sleep_hrv_baseline_nights": {
+            "name": "HRVベースライン夜数"
+          },
+          "sleep_hrv_latest_vs_28d_percent": {
+            "name": "最新HRVと個人ベースラインの比較"
+          },
+          "sleep_hrv_7d_vs_baseline_percent": {
+            "name": "7日HRVと個人ベースラインの比較"
           }
         }
       },
@@ -2605,6 +2626,9 @@
           },
           "method": {
             "name": "方法"
+          },
+          "level_display": {
+            "name": "レベル（ローカライズ）"
           }
         }
       },

@@ -2356,6 +2356,15 @@
           },
           "why_useful": {
             "name": "Pourquoi c’est utile"
+          },
+          "nightly_deficit_series": {
+            "name": "Détail du déficit par nuit"
+          },
+          "unique_nights": {
+            "name": "Nuits uniques dans l’historique"
+          },
+          "duplicate_nightly_records_ignored": {
+            "name": "Doublons de nuits ignorés"
           }
         }
       },
@@ -2397,6 +2406,18 @@
           },
           "why_useful": {
             "name": "Pourquoi c’est utile"
+          },
+          "sleep_hrv_baseline_28d_mean_ms": {
+            "name": "Référence HRV personnelle (28 jours précédents)"
+          },
+          "sleep_hrv_baseline_nights": {
+            "name": "Nuits de référence HRV"
+          },
+          "sleep_hrv_latest_vs_28d_percent": {
+            "name": "Dernière HRV vs référence personnelle"
+          },
+          "sleep_hrv_7d_vs_baseline_percent": {
+            "name": "HRV 7 jours vs référence personnelle"
           }
         }
       },
@@ -2605,6 +2626,9 @@
           },
           "method": {
             "name": "Méthode"
+          },
+          "level_display": {
+            "name": "Niveau (localisé)"
           }
         }
       },

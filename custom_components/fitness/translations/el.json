@@ -2356,6 +2356,15 @@
           },
           "why_useful": {
             "name": "Γιατί είναι χρήσιμο"
+          },
+          "nightly_deficit_series": {
+            "name": "Ανάλυση ελλείμματος ανά νύχτα"
+          },
+          "unique_nights": {
+            "name": "Μοναδικές νύχτες στο ιστορικό"
+          },
+          "duplicate_nightly_records_ignored": {
+            "name": "Διπλές εγγραφές νύχτας που αγνοήθηκαν"
           }
         }
       },
@@ -2397,6 +2406,18 @@
           },
           "why_useful": {
             "name": "Γιατί είναι χρήσιμο"
+          },
+          "sleep_hrv_baseline_28d_mean_ms": {
+            "name": "Προσωπική βάση HRV (προηγούμενες 28 ημέρες)"
+          },
+          "sleep_hrv_baseline_nights": {
+            "name": "Νύχτες βάσης HRV"
+          },
+          "sleep_hrv_latest_vs_28d_percent": {
+            "name": "Τελευταίο HRV έναντι προσωπικής βάσης"
+          },
+          "sleep_hrv_7d_vs_baseline_percent": {
+            "name": "HRV 7 ημερών έναντι προσωπικής βάσης"
           }
         }
       },
@@ -2605,6 +2626,9 @@
           },
           "method": {
             "name": "Μέθοδος"
+          },
+          "level_display": {
+            "name": "Επίπεδο (μεταφρασμένο)"
           }
         }
       },

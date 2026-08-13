@@ -2356,6 +2356,15 @@
           },
           "why_useful": {
             "name": "Почему это полезно"
+          },
+          "nightly_deficit_series": {
+            "name": "Дефицит сна по ночам"
+          },
+          "unique_nights": {
+            "name": "Уникальные ночи в истории"
+          },
+          "duplicate_nightly_records_ignored": {
+            "name": "Игнорированные дубликаты ночных записей"
           }
         }
       },
@@ -2397,6 +2406,18 @@
           },
           "why_useful": {
             "name": "Почему это полезно"
+          },
+          "sleep_hrv_baseline_28d_mean_ms": {
+            "name": "Личный базовый HRV (предыдущие 28 дней)"
+          },
+          "sleep_hrv_baseline_nights": {
+            "name": "Ночи базового HRV"
+          },
+          "sleep_hrv_latest_vs_28d_percent": {
+            "name": "Последний HRV к личной базе"
+          },
+          "sleep_hrv_7d_vs_baseline_percent": {
+            "name": "HRV за 7 дней к личной базе"
           }
         }
       },
@@ -2605,6 +2626,9 @@
           },
           "method": {
             "name": "Метод"
+          },
+          "level_display": {
+            "name": "Уровень (локализованный)"
           }
         }
       },

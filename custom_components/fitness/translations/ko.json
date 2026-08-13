@@ -2356,6 +2356,15 @@
           },
           "why_useful": {
             "name": "유용한 이유"
+          },
+          "nightly_deficit_series": {
+            "name": "밤별 수면 부족 내역"
+          },
+          "unique_nights": {
+            "name": "기록의 고유한 밤 수"
+          },
+          "duplicate_nightly_records_ignored": {
+            "name": "무시된 중복 야간 기록"
           }
         }
       },
@@ -2397,6 +2406,18 @@
           },
           "why_useful": {
             "name": "유용한 이유"
+          },
+          "sleep_hrv_baseline_28d_mean_ms": {
+            "name": "개인 HRV 기준선(이전 28일)"
+          },
+          "sleep_hrv_baseline_nights": {
+            "name": "HRV 기준선 밤 수"
+          },
+          "sleep_hrv_latest_vs_28d_percent": {
+            "name": "최근 HRV vs 개인 기준선"
+          },
+          "sleep_hrv_7d_vs_baseline_percent": {
+            "name": "7일 HRV vs 개인 기준선"
           }
         }
       },
@@ -2605,6 +2626,9 @@
           },
           "method": {
             "name": "방법"
+          },
+          "level_display": {
+            "name": "수준(현지화)"
           }
         }
       },

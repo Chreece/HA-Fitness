@@ -61,3 +61,20 @@ Fitness may expose a Fitness-owned intensity decomposition from available valida
 5. Keep formulas and evidence inspectable.
 6. Keep AI downstream of deterministic data — AI may explain; it does not become the measurement engine.
 7. Leave a result unavailable when the evidence is insufficient.
+
+## Personal HRV baseline
+
+Fitness treats HRV as a **within-person trend**, not a universal score. Night-to-night HRV is noisy, so the recovery signal uses a rolling recent average rather than reacting to one isolated night. Research in athlete monitoring has found weekly averaging/rolling averages useful for interpreting HRV trends and training adaptation.
+
+Fitness therefore uses:
+
+- a recent **7-night mean HRV** when at least 5 valid nights are available;
+- a **preceding 28-day personal baseline**, excluding the newest night from its own reference distribution;
+- at least **14 prior HRV nights** before the Fitness-owned 28-day baseline is considered available;
+- both the recent-average deviation and the latest-night deviation are exposed for inspection.
+
+This is a transparent monitoring heuristic, not a medical threshold. Provider-supplied HRV baseline ranges are retained separately when an adapter exposes them. Relevant methodological literature includes Plews et al. (2013, PMID 23852425), Plews et al. (2014, PMID 24334285), and Plews et al. (2012, PMID 22367011).
+
+## Seven-day sleep deficit
+
+For adults, Fitness uses the AASM/SRS consensus minimum of 7 hours as a **reference floor**, not as a personalized diagnosis of sleep need. The 7-day deficit is the sum of `max(0, 7 h − nightly sleep)` over observed main sleeps in the rolling window. To avoid double-counting the same physical night when multiple providers synchronize at different times, only one main validated sleep is counted per local wake date. The per-night calculation is exposed in the entity attributes for auditing.

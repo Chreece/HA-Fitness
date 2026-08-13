@@ -82,7 +82,7 @@ _STUDY = {
 _FORMULA = {
     "sleep_consistency": "mean and population SD of merged sleep duration/timing over rolling 7/28-day windows",
     "sleep_deficit_7d": "Σ max(0, 420 min − nightly sleep duration) over the previous 7 days",
-    "autonomic_recovery_trend": "HRV deviation = (latest HRV − 28d mean HRV) / 28d mean HRV × 100; RHR deviation = current RHR − 28d mean RHR",
+    "autonomic_recovery_trend": "HRV recovery signal = 7-day mean nightly HRV compared with the preceding personal 28-day baseline (latest night excluded from its own baseline); RHR deviation = current RHR − 28d mean RHR",
     "cardiorespiratory_fitness_trend": "VO₂max trend = linear slope of daily VO₂max values, normalized to the mean and expressed as % per 30 days",
     "training_load": "Banister TRIMP = duration × HR-ratio × sex-specific exponential weighting; rolling 7d/28d sums plus objective duration/frequency/distance",
     "heart_rate_recovery": "HRRₜ = heart rate at exercise end − heart rate t seconds after exercise",
@@ -94,7 +94,7 @@ _FORMULA_LOCALIZED = {
     "el": {
         "sleep_consistency": "Μέσος όρος και τυπική απόκλιση πληθυσμού της διάρκειας/ώρας ύπνου σε κυλιόμενα παράθυρα 7 και 28 ημερών",
         "sleep_deficit_7d": "Σ max(0, 420 λεπτά − διάρκεια νυχτερινού ύπνου) για τις προηγούμενες 7 ημέρες",
-        "autonomic_recovery_trend": "Απόκλιση HRV = (τελευταίο HRV − μέσο HRV 28 ημερών) / μέσο HRV 28 ημερών × 100· απόκλιση παλμών ηρεμίας = τρέχον RHR − μέσο RHR 28 ημερών",
+        "autonomic_recovery_trend": "Σήμα HRV = μέσο νυχτερινό HRV 7 ημερών σε σύγκριση με την προηγούμενη προσωπική βάση 28 ημερών (η τελευταία νύχτα δεν περιλαμβάνεται στη δική της βάση)· απόκλιση RHR = τρέχον RHR − μέσο RHR 28 ημερών",
         "cardiorespiratory_fitness_trend": "Τάση VO₂max = γραμμική κλίση των ημερήσιων τιμών VO₂max, κανονικοποιημένη ως προς τον μέσο όρο και εκφρασμένη ως % ανά 30 ημέρες",
         "training_load": "Banister TRIMP = διάρκεια × λόγος καρδιακού ρυθμού × εκθετική στάθμιση ανά φύλο· αθροίσματα 7/28 ημερών μαζί με διάρκεια, συχνότητα και απόσταση",
         "heart_rate_recovery": "HRRₜ = καρδιακός ρυθμός στο τέλος της άσκησης − καρδιακός ρυθμός t δευτερόλεπτα μετά",

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026.8.10-beta2
+
+- Fixed Training Readiness failing to materialize because its localized readiness-attribute helper was missing. Readiness now exposes stable machine-readable attributes plus a localized display level across all 15 supported languages.
+- Hardened 7-day sleep-deficit history: long-term calculations now count one main validated sleep per local wake date, preventing late provider synchronization or duplicate nightly records from inflating the deficit. The entity exposes a per-night deficit breakdown and duplicate-record diagnostics for auditing.
+- Added a Fitness-owned personal HRV baseline. The newest night is excluded from its own reference baseline; recent HRV uses a 7-night rolling mean when enough observations exist and is compared with the preceding 28-day personal baseline (minimum 14 prior HRV nights). The latest-night deviation remains exposed separately.
+- Training Readiness autonomic recovery now consumes the less noisy rolling HRV-vs-personal-baseline signal when available, with transparent baseline/sample attributes.
+
+
 ## 2026.8.10-beta1
 
 - Fixed Sleep as Android completion latency: a STOPPED event now materializes the completed sleep immediately from the live tracking/phase event timeline instead of waiting for Recorder to commit. Recorder reconstruction remains the restart/history source and now retries delayed commits. Stale Sleep as Android aggregate values (such as yesterday's sleep score) are no longer merged into a newly completed night unless they were refreshed near that sleep's end.

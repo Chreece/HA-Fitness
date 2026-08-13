@@ -2356,6 +2356,15 @@
           },
           "why_useful": {
             "name": "Чому це корисно"
+          },
+          "nightly_deficit_series": {
+            "name": "Дефіцит сну за ночами"
+          },
+          "unique_nights": {
+            "name": "Унікальні ночі в історії"
+          },
+          "duplicate_nightly_records_ignored": {
+            "name": "Проігноровані дублікати нічних записів"
           }
         }
       },
@@ -2397,6 +2406,18 @@
           },
           "why_useful": {
             "name": "Чому це корисно"
+          },
+          "sleep_hrv_baseline_28d_mean_ms": {
+            "name": "Особиста база HRV (попередні 28 днів)"
+          },
+          "sleep_hrv_baseline_nights": {
+            "name": "Ночі бази HRV"
+          },
+          "sleep_hrv_latest_vs_28d_percent": {
+            "name": "Останній HRV проти особистої бази"
+          },
+          "sleep_hrv_7d_vs_baseline_percent": {
+            "name": "HRV за 7 днів проти особистої бази"
           }
         }
       },
@@ -2605,6 +2626,9 @@
           },
           "method": {
             "name": "Метод"
+          },
+          "level_display": {
+            "name": "Рівень (локалізований)"
           }
         }
       },

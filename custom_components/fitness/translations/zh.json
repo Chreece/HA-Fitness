@@ -2356,6 +2356,15 @@
           },
           "why_useful": {
             "name": "为什么有用"
+          },
+          "nightly_deficit_series": {
+            "name": "逐夜睡眠不足明细"
+          },
+          "unique_nights": {
+            "name": "历史中的唯一夜晚"
+          },
+          "duplicate_nightly_records_ignored": {
+            "name": "已忽略的重复夜间记录"
           }
         }
       },
@@ -2397,6 +2406,18 @@
           },
           "why_useful": {
             "name": "为什么有用"
+          },
+          "sleep_hrv_baseline_28d_mean_ms": {
+            "name": "个人 HRV 基线（前 28 天）"
+          },
+          "sleep_hrv_baseline_nights": {
+            "name": "HRV 基线夜数"
+          },
+          "sleep_hrv_latest_vs_28d_percent": {
+            "name": "最新 HRV 对比个人基线"
+          },
+          "sleep_hrv_7d_vs_baseline_percent": {
+            "name": "7 天 HRV 对比个人基线"
           }
         }
       },
@@ -2605,6 +2626,9 @@
           },
           "method": {
             "name": "方法"
+          },
+          "level_display": {
+            "name": "等级（本地化）"
           }
         }
       },

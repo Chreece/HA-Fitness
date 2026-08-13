@@ -2356,6 +2356,15 @@
           },
           "why_useful": {
             "name": "Waarom dit nuttig is"
+          },
+          "nightly_deficit_series": {
+            "name": "Slaaptekort per nacht"
+          },
+          "unique_nights": {
+            "name": "Unieke nachten in historie"
+          },
+          "duplicate_nightly_records_ignored": {
+            "name": "Genegeerde dubbele nachtregistraties"
           }
         }
       },
@@ -2397,6 +2406,18 @@
           },
           "why_useful": {
             "name": "Waarom dit nuttig is"
+          },
+          "sleep_hrv_baseline_28d_mean_ms": {
+            "name": "Persoonlijke HRV-basis (vorige 28 dagen)"
+          },
+          "sleep_hrv_baseline_nights": {
+            "name": "HRV-basisnachten"
+          },
+          "sleep_hrv_latest_vs_28d_percent": {
+            "name": "Laatste HRV vs persoonlijke basis"
+          },
+          "sleep_hrv_7d_vs_baseline_percent": {
+            "name": "7-daagse HRV vs persoonlijke basis"
           }
         }
       },
@@ -2605,6 +2626,9 @@
           },
           "method": {
             "name": "Methode"
+          },
+          "level_display": {
+            "name": "Niveau (vertaald)"
           }
         }
       },

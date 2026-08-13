@@ -43,6 +43,45 @@ from .live_details import CALCULATED_LIVE_METRICS, live_user_details
 from .providers.evaluation import collect_provider_metrics
 
 
+def _localized_readiness_attributes(language: str | None, readiness: dict) -> dict:
+    """Return stable readiness attributes with a localized display level.
+
+    Machine-readable keys/values remain stable for automations. Only the
+    additional ``level_display`` value is localized for the entity details UI.
+    """
+    code = str(language or "en").lower().split("-")[0].split("_")[0]
+    levels = {
+        "en": {"excellent":"Excellent","high":"High","moderate":"Moderate","low":"Low","very_low":"Very low","insufficient_data":"Insufficient data"},
+        "el": {"excellent":"Εξαιρετική","high":"Υψηλή","moderate":"Μέτρια","low":"Χαμηλή","very_low":"Πολύ χαμηλή","insufficient_data":"Ανεπαρκή δεδομένα"},
+        "de": {"excellent":"Ausgezeichnet","high":"Hoch","moderate":"Mittel","low":"Niedrig","very_low":"Sehr niedrig","insufficient_data":"Unzureichende Daten"},
+        "fr": {"excellent":"Excellente","high":"Élevée","moderate":"Modérée","low":"Faible","very_low":"Très faible","insufficient_data":"Données insuffisantes"},
+        "es": {"excellent":"Excelente","high":"Alta","moderate":"Moderada","low":"Baja","very_low":"Muy baja","insufficient_data":"Datos insuficientes"},
+        "it": {"excellent":"Eccellente","high":"Alta","moderate":"Moderata","low":"Bassa","very_low":"Molto bassa","insufficient_data":"Dati insufficienti"},
+        "pt": {"excellent":"Excelente","high":"Alta","moderate":"Moderada","low":"Baixa","very_low":"Muito baixa","insufficient_data":"Dados insuficientes"},
+        "nl": {"excellent":"Uitstekend","high":"Hoog","moderate":"Gemiddeld","low":"Laag","very_low":"Zeer laag","insufficient_data":"Onvoldoende gegevens"},
+        "pl": {"excellent":"Doskonała","high":"Wysoka","moderate":"Umiarkowana","low":"Niska","very_low":"Bardzo niska","insufficient_data":"Niewystarczające dane"},
+        "ru": {"excellent":"Отличная","high":"Высокая","moderate":"Умеренная","low":"Низкая","very_low":"Очень низкая","insufficient_data":"Недостаточно данных"},
+        "uk": {"excellent":"Відмінна","high":"Висока","moderate":"Помірна","low":"Низька","very_low":"Дуже низька","insufficient_data":"Недостатньо даних"},
+        "tr": {"excellent":"Mükemmel","high":"Yüksek","moderate":"Orta","low":"Düşük","very_low":"Çok düşük","insufficient_data":"Yetersiz veri"},
+        "zh": {"excellent":"极佳","high":"高","moderate":"中等","low":"低","very_low":"很低","insufficient_data":"数据不足"},
+        "ja": {"excellent":"非常に高い","high":"高い","moderate":"中程度","low":"低い","very_low":"非常に低い","insufficient_data":"データ不足"},
+        "ko": {"excellent":"매우 좋음","high":"높음","moderate":"보통","low":"낮음","very_low":"매우 낮음","insufficient_data":"데이터 부족"},
+    }
+    level = str(readiness.get("level") or "insufficient_data")
+    display = levels.get(code, levels["en"]).get(level, level)
+    attrs = {
+        "level": level,
+        "level_display": display,
+        "confidence_percent": readiness.get("confidence_percent"),
+        "components_available": readiness.get("components_available") or readiness.get("available_components") or [],
+        "components": readiness.get("components") or {},
+        "reason": readiness.get("reason"),
+        "data_source": readiness.get("data_source"),
+        "updated_at": readiness.get("updated_at"),
+    }
+    return {key: value for key, value in attrs.items() if value is not None}
+
+
 @dataclass(frozen=True, kw_only=True)
 class Desc(SensorEntityDescription):
     kind: str
@@ -1095,12 +1134,19 @@ class FitnessSensor(SensorEntity):
                 "nights_below_7h": sleep.get("nights_below_7h_7d"),
                 "reference_minimum_hours": 7,
                 "average_sleep_minutes": sleep.get("sleep_duration_7d_mean_min"),
+                "nightly_deficit_series": sleep.get("sleep_deficit_nightly_series") or [],
+                "unique_nights": sleep.get("history_unique_nights"),
+                "duplicate_nightly_records_ignored": sleep.get("history_duplicate_nightly_records_ignored"),
                 "window_days": 7,
                 "minimum_nights_required": 5,
             },
             "autonomic_recovery_trend": {
                 "sleep_hrv_7d_mean_ms": sleep.get("sleep_hrv_7d_mean_ms"),
                 "sleep_hrv_28d_mean_ms": sleep.get("sleep_hrv_28d_mean_ms"),
+                "sleep_hrv_baseline_28d_mean_ms": sleep.get("sleep_hrv_baseline_28d_mean_ms"),
+                "sleep_hrv_baseline_nights": sleep.get("sleep_hrv_baseline_nights"),
+                "sleep_hrv_latest_vs_28d_percent": sleep.get("sleep_hrv_latest_vs_28d_percent"),
+                "sleep_hrv_7d_vs_baseline_percent": sleep.get("sleep_hrv_7d_vs_baseline_percent"),
                 "sleep_hrv_vs_28d_percent": sleep.get("sleep_hrv_vs_28d_percent"),
                 "resting_hr_current_bpm": recorder.get("resting_hr_current"),
                 "resting_hr_7d_mean_bpm": recorder.get("resting_hr_7d_mean"),
