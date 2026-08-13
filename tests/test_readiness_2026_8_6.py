@@ -56,6 +56,7 @@ def test_recovery_card_uses_readiness_with_colored_levels():
     section = FRONTEND[FRONTEND.index("class FitnessRecoveryCard"):FRONTEND.index("class FitnessTrainingLoadCard")]
     assert "e.readiness" in section
     assert "FITNESS_READINESS_LEVELS" in FRONTEND
-    for tone in ("tone-excellent","tone-high","tone-moderate","tone-low","tone-very-low"):
-        assert tone in section
+    assert "const readinessTone" in section
+    for colour in ("#2e7d32", "#00897b", "#f9a825", "#ef6c00", "#c62828"):
+        assert colour in section
     assert "components" in section

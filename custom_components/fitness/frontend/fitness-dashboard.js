@@ -1,4 +1,4 @@
-const FITNESS_DASHBOARD_VERSION = "2026.8.10.7";
+const FITNESS_DASHBOARD_VERSION = "2026.8.10.10";
 
 
 const FITNESS_READINESS_TEXT = {
@@ -1278,6 +1278,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
     const sleepScore = this._hass.states[e.last_sleep_score];
     const deficit = this._hass.states[e.sleep_deficit_7d];
     const recoveryTime = this._hass.states[e.estimated_recovery_time];
+
     const classifiedSleepMinutes = [
       e.last_sleep_light, e.last_sleep_deep, e.last_sleep_rem,
     ].map((entityId) => _fitnessMinutesFromState(this._hass.states[entityId]))
@@ -1299,20 +1300,12 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
       || FITNESS_READINESS_LEVELS.en[level] || level;
     const readinessName = e.readiness ? entityName(this._hass, e.readiness) : "Readiness";
     const bounded = score == null ? 0 : Math.max(0, Math.min(100, score));
-    const tone = score == null ? "none" : score >= 85 ? "excellent" : score >= 70 ? "high" : score >= 50 ? "moderate" : score >= 30 ? "low" : "very-low";
-    const componentRows = [
-      ["autonomic", "mdi:heart-pulse", "HRV / RHR"],
-      ["sleep", "mdi:sleep", rtext.sleep],
-      ["training", "mdi:dumbbell", rtext.training],
-      ["recovery_response", "mdi:heart-sync", e.heart_rate_recovery ? entityName(this._hass,e.heart_rate_recovery) : rtext.response],
-    ].map(([key,icon,label]) => {
-      const value = _fitnessNumber(components?.[key]?.score);
-      if (value == null) return "";
-      return `<div class="component"><ha-icon icon="${icon}"></ha-icon><span>${_fitnessEscape(label)}</span><strong>${value.toFixed(0)}</strong><div><i style="width:${Math.max(0,Math.min(100,value))}%"></i></div></div>`;
-    }).filter(Boolean).join("");
-
-    const hrvVs = _fitnessNumber(_fitnessAttr(autonomic, "sleep_hrv_vs_28d_percent"));
-    const rhrVs = _fitnessNumber(_fitnessAttr(autonomic, "resting_hr_vs_28d_bpm"));
+    const readinessTone = score == null ? "#78909c"
+      : score >= 85 ? "#2e7d32"
+      : score >= 70 ? "#00897b"
+      : score >= 50 ? "#f9a825"
+      : score >= 30 ? "#ef6c00"
+      : "#c62828";
 
     const remaining = _fitnessNumber(recoveryTime?.state);
     const readyAtRaw = _fitnessAttr(recoveryTime, "ready_for_next_workout_at");
@@ -1322,65 +1315,125 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
     const recoveryConfidence = _fitnessNumber(_fitnessAttr(recoveryTime, "confidence_percent"));
     const recoveryLevel = String(_fitnessAttr(recoveryTime, "level") || "recovering");
     const recoverySignals = _fitnessAttr(recoveryTime, "recovery_signals") || {};
+    const limitingFactor = String(_fitnessAttr(recoveryTime, "limiting_factor") || "");
+
     const readyAt = readyAtRaw ? new Date(readyAtRaw) : null;
     const readyAtText = readyAt && !Number.isNaN(readyAt.getTime())
       ? new Intl.DateTimeFormat(this._hass.language || undefined, {
-          weekday:"short", hour:"2-digit", minute:"2-digit"
+          weekday: "short", hour: "2-digit", minute: "2-digit"
         }).format(readyAt)
       : "—";
+
     const recoveryTones = {
-      ready:"#2e7d32", nearly_ready:"#7cb342", recovering:"#f9a825",
-      substantial_recovery:"#ef6c00", high_recovery_demand:"#c62828"
+      ready: "#2e7d32",
+      nearly_ready: "#7cb342",
+      recovering: "#f9a825",
+      substantial_recovery: "#ef6c00",
+      high_recovery_demand: "#c62828",
     };
     const recoveryTone = recoveryTones[recoveryLevel] || recoveryTones.recovering;
     const recoveryPct = recoveryProgress == null ? 0 : Math.max(0, Math.min(100, recoveryProgress));
 
+    const componentRows = [
+      ["autonomic", "mdi:heart-pulse", "HRV / RHR"],
+      ["sleep", "mdi:sleep", rtext.sleep],
+      ["training", "mdi:dumbbell", rtext.training],
+      ["recovery_response", "mdi:heart-sync", e.heart_rate_recovery ? entityName(this._hass,e.heart_rate_recovery) : rtext.response],
+    ].map(([key, icon, label]) => {
+      const value = _fitnessNumber(components?.[key]?.score);
+      if (value == null) return "";
+      return `<div class="component">
+        <ha-icon icon="${icon}"></ha-icon>
+        <span>${_fitnessEscape(label)}</span>
+        <strong>${value.toFixed(0)}</strong>
+        <div><i style="width:${Math.max(0, Math.min(100, value))}%"></i></div>
+      </div>`;
+    }).filter(Boolean).join("");
+
     const signalLabels = {
-      hrv:"HRV", resting_hr:"RHR", hrr:"HRR", sleep:rtext.sleep
+      hrv: "HRV",
+      resting_hr: "RHR",
+      hrr: "HRR",
+      sleep: rtext.sleep,
     };
     const signalIcons = {
-      supportive:"✓", near_baseline:"✓", above_baseline:"↑",
-      slightly_below_baseline:"↘", below_baseline:"↓",
-      slightly_above_baseline:"↗", reduced:"↓", neutral:"•",
-      insufficient_data:"?"
+      supportive: "✓",
+      near_baseline: "✓",
+      above_baseline: "↑",
+      slightly_below_baseline: "↘",
+      below_baseline: "↓",
+      slightly_above_baseline: "↗",
+      reduced: "↓",
+      neutral: "•",
+      insufficient_data: "?",
     };
-    const signalRows = Object.entries(recoverySignals).map(([key,value]) => {
+    const signalRows = Object.entries(recoverySignals).map(([key, value]) => {
       const code = String(value || "insufficient_data");
-      return `<span class="signal signal-${_fitnessEscape(code)}"><b>${_fitnessEscape(signalIcons[code] || "•")}</b>${_fitnessEscape(signalLabels[key] || key)}</span>`;
+      return `<span class="signal signal-${_fitnessEscape(code)}">
+        <b>${_fitnessEscape(signalIcons[code] || "•")}</b>
+        ${_fitnessEscape(signalLabels[key] || key)}
+      </span>`;
     }).join("");
 
-    this.shadowRoot.innerHTML = `<ha-card class="tone-${tone}" style="--recovery:${recoveryTone}">
+    const hrvVs = _fitnessNumber(_fitnessAttr(autonomic, "sleep_hrv_vs_28d_percent"));
+    const rhrVs = _fitnessNumber(_fitnessAttr(autonomic, "resting_hr_vs_28d_bpm"));
+
+    this.shadowRoot.innerHTML = `<ha-card style="--readiness:${readinessTone};--recovery:${recoveryTone}">
       <div class="title">${_fitnessEscape(this.config.title || l.recovery_snapshot || "Recovery snapshot")}</div>
-      <div class="dual-hero">
-        <div class="readiness-hero entity-link" data-more-info="${_fitnessEscape(e.readiness || "")}">
-          <div class="readiness-ring" style="--p:${bounded * 3.6}deg"><div><strong>${score == null ? "—" : score.toFixed(0)}</strong><span>/ 100</span></div></div>
-          <div class="readiness-copy"><small>${_fitnessEscape(readinessName)}</small><strong>${_fitnessEscape(levelText)}</strong>${confidence == null ? "" : `<span>${confidence.toFixed(0)}% ${_fitnessEscape(rtext.confidence)}</span>`}</div>
+
+      <section class="readiness-panel entity-link" data-more-info="${_fitnessEscape(e.readiness || "")}">
+        <div class="readiness-ring" style="--p:${bounded * 3.6}deg">
+          <div><strong>${score == null ? "—" : score.toFixed(0)}</strong><span>/ 100</span></div>
         </div>
-        ${recoveryTime ? `<div class="recovery-hero entity-link" data-more-info="${_fitnessEscape(e.estimated_recovery_time || "")}">
-          <div class="recovery-ring" style="--rp:${recoveryPct * 3.6}deg"><div><strong>${remaining == null ? "—" : remaining <= 0 ? "✓" : `~${Math.round(remaining)}`}</strong><span>${remaining != null && remaining > 0 ? _fitnessEscape(l.hours_short || "h") : ""}</span></div></div>
-          <div class="recovery-copy">
+        <div class="readiness-copy">
+          <small>${_fitnessEscape(readinessName)}</small>
+          <strong>${_fitnessEscape(levelText)}</strong>
+          ${confidence == null ? "" : `<span>${confidence.toFixed(0)}% ${_fitnessEscape(rtext.confidence)}</span>`}
+        </div>
+      </section>
+
+      ${recoveryTime ? `<section class="next-workout entity-link" data-more-info="${_fitnessEscape(e.estimated_recovery_time || "")}">
+        <div class="next-main">
+          <div class="next-icon"><ha-icon icon="mdi:timer-sand-complete"></ha-icon></div>
+          <div class="next-copy">
             <small>${_fitnessEscape(l.next_workout || "Ready for next workout")}</small>
-            <strong>${remaining != null && remaining <= 0 ? _fitnessEscape(l.ready_now || "Ready for next workout") : `${remaining == null ? "—" : `~${Math.round(remaining)} ${_fitnessEscape(l.hours_short || "h")}`}`}</strong>
-            ${remaining != null && remaining > 0 ? `<span>${_fitnessEscape(l.ready_at || "Ready around")} <b>${_fitnessEscape(readyAtText)}</b></span>` : ""}
-            ${recoveryConfidence == null ? "" : `<span>${recoveryConfidence.toFixed(0)}% ${_fitnessEscape(l.confidence_short || "confidence")}</span>`}
+            <strong>${remaining == null ? "—" : remaining <= 0
+              ? _fitnessEscape(l.ready_now || "Ready for next workout")
+              : `~${Math.round(remaining)} ${_fitnessEscape(l.hours_short || "h")}`}</strong>
+            ${remaining != null && remaining > 0
+              ? `<span>${_fitnessEscape(l.ready_at || "Ready around")} <b>${_fitnessEscape(readyAtText)}</b></span>`
+              : ""}
           </div>
-        </div>` : ""}
-      </div>
-      ${componentRows ? `<div class="components entity-link" data-more-info="${_fitnessEscape(e.readiness || "")}">${componentRows}</div>` : ""}
-      ${recoveryTime ? `<div class="recovery-detail entity-link" data-more-info="${_fitnessEscape(e.estimated_recovery_time || "")}">
-        <div class="recovery-progress-head"><span>${_fitnessEscape(l.recovery_progress_label || "Recovery progress")}</span><strong>${recoveryPct.toFixed(0)}%</strong></div>
-        <div class="recovery-progress"><i style="width:${recoveryPct}%"></i></div>
-        <div class="recovery-meta">
-          <span>${_fitnessEscape(l.recovery_window || "Estimated recovery window")}</span>
-          <strong>${recoveryLow == null || recoveryHigh == null ? "—" : `~${Math.round(recoveryLow)}–${Math.round(recoveryHigh)} ${_fitnessEscape(l.hours_short || "h")}`}</strong>
+          <div class="next-confidence">${recoveryConfidence == null ? "" : `${recoveryConfidence.toFixed(0)}%<small>${_fitnessEscape(l.confidence_short || "confidence")}</small>`}</div>
         </div>
+
+        <div class="progress-head">
+          <span>${_fitnessEscape(l.recovery_progress_label || "Recovery progress")}</span>
+          <strong>${recoveryPct.toFixed(0)}%</strong>
+        </div>
+        <div class="recovery-progress"><i style="width:${recoveryPct}%"></i></div>
+
+        <div class="recovery-grid">
+          <div>
+            <span>${_fitnessEscape(l.broader_recovery_window || "Broader physiological recovery window")}</span>
+            <strong>${recoveryLow == null || recoveryHigh == null
+              ? "—"
+              : `~${Math.round(recoveryLow)}–${Math.round(recoveryHigh)} ${_fitnessEscape(l.hours_short || "h")}`}</strong>
+          </div>
+          ${limitingFactor ? `<div><span>${_fitnessEscape(l.recovery_limiting_factor || "Main recovery limiter")}</span><strong>${_fitnessEscape(limitingFactor)}</strong></div>` : ""}
+        </div>
+
         ${signalRows ? `<div class="signal-head">${_fitnessEscape(l.recovery_signals_label || "Recovery signals")}</div><div class="signals">${signalRows}</div>` : ""}
         <div class="physio-note">${_fitnessEscape(l.physio_note || "Available physiological markers may recover at different rates.")}</div>
-      </div>` : ""}
+      </section>` : ""}
+
+      ${componentRows ? `<div class="components entity-link" data-more-info="${_fitnessEscape(e.readiness || "")}">${componentRows}</div>` : ""}
+
       <div class="context">
         ${hrvVs == null ? "" : `<span>HRV ${hrvVs > 0 ? "+" : ""}${hrvVs.toFixed(1)}% ${_fitnessEscape(rtext.vs28)}</span>`}
         ${rhrVs == null ? "" : `<span>RHR ${rhrVs > 0 ? "+" : ""}${rhrVs.toFixed(1)} bpm ${_fitnessEscape(rtext.vs28)}</span>`}
       </div>
+
       <div class="metrics">
         ${this._sleepScoreMetric(l.sleep_score || "Sleep score", sleepScore, e.last_sleep_score)}
         ${this._metric(l.sleep_duration || "Sleep duration", effectiveSleepDuration, true, e.last_sleep_duration)}
@@ -1388,33 +1441,111 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
         ${this._metric(l.sleep_deficit || "7-day sleep deficit", deficit, true, e.sleep_deficit_7d)}
       </div>
     </ha-card><style>
-      ha-card{padding:18px;--readiness:#78909c;--readiness-soft:color-mix(in srgb,var(--readiness) 14%,transparent)}
-      ha-card.tone-excellent{--readiness:#2e7d32}ha-card.tone-high{--readiness:#00897b}ha-card.tone-moderate{--readiness:#f9a825}ha-card.tone-low{--readiness:#ef6c00}ha-card.tone-very-low{--readiness:#c62828}
+      ha-card{padding:18px;overflow:hidden}
       .entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}
       .title{font-size:19px;font-weight:650}
-      .dual-hero{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}
-      .readiness-hero,.recovery-hero{display:grid;grid-template-columns:96px minmax(0,1fr);align-items:center;gap:12px;padding:13px;border-radius:18px;min-width:0}
-      .readiness-hero{background:linear-gradient(135deg,var(--readiness-soft),var(--secondary-background-color))}
-      .recovery-hero{background:linear-gradient(135deg,color-mix(in srgb,var(--recovery) 14%,transparent),var(--secondary-background-color))}
-      .readiness-ring,.recovery-ring{width:88px;height:88px;border-radius:50%;display:grid;place-items:center}
-      .readiness-ring{background:conic-gradient(var(--readiness) var(--p),color-mix(in srgb,var(--readiness) 16%,var(--secondary-background-color)) 0);box-shadow:0 0 0 1px color-mix(in srgb,var(--readiness) 25%,transparent)}
-      .recovery-ring{background:conic-gradient(var(--recovery) var(--rp),color-mix(in srgb,var(--recovery) 16%,var(--secondary-background-color)) 0);box-shadow:0 0 0 1px color-mix(in srgb,var(--recovery) 25%,transparent)}
-      .readiness-ring>div,.recovery-ring>div{width:64px;height:64px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color));display:flex;align-items:baseline;justify-content:center}
-      .readiness-ring strong,.recovery-ring strong{font-size:25px;line-height:64px}.readiness-ring strong{color:var(--readiness)}.recovery-ring strong{color:var(--recovery)}
-      .readiness-ring span,.recovery-ring span{font-size:9px;color:var(--secondary-text-color);margin-left:2px}
-      .readiness-copy,.recovery-copy{min-width:0}.readiness-copy small,.recovery-copy small{display:block;color:var(--secondary-text-color);font-size:10px;line-height:1.3}.readiness-copy strong,.recovery-copy strong{display:block;font-size:20px;line-height:1.15;margin-top:3px;overflow-wrap:anywhere}.readiness-copy strong{color:var(--readiness)}.recovery-copy strong{color:var(--recovery)}.readiness-copy span,.recovery-copy span{display:block;color:var(--secondary-text-color);font-size:10px;line-height:1.35;margin-top:5px}.recovery-copy b{color:var(--primary-text-color)}
-      .components{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}.component{display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;column-gap:7px;padding:9px 10px;border-radius:12px;background:var(--secondary-background-color);min-width:0}.component ha-icon{--mdc-icon-size:18px;color:var(--readiness)}.component span{font-size:10px;color:var(--secondary-text-color);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.component strong{font-size:13px}.component>div{grid-column:2/4;height:4px;border-radius:999px;background:var(--divider-color);overflow:hidden;margin-top:5px}.component i{display:block;height:100%;border-radius:999px;background:var(--readiness)}
-      .recovery-detail{margin-top:10px;padding:12px;border-radius:15px;background:color-mix(in srgb,var(--recovery) 7%,var(--secondary-background-color));border-left:3px solid var(--recovery)}
-      .recovery-progress-head,.recovery-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:10px;color:var(--secondary-text-color)}.recovery-progress-head strong,.recovery-meta strong{color:var(--primary-text-color);font-size:12px}
-      .recovery-progress{height:6px;border-radius:999px;background:var(--divider-color);overflow:hidden;margin:7px 0 10px}.recovery-progress i{display:block;height:100%;background:var(--recovery);border-radius:999px}
-      .signal-head{font-size:10px;color:var(--secondary-text-color);margin-top:10px}.signals{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.signal{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:5px 7px;border-radius:999px;background:var(--card-background-color)}.signal b{font-size:11px}.signal-supportive,.signal-near_baseline,.signal-above_baseline{color:#2e7d32}.signal-reduced,.signal-below_baseline{color:#c62828}.signal-slightly_below_baseline,.signal-slightly_above_baseline{color:#ef6c00}
-      .physio-note{margin-top:9px;font-size:9px;line-height:1.35;color:var(--secondary-text-color)}
-      .context{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:10px}.context span{font-size:10px;color:var(--secondary-text-color)}
-      .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px;margin-top:12px}.metric{background:var(--secondary-background-color);padding:10px;border-radius:12px;min-width:0;overflow:hidden}.metric span{display:block;color:var(--secondary-text-color);font-size:10px;line-height:1.3;margin-bottom:4px;overflow-wrap:anywhere}.metric strong{display:block;font-size:13px;line-height:1.35;overflow-wrap:anywhere}
-      @media(max-width:700px){.dual-hero{grid-template-columns:1fr}.readiness-hero,.recovery-hero{grid-template-columns:92px minmax(0,1fr)}}
-      @media(max-width:430px){.readiness-hero,.recovery-hero{grid-template-columns:78px minmax(0,1fr);gap:10px;padding:11px}.readiness-ring,.recovery-ring{width:72px;height:72px}.readiness-ring>div,.recovery-ring>div{width:52px;height:52px}.readiness-ring strong,.recovery-ring strong{font-size:21px;line-height:52px}.readiness-copy strong,.recovery-copy strong{font-size:18px}.components{grid-template-columns:1fr}}
+
+      .readiness-panel{
+        display:grid;grid-template-columns:112px minmax(0,1fr);align-items:center;
+        gap:18px;margin-top:15px;padding:17px;border-radius:20px;
+        background:linear-gradient(135deg,color-mix(in srgb,var(--readiness) 15%,transparent),var(--secondary-background-color));
+        min-width:0
+      }
+      .readiness-ring{
+        width:104px;height:104px;border-radius:50%;display:grid;place-items:center;
+        background:conic-gradient(var(--readiness) var(--p),color-mix(in srgb,var(--readiness) 15%,var(--secondary-background-color)) 0)
+      }
+      .readiness-ring>div{
+        width:76px;height:76px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color));
+        display:flex;align-items:baseline;justify-content:center
+      }
+      .readiness-ring strong{font-size:30px;line-height:76px;color:var(--readiness)}
+      .readiness-ring span{font-size:10px;color:var(--secondary-text-color);margin-left:2px}
+      .readiness-copy{min-width:0}
+      .readiness-copy small{display:block;color:var(--secondary-text-color);font-size:11px}
+      .readiness-copy strong{display:block;color:var(--readiness);font-size:25px;line-height:1.15;margin-top:4px;overflow-wrap:anywhere}
+      .readiness-copy span{display:block;color:var(--secondary-text-color);font-size:11px;margin-top:6px}
+
+      .next-workout{
+        margin-top:12px;padding:15px;border-radius:18px;
+        background:linear-gradient(135deg,color-mix(in srgb,var(--recovery) 12%,transparent),var(--secondary-background-color));
+        border-left:4px solid var(--recovery);min-width:0
+      }
+      .next-main{
+        display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:12px;align-items:center;min-width:0
+      }
+      .next-icon{
+        width:46px;height:46px;border-radius:14px;display:grid;place-items:center;
+        background:color-mix(in srgb,var(--recovery) 16%,transparent);color:var(--recovery)
+      }
+      .next-icon ha-icon{--mdc-icon-size:27px}
+      .next-copy{min-width:0}
+      .next-copy small{display:block;color:var(--secondary-text-color);font-size:10px;line-height:1.25}
+      .next-copy strong{display:block;color:var(--recovery);font-size:25px;line-height:1.1;margin-top:2px;overflow-wrap:anywhere}
+      .next-copy span{display:block;color:var(--secondary-text-color);font-size:11px;line-height:1.35;margin-top:5px;overflow-wrap:anywhere}
+      .next-copy b{color:var(--primary-text-color)}
+      .next-confidence{font-size:17px;font-weight:700;color:var(--recovery);text-align:right;white-space:nowrap}
+      .next-confidence small{display:block;font-size:8px;font-weight:400;color:var(--secondary-text-color)}
+
+      .progress-head{display:flex;justify-content:space-between;gap:12px;margin-top:13px;font-size:10px;color:var(--secondary-text-color)}
+      .progress-head strong{color:var(--primary-text-color);font-size:12px}
+      .recovery-progress{height:7px;border-radius:999px;background:var(--divider-color);overflow:hidden;margin-top:6px}
+      .recovery-progress i{display:block;height:100%;border-radius:999px;background:var(--recovery)}
+
+      .recovery-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:11px}
+      .recovery-grid>div{min-width:0;padding:9px 10px;border-radius:11px;background:var(--card-background-color)}
+      .recovery-grid span{display:block;font-size:9px;line-height:1.25;color:var(--secondary-text-color);overflow-wrap:anywhere}
+      .recovery-grid strong{display:block;font-size:12px;line-height:1.3;margin-top:3px;overflow-wrap:anywhere}
+
+      .signal-head{font-size:9px;color:var(--secondary-text-color);margin-top:10px}
+      .signals{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+      .signal{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:5px 7px;border-radius:999px;background:var(--card-background-color)}
+      .signal b{font-size:11px}
+      .signal-supportive,.signal-near_baseline,.signal-above_baseline{color:#2e7d32}
+      .signal-reduced,.signal-below_baseline{color:#c62828}
+      .signal-slightly_below_baseline,.signal-slightly_above_baseline{color:#ef6c00}
+      .physio-note{margin-top:8px;font-size:9px;line-height:1.35;color:var(--secondary-text-color);overflow-wrap:anywhere}
+
+      .components{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:11px}
+      .component{
+        display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;
+        column-gap:7px;padding:9px 10px;border-radius:12px;background:var(--secondary-background-color);min-width:0
+      }
+      .component ha-icon{--mdc-icon-size:18px;color:var(--readiness)}
+      .component span{font-size:10px;color:var(--secondary-text-color);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .component strong{font-size:13px}
+      .component>div{grid-column:2/4;height:4px;border-radius:999px;background:var(--divider-color);overflow:hidden;margin-top:5px}
+      .component i{display:block;height:100%;border-radius:999px;background:var(--readiness)}
+
+      .context{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:10px}
+      .context span{font-size:10px;color:var(--secondary-text-color)}
+      .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px;margin-top:12px}
+      .metric{background:var(--secondary-background-color);padding:10px;border-radius:12px;min-width:0;overflow:hidden}
+      .metric span{display:block;color:var(--secondary-text-color);font-size:10px;line-height:1.3;margin-bottom:4px;overflow-wrap:anywhere}
+      .metric strong{display:block;font-size:13px;line-height:1.35;overflow-wrap:anywhere}
+
+      @media(max-width:520px){
+        .readiness-panel{grid-template-columns:88px minmax(0,1fr);gap:12px;padding:14px}
+        .readiness-ring{width:82px;height:82px}
+        .readiness-ring>div{width:60px;height:60px}
+        .readiness-ring strong{font-size:24px;line-height:60px}
+        .readiness-copy strong{font-size:21px}
+        .next-main{grid-template-columns:40px minmax(0,1fr)}
+        .next-icon{width:38px;height:38px}
+        .next-confidence{grid-column:2;text-align:left;margin-top:-4px}
+        .recovery-grid{grid-template-columns:1fr}
+        .components{grid-template-columns:1fr}
+      }
+      @media(max-width:350px){
+        .readiness-panel{grid-template-columns:1fr;text-align:center}
+        .readiness-ring{margin:auto}
+        .next-main{grid-template-columns:1fr;text-align:center}
+        .next-icon{margin:auto}
+        .next-confidence{grid-column:1;text-align:center}
+      }
     </style>`;
   }
+
   _sleepScoreMetric(label, state, entityId = "") {
     const value = _fitnessNumber(state?.state);
     const display = value == null ? "—" : `${Math.max(0, Math.min(100, value)).toFixed(0)}%`;
@@ -1426,7 +1557,6 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
     return `<div class="metric entity-link" data-more-info="${_fitnessEscape(entityId)}"><span>${_fitnessEscape(label)}</span><strong>${_fitnessEscape(value)}</strong></div>`;
   }
 }
-
 
 class FitnessTrainingAdaptationCard extends FitnessAutoProfileCard {
   _render() {
@@ -1500,50 +1630,130 @@ class FitnessTrainingLoadCard extends FitnessAutoProfileCard {
     if (!this.shadowRoot || !this._hass) return;
     const e = this._profile?.entities || {};
     const l = this._profile?.labels || {};
-    const load = this._hass.states[e.training_load];
+    const load = e.training_load ? this._hass.states[e.training_load] : null;
     const adaptation = e.training_adaptation_status ? this._hass.states[e.training_adaptation_status] : null;
     if (!load) {
-      this.shadowRoot.innerHTML = `<ha-card><div class="empty">${_fitnessEscape(l.training_load_snapshot || "Training load")}<small>No compatible training-load data is available yet.</small></div></ha-card><style>.empty{padding:18px}.empty small{display:block;color:var(--secondary-text-color);margin-top:8px}</style>`;
+      this.shadowRoot.innerHTML = "";
       return;
     }
-    const recent = _fitnessNumber(_fitnessAttr(load, "trimp_7d")) ?? _fitnessNumber(load.state);
-    const baseline = _fitnessNumber(_fitnessAttr(load, "trimp_28d_weekly_equivalent"));
-    const workouts = _fitnessNumber(_fitnessAttr(load, "workouts_7d"));
-    const activeDays = _fitnessNumber(_fitnessAttr(load, "active_days_7d"));
-    const duration = _fitnessNumber(_fitnessAttr(load, "training_duration_7d_min"));
-    const baselineReliable = adaptation ? _fitnessAttr(adaptation, "baseline_reliable") === true : false;
-    const ratio = baselineReliable && recent != null && baseline && baseline > 0 ? recent / baseline : null;
-    const ratioPct = ratio == null ? 0 : Math.max(0, Math.min(180, ratio * 100));
-    const adaptCode = String(_fitnessAttr(adaptation, "status") || "insufficient_data");
-    const adaptTones = {productive:"#2e7d32",maintaining:"#00897b",insufficient_stimulus:"#5c6bc0",absent:"#78909c",high_load:"#f9a825",excessive:"#ef6c00",strained:"#d84315",unproductive:"#c62828",insufficient_data:"#78909c"};
-    const adaptTone = adaptTones[adaptCode] || adaptTones.insufficient_data;
 
-    this.shadowRoot.innerHTML = `<ha-card style="--adapt:${adaptTone}">
-      ${adaptation ? `<div class="adapt entity-link" data-more-info="${_fitnessEscape(e.training_adaptation_status || "")}"><span>${_fitnessEscape(l.training_adaptation_card || "Training adaptation")}</span><strong>${_fitnessEscape(adaptation.state)}</strong></div>` : ""}
-      <div class="head entity-link" data-more-info="${_fitnessEscape(e.training_load || "")}"><div class="title">${_fitnessEscape(this.config.title || l.training_load_snapshot || "Training load")}</div><div class="ratio">${ratio == null ? "—" : `${ratio.toFixed(2)}×`}</div></div>
-      <div class="scale"><div class="zone"></div><div class="marker" style="left:${Math.min(100, ratioPct / 1.8)}%"></div></div>
-      <div class="pair entity-link" data-more-info="${_fitnessEscape(e.training_load || "")}">
-        <div><span>${_fitnessEscape(l.recent_load || "7-day TRIMP")}</span><strong>${recent == null ? "—" : recent.toFixed(1)}</strong></div>
-        <div><span>${_fitnessEscape(l.baseline_load || "28-day weekly baseline")}</span><strong>${baseline == null ? "—" : baseline.toFixed(1)}</strong></div>
+    const recent = _fitnessNumber(load.state);
+    const baseline = _fitnessNumber(_fitnessAttr(load, "baseline_28d_weekly_equivalent"));
+    const ratio = _fitnessNumber(_fitnessAttr(load, "recent_to_baseline_ratio"));
+    const workouts7 = _fitnessNumber(_fitnessAttr(load, "workouts_7d"));
+    const days7 = _fitnessNumber(_fitnessAttr(load, "active_days_7d"));
+    const mins7 = _fitnessNumber(_fitnessAttr(load, "workout_minutes_7d"));
+
+    const adaptationStatus = String(_fitnessAttr(adaptation, "status") || "insufficient_data");
+    const baselineReliable = adaptation
+      ? Boolean(_fitnessAttr(adaptation, "baseline_reliable"))
+      : (ratio != null && baseline != null && baseline > 0);
+
+    let zone = "building";
+    if (baselineReliable && ratio != null) {
+      if (ratio < 0.70) zone = "low";
+      else if (ratio <= 1.30) zone = "balanced";
+      else if (ratio <= 1.60) zone = "elevated";
+      else if (ratio <= 2.00) zone = "high";
+      else zone = "excessive";
+    }
+
+    const zoneText = {
+      building: l.baseline_building || "Building personal baseline",
+      low: l.load_low || "Low",
+      balanced: l.load_balanced || "Balanced",
+      elevated: l.load_elevated || "Elevated",
+      high: l.load_high || "High",
+      excessive: l.load_excessive || "Excessive",
+    }[zone];
+
+    const position = !baselineReliable || ratio == null
+      ? 50
+      : Math.max(1, Math.min(99, (ratio / 2.4) * 100));
+
+    const adaptationLabel = adaptation?.state || "";
+    const adaptationEvidence = _fitnessNumber(_fitnessAttr(adaptation, "evidence_count"));
+    const adaptationVo2 = _fitnessNumber(_fitnessAttr(adaptation, "vo2max_slope_percent_per_30d"));
+    const adaptationHrv = _fitnessNumber(_fitnessAttr(adaptation, "hrv_7d_vs_baseline_percent"));
+    const adaptationReadiness = _fitnessNumber(_fitnessAttr(adaptation, "readiness_score"));
+    const adaptationTones = {
+      productive:"#2e7d32", maintaining:"#00897b",
+      insufficient_stimulus:"#5c6bc0", absent:"#78909c",
+      high_load:"#f9a825", excessive:"#ef6c00",
+      strained:"#d84315", unproductive:"#c62828",
+      insufficient_data:"#78909c",
+    };
+    const adaptationTone = adaptationTones[adaptationStatus] || adaptationTones.insufficient_data;
+    const entityId = e.training_load || "";
+
+    this.shadowRoot.innerHTML = `<ha-card>
+      <div class="header">
+        <div>
+          <h3>${_fitnessEscape(l.training_load_snapshot || "Training load")}</h3>
+          ${adaptation ? `<div class="adapt-summary entity-link" style="--adapt:${adaptationTone}" data-more-info="${_fitnessEscape(e.training_adaptation_status || "")}">
+            <div class="adapt-title"><span>${_fitnessEscape(l.training_adaptation_card || "Training adaptation")}</span><strong>${_fitnessEscape(adaptationLabel)}</strong></div>
+            ${adaptationStatus === "insufficient_data"
+              ? `<p>${_fitnessEscape(l.adaptation_building || "Building enough history for a reliable adaptation assessment")}</p>`
+              : `<div class="adapt-evidence">
+                  <span>${_fitnessEscape(l.adaptation_baseline || "Load balance")} <b>${baselineReliable && ratio != null ? `${ratio.toFixed(2)}×` : "—"}</b></span>
+                  <span>${_fitnessEscape(l.adaptation_fitness || "Fitness trend")} <b>${adaptationVo2 == null ? "—" : `${adaptationVo2 >= 0 ? "+" : ""}${adaptationVo2.toFixed(1)}%`}</b></span>
+                  <span>${_fitnessEscape(l.adaptation_recovery || "Recovery")} <b>${adaptationReadiness == null ? "—" : `${adaptationReadiness.toFixed(0)}/100`}</b></span>
+                </div>`}
+            ${adaptationEvidence == null ? "" : `<small>${_fitnessEscape(l.adaptation_evidence || "Evidence")}: ${adaptationEvidence.toFixed(0)}</small>`}
+          </div>` : ""}
+        </div>
+        <div class="ratio ${zone}">${baselineReliable && ratio != null ? `${ratio.toFixed(2)}×` : "—"}</div>
       </div>
-      <div class="metrics entity-link" data-more-info="${_fitnessEscape(e.training_load || "")}">
-        ${this._metric(l.workouts_7d || "Workouts / 7 days", workouts, "")}
-        ${this._metric(l.active_days_7d || "Active days / 7 days", activeDays, "")}
-        ${this._metric(l.duration_7d || "Training / 7 days", duration, "min")}
+
+      <div class="load-scale entity-link" data-more-info="${_fitnessEscape(entityId)}">
+        <div class="scale"></div>
+        <i style="left:${position}%"></i>
+      </div>
+
+      <div class="status-row">
+        <div>
+          <span>${_fitnessEscape(l.load_ratio || "Load vs baseline")}</span>
+          <strong class="${zone}">${_fitnessEscape(zoneText)}</strong>
+        </div>
+        ${!baselineReliable ? `<p>${_fitnessEscape(l.baseline_building_hint || "More comparable workouts are needed before load balance can be judged reliably.")}</p>` : ""}
+      </div>
+
+      <div class="metrics entity-link" data-more-info="${_fitnessEscape(entityId)}">
+        <div><span>${_fitnessEscape("TRIMP 7d")}</span><strong>${recent == null ? "—" : recent.toFixed(1)}</strong></div>
+        <div><span>${_fitnessEscape(l.baseline_28d || "28-day weekly baseline")}</span><strong>${baseline == null ? "—" : baseline.toFixed(1)}</strong></div>
+        <div><span>${_fitnessEscape(l.workouts_7d || "Workouts / 7 days")}</span><strong>${workouts7 == null ? "—" : workouts7.toFixed(0)}</strong></div>
+        <div><span>${_fitnessEscape(l.active_days_7d || "Active days / 7 days")}</span><strong>${days7 == null ? "—" : days7.toFixed(0)}</strong></div>
+        <div><span>${_fitnessEscape(l.training_minutes_7d || "Training / 7 days")}</span><strong>${mins7 == null ? "—" : `${Math.round(mins7)} min`}</strong></div>
       </div>
     </ha-card><style>
-      ha-card{padding:18px}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.adapt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 11px;margin-bottom:12px;border-radius:12px;background:color-mix(in srgb,var(--adapt) 14%,var(--secondary-background-color));border-left:3px solid var(--adapt)}.adapt span{font-size:10px;color:var(--secondary-text-color)}.adapt strong{font-size:14px;color:var(--adapt);text-align:right;overflow-wrap:anywhere}.head{display:flex;justify-content:space-between;align-items:center}.title{font-size:19px;font-weight:650}.ratio{font-size:22px;font-weight:700;color:var(--primary-color)}
-      .scale{height:12px;background:linear-gradient(90deg,var(--secondary-background-color),var(--primary-color),var(--secondary-background-color));border-radius:999px;margin:18px 0 10px;position:relative;opacity:.9}.marker{position:absolute;top:-4px;width:3px;height:20px;background:var(--primary-text-color);border-radius:2px;transform:translateX(-1px)}
-      .pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}.pair>div,.metrics>div{background:var(--secondary-background-color);padding:10px 12px;border-radius:12px}.pair span,.metrics span{display:block;color:var(--secondary-text-color);font-size:10px;margin-bottom:4px}.pair strong{font-size:18px}
-      .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}.metrics strong{font-size:13px}.empty{padding:18px}
-      @media(max-width:480px){.metrics{grid-template-columns:1fr}.pair{grid-template-columns:1fr}}
+      ha-card{padding:16px;overflow:hidden}
+      .entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}
+      .header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+      h3{margin:0;font-size:20px;line-height:1.2}
+      .adapt-summary{margin-top:9px;padding:9px 10px;border-radius:12px;background:linear-gradient(135deg,color-mix(in srgb,var(--adapt) 12%,transparent),var(--secondary-background-color));border-left:3px solid var(--adapt);max-width:560px;min-width:0}
+      .adapt-title{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}.adapt-title span{font-size:10px;color:var(--secondary-text-color)}.adapt-title strong{font-size:12px;color:var(--adapt);overflow-wrap:anywhere;text-align:right}
+      .adapt-summary p{margin:6px 0 0;font-size:9px;line-height:1.35;color:var(--secondary-text-color);overflow-wrap:anywhere}
+      .adapt-evidence{display:flex;flex-wrap:wrap;gap:5px 10px;margin-top:6px}.adapt-evidence span{font-size:9px;color:var(--secondary-text-color)}.adapt-evidence b{color:var(--primary-text-color);font-weight:650}
+      .adapt-summary small{display:block;margin-top:5px;font-size:8px;color:var(--secondary-text-color)}
+      .ratio{font-size:21px;font-weight:750;white-space:nowrap}
+      .ratio.building{color:var(--secondary-text-color)}.ratio.low{color:#42a5f5}.ratio.balanced{color:#43a047}.ratio.elevated{color:#c0ca33}.ratio.high{color:#fb8c00}.ratio.excessive{color:#e53935}
+      .load-scale{position:relative;margin-top:14px;height:16px;padding:3px 0}
+      .scale{height:9px;border-radius:999px;background:linear-gradient(90deg,#42a5f5 0%,#26c6da 16%,#43a047 34%,#c0ca33 52%,#fdd835 66%,#fb8c00 80%,#e53935 100%)}
+      .load-scale i{position:absolute;top:0;width:4px;height:16px;border-radius:3px;background:var(--primary-text-color);box-shadow:0 0 0 1px var(--card-background-color);transform:translateX(-2px)}
+      .status-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:7px}
+      .status-row>div{min-width:0}.status-row span{display:block;font-size:10px;color:var(--secondary-text-color)}.status-row strong{display:block;font-size:13px;margin-top:2px}
+      .status-row strong.building{color:var(--secondary-text-color)}.status-row strong.low{color:#42a5f5}.status-row strong.balanced{color:#43a047}.status-row strong.elevated{color:#c0ca33}.status-row strong.high{color:#fb8c00}.status-row strong.excessive{color:#e53935}
+      .status-row p{margin:0;max-width:55%;font-size:9px;line-height:1.35;color:var(--secondary-text-color);text-align:right;overflow-wrap:anywhere}
+      .metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:13px}
+      .metrics>div{min-width:0;padding:10px;border-radius:12px;background:var(--secondary-background-color)}
+      .metrics>div:nth-child(n+3){grid-column:auto}
+      .metrics span{display:block;font-size:10px;line-height:1.3;color:var(--secondary-text-color);overflow-wrap:anywhere;margin-bottom:4px}
+      .metrics strong{font-size:15px;line-height:1.2;overflow-wrap:anywhere}
+      @media(min-width:540px){.metrics{grid-template-columns:repeat(6,minmax(0,1fr))}.metrics>div:nth-child(1),.metrics>div:nth-child(2){grid-column:span 3}.metrics>div:nth-child(n+3){grid-column:span 2}}
+      @media(max-width:390px){.header{align-items:center}.adapt{display:flex}.status-row{display:block}.status-row p{max-width:none;text-align:left;margin-top:7px}.metrics{grid-template-columns:1fr 1fr}.metrics>div:last-child{grid-column:1/-1}}
     </style>`;
   }
-  _metric(label, value, unit) {
-    return `<div><span>${_fitnessEscape(label)}</span><strong>${value == null ? "—" : `${value.toFixed(0)}${unit ? ` ${unit}` : ""}`}</strong></div>`;
-  }
 }
-
 
 class FitnessCompositeCard extends FitnessAutoProfileCard {
   setConfig(config) {

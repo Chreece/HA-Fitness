@@ -20,7 +20,7 @@ def test_training_adaptation_is_integrated_with_training_load():
     assert 'this._mount("fitness-training-adaptation-card")' not in evaluation
     load = JS[JS.index("class FitnessTrainingLoadCard"):JS.index("class FitnessCompositeCard")]
     assert "training_adaptation_status" in load
-    assert "adaptTones" in load
+    assert "adaptationTones" in load
 
 
 def test_training_adaptation_card_has_state_colours():

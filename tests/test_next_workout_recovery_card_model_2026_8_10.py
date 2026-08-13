@@ -23,8 +23,9 @@ def test_recovery_model_is_one_bounded_estimate_not_max_of_clocks():
 
 
 def test_recovery_card_is_prominent_beside_readiness():
-    assert 'class="dual-hero"' in JS
-    assert 'class="recovery-hero entity-link"' in JS
+    assert 'class="readiness-panel entity-link"' in JS
+    assert 'class="next-workout entity-link"' in JS
+    assert 'class="dual-hero"' not in JS
     assert 'ready_for_next_workout_at' in JS
     assert 'recovery_progress_percent' in JS
     assert 'estimated_recovery_low_hours' in JS
@@ -61,4 +62,4 @@ def test_frontend_revision_matches_backend():
     front = re.search(r'FITNESS_DASHBOARD_VERSION = "([^"]+)"', JS)
     back = re.search(r'_RESOURCE_URL = f".*?\\?v=([^"]+)"', DASH)
     assert front and back
-    assert front.group(1) == back.group(1) == "2026.8.10.7"
+    assert front.group(1) == back.group(1)

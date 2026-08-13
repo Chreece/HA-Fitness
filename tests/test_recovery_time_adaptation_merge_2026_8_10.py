@@ -34,7 +34,7 @@ def test_adaptation_is_integrated_into_training_load_card():
     block = JS[load_start:load_end]
     assert 'training_adaptation_status' in block
     assert 'baselineReliable' in block
-    assert 'adaptTones' in block
+    assert 'adaptationTones' in block
 
 
 def test_recovery_time_sensor_and_card_exist():
@@ -49,7 +49,7 @@ def test_recovery_time_sensor_and_card_exist():
 def test_frontend_revision_matches_backend():
     f = re.search(r'FITNESS_DASHBOARD_VERSION = "([^"]+)"', JS)
     b = re.search(r'_RESOURCE_URL = f".*?\\?v=([^"]+)"', DASH)
-    assert f and b and f.group(1) == b.group(1) == '2026.8.10.7'
+    assert f and b and f.group(1) == b.group(1)
 
 
 def test_new_attributes_are_translated_in_every_language():
