@@ -7,7 +7,7 @@ from .const import CONF_LANGUAGE, CONF_PROFILE_NAME, DOMAIN, SUPPORTED_LANGUAGES
 from .manager import FitnessManager
 from .dashboard import async_setup_dashboard
 
-PLATFORMS = ["sensor", "button", "select", "number"]
+PLATFORMS = ["sensor", "button", "select", "number", "calendar"]
 
 
 

@@ -932,6 +932,13 @@ class FitnessManager:
         """Settle startup provider state and establish a silent baseline."""
         await asyncio.sleep(30)
 
+        # Build canonical history before establishing the announcement baseline.
+        # Current provider history, provider-specific historical APIs and HA
+        # Recorder snapshots all pass through the same workout merger.
+        await self._async_reconcile_external_workouts()
+        await self.async_import_provider_workout_history()
+        await self.async_import_workouts_from_ha_history()
+
         latest = self.latest_workout()
         signature = (
             self._workout_signature(latest)
@@ -3617,11 +3624,12 @@ class FitnessManager:
             self._periodic_live_announcement_task.cancel()
         self._periodic_live_announcement_task = None
 
+        history_changed = False
         if workout is not None:
-            self.history.append(workout.as_dict())
-            self.history = self.history[-MAX_STORED_WORKOUTS:]
+            history_changed = self._remember_completed_workout(workout)
 
-        await self._save()
+        if history_changed:
+            await self._save()
         self._notify()
 
         # HR recovery requires post-exercise HR samples. Keep ANT capture alive
@@ -4400,6 +4408,102 @@ class FitnessManager:
 
         workout = self._apply_beta2_workout_metrics(workout)
         return self._apply_personal_workout_context(workout)
+
+    async def _async_reconcile_external_workouts(self) -> bool:
+        """Merge every currently exposed provider workout into history."""
+        candidates = discover_external_workouts(self.hass, self.config)
+        changed = False
+        for workout in sorted(
+            candidates,
+            key=lambda item: _dt(item.start)
+            or datetime.min.replace(tzinfo=timezone.utc),
+        ):
+            if workout is None or not workout.start:
+                continue
+            workout = self._apply_beta2_workout_metrics(workout)
+            workout = self._apply_personal_workout_context(workout)
+            changed = self._remember_completed_workout(workout) or changed
+        if changed:
+            await self._save()
+            self._notify()
+        return changed
+
+    async def async_import_provider_workout_history(self) -> int:
+        """Import historical workouts exposed by provider-specific HA APIs."""
+        try:
+            from .providers.workout_history import async_provider_history_workouts
+            candidates = await async_provider_history_workouts(self.hass, self.config)
+        except asyncio.CancelledError:
+            raise
+        except Exception as err:
+            _LOGGER.debug("Provider workout history import unavailable: %s", err)
+            return 0
+
+        changed = False
+        for workout in sorted(
+            candidates,
+            key=lambda item: _dt(item.start)
+            or datetime.min.replace(tzinfo=timezone.utc),
+        ):
+            workout = self._apply_beta2_workout_metrics(workout)
+            workout = self._apply_personal_workout_context(workout)
+            changed = self._remember_completed_workout(workout) or changed
+        if changed:
+            await self._save()
+            self._notify()
+        return len(candidates)
+
+    async def async_import_workouts_from_ha_history(self, *, days: int = 365) -> int:
+        """Reconstruct completed workouts from selected entities in Recorder."""
+        entity_ids = sorted(set(workout_device_entity_ids(self.hass, self.config)))
+        if not entity_ids:
+            return 0
+        try:
+            from functools import partial
+            from homeassistant.components.recorder import get_instance
+            from homeassistant.components.recorder.history import get_significant_states
+
+            end_time = datetime.now(timezone.utc)
+            start_time = end_time - timedelta(days=max(1, min(int(days), 3650)))
+            history = await get_instance(self.hass).async_add_executor_job(
+                partial(
+                    get_significant_states,
+                    self.hass,
+                    start_time,
+                    end_time=end_time,
+                    entity_ids=entity_ids,
+                    include_start_time_state=False,
+                    significant_changes_only=False,
+                    minimal_response=False,
+                    no_attributes=False,
+                )
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as err:
+            _LOGGER.debug("Workout Recorder history import unavailable: %s", err)
+            return 0
+
+        try:
+            from .providers.workout_history import workouts_from_recorder_history
+            candidates = workouts_from_recorder_history(self.hass, self.config, history)
+        except Exception as err:
+            _LOGGER.exception("Unable to parse completed workouts from Recorder: %s", err)
+            return 0
+
+        changed = False
+        for workout in sorted(
+            candidates,
+            key=lambda item: _dt(item.start)
+            or datetime.min.replace(tzinfo=timezone.utc),
+        ):
+            workout = self._apply_beta2_workout_metrics(workout)
+            workout = self._apply_personal_workout_context(workout)
+            changed = self._remember_completed_workout(workout) or changed
+        if changed:
+            await self._save()
+            self._notify()
+        return len(candidates)
 
     def _remember_completed_workout(self, workout: Workout | None) -> bool:
         """Merge a completed workout into persistent history without duplicates."""
