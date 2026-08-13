@@ -2944,6 +2944,65 @@
           },
           "why_useful": {
             "name": "Why this is useful"
+          },
+          "baseline_reliable": {
+            "name": "Baseline reliable"
+          },
+          "minimum_workouts_28d_for_baseline": {
+            "name": "Minimum workouts for baseline"
+          },
+          "minimum_active_days_28d_for_baseline": {
+            "name": "Minimum active days for baseline"
+          }
+        }
+      },
+      "estimated_recovery_time": {
+        "name": "Estimated recovery time",
+        "state_attributes": {
+          "estimated_total_recovery_hours": {
+            "name": "Estimated total recovery"
+          },
+          "elapsed_hours_since_workout": {
+            "name": "Time since workout"
+          },
+          "level": {
+            "name": "Recovery level"
+          },
+          "level_display": {
+            "name": "Recovery level (localized)"
+          },
+          "confidence_percent": {
+            "name": "Confidence"
+          },
+          "last_workout_start": {
+            "name": "Last workout start"
+          },
+          "last_workout_end": {
+            "name": "Last workout end"
+          },
+          "sport": {
+            "name": "Workout type"
+          },
+          "evidence": {
+            "name": "Evidence used"
+          },
+          "base_candidates_hours": {
+            "name": "Workout-dose estimates"
+          },
+          "recovery_modifiers": {
+            "name": "Personal recovery modifiers"
+          },
+          "data_source": {
+            "name": "Data source"
+          },
+          "method": {
+            "name": "Method"
+          },
+          "formula": {
+            "name": "Formula"
+          },
+          "diagnostic_interpretation": {
+            "name": "Diagnostic interpretation"
           }
         }
       }

@@ -2944,6 +2944,65 @@
           },
           "why_useful": {
             "name": "유용한 이유"
+          },
+          "baseline_reliable": {
+            "name": "기준선 신뢰성"
+          },
+          "minimum_workouts_28d_for_baseline": {
+            "name": "기준선 최소 운동 횟수"
+          },
+          "minimum_active_days_28d_for_baseline": {
+            "name": "기준선 최소 활동 일수"
+          }
+        }
+      },
+      "estimated_recovery_time": {
+        "name": "예상 회복 시간",
+        "state_attributes": {
+          "estimated_total_recovery_hours": {
+            "name": "예상 총 회복 시간"
+          },
+          "elapsed_hours_since_workout": {
+            "name": "운동 후 경과 시간"
+          },
+          "level": {
+            "name": "회복 수준"
+          },
+          "level_display": {
+            "name": "회복 수준(번역)"
+          },
+          "confidence_percent": {
+            "name": "신뢰도"
+          },
+          "last_workout_start": {
+            "name": "최근 운동 시작"
+          },
+          "last_workout_end": {
+            "name": "최근 운동 종료"
+          },
+          "sport": {
+            "name": "운동 유형"
+          },
+          "evidence": {
+            "name": "사용된 근거"
+          },
+          "base_candidates_hours": {
+            "name": "운동 부하 기반 추정"
+          },
+          "recovery_modifiers": {
+            "name": "개인 회복 보정"
+          },
+          "data_source": {
+            "name": "데이터 출처"
+          },
+          "method": {
+            "name": "방법"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "diagnostic_interpretation": {
+            "name": "진단적 해석"
           }
         }
       }

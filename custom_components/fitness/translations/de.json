@@ -2944,6 +2944,65 @@
           },
           "why_useful": {
             "name": "Warum das nützlich ist"
+          },
+          "baseline_reliable": {
+            "name": "Basislinie zuverlässig"
+          },
+          "minimum_workouts_28d_for_baseline": {
+            "name": "Minimale Trainings für Basislinie"
+          },
+          "minimum_active_days_28d_for_baseline": {
+            "name": "Minimale aktive Tage für Basislinie"
+          }
+        }
+      },
+      "estimated_recovery_time": {
+        "name": "Geschätzte Erholungszeit",
+        "state_attributes": {
+          "estimated_total_recovery_hours": {
+            "name": "Geschätzte Gesamterholung"
+          },
+          "elapsed_hours_since_workout": {
+            "name": "Zeit seit dem Training"
+          },
+          "level": {
+            "name": "Erholungsstufe"
+          },
+          "level_display": {
+            "name": "Erholungsstufe (übersetzt)"
+          },
+          "confidence_percent": {
+            "name": "Konfidenz"
+          },
+          "last_workout_start": {
+            "name": "Start des letzten Trainings"
+          },
+          "last_workout_end": {
+            "name": "Ende des letzten Trainings"
+          },
+          "sport": {
+            "name": "Trainingstyp"
+          },
+          "evidence": {
+            "name": "Verwendete Evidenz"
+          },
+          "base_candidates_hours": {
+            "name": "Belastungsbasierte Schätzungen"
+          },
+          "recovery_modifiers": {
+            "name": "Persönliche Erholungsmodifikatoren"
+          },
+          "data_source": {
+            "name": "Datenquelle"
+          },
+          "method": {
+            "name": "Methode"
+          },
+          "formula": {
+            "name": "Formel"
+          },
+          "diagnostic_interpretation": {
+            "name": "Diagnostische Interpretation"
           }
         }
       }

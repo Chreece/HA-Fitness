@@ -4418,13 +4418,20 @@ class FitnessManager:
         return before != after
 
     def local_workouts(self) -> list[Workout]:
+        """Return canonical de-duplicated Fitness workout history.
+
+        Historical storage may still contain two provider representations that
+        were written before a later merge rule became available. Re-clustering
+        on read prevents those stale duplicates from inflating 7/28-day load,
+        workout counts, recovery estimates, or training-adaptation status.
+        """
         result = []
         for item in self.history:
             try:
                 result.append(Workout(**item))
             except TypeError:
                 continue
-        return result
+        return merged_workouts(result)
 
     def latest_workout(self) -> Workout | None:
         candidates = self.local_workouts() + discover_external_workouts(
@@ -4911,6 +4918,177 @@ class FitnessManager:
     @staticmethod
     def _readiness_clamp(value: float, low: float = 0.0, high: float = 100.0) -> float:
         return max(low, min(high, float(value)))
+
+    def recovery_time_evaluation(self) -> dict[str, Any]:
+        """Estimate hours remaining after the latest completed Fitness workout.
+
+        This is an evidence-informed planning estimate, not a measurement of
+        complete physiological recovery. It combines workout-specific internal
+        load with current personal recovery signals and deliberately reports its
+        evidence and confidence instead of presenting false precision.
+        """
+        workouts = self.local_workouts()
+        latest = newest(workouts) if workouts else None
+        if latest is None or not latest.start:
+            return {
+                "remaining_hours": None,
+                "reason": "no_completed_workout",
+                "confidence_percent": 0,
+                "data_source": "fitness_canonical_workout_history",
+            }
+
+        start = _dt(latest.start)
+        if start is None:
+            return {
+                "remaining_hours": None,
+                "reason": "invalid_workout_time",
+                "confidence_percent": 0,
+                "data_source": "fitness_canonical_workout_history",
+            }
+        end = _dt(latest.end)
+        if end is None:
+            end = start + timedelta(seconds=float(latest.duration_s or 0))
+        now = datetime.now(timezone.utc)
+        elapsed_h = max(0.0, (now - end).total_seconds() / 3600.0)
+        duration_min = max(0.0, float(latest.duration_s or 0) / 60.0)
+
+        candidates: list[tuple[str, float]] = []
+        evidence: dict[str, Any] = {}
+        confidence = 20.0
+
+        # Duration gives a conservative floor even when no HR/RPE was captured.
+        if duration_min > 0:
+            duration_est = 8.0 + 0.25 * duration_min
+            candidates.append(("duration", duration_est))
+            evidence["duration_minutes"] = round(duration_min, 1)
+
+        if latest.session_rpe is not None:
+            rpe = max(1.0, min(10.0, float(latest.session_rpe)))
+            rpe_est = 8.0 + 3.0 * rpe
+            candidates.append(("session_rpe", rpe_est))
+            evidence["session_rpe"] = int(round(rpe))
+            confidence += 20.0
+
+        if latest.session_rpe_load is not None:
+            rpe_load = max(0.0, float(latest.session_rpe_load))
+            load_est = 8.0 + 0.10 * rpe_load
+            candidates.append(("session_rpe_load", load_est))
+            evidence["session_rpe_load"] = round(rpe_load, 1)
+            confidence += 15.0
+
+        if latest.banister_trimp is not None:
+            trimp = max(0.0, float(latest.banister_trimp))
+            trimp_est = 10.0 + 0.25 * trimp
+            candidates.append(("banister_trimp", trimp_est))
+            evidence["banister_trimp"] = round(trimp, 1)
+            confidence += 10.0
+
+        vigorous_min = float(latest.time_vigorous_s or 0) / 60.0
+        near_max_min = float(latest.time_near_maximal_s or 0) / 60.0
+        if vigorous_min > 0 or near_max_min > 0:
+            intensity_est = 12.0 + 0.4 * vigorous_min + 0.9 * near_max_min
+            candidates.append(("high_intensity_time", intensity_est))
+            evidence["vigorous_minutes"] = round(vigorous_min, 1)
+            evidence["near_maximal_minutes"] = round(near_max_min, 1)
+            confidence += 10.0
+
+        sport = str(latest.sport or "").strip().lower()
+        if any(token in sport for token in ("strength", "weight", "resistance")):
+            strength_floor = 24.0
+            if latest.session_rpe is not None and float(latest.session_rpe) >= 8:
+                strength_floor = 36.0
+            candidates.append(("resistance_training_floor", strength_floor))
+            evidence["resistance_training"] = True
+
+        if not candidates:
+            candidates.append(("minimum_default", 12.0))
+
+        base_hours = max(value for _name, value in candidates)
+
+        # Current recovery state modifies, but never dominates, the workout dose.
+        readiness = self.readiness_evaluation()
+        sleep = self.sleep_long_term_summary()
+        recorder = self.recorder_long_term_summary()
+        workout_long = self.workout_long_term_summary()
+        modifier = 1.0
+        modifiers: list[dict[str, Any]] = []
+
+        ready = readiness.get("score")
+        if ready is not None:
+            ready = float(ready)
+            evidence["readiness_score"] = round(ready, 1)
+            confidence += 10.0
+            if ready < 35:
+                modifier += 0.25; modifiers.append({"signal":"low_readiness","factor":1.25})
+            elif ready < 50:
+                modifier += 0.15; modifiers.append({"signal":"reduced_readiness","factor":1.15})
+            elif ready >= 85:
+                modifier -= 0.10; modifiers.append({"signal":"high_readiness","factor":0.90})
+
+        hrv_delta = sleep.get("sleep_hrv_7d_vs_baseline_percent")
+        if hrv_delta is not None:
+            hrv_delta = float(hrv_delta)
+            evidence["hrv_7d_vs_baseline_percent"] = round(hrv_delta, 1)
+            confidence += 8.0
+            if hrv_delta <= -10:
+                modifier += 0.15; modifiers.append({"signal":"hrv_below_baseline","factor":1.15})
+            elif hrv_delta <= -5:
+                modifier += 0.07; modifiers.append({"signal":"hrv_slightly_below_baseline","factor":1.07})
+            elif hrv_delta >= 5:
+                modifier -= 0.05; modifiers.append({"signal":"hrv_above_baseline","factor":0.95})
+
+        rhr_delta = recorder.get("resting_hr_vs_28d")
+        if rhr_delta is not None:
+            rhr_delta = float(rhr_delta)
+            evidence["resting_hr_vs_28d_bpm"] = round(rhr_delta, 1)
+            confidence += 7.0
+            if rhr_delta >= 5:
+                modifier += 0.10; modifiers.append({"signal":"resting_hr_elevated","factor":1.10})
+            elif rhr_delta >= 3:
+                modifier += 0.05; modifiers.append({"signal":"resting_hr_slightly_elevated","factor":1.05})
+
+        hrr_delta = workout_long.get("hrr_60s_latest_vs_90d_bpm")
+        if hrr_delta is not None:
+            hrr_delta = float(hrr_delta)
+            evidence["hrr_60s_vs_personal_baseline_bpm"] = round(hrr_delta, 1)
+            confidence += 5.0
+            if hrr_delta <= -5:
+                modifier += 0.10; modifiers.append({"signal":"hrr_below_baseline","factor":1.10})
+            elif hrr_delta >= 5:
+                modifier -= 0.05; modifiers.append({"signal":"hrr_above_baseline","factor":0.95})
+
+        modifier = max(0.75, min(1.50, modifier))
+        total_hours = max(8.0, min(72.0, base_hours * modifier))
+        remaining = max(0.0, total_hours - elapsed_h)
+
+        if remaining <= 0:
+            level = "recovered_estimate"
+        elif remaining <= 12:
+            level = "nearly_recovered"
+        elif remaining <= 24:
+            level = "recovering"
+        elif remaining <= 48:
+            level = "substantial_recovery"
+        else:
+            level = "high_recovery_demand"
+
+        return {
+            "remaining_hours": round(remaining, 1),
+            "estimated_total_recovery_hours": round(total_hours, 1),
+            "elapsed_hours_since_workout": round(elapsed_h, 1),
+            "level": level,
+            "confidence_percent": round(min(100.0, confidence), 0),
+            "last_workout_start": latest.start,
+            "last_workout_end": end.isoformat(),
+            "sport": latest.sport,
+            "evidence": evidence,
+            "base_candidates_hours": {name: round(value, 1) for name, value in candidates},
+            "recovery_modifiers": modifiers,
+            "data_source": "fitness_canonical_workout_and_recovery_history",
+            "method": "fitness_evidence_informed_recovery_estimate_v1",
+            "formula": "max(workout-dose recovery candidates) × bounded personal recovery modifier − elapsed time; result clamped to 0–72 h",
+            "diagnostic_interpretation": False,
+        }
 
     def readiness_evaluation(self) -> dict[str, Any]:
         """Return a transparent Fitness-owned 0-100 training readiness score.

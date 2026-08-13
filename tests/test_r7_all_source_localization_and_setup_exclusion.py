@@ -35,7 +35,7 @@ def test_every_live_workout_sleep_sensor_localizes_its_provenance_attributes():
         sensors = json.loads(path.read_text(encoding='utf-8'))['entity']['sensor']
         for kind, attrs in expected.items():
             for key in _desc_keys(kind):
-                if kind == "sleep" and key == "readiness":
+                if kind == "sleep" and key in {"readiness", "estimated_recovery_time"}:
                     continue
                 assert key in sensors, (lang, kind, key)
                 state_attrs = sensors[key].get('state_attributes', {})

@@ -2944,6 +2944,65 @@
           },
           "why_useful": {
             "name": "Почему это полезно"
+          },
+          "baseline_reliable": {
+            "name": "Надёжная базовая линия"
+          },
+          "minimum_workouts_28d_for_baseline": {
+            "name": "Минимум тренировок для базы"
+          },
+          "minimum_active_days_28d_for_baseline": {
+            "name": "Минимум активных дней для базы"
+          }
+        }
+      },
+      "estimated_recovery_time": {
+        "name": "Расчётное время восстановления",
+        "state_attributes": {
+          "estimated_total_recovery_hours": {
+            "name": "Расчётное полное восстановление"
+          },
+          "elapsed_hours_since_workout": {
+            "name": "Время после тренировки"
+          },
+          "level": {
+            "name": "Уровень восстановления"
+          },
+          "level_display": {
+            "name": "Уровень восстановления (перевод)"
+          },
+          "confidence_percent": {
+            "name": "Уверенность"
+          },
+          "last_workout_start": {
+            "name": "Начало последней тренировки"
+          },
+          "last_workout_end": {
+            "name": "Окончание последней тренировки"
+          },
+          "sport": {
+            "name": "Тип тренировки"
+          },
+          "evidence": {
+            "name": "Использованные данные"
+          },
+          "base_candidates_hours": {
+            "name": "Оценки по тренировочной нагрузке"
+          },
+          "recovery_modifiers": {
+            "name": "Персональные модификаторы восстановления"
+          },
+          "data_source": {
+            "name": "Источник данных"
+          },
+          "method": {
+            "name": "Метод"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "diagnostic_interpretation": {
+            "name": "Диагностическая интерпретация"
           }
         }
       }

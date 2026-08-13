@@ -2944,6 +2944,65 @@
           },
           "why_useful": {
             "name": "Waarom dit nuttig is"
+          },
+          "baseline_reliable": {
+            "name": "Betrouwbare basislijn"
+          },
+          "minimum_workouts_28d_for_baseline": {
+            "name": "Minimum trainingen voor basislijn"
+          },
+          "minimum_active_days_28d_for_baseline": {
+            "name": "Minimum actieve dagen voor basislijn"
+          }
+        }
+      },
+      "estimated_recovery_time": {
+        "name": "Geschatte hersteltijd",
+        "state_attributes": {
+          "estimated_total_recovery_hours": {
+            "name": "Geschat totaal herstel"
+          },
+          "elapsed_hours_since_workout": {
+            "name": "Tijd sinds training"
+          },
+          "level": {
+            "name": "Herstelniveau"
+          },
+          "level_display": {
+            "name": "Herstelniveau (vertaald)"
+          },
+          "confidence_percent": {
+            "name": "Betrouwbaarheid"
+          },
+          "last_workout_start": {
+            "name": "Start laatste training"
+          },
+          "last_workout_end": {
+            "name": "Einde laatste training"
+          },
+          "sport": {
+            "name": "Trainingstype"
+          },
+          "evidence": {
+            "name": "Gebruikte gegevens"
+          },
+          "base_candidates_hours": {
+            "name": "Schattingen op basis van trainingsbelasting"
+          },
+          "recovery_modifiers": {
+            "name": "Persoonlijke herstelmodificatoren"
+          },
+          "data_source": {
+            "name": "Gegevensbron"
+          },
+          "method": {
+            "name": "Methode"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "diagnostic_interpretation": {
+            "name": "Diagnostische interpretatie"
           }
         }
       }

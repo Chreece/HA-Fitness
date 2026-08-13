@@ -2944,6 +2944,65 @@
           },
           "why_useful": {
             "name": "役立つ理由"
+          },
+          "baseline_reliable": {
+            "name": "ベースラインの信頼性"
+          },
+          "minimum_workouts_28d_for_baseline": {
+            "name": "ベースラインに必要な最小ワークアウト数"
+          },
+          "minimum_active_days_28d_for_baseline": {
+            "name": "ベースラインに必要な最小活動日数"
+          }
+        }
+      },
+      "estimated_recovery_time": {
+        "name": "推定回復時間",
+        "state_attributes": {
+          "estimated_total_recovery_hours": {
+            "name": "推定総回復時間"
+          },
+          "elapsed_hours_since_workout": {
+            "name": "ワークアウト後の経過時間"
+          },
+          "level": {
+            "name": "回復レベル"
+          },
+          "level_display": {
+            "name": "回復レベル（ローカライズ）"
+          },
+          "confidence_percent": {
+            "name": "信頼度"
+          },
+          "last_workout_start": {
+            "name": "直近ワークアウト開始"
+          },
+          "last_workout_end": {
+            "name": "直近ワークアウト終了"
+          },
+          "sport": {
+            "name": "ワークアウト種別"
+          },
+          "evidence": {
+            "name": "使用したエビデンス"
+          },
+          "base_candidates_hours": {
+            "name": "ワークアウト負荷による推定"
+          },
+          "recovery_modifiers": {
+            "name": "個人回復補正"
+          },
+          "data_source": {
+            "name": "データソース"
+          },
+          "method": {
+            "name": "方法"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "diagnostic_interpretation": {
+            "name": "診断的解釈"
           }
         }
       }

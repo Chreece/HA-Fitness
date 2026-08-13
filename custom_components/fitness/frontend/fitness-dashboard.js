@@ -1,4 +1,4 @@
-const FITNESS_DASHBOARD_VERSION = "2026.8.10.6";
+const FITNESS_DASHBOARD_VERSION = "2026.8.10.7";
 
 
 const FITNESS_READINESS_TEXT = {
@@ -1277,6 +1277,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
     const sleepHrv = this._hass.states[e.last_sleep_hrv];
     const sleepScore = this._hass.states[e.last_sleep_score];
     const deficit = this._hass.states[e.sleep_deficit_7d];
+    const recoveryTime = this._hass.states[e.estimated_recovery_time];
     const classifiedSleepMinutes = [
       e.last_sleep_light, e.last_sleep_deep, e.last_sleep_rem,
     ].map((entityId) => _fitnessMinutesFromState(this._hass.states[entityId]))
@@ -1328,6 +1329,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
         ${this._sleepScoreMetric(l.sleep_score || "Sleep score", sleepScore, e.last_sleep_score)}
         ${this._metric(l.sleep_duration || "Sleep duration", effectiveSleepDuration, true, e.last_sleep_duration)}
         ${this._metric(l.sleep_hrv || "Sleep HRV", sleepHrv, false, e.last_sleep_hrv)}
+        ${recoveryTime ? this._metric(entityName(this._hass, e.estimated_recovery_time), recoveryTime, false, e.estimated_recovery_time) : ""}
         ${this._metric(l.sleep_deficit || "7-day sleep deficit", deficit, true, e.sleep_deficit_7d)}
       </div>
     </ha-card><style>
@@ -1429,6 +1431,7 @@ class FitnessTrainingLoadCard extends FitnessAutoProfileCard {
     const e = this._profile?.entities || {};
     const l = this._profile?.labels || {};
     const load = this._hass.states[e.training_load];
+    const adaptation = e.training_adaptation_status ? this._hass.states[e.training_adaptation_status] : null;
     if (!load) {
       this.shadowRoot.innerHTML = `<ha-card><div class="empty">${_fitnessEscape(l.training_load_snapshot || "Training load")}<small>No compatible training-load data is available yet.</small></div></ha-card><style>.empty{padding:18px}.empty small{display:block;color:var(--secondary-text-color);margin-top:8px}</style>`;
       return;
@@ -1438,10 +1441,15 @@ class FitnessTrainingLoadCard extends FitnessAutoProfileCard {
     const workouts = _fitnessNumber(_fitnessAttr(load, "workouts_7d"));
     const activeDays = _fitnessNumber(_fitnessAttr(load, "active_days_7d"));
     const duration = _fitnessNumber(_fitnessAttr(load, "training_duration_7d_min"));
-    const ratio = recent != null && baseline && baseline > 0 ? recent / baseline : null;
+    const baselineReliable = adaptation ? _fitnessAttr(adaptation, "baseline_reliable") === true : false;
+    const ratio = baselineReliable && recent != null && baseline && baseline > 0 ? recent / baseline : null;
     const ratioPct = ratio == null ? 0 : Math.max(0, Math.min(180, ratio * 100));
+    const adaptCode = String(_fitnessAttr(adaptation, "status") || "insufficient_data");
+    const adaptTones = {productive:"#2e7d32",maintaining:"#00897b",insufficient_stimulus:"#5c6bc0",absent:"#78909c",high_load:"#f9a825",excessive:"#ef6c00",strained:"#d84315",unproductive:"#c62828",insufficient_data:"#78909c"};
+    const adaptTone = adaptTones[adaptCode] || adaptTones.insufficient_data;
 
-    this.shadowRoot.innerHTML = `<ha-card>
+    this.shadowRoot.innerHTML = `<ha-card style="--adapt:${adaptTone}">
+      ${adaptation ? `<div class="adapt entity-link" data-more-info="${_fitnessEscape(e.training_adaptation_status || "")}"><span>${_fitnessEscape(l.training_adaptation_card || "Training adaptation")}</span><strong>${_fitnessEscape(adaptation.state)}</strong></div>` : ""}
       <div class="head entity-link" data-more-info="${_fitnessEscape(e.training_load || "")}"><div class="title">${_fitnessEscape(this.config.title || l.training_load_snapshot || "Training load")}</div><div class="ratio">${ratio == null ? "—" : `${ratio.toFixed(2)}×`}</div></div>
       <div class="scale"><div class="zone"></div><div class="marker" style="left:${Math.min(100, ratioPct / 1.8)}%"></div></div>
       <div class="pair entity-link" data-more-info="${_fitnessEscape(e.training_load || "")}">
@@ -1454,7 +1462,7 @@ class FitnessTrainingLoadCard extends FitnessAutoProfileCard {
         ${this._metric(l.duration_7d || "Training / 7 days", duration, "min")}
       </div>
     </ha-card><style>
-      ha-card{padding:18px}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.head{display:flex;justify-content:space-between;align-items:center}.title{font-size:19px;font-weight:650}.ratio{font-size:22px;font-weight:700;color:var(--primary-color)}
+      ha-card{padding:18px}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.adapt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 11px;margin-bottom:12px;border-radius:12px;background:color-mix(in srgb,var(--adapt) 14%,var(--secondary-background-color));border-left:3px solid var(--adapt)}.adapt span{font-size:10px;color:var(--secondary-text-color)}.adapt strong{font-size:14px;color:var(--adapt);text-align:right;overflow-wrap:anywhere}.head{display:flex;justify-content:space-between;align-items:center}.title{font-size:19px;font-weight:650}.ratio{font-size:22px;font-weight:700;color:var(--primary-color)}
       .scale{height:12px;background:linear-gradient(90deg,var(--secondary-background-color),var(--primary-color),var(--secondary-background-color));border-radius:999px;margin:18px 0 10px;position:relative;opacity:.9}.marker{position:absolute;top:-4px;width:3px;height:20px;background:var(--primary-text-color);border-radius:2px;transform:translateX(-1px)}
       .pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}.pair>div,.metrics>div{background:var(--secondary-background-color);padding:10px 12px;border-radius:12px}.pair span,.metrics span{display:block;color:var(--secondary-text-color);font-size:10px;margin-bottom:4px}.pair strong{font-size:18px}
       .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}.metrics strong{font-size:13px}.empty{padding:18px}
@@ -1785,7 +1793,6 @@ class FitnessEvaluationCard extends FitnessCompositeCard {
     const e = this._profile.entities || {};
     const children = [];
     if (e.cardiorespiratory_fitness_trend || e.vo2max_percent_predicted) children.push(this._mount("fitness-progress-card"));
-    if (e.training_adaptation_status) children.push(this._mount("fitness-training-adaptation-card"));
     if (e.training_load) children.push(this._mount("fitness-training-load-card"));
     this._shell(this.config.title || l.evaluation || "Evaluation", "mdi:chart-line", children);
   }

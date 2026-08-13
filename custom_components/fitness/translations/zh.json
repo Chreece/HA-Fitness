@@ -2944,6 +2944,65 @@
           },
           "why_useful": {
             "name": "为什么有用"
+          },
+          "baseline_reliable": {
+            "name": "基线可靠"
+          },
+          "minimum_workouts_28d_for_baseline": {
+            "name": "建立基线所需最少训练次数"
+          },
+          "minimum_active_days_28d_for_baseline": {
+            "name": "建立基线所需最少活跃天数"
+          }
+        }
+      },
+      "estimated_recovery_time": {
+        "name": "预计恢复时间",
+        "state_attributes": {
+          "estimated_total_recovery_hours": {
+            "name": "预计总恢复时间"
+          },
+          "elapsed_hours_since_workout": {
+            "name": "训练后经过时间"
+          },
+          "level": {
+            "name": "恢复等级"
+          },
+          "level_display": {
+            "name": "恢复等级（本地化）"
+          },
+          "confidence_percent": {
+            "name": "置信度"
+          },
+          "last_workout_start": {
+            "name": "最近训练开始时间"
+          },
+          "last_workout_end": {
+            "name": "最近训练结束时间"
+          },
+          "sport": {
+            "name": "训练类型"
+          },
+          "evidence": {
+            "name": "使用的证据"
+          },
+          "base_candidates_hours": {
+            "name": "训练负荷恢复估计"
+          },
+          "recovery_modifiers": {
+            "name": "个人恢复修正"
+          },
+          "data_source": {
+            "name": "数据来源"
+          },
+          "method": {
+            "name": "方法"
+          },
+          "formula": {
+            "name": "公式"
+          },
+          "diagnostic_interpretation": {
+            "name": "诊断性解释"
           }
         }
       }

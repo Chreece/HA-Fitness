@@ -2944,6 +2944,65 @@
           },
           "why_useful": {
             "name": "Γιατί είναι χρήσιμο"
+          },
+          "baseline_reliable": {
+            "name": "Αξιόπιστη γραμμή βάσης"
+          },
+          "minimum_workouts_28d_for_baseline": {
+            "name": "Ελάχιστες προπονήσεις για γραμμή βάσης"
+          },
+          "minimum_active_days_28d_for_baseline": {
+            "name": "Ελάχιστες ενεργές ημέρες για γραμμή βάσης"
+          }
+        }
+      },
+      "estimated_recovery_time": {
+        "name": "Εκτιμώμενος χρόνος αποκατάστασης",
+        "state_attributes": {
+          "estimated_total_recovery_hours": {
+            "name": "Εκτιμώμενη συνολική αποκατάσταση"
+          },
+          "elapsed_hours_since_workout": {
+            "name": "Χρόνος από την προπόνηση"
+          },
+          "level": {
+            "name": "Επίπεδο αποκατάστασης"
+          },
+          "level_display": {
+            "name": "Επίπεδο αποκατάστασης (μεταφρασμένο)"
+          },
+          "confidence_percent": {
+            "name": "Βεβαιότητα"
+          },
+          "last_workout_start": {
+            "name": "Έναρξη τελευταίας προπόνησης"
+          },
+          "last_workout_end": {
+            "name": "Λήξη τελευταίας προπόνησης"
+          },
+          "sport": {
+            "name": "Τύπος προπόνησης"
+          },
+          "evidence": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "base_candidates_hours": {
+            "name": "Εκτιμήσεις από το φορτίο προπόνησης"
+          },
+          "recovery_modifiers": {
+            "name": "Προσωπικοί τροποποιητές αποκατάστασης"
+          },
+          "data_source": {
+            "name": "Πηγή δεδομένων"
+          },
+          "method": {
+            "name": "Μέθοδος"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "diagnostic_interpretation": {
+            "name": "Διαγνωστική ερμηνεία"
           }
         }
       }

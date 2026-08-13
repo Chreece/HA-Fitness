@@ -2,6 +2,11 @@
 
 ## 2026.8.10-beta2
 
+- Added Fitness-owned estimated recovery time after the latest canonical workout, combining workout dose with personal readiness/HRV/RHR/HRR evidence and exposing confidence/method details.
+- Training adaptation now requires a mature 28-day personal load baseline before classifying high/excessive load; sparse histories report insufficient data instead of unstable ratios.
+- Re-cluster stored workouts on read so stale live/provider duplicates cannot inflate 7/28-day workout counts or training load.
+- Integrated training adaptation into the Training Load card and added estimated recovery time to the Recovery card.
+
 - Fixed Training Readiness failing to materialize because its localized readiness-attribute helper was missing. Readiness now exposes stable machine-readable attributes plus a localized display level across all 15 supported languages.
 - Hardened 7-day sleep-deficit history: long-term calculations now count one main validated sleep per local wake date, preventing late provider synchronization or duplicate nightly records from inflating the deficit. The entity exposes a per-night deficit breakdown and duplicate-record diagnostics for auditing.
 - Added a Fitness-owned personal HRV baseline. The newest night is excluded from its own reference baseline; recent HRV uses a 7-night rolling mean when enough observations exist and is compared with the preceding 28-day personal baseline (minimum 14 prior HRV nights). The latest-night deviation remains exposed separately.

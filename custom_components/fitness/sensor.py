@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from homeassistant.components.sensor import (
     SensorEntity,
@@ -12,6 +12,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.core import callback
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.const import PERCENTAGE, UnitOfPower
 
 from .const import (
@@ -82,6 +83,28 @@ def _localized_readiness_attributes(language: str | None, readiness: dict) -> di
     return {key: value for key, value in attrs.items() if value is not None}
 
 
+
+def _localized_recovery_time_level(language: str | None, level: str) -> str:
+    code = str(language or "en").lower().split("-")[0].split("_")[0]
+    labels = {
+        "en":{"recovered_estimate":"Recovered estimate","nearly_recovered":"Nearly recovered","recovering":"Recovering","substantial_recovery":"Substantial recovery needed","high_recovery_demand":"High recovery demand"},
+        "el":{"recovered_estimate":"Εκτιμώμενη αποκατάσταση","nearly_recovered":"Σχεδόν αποκαταστάθηκε","recovering":"Σε αποκατάσταση","substantial_recovery":"Χρειάζεται σημαντική αποκατάσταση","high_recovery_demand":"Υψηλή ανάγκη αποκατάστασης"},
+        "de":{"recovered_estimate":"Voraussichtlich erholt","nearly_recovered":"Fast erholt","recovering":"In Erholung","substantial_recovery":"Deutliche Erholung nötig","high_recovery_demand":"Hoher Erholungsbedarf"},
+        "fr":{"recovered_estimate":"Récupération estimée","nearly_recovered":"Presque récupéré","recovering":"En récupération","substantial_recovery":"Récupération importante nécessaire","high_recovery_demand":"Besoin élevé de récupération"},
+        "es":{"recovered_estimate":"Recuperación estimada","nearly_recovered":"Casi recuperado","recovering":"Recuperándose","substantial_recovery":"Se necesita recuperación importante","high_recovery_demand":"Alta necesidad de recuperación"},
+        "it":{"recovered_estimate":"Recupero stimato","nearly_recovered":"Quasi recuperato","recovering":"In recupero","substantial_recovery":"Serve recupero significativo","high_recovery_demand":"Elevata necessità di recupero"},
+        "pt":{"recovered_estimate":"Recuperação estimada","nearly_recovered":"Quase recuperado","recovering":"Em recuperação","substantial_recovery":"É necessária recuperação significativa","high_recovery_demand":"Elevada necessidade de recuperação"},
+        "nl":{"recovered_estimate":"Geschat hersteld","nearly_recovered":"Bijna hersteld","recovering":"Herstellend","substantial_recovery":"Aanzienlijk herstel nodig","high_recovery_demand":"Hoge herstelbehoefte"},
+        "pl":{"recovered_estimate":"Szacunkowo zregenerowany","nearly_recovered":"Prawie zregenerowany","recovering":"Regeneracja trwa","substantial_recovery":"Potrzebna znaczna regeneracja","high_recovery_demand":"Wysokie zapotrzebowanie na regenerację"},
+        "ru":{"recovered_estimate":"Расчётное восстановление","nearly_recovered":"Почти восстановлен","recovering":"Восстановление","substantial_recovery":"Требуется значительное восстановление","high_recovery_demand":"Высокая потребность в восстановлении"},
+        "uk":{"recovered_estimate":"Орієнтовно відновлено","nearly_recovered":"Майже відновлено","recovering":"Відновлення","substantial_recovery":"Потрібне значне відновлення","high_recovery_demand":"Висока потреба у відновленні"},
+        "tr":{"recovered_estimate":"Tahmini olarak toparlandı","nearly_recovered":"Neredeyse toparlandı","recovering":"Toparlanıyor","substantial_recovery":"Önemli toparlanma gerekli","high_recovery_demand":"Yüksek toparlanma ihtiyacı"},
+        "zh":{"recovered_estimate":"预计已恢复","nearly_recovered":"接近恢复","recovering":"恢复中","substantial_recovery":"仍需较多恢复","high_recovery_demand":"恢复需求高"},
+        "ja":{"recovered_estimate":"推定回復済み","nearly_recovered":"ほぼ回復","recovering":"回復中","substantial_recovery":"十分な回復が必要","high_recovery_demand":"高い回復需要"},
+        "ko":{"recovered_estimate":"회복 추정 완료","nearly_recovered":"거의 회복됨","recovering":"회복 중","substantial_recovery":"상당한 회복 필요","high_recovery_demand":"높은 회복 필요"},
+    }
+    return labels.get(code, labels["en"]).get(level, level)
+
 def _training_adaptation_evaluation(manager) -> dict:
     """Classify recent training adaptation from Fitness-owned longitudinal evidence.
 
@@ -105,9 +128,18 @@ def _training_adaptation_evaluation(manager) -> dict:
     ready = readiness.get("score")
 
     evidence_count = sum(x is not None for x in (ratio, vo2_slope, hrv_delta, rhr_delta, ready))
+    # A recent/chronic ratio is unstable when the 28-day baseline contains only
+    # a handful of sessions. Do not label a user "high load" merely because one
+    # normal workout is divided by a tiny immature baseline.
+    baseline_reliable = (
+        workouts_28d >= 6
+        and active_days_28d >= 4
+        and chronic is not None
+        and float(chronic) >= 15.0
+    )
     if workouts_28d == 0:
         status = "absent"
-    elif workouts_28d < 3 or active_days_28d < 2 or evidence_count < 2:
+    elif not baseline_reliable or evidence_count < 2:
         status = "insufficient_data"
     else:
         recovery_strain = ((hrv_delta is not None and float(hrv_delta) <= -10.0) or
@@ -131,7 +163,8 @@ def _training_adaptation_evaluation(manager) -> dict:
         "recent_to_baseline_load_ratio": round(ratio, 3) if ratio is not None else None,
         "vo2max_slope_percent_per_30d": vo2_slope, "hrv_7d_vs_baseline_percent": hrv_delta,
         "resting_hr_vs_28d_bpm": rhr_delta, "readiness_score": ready,
-        "evidence_count": evidence_count,
+        "evidence_count": evidence_count, "baseline_reliable": baseline_reliable,
+        "minimum_workouts_28d_for_baseline": 6, "minimum_active_days_28d_for_baseline": 4,
     }
 
 
@@ -261,6 +294,7 @@ DESCRIPTIONS = (
 
     # Sleep device
     Desc(key="readiness", translation_key="readiness", kind="sleep", metric="readiness", unit="%"),
+    Desc(key="estimated_recovery_time", translation_key="estimated_recovery_time", kind="sleep", metric="estimated_recovery_time", unit="h"),
     Desc(key="last_sleep_source", translation_key="last_sleep_source", kind="sleep", metric="sleep_source"),
     Desc(key="last_sleep_duration", translation_key="last_sleep_duration", kind="sleep", metric="sleep_duration", unit="min"),
     Desc(key="last_sleep_score", translation_key="last_sleep_score", kind="sleep", metric="sleep_score"),
@@ -470,6 +504,17 @@ async def async_setup_entry(hass, entry, async_add_entities):
         manager.add_listener(
             materialize_new_valid_sensors
         )
+    )
+
+    @callback
+    def recovery_time_tick(_now) -> None:
+        # Remaining recovery time is time-dependent even when no provider state
+        # changes. A 15-minute tick keeps the Recovery device/card current with
+        # negligible overhead.
+        manager._notify_sleep()
+
+    entry.async_on_unload(
+        async_track_time_interval(hass, recovery_time_tick, timedelta(minutes=15))
     )
 
 
@@ -702,6 +747,9 @@ class FitnessSensor(SensorEntity):
         if self.entity_description.kind == "sleep":
             if m == "readiness":
                 value = self.manager.readiness_evaluation().get("score")
+                return round(float(value), 1) if value is not None else None
+            if m == "estimated_recovery_time":
+                value = self.manager.recovery_time_evaluation().get("remaining_hours")
                 return round(float(value), 1) if value is not None else None
             r = self.manager.latest_sleep()
             if r is None:
@@ -1124,6 +1172,12 @@ class FitnessSensor(SensorEntity):
             return attrs
 
         if kind == "sleep":
+            if m == "estimated_recovery_time":
+                recovery = self.manager.recovery_time_evaluation()
+                attrs = {key: value for key, value in recovery.items() if key != "remaining_hours" and value is not None}
+                if recovery.get("level"):
+                    attrs["level_display"] = _localized_recovery_time_level(self.manager._ai_language(), recovery["level"])
+                return attrs
             if m == "readiness":
                 readiness = self.manager.readiness_evaluation()
                 attrs = _localized_readiness_attributes(self.manager._ai_language(), readiness)

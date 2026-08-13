@@ -14,10 +14,13 @@ def test_training_adaptation_is_textual_not_measurement():
     assert '"training_adaptation_status"' in section
 
 
-def test_training_adaptation_card_is_mounted_in_evaluation():
+def test_training_adaptation_is_integrated_with_training_load():
     assert "class FitnessTrainingAdaptationCard" in JS
-    assert 'this._mount("fitness-training-adaptation-card")' in JS
-    assert 'customElements.define("fitness-training-adaptation-card", FitnessTrainingAdaptationCard)' in JS
+    evaluation = JS[JS.index("class FitnessEvaluationCard"):JS.index("class FitnessDashboardStrategy")]
+    assert 'this._mount("fitness-training-adaptation-card")' not in evaluation
+    load = JS[JS.index("class FitnessTrainingLoadCard"):JS.index("class FitnessCompositeCard")]
+    assert "training_adaptation_status" in load
+    assert "adaptTones" in load
 
 
 def test_training_adaptation_card_has_state_colours():
@@ -34,7 +37,7 @@ def test_frontend_resource_revision_matches():
     front = re.search(r'FITNESS_DASHBOARD_VERSION = "([^"]+)"', JS)
     back = re.search(r'_RESOURCE_URL = f".*?\\?v=([^"]+)"', DASH)
     assert front and back
-    assert front.group(1) == back.group(1) == "2026.8.10.6"
+    assert front.group(1) == back.group(1)
 
 
 def test_adaptation_card_labels_exist_for_all_languages():

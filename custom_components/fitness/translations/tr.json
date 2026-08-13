@@ -2944,6 +2944,65 @@
           },
           "why_useful": {
             "name": "Neden yararlı"
+          },
+          "baseline_reliable": {
+            "name": "Güvenilir temel çizgi"
+          },
+          "minimum_workouts_28d_for_baseline": {
+            "name": "Temel için minimum antrenman"
+          },
+          "minimum_active_days_28d_for_baseline": {
+            "name": "Temel için minimum aktif gün"
+          }
+        }
+      },
+      "estimated_recovery_time": {
+        "name": "Tahmini toparlanma süresi",
+        "state_attributes": {
+          "estimated_total_recovery_hours": {
+            "name": "Tahmini toplam toparlanma"
+          },
+          "elapsed_hours_since_workout": {
+            "name": "Antrenmandan geçen süre"
+          },
+          "level": {
+            "name": "Toparlanma seviyesi"
+          },
+          "level_display": {
+            "name": "Toparlanma seviyesi (çeviri)"
+          },
+          "confidence_percent": {
+            "name": "Güven"
+          },
+          "last_workout_start": {
+            "name": "Son antrenman başlangıcı"
+          },
+          "last_workout_end": {
+            "name": "Son antrenman bitişi"
+          },
+          "sport": {
+            "name": "Antrenman türü"
+          },
+          "evidence": {
+            "name": "Kullanılan kanıtlar"
+          },
+          "base_candidates_hours": {
+            "name": "Antrenman yükü tahminleri"
+          },
+          "recovery_modifiers": {
+            "name": "Kişisel toparlanma düzenleyicileri"
+          },
+          "data_source": {
+            "name": "Veri kaynağı"
+          },
+          "method": {
+            "name": "Yöntem"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "diagnostic_interpretation": {
+            "name": "Tanısal yorum"
           }
         }
       }

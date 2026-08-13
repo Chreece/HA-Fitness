@@ -928,6 +928,10 @@ def _distance_compatible(a: Workout, b: Workout) -> bool | None:
 
     da = float(a.distance_m)
     db = float(b.distance_m)
+    # Provider placeholders such as 0 km mean "not recorded", not a hard
+    # contradiction against a live sensor that did record distance.
+    if da <= 0 or db <= 0:
+        return None
     difference = abs(da - db)
     reference = max(abs(da), abs(db), 1.0)
 
@@ -975,6 +979,15 @@ def _same_real_workout(a: Workout, b: Workout) -> bool:
     duration_match = _duration_compatible(a, b)
     distance_match = _distance_compatible(a, b)
     end_match = _end_time_compatible(a, b)
+
+    a_live = a.source == "fitness_live_capture" or "fitness_live_capture" in (a.sources or [])
+    b_live = b.source == "fitness_live_capture" or "fitness_live_capture" in (b.sources or [])
+    # A live capture and a watch/provider activity starting within 90 seconds are
+    # overwhelmingly likely to be two views of the same physical session.
+    # Provider duration semantics can differ (elapsed vs moving vs live timer),
+    # so start-time coincidence is intentionally stronger evidence for this pair.
+    if a_live != b_live and start_delta <= 90 and distance_match is not False:
+        return True
 
     # Any strong contradictory measurement rejects the merge.
     if duration_match is False:

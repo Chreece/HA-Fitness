@@ -2944,6 +2944,65 @@
           },
           "why_useful": {
             "name": "Perché è utile"
+          },
+          "baseline_reliable": {
+            "name": "Riferimento affidabile"
+          },
+          "minimum_workouts_28d_for_baseline": {
+            "name": "Allenamenti minimi per il riferimento"
+          },
+          "minimum_active_days_28d_for_baseline": {
+            "name": "Giorni attivi minimi per il riferimento"
+          }
+        }
+      },
+      "estimated_recovery_time": {
+        "name": "Tempo di recupero stimato",
+        "state_attributes": {
+          "estimated_total_recovery_hours": {
+            "name": "Recupero totale stimato"
+          },
+          "elapsed_hours_since_workout": {
+            "name": "Tempo dall’allenamento"
+          },
+          "level": {
+            "name": "Livello di recupero"
+          },
+          "level_display": {
+            "name": "Livello di recupero (tradotto)"
+          },
+          "confidence_percent": {
+            "name": "Affidabilità"
+          },
+          "last_workout_start": {
+            "name": "Inizio ultimo allenamento"
+          },
+          "last_workout_end": {
+            "name": "Fine ultimo allenamento"
+          },
+          "sport": {
+            "name": "Tipo di allenamento"
+          },
+          "evidence": {
+            "name": "Evidenze utilizzate"
+          },
+          "base_candidates_hours": {
+            "name": "Stime dal carico di allenamento"
+          },
+          "recovery_modifiers": {
+            "name": "Modificatori personali del recupero"
+          },
+          "data_source": {
+            "name": "Fonte dati"
+          },
+          "method": {
+            "name": "Metodo"
+          },
+          "formula": {
+            "name": "Formula"
+          },
+          "diagnostic_interpretation": {
+            "name": "Interpretazione diagnostica"
           }
         }
       }

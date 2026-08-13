@@ -2944,6 +2944,65 @@
           },
           "why_useful": {
             "name": "Dlaczego to jest przydatne"
+          },
+          "baseline_reliable": {
+            "name": "Wiarygodna linia bazowa"
+          },
+          "minimum_workouts_28d_for_baseline": {
+            "name": "Minimalna liczba treningów dla bazy"
+          },
+          "minimum_active_days_28d_for_baseline": {
+            "name": "Minimalna liczba aktywnych dni dla bazy"
+          }
+        }
+      },
+      "estimated_recovery_time": {
+        "name": "Szacowany czas regeneracji",
+        "state_attributes": {
+          "estimated_total_recovery_hours": {
+            "name": "Szacowana pełna regeneracja"
+          },
+          "elapsed_hours_since_workout": {
+            "name": "Czas od treningu"
+          },
+          "level": {
+            "name": "Poziom regeneracji"
+          },
+          "level_display": {
+            "name": "Poziom regeneracji (przetłumaczony)"
+          },
+          "confidence_percent": {
+            "name": "Pewność"
+          },
+          "last_workout_start": {
+            "name": "Początek ostatniego treningu"
+          },
+          "last_workout_end": {
+            "name": "Koniec ostatniego treningu"
+          },
+          "sport": {
+            "name": "Typ treningu"
+          },
+          "evidence": {
+            "name": "Wykorzystane dane"
+          },
+          "base_candidates_hours": {
+            "name": "Szacunki z obciążenia treningowego"
+          },
+          "recovery_modifiers": {
+            "name": "Indywidualne modyfikatory regeneracji"
+          },
+          "data_source": {
+            "name": "Źródło danych"
+          },
+          "method": {
+            "name": "Metoda"
+          },
+          "formula": {
+            "name": "Wzór"
+          },
+          "diagnostic_interpretation": {
+            "name": "Interpretacja diagnostyczna"
           }
         }
       }
