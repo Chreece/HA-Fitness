@@ -2665,6 +2665,24 @@
           },
           "level_display": {
             "name": "レベル（ローカライズ）"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
+          },
+          "additional_scientific_basis": {
+            "name": "追加の科学的根拠"
           }
         }
       },
@@ -2867,6 +2885,65 @@
           },
           "estimated_1rm_formula": {
             "name": "推定 1RM 式"
+          }
+        }
+      },
+      "training_adaptation_status": {
+        "name": "トレーニング適応状態",
+        "state_attributes": {
+          "status": {
+            "name": "状態コード"
+          },
+          "workouts_28d": {
+            "name": "トレーニング回数 / 28日"
+          },
+          "active_days_28d": {
+            "name": "アクティブなトレーニング日 / 28日"
+          },
+          "trimp_7d": {
+            "name": "TRIMP / 7日"
+          },
+          "trimp_28d_weekly_equivalent": {
+            "name": "28日週換算TRIMP"
+          },
+          "recent_to_baseline_load_ratio": {
+            "name": "最近/基準負荷比"
+          },
+          "vo2max_slope_percent_per_30d": {
+            "name": "VO₂max傾向 / 30日"
+          },
+          "hrv_7d_vs_baseline_percent": {
+            "name": "7日HRV 対 個人基準"
+          },
+          "resting_hr_vs_28d_bpm": {
+            "name": "安静時心拍 対 28日基準"
+          },
+          "readiness_score": {
+            "name": "トレーニング準備度"
+          },
+          "evidence_count": {
+            "name": "利用可能な根拠信号"
+          },
+          "causal_interpretation": {
+            "name": "因果的解釈"
+          },
+          "diagnostic_interpretation": {
+            "name": "診断的解釈"
+          },
+          "scientific_basis": {
+            "name": "科学的根拠"
+          },
+          "formula": {
+            "name": "式"
+          },
+          "data_used": {
+            "name": "使用データ"
+          },
+          "what_it_means": {
+            "name": "意味"
+          },
+          "why_useful": {
+            "name": "役立つ理由"
           }
         }
       }

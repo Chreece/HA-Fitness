@@ -2665,6 +2665,24 @@
           },
           "level_display": {
             "name": "Nivel (traducido)"
+          },
+          "scientific_basis": {
+            "name": "Base científica"
+          },
+          "formula": {
+            "name": "Fórmula"
+          },
+          "data_used": {
+            "name": "Datos utilizados"
+          },
+          "what_it_means": {
+            "name": "Qué significa"
+          },
+          "why_useful": {
+            "name": "Por qué es útil"
+          },
+          "additional_scientific_basis": {
+            "name": "Base científica adicional"
           }
         }
       },
@@ -2867,6 +2885,65 @@
           },
           "estimated_1rm_formula": {
             "name": "Fórmula de 1RM estimado"
+          }
+        }
+      },
+      "training_adaptation_status": {
+        "name": "Estado de adaptación al entrenamiento",
+        "state_attributes": {
+          "status": {
+            "name": "Código de estado"
+          },
+          "workouts_28d": {
+            "name": "Entrenamientos / 28 días"
+          },
+          "active_days_28d": {
+            "name": "Días de entrenamiento activos / 28 días"
+          },
+          "trimp_7d": {
+            "name": "TRIMP / 7 días"
+          },
+          "trimp_28d_weekly_equivalent": {
+            "name": "TRIMP semanal equivalente de 28 días"
+          },
+          "recent_to_baseline_load_ratio": {
+            "name": "Relación carga reciente / referencia"
+          },
+          "vo2max_slope_percent_per_30d": {
+            "name": "Pendiente de VO₂max / 30 días"
+          },
+          "hrv_7d_vs_baseline_percent": {
+            "name": "HRV de 7 días vs referencia personal"
+          },
+          "resting_hr_vs_28d_bpm": {
+            "name": "FC en reposo vs referencia de 28 días"
+          },
+          "readiness_score": {
+            "name": "Preparación para entrenar"
+          },
+          "evidence_count": {
+            "name": "Señales de evidencia disponibles"
+          },
+          "causal_interpretation": {
+            "name": "Interpretación causal"
+          },
+          "diagnostic_interpretation": {
+            "name": "Interpretación diagnóstica"
+          },
+          "scientific_basis": {
+            "name": "Base científica"
+          },
+          "formula": {
+            "name": "Fórmula"
+          },
+          "data_used": {
+            "name": "Datos utilizados"
+          },
+          "what_it_means": {
+            "name": "Qué significa"
+          },
+          "why_useful": {
+            "name": "Por qué es útil"
           }
         }
       }

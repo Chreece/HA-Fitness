@@ -2665,6 +2665,24 @@
           },
           "level_display": {
             "name": "Επίπεδο (μεταφρασμένο)"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
+          },
+          "additional_scientific_basis": {
+            "name": "Πρόσθετη επιστημονική βάση"
           }
         }
       },
@@ -2867,6 +2885,65 @@
           },
           "estimated_1rm_formula": {
             "name": "Τύπος εκτιμώμενου 1RM"
+          }
+        }
+      },
+      "training_adaptation_status": {
+        "name": "Κατάσταση προπονητικής προσαρμογής",
+        "state_attributes": {
+          "status": {
+            "name": "Κωδικός κατάστασης"
+          },
+          "workouts_28d": {
+            "name": "Προπονήσεις / 28 ημέρες"
+          },
+          "active_days_28d": {
+            "name": "Ενεργές ημέρες προπόνησης / 28 ημέρες"
+          },
+          "trimp_7d": {
+            "name": "TRIMP / 7 ημέρες"
+          },
+          "trimp_28d_weekly_equivalent": {
+            "name": "Εβδομαδιαίο ισοδύναμο TRIMP 28 ημερών"
+          },
+          "recent_to_baseline_load_ratio": {
+            "name": "Λόγος πρόσφατου προς βασικό φορτίο"
+          },
+          "vo2max_slope_percent_per_30d": {
+            "name": "Κλίση VO₂max / 30 ημέρες"
+          },
+          "hrv_7d_vs_baseline_percent": {
+            "name": "HRV 7 ημερών έναντι προσωπικής βάσης"
+          },
+          "resting_hr_vs_28d_bpm": {
+            "name": "RHR έναντι βάσης 28 ημερών"
+          },
+          "readiness_score": {
+            "name": "Ετοιμότητα προπόνησης"
+          },
+          "evidence_count": {
+            "name": "Διαθέσιμα σήματα τεκμηρίωσης"
+          },
+          "causal_interpretation": {
+            "name": "Αιτιώδης ερμηνεία"
+          },
+          "diagnostic_interpretation": {
+            "name": "Διαγνωστική ερμηνεία"
+          },
+          "scientific_basis": {
+            "name": "Επιστημονική βάση"
+          },
+          "formula": {
+            "name": "Τύπος"
+          },
+          "data_used": {
+            "name": "Δεδομένα που χρησιμοποιήθηκαν"
+          },
+          "what_it_means": {
+            "name": "Τι σημαίνει"
+          },
+          "why_useful": {
+            "name": "Γιατί είναι χρήσιμο"
           }
         }
       }

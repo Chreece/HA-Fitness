@@ -2665,6 +2665,24 @@
           },
           "level_display": {
             "name": "Niveau (vertaald)"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
+          },
+          "additional_scientific_basis": {
+            "name": "Aanvullende wetenschappelijke basis"
           }
         }
       },
@@ -2867,6 +2885,65 @@
           },
           "estimated_1rm_formula": {
             "name": "Formule geschatte 1RM"
+          }
+        }
+      },
+      "training_adaptation_status": {
+        "name": "Trainingsadaptatiestatus",
+        "state_attributes": {
+          "status": {
+            "name": "Statuscode"
+          },
+          "workouts_28d": {
+            "name": "Trainingen / 28 dagen"
+          },
+          "active_days_28d": {
+            "name": "Actieve trainingsdagen / 28 dagen"
+          },
+          "trimp_7d": {
+            "name": "TRIMP / 7 dagen"
+          },
+          "trimp_28d_weekly_equivalent": {
+            "name": "28-daags wekelijks equivalent TRIMP"
+          },
+          "recent_to_baseline_load_ratio": {
+            "name": "Verhouding recente/basisbelasting"
+          },
+          "vo2max_slope_percent_per_30d": {
+            "name": "VO₂max-helling / 30 dagen"
+          },
+          "hrv_7d_vs_baseline_percent": {
+            "name": "7-daagse HRV vs persoonlijke basis"
+          },
+          "resting_hr_vs_28d_bpm": {
+            "name": "Rusthartslag vs 28-daagse basis"
+          },
+          "readiness_score": {
+            "name": "Trainingsgereedheid"
+          },
+          "evidence_count": {
+            "name": "Beschikbare bewijssignalen"
+          },
+          "causal_interpretation": {
+            "name": "Causale interpretatie"
+          },
+          "diagnostic_interpretation": {
+            "name": "Diagnostische interpretatie"
+          },
+          "scientific_basis": {
+            "name": "Wetenschappelijke basis"
+          },
+          "formula": {
+            "name": "Formule"
+          },
+          "data_used": {
+            "name": "Gebruikte gegevens"
+          },
+          "what_it_means": {
+            "name": "Wat dit betekent"
+          },
+          "why_useful": {
+            "name": "Waarom dit nuttig is"
           }
         }
       }

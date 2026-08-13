@@ -2665,6 +2665,24 @@
           },
           "level_display": {
             "name": "Seviye (yerelleştirilmiş)"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
+          },
+          "additional_scientific_basis": {
+            "name": "Ek bilimsel dayanak"
           }
         }
       },
@@ -2867,6 +2885,65 @@
           },
           "estimated_1rm_formula": {
             "name": "Tahmini 1RM formülü"
+          }
+        }
+      },
+      "training_adaptation_status": {
+        "name": "Antrenman adaptasyon durumu",
+        "state_attributes": {
+          "status": {
+            "name": "Durum kodu"
+          },
+          "workouts_28d": {
+            "name": "Antrenmanlar / 28 gün"
+          },
+          "active_days_28d": {
+            "name": "Aktif antrenman günleri / 28 gün"
+          },
+          "trimp_7d": {
+            "name": "TRIMP / 7 gün"
+          },
+          "trimp_28d_weekly_equivalent": {
+            "name": "28 günlük haftalık eşdeğer TRIMP"
+          },
+          "recent_to_baseline_load_ratio": {
+            "name": "Güncel/baz yük oranı"
+          },
+          "vo2max_slope_percent_per_30d": {
+            "name": "VO₂max eğimi / 30 gün"
+          },
+          "hrv_7d_vs_baseline_percent": {
+            "name": "7 günlük HRV / kişisel baz"
+          },
+          "resting_hr_vs_28d_bpm": {
+            "name": "Dinlenik nabız / 28 günlük baz"
+          },
+          "readiness_score": {
+            "name": "Antrenman hazırlığı"
+          },
+          "evidence_count": {
+            "name": "Kullanılabilir kanıt sinyalleri"
+          },
+          "causal_interpretation": {
+            "name": "Nedensel yorum"
+          },
+          "diagnostic_interpretation": {
+            "name": "Tanısal yorum"
+          },
+          "scientific_basis": {
+            "name": "Bilimsel günanak"
+          },
+          "formula": {
+            "name": "Formül"
+          },
+          "data_used": {
+            "name": "Kullanılan veriler"
+          },
+          "what_it_means": {
+            "name": "Bu ne anlama geliyor"
+          },
+          "why_useful": {
+            "name": "Neden yararlı"
           }
         }
       }

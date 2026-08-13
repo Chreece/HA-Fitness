@@ -35,6 +35,7 @@ _TEXT = {
         "training_recovery_relationship": ("Looks for a personal statistical association between workout load and the following sleep/recovery observations.", "Can reveal patterns worth noticing, but the relationship is descriptive and does not prove that training caused the change."),
         "vo2max_percent_predicted": ("Compares your measured/provider VO₂max with the FRIEND reference equation for age, sex and body mass.", "Provides population-reference context while keeping your actual measured VO₂max separate from the reference estimate."),
         "readiness": ("Combines your personal autonomic recovery, recent sleep, training recovery and post-exercise recovery response into one transparent readiness estimate.", "Helps decide how prepared you appear for training now while keeping every contributing Fitness signal inspectable."),
+        "training_adaptation_status": ("Classifies the recent training response from personal load exposure, cardiorespiratory trend and recovery evidence. Load alone cannot establish productive adaptation or overtraining.", "Helps distinguish improving, maintaining, insufficient, high-load and recovery-strained patterns without presenting the result as a medical diagnosis."),
     },
     "el": {
         "sleep_consistency": ("Περιγράφει πόσο σταθερά είναι η διάρκεια και το ωράριο του ύπνου σου στις πρόσφατες νύχτες.", "Σε βοηθά να ξεχωρίζεις μια σταθερή ρουτίνα ύπνου από μεγάλες διακυμάνσεις χωρίς να αντιμετωπίζει τη μεταβλητότητα ως διάγνωση."),
@@ -46,6 +47,7 @@ _TEXT = {
         "training_recovery_relationship": ("Αναζητά προσωπική στατιστική συσχέτιση ανάμεσα στο προπονητικό φορτίο και στον επόμενο ύπνο ή στις μετρήσεις αποκατάστασης.", "Μπορεί να αναδείξει χρήσιμα προσωπικά μοτίβα, αλλά η συσχέτιση είναι περιγραφική και δεν αποδεικνύει ότι η προπόνηση προκάλεσε την αλλαγή."),
         "vo2max_percent_predicted": ("Συγκρίνει το μετρημένο ή παρεχόμενο VO₂max με την εξίσωση αναφοράς FRIEND για ηλικία, φύλο και σωματικό βάρος.", "Δίνει πλαίσιο σύγκρισης με πληθυσμιακή τιμή αναφοράς χωρίς να αντικαθιστά το πραγματικό μετρημένο VO₂max."),
         "readiness": ("Συνδυάζει την προσωπική αυτόνομη αποκατάσταση, τον πρόσφατο ύπνο, την αποκατάσταση από την προπόνηση και την απόκριση μετά την άσκηση σε έναν διαφανή δείκτη ετοιμότητας.", "Σε βοηθά να εκτιμήσεις πόσο έτοιμος φαίνεσαι για προπόνηση τώρα, με όλα τα επιμέρους δεδομένα του Fitness διαθέσιμα για έλεγχο."),
+        "training_adaptation_status": ("Ταξινομεί την πρόσφατη απόκριση στην προπόνηση από το προσωπικό φορτίο, την τάση καρδιοαναπνευστικής ικανότητας και τα δεδομένα αποκατάστασης. Το φορτίο μόνο του δεν αποδεικνύει παραγωγική προσαρμογή ή υπερπροπόνηση.", "Βοηθά να ξεχωρίζεις μοτίβα βελτίωσης, διατήρησης, ανεπαρκούς ερεθίσματος, υψηλού φορτίου και καταπόνησης χωρίς να παρουσιάζει το αποτέλεσμα ως ιατρική διάγνωση."),
     },
 }
 
@@ -77,6 +79,7 @@ _STUDY = {
     "training_recovery_relationship": "exercise_sleep_meta_2024",
     "vo2max_percent_predicted": "friend_2017",
     "readiness": "hrv_training_status_meta_2016",
+    "training_adaptation_status": "training_load_consensus_2017",
 }
 
 _FORMULA = {
@@ -89,6 +92,7 @@ _FORMULA = {
     "training_recovery_relationship": "Pearson r(workout TRIMP, next-sleep duration/HRV), using matched workout→sleep pairs",
     "vo2max_percent_predicted": "measured VO₂max / FRIEND predicted VO₂max × 100; FRIEND = 79.9 − 0.39×age − 13.7×sex − 0.127×weight(lb)",
     "readiness": "weighted mean of available personal recovery domains: autonomic 30%, sleep 30%, training recovery 25%, post-exercise recovery response 15%; missing domains are omitted and weights are renormalized",
+    "training_adaptation_status": "rule-based synthesis of recent-to-baseline training load, VO₂max trend, HRV-vs-personal-baseline, resting-HR deviation and readiness; no single signal is treated as diagnostic",
 }
 _FORMULA_LOCALIZED = {
     "el": {

@@ -2665,6 +2665,24 @@
           },
           "level_display": {
             "name": "Рівень (локалізований)"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
+          },
+          "additional_scientific_basis": {
+            "name": "Додаткова наукова основа"
           }
         }
       },
@@ -2867,6 +2885,65 @@
           },
           "estimated_1rm_formula": {
             "name": "Формула розрахункового 1RM"
+          }
+        }
+      },
+      "training_adaptation_status": {
+        "name": "Стан адаптації до тренувань",
+        "state_attributes": {
+          "status": {
+            "name": "Код стану"
+          },
+          "workouts_28d": {
+            "name": "Тренування / 28 днів"
+          },
+          "active_days_28d": {
+            "name": "Активні тренувальні дні / 28 днів"
+          },
+          "trimp_7d": {
+            "name": "TRIMP / 7 днів"
+          },
+          "trimp_28d_weekly_equivalent": {
+            "name": "Тижневий еквівалент TRIMP за 28 днів"
+          },
+          "recent_to_baseline_load_ratio": {
+            "name": "Співвідношення поточного навантаження до базового"
+          },
+          "vo2max_slope_percent_per_30d": {
+            "name": "Тренд VO₂max / 30 днів"
+          },
+          "hrv_7d_vs_baseline_percent": {
+            "name": "HRV за 7 днів до особистої бази"
+          },
+          "resting_hr_vs_28d_bpm": {
+            "name": "Пульс спокою до бази за 28 днів"
+          },
+          "readiness_score": {
+            "name": "Готовність до тренування"
+          },
+          "evidence_count": {
+            "name": "Доступні сигнали"
+          },
+          "causal_interpretation": {
+            "name": "Причинна інтерпретація"
+          },
+          "diagnostic_interpretation": {
+            "name": "Діагностична інтерпретація"
+          },
+          "scientific_basis": {
+            "name": "Наукова основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Використані дані"
+          },
+          "what_it_means": {
+            "name": "Що це означає"
+          },
+          "why_useful": {
+            "name": "Чому це корисно"
           }
         }
       }

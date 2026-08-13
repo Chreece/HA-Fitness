@@ -2665,6 +2665,24 @@
           },
           "level_display": {
             "name": "수준(현지화)"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
+          },
+          "additional_scientific_basis": {
+            "name": "추가 과학적 근거"
           }
         }
       },
@@ -2867,6 +2885,65 @@
           },
           "estimated_1rm_formula": {
             "name": "추정 1RM 공식"
+          }
+        }
+      },
+      "training_adaptation_status": {
+        "name": "훈련 적응 상태",
+        "state_attributes": {
+          "status": {
+            "name": "상태 코드"
+          },
+          "workouts_28d": {
+            "name": "운동 횟수 / 28일"
+          },
+          "active_days_28d": {
+            "name": "활성 운동일 / 28일"
+          },
+          "trimp_7d": {
+            "name": "TRIMP / 7일"
+          },
+          "trimp_28d_weekly_equivalent": {
+            "name": "28일 주간 환산 TRIMP"
+          },
+          "recent_to_baseline_load_ratio": {
+            "name": "최근/기준 부하 비율"
+          },
+          "vo2max_slope_percent_per_30d": {
+            "name": "VO₂max 추세 / 30일"
+          },
+          "hrv_7d_vs_baseline_percent": {
+            "name": "7일 HRV 대비 개인 기준"
+          },
+          "resting_hr_vs_28d_bpm": {
+            "name": "안정시 심박수 대비 28일 기준"
+          },
+          "readiness_score": {
+            "name": "훈련 준비도"
+          },
+          "evidence_count": {
+            "name": "사용 가능한 근거 신호"
+          },
+          "causal_interpretation": {
+            "name": "인과 해석"
+          },
+          "diagnostic_interpretation": {
+            "name": "진단 해석"
+          },
+          "scientific_basis": {
+            "name": "과학적 근거"
+          },
+          "formula": {
+            "name": "공식"
+          },
+          "data_used": {
+            "name": "사용 데이터"
+          },
+          "what_it_means": {
+            "name": "의미"
+          },
+          "why_useful": {
+            "name": "유용한 이유"
           }
         }
       }

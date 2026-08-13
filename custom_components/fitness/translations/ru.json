@@ -2665,6 +2665,24 @@
           },
           "level_display": {
             "name": "Уровень (локализованный)"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
+          },
+          "additional_scientific_basis": {
+            "name": "Дополнительная научная основа"
           }
         }
       },
@@ -2867,6 +2885,65 @@
           },
           "estimated_1rm_formula": {
             "name": "Формула расчётного 1RM"
+          }
+        }
+      },
+      "training_adaptation_status": {
+        "name": "Статус адаптации к тренировкам",
+        "state_attributes": {
+          "status": {
+            "name": "Код состояния"
+          },
+          "workouts_28d": {
+            "name": "Тренировки / 28 дней"
+          },
+          "active_days_28d": {
+            "name": "Активные тренировочные дни / 28 дней"
+          },
+          "trimp_7d": {
+            "name": "TRIMP / 7 дней"
+          },
+          "trimp_28d_weekly_equivalent": {
+            "name": "Недельный эквивалент TRIMP за 28 дней"
+          },
+          "recent_to_baseline_load_ratio": {
+            "name": "Отношение текущей нагрузки к базовой"
+          },
+          "vo2max_slope_percent_per_30d": {
+            "name": "Тренд VO₂max / 30 дней"
+          },
+          "hrv_7d_vs_baseline_percent": {
+            "name": "HRV за 7 дней к личной базе"
+          },
+          "resting_hr_vs_28d_bpm": {
+            "name": "Пульс покоя к базе за 28 дней"
+          },
+          "readiness_score": {
+            "name": "Готовность к тренировке"
+          },
+          "evidence_count": {
+            "name": "Доступные сигналы"
+          },
+          "causal_interpretation": {
+            "name": "Причинная интерпретация"
+          },
+          "diagnostic_interpretation": {
+            "name": "Диагностическая интерпретация"
+          },
+          "scientific_basis": {
+            "name": "Научная основа"
+          },
+          "formula": {
+            "name": "Формула"
+          },
+          "data_used": {
+            "name": "Использованные данные"
+          },
+          "what_it_means": {
+            "name": "Что это означает"
+          },
+          "why_useful": {
+            "name": "Почему это полезно"
           }
         }
       }

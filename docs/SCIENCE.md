@@ -78,3 +78,11 @@ This is a transparent monitoring heuristic, not a medical threshold. Provider-su
 ## Seven-day sleep deficit
 
 For adults, Fitness uses the AASM/SRS consensus minimum of 7 hours as a **reference floor**, not as a personalized diagnosis of sleep need. The 7-day deficit is the sum of `max(0, 7 h − nightly sleep)` over observed main sleeps in the rolling window. To avoid double-counting the same physical night when multiple providers synchronize at different times, only one main validated sleep is counted per local wake date. The per-night calculation is exposed in the entity attributes for auditing.
+
+## Training adaptation status
+
+Fitness classifies recent training adaptation from multiple Fitness-owned longitudinal signals rather than copying a provider status. The classification combines recent training exposure relative to the person's own baseline, VO2max trend, 7-day HRV relative to the preceding personal baseline, resting-HR deviation, and Fitness training readiness. It is deliberately a monitoring classification, not a diagnosis of overtraining syndrome.
+
+Scientific rationale: the 2017 consensus on monitoring athlete training loads recommends a multidisciplinary approach rather than relying on one load metric (Bourdon et al., PMID 28463642). A systematic review/meta-analysis of autonomic heart-rate regulation found that HRV and HRR can change with both positive adaptation and overreaching, so additional measures of training tolerance are required (Bellenger et al., 2016, PMID 26888648). The ECSS/ACSM consensus further distinguishes functional overload from prolonged maladaptation and emphasizes the balance between overload and recovery (Meeusen et al., PMID 23247672).
+
+The labels Productive, Maintaining, Insufficient stimulus, High load, Excessive load, Strained, Unproductive, No recent training and Insufficient data are therefore explainable Fitness classifications. They are not medical diagnoses and do not claim that a single workload ratio predicts injury or overtraining.

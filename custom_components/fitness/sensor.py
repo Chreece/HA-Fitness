@@ -82,6 +82,81 @@ def _localized_readiness_attributes(language: str | None, readiness: dict) -> di
     return {key: value for key, value in attrs.items() if value is not None}
 
 
+def _training_adaptation_evaluation(manager) -> dict:
+    """Classify recent training adaptation from Fitness-owned longitudinal evidence.
+
+    This is a monitoring classification, not a diagnosis. It intentionally combines
+    load exposure with fitness and recovery trends because load alone cannot
+    distinguish productive adaptation from maladaptation.
+    """
+    e = manager.evaluation()
+    workout = e.get("workout_long_term") or {}
+    recorder = e.get("recorder_long_term") or {}
+    sleep = e.get("sleep_long_term") or {}
+    readiness = manager.readiness_evaluation()
+    workouts_28d = int(workout.get("workouts_28d") or 0)
+    active_days_28d = int(workout.get("active_training_days_28d") or 0)
+    acute = workout.get("banister_trimp_7d")
+    chronic = workout.get("banister_trimp_28d_weekly_equivalent")
+    ratio = (float(acute) / float(chronic)) if acute is not None and chronic not in (None, 0) else None
+    vo2_slope = recorder.get("vo2max_slope_percent_per_30d")
+    hrv_delta = sleep.get("sleep_hrv_7d_vs_baseline_percent")
+    rhr_delta = recorder.get("resting_hr_vs_28d")
+    ready = readiness.get("score")
+
+    evidence_count = sum(x is not None for x in (ratio, vo2_slope, hrv_delta, rhr_delta, ready))
+    if workouts_28d == 0:
+        status = "absent"
+    elif workouts_28d < 3 or active_days_28d < 2 or evidence_count < 2:
+        status = "insufficient_data"
+    else:
+        recovery_strain = ((hrv_delta is not None and float(hrv_delta) <= -10.0) or
+                           (rhr_delta is not None and float(rhr_delta) >= 5.0) or
+                           (ready is not None and float(ready) < 35.0))
+        if ratio is not None and ratio >= 1.5:
+            status = "excessive" if recovery_strain else "high_load"
+        elif recovery_strain and ratio is not None and ratio >= 1.0:
+            status = "strained"
+        elif ratio is not None and ratio < 0.65:
+            status = "insufficient_stimulus"
+        elif vo2_slope is not None and float(vo2_slope) >= 0.5 and (ratio is None or 0.75 <= ratio <= 1.5) and not recovery_strain:
+            status = "productive"
+        elif vo2_slope is not None and float(vo2_slope) <= -1.0 and ratio is not None and ratio >= 0.8:
+            status = "unproductive"
+        else:
+            status = "maintaining"
+    return {
+        "status": status, "workouts_28d": workouts_28d, "active_days_28d": active_days_28d,
+        "trimp_7d": acute, "trimp_28d_weekly_equivalent": chronic,
+        "recent_to_baseline_load_ratio": round(ratio, 3) if ratio is not None else None,
+        "vo2max_slope_percent_per_30d": vo2_slope, "hrv_7d_vs_baseline_percent": hrv_delta,
+        "resting_hr_vs_28d_bpm": rhr_delta, "readiness_score": ready,
+        "evidence_count": evidence_count,
+    }
+
+
+def _localized_training_adaptation_status(language: str | None, status: str) -> str:
+    code = str(language or "en").lower().split("-")[0].split("_")[0]
+    labels = {
+      "en":{"productive":"Productive","maintaining":"Maintaining","insufficient_stimulus":"Insufficient stimulus","absent":"No recent training","high_load":"High load","excessive":"Excessive load","strained":"Strained","unproductive":"Unproductive","insufficient_data":"Insufficient data"},
+      "el":{"productive":"Παραγωγική","maintaining":"Διατήρηση","insufficient_stimulus":"Ανεπαρκές ερέθισμα","absent":"Χωρίς πρόσφατη προπόνηση","high_load":"Υψηλό φορτίο","excessive":"Υπερβολικό φορτίο","strained":"Καταπόνηση","unproductive":"Μη παραγωγική","insufficient_data":"Ανεπαρκή δεδομένα"},
+      "de":{"productive":"Produktiv","maintaining":"Erhaltend","insufficient_stimulus":"Unzureichender Reiz","absent":"Kein aktuelles Training","high_load":"Hohe Belastung","excessive":"Übermäßige Belastung","strained":"Beansprucht","unproductive":"Unproduktiv","insufficient_data":"Unzureichende Daten"},
+      "fr":{"productive":"Productif","maintaining":"Maintien","insufficient_stimulus":"Stimulus insuffisant","absent":"Aucun entraînement récent","high_load":"Charge élevée","excessive":"Charge excessive","strained":"Sous tension","unproductive":"Non productif","insufficient_data":"Données insuffisantes"},
+      "es":{"productive":"Productivo","maintaining":"Mantenimiento","insufficient_stimulus":"Estímulo insuficiente","absent":"Sin entrenamiento reciente","high_load":"Carga alta","excessive":"Carga excesiva","strained":"Forzado","unproductive":"No productivo","insufficient_data":"Datos insuficientes"},
+      "it":{"productive":"Produttivo","maintaining":"Mantenimento","insufficient_stimulus":"Stimolo insufficiente","absent":"Nessun allenamento recente","high_load":"Carico elevato","excessive":"Carico eccessivo","strained":"Affaticato","unproductive":"Non produttivo","insufficient_data":"Dati insufficienti"},
+      "pt":{"productive":"Produtivo","maintaining":"Manutenção","insufficient_stimulus":"Estímulo insuficiente","absent":"Sem treino recente","high_load":"Carga elevada","excessive":"Carga excessiva","strained":"Sob tensão","unproductive":"Não produtivo","insufficient_data":"Dados insuficientes"},
+      "nl":{"productive":"Productief","maintaining":"Onderhoud","insufficient_stimulus":"Onvoldoende prikkel","absent":"Geen recente training","high_load":"Hoge belasting","excessive":"Overmatige belasting","strained":"Belast","unproductive":"Niet productief","insufficient_data":"Onvoldoende gegevens"},
+      "pl":{"productive":"Produktywny","maintaining":"Utrzymanie","insufficient_stimulus":"Niewystarczający bodziec","absent":"Brak ostatnich treningów","high_load":"Wysokie obciążenie","excessive":"Nadmierne obciążenie","strained":"Przeciążenie","unproductive":"Nieproduktywny","insufficient_data":"Niewystarczające dane"},
+      "ru":{"productive":"Продуктивно","maintaining":"Поддержание","insufficient_stimulus":"Недостаточный стимул","absent":"Нет недавних тренировок","high_load":"Высокая нагрузка","excessive":"Чрезмерная нагрузка","strained":"Напряжение","unproductive":"Непродуктивно","insufficient_data":"Недостаточно данных"},
+      "uk":{"productive":"Продуктивно","maintaining":"Підтримання","insufficient_stimulus":"Недостатній стимул","absent":"Немає недавніх тренувань","high_load":"Високе навантаження","excessive":"Надмірне навантаження","strained":"Напруження","unproductive":"Непродуктивно","insufficient_data":"Недостатньо даних"},
+      "tr":{"productive":"Üretken","maintaining":"Koruma","insufficient_stimulus":"Yetersiz uyaran","absent":"Yakın zamanda antrenman yok","high_load":"Yüksek yük","excessive":"Aşırı yük","strained":"Zorlanmış","unproductive":"Üretken değil","insufficient_data":"Yetersiz veri"},
+      "zh":{"productive":"有效提升","maintaining":"维持","insufficient_stimulus":"刺激不足","absent":"近期无训练","high_load":"高负荷","excessive":"负荷过高","strained":"恢复受压","unproductive":"效果不佳","insufficient_data":"数据不足"},
+      "ja":{"productive":"向上中","maintaining":"維持","insufficient_stimulus":"刺激不足","absent":"最近のトレーニングなし","high_load":"高負荷","excessive":"過剰負荷","strained":"回復負担","unproductive":"非生産的","insufficient_data":"データ不足"},
+      "ko":{"productive":"향상 중","maintaining":"유지","insufficient_stimulus":"자극 부족","absent":"최근 훈련 없음","high_load":"높은 부하","excessive":"과도한 부하","strained":"회복 부담","unproductive":"비생산적","insufficient_data":"데이터 부족"}
+    }
+    return labels.get(code, labels["en"]).get(status, status)
+
+
 @dataclass(frozen=True, kw_only=True)
 class Desc(SensorEntityDescription):
     kind: str
@@ -211,6 +286,7 @@ DESCRIPTIONS = (
     Desc(key="training_load", translation_key="training_load", kind="evaluation", metric="training_load", unit="min"),
     Desc(key="heart_rate_recovery", translation_key="heart_rate_recovery", kind="evaluation", metric="heart_rate_recovery", unit="bpm"),
     Desc(key="training_recovery_relationship", translation_key="training_recovery_relationship", kind="evaluation", metric="training_recovery_relationship"),
+    Desc(key="training_adaptation_status", translation_key="training_adaptation_status", kind="evaluation", metric="training_adaptation_status"),
     Desc(key="ai_general_evaluation", translation_key="ai_general_evaluation", kind="evaluation", metric="ai_general"),
     Desc(key="ai_workout_evaluation", translation_key="ai_workout_evaluation", kind="evaluation", metric="ai_workout"),
 
@@ -737,6 +813,10 @@ class FitnessSensor(SensorEntity):
                 "Updated" if self.manager.ai_workout else None
             )
 
+        if m == "training_adaptation_status":
+            result = _training_adaptation_evaluation(self.manager)
+            return _localized_training_adaptation_status(self.manager._ai_language(), result["status"])
+
         workout_long_term = e.get("workout_long_term") or {}
         sleep_long_term = e.get("sleep_long_term") or {}
         recorder_long_term = e.get("recorder_long_term") or {}
@@ -1106,6 +1186,7 @@ class FitnessSensor(SensorEntity):
             "sleep_consistency", "sleep_deficit_7d", "autonomic_recovery_trend",
             "cardiorespiratory_fitness_trend", "training_load",
             "heart_rate_recovery", "training_recovery_relationship",
+            "training_adaptation_status",
         }
         scientific_metrics = grouped_metrics | {"vo2max_percent_predicted"}
         if m in scientific_metrics:
@@ -1209,6 +1290,11 @@ class FitnessSensor(SensorEntity):
             "training_recovery_relationship": {
                 **relation,
                 "causal_interpretation": False,
+            },
+            "training_adaptation_status": {
+                **_training_adaptation_evaluation(self.manager),
+                "causal_interpretation": False,
+                "diagnostic_interpretation": False,
             },
             "vo2max_percent_predicted": {
             },
