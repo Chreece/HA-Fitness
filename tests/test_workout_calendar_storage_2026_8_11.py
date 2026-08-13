@@ -101,6 +101,28 @@ def _manager(*, retention_days: int = const.DEFAULT_WORKOUT_RETENTION_DAYS) -> M
     return manager
 
 
+
+def _run_async(coro):
+    """Run a coroutine without destroying pytest's current event loop.
+
+    asyncio.run() closes the loop it creates and clears the thread's current
+    loop. Some existing HA-Fitness tests still call asyncio.get_event_loop(),
+    so preserve and restore the suite loop explicitly.
+    """
+    try:
+        previous_loop = asyncio.get_event_loop()
+    except RuntimeError:
+        previous_loop = None
+
+    try:
+        return asyncio.run(coro)
+    finally:
+        if previous_loop is not None and not previous_loop.is_closed():
+            asyncio.set_event_loop(previous_loop)
+        else:
+            asyncio.set_event_loop(asyncio.new_event_loop())
+
+
 def test_deleted_workout_is_tombstoned_and_not_reimported():
     async def run():
         manager = _manager(retention_days=0)
@@ -134,7 +156,7 @@ def test_deleted_workout_is_tombstoned_and_not_reimported():
         assert manager._remember_completed_workout(same_from_strava) is False
         assert manager.history == []
 
-    asyncio.run(run())
+    _run_async(run())
 
 
 def test_delete_does_not_tombstone_unrelated_workout():
@@ -164,7 +186,7 @@ def test_delete_does_not_tombstone_unrelated_workout():
         assert remaining[0].start == second.start
         assert manager._workout_is_deleted(second) is False
 
-    asyncio.run(run())
+    _run_async(run())
 
 
 def test_retention_zero_is_unlimited():
@@ -231,4 +253,18 @@ def test_bulk_delete_uses_one_persistent_cutoff_and_blocks_reimport():
         assert manager._workout_is_deleted(old) is True
         assert manager._remember_completed_workout(old) is False
 
-    asyncio.run(run())
+    _run_async(run())
+
+
+def test_async_test_runner_preserves_current_event_loop():
+    try:
+        before = asyncio.get_event_loop()
+    except RuntimeError:
+        before = asyncio.new_event_loop()
+        asyncio.set_event_loop(before)
+
+    async def run():
+        return asyncio.get_running_loop() is not None
+
+    assert _run_async(run()) is True
+    assert asyncio.get_event_loop() is before
