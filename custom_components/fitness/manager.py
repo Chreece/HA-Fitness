@@ -219,6 +219,11 @@ class FitnessManager:
         self.long_term_statistics_updated: str | None = None
         self.metric_history: dict[str, list[dict[str, Any]]] = {}
         self.history_validation: dict[str, dict[str, Any]] = {}
+        # Evaluation is expensive (provider registry scans + longitudinal
+        # summaries). HA reads every Evaluation entity during startup, so doing
+        # this independently for each entity can block the event loop for many
+        # seconds. Cache one coherent snapshot until source data changes.
+        self._evaluation_cache: dict[str, Any] | None = None
 
         # Keys of sensor descriptions that have produced a valid value at least
         # once. These are persisted so created HA entities are never removed
@@ -576,7 +581,11 @@ class FitnessManager:
 
         return True
 
+    def _invalidate_evaluation_cache(self) -> None:
+        self._evaluation_cache = None
+
     def _notify(self):
+        self._invalidate_evaluation_cache()
         """Notify all entity listeners without one broken entity blocking others."""
         for listener in list(self.listeners):
             try:
@@ -597,6 +606,7 @@ class FitnessManager:
                 )
 
     def _notify_sleep(self):
+        self._invalidate_evaluation_cache()
         for listener in list(self.sleep_listeners):
             try:
                 listener()
@@ -604,6 +614,7 @@ class FitnessManager:
                 _LOGGER.exception("Fitness sleep entity listener failed")
 
     def _notify_workout_history(self):
+        self._invalidate_evaluation_cache()
         """Notify only entities that render canonical workout history."""
         for listener in list(self.workout_history_listeners):
             try:
@@ -5998,6 +6009,11 @@ class FitnessManager:
         return result
 
     def evaluation(self) -> dict:
+        if self._evaluation_cache is None:
+            self._evaluation_cache = self._build_evaluation()
+        return self._evaluation_cache
+
+    def _build_evaluation(self) -> dict:
         provider = collect_provider_metrics(self.hass, self.config)
 
         weight = provider.get("weight_kg") or self.input_value(CONF_WEIGHT)

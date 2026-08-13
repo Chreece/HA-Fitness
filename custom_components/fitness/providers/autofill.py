@@ -5,7 +5,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from ..const import (
-    ANTPLUS_DOMAINS, CONF_RESTING_HR, CONF_THRESHOLD_HR,
+    CONF_RESTING_HR, CONF_THRESHOLD_HR,
     CONF_THRESHOLD_PACE, CONF_THRESHOLD_POWER, CONF_VO2MAX, CONF_WEIGHT,
 )
 from .entities import convert_to_canonical
@@ -26,7 +26,6 @@ EXACT_PROFILE_KEYS={
 }
 WORKOUT_DOMAINS={'garmin_connect','ha_strava','strava','polar','hevy','peloton','oura','whoop','suunto','fitbit','withings'}
 SLEEP_DOMAINS={'garmin_connect','oura','fitbit','withings','whoop','suunto','sleepiq','eight_sleep','sleep_as_android'}
-LIVE_DOMAINS=set(ANTPLUS_DOMAINS)|{'stryd_ble'}
 
 def _domain(hass, config_entry_id):
     if not config_entry_id: return None
@@ -91,17 +90,6 @@ def _by_device(registry):
     for entry in registry.entities.values():
         if entry.device_id: out[entry.device_id].append(entry)
     return out
-
-def exact_antplus_live_device_ids(hass):
-    devices=dr.async_get(hass); entries=er.async_get(hass); by=_by_device(entries); result=[]
-    tokens=('heart_rate','heartrate','power','cadence','speed','distance','altitude','elevation')
-    for device in devices.devices.values():
-        if not _device_domains(hass,device).intersection(LIVE_DOMAINS): continue
-        sensors=[e for e in by.get(device.id,[]) if e.entity_id.startswith('sensor.')]
-        if any(any(t in key for t in tokens) for e in sensors for key in _entry_keys(hass,e)):
-            result.append(device.id)
-    return sorted(set(result))
-
 def _has(keys,*tokens): return any(all(t in key for t in tokens) for key in keys)
 
 def exact_workout_device_ids(hass):

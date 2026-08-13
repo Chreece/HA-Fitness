@@ -58,11 +58,11 @@
         "title": "Live workout sensors",
         "description": "Select the physical sensors this Fitness profile may use. Native sensors come from the enabled Bluetooth and ANT+ adapter modules. Optional compatible Home Assistant live devices can also be used.",
         "data": {
-          "live_sensor_ids": "Bluetooth / ANT+ fitness sensors",
+          "live_sensor_ids": "Local fitness sensors",
           "live_device_ids": "Other Home Assistant live devices"
         },
         "data_description": {
-          "live_sensor_ids": "Physical sensors discovered by the global Fitness Bluetooth and ANT+ adapters. Metrics from several sensors can be combined in one workout.",
+          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live capture.",
           "live_device_ids": "Optional Home Assistant devices exposing compatible live heart-rate, power, cadence, speed, distance or altitude entities."
         }
       },
@@ -124,7 +124,7 @@
       },
       "live_transports": {
         "title": "Live workout adapters",
-        "description": "Choose which native radio transports Fitness should create. These become global Fitness adapter devices and can later be enabled or disabled from the adapter device itself.",
+        "description": "Choose which native radio transports Fitness should create. Fitness creates a separate Local Sensors hub; adapters and physical sensors live there, outside every user profile.",
         "data": {
           "bluetooth_fitness_enabled": "Create Bluetooth Fitness adapter",
           "antplus_enabled": "Create ANT+ adapter"
@@ -156,7 +156,8 @@
       "sensor_unavailable": "The discovered fitness sensor is no longer available.",
       "no_fitness_profiles": "Create a Fitness user before assigning this sensor.",
       "invalid_discovery": "The fitness sensor discovery data was invalid.",
-      "adapters_already_configured": "All Fitness live adapters are already configured. Enable or disable them from their adapter devices."
+      "adapters_already_configured": "All Fitness live adapters are already configured. Enable or disable them from their adapter devices.",
+      "adapters_managed_on_devices": "Local sensor adapters are configured from the ANT+ and Bluetooth adapter devices."
     }
   },
   "options": {
@@ -219,11 +220,11 @@
         "title": "Live workout sensors",
         "description": "Select the physical sensors this Fitness profile may use. Native sensors come from the enabled Bluetooth and ANT+ adapter modules. Optional compatible Home Assistant live devices can also be used.",
         "data": {
-          "live_sensor_ids": "Bluetooth / ANT+ fitness sensors",
+          "live_sensor_ids": "Local fitness sensors",
           "live_device_ids": "Other Home Assistant live devices"
         },
         "data_description": {
-          "live_sensor_ids": "Physical sensors discovered by the global Fitness Bluetooth and ANT+ adapters. Metrics from several sensors can be combined in one workout.",
+          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live capture.",
           "live_device_ids": "Optional Home Assistant devices exposing compatible live heart-rate, power, cadence, speed, distance or altitude entities."
         }
       },
@@ -285,7 +286,7 @@
       },
       "live_transports": {
         "title": "Live workout adapters",
-        "description": "Choose which native radio transports Fitness should create. These become global Fitness adapter devices and can later be enabled or disabled from the adapter device itself.",
+        "description": "Choose which native radio transports Fitness should create. Fitness creates a separate Local Sensors hub; adapters and physical sensors live there, outside every user profile.",
         "data": {
           "bluetooth_fitness_enabled": "Create Bluetooth Fitness adapter",
           "antplus_enabled": "Create ANT+ adapter"

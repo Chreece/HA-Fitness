@@ -21,6 +21,7 @@ from .manager import FitnessManager
 from .dashboard import async_setup_dashboard
 
 PLATFORMS = ["sensor", "button", "select", "number", "calendar", "binary_sensor", "switch"]
+HUB_PLATFORMS = ["sensor", "button", "binary_sensor", "switch"]
 
 _DELETE_WORKOUTS_BEFORE_SCHEMA = vol.Schema(
     {
@@ -112,16 +113,25 @@ async def async_migrate_entry(
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    # Keep the config-entry title concise as well. Older releases prefixed it
-    # with "Fitness –", which duplicated the integration name in the UI.
+    hass.data.setdefault(DOMAIN, {})
+    from .live import get_live_runtime
+    from .live.runtime import HUB_ENTRY_TYPE
+    runtime = get_live_runtime(hass)
+
+    if entry.data.get("entry_type") == HUB_ENTRY_TYPE:
+        if entry.title != "Local Sensors":
+            hass.config_entries.async_update_entry(entry, title="Local Sensors")
+        await runtime.async_register_hub(entry)
+        entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+        await hass.config_entries.async_forward_entry_setups(entry, HUB_PLATFORMS)
+        return True
+
+    # Keep the person config-entry title concise.
     profile_name = str(entry.options.get(CONF_PROFILE_NAME, entry.data.get(CONF_PROFILE_NAME, entry.title)) or entry.title)
     if entry.title != profile_name:
         hass.config_entries.async_update_entry(entry, title=profile_name)
 
-    hass.data.setdefault(DOMAIN, {})
     await async_setup_dashboard(hass)
-    from .live import get_live_runtime
-    runtime = get_live_runtime(hass)
     await runtime.async_register_profile(entry)
     manager = FitnessManager(hass, entry)
     hass.data[DOMAIN][entry.entry_id] = manager
@@ -137,12 +147,19 @@ async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry):
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    from .live.runtime import HUB_ENTRY_TYPE
+    is_hub = entry.data.get("entry_type") == HUB_ENTRY_TYPE
+    platforms = HUB_PLATFORMS if is_hub else PLATFORMS
+    unloaded = await hass.config_entries.async_unload_platforms(entry, platforms)
     if unloaded:
+        runtime = hass.data.get(DOMAIN, {}).get("_live_runtime")
+        if is_hub:
+            if runtime:
+                await runtime.async_unregister_hub(entry.entry_id)
+            return True
         manager = hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
         if manager:
             await manager.async_shutdown()
-        runtime = hass.data.get(DOMAIN, {}).get("_live_runtime")
         if runtime:
             await runtime.async_unregister_profile(entry.entry_id)
     return unloaded
