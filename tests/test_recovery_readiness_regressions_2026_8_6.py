@@ -18,14 +18,19 @@ def test_readiness_attributes_do_not_call_missing_entity_method():
     assert '"components": readiness.get("components")' in SENSOR
 
 
-def test_recovery_card_restores_sleep_score_as_percentage():
-    section = JS[
+def test_last_sleep_card_owns_sleep_score_summary():
+    sleep = JS[
+        JS.index("class FitnessSleepStageCard"):
+        JS.index("const _fitnessNumber")
+    ]
+    recovery = JS[
         JS.index("class FitnessRecoveryCard"):
         JS.index("class FitnessTrainingLoadCard")
     ]
-    assert "e.last_sleep_score" in section
-    assert "_sleepScoreMetric" in section
-    assert '`${Math.max(0, Math.min(100, value)).toFixed(0)}%`' in section
+    assert "e.last_sleep_score" in sleep
+    assert "sleep-summary" in sleep
+    assert "e.last_sleep_score" not in recovery
+    assert "e.last_sleep_duration" not in recovery
 
 
 def test_all_device_translation_keys_exist_in_all_languages():

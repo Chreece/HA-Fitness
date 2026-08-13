@@ -1,4 +1,4 @@
-const FITNESS_DASHBOARD_VERSION = "2026.8.10.10";
+const FITNESS_DASHBOARD_VERSION = "2026.8.10.11";
 
 
 const FITNESS_READINESS_TEXT = {
@@ -853,6 +853,11 @@ class FitnessSleepStageCard extends HTMLElement {
       this._profile = profile;
       const e = profile?.entities || {};
       this._durationEntity = e.last_sleep_duration || null;
+      this._sleepSummaryEntities = {
+        score: e.last_sleep_score || null,
+        hrv: e.last_sleep_hrv || null,
+        deficit: e.sleep_deficit_7d || null,
+      };
       this._resolvedEntities = ["last_sleep_awake", "last_sleep_light", "last_sleep_deep", "last_sleep_rem"].map((key) => e[key]).filter(Boolean);
     } catch (_err) {
       this._resolvedEntities = [];
@@ -917,7 +922,25 @@ class FitnessSleepStageCard extends HTMLElement {
       const pct = item.value / total * 100;
       return `<div class="legend-row entity-link" data-more-info="${this._escape(item.entity)}"><span class="dot" style="background:${item.color}"></span><span class="label">${this._escape(entityName(this._hass, item.entity))}</span><strong>${this._formatMinutes(item.value, unit)}</strong><span class="pct">${pct.toFixed(0)}%</span></div>`;
     }).join("");
-    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="body"><div class="donut" style="background:conic-gradient(${stops})"><div class="hole"><strong>${displayTotal}</strong></div></div><div class="legend">${legend}</div></div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 6px}.body{display:flex;flex-direction:column;align-items:center;gap:16px;padding:10px 16px 18px;min-width:0}.donut{width:124px;height:124px;border-radius:50%;display:grid;place-items:center}.hole{width:76px;height:76px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color));display:flex;flex-direction:column;align-items:center;justify-content:center}.hole strong{font-size:18px;text-align:center;line-height:1.15;padding:4px}.hole span{font-size:11px;color:var(--secondary-text-color)}.legend{width:100%;min-width:0}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.legend-row{display:grid;grid-template-columns:10px minmax(0,1fr) minmax(72px,max-content) 38px;column-gap:10px;align-items:center;min-width:0;padding:7px 0;font-size:12px}.dot{width:9px;height:9px;border-radius:50%}.label{color:var(--secondary-text-color);min-width:0;white-space:normal;overflow-wrap:normal;word-break:normal;hyphens:auto}.legend-row strong{text-align:right;white-space:nowrap;line-height:1.3}.pct{text-align:right;white-space:nowrap;color:var(--secondary-text-color)}</style>`;
+    const summary = this._sleepSummaryEntities || {};
+    const summaryMetrics = [
+      [summary.score, labels.sleep_score || "Sleep score", true],
+      [summary.hrv, labels.sleep_hrv || "Sleep HRV", false],
+      [summary.deficit, labels.sleep_deficit || "7-day sleep deficit", false],
+    ].map(([entityId, label, percentage]) => {
+      if (!entityId) return "";
+      const state = this._hass.states[entityId];
+      if (!state || ["unknown","unavailable"].includes(String(state.state).toLowerCase())) return "";
+      const number = Number(state.state);
+      const unit = state.attributes?.unit_of_measurement || "";
+      const display = percentage && Number.isFinite(number)
+        ? `${Math.max(0, Math.min(100, number)).toFixed(0)}%`
+        : Number.isFinite(number) && ["min","minute","minutes"].includes(String(unit).toLowerCase())
+          ? this._formatMinutes(number, unit)
+          : `${this._escape(state.state)}${unit ? ` ${this._escape(unit)}` : ""}`;
+      return `<div class="sleep-summary-metric entity-link" data-more-info="${this._escape(entityId)}"><span>${this._escape(label)}</span><strong>${display}</strong></div>`;
+    }).filter(Boolean).join("");
+    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="body"><div class="donut" style="background:conic-gradient(${stops})"><div class="hole"><strong>${displayTotal}</strong></div></div><div class="legend">${legend}</div>${summaryMetrics ? `<div class="sleep-summary">${summaryMetrics}</div>` : ""}</div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 6px}.body{display:flex;flex-direction:column;align-items:center;gap:16px;padding:10px 16px 18px;min-width:0}.donut{width:124px;height:124px;border-radius:50%;display:grid;place-items:center}.hole{width:76px;height:76px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color));display:flex;flex-direction:column;align-items:center;justify-content:center}.hole strong{font-size:18px;text-align:center;line-height:1.15;padding:4px}.hole span{font-size:11px;color:var(--secondary-text-color)}.legend{width:100%;min-width:0}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.legend-row{display:grid;grid-template-columns:10px minmax(0,1fr) minmax(72px,max-content) 38px;column-gap:10px;align-items:center;min-width:0;padding:7px 0;font-size:12px}.dot{width:9px;height:9px;border-radius:50%}.label{color:var(--secondary-text-color);min-width:0;white-space:normal;overflow-wrap:normal;word-break:normal;hyphens:auto}.legend-row strong{text-align:right;white-space:nowrap;line-height:1.3}.pct{text-align:right;white-space:nowrap;color:var(--secondary-text-color)}.sleep-summary{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding-top:4px;border-top:1px solid var(--divider-color)}.sleep-summary-metric{min-width:0;padding:9px 10px;border-radius:11px;background:var(--secondary-background-color)}.sleep-summary-metric span{display:block;font-size:9px;line-height:1.25;color:var(--secondary-text-color);overflow-wrap:normal;word-break:normal;hyphens:auto}.sleep-summary-metric strong{display:block;margin-top:3px;font-size:13px;line-height:1.25;white-space:normal;word-break:normal}@media(max-width:430px){.sleep-summary{grid-template-columns:1fr 1fr}.sleep-summary-metric:last-child{grid-column:1/-1}}</style>`;
   }
 
   _escape(value) { return String(value ?? "").replace(/[&<>"']/g, (ch) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch])); }
@@ -1273,22 +1296,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
     const l = this._profile?.labels || {};
     const readiness = this._hass.states[e.readiness];
     const autonomic = this._hass.states[e.autonomic_recovery_trend];
-    const sleepDuration = this._hass.states[e.last_sleep_duration];
-    const sleepHrv = this._hass.states[e.last_sleep_hrv];
-    const sleepScore = this._hass.states[e.last_sleep_score];
-    const deficit = this._hass.states[e.sleep_deficit_7d];
     const recoveryTime = this._hass.states[e.estimated_recovery_time];
-
-    const classifiedSleepMinutes = [
-      e.last_sleep_light, e.last_sleep_deep, e.last_sleep_rem,
-    ].map((entityId) => _fitnessMinutesFromState(this._hass.states[entityId]))
-      .filter((value) => Number.isFinite(value))
-      .reduce((sum, value) => sum + value, 0);
-    const providerSleepMinutes = _fitnessMinutesFromState(sleepDuration) || 0;
-    const effectiveSleepMinutes = Math.max(providerSleepMinutes, classifiedSleepMinutes);
-    const effectiveSleepDuration = effectiveSleepMinutes > 0
-      ? {state: String(effectiveSleepMinutes), attributes: {unit_of_measurement: "min"}}
-      : sleepDuration;
 
     const score = _fitnessNumber(readiness?.state);
     const level = String(_fitnessAttr(readiness, "level") || "insufficient_data");
@@ -1316,6 +1324,14 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
     const recoveryLevel = String(_fitnessAttr(recoveryTime, "level") || "recovering");
     const recoverySignals = _fitnessAttr(recoveryTime, "recovery_signals") || {};
     const limitingFactor = String(_fitnessAttr(recoveryTime, "limiting_factor") || "");
+    const limiterLabels = {
+      muscular_recovery: l.limiter_muscular_recovery || "Muscular recovery",
+      autonomic_recovery: l.limiter_autonomic_recovery || "Autonomic recovery",
+      sleep_recovery: l.limiter_sleep_recovery || "Sleep recovery",
+      overall_readiness: l.limiter_overall_readiness || "Overall readiness",
+      workout_dose: l.limiter_workout_dose || "Workout demand",
+    };
+    const limitingFactorText = limiterLabels[limitingFactor] || limitingFactor.replaceAll("_", " ");
 
     const readyAt = readyAtRaw ? new Date(readyAtRaw) : null;
     const readyAtText = readyAt && !Number.isNaN(readyAt.getTime())
@@ -1342,7 +1358,12 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
     ].map(([key, icon, label]) => {
       const value = _fitnessNumber(components?.[key]?.score);
       if (value == null) return "";
-      return `<div class="component">
+      const componentTone = value >= 85 ? "#2e7d32"
+        : value >= 70 ? "#00897b"
+        : value >= 50 ? "#f9a825"
+        : value >= 30 ? "#ef6c00"
+        : "#c62828";
+      return `<div class="component" style="--component-tone:${componentTone}">
         <ha-icon icon="${icon}"></ha-icon>
         <span>${_fitnessEscape(label)}</span>
         <strong>${value.toFixed(0)}</strong>
@@ -1381,7 +1402,9 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
     this.shadowRoot.innerHTML = `<ha-card style="--readiness:${readinessTone};--recovery:${recoveryTone}">
       <div class="title">${_fitnessEscape(this.config.title || l.recovery_snapshot || "Recovery snapshot")}</div>
 
-      <section class="readiness-panel entity-link" data-more-info="${_fitnessEscape(e.readiness || "")}">
+      <section class="recovery-readiness-panel">
+        <div class="section-label">${_fitnessEscape(l.recovery_readiness || "Recovery & readiness")}</div>
+        <div class="readiness-panel entity-link" data-more-info="${_fitnessEscape(e.readiness || "")}">
         <div class="readiness-ring" style="--p:${bounded * 3.6}deg">
           <div><strong>${score == null ? "—" : score.toFixed(0)}</strong><span>/ 100</span></div>
         </div>
@@ -1390,9 +1413,9 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
           <strong>${_fitnessEscape(levelText)}</strong>
           ${confidence == null ? "" : `<span>${confidence.toFixed(0)}% ${_fitnessEscape(rtext.confidence)}</span>`}
         </div>
-      </section>
+        </div>
 
-      ${recoveryTime ? `<section class="next-workout entity-link" data-more-info="${_fitnessEscape(e.estimated_recovery_time || "")}">
+        ${recoveryTime ? `<div class="next-workout entity-link" data-more-info="${_fitnessEscape(e.estimated_recovery_time || "")}">
         <div class="next-main">
           <div class="next-icon"><ha-icon icon="mdi:timer-sand-complete"></ha-icon></div>
           <div class="next-copy">
@@ -1420,12 +1443,13 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
               ? "—"
               : `~${Math.round(recoveryLow)}–${Math.round(recoveryHigh)} ${_fitnessEscape(l.hours_short || "h")}`}</strong>
           </div>
-          ${limitingFactor ? `<div><span>${_fitnessEscape(l.recovery_limiting_factor || "Main recovery limiter")}</span><strong>${_fitnessEscape(limitingFactor)}</strong></div>` : ""}
+          ${limitingFactor ? `<div><span>${_fitnessEscape(l.recovery_limiting_factor || "Main recovery limiter")}</span><strong>${_fitnessEscape(limitingFactorText)}</strong></div>` : ""}
         </div>
 
         ${signalRows ? `<div class="signal-head">${_fitnessEscape(l.recovery_signals_label || "Recovery signals")}</div><div class="signals">${signalRows}</div>` : ""}
         <div class="physio-note">${_fitnessEscape(l.physio_note || "Available physiological markers may recover at different rates.")}</div>
-      </section>` : ""}
+        </div>` : ""}
+      </section>
 
       ${componentRows ? `<div class="components entity-link" data-more-info="${_fitnessEscape(e.readiness || "")}">${componentRows}</div>` : ""}
 
@@ -1434,21 +1458,17 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
         ${rhrVs == null ? "" : `<span>RHR ${rhrVs > 0 ? "+" : ""}${rhrVs.toFixed(1)} bpm ${_fitnessEscape(rtext.vs28)}</span>`}
       </div>
 
-      <div class="metrics">
-        ${this._sleepScoreMetric(l.sleep_score || "Sleep score", sleepScore, e.last_sleep_score)}
-        ${this._metric(l.sleep_duration || "Sleep duration", effectiveSleepDuration, true, e.last_sleep_duration)}
-        ${this._metric(l.sleep_hrv || "Sleep HRV", sleepHrv, false, e.last_sleep_hrv)}
-        ${this._metric(l.sleep_deficit || "7-day sleep deficit", deficit, true, e.sleep_deficit_7d)}
-      </div>
     </ha-card><style>
       ha-card{padding:18px;overflow:hidden}
       .entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}
       .title{font-size:19px;font-weight:650}
 
+      .recovery-readiness-panel{margin-top:15px;padding:12px;border-radius:20px;background:var(--secondary-background-color);overflow:hidden}
+      .section-label{font-size:10px;font-weight:650;color:var(--secondary-text-color);padding:0 4px 8px}
       .readiness-panel{
         display:grid;grid-template-columns:112px minmax(0,1fr);align-items:center;
-        gap:18px;margin-top:15px;padding:17px;border-radius:20px;
-        background:linear-gradient(135deg,color-mix(in srgb,var(--readiness) 15%,transparent),var(--secondary-background-color));
+        gap:18px;padding:15px;border-radius:16px;
+        background:linear-gradient(135deg,color-mix(in srgb,var(--readiness) 15%,transparent),var(--card-background-color));
         min-width:0
       }
       .readiness-ring{
@@ -1467,8 +1487,8 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
       .readiness-copy span{display:block;color:var(--secondary-text-color);font-size:11px;margin-top:6px}
 
       .next-workout{
-        margin-top:12px;padding:15px;border-radius:18px;
-        background:linear-gradient(135deg,color-mix(in srgb,var(--recovery) 12%,transparent),var(--secondary-background-color));
+        margin-top:8px;padding:14px;border-radius:16px;
+        background:linear-gradient(135deg,color-mix(in srgb,var(--recovery) 12%,transparent),var(--card-background-color));
         border-left:4px solid var(--recovery);min-width:0
       }
       .next-main{
@@ -1511,11 +1531,11 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
         display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;
         column-gap:7px;padding:9px 10px;border-radius:12px;background:var(--secondary-background-color);min-width:0
       }
-      .component ha-icon{--mdc-icon-size:18px;color:var(--readiness)}
+      .component ha-icon{--mdc-icon-size:18px;color:var(--component-tone)}
       .component span{font-size:10px;color:var(--secondary-text-color);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .component strong{font-size:13px}
       .component>div{grid-column:2/4;height:4px;border-radius:999px;background:var(--divider-color);overflow:hidden;margin-top:5px}
-      .component i{display:block;height:100%;border-radius:999px;background:var(--readiness)}
+      .component i{display:block;height:100%;border-radius:999px;background:var(--component-tone)}
 
       .context{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:10px}
       .context span{font-size:10px;color:var(--secondary-text-color)}

@@ -23,6 +23,7 @@ def test_recovery_model_is_one_bounded_estimate_not_max_of_clocks():
 
 
 def test_recovery_card_is_prominent_beside_readiness():
+    assert 'class="recovery-readiness-panel"' in JS
     assert 'class="readiness-panel entity-link"' in JS
     assert 'class="next-workout entity-link"' in JS
     assert 'class="dual-hero"' not in JS

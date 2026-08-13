@@ -8,8 +8,9 @@ def test_recovery_card_limiting_factor_does_not_reference_undefined_identifier()
     start = JS.index("class FitnessRecoveryCard")
     end = JS.index("class FitnessTrainingAdaptationCard", start)
     section = JS[start:end]
-    assert "_fitnessEscape(limitingFactor)" in section
+    assert "_fitnessEscape(limitingFactorText)" in section
     assert "limiting_factor || limitingFactor" not in section
+    assert "limiter_muscular_recovery" in section
 
 
 def test_recovery_card_still_renders_primary_recovery_sections():
