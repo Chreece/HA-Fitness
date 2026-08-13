@@ -4927,8 +4927,11 @@ class FitnessManager:
         load with current personal recovery signals and deliberately reports its
         evidence and confidence instead of presenting false precision.
         """
-        workouts = self.local_workouts()
-        latest = newest(workouts) if workouts else None
+        # Use the same canonical/latest workout view as the Workout device.
+        # The newest completed workout may currently exist only in an external
+        # adapter until Fitness has persisted/merged it into local history.
+        # Recovery time must therefore not depend on local history alone.
+        latest = self.latest_workout()
         if latest is None or not latest.start:
             return {
                 "remaining_hours": None,

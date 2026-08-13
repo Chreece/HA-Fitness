@@ -445,6 +445,17 @@ async def async_setup_entry(hass, entry, async_add_entities):
         persist=True,
     )
 
+    # Recovery time is a stable Recovery-device entity, not a transient
+    # capability. It must exist even when no completed workout is available yet.
+    # Its state may legitimately be unavailable until the first workout arrives,
+    # after which normal manager notifications update it. Keeping it permanently
+    # materialized also avoids an integration-start ordering race where Fitness
+    # loads before a workout provider such as Garmin/Strava.
+    manager.remember_materialized_sensor(
+        "estimated_recovery_time",
+        persist=True,
+    )
+
     created_keys: set[str] = set()
 
     def description_has_valid_value(desc) -> bool:
