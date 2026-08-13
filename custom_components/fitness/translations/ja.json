@@ -2365,6 +2365,18 @@
           },
           "duplicate_nightly_records_ignored": {
             "name": "無視した重複夜間記録"
+          },
+          "average_sleep_minutes": {
+            "name": "平均睡眠時間"
+          },
+          "window_days": {
+            "name": "期間（日）"
+          },
+          "minimum_nights_required": {
+            "name": "必要な最小夜数"
+          },
+          "excess_sleep_offsets_shortfall": {
+            "name": "追加睡眠で不足分を相殺"
           }
         }
       },
@@ -2456,6 +2468,21 @@
           },
           "why_useful": {
             "name": "役立つ理由"
+          },
+          "daily_series": {
+            "name": "日次 VO₂max 系列"
+          },
+          "days_28d": {
+            "name": "有効日数（28日）"
+          },
+          "days_90d": {
+            "name": "有効日数（90日）"
+          },
+          "minimum_days_28d": {
+            "name": "必要最小日数（28日）"
+          },
+          "minimum_days_90d": {
+            "name": "必要最小日数（90日）"
           }
         }
       },
@@ -2553,6 +2580,15 @@
           },
           "why_useful": {
             "name": "役立つ理由"
+          },
+          "hrr_120s_latest_vs_baseline_bpm": {
+            "name": "最新120秒HRRと個人基準との差"
+          },
+          "hrr_120s_personal_90d_baseline_bpm": {
+            "name": "個人120秒HRR基準（90日）"
+          },
+          "hrr_120s_samples_90d": {
+            "name": "120秒HRRサンプル（90日）"
           }
         }
       },

@@ -2365,6 +2365,18 @@
           },
           "duplicate_nightly_records_ignored": {
             "name": "已忽略的重复夜间记录"
+          },
+          "average_sleep_minutes": {
+            "name": "平均睡眠时长"
+          },
+          "window_days": {
+            "name": "窗口（天）"
+          },
+          "minimum_nights_required": {
+            "name": "所需最少夜数"
+          },
+          "excess_sleep_offsets_shortfall": {
+            "name": "额外睡眠抵消睡眠不足"
           }
         }
       },
@@ -2456,6 +2468,21 @@
           },
           "why_useful": {
             "name": "为什么有用"
+          },
+          "daily_series": {
+            "name": "每日 VO₂max 序列"
+          },
+          "days_28d": {
+            "name": "有效天数（28天）"
+          },
+          "days_90d": {
+            "name": "有效天数（90天）"
+          },
+          "minimum_days_28d": {
+            "name": "所需最少天数（28天）"
+          },
+          "minimum_days_90d": {
+            "name": "所需最少天数（90天）"
           }
         }
       },
@@ -2553,6 +2580,15 @@
           },
           "why_useful": {
             "name": "为什么有用"
+          },
+          "hrr_120s_latest_vs_baseline_bpm": {
+            "name": "最新 120 秒 HRR 与个人基线之差"
+          },
+          "hrr_120s_personal_90d_baseline_bpm": {
+            "name": "个人 120 秒 HRR 基线（90天）"
+          },
+          "hrr_120s_samples_90d": {
+            "name": "120 秒 HRR 样本（90天）"
           }
         }
       },

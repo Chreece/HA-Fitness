@@ -2365,6 +2365,18 @@
           },
           "duplicate_nightly_records_ignored": {
             "name": "Doublons de nuits ignorés"
+          },
+          "average_sleep_minutes": {
+            "name": "Durée moyenne de sommeil"
+          },
+          "window_days": {
+            "name": "Fenêtre (jours)"
+          },
+          "minimum_nights_required": {
+            "name": "Nombre minimal de nuits requis"
+          },
+          "excess_sleep_offsets_shortfall": {
+            "name": "Le sommeil supplémentaire compense le déficit"
           }
         }
       },
@@ -2456,6 +2468,21 @@
           },
           "why_useful": {
             "name": "Pourquoi c’est utile"
+          },
+          "daily_series": {
+            "name": "Série quotidienne de VO₂max"
+          },
+          "days_28d": {
+            "name": "Jours valides (28 jours)"
+          },
+          "days_90d": {
+            "name": "Jours valides (90 jours)"
+          },
+          "minimum_days_28d": {
+            "name": "Jours minimum requis (28 jours)"
+          },
+          "minimum_days_90d": {
+            "name": "Jours minimum requis (90 jours)"
           }
         }
       },
@@ -2553,6 +2580,15 @@
           },
           "why_useful": {
             "name": "Pourquoi c’est utile"
+          },
+          "hrr_120s_latest_vs_baseline_bpm": {
+            "name": "Dernière HRR à 120 s vs référence personnelle"
+          },
+          "hrr_120s_personal_90d_baseline_bpm": {
+            "name": "Référence personnelle HRR à 120 s (90 jours)"
+          },
+          "hrr_120s_samples_90d": {
+            "name": "Échantillons HRR à 120 s (90 jours)"
           }
         }
       },

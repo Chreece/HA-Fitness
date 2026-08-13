@@ -2365,6 +2365,18 @@
           },
           "duplicate_nightly_records_ignored": {
             "name": "Yoksayılan yinelenen gece kayıtları"
+          },
+          "average_sleep_minutes": {
+            "name": "Ortalama uyku süresi"
+          },
+          "window_days": {
+            "name": "Pencere (gün)"
+          },
+          "minimum_nights_required": {
+            "name": "Gerekli en az gece"
+          },
+          "excess_sleep_offsets_shortfall": {
+            "name": "Fazla uyku açığı dengeler"
           }
         }
       },
@@ -2456,6 +2468,21 @@
           },
           "why_useful": {
             "name": "Neden yararlı"
+          },
+          "daily_series": {
+            "name": "Günlük VO₂max serisi"
+          },
+          "days_28d": {
+            "name": "Geçerli günler (28 gün)"
+          },
+          "days_90d": {
+            "name": "Geçerli günler (90 gün)"
+          },
+          "minimum_days_28d": {
+            "name": "Gerekli en az gün (28 gün)"
+          },
+          "minimum_days_90d": {
+            "name": "Gerekli en az gün (90 gün)"
           }
         }
       },
@@ -2553,6 +2580,15 @@
           },
           "why_useful": {
             "name": "Neden yararlı"
+          },
+          "hrr_120s_latest_vs_baseline_bpm": {
+            "name": "Son HRR 120 sn vs kişisel temel"
+          },
+          "hrr_120s_personal_90d_baseline_bpm": {
+            "name": "Kişisel HRR 120 sn temeli (90 gün)"
+          },
+          "hrr_120s_samples_90d": {
+            "name": "HRR 120 sn örnekleri (90 gün)"
           }
         }
       },

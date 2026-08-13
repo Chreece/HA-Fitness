@@ -841,13 +841,26 @@ class FitnessSensor(SensorEntity):
             if latest_sleep:
                 add_entity((latest_sleep.field_sources or {}).get("hrv_ms"))
 
-        if metric in {"sleep_consistency", "sleep_deficit_7d"}:
-            if latest_sleep:
-                for field in ("duration_s", "start", "end"):
-                    add_entity((latest_sleep.field_sources or {}).get(field))
-                for source in latest_sleep.sources or []:
-                    if isinstance(source, str) and source.startswith(("sensor.", "binary_sensor.", "event.")):
-                        add_entity(source)
+        if metric == "sleep_deficit_7d":
+            # This metric is calculated from Fitness-owned canonical nightly
+            # history, not from whichever provider happens to represent the
+            # latest sleep right now. Expose the exact nights that entered the
+            # calculation so provider syncs cannot make attribution misleading.
+            for item in (evaluation.get("sleep_long_term") or {}).get("sleep_deficit_nightly_series") or []:
+                if not isinstance(item, dict):
+                    continue
+                date = item.get("date")
+                minutes = item.get("sleep_minutes")
+                if date is not None and minutes is not None:
+                    add_profile(str(date), minutes, "min")
+
+        if metric == "sleep_consistency":
+            # Consistency is longitudinal. Attribute it to the canonical Fitness
+            # history summary rather than only to the most recently synced raw
+            # provider entities.
+            sleep_summary = evaluation.get("sleep_long_term") or {}
+            add_profile("Fitness canonical sleep nights (7d)", sleep_summary.get("nights_7d"))
+            add_profile("Fitness canonical sleep nights (28d)", sleep_summary.get("nights_28d"))
 
         if metric in {"training_load", "heart_rate_recovery", "training_recovery_relationship"}:
             if latest_workout:
@@ -1139,6 +1152,7 @@ class FitnessSensor(SensorEntity):
                 "duplicate_nightly_records_ignored": sleep.get("history_duplicate_nightly_records_ignored"),
                 "window_days": 7,
                 "minimum_nights_required": 5,
+                "excess_sleep_offsets_shortfall": False,
             },
             "autonomic_recovery_trend": {
                 "sleep_hrv_7d_mean_ms": sleep.get("sleep_hrv_7d_mean_ms"),

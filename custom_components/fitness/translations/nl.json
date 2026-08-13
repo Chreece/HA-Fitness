@@ -2365,6 +2365,18 @@
           },
           "duplicate_nightly_records_ignored": {
             "name": "Genegeerde dubbele nachtregistraties"
+          },
+          "average_sleep_minutes": {
+            "name": "Gemiddelde slaapduur"
+          },
+          "window_days": {
+            "name": "Venster (dagen)"
+          },
+          "minimum_nights_required": {
+            "name": "Minimaal vereiste nachten"
+          },
+          "excess_sleep_offsets_shortfall": {
+            "name": "Extra slaap compenseert het tekort"
           }
         }
       },
@@ -2456,6 +2468,21 @@
           },
           "why_useful": {
             "name": "Waarom dit nuttig is"
+          },
+          "daily_series": {
+            "name": "Dagelijkse VO₂max-reeks"
+          },
+          "days_28d": {
+            "name": "Geldige dagen (28 dagen)"
+          },
+          "days_90d": {
+            "name": "Geldige dagen (90 dagen)"
+          },
+          "minimum_days_28d": {
+            "name": "Minimaal vereiste dagen (28 dagen)"
+          },
+          "minimum_days_90d": {
+            "name": "Minimaal vereiste dagen (90 dagen)"
           }
         }
       },
@@ -2553,6 +2580,15 @@
           },
           "why_useful": {
             "name": "Waarom dit nuttig is"
+          },
+          "hrr_120s_latest_vs_baseline_bpm": {
+            "name": "Laatste HRR 120 s vs persoonlijke basis"
+          },
+          "hrr_120s_personal_90d_baseline_bpm": {
+            "name": "Persoonlijke HRR-120-s-basis (90 dagen)"
+          },
+          "hrr_120s_samples_90d": {
+            "name": "HRR-120-s-metingen (90 dagen)"
           }
         }
       },

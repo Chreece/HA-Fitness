@@ -2365,6 +2365,18 @@
           },
           "duplicate_nightly_records_ignored": {
             "name": "Игнорированные дубликаты ночных записей"
+          },
+          "average_sleep_minutes": {
+            "name": "Средняя продолжительность сна"
+          },
+          "window_days": {
+            "name": "Окно (дни)"
+          },
+          "minimum_nights_required": {
+            "name": "Минимум требуемых ночей"
+          },
+          "excess_sleep_offsets_shortfall": {
+            "name": "Дополнительный сон компенсирует дефицит"
           }
         }
       },
@@ -2456,6 +2468,21 @@
           },
           "why_useful": {
             "name": "Почему это полезно"
+          },
+          "daily_series": {
+            "name": "Дневной ряд VO₂max"
+          },
+          "days_28d": {
+            "name": "Достоверные дни (28 дней)"
+          },
+          "days_90d": {
+            "name": "Достоверные дни (90 дней)"
+          },
+          "minimum_days_28d": {
+            "name": "Минимум дней (28 дней)"
+          },
+          "minimum_days_90d": {
+            "name": "Минимум дней (90 дней)"
           }
         }
       },
@@ -2553,6 +2580,15 @@
           },
           "why_useful": {
             "name": "Почему это полезно"
+          },
+          "hrr_120s_latest_vs_baseline_bpm": {
+            "name": "Последний HRR 120 с vs личная база"
+          },
+          "hrr_120s_personal_90d_baseline_bpm": {
+            "name": "Личная база HRR 120 с (90 дней)"
+          },
+          "hrr_120s_samples_90d": {
+            "name": "Образцы HRR 120 с (90 дней)"
           }
         }
       },

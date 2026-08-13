@@ -2365,6 +2365,18 @@
           },
           "duplicate_nightly_records_ignored": {
             "name": "Διπλές εγγραφές νύχτας που αγνοήθηκαν"
+          },
+          "average_sleep_minutes": {
+            "name": "Μέση διάρκεια ύπνου"
+          },
+          "window_days": {
+            "name": "Παράθυρο (ημέρες)"
+          },
+          "minimum_nights_required": {
+            "name": "Ελάχιστες απαιτούμενες νύχτες"
+          },
+          "excess_sleep_offsets_shortfall": {
+            "name": "Ο επιπλέον ύπνος συμψηφίζει την έλλειψη"
           }
         }
       },
@@ -2456,6 +2468,21 @@
           },
           "why_useful": {
             "name": "Γιατί είναι χρήσιμο"
+          },
+          "daily_series": {
+            "name": "Ημερήσια σειρά VO₂max"
+          },
+          "days_28d": {
+            "name": "Έγκυρες ημέρες (28 ημέρες)"
+          },
+          "days_90d": {
+            "name": "Έγκυρες ημέρες (90 ημέρες)"
+          },
+          "minimum_days_28d": {
+            "name": "Ελάχιστες απαιτούμενες ημέρες (28 ημέρες)"
+          },
+          "minimum_days_90d": {
+            "name": "Ελάχιστες απαιτούμενες ημέρες (90 ημέρες)"
           }
         }
       },
@@ -2553,6 +2580,15 @@
           },
           "why_useful": {
             "name": "Γιατί είναι χρήσιμο"
+          },
+          "hrr_120s_latest_vs_baseline_bpm": {
+            "name": "Τελευταίο HRR 120 δ. έναντι προσωπικής βάσης"
+          },
+          "hrr_120s_personal_90d_baseline_bpm": {
+            "name": "Προσωπική βάση HRR 120 δ. (90 ημέρες)"
+          },
+          "hrr_120s_samples_90d": {
+            "name": "Δείγματα HRR 120 δ. (90 ημέρες)"
           }
         }
       },

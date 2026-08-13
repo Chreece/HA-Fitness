@@ -2365,6 +2365,18 @@
           },
           "duplicate_nightly_records_ignored": {
             "name": "Проігноровані дублікати нічних записів"
+          },
+          "average_sleep_minutes": {
+            "name": "Середня тривалість сну"
+          },
+          "window_days": {
+            "name": "Вікно (дні)"
+          },
+          "minimum_nights_required": {
+            "name": "Мінімум необхідних ночей"
+          },
+          "excess_sleep_offsets_shortfall": {
+            "name": "Додатковий сон компенсує дефіцит"
           }
         }
       },
@@ -2456,6 +2468,21 @@
           },
           "why_useful": {
             "name": "Чому це корисно"
+          },
+          "daily_series": {
+            "name": "Щоденний ряд VO₂max"
+          },
+          "days_28d": {
+            "name": "Дійсні дні (28 днів)"
+          },
+          "days_90d": {
+            "name": "Дійсні дні (90 днів)"
+          },
+          "minimum_days_28d": {
+            "name": "Мінімум днів (28 днів)"
+          },
+          "minimum_days_90d": {
+            "name": "Мінімум днів (90 днів)"
           }
         }
       },
@@ -2553,6 +2580,15 @@
           },
           "why_useful": {
             "name": "Чому це корисно"
+          },
+          "hrr_120s_latest_vs_baseline_bpm": {
+            "name": "Останній HRR 120 с vs особиста база"
+          },
+          "hrr_120s_personal_90d_baseline_bpm": {
+            "name": "Особиста база HRR 120 с (90 днів)"
+          },
+          "hrr_120s_samples_90d": {
+            "name": "Зразки HRR 120 с (90 днів)"
           }
         }
       },

@@ -2365,6 +2365,18 @@
           },
           "duplicate_nightly_records_ignored": {
             "name": "Pominięte zduplikowane zapisy nocy"
+          },
+          "average_sleep_minutes": {
+            "name": "Średni czas snu"
+          },
+          "window_days": {
+            "name": "Okno (dni)"
+          },
+          "minimum_nights_required": {
+            "name": "Minimalna liczba wymaganych nocy"
+          },
+          "excess_sleep_offsets_shortfall": {
+            "name": "Dodatkowy sen kompensuje niedobór"
           }
         }
       },
@@ -2456,6 +2468,21 @@
           },
           "why_useful": {
             "name": "Dlaczego to jest przydatne"
+          },
+          "daily_series": {
+            "name": "Dzienna seria VO₂max"
+          },
+          "days_28d": {
+            "name": "Prawidłowe dni (28 dni)"
+          },
+          "days_90d": {
+            "name": "Prawidłowe dni (90 dni)"
+          },
+          "minimum_days_28d": {
+            "name": "Minimalna liczba dni (28 dni)"
+          },
+          "minimum_days_90d": {
+            "name": "Minimalna liczba dni (90 dni)"
           }
         }
       },
@@ -2553,6 +2580,15 @@
           },
           "why_useful": {
             "name": "Dlaczego to jest przydatne"
+          },
+          "hrr_120s_latest_vs_baseline_bpm": {
+            "name": "Najnowsze HRR 120 s vs osobista baza"
+          },
+          "hrr_120s_personal_90d_baseline_bpm": {
+            "name": "Osobista baza HRR 120 s (90 dni)"
+          },
+          "hrr_120s_samples_90d": {
+            "name": "Próbki HRR 120 s (90 dni)"
           }
         }
       },

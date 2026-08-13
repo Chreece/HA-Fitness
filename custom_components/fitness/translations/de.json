@@ -2365,6 +2365,18 @@
           },
           "duplicate_nightly_records_ignored": {
             "name": "Ignorierte doppelte Nachtaufzeichnungen"
+          },
+          "average_sleep_minutes": {
+            "name": "Durchschnittliche Schlafdauer"
+          },
+          "window_days": {
+            "name": "Fenster (Tage)"
+          },
+          "minimum_nights_required": {
+            "name": "Erforderliche Mindestanzahl Nächte"
+          },
+          "excess_sleep_offsets_shortfall": {
+            "name": "Zusätzlicher Schlaf gleicht Fehlzeit aus"
           }
         }
       },
@@ -2456,6 +2468,21 @@
           },
           "why_useful": {
             "name": "Warum das nützlich ist"
+          },
+          "daily_series": {
+            "name": "Tägliche VO₂max-Reihe"
+          },
+          "days_28d": {
+            "name": "Gültige Tage (28 Tage)"
+          },
+          "days_90d": {
+            "name": "Gültige Tage (90 Tage)"
+          },
+          "minimum_days_28d": {
+            "name": "Erforderliche Mindesttage (28 Tage)"
+          },
+          "minimum_days_90d": {
+            "name": "Erforderliche Mindesttage (90 Tage)"
           }
         }
       },
@@ -2553,6 +2580,15 @@
           },
           "why_useful": {
             "name": "Warum das nützlich ist"
+          },
+          "hrr_120s_latest_vs_baseline_bpm": {
+            "name": "Letzte HRR 120 s vs. persönliche Basis"
+          },
+          "hrr_120s_personal_90d_baseline_bpm": {
+            "name": "Persönliche HRR-120-s-Basis (90 Tage)"
+          },
+          "hrr_120s_samples_90d": {
+            "name": "HRR-120-s-Stichproben (90 Tage)"
           }
         }
       },

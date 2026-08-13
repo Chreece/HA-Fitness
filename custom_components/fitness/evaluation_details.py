@@ -27,7 +27,7 @@ _LABELS = {
 _TEXT = {
     "en": {
         "sleep_consistency": ("Describes how stable your sleep duration and timing are across recent nights.", "Helps distinguish a repeatable sleep routine from large night-to-night variation without treating variability as a diagnosis."),
-        "sleep_deficit_7d": ("Adds the nightly shortfall below the adult consensus minimum of 7 hours across the last 7 days.", "Makes accumulated insufficient sleep visible instead of judging only the most recent night."),
+        "sleep_deficit_7d": ("Adds each night’s shortfall below the adult consensus minimum of 7 hours across the last 7 days. Longer nights do not mathematically erase a shorter night.", "Makes repeated insufficient sleep visible while avoiding the unsupported assumption that extra sleep repays sleep loss hour-for-hour."),
         "autonomic_recovery_trend": ("Compares recent nightly HRV and resting heart rate with your own recent baseline.", "Helps monitor within-person recovery trends while avoiding a proprietary readiness score."),
         "cardiorespiratory_fitness_trend": ("Shows the direction of your measured/provider VO₂max over time and its position relative to an age/sex/weight reference equation.", "Helps separate a real longer-term fitness trend from normal day-to-day measurement variation."),
         "training_load": ("Summarizes recent training exposure using workout duration, frequency, distance and heart-rate-based TRIMP when available.", "Helps compare recent exercise stress with your own longer baseline without claiming an injury-risk percentage."),
@@ -38,7 +38,7 @@ _TEXT = {
     },
     "el": {
         "sleep_consistency": ("Περιγράφει πόσο σταθερά είναι η διάρκεια και το ωράριο του ύπνου σου στις πρόσφατες νύχτες.", "Σε βοηθά να ξεχωρίζεις μια σταθερή ρουτίνα ύπνου από μεγάλες διακυμάνσεις χωρίς να αντιμετωπίζει τη μεταβλητότητα ως διάγνωση."),
-        "sleep_deficit_7d": ("Αθροίζει για τις τελευταίες 7 ημέρες τη νυχτερινή έλλειψη κάτω από την ελάχιστη σύσταση των 7 ωρών για ενήλικες.", "Κάνει ορατή τη συσσωρευμένη έλλειψη ύπνου αντί να κρίνει μόνο την τελευταία νύχτα."),
+        "sleep_deficit_7d": ("Αθροίζει για τις τελευταίες 7 ημέρες την έλλειψη κάθε νύχτας κάτω από την ελάχιστη σύσταση των 7 ωρών για ενήλικες. Οι μεγαλύτερες νύχτες δεν διαγράφουν μαθηματικά μια μικρότερη νύχτα.", "Κάνει ορατό τον επαναλαμβανόμενο ανεπαρκή ύπνο χωρίς να υποθέτει ότι ο επιπλέον ύπνος αποπληρώνει την απώλεια ύπνου ώρα προς ώρα."),
         "autonomic_recovery_trend": ("Συγκρίνει το πρόσφατο νυχτερινό HRV και τους καρδιακούς παλμούς ηρεμίας με το δικό σου πρόσφατο σημείο αναφοράς.", "Βοηθά να παρακολουθείς την προσωπική τάση αποκατάστασης χωρίς να επινοεί έναν ιδιόκτητο δείκτη ετοιμότητας."),
         "cardiorespiratory_fitness_trend": ("Δείχνει την πορεία του μετρημένου ή παρεχόμενου VO₂max με τον χρόνο και τη σχέση του με εξίσωση αναφοράς βάσει ηλικίας, φύλου και βάρους.", "Σε βοηθά να ξεχωρίζεις μια πραγματική μακροχρόνια αλλαγή φυσικής κατάστασης από τις φυσιολογικές διακυμάνσεις των μετρήσεων."),
         "training_load": ("Συνοψίζει την πρόσφατη προπονητική επιβάρυνση από διάρκεια, συχνότητα, απόσταση και καρδιοσυχνομετρικό TRIMP όταν υπάρχουν τα απαραίτητα δεδομένα.", "Σε βοηθά να συγκρίνεις την πρόσφατη επιβάρυνση με το δικό σου ιστορικό χωρίς να παρουσιάζει αυθαίρετο ποσοστό κινδύνου τραυματισμού."),

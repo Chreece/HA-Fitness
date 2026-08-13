@@ -2365,6 +2365,18 @@
           },
           "duplicate_nightly_records_ignored": {
             "name": "무시된 중복 야간 기록"
+          },
+          "average_sleep_minutes": {
+            "name": "평균 수면 시간"
+          },
+          "window_days": {
+            "name": "기간(일)"
+          },
+          "minimum_nights_required": {
+            "name": "필요한 최소 수면 일수"
+          },
+          "excess_sleep_offsets_shortfall": {
+            "name": "추가 수면이 부족분을 상쇄함"
           }
         }
       },
@@ -2456,6 +2468,21 @@
           },
           "why_useful": {
             "name": "유용한 이유"
+          },
+          "daily_series": {
+            "name": "일별 VO₂max 계열"
+          },
+          "days_28d": {
+            "name": "유효 일수(28일)"
+          },
+          "days_90d": {
+            "name": "유효 일수(90일)"
+          },
+          "minimum_days_28d": {
+            "name": "필요한 최소 일수(28일)"
+          },
+          "minimum_days_90d": {
+            "name": "필요한 최소 일수(90일)"
           }
         }
       },
@@ -2553,6 +2580,15 @@
           },
           "why_useful": {
             "name": "유용한 이유"
+          },
+          "hrr_120s_latest_vs_baseline_bpm": {
+            "name": "최신 120초 HRR 대비 개인 기준"
+          },
+          "hrr_120s_personal_90d_baseline_bpm": {
+            "name": "개인 120초 HRR 기준(90일)"
+          },
+          "hrr_120s_samples_90d": {
+            "name": "120초 HRR 표본(90일)"
           }
         }
       },
