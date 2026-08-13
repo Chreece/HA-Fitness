@@ -2957,7 +2957,7 @@
         }
       },
       "estimated_recovery_time": {
-        "name": "예상 회복 시간",
+        "name": "다음 운동 준비까지 남은 시간",
         "state_attributes": {
           "estimated_total_recovery_hours": {
             "name": "예상 총 회복 시간"
@@ -2966,34 +2966,31 @@
             "name": "운동 후 경과 시간"
           },
           "level": {
-            "name": "회복 수준"
+            "name": "회복 상태"
           },
           "level_display": {
-            "name": "회복 수준(번역)"
+            "name": "회복 상태(현지화)"
           },
           "confidence_percent": {
             "name": "신뢰도"
           },
           "last_workout_start": {
-            "name": "최근 운동 시작"
+            "name": "마지막 운동 시작"
           },
           "last_workout_end": {
-            "name": "최근 운동 종료"
+            "name": "마지막 운동 종료"
           },
           "sport": {
             "name": "운동 유형"
           },
           "evidence": {
-            "name": "사용된 근거"
-          },
-          "base_candidates_hours": {
-            "name": "운동 부하 기반 추정"
+            "name": "사용된 데이터"
           },
           "recovery_modifiers": {
-            "name": "개인 회복 보정"
+            "name": "개인 회복 조정"
           },
           "data_source": {
-            "name": "데이터 출처"
+            "name": "데이터 원본"
           },
           "method": {
             "name": "방법"
@@ -3003,6 +3000,39 @@
           },
           "diagnostic_interpretation": {
             "name": "진단적 해석"
+          },
+          "ready_for_next_workout_at": {
+            "name": "다음 운동 준비 예상 시각"
+          },
+          "estimated_recovery_hours": {
+            "name": "예상 회복 시간"
+          },
+          "estimated_recovery_low_hours": {
+            "name": "예상 회복 범위 — 하한"
+          },
+          "estimated_recovery_high_hours": {
+            "name": "예상 회복 범위 — 상한"
+          },
+          "recovery_progress_percent": {
+            "name": "회복 진행률"
+          },
+          "limiting_factor": {
+            "name": "주요 회복 제한 요인"
+          },
+          "recovery_signals": {
+            "name": "회복 신호"
+          },
+          "workout_demand_components_hours": {
+            "name": "운동 부하 구성요소"
+          },
+          "planning_interpretation": {
+            "name": "계획 해석"
+          },
+          "physiological_recovery_interpretation": {
+            "name": "생리적 회복 해석"
+          },
+          "full_physiological_recovery_claimed": {
+            "name": "완전한 생리적 회복 주장"
           }
         }
       }

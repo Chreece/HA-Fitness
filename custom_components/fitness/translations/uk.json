@@ -2957,7 +2957,7 @@
         }
       },
       "estimated_recovery_time": {
-        "name": "Орієнтовний час відновлення",
+        "name": "Час до готовності до наступного тренування",
         "state_attributes": {
           "estimated_total_recovery_hours": {
             "name": "Орієнтовне повне відновлення"
@@ -2966,10 +2966,10 @@
             "name": "Час після тренування"
           },
           "level": {
-            "name": "Рівень відновлення"
+            "name": "Стан відновлення"
           },
           "level_display": {
-            "name": "Рівень відновлення (переклад)"
+            "name": "Стан відновлення (локалізовано)"
           },
           "confidence_percent": {
             "name": "Впевненість"
@@ -2986,11 +2986,8 @@
           "evidence": {
             "name": "Використані дані"
           },
-          "base_candidates_hours": {
-            "name": "Оцінки за тренувальним навантаженням"
-          },
           "recovery_modifiers": {
-            "name": "Персональні модифікатори відновлення"
+            "name": "Особисті коригування відновлення"
           },
           "data_source": {
             "name": "Джерело даних"
@@ -3003,6 +3000,39 @@
           },
           "diagnostic_interpretation": {
             "name": "Діагностична інтерпретація"
+          },
+          "ready_for_next_workout_at": {
+            "name": "Готовність до наступного тренування приблизно о"
+          },
+          "estimated_recovery_hours": {
+            "name": "Орієнтовний час відновлення"
+          },
+          "estimated_recovery_low_hours": {
+            "name": "Орієнтовний діапазон відновлення — мінімум"
+          },
+          "estimated_recovery_high_hours": {
+            "name": "Орієнтовний діапазон відновлення — максимум"
+          },
+          "recovery_progress_percent": {
+            "name": "Прогрес відновлення"
+          },
+          "limiting_factor": {
+            "name": "Головний обмежувальний чинник"
+          },
+          "recovery_signals": {
+            "name": "Сигнали відновлення"
+          },
+          "workout_demand_components_hours": {
+            "name": "Компоненти тренувального навантаження"
+          },
+          "planning_interpretation": {
+            "name": "Інтерпретація для планування"
+          },
+          "physiological_recovery_interpretation": {
+            "name": "Інтерпретація фізіологічного відновлення"
+          },
+          "full_physiological_recovery_claimed": {
+            "name": "Заявлено повне фізіологічне відновлення"
           }
         }
       }

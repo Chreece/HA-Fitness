@@ -94,3 +94,12 @@ Fitness exposes an **estimated recovery time** after the latest completed workou
 The model is intentionally conservative for resistance exercise because studies of demanding resistance sessions show that neuromuscular performance can require roughly 24–48 h to recover, with slower recovery after training to failure. More generally, sport-science consensus emphasizes that recovery is multifactorial and should be monitored with multiple internal/external signals rather than one universal clock.
 
 Scientific basis: Kellmann et al., *Recovery and Performance in Sport: Consensus Statement* (2018, PMID 29345524); González-Badillo et al. (2016, PMID 26667923); Pareja-Blanco et al. (2017, PMID 28965198); Michael et al. review of post-exercise autonomic recovery (2017, PMID 28611675).
+
+
+## Ready-for-next-workout estimate
+
+Fitness estimates when the user is likely recovered enough for another workout by combining the latest normalized workout dose (duration, session RPE, bounded session-RPE load, TRIMP, intensity distribution and sport context) with longitudinal recovery evidence such as Training Readiness, HRV relative to the user's personal baseline, resting heart rate, HRR and sleep. The model deliberately treats these as complementary signals rather than independent recovery clocks.
+
+The output is a **planning estimate**, not a measurement of complete physiological recovery. Recovery is multidimensional and individual; muscular, autonomic, metabolic and connective-tissue processes may recover at different rates. Fitness therefore exposes a central estimate plus an uncertainty range, the estimated clock time when the user is likely ready for the next workout, the available recovery signals, and an explicit `full_physiological_recovery_claimed: false` attribute.
+
+This design follows the recovery-monitoring and training-load consensus literature, which recommends multidimensional, individualized interpretation rather than relying on a single marker or load metric (Kellmann et al., 2018, PMID 29345524; Bourdon et al., 2017, PMID 28463642).

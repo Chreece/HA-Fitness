@@ -2957,40 +2957,37 @@
         }
       },
       "estimated_recovery_time": {
-        "name": "预计恢复时间",
+        "name": "距离准备好下一次训练的时间",
         "state_attributes": {
           "estimated_total_recovery_hours": {
             "name": "预计总恢复时间"
           },
           "elapsed_hours_since_workout": {
-            "name": "训练后经过时间"
+            "name": "距上次训练时间"
           },
           "level": {
-            "name": "恢复等级"
+            "name": "恢复状态"
           },
           "level_display": {
-            "name": "恢复等级（本地化）"
+            "name": "恢复状态（本地化）"
           },
           "confidence_percent": {
             "name": "置信度"
           },
           "last_workout_start": {
-            "name": "最近训练开始时间"
+            "name": "上次训练开始"
           },
           "last_workout_end": {
-            "name": "最近训练结束时间"
+            "name": "上次训练结束"
           },
           "sport": {
             "name": "训练类型"
           },
           "evidence": {
-            "name": "使用的证据"
-          },
-          "base_candidates_hours": {
-            "name": "训练负荷恢复估计"
+            "name": "使用的数据"
           },
           "recovery_modifiers": {
-            "name": "个人恢复修正"
+            "name": "个体恢复调整"
           },
           "data_source": {
             "name": "数据来源"
@@ -3002,7 +2999,40 @@
             "name": "公式"
           },
           "diagnostic_interpretation": {
-            "name": "诊断性解释"
+            "name": "诊断性解读"
+          },
+          "ready_for_next_workout_at": {
+            "name": "预计可进行下一次训练的时间"
+          },
+          "estimated_recovery_hours": {
+            "name": "预计恢复时间"
+          },
+          "estimated_recovery_low_hours": {
+            "name": "预计恢复范围—下限"
+          },
+          "estimated_recovery_high_hours": {
+            "name": "预计恢复范围—上限"
+          },
+          "recovery_progress_percent": {
+            "name": "恢复进度"
+          },
+          "limiting_factor": {
+            "name": "主要限制因素"
+          },
+          "recovery_signals": {
+            "name": "恢复信号"
+          },
+          "workout_demand_components_hours": {
+            "name": "训练负荷组成"
+          },
+          "planning_interpretation": {
+            "name": "计划解读"
+          },
+          "physiological_recovery_interpretation": {
+            "name": "生理恢复解读"
+          },
+          "full_physiological_recovery_claimed": {
+            "name": "是否声称完全生理恢复"
           }
         }
       }

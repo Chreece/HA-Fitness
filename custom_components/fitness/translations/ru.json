@@ -2957,7 +2957,7 @@
         }
       },
       "estimated_recovery_time": {
-        "name": "Расчётное время восстановления",
+        "name": "Время до готовности к следующей тренировке",
         "state_attributes": {
           "estimated_total_recovery_hours": {
             "name": "Расчётное полное восстановление"
@@ -2966,10 +2966,10 @@
             "name": "Время после тренировки"
           },
           "level": {
-            "name": "Уровень восстановления"
+            "name": "Состояние восстановления"
           },
           "level_display": {
-            "name": "Уровень восстановления (перевод)"
+            "name": "Состояние восстановления (локализовано)"
           },
           "confidence_percent": {
             "name": "Уверенность"
@@ -2978,7 +2978,7 @@
             "name": "Начало последней тренировки"
           },
           "last_workout_end": {
-            "name": "Окончание последней тренировки"
+            "name": "Конец последней тренировки"
           },
           "sport": {
             "name": "Тип тренировки"
@@ -2986,11 +2986,8 @@
           "evidence": {
             "name": "Использованные данные"
           },
-          "base_candidates_hours": {
-            "name": "Оценки по тренировочной нагрузке"
-          },
           "recovery_modifiers": {
-            "name": "Персональные модификаторы восстановления"
+            "name": "Персональные корректировки восстановления"
           },
           "data_source": {
             "name": "Источник данных"
@@ -3003,6 +3000,39 @@
           },
           "diagnostic_interpretation": {
             "name": "Диагностическая интерпретация"
+          },
+          "ready_for_next_workout_at": {
+            "name": "Готовность к следующей тренировке примерно к"
+          },
+          "estimated_recovery_hours": {
+            "name": "Расчётное время восстановления"
+          },
+          "estimated_recovery_low_hours": {
+            "name": "Расчётный диапазон восстановления — минимум"
+          },
+          "estimated_recovery_high_hours": {
+            "name": "Расчётный диапазон восстановления — максимум"
+          },
+          "recovery_progress_percent": {
+            "name": "Прогресс восстановления"
+          },
+          "limiting_factor": {
+            "name": "Главный ограничивающий фактор"
+          },
+          "recovery_signals": {
+            "name": "Сигналы восстановления"
+          },
+          "workout_demand_components_hours": {
+            "name": "Компоненты тренировочной нагрузки"
+          },
+          "planning_interpretation": {
+            "name": "Интерпретация для планирования"
+          },
+          "physiological_recovery_interpretation": {
+            "name": "Интерпретация физиологического восстановления"
+          },
+          "full_physiological_recovery_claimed": {
+            "name": "Заявлено полное физиологическое восстановление"
           }
         }
       }

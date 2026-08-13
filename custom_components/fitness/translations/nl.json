@@ -2957,7 +2957,7 @@
         }
       },
       "estimated_recovery_time": {
-        "name": "Geschatte hersteltijd",
+        "name": "Tijd tot klaar voor de volgende training",
         "state_attributes": {
           "estimated_total_recovery_hours": {
             "name": "Geschat totaal herstel"
@@ -2966,10 +2966,10 @@
             "name": "Tijd sinds training"
           },
           "level": {
-            "name": "Herstelniveau"
+            "name": "Herstelstatus"
           },
           "level_display": {
-            "name": "Herstelniveau (vertaald)"
+            "name": "Herstelstatus (gelokaliseerd)"
           },
           "confidence_percent": {
             "name": "Betrouwbaarheid"
@@ -2986,11 +2986,8 @@
           "evidence": {
             "name": "Gebruikte gegevens"
           },
-          "base_candidates_hours": {
-            "name": "Schattingen op basis van trainingsbelasting"
-          },
           "recovery_modifiers": {
-            "name": "Persoonlijke herstelmodificatoren"
+            "name": "Persoonlijke herstelaanpassingen"
           },
           "data_source": {
             "name": "Gegevensbron"
@@ -3003,6 +3000,39 @@
           },
           "diagnostic_interpretation": {
             "name": "Diagnostische interpretatie"
+          },
+          "ready_for_next_workout_at": {
+            "name": "Klaar voor de volgende training rond"
+          },
+          "estimated_recovery_hours": {
+            "name": "Geschatte hersteltijd"
+          },
+          "estimated_recovery_low_hours": {
+            "name": "Geschat herstelbereik — laag"
+          },
+          "estimated_recovery_high_hours": {
+            "name": "Geschat herstelbereik — hoog"
+          },
+          "recovery_progress_percent": {
+            "name": "Herstelvoortgang"
+          },
+          "limiting_factor": {
+            "name": "Belangrijkste beperkende factor"
+          },
+          "recovery_signals": {
+            "name": "Herstelsignalen"
+          },
+          "workout_demand_components_hours": {
+            "name": "Componenten van trainingsbelasting"
+          },
+          "planning_interpretation": {
+            "name": "Interpretatie voor planning"
+          },
+          "physiological_recovery_interpretation": {
+            "name": "Interpretatie fysiologisch herstel"
+          },
+          "full_physiological_recovery_claimed": {
+            "name": "Volledig fysiologisch herstel geclaimd"
           }
         }
       }

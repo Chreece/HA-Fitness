@@ -40,7 +40,7 @@ def test_adaptation_is_integrated_into_training_load_card():
 def test_recovery_time_sensor_and_card_exist():
     assert 'key="estimated_recovery_time"' in SENSOR
     assert 'def recovery_time_evaluation' in MANAGER
-    assert 'fitness_evidence_informed_recovery_estimate_v1' in MANAGER
+    assert 'fitness_next_workout_recovery_estimate_v2' in MANAGER
     assert 'async_track_time_interval(hass, recovery_time_tick, timedelta(minutes=15))' in SENSOR
     recovery = JS[JS.index('class FitnessRecoveryCard'):JS.index('class FitnessTrainingAdaptationCard')]
     assert 'e.estimated_recovery_time' in recovery
@@ -57,7 +57,7 @@ def test_new_attributes_are_translated_in_every_language():
     needed_recovery = {
         'estimated_total_recovery_hours','elapsed_hours_since_workout','level','level_display',
         'confidence_percent','last_workout_start','last_workout_end','sport','evidence',
-        'base_candidates_hours','recovery_modifiers','data_source','method','formula',
+        'workout_demand_components_hours','recovery_modifiers','data_source','method','formula',
         'diagnostic_interpretation',
     }
     needed_adaptation = {

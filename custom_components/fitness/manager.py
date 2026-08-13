@@ -4920,17 +4920,17 @@ class FitnessManager:
         return max(low, min(high, float(value)))
 
     def recovery_time_evaluation(self) -> dict[str, Any]:
-        """Estimate hours remaining after the latest completed Fitness workout.
+        """Estimate readiness timing for the next workout.
 
-        This is an evidence-informed planning estimate, not a measurement of
-        complete physiological recovery. It combines workout-specific internal
-        load with current personal recovery signals and deliberately reports its
-        evidence and confidence instead of presenting false precision.
+        The state answers a practical planning question: approximately how many
+        hours remain until the user is likely recovered enough for another
+        workout of meaningful training value. It is intentionally not a claim
+        that every physiological system has fully returned to baseline.
+
+        The estimate combines the latest canonical workout dose with available
+        longitudinal recovery signals. Session-RPE/TRIMP are treated as evidence
+        about one recovery demand rather than as competing independent clocks.
         """
-        # Use the same canonical/latest workout view as the Workout device.
-        # The newest completed workout may currently exist only in an external
-        # adapter until Fitness has persisted/merged it into local history.
-        # Recovery time must therefore not depend on local history alone.
         latest = self.latest_workout()
         if latest is None or not latest.start:
             return {
@@ -4938,6 +4938,8 @@ class FitnessManager:
                 "reason": "no_completed_workout",
                 "confidence_percent": 0,
                 "data_source": "fitness_canonical_workout_history",
+                "method": "fitness_next_workout_recovery_estimate_v2",
+                "diagnostic_interpretation": False,
             }
 
         start = _dt(latest.start)
@@ -4947,7 +4949,10 @@ class FitnessManager:
                 "reason": "invalid_workout_time",
                 "confidence_percent": 0,
                 "data_source": "fitness_canonical_workout_history",
+                "method": "fitness_next_workout_recovery_estimate_v2",
+                "diagnostic_interpretation": False,
             }
+
         end = _dt(latest.end)
         if end is None:
             end = start + timedelta(seconds=float(latest.duration_s or 0))
@@ -4955,66 +4960,85 @@ class FitnessManager:
         elapsed_h = max(0.0, (now - end).total_seconds() / 3600.0)
         duration_min = max(0.0, float(latest.duration_s or 0) / 60.0)
 
-        candidates: list[tuple[str, float]] = []
         evidence: dict[str, Any] = {}
-        confidence = 20.0
+        demand_components: dict[str, float] = {}
+        confidence = 25.0
 
-        # Duration gives a conservative floor even when no HR/RPE was captured.
+        # A modest universal starting point: even a short workout has an acute
+        # recovery cost, but duration alone should not dictate the entire clock.
+        central_hours = 10.0
+
         if duration_min > 0:
-            duration_est = 8.0 + 0.25 * duration_min
-            candidates.append(("duration", duration_est))
+            duration_component = min(10.0, 0.135 * duration_min)
+            central_hours += duration_component
+            demand_components["duration"] = round(duration_component, 1)
             evidence["duration_minutes"] = round(duration_min, 1)
+            confidence += 10.0
 
+        rpe = None
         if latest.session_rpe is not None:
             rpe = max(1.0, min(10.0, float(latest.session_rpe)))
-            rpe_est = 8.0 + 3.0 * rpe
-            candidates.append(("session_rpe", rpe_est))
+            rpe_component = max(0.0, rpe - 3.0) * 1.7
+            central_hours += rpe_component
+            demand_components["session_rpe"] = round(rpe_component, 1)
             evidence["session_rpe"] = int(round(rpe))
             confidence += 20.0
 
+        # sRPE already contains duration and perceived effort. Use it only as a
+        # bounded refinement, not as a second full recovery-time equation.
         if latest.session_rpe_load is not None:
             rpe_load = max(0.0, float(latest.session_rpe_load))
-            load_est = 8.0 + 0.10 * rpe_load
-            candidates.append(("session_rpe_load", load_est))
+            srpe_component = min(4.0, rpe_load / 180.0)
+            central_hours += srpe_component
+            demand_components["session_rpe_load"] = round(srpe_component, 1)
             evidence["session_rpe_load"] = round(rpe_load, 1)
-            confidence += 15.0
+            confidence += 10.0
 
+        # TRIMP is another internal-load signal; again it refines rather than
+        # independently setting the recovery clock.
         if latest.banister_trimp is not None:
             trimp = max(0.0, float(latest.banister_trimp))
-            trimp_est = 10.0 + 0.25 * trimp
-            candidates.append(("banister_trimp", trimp_est))
+            trimp_component = min(4.0, trimp / 30.0)
+            central_hours += trimp_component
+            demand_components["banister_trimp"] = round(trimp_component, 1)
             evidence["banister_trimp"] = round(trimp, 1)
-            confidence += 10.0
+            confidence += 8.0
 
         vigorous_min = float(latest.time_vigorous_s or 0) / 60.0
         near_max_min = float(latest.time_near_maximal_s or 0) / 60.0
         if vigorous_min > 0 or near_max_min > 0:
-            intensity_est = 12.0 + 0.4 * vigorous_min + 0.9 * near_max_min
-            candidates.append(("high_intensity_time", intensity_est))
+            intensity_component = min(6.0, 0.10 * vigorous_min + 0.35 * near_max_min)
+            central_hours += intensity_component
+            demand_components["high_intensity_time"] = round(intensity_component, 1)
             evidence["vigorous_minutes"] = round(vigorous_min, 1)
             evidence["near_maximal_minutes"] = round(near_max_min, 1)
-            confidence += 10.0
+            confidence += 7.0
 
         sport = str(latest.sport or "").strip().lower()
-        if any(token in sport for token in ("strength", "weight", "resistance")):
-            strength_floor = 24.0
-            if latest.session_rpe is not None and float(latest.session_rpe) >= 8:
-                strength_floor = 36.0
-            candidates.append(("resistance_training_floor", strength_floor))
+        resistance_training = any(
+            token in sport for token in ("strength", "weight", "resistance")
+        )
+        if resistance_training:
+            # Resistance exercise can leave neuromuscular/muscular recovery
+            # requirements that are not fully represented by autonomic signals.
+            strength_component = 4.0
+            if rpe is not None and rpe >= 8:
+                strength_component += 4.0
+            central_hours += strength_component
+            demand_components["resistance_training"] = round(strength_component, 1)
             evidence["resistance_training"] = True
 
-        if not candidates:
-            candidates.append(("minimum_default", 12.0))
-
-        base_hours = max(value for _name, value in candidates)
-
-        # Current recovery state modifies, but never dominates, the workout dose.
+        # Personal recovery signals can move the estimate, but are deliberately
+        # bounded because no single HRV/RHR/readiness marker proves complete
+        # muscular, metabolic or connective-tissue recovery.
         readiness = self.readiness_evaluation()
         sleep = self.sleep_long_term_summary()
         recorder = self.recorder_long_term_evaluation()
         workout_long = self.workout_long_term_summary()
-        modifier = 1.0
+
+        adjustment = 1.0
         modifiers: list[dict[str, Any]] = []
+        recovery_signals: dict[str, str] = {}
 
         ready = readiness.get("score")
         if ready is not None:
@@ -5022,74 +5046,161 @@ class FitnessManager:
             evidence["readiness_score"] = round(ready, 1)
             confidence += 10.0
             if ready < 35:
-                modifier += 0.25; modifiers.append({"signal":"low_readiness","factor":1.25})
+                adjustment += 0.15
+                modifiers.append({"signal": "low_readiness", "factor": 1.15})
             elif ready < 50:
-                modifier += 0.15; modifiers.append({"signal":"reduced_readiness","factor":1.15})
+                adjustment += 0.08
+                modifiers.append({"signal": "reduced_readiness", "factor": 1.08})
             elif ready >= 85:
-                modifier -= 0.10; modifiers.append({"signal":"high_readiness","factor":0.90})
+                adjustment -= 0.06
+                modifiers.append({"signal": "high_readiness", "factor": 0.94})
+            elif ready >= 70:
+                adjustment -= 0.03
+                modifiers.append({"signal": "supportive_readiness", "factor": 0.97})
 
         hrv_delta = sleep.get("sleep_hrv_7d_vs_baseline_percent")
-        if hrv_delta is not None:
+        if hrv_delta is None:
+            recovery_signals["hrv"] = "insufficient_data"
+        else:
             hrv_delta = float(hrv_delta)
             evidence["hrv_7d_vs_baseline_percent"] = round(hrv_delta, 1)
             confidence += 8.0
             if hrv_delta <= -10:
-                modifier += 0.15; modifiers.append({"signal":"hrv_below_baseline","factor":1.15})
+                recovery_signals["hrv"] = "below_baseline"
+                adjustment += 0.10
+                modifiers.append({"signal": "hrv_below_baseline", "factor": 1.10})
             elif hrv_delta <= -5:
-                modifier += 0.07; modifiers.append({"signal":"hrv_slightly_below_baseline","factor":1.07})
+                recovery_signals["hrv"] = "slightly_below_baseline"
+                adjustment += 0.04
+                modifiers.append({"signal": "hrv_slightly_below_baseline", "factor": 1.04})
             elif hrv_delta >= 5:
-                modifier -= 0.05; modifiers.append({"signal":"hrv_above_baseline","factor":0.95})
+                recovery_signals["hrv"] = "above_baseline"
+                adjustment -= 0.03
+                modifiers.append({"signal": "hrv_above_baseline", "factor": 0.97})
+            else:
+                recovery_signals["hrv"] = "near_baseline"
 
         rhr_delta = recorder.get("resting_hr_vs_28d")
-        if rhr_delta is not None:
+        if rhr_delta is None:
+            recovery_signals["resting_hr"] = "insufficient_data"
+        else:
             rhr_delta = float(rhr_delta)
             evidence["resting_hr_vs_28d_bpm"] = round(rhr_delta, 1)
             confidence += 7.0
             if rhr_delta >= 5:
-                modifier += 0.10; modifiers.append({"signal":"resting_hr_elevated","factor":1.10})
+                recovery_signals["resting_hr"] = "above_baseline"
+                adjustment += 0.08
+                modifiers.append({"signal": "resting_hr_elevated", "factor": 1.08})
             elif rhr_delta >= 3:
-                modifier += 0.05; modifiers.append({"signal":"resting_hr_slightly_elevated","factor":1.05})
+                recovery_signals["resting_hr"] = "slightly_above_baseline"
+                adjustment += 0.04
+                modifiers.append({"signal": "resting_hr_slightly_elevated", "factor": 1.04})
+            elif rhr_delta <= -2:
+                recovery_signals["resting_hr"] = "supportive"
+                adjustment -= 0.02
+                modifiers.append({"signal": "resting_hr_supportive", "factor": 0.98})
+            else:
+                recovery_signals["resting_hr"] = "near_baseline"
 
         hrr_delta = workout_long.get("hrr_60s_latest_vs_90d_bpm")
-        if hrr_delta is not None:
+        if hrr_delta is None:
+            recovery_signals["hrr"] = "insufficient_data"
+        else:
             hrr_delta = float(hrr_delta)
             evidence["hrr_60s_vs_personal_baseline_bpm"] = round(hrr_delta, 1)
             confidence += 5.0
             if hrr_delta <= -5:
-                modifier += 0.10; modifiers.append({"signal":"hrr_below_baseline","factor":1.10})
+                recovery_signals["hrr"] = "below_baseline"
+                adjustment += 0.05
+                modifiers.append({"signal": "hrr_below_baseline", "factor": 1.05})
             elif hrr_delta >= 5:
-                modifier -= 0.05; modifiers.append({"signal":"hrr_above_baseline","factor":0.95})
+                recovery_signals["hrr"] = "above_baseline"
+                adjustment -= 0.02
+                modifiers.append({"signal": "hrr_above_baseline", "factor": 0.98})
+            else:
+                recovery_signals["hrr"] = "near_baseline"
 
-        modifier = max(0.75, min(1.50, modifier))
-        total_hours = max(8.0, min(72.0, base_hours * modifier))
-        remaining = max(0.0, total_hours - elapsed_h)
+        sleep_component = (readiness.get("components") or {}).get("sleep") or {}
+        sleep_component_score = sleep_component.get("score")
+        if sleep_component_score is None:
+            recovery_signals["sleep"] = "insufficient_data"
+        else:
+            sleep_component_score = float(sleep_component_score)
+            evidence["sleep_recovery_score"] = round(sleep_component_score, 1)
+            if sleep_component_score >= 75:
+                recovery_signals["sleep"] = "supportive"
+            elif sleep_component_score < 50:
+                recovery_signals["sleep"] = "reduced"
+            else:
+                recovery_signals["sleep"] = "neutral"
+
+        adjustment = max(0.82, min(1.30, adjustment))
+        central_hours = max(8.0, min(60.0, central_hours * adjustment))
+
+        # A range is more honest than a single exact physiological clock. The
+        # central estimate drives planning; the range communicates uncertainty.
+        range_fraction = 0.16 if confidence >= 80 else 0.22 if confidence >= 60 else 0.28
+        low_hours = max(6.0, central_hours * (1.0 - range_fraction))
+        high_hours = min(72.0, central_hours * (1.0 + range_fraction))
+
+        remaining = max(0.0, central_hours - elapsed_h)
+        progress = 100.0 if central_hours <= 0 else max(
+            0.0, min(100.0, elapsed_h / central_hours * 100.0)
+        )
+        ready_at = end + timedelta(hours=central_hours)
 
         if remaining <= 0:
-            level = "recovered_estimate"
-        elif remaining <= 12:
-            level = "nearly_recovered"
-        elif remaining <= 24:
+            level = "ready"
+        elif remaining <= 6:
+            level = "nearly_ready"
+        elif remaining <= 18:
             level = "recovering"
-        elif remaining <= 48:
+        elif remaining <= 36:
             level = "substantial_recovery"
         else:
             level = "high_recovery_demand"
 
+        limiting_factor = "workout_dose"
+        if resistance_training:
+            limiting_factor = "muscular_recovery"
+        if recovery_signals.get("hrv") == "below_baseline":
+            limiting_factor = "autonomic_recovery"
+        if recovery_signals.get("sleep") == "reduced":
+            limiting_factor = "sleep_recovery"
+        if ready is not None and ready < 35:
+            limiting_factor = "overall_readiness"
+
         return {
             "remaining_hours": round(remaining, 1),
-            "estimated_total_recovery_hours": round(total_hours, 1),
+            "ready_for_next_workout_at": ready_at.isoformat(),
+            # Backward-compatible alias retained for existing automations/UI
+            # while v2 uses estimated_recovery_hours as the canonical name.
+            "estimated_total_recovery_hours": round(central_hours, 1),
+            "estimated_recovery_hours": round(central_hours, 1),
+            "estimated_recovery_low_hours": round(low_hours, 1),
+            "estimated_recovery_high_hours": round(high_hours, 1),
             "elapsed_hours_since_workout": round(elapsed_h, 1),
+            "recovery_progress_percent": round(progress, 0),
             "level": level,
             "confidence_percent": round(min(100.0, confidence), 0),
+            "limiting_factor": limiting_factor,
+            "recovery_signals": recovery_signals,
             "last_workout_start": latest.start,
             "last_workout_end": end.isoformat(),
             "sport": latest.sport,
             "evidence": evidence,
-            "base_candidates_hours": {name: round(value, 1) for name, value in candidates},
+            "workout_demand_components_hours": demand_components,
             "recovery_modifiers": modifiers,
             "data_source": "fitness_canonical_workout_and_recovery_history",
-            "method": "fitness_evidence_informed_recovery_estimate_v1",
-            "formula": "max(workout-dose recovery candidates) × bounded personal recovery modifier − elapsed time; result clamped to 0–72 h",
+            "method": "fitness_next_workout_recovery_estimate_v2",
+            "formula": (
+                "bounded workout-dose model (duration + RPE + bounded sRPE/TRIMP "
+                "+ intensity + sport context) × bounded personal recovery adjustment; "
+                "remaining time = central estimate − elapsed time"
+            ),
+            "planning_interpretation": "ready_for_next_workout_estimate",
+            "physiological_recovery_interpretation": "available_markers_only",
+            "full_physiological_recovery_claimed": False,
             "diagnostic_interpretation": False,
         }
 

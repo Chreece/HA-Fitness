@@ -2957,7 +2957,7 @@
         }
       },
       "estimated_recovery_time": {
-        "name": "Εκτιμώμενος χρόνος αποκατάστασης",
+        "name": "Χρόνος μέχρι να είσαι έτοιμος για την επόμενη προπόνηση",
         "state_attributes": {
           "estimated_total_recovery_hours": {
             "name": "Εκτιμώμενη συνολική αποκατάσταση"
@@ -2966,10 +2966,10 @@
             "name": "Χρόνος από την προπόνηση"
           },
           "level": {
-            "name": "Επίπεδο αποκατάστασης"
+            "name": "Κατάσταση αποκατάστασης"
           },
           "level_display": {
-            "name": "Επίπεδο αποκατάστασης (μεταφρασμένο)"
+            "name": "Κατάσταση αποκατάστασης (μεταφρασμένη)"
           },
           "confidence_percent": {
             "name": "Βεβαιότητα"
@@ -2986,11 +2986,8 @@
           "evidence": {
             "name": "Δεδομένα που χρησιμοποιήθηκαν"
           },
-          "base_candidates_hours": {
-            "name": "Εκτιμήσεις από το φορτίο προπόνησης"
-          },
           "recovery_modifiers": {
-            "name": "Προσωπικοί τροποποιητές αποκατάστασης"
+            "name": "Προσωπικές προσαρμογές αποκατάστασης"
           },
           "data_source": {
             "name": "Πηγή δεδομένων"
@@ -3003,6 +3000,39 @@
           },
           "diagnostic_interpretation": {
             "name": "Διαγνωστική ερμηνεία"
+          },
+          "ready_for_next_workout_at": {
+            "name": "Έτοιμος για την επόμενη προπόνηση περίπου στις"
+          },
+          "estimated_recovery_hours": {
+            "name": "Εκτιμώμενος χρόνος αποκατάστασης"
+          },
+          "estimated_recovery_low_hours": {
+            "name": "Εκτιμώμενο εύρος αποκατάστασης — κάτω όριο"
+          },
+          "estimated_recovery_high_hours": {
+            "name": "Εκτιμώμενο εύρος αποκατάστασης — άνω όριο"
+          },
+          "recovery_progress_percent": {
+            "name": "Πρόοδος αποκατάστασης"
+          },
+          "limiting_factor": {
+            "name": "Κύριος περιοριστικός παράγοντας"
+          },
+          "recovery_signals": {
+            "name": "Σήματα αποκατάστασης"
+          },
+          "workout_demand_components_hours": {
+            "name": "Συνιστώσες επιβάρυνσης προπόνησης"
+          },
+          "planning_interpretation": {
+            "name": "Ερμηνεία για προγραμματισμό"
+          },
+          "physiological_recovery_interpretation": {
+            "name": "Ερμηνεία φυσιολογικής αποκατάστασης"
+          },
+          "full_physiological_recovery_claimed": {
+            "name": "Δηλώνεται πλήρης φυσιολογική αποκατάσταση"
           }
         }
       }

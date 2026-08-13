@@ -2957,7 +2957,7 @@
         }
       },
       "estimated_recovery_time": {
-        "name": "Estimated recovery time",
+        "name": "Time until ready for next workout",
         "state_attributes": {
           "estimated_total_recovery_hours": {
             "name": "Estimated total recovery"
@@ -2966,10 +2966,10 @@
             "name": "Time since workout"
           },
           "level": {
-            "name": "Recovery level"
+            "name": "Recovery state"
           },
           "level_display": {
-            "name": "Recovery level (localized)"
+            "name": "Recovery state (localized)"
           },
           "confidence_percent": {
             "name": "Confidence"
@@ -2986,11 +2986,8 @@
           "evidence": {
             "name": "Evidence used"
           },
-          "base_candidates_hours": {
-            "name": "Workout-dose estimates"
-          },
           "recovery_modifiers": {
-            "name": "Personal recovery modifiers"
+            "name": "Personal recovery adjustments"
           },
           "data_source": {
             "name": "Data source"
@@ -3003,6 +3000,39 @@
           },
           "diagnostic_interpretation": {
             "name": "Diagnostic interpretation"
+          },
+          "ready_for_next_workout_at": {
+            "name": "Ready for next workout at"
+          },
+          "estimated_recovery_hours": {
+            "name": "Estimated recovery time"
+          },
+          "estimated_recovery_low_hours": {
+            "name": "Estimated recovery range — low"
+          },
+          "estimated_recovery_high_hours": {
+            "name": "Estimated recovery range — high"
+          },
+          "recovery_progress_percent": {
+            "name": "Recovery progress"
+          },
+          "limiting_factor": {
+            "name": "Main recovery limiter"
+          },
+          "recovery_signals": {
+            "name": "Recovery signals"
+          },
+          "workout_demand_components_hours": {
+            "name": "Workout-demand components"
+          },
+          "planning_interpretation": {
+            "name": "Planning interpretation"
+          },
+          "physiological_recovery_interpretation": {
+            "name": "Physiological recovery interpretation"
+          },
+          "full_physiological_recovery_claimed": {
+            "name": "Full physiological recovery claimed"
           }
         }
       }

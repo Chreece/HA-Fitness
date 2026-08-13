@@ -2957,19 +2957,19 @@
         }
       },
       "estimated_recovery_time": {
-        "name": "Tahmini toparlanma süresi",
+        "name": "Bir sonraki antrenmana hazır olana kadar",
         "state_attributes": {
           "estimated_total_recovery_hours": {
             "name": "Tahmini toplam toparlanma"
           },
           "elapsed_hours_since_workout": {
-            "name": "Antrenmandan geçen süre"
+            "name": "Antrenmandan beri geçen süre"
           },
           "level": {
-            "name": "Toparlanma seviyesi"
+            "name": "Toparlanma durumu"
           },
           "level_display": {
-            "name": "Toparlanma seviyesi (çeviri)"
+            "name": "Toparlanma durumu (yerelleştirilmiş)"
           },
           "confidence_percent": {
             "name": "Güven"
@@ -2984,13 +2984,10 @@
             "name": "Antrenman türü"
           },
           "evidence": {
-            "name": "Kullanılan kanıtlar"
-          },
-          "base_candidates_hours": {
-            "name": "Antrenman yükü tahminleri"
+            "name": "Kullanılan veriler"
           },
           "recovery_modifiers": {
-            "name": "Kişisel toparlanma düzenleyicileri"
+            "name": "Kişisel toparlanma düzeltmeleri"
           },
           "data_source": {
             "name": "Veri kaynağı"
@@ -3003,6 +3000,39 @@
           },
           "diagnostic_interpretation": {
             "name": "Tanısal yorum"
+          },
+          "ready_for_next_workout_at": {
+            "name": "Bir sonraki antrenmana yaklaşık hazır olma zamanı"
+          },
+          "estimated_recovery_hours": {
+            "name": "Tahmini toparlanma süresi"
+          },
+          "estimated_recovery_low_hours": {
+            "name": "Tahmini toparlanma aralığı — alt"
+          },
+          "estimated_recovery_high_hours": {
+            "name": "Tahmini toparlanma aralığı — üst"
+          },
+          "recovery_progress_percent": {
+            "name": "Toparlanma ilerlemesi"
+          },
+          "limiting_factor": {
+            "name": "Ana sınırlayıcı etken"
+          },
+          "recovery_signals": {
+            "name": "Toparlanma sinyalleri"
+          },
+          "workout_demand_components_hours": {
+            "name": "Antrenman yükü bileşenleri"
+          },
+          "planning_interpretation": {
+            "name": "Planlama yorumu"
+          },
+          "physiological_recovery_interpretation": {
+            "name": "Fizyolojik toparlanma yorumu"
+          },
+          "full_physiological_recovery_claimed": {
+            "name": "Tam fizyolojik toparlanma iddiası"
           }
         }
       }

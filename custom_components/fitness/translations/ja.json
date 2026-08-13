@@ -2957,40 +2957,37 @@
         }
       },
       "estimated_recovery_time": {
-        "name": "推定回復時間",
+        "name": "次のトレーニングに備うまでの時間",
         "state_attributes": {
           "estimated_total_recovery_hours": {
             "name": "推定総回復時間"
           },
           "elapsed_hours_since_workout": {
-            "name": "ワークアウト後の経過時間"
+            "name": "トレーニングからの経過時間"
           },
           "level": {
-            "name": "回復レベル"
+            "name": "回復状態"
           },
           "level_display": {
-            "name": "回復レベル（ローカライズ）"
+            "name": "回復状態（ローカライズ）"
           },
           "confidence_percent": {
             "name": "信頼度"
           },
           "last_workout_start": {
-            "name": "直近ワークアウト開始"
+            "name": "前回トレーニング開始"
           },
           "last_workout_end": {
-            "name": "直近ワークアウト終了"
+            "name": "前回トレーニング終了"
           },
           "sport": {
-            "name": "ワークアウト種別"
+            "name": "トレーニング種別"
           },
           "evidence": {
-            "name": "使用したエビデンス"
-          },
-          "base_candidates_hours": {
-            "name": "ワークアウト負荷による推定"
+            "name": "使用データ"
           },
           "recovery_modifiers": {
-            "name": "個人回復補正"
+            "name": "個人回復調整"
           },
           "data_source": {
             "name": "データソース"
@@ -3003,6 +3000,39 @@
           },
           "diagnostic_interpretation": {
             "name": "診断的解釈"
+          },
+          "ready_for_next_workout_at": {
+            "name": "次のトレーニングに備う目安時刻"
+          },
+          "estimated_recovery_hours": {
+            "name": "推定回復時間"
+          },
+          "estimated_recovery_low_hours": {
+            "name": "推定回復範囲 — 下限"
+          },
+          "estimated_recovery_high_hours": {
+            "name": "推定回復範囲 — 上限"
+          },
+          "recovery_progress_percent": {
+            "name": "回復進捗"
+          },
+          "limiting_factor": {
+            "name": "主な回復制限要因"
+          },
+          "recovery_signals": {
+            "name": "回復シグナル"
+          },
+          "workout_demand_components_hours": {
+            "name": "トレーニング負荷の構成"
+          },
+          "planning_interpretation": {
+            "name": "計画上の解釈"
+          },
+          "physiological_recovery_interpretation": {
+            "name": "生理学的回復の解釈"
+          },
+          "full_physiological_recovery_claimed": {
+            "name": "完全な生理学的回復を主張"
           }
         }
       }

@@ -2957,7 +2957,7 @@
         }
       },
       "estimated_recovery_time": {
-        "name": "Szacowany czas regeneracji",
+        "name": "Czas do gotowości na kolejny trening",
         "state_attributes": {
           "estimated_total_recovery_hours": {
             "name": "Szacowana pełna regeneracja"
@@ -2966,10 +2966,10 @@
             "name": "Czas od treningu"
           },
           "level": {
-            "name": "Poziom regeneracji"
+            "name": "Stan regeneracji"
           },
           "level_display": {
-            "name": "Poziom regeneracji (przetłumaczony)"
+            "name": "Stan regeneracji (zlokalizowany)"
           },
           "confidence_percent": {
             "name": "Pewność"
@@ -2984,13 +2984,10 @@
             "name": "Typ treningu"
           },
           "evidence": {
-            "name": "Wykorzystane dane"
-          },
-          "base_candidates_hours": {
-            "name": "Szacunki z obciążenia treningowego"
+            "name": "Użyte dane"
           },
           "recovery_modifiers": {
-            "name": "Indywidualne modyfikatory regeneracji"
+            "name": "Osobiste korekty regeneracji"
           },
           "data_source": {
             "name": "Źródło danych"
@@ -3003,6 +3000,39 @@
           },
           "diagnostic_interpretation": {
             "name": "Interpretacja diagnostyczna"
+          },
+          "ready_for_next_workout_at": {
+            "name": "Gotowość do kolejnego treningu około"
+          },
+          "estimated_recovery_hours": {
+            "name": "Szacowany czas regeneracji"
+          },
+          "estimated_recovery_low_hours": {
+            "name": "Szacowany zakres regeneracji — minimum"
+          },
+          "estimated_recovery_high_hours": {
+            "name": "Szacowany zakres regeneracji — maksimum"
+          },
+          "recovery_progress_percent": {
+            "name": "Postęp regeneracji"
+          },
+          "limiting_factor": {
+            "name": "Główny czynnik ograniczający"
+          },
+          "recovery_signals": {
+            "name": "Sygnały regeneracji"
+          },
+          "workout_demand_components_hours": {
+            "name": "Składniki obciążenia treningowego"
+          },
+          "planning_interpretation": {
+            "name": "Interpretacja planistyczna"
+          },
+          "physiological_recovery_interpretation": {
+            "name": "Interpretacja regeneracji fizjologicznej"
+          },
+          "full_physiological_recovery_claimed": {
+            "name": "Deklarowane pełne odzyskanie fizjologiczne"
           }
         }
       }

@@ -2957,7 +2957,7 @@
         }
       },
       "estimated_recovery_time": {
-        "name": "Tempo de recuperação estimado",
+        "name": "Tempo até estar pronto para o próximo treino",
         "state_attributes": {
           "estimated_total_recovery_hours": {
             "name": "Recuperação total estimada"
@@ -2966,10 +2966,10 @@
             "name": "Tempo desde o treino"
           },
           "level": {
-            "name": "Nível de recuperação"
+            "name": "Estado de recuperação"
           },
           "level_display": {
-            "name": "Nível de recuperação (traduzido)"
+            "name": "Estado de recuperação (localizado)"
           },
           "confidence_percent": {
             "name": "Confiança"
@@ -2984,13 +2984,10 @@
             "name": "Tipo de treino"
           },
           "evidence": {
-            "name": "Evidência utilizada"
-          },
-          "base_candidates_hours": {
-            "name": "Estimativas pela carga do treino"
+            "name": "Dados utilizados"
           },
           "recovery_modifiers": {
-            "name": "Modificadores pessoais de recuperação"
+            "name": "Ajustes pessoais de recuperação"
           },
           "data_source": {
             "name": "Fonte de dados"
@@ -3003,6 +3000,39 @@
           },
           "diagnostic_interpretation": {
             "name": "Interpretação diagnóstica"
+          },
+          "ready_for_next_workout_at": {
+            "name": "Pronto para o próximo treino por volta de"
+          },
+          "estimated_recovery_hours": {
+            "name": "Tempo de recuperação estimado"
+          },
+          "estimated_recovery_low_hours": {
+            "name": "Intervalo estimado de recuperação — mínimo"
+          },
+          "estimated_recovery_high_hours": {
+            "name": "Intervalo estimado de recuperação — máximo"
+          },
+          "recovery_progress_percent": {
+            "name": "Progresso da recuperação"
+          },
+          "limiting_factor": {
+            "name": "Principal fator limitante"
+          },
+          "recovery_signals": {
+            "name": "Sinais de recuperação"
+          },
+          "workout_demand_components_hours": {
+            "name": "Componentes da exigência do treino"
+          },
+          "planning_interpretation": {
+            "name": "Interpretação para planeamento"
+          },
+          "physiological_recovery_interpretation": {
+            "name": "Interpretação da recuperação fisiológica"
+          },
+          "full_physiological_recovery_claimed": {
+            "name": "Recuperação fisiológica completa afirmada"
           }
         }
       }

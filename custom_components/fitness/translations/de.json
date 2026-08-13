@@ -2957,7 +2957,7 @@
         }
       },
       "estimated_recovery_time": {
-        "name": "Geschätzte Erholungszeit",
+        "name": "Zeit bis zur Bereitschaft fürs nächste Training",
         "state_attributes": {
           "estimated_total_recovery_hours": {
             "name": "Geschätzte Gesamterholung"
@@ -2966,31 +2966,28 @@
             "name": "Zeit seit dem Training"
           },
           "level": {
-            "name": "Erholungsstufe"
+            "name": "Erholungsstatus"
           },
           "level_display": {
-            "name": "Erholungsstufe (übersetzt)"
+            "name": "Erholungsstatus (lokalisiert)"
           },
           "confidence_percent": {
             "name": "Konfidenz"
           },
           "last_workout_start": {
-            "name": "Start des letzten Trainings"
+            "name": "Beginn des letzten Trainings"
           },
           "last_workout_end": {
             "name": "Ende des letzten Trainings"
           },
           "sport": {
-            "name": "Trainingstyp"
+            "name": "Trainingsart"
           },
           "evidence": {
             "name": "Verwendete Evidenz"
           },
-          "base_candidates_hours": {
-            "name": "Belastungsbasierte Schätzungen"
-          },
           "recovery_modifiers": {
-            "name": "Persönliche Erholungsmodifikatoren"
+            "name": "Persönliche Erholungsanpassungen"
           },
           "data_source": {
             "name": "Datenquelle"
@@ -3003,6 +3000,39 @@
           },
           "diagnostic_interpretation": {
             "name": "Diagnostische Interpretation"
+          },
+          "ready_for_next_workout_at": {
+            "name": "Bereit fürs nächste Training etwa um"
+          },
+          "estimated_recovery_hours": {
+            "name": "Geschätzte Erholungszeit"
+          },
+          "estimated_recovery_low_hours": {
+            "name": "Geschätzter Erholungsbereich — Untergrenze"
+          },
+          "estimated_recovery_high_hours": {
+            "name": "Geschätzter Erholungsbereich — Obergrenze"
+          },
+          "recovery_progress_percent": {
+            "name": "Erholungsfortschritt"
+          },
+          "limiting_factor": {
+            "name": "Hauptlimit der Erholung"
+          },
+          "recovery_signals": {
+            "name": "Erholungssignale"
+          },
+          "workout_demand_components_hours": {
+            "name": "Komponenten der Trainingsbelastung"
+          },
+          "planning_interpretation": {
+            "name": "Planungsinterpretation"
+          },
+          "physiological_recovery_interpretation": {
+            "name": "Interpretation physiologischer Erholung"
+          },
+          "full_physiological_recovery_claimed": {
+            "name": "Vollständige physiologische Erholung beansprucht"
           }
         }
       }

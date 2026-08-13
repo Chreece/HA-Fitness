@@ -1314,13 +1314,69 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
     const hrvVs = _fitnessNumber(_fitnessAttr(autonomic, "sleep_hrv_vs_28d_percent"));
     const rhrVs = _fitnessNumber(_fitnessAttr(autonomic, "resting_hr_vs_28d_bpm"));
 
-    this.shadowRoot.innerHTML = `<ha-card class="tone-${tone}">
+    const remaining = _fitnessNumber(recoveryTime?.state);
+    const readyAtRaw = _fitnessAttr(recoveryTime, "ready_for_next_workout_at");
+    const recoveryLow = _fitnessNumber(_fitnessAttr(recoveryTime, "estimated_recovery_low_hours"));
+    const recoveryHigh = _fitnessNumber(_fitnessAttr(recoveryTime, "estimated_recovery_high_hours"));
+    const recoveryProgress = _fitnessNumber(_fitnessAttr(recoveryTime, "recovery_progress_percent"));
+    const recoveryConfidence = _fitnessNumber(_fitnessAttr(recoveryTime, "confidence_percent"));
+    const recoveryLevel = String(_fitnessAttr(recoveryTime, "level") || "recovering");
+    const recoverySignals = _fitnessAttr(recoveryTime, "recovery_signals") || {};
+    const readyAt = readyAtRaw ? new Date(readyAtRaw) : null;
+    const readyAtText = readyAt && !Number.isNaN(readyAt.getTime())
+      ? new Intl.DateTimeFormat(this._hass.language || undefined, {
+          weekday:"short", hour:"2-digit", minute:"2-digit"
+        }).format(readyAt)
+      : "—";
+    const recoveryTones = {
+      ready:"#2e7d32", nearly_ready:"#7cb342", recovering:"#f9a825",
+      substantial_recovery:"#ef6c00", high_recovery_demand:"#c62828"
+    };
+    const recoveryTone = recoveryTones[recoveryLevel] || recoveryTones.recovering;
+    const recoveryPct = recoveryProgress == null ? 0 : Math.max(0, Math.min(100, recoveryProgress));
+
+    const signalLabels = {
+      hrv:"HRV", resting_hr:"RHR", hrr:"HRR", sleep:rtext.sleep
+    };
+    const signalIcons = {
+      supportive:"✓", near_baseline:"✓", above_baseline:"↑",
+      slightly_below_baseline:"↘", below_baseline:"↓",
+      slightly_above_baseline:"↗", reduced:"↓", neutral:"•",
+      insufficient_data:"?"
+    };
+    const signalRows = Object.entries(recoverySignals).map(([key,value]) => {
+      const code = String(value || "insufficient_data");
+      return `<span class="signal signal-${_fitnessEscape(code)}"><b>${_fitnessEscape(signalIcons[code] || "•")}</b>${_fitnessEscape(signalLabels[key] || key)}</span>`;
+    }).join("");
+
+    this.shadowRoot.innerHTML = `<ha-card class="tone-${tone}" style="--recovery:${recoveryTone}">
       <div class="title">${_fitnessEscape(this.config.title || l.recovery_snapshot || "Recovery snapshot")}</div>
-      <div class="readiness-hero entity-link" data-more-info="${_fitnessEscape(e.readiness || "")}">
-        <div class="readiness-ring" style="--p:${bounded * 3.6}deg"><div><strong>${score == null ? "—" : score.toFixed(0)}</strong><span>/ 100</span></div></div>
-        <div class="readiness-copy"><small>${_fitnessEscape(readinessName)}</small><strong>${_fitnessEscape(levelText)}</strong>${confidence == null ? "" : `<span>${confidence.toFixed(0)}% ${_fitnessEscape(rtext.confidence)}</span>`}</div>
+      <div class="dual-hero">
+        <div class="readiness-hero entity-link" data-more-info="${_fitnessEscape(e.readiness || "")}">
+          <div class="readiness-ring" style="--p:${bounded * 3.6}deg"><div><strong>${score == null ? "—" : score.toFixed(0)}</strong><span>/ 100</span></div></div>
+          <div class="readiness-copy"><small>${_fitnessEscape(readinessName)}</small><strong>${_fitnessEscape(levelText)}</strong>${confidence == null ? "" : `<span>${confidence.toFixed(0)}% ${_fitnessEscape(rtext.confidence)}</span>`}</div>
+        </div>
+        ${recoveryTime ? `<div class="recovery-hero entity-link" data-more-info="${_fitnessEscape(e.estimated_recovery_time || "")}">
+          <div class="recovery-ring" style="--rp:${recoveryPct * 3.6}deg"><div><strong>${remaining == null ? "—" : remaining <= 0 ? "✓" : `~${Math.round(remaining)}`}</strong><span>${remaining != null && remaining > 0 ? _fitnessEscape(l.hours_short || "h") : ""}</span></div></div>
+          <div class="recovery-copy">
+            <small>${_fitnessEscape(l.next_workout || "Ready for next workout")}</small>
+            <strong>${remaining != null && remaining <= 0 ? _fitnessEscape(l.ready_now || "Ready for next workout") : `${remaining == null ? "—" : `~${Math.round(remaining)} ${_fitnessEscape(l.hours_short || "h")}`}`}</strong>
+            ${remaining != null && remaining > 0 ? `<span>${_fitnessEscape(l.ready_at || "Ready around")} <b>${_fitnessEscape(readyAtText)}</b></span>` : ""}
+            ${recoveryConfidence == null ? "" : `<span>${recoveryConfidence.toFixed(0)}% ${_fitnessEscape(l.confidence_short || "confidence")}</span>`}
+          </div>
+        </div>` : ""}
       </div>
       ${componentRows ? `<div class="components entity-link" data-more-info="${_fitnessEscape(e.readiness || "")}">${componentRows}</div>` : ""}
+      ${recoveryTime ? `<div class="recovery-detail entity-link" data-more-info="${_fitnessEscape(e.estimated_recovery_time || "")}">
+        <div class="recovery-progress-head"><span>${_fitnessEscape(l.recovery_progress_label || "Recovery progress")}</span><strong>${recoveryPct.toFixed(0)}%</strong></div>
+        <div class="recovery-progress"><i style="width:${recoveryPct}%"></i></div>
+        <div class="recovery-meta">
+          <span>${_fitnessEscape(l.recovery_window || "Estimated recovery window")}</span>
+          <strong>${recoveryLow == null || recoveryHigh == null ? "—" : `~${Math.round(recoveryLow)}–${Math.round(recoveryHigh)} ${_fitnessEscape(l.hours_short || "h")}`}</strong>
+        </div>
+        ${signalRows ? `<div class="signal-head">${_fitnessEscape(l.recovery_signals_label || "Recovery signals")}</div><div class="signals">${signalRows}</div>` : ""}
+        <div class="physio-note">${_fitnessEscape(l.physio_note || "Available physiological markers may recover at different rates.")}</div>
+      </div>` : ""}
       <div class="context">
         ${hrvVs == null ? "" : `<span>HRV ${hrvVs > 0 ? "+" : ""}${hrvVs.toFixed(1)}% ${_fitnessEscape(rtext.vs28)}</span>`}
         ${rhrVs == null ? "" : `<span>RHR ${rhrVs > 0 ? "+" : ""}${rhrVs.toFixed(1)} bpm ${_fitnessEscape(rtext.vs28)}</span>`}
@@ -1329,20 +1385,34 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
         ${this._sleepScoreMetric(l.sleep_score || "Sleep score", sleepScore, e.last_sleep_score)}
         ${this._metric(l.sleep_duration || "Sleep duration", effectiveSleepDuration, true, e.last_sleep_duration)}
         ${this._metric(l.sleep_hrv || "Sleep HRV", sleepHrv, false, e.last_sleep_hrv)}
-        ${recoveryTime ? this._metric(entityName(this._hass, e.estimated_recovery_time), recoveryTime, false, e.estimated_recovery_time) : ""}
         ${this._metric(l.sleep_deficit || "7-day sleep deficit", deficit, true, e.sleep_deficit_7d)}
       </div>
     </ha-card><style>
       ha-card{padding:18px;--readiness:#78909c;--readiness-soft:color-mix(in srgb,var(--readiness) 14%,transparent)}
       ha-card.tone-excellent{--readiness:#2e7d32}ha-card.tone-high{--readiness:#00897b}ha-card.tone-moderate{--readiness:#f9a825}ha-card.tone-low{--readiness:#ef6c00}ha-card.tone-very-low{--readiness:#c62828}
       .entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}
-      .title{font-size:19px;font-weight:650}.readiness-hero{display:grid;grid-template-columns:116px minmax(0,1fr);align-items:center;gap:18px;margin-top:16px;padding:14px;border-radius:18px;background:linear-gradient(135deg,var(--readiness-soft),var(--secondary-background-color))}
-      .readiness-ring{width:104px;height:104px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--readiness) var(--p),color-mix(in srgb,var(--readiness) 16%,var(--secondary-background-color)) 0);box-shadow:0 0 0 1px color-mix(in srgb,var(--readiness) 25%,transparent)}.readiness-ring>div{width:76px;height:76px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color));display:flex;align-items:baseline;justify-content:center}.readiness-ring strong{font-size:31px;line-height:76px;color:var(--readiness)}.readiness-ring span{font-size:10px;color:var(--secondary-text-color);margin-left:2px}
-      .readiness-copy{min-width:0}.readiness-copy small{display:block;color:var(--secondary-text-color);font-size:11px}.readiness-copy strong{display:block;color:var(--readiness);font-size:24px;line-height:1.15;margin-top:3px;overflow-wrap:normal;word-break:normal}.readiness-copy span{display:block;color:var(--secondary-text-color);font-size:11px;line-height:1.35;margin-top:7px}
+      .title{font-size:19px;font-weight:650}
+      .dual-hero{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}
+      .readiness-hero,.recovery-hero{display:grid;grid-template-columns:96px minmax(0,1fr);align-items:center;gap:12px;padding:13px;border-radius:18px;min-width:0}
+      .readiness-hero{background:linear-gradient(135deg,var(--readiness-soft),var(--secondary-background-color))}
+      .recovery-hero{background:linear-gradient(135deg,color-mix(in srgb,var(--recovery) 14%,transparent),var(--secondary-background-color))}
+      .readiness-ring,.recovery-ring{width:88px;height:88px;border-radius:50%;display:grid;place-items:center}
+      .readiness-ring{background:conic-gradient(var(--readiness) var(--p),color-mix(in srgb,var(--readiness) 16%,var(--secondary-background-color)) 0);box-shadow:0 0 0 1px color-mix(in srgb,var(--readiness) 25%,transparent)}
+      .recovery-ring{background:conic-gradient(var(--recovery) var(--rp),color-mix(in srgb,var(--recovery) 16%,var(--secondary-background-color)) 0);box-shadow:0 0 0 1px color-mix(in srgb,var(--recovery) 25%,transparent)}
+      .readiness-ring>div,.recovery-ring>div{width:64px;height:64px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color));display:flex;align-items:baseline;justify-content:center}
+      .readiness-ring strong,.recovery-ring strong{font-size:25px;line-height:64px}.readiness-ring strong{color:var(--readiness)}.recovery-ring strong{color:var(--recovery)}
+      .readiness-ring span,.recovery-ring span{font-size:9px;color:var(--secondary-text-color);margin-left:2px}
+      .readiness-copy,.recovery-copy{min-width:0}.readiness-copy small,.recovery-copy small{display:block;color:var(--secondary-text-color);font-size:10px;line-height:1.3}.readiness-copy strong,.recovery-copy strong{display:block;font-size:20px;line-height:1.15;margin-top:3px;overflow-wrap:anywhere}.readiness-copy strong{color:var(--readiness)}.recovery-copy strong{color:var(--recovery)}.readiness-copy span,.recovery-copy span{display:block;color:var(--secondary-text-color);font-size:10px;line-height:1.35;margin-top:5px}.recovery-copy b{color:var(--primary-text-color)}
       .components{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}.component{display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;column-gap:7px;padding:9px 10px;border-radius:12px;background:var(--secondary-background-color);min-width:0}.component ha-icon{--mdc-icon-size:18px;color:var(--readiness)}.component span{font-size:10px;color:var(--secondary-text-color);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.component strong{font-size:13px}.component>div{grid-column:2/4;height:4px;border-radius:999px;background:var(--divider-color);overflow:hidden;margin-top:5px}.component i{display:block;height:100%;border-radius:999px;background:var(--readiness)}
+      .recovery-detail{margin-top:10px;padding:12px;border-radius:15px;background:color-mix(in srgb,var(--recovery) 7%,var(--secondary-background-color));border-left:3px solid var(--recovery)}
+      .recovery-progress-head,.recovery-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:10px;color:var(--secondary-text-color)}.recovery-progress-head strong,.recovery-meta strong{color:var(--primary-text-color);font-size:12px}
+      .recovery-progress{height:6px;border-radius:999px;background:var(--divider-color);overflow:hidden;margin:7px 0 10px}.recovery-progress i{display:block;height:100%;background:var(--recovery);border-radius:999px}
+      .signal-head{font-size:10px;color:var(--secondary-text-color);margin-top:10px}.signals{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.signal{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:5px 7px;border-radius:999px;background:var(--card-background-color)}.signal b{font-size:11px}.signal-supportive,.signal-near_baseline,.signal-above_baseline{color:#2e7d32}.signal-reduced,.signal-below_baseline{color:#c62828}.signal-slightly_below_baseline,.signal-slightly_above_baseline{color:#ef6c00}
+      .physio-note{margin-top:9px;font-size:9px;line-height:1.35;color:var(--secondary-text-color)}
       .context{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:10px}.context span{font-size:10px;color:var(--secondary-text-color)}
       .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px;margin-top:12px}.metric{background:var(--secondary-background-color);padding:10px;border-radius:12px;min-width:0;overflow:hidden}.metric span{display:block;color:var(--secondary-text-color);font-size:10px;line-height:1.3;margin-bottom:4px;overflow-wrap:anywhere}.metric strong{display:block;font-size:13px;line-height:1.35;overflow-wrap:anywhere}
-      @media(max-width:430px){.readiness-hero{grid-template-columns:92px minmax(0,1fr);gap:12px;padding:12px}.readiness-ring{width:84px;height:84px}.readiness-ring>div{width:62px;height:62px}.readiness-ring strong{font-size:26px;line-height:62px}.readiness-copy strong{font-size:20px}.components{grid-template-columns:1fr}}
+      @media(max-width:700px){.dual-hero{grid-template-columns:1fr}.readiness-hero,.recovery-hero{grid-template-columns:92px minmax(0,1fr)}}
+      @media(max-width:430px){.readiness-hero,.recovery-hero{grid-template-columns:78px minmax(0,1fr);gap:10px;padding:11px}.readiness-ring,.recovery-ring{width:72px;height:72px}.readiness-ring>div,.recovery-ring>div{width:52px;height:52px}.readiness-ring strong,.recovery-ring strong{font-size:21px;line-height:52px}.readiness-copy strong,.recovery-copy strong{font-size:18px}.components{grid-template-columns:1fr}}
     </style>`;
   }
   _sleepScoreMetric(label, state, entityId = "") {
@@ -1760,7 +1830,7 @@ class FitnessSleepRecoveryCard extends FitnessCompositeCard {
       "last_sleep_light","last_sleep_deep","last_sleep_rem","last_sleep_score",
       "last_sleep_hrv","last_sleep_average_hr","last_sleep_respiratory_rate",
       "last_sleep_spo2","last_sleep_efficiency","readiness","sleep_consistency",
-      "sleep_deficit_7d","autonomic_recovery_trend","heart_rate_recovery",
+      "sleep_deficit_7d","autonomic_recovery_trend","heart_rate_recovery","estimated_recovery_time",
       "training_recovery_relationship",
     ];
   }
