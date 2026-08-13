@@ -6,12 +6,14 @@ import hashlib
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import time
 from typing import Any
 from types import MappingProxyType
 
 from homeassistant.config_entries import ConfigSubentry
 
-from homeassistant.core import HomeAssistant
+from homeassistant.core import CoreState, HomeAssistant, callback
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.helpers.storage import Store
 
 from ..const import (
@@ -185,6 +187,18 @@ class LiveRuntime:
         self._setup_discovery_baseline: dict[str, bool] = {}
         self._save_pending = False
         self._hub_reload_pending = False
+        # Lightweight radio presence tracking. This layer deliberately does not
+        # import/load the Fitness Bluetooth or ANT+ provider modules.
+        self._adapter_presence = {name: False for name in TRANSPORTS}
+        self._remote_ant_last_seen: dict[str, float] = {}
+        self._presence_task = None
+        self._presence_unsubs: list[Any] = []
+        self._presence_started = False
+        self._profile_reload_pending = False
+        self.sensor_passive_values: dict[str, dict[str, Any]] = {}
+        self.sensor_passive_meta: dict[str, dict[str, dict[str, Any]]] = {}
+        self._device_registry_unsub = None
+        self._sensor_device_ids: dict[str, str] = {}
 
     async def async_initialize(self) -> None:
         if self._initialized:
@@ -284,6 +298,291 @@ class LiveRuntime:
 
         self.hass.async_create_task(_save())
 
+    def adapter_present(self, transport: str) -> bool:
+        """Return hardware/gateway presence independent of module enabled state."""
+        return bool(self._adapter_presence.get(transport, False))
+
+    @property
+    def present_transports(self) -> set[str]:
+        return {name for name in TRANSPORTS if self.adapter_present(name)}
+
+    @property
+    def adapter_entity_transports(self) -> set[str]:
+        # Keep an already-enabled module controllable if its hardware disappears,
+        # but do not create never-seen adapter devices without real HA hardware.
+        return self.present_transports | {
+            name for name in TRANSPORTS if self.adapter_enabled(name)
+        }
+
+    @property
+    def live_available(self) -> bool:
+        """Whether at least one native live transport has usable HA-side hardware."""
+        return bool(self.present_transports)
+
+    def adapter_available(self, transport: str) -> bool:
+        provider = self.providers.get(transport)
+        if provider is not None:
+            # Provider availability is authoritative once loaded, but keep the
+            # lightweight presence detector as a fallback while it initializes.
+            return bool(getattr(provider, "available", False) or self.adapter_present(transport))
+        return self.adapter_present(transport)
+
+    def set_adapter_presence(self, transport: str, present: bool) -> None:
+        if transport not in TRANSPORTS:
+            return
+        present = bool(present)
+        old_live = self.live_available
+        old = self._adapter_presence.get(transport, False)
+        if old == present:
+            return
+        self._adapter_presence[transport] = present
+        self._notify()
+        if self.hub_entry is not None:
+            self.request_hub_reload()
+        if old_live != self.live_available:
+            self._schedule_profile_reloads()
+
+    async def _async_scan_local_ant_usb(self) -> bool:
+        def _scan() -> bool:
+            from pathlib import Path
+            root = Path("/sys/bus/usb/devices")
+            if not root.exists():
+                return False
+            for dev in root.iterdir():
+                try:
+                    vid = (dev / "idVendor").read_text().strip().lower()
+                    pid = (dev / "idProduct").read_text().strip().lower()
+                except (OSError, FileNotFoundError):
+                    continue
+                if (vid, pid) in {("0fcf", "1008"), ("0fcf", "1009")}:
+                    return True
+            return False
+        return await self.hass.async_add_executor_job(_scan)
+
+    def _bluetooth_scanner_present(self) -> bool:
+        try:
+            from homeassistant.components import bluetooth
+            counter = getattr(bluetooth, "async_scanner_count", None)
+            if counter is None:
+                return bool(bluetooth.async_discovered_service_info(self.hass, False))
+            try:
+                return bool(counter(self.hass))
+            except TypeError:
+                return bool(counter(self.hass, connectable=False))
+        except Exception:
+            return False
+
+    async def async_refresh_adapter_presence(self) -> None:
+        """Refresh cheap adapter presence without loading Fitness transport modules."""
+        bt = self._bluetooth_scanner_present()
+        local_ant = await self._async_scan_local_ant_usb()
+        now = time.monotonic()
+        self._remote_ant_last_seen = {
+            gateway: seen
+            for gateway, seen in self._remote_ant_last_seen.items()
+            if now - seen <= 45.0
+        }
+        ant = local_ant or bool(self._remote_ant_last_seen)
+        self.set_adapter_presence("bluetooth", bt)
+        self.set_adapter_presence("antplus", ant)
+        if self.live_available and self.hub_entry is None:
+            await self.async_ensure_hub_for_presence()
+        elif self.hub_entry is not None:
+            self._rediscover_missing_present_adapters()
+
+    def _rediscover_missing_present_adapters(self) -> None:
+        if self.hub_entry is None:
+            return
+        from homeassistant.helpers import device_registry as dr
+        registry = dr.async_get(self.hass)
+        for transport in self.present_transports:
+            device = registry.async_get_device_by_identifier(
+                (DOMAIN, f"live_adapter:{transport}"), self.hub_entry.entry_id
+            )
+            if device is None:
+                self.request_hub_reload()
+                return
+
+    async def async_ensure_hub_for_presence(self) -> None:
+        """Create the global hub in the background only after hardware exists."""
+        if not self.live_available or self.hub_entry is not None:
+            return
+        for entry in self.hass.config_entries.async_entries(DOMAIN):
+            if entry.data.get("entry_type") == HUB_ENTRY_TYPE:
+                self.hub_entry = entry
+                return
+        try:
+            import importlib
+            await self.hass.async_add_executor_job(
+                importlib.import_module, "custom_components.fitness.config_flow"
+            )
+            await self.hass.config_entries.flow.async_init(
+                DOMAIN,
+                context={"source": "integration_discovery"},
+                data={"live_hub": True},
+            )
+        except Exception:
+            _LOGGER.debug("Unable to create Sensors & Adapters discovery entry", exc_info=True)
+
+    def cleanup_profile_live_registry(self, entry) -> None:
+        """Remove the per-user Live Workout surface when no adapter is present."""
+        if self.live_surface_available:
+            return
+        from homeassistant.helpers import device_registry as dr
+        from homeassistant.helpers import entity_registry as er
+        devices = dr.async_get(self.hass)
+        entities = er.async_get(self.hass)
+        device = devices.async_get_device_by_identifier(
+            (DOMAIN, f"{entry.entry_id}_live"), entry.entry_id
+        )
+        if device is None:
+            return
+        for entity in list(entities.entities.values()):
+            if entity.platform == DOMAIN and entity.device_id == device.id:
+                entities.async_remove(entity.entity_id)
+        devices.async_remove_device(device.id)
+
+    def _schedule_profile_reloads(self) -> None:
+        if self._profile_reload_pending:
+            return
+        self._profile_reload_pending = True
+        async def _reload() -> None:
+            try:
+                for entry in tuple(self.profile_entries.values()):
+                    await self.hass.config_entries.async_reload(entry.entry_id)
+            finally:
+                self._profile_reload_pending = False
+        self.hass.async_create_task(_reload())
+
+    def _start_presence_monitor(self) -> None:
+        """Start lightweight adapter presence monitoring after HA startup."""
+        if self._presence_started:
+            return
+        self._presence_started = True
+
+        @callback
+        def _remote_alive(event) -> None:
+            gateway = str(event.data.get("gateway_id", "unknown")).strip() or "unknown"
+            self._remote_ant_last_seen[gateway] = time.monotonic()
+            self.set_adapter_presence("antplus", True)
+            if self.hub_entry is None and self.hass.state is CoreState.running:
+                self.hass.async_create_background_task(
+                    self.async_ensure_hub_for_presence(),
+                    "fitness ensure Sensors & Adapters hub",
+                )
+
+        self._presence_unsubs.extend([
+            self.hass.bus.async_listen("antplus_gateway_hello", _remote_alive),
+            self.hass.bus.async_listen("antplus_gateway_status", _remote_alive),
+        ])
+
+        async def _poll() -> None:
+            while True:
+                try:
+                    await self.async_refresh_adapter_presence()
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    _LOGGER.debug(
+                        "Fitness adapter presence refresh failed",
+                        exc_info=True,
+                    )
+                await asyncio.sleep(10)
+
+        @callback
+        def _start_poll(_event=None) -> None:
+            if self._presence_task is not None:
+                return
+            self._presence_task = self.hass.async_create_background_task(
+                _poll(),
+                "fitness adapter presence monitor",
+            )
+
+        if self.hass.state is CoreState.running:
+            _start_poll()
+        else:
+            self._presence_unsubs.append(
+                self.hass.bus.async_listen_once(
+                    EVENT_HOMEASSISTANT_STARTED,
+                    _start_poll,
+                )
+            )
+
+    def publish_passive(
+        self,
+        sensor_id: str,
+        values: dict[str, Any],
+        *,
+        transport: str = "bluetooth",
+        metadata: dict[str, dict[str, Any]] | None = None,
+    ) -> None:
+        """Publish low-rate connectionless telemetry such as BLE battery."""
+        sensor_id = self.resolve_sensor_id(sensor_id)
+        if sensor_id not in self.sensors or not values:
+            return
+        bucket = self.sensor_passive_values.setdefault(sensor_id, {})
+        changed = False
+        for key, value in values.items():
+            if bucket.get(key) != value:
+                bucket[key] = value
+                changed = True
+        if metadata:
+            meta = self.sensor_passive_meta.setdefault(sensor_id, {})
+            for key, item in metadata.items():
+                if meta.get(key) != item:
+                    meta[key] = dict(item)
+                    changed = True
+        if changed and self.sensor_is_accepted(sensor_id):
+            self._notify()
+            self.request_hub_reload()
+
+    def forget_sensor(self, sensor_id: str) -> None:
+        """Forget an accepted physical sensor so a future transmission rediscovers it."""
+        sensor_id = self.resolve_sensor_id(sensor_id)
+        sensor = self.sensors.pop(sensor_id, None)
+        if sensor is None:
+            return
+        for endpoint in sensor.endpoints.values():
+            self.endpoint_aliases.pop(endpoint.endpoint_id, None)
+        self.sensor_values.pop(sensor_id, None)
+        self.sensor_value_transport.pop(sensor_id, None)
+        self.sensor_passive_values.pop(sensor_id, None)
+        self.sensor_passive_meta.pop(sensor_id, None)
+        self._discovery_started.discard(sensor_id)
+        for entry in tuple(self.profile_entries.values()):
+            ids = list(({**entry.data, **entry.options}.get(CONF_LIVE_SENSOR_IDS) or []))
+            if sensor_id in ids:
+                ids = [item for item in ids if item != sensor_id]
+                options = dict(entry.options)
+                options[CONF_LIVE_SENSOR_IDS] = ids
+                self.hass.config_entries.async_update_entry(entry, options=options)
+        self._schedule_save()
+        self._schedule_profile_reloads()
+
+    def _listen_for_registry_deletions(self) -> None:
+        if self._device_registry_unsub is not None:
+            return
+        try:
+            from homeassistant.helpers.device_registry import EVENT_DEVICE_REGISTRY_UPDATED
+        except ImportError:
+            return
+        @callback
+        def _changed(event) -> None:
+            if event.data.get("action") != "remove":
+                return
+            device_id = str(event.data.get("device_id", ""))
+            for sensor_id, known_device_id in tuple(self._sensor_device_ids.items()):
+                if known_device_id == device_id:
+                    self._sensor_device_ids.pop(sensor_id, None)
+                    self.forget_sensor(sensor_id)
+                    return
+            # Logical adapters/receivers are rediscovered by the next actual
+            # hardware presence tick / ANT adapter update, not immediately just
+            # because the user deleted a registry device.
+        self._device_registry_unsub = self.hass.bus.async_listen(
+            EVENT_DEVICE_REGISTRY_UPDATED, _changed
+        )
+
     async def async_ensure_hub_entry(self):
         """Return the Local Sensors entry if it already exists.
 
@@ -303,13 +602,18 @@ class LiveRuntime:
     async def async_register_hub(self, entry) -> None:
         await self.async_initialize()
         self.hub_entry = entry
+        self._start_presence_monitor()
+        self._listen_for_registry_deletions()
         self._cleanup_legacy_profile_infrastructure()
         self.ensure_adapters_subentry()
         self.ensure_sensors_subentry()
         self._remove_legacy_grouping_devices()
         self._migrate_adapter_devices_to_subentry()
         for sensor_id in tuple(self.sensors):
-            self.ensure_sensor_device(sensor_id)
+            if self.sensor_is_accepted(sensor_id):
+                self.ensure_sensor_device(sensor_id)
+            else:
+                self.remove_unaccepted_sensor_device(sensor_id)
 
         # Radio/proxy discovery must never delay Home Assistant startup.  The
         # adapter entities can be created immediately from persisted config;
@@ -472,6 +776,30 @@ class LiveRuntime:
         return subentry.subentry_id if subentry is not None else None
 
 
+    def ant_receiver_records(self) -> dict[str, Any]:
+        provider = self.providers.get("antplus")
+        manager = getattr(provider, "adapter_manager", None) if provider else None
+        return dict(getattr(manager, "records", {}) or {})
+
+    def ant_receiver_device_info(self, stable_key: str):
+        from homeassistant.helpers.device_registry import DeviceInfo
+        record = self.ant_receiver_records().get(stable_key)
+        if record is None:
+            return DeviceInfo(
+                identifiers={(DOMAIN, f"usb_adapter:{stable_key}")},
+                name=stable_key,
+                manufacturer="ANT+",
+                model="ANT+ receiver",
+            )
+        adapter = record.adapter
+        return DeviceInfo(
+            identifiers={adapter.ha_identifier},
+            name=adapter.name,
+            manufacturer=adapter.manufacturer or "Dynastream / Garmin",
+            model=adapter.product or f"ANT USB {adapter.vid}:{adapter.pid}",
+            serial_number=adapter.serial,
+        )
+
     def adapter_device_info(self, transport: str):
         from homeassistant.helpers.device_registry import DeviceInfo
         label = "ANT+ Adapter" if transport == "antplus" else "Bluetooth Adapter"
@@ -539,10 +867,13 @@ class LiveRuntime:
         if enabled:
             await self.async_ensure_hub_entry()
         await self.async_refresh_modules()
+        self._notify()
 
     async def async_register_profile(self, entry) -> None:
         await self.async_initialize()
         self.profile_entries[entry.entry_id] = entry
+        self._start_presence_monitor()
+        self._listen_for_registry_deletions()
         self._restore_legacy_profile_selections(entry)
         # Person/profile entries never start radio providers. Live transports
         # are owned exclusively by the Local Sensors hub entry.
@@ -638,6 +969,10 @@ class LiveRuntime:
     def live_enabled(self) -> bool:
         return any(self.adapter_enabled(name) for name in TRANSPORTS)
 
+    @property
+    def live_surface_available(self) -> bool:
+        return self.live_available
+
     def transport_in_use(self, transport: str) -> bool:
         return bool(self._transport_claims.get(transport))
 
@@ -651,6 +986,10 @@ class LiveRuntime:
                 listener()
             except Exception:
                 continue
+
+    def notify_changed(self) -> None:
+        """Notify adapter/sensor entities after an explicit runtime state change."""
+        self._notify()
 
     def _new_physical_id(self, endpoint_id: str) -> str:
         digest = hashlib.sha1(endpoint_id.encode("utf-8")).hexdigest()[:16]
@@ -787,6 +1126,11 @@ class LiveRuntime:
         else:
             old_caps = set(sensor.capabilities)
 
+        previous_endpoint = sensor.endpoints.get(transport)
+        previous_name = sensor.name
+        previous_metadata = dict(sensor.metadata)
+        previous_caps = set(sensor.capabilities)
+
         sensor.endpoints[transport] = endpoint
         sensor.capabilities.update(capabilities)
         self.endpoint_aliases[endpoint_id] = sensor.sensor_id
@@ -810,14 +1154,32 @@ class LiveRuntime:
         if sensor.name == "Fitness sensor" or _family(display, metadata):
             sensor.name = display
 
-        self._schedule_save()
-        if self.hub_entry is not None:
+        structural_change = (
+            is_new
+            or previous_endpoint is None
+            or previous_endpoint.address != endpoint.address
+            or previous_endpoint.capabilities != endpoint.capabilities
+            or previous_endpoint.source != endpoint.source
+            or previous_endpoint.available != endpoint.available
+            or previous_endpoint.metadata != endpoint.metadata
+            or sensor.name != previous_name
+            or sensor.metadata != previous_metadata
+            or sensor.capabilities != previous_caps
+        )
+
+        # RSSI and last_seen are intentionally volatile. Passive advertisements can
+        # arrive several times per second, so they must not cause storage writes,
+        # entity-registry creation, hub reloads, or state updates on every packet.
+        if structural_change:
+            self._schedule_save()
+        if self.hub_entry is not None and self.sensor_is_accepted(sensor.sensor_id):
             self.ensure_sensor_device(sensor.sensor_id)
         if is_new and self.profile_entries:
             self._schedule_sensor_discovery(sensor.sensor_id)
-        if is_new or sensor.capabilities != old_caps:
+        if structural_change and self.sensor_is_accepted(sensor.sensor_id):
             self.request_hub_reload()
-        self._notify()
+        if structural_change:
+            self._notify()
         return sensor
 
     # Compatibility for older provider code/tests while transitioning.
@@ -865,17 +1227,52 @@ class LiveRuntime:
             )
         )
 
+    def sensor_is_accepted(self, sensor_id: str) -> bool:
+        """Return whether a discovered physical sensor belongs in HA's device registry."""
+        sensor_id = self.resolve_sensor_id(sensor_id)
+        sensor = self.sensors.get(sensor_id)
+        if sensor is None:
+            return False
+        if bool(sensor.metadata.get("accepted")):
+            return True
+        return any(
+            sensor_id in set(self.selected_sensor_ids(entry))
+            for entry in self.profile_entries.values()
+        )
+
     def mark_sensor_accepted(self, sensor_id: str) -> None:
-        sensor = self.sensors.get(self.resolve_sensor_id(sensor_id))
+        sensor_id = self.resolve_sensor_id(sensor_id)
+        sensor = self.sensors.get(sensor_id)
         if sensor:
             sensor.metadata["accepted"] = True
             self._schedule_save()
+            self.ensure_sensor_device(sensor_id)
+            self.request_hub_reload()
+
+    def remove_unaccepted_sensor_device(self, sensor_id: str) -> None:
+        """Remove devices/entities created by pre-acceptance prototype builds."""
+        sensor_id = self.resolve_sensor_id(sensor_id)
+        if self.hub_entry is None or self.sensor_is_accepted(sensor_id):
+            return
+        from homeassistant.helpers import device_registry as dr
+        from homeassistant.helpers import entity_registry as er
+        device_registry = dr.async_get(self.hass)
+        entity_registry = er.async_get(self.hass)
+        device = device_registry.async_get_device_by_identifier(
+            (DOMAIN, f"live_sensor:{sensor_id}"), self.hub_entry.entry_id
+        )
+        if device is None:
+            return
+        for entity in list(entity_registry.entities.values()):
+            if entity.platform == DOMAIN and entity.device_id == device.id:
+                entity_registry.async_remove(entity.entity_id)
+        device_registry.async_remove_device(device.id)
 
     def ensure_sensor_device(self, sensor_id: str) -> None:
         """Create or migrate one physical sensor into the Sensors subentry."""
         sensor_id = self.resolve_sensor_id(sensor_id)
         sensor = self.sensors.get(sensor_id)
-        if sensor is None or self.hub_entry is None:
+        if sensor is None or self.hub_entry is None or not self.sensor_is_accepted(sensor_id):
             return
         subentry_id = self._sensor_subentry_id()
         if subentry_id is None:
@@ -896,7 +1293,7 @@ class LiveRuntime:
                 existing.id, new_config_subentry_id=subentry_id
             )
 
-        registry.async_get_or_create(
+        device = registry.async_get_or_create(
             config_entry_id=self.hub_entry.entry_id,
             config_subentry_id=subentry_id,
             identifiers=set(info["identifiers"]),
@@ -905,6 +1302,7 @@ class LiveRuntime:
             model=info.get("model"),
             serial_number=info.get("serial_number"),
         )
+        self._sensor_device_ids[sensor_id] = device.id
 
     def request_hub_reload(self) -> None:
         if self.hub_entry is None or self._hub_reload_pending:

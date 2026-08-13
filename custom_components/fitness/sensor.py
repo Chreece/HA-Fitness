@@ -339,7 +339,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         return
 
     manager = hass.data[DOMAIN][entry.entry_id]
-    native_live_enabled = runtime.live_enabled
+    native_live_enabled = runtime.live_surface_available
     # Native live-adapter gate: no enabled adapter means no Live Workout device.
     registry = er.async_get(hass)
 

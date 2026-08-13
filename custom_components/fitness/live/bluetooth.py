@@ -52,6 +52,47 @@ SERVICE_CAPABILITIES = {
     },
 }
 
+BATTERY_SERVICE = BASE.format("180f")
+STRYD_MANUFACTURER_ID = 43690
+
+
+def _passive_advertisement_values(info) -> tuple[dict[str, float], dict[str, dict]]:
+    """Decode connectionless values with known semantics.
+
+    BLE manufacturer data has no universal schema, so vendor-specific fields are
+    exposed only when Fitness has a verified decoder. Standard Battery Service
+    service data and Stryd's passive battery frame are currently supported.
+    """
+    values: dict[str, float] = {}
+    metadata: dict[str, dict] = {}
+
+    service_data = getattr(info, "service_data", {}) or {}
+    for key, payload in service_data.items():
+        if str(key).lower() == BATTERY_SERVICE and payload:
+            battery = int(bytes(payload)[0])
+            if 0 <= battery <= 100:
+                values["battery"] = float(battery)
+                metadata["battery"] = {
+                    "name": "Battery", "unit": "%", "device_class": "battery",
+                    "state_class": "measurement", "icon": "mdi:battery",
+                    "passive": True,
+                }
+
+    manufacturer_data = getattr(info, "manufacturer_data", {}) or {}
+    stryd = manufacturer_data.get(STRYD_MANUFACTURER_ID)
+    if stryd and len(stryd) >= 2:
+        # Home Assistant strips the two-byte company identifier. This is the
+        # passive Stryd battery byte already verified by HA-Stryd-BLE.
+        battery = int(bytes(stryd)[1])
+        if 0 <= battery <= 100:
+            values["battery"] = float(battery)
+            metadata["battery"] = {
+                "name": "Battery", "unit": "%", "device_class": "battery",
+                "state_class": "measurement", "icon": "mdi:battery",
+                "passive": True, "manufacturer_id": STRYD_MANUFACTURER_ID,
+            }
+    return values, metadata
+
 
 @dataclass
 class _RevolutionState:
@@ -92,6 +133,7 @@ class BluetoothFitnessProvider:
             BluetoothScanningMode.PASSIVE,
         )
         self._refresh_available()
+        self.runtime.set_adapter_presence("bluetooth", self.available)
 
         # Include already-cached advertisements, including ESPHome proxy paths.
         for info in bluetooth.async_discovered_service_info(self.hass, False):
@@ -122,7 +164,7 @@ class BluetoothFitnessProvider:
             return
 
         endpoint_id = f"bluetooth:{info.address.upper()}"
-        self.runtime.register_transport_sensor(
+        sensor = self.runtime.register_transport_sensor(
             transport=self.transport,
             endpoint_id=endpoint_id,
             name=info.name or info.address,
@@ -137,7 +179,13 @@ class BluetoothFitnessProvider:
                 "service_uuids": sorted(uuids),
             },
         )
+        passive, passive_meta = _passive_advertisement_values(info)
+        if passive:
+            self.runtime.publish_passive(
+                sensor.sensor_id, passive, transport=self.transport, metadata=passive_meta
+            )
         self._refresh_available()
+        self.runtime.set_adapter_presence("bluetooth", self.available)
 
     async def async_start_capture(self) -> None:
         # BLE advertisements remain passive. Active GATT is opened only for
@@ -341,6 +389,8 @@ class BluetoothFitnessProvider:
             self._unsub = None
         await self.async_stop_capture()
         self.available = False
+        self.hass.async_create_task(self.runtime.async_refresh_adapter_presence())
+        self.runtime.notify_changed()
 
 
 def _parse_hr(data: bytes) -> dict[str, float]:

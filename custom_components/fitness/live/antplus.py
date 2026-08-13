@@ -132,6 +132,8 @@ class AntPlusFitnessProvider:
             manager,
         )
         self.available = self._has_available_receiver()
+        self.runtime.set_adapter_presence("antplus", self.available)
+        self.runtime.notify_changed()
 
         for device in tuple(self.receiver.devices.values()):
             self._publish_device(device)
@@ -227,6 +229,8 @@ class AntPlusFitnessProvider:
 
     def _adapter_changed(self, stable_key: str) -> None:
         self.available = self._has_available_receiver()
+        self.runtime.set_adapter_presence("antplus", self.available)
+        self.runtime.notify_changed()
         if not self._capture_requested or self.adapter_manager is None:
             return
         record = self.adapter_manager.get(stable_key)
@@ -328,3 +332,6 @@ class AntPlusFitnessProvider:
         self.receiver = None
         self._host_entry = None
         self.available = False
+        # Keep lightweight presence detector authoritative after unloading.
+        self.hass.async_create_task(self.runtime.async_refresh_adapter_presence())
+        self.runtime.notify_changed()

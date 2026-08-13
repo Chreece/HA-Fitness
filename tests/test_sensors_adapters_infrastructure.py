@@ -24,14 +24,14 @@ def test_profile_setup_has_no_antplus_or_bluetooth_enable_flow():
     assert 'menu.append("live_transports")' not in CONFIG
     assert 'CONF_BLUETOOTH_ENABLED' not in CONFIG
     assert 'CONF_ANTPLUS_ENABLED' not in CONFIG
-    assert 'if runtime.live_enabled:' in CONFIG
+    assert 'if runtime.live_surface_available:' in CONFIG
 
 
 def test_existing_profiles_self_heal_sensors_and_adapters_after_startup():
     assert 'def _schedule_sensors_adapters_entry' in INIT
     assert 'EVENT_HOMEASSISTANT_STARTED' in INIT
-    assert 'importlib.import_module' in INIT
-    assert 'data={"live_hub": True}' in INIT
+    assert 'async_refresh_adapter_presence' in INIT
+    assert 'runtime creates the hub only if useful' in INIT
     assert '_schedule_sensors_adapters_entry(hass)' in INIT
 
 

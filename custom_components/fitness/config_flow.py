@@ -247,6 +247,9 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="sensor_unavailable")
 
         self._discovery_sensor_id = sensor_id
+        # Give the discovery card a useful title instead of the generic Fitness
+        # integration title. With no flow_title defined, HA uses {name} directly.
+        self.context["title_placeholders"] = {"name": sensor.name}
         await self.async_set_unique_id(f"live_sensor:{sensor_id}")
         return await self.async_step_assign_live_sensor()
 
@@ -441,7 +444,7 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         from .live import get_live_runtime
         runtime = get_live_runtime(self.hass)
         await runtime.async_initialize()
-        if runtime.live_enabled:
+        if runtime.live_surface_available:
             return await self.async_step_live_devices()
         return await self.async_step_workout_devices()
 
@@ -469,7 +472,8 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         choices = [
             {"value": sensor.sensor_id, "label": sensor.label()}
             for sensor in runtime.sensors.values()
-            if any(runtime.adapter_enabled(t) for t in sensor.transports)
+            if runtime.sensor_is_accepted(sensor.sensor_id)
+            and any(runtime.adapter_present(t) for t in sensor.transports)
         ]
         return self.async_show_form(
             step_id="live_devices",
@@ -704,7 +708,7 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
         runtime = get_live_runtime(self.hass)
         await runtime.async_initialize()
         menu = ["profile", "fitness_inputs"]
-        if runtime.live_enabled:
+        if runtime.live_surface_available:
             menu.append("live_devices")
         menu.extend(["workout_devices", "history", "sleep_devices", "ai", "feedback"])
         return self.async_show_menu(step_id="init", menu_options=menu)

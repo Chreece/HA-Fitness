@@ -541,6 +541,19 @@ class AntAdapterManager:
                 serial_number=adapter.serial,
             )
 
+        # Fitness owns a logical ANT+ Adapter device. Every physical local/remote
+        # ANT receiver belongs to the same Adapters subentry and is a child of
+        # that logical transport device, not a root-level Fitness device.
+        parent = device_registry.async_get_device_by_identifier(
+            (DOMAIN, "live_adapter:antplus"),
+            self.entry.entry_id,
+        )
+        if physical is not None and parent is not None:
+            update_kwargs = {"via_device_id": parent.id}
+            if physical.config_subentry_id != parent.config_subentry_id:
+                update_kwargs["new_config_subentry_id"] = parent.config_subentry_id
+            device_registry.async_update_device(physical.id, **update_kwargs)
+
         legacy = device_registry.async_get_device_by_identifier(
             LEGACY_ADAPTER_IDENTIFIER,
             self.entry.entry_id,

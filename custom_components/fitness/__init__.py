@@ -115,49 +115,22 @@ async def async_migrate_entry(
 
 @callback
 def _schedule_sensors_adapters_entry(hass: HomeAssistant) -> None:
-    """Self-heal the global Sensors & Adapters entry without delaying startup."""
-    from .live.runtime import HUB_ENTRY_TYPE
+    """Check radio presence after startup; runtime creates the hub only if useful."""
+    from .live import get_live_runtime
 
-    if any(
-        existing.data.get("entry_type") == HUB_ENTRY_TYPE
-        for existing in hass.config_entries.async_entries(DOMAIN)
-    ):
-        return
-
-    data = hass.data.setdefault(DOMAIN, {})
-    if data.get("_sensors_adapters_creation_scheduled"):
-        return
-    data["_sensors_adapters_creation_scheduled"] = True
-
-    async def _create() -> None:
-        try:
-            # Config flows are Home Assistant's supported config-entry creation
-            # API. Import the module in the executor so the invisible internal
-            # discovery flow never performs a blocking import on HA's event loop.
-            await hass.async_add_executor_job(
-                importlib.import_module, f"{__package__}.config_flow"
-            )
-            if any(
-                existing.data.get("entry_type") == HUB_ENTRY_TYPE
-                for existing in hass.config_entries.async_entries(DOMAIN)
-            ):
-                return
-            await hass.config_entries.flow.async_init(
-                DOMAIN,
-                context={"source": "integration_discovery"},
-                data={"live_hub": True},
-            )
-        finally:
-            data["_sensors_adapters_creation_scheduled"] = False
+    async def _refresh() -> None:
+        runtime = get_live_runtime(hass)
+        await runtime.async_initialize()
+        await runtime.async_refresh_adapter_presence()
 
     @callback
-    def _run_after_start(_event=None) -> None:
-        hass.async_create_task(_create())
+    def _run(_event=None) -> None:
+        hass.async_create_task(_refresh())
 
     if hass.state is CoreState.running:
-        _run_after_start()
+        _run()
     else:
-        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _run_after_start)
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _run)
 
 
 
@@ -182,6 +155,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await async_setup_dashboard(hass)
     await runtime.async_register_profile(entry)
+    runtime.cleanup_profile_live_registry(entry)
     manager = FitnessManager(hass, entry)
     hass.data[DOMAIN][entry.entry_id] = manager
 

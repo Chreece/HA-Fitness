@@ -13,19 +13,33 @@ async def async_setup_entry(hass, entry, async_add_entities):
     if entry.data.get("entry_type") != HUB_ENTRY_TYPE:
         return
     adapter_entities = []
-    for transport in sorted(runtime.configured_transports):
-        adapter_entities.extend(
-            [
-                AdapterAvailable(runtime, transport),
-                AdapterCapture(runtime, transport),
-                AdapterProblem(runtime, transport),
-            ]
-        )
+    for transport in sorted(runtime.adapter_entity_transports):
+        adapter_entities.extend([AdapterAvailable(runtime, transport), AdapterProblem(runtime, transport)])
+        if transport == "bluetooth":
+            adapter_entities.append(AdapterCapture(runtime, transport))
     async_add_entities(adapter_entities, config_subentry_id=runtime.adapters_subentry_id)
+
+    materialized_receivers: set[str] = set()
+    def _add_ant_receiver_diagnostics():
+        added = []
+        for stable_key in runtime.ant_receiver_records():
+            if stable_key in materialized_receivers:
+                continue
+            materialized_receivers.add(stable_key)
+            added.extend([
+                AntReceiverAvailable(runtime, stable_key),
+                AntReceiverCapture(runtime, stable_key),
+                AntReceiverProblem(runtime, stable_key),
+            ])
+        if added:
+            async_add_entities(added, config_subentry_id=runtime.adapters_subentry_id)
+    _add_ant_receiver_diagnostics()
+    entry.async_on_unload(runtime.add_listener(_add_ant_receiver_diagnostics))
 
     sensor_entities = [
         LiveSensorAvailable(runtime, sensor.sensor_id)
         for sensor in runtime.sensors.values()
+        if runtime.sensor_is_accepted(sensor.sensor_id)
     ]
     async_add_entities(
         sensor_entities,
@@ -80,8 +94,7 @@ class AdapterAvailable(_AdapterBase):
 
     @property
     def is_on(self):
-        provider = self.provider
-        return bool(provider and provider.available)
+        return self.runtime.adapter_available(self.transport)
 
 
 class AdapterCapture(_AdapterBase):
@@ -142,3 +155,58 @@ class LiveSensorAvailable(_RuntimeEntity):
             "available_transports": sorted(sensor.transports),
             "transport_details": self.runtime.sensor_transport_details(self.sensor_id),
         }
+
+
+class _AntReceiverDiagnostic(_RuntimeEntity):
+    def __init__(self, runtime, stable_key: str):
+        self.runtime = runtime
+        self.stable_key = stable_key
+        self._attr_device_info = runtime.ant_receiver_device_info(stable_key)
+
+    @property
+    def record(self):
+        return self.runtime.ant_receiver_records().get(self.stable_key)
+
+    @property
+    def extra_state_attributes(self):
+        record = self.record
+        if record is None:
+            return {}
+        return {
+            "connection": record.connection,
+            "sources": record.sources,
+            "error": record.capture_error,
+        }
+
+
+class AntReceiverAvailable(_AntReceiverDiagnostic):
+    _attr_name = "Available"
+    _attr_icon = "mdi:usb"
+    def __init__(self, runtime, stable_key: str):
+        super().__init__(runtime, stable_key)
+        self._attr_unique_id = f"fitness_ant_receiver_{stable_key}_available"
+    @property
+    def is_on(self):
+        return bool(self.record and self.record.available)
+
+
+class AntReceiverCapture(_AntReceiverDiagnostic):
+    _attr_name = "Capture active"
+    _attr_icon = "mdi:record-rec"
+    def __init__(self, runtime, stable_key: str):
+        super().__init__(runtime, stable_key)
+        self._attr_unique_id = f"fitness_ant_receiver_{stable_key}_capture_active"
+    @property
+    def is_on(self):
+        return bool(self.record and self.record.displayed_capture)
+
+
+class AntReceiverProblem(_AntReceiverDiagnostic):
+    _attr_name = "Problem"
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    def __init__(self, runtime, stable_key: str):
+        super().__init__(runtime, stable_key)
+        self._attr_unique_id = f"fitness_ant_receiver_{stable_key}_problem"
+    @property
+    def is_on(self):
+        return bool(self.record and self.record.capture_error)

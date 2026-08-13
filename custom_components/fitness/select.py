@@ -10,6 +10,10 @@ from .entity import device_info
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
+    from .live import get_live_runtime
+    runtime = get_live_runtime(hass)
+    if not runtime.live_surface_available:
+        return
     manager = hass.data[DOMAIN][entry.entry_id]
     async_add_entities(
         [
