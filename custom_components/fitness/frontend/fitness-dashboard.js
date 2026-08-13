@@ -1,4 +1,4 @@
-const FITNESS_DASHBOARD_VERSION = "2026.8.10.5";
+const FITNESS_DASHBOARD_VERSION = "2026.8.10.6";
 
 
 const FITNESS_READINESS_TEXT = {
@@ -1355,6 +1355,74 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
   }
 }
 
+
+class FitnessTrainingAdaptationCard extends FitnessAutoProfileCard {
+  _render() {
+    if (!this.shadowRoot || !this._hass) return;
+    const e = this._profile?.entities || {};
+    const l = this._profile?.labels || {};
+    const entityId = e.training_adaptation_status;
+    const state = entityId ? this._hass.states[entityId] : null;
+    if (!state) {
+      this.shadowRoot.innerHTML = "";
+      return;
+    }
+
+    const status = String(_fitnessAttr(state, "status") || "insufficient_data");
+    const tones = {
+      productive: ["#2e7d32", "mdi:trending-up"],
+      maintaining: ["#00897b", "mdi:equal"],
+      insufficient_stimulus: ["#5c6bc0", "mdi:signal-cellular-1"],
+      absent: ["#78909c", "mdi:power-sleep"],
+      high_load: ["#f9a825", "mdi:chart-bell-curve-cumulative"],
+      excessive: ["#ef6c00", "mdi:alert"],
+      strained: ["#d84315", "mdi:heart-pulse"],
+      unproductive: ["#c62828", "mdi:trending-down"],
+      insufficient_data: ["#78909c", "mdi:help-circle-outline"],
+    };
+    const [tone, icon] = tones[status] || tones.insufficient_data;
+
+    const ratio = _fitnessNumber(_fitnessAttr(state, "recent_to_baseline_load_ratio"));
+    const vo2 = _fitnessNumber(_fitnessAttr(state, "vo2max_slope_percent_per_30d"));
+    const hrv = _fitnessNumber(_fitnessAttr(state, "hrv_7d_vs_baseline_percent"));
+    const rhr = _fitnessNumber(_fitnessAttr(state, "resting_hr_vs_28d_bpm"));
+    const readiness = _fitnessNumber(_fitnessAttr(state, "readiness_score"));
+    const evidence = _fitnessNumber(_fitnessAttr(state, "evidence_count"));
+
+    const recoveryBits = [];
+    if (hrv != null) recoveryBits.push(`HRV ${hrv >= 0 ? "+" : ""}${hrv.toFixed(1)}%`);
+    if (rhr != null) recoveryBits.push(`RHR ${rhr >= 0 ? "+" : ""}${rhr.toFixed(1)} bpm`);
+    if (readiness != null) recoveryBits.push(`${readiness.toFixed(0)}/100`);
+
+    this.shadowRoot.innerHTML = `<ha-card style="--adapt:${tone}">
+      <div class="hero entity-link" data-more-info="${_fitnessEscape(entityId || "")}">
+        <div class="icon"><ha-icon icon="${icon}"></ha-icon></div>
+        <div class="copy">
+          <small>${_fitnessEscape(l.training_adaptation_card || "Training adaptation")}</small>
+          <strong>${_fitnessEscape(state.state)}</strong>
+          <span>${_fitnessEscape(l.training_adaptation_subtitle || "How recent training is affecting you")}</span>
+        </div>
+      </div>
+      <div class="metrics entity-link" data-more-info="${_fitnessEscape(entityId || "")}">
+        <div><span>${_fitnessEscape(l.adaptation_load_ratio || "Recent / baseline load")}</span><strong>${ratio == null ? "—" : `${ratio.toFixed(2)}×`}</strong></div>
+        <div><span>${_fitnessEscape(l.adaptation_fitness_trend || "Fitness trend")}</span><strong>${vo2 == null ? "—" : `${vo2 >= 0 ? "+" : ""}${vo2.toFixed(1)}% / 30d`}</strong></div>
+        <div><span>${_fitnessEscape(l.adaptation_recovery_signal || "Recovery signal")}</span><strong>${_fitnessEscape(recoveryBits.length ? recoveryBits.join(" · ") : "—")}</strong></div>
+      </div>
+      ${evidence != null ? `<div class="evidence">${evidence.toFixed(0)} evidence signal${evidence === 1 ? "" : "s"}</div>` : ""}
+    </ha-card><style>
+      ha-card{padding:18px;overflow:hidden;border-left:4px solid var(--adapt)}
+      .entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}
+      .hero{display:grid;grid-template-columns:58px minmax(0,1fr);gap:14px;align-items:center;padding:14px;border-radius:18px;background:linear-gradient(135deg,color-mix(in srgb,var(--adapt) 18%,var(--card-background-color)),var(--secondary-background-color))}
+      .icon{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;background:color-mix(in srgb,var(--adapt) 18%,transparent);color:var(--adapt)}
+      .icon ha-icon{--mdc-icon-size:30px}
+      .copy{min-width:0}.copy small{display:block;color:var(--secondary-text-color);font-size:11px}.copy strong{display:block;color:var(--adapt);font-size:25px;line-height:1.15;margin:3px 0;overflow-wrap:anywhere}.copy span{display:block;color:var(--secondary-text-color);font-size:11px;line-height:1.35;overflow-wrap:anywhere}
+      .metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}.metrics>div{min-width:0;padding:10px;border-radius:12px;background:var(--secondary-background-color);overflow:hidden}.metrics span{display:block;color:var(--secondary-text-color);font-size:10px;line-height:1.3;margin-bottom:4px;overflow-wrap:anywhere}.metrics strong{display:block;font-size:13px;line-height:1.35;overflow-wrap:anywhere}
+      .evidence{margin-top:8px;color:var(--secondary-text-color);font-size:10px;text-align:right}
+      @media(max-width:480px){.metrics{grid-template-columns:1fr}.copy strong{font-size:22px}}
+    </style>`;
+  }
+}
+
 class FitnessTrainingLoadCard extends FitnessAutoProfileCard {
   _render() {
     if (!this.shadowRoot || !this._hass) return;
@@ -1705,7 +1773,7 @@ class FitnessEvaluationCard extends FitnessCompositeCard {
   _relevantEntityKeys() {
     return [
       "cardiorespiratory_fitness_trend","vo2max_percent_predicted",
-      "training_load","autonomic_recovery_trend","heart_rate_recovery",
+      "training_load","training_adaptation_status","autonomic_recovery_trend","heart_rate_recovery",
       "training_recovery_relationship","sleep_consistency","sleep_deficit_7d",
       "ai_general_evaluation",
     ];
@@ -1717,6 +1785,7 @@ class FitnessEvaluationCard extends FitnessCompositeCard {
     const e = this._profile.entities || {};
     const children = [];
     if (e.cardiorespiratory_fitness_trend || e.vo2max_percent_predicted) children.push(this._mount("fitness-progress-card"));
+    if (e.training_adaptation_status) children.push(this._mount("fitness-training-adaptation-card"));
     if (e.training_load) children.push(this._mount("fitness-training-load-card"));
     this._shell(this.config.title || l.evaluation || "Evaluation", "mdi:chart-line", children);
   }
@@ -1809,6 +1878,7 @@ if (!customElements.get("fitness-workout-rpe-card")) customElements.define("fitn
 if (!customElements.get("fitness-strength-details-card")) customElements.define("fitness-strength-details-card", FitnessStrengthDetailsCard);
 if (!customElements.get("fitness-progress-card")) customElements.define("fitness-progress-card", FitnessProgressCard);
 if (!customElements.get("fitness-recovery-card")) customElements.define("fitness-recovery-card", FitnessRecoveryCard);
+if (!customElements.get("fitness-training-adaptation-card")) customElements.define("fitness-training-adaptation-card", FitnessTrainingAdaptationCard);
 if (!customElements.get("fitness-training-load-card")) customElements.define("fitness-training-load-card", FitnessTrainingLoadCard);
 if (!customElements.get("fitness-route-card-editor")) customElements.define("fitness-route-card-editor", FitnessRouteCardEditor);
 if (!customElements.get("fitness-comparison-card-editor")) customElements.define("fitness-comparison-card-editor", FitnessComparisonCardEditor);

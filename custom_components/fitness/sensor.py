@@ -534,6 +534,7 @@ class FitnessSensor(SensorEntity):
             "cardiorespiratory_status",
             "hrv_status",
             "provider_training_status",
+            "training_adaptation_status",
             "sleep_source",
         }
         if self.entity_description.metric in textual:
