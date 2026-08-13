@@ -50,4 +50,4 @@ def test_manager_prefers_profile_language_with_legacy_ui_fallback():
 
 
 def test_config_flow_version_bumped_for_profile_schema():
-    assert "VERSION = 11" in FLOW
+    assert "VERSION = 12" in FLOW

@@ -34,6 +34,7 @@ from .const import (
     CONF_TTS_MEDIA_PLAYER_IDS,
     CONF_DATE_OF_BIRTH,
     CONF_DETAILED_STRENGTH_ANALYSIS,
+    CONF_WORKOUT_RETENTION_DAYS,
     CONF_BIRTH_DAY,
     CONF_BIRTH_MONTH,
     CONF_BIRTH_YEAR,
@@ -47,7 +48,8 @@ from .const import (
     CONF_VO2MAX,
     CONF_WEIGHT,
     DOMAIN,
-    MAX_STORED_WORKOUTS,
+    DEFAULT_WORKOUT_RETENTION_DAYS,
+    MAX_WORKOUT_RETENTION_DAYS,
     METRIC_ALTITUDE,
     METRIC_CADENCE,
     METRIC_DISTANCE,
@@ -121,6 +123,7 @@ from .strength import analyze_strength
 from .providers.workouts import (
     Workout,
     _dt,
+    _same_real_workout,
     _sport_key,
     discover_external_workouts,
     merged_workouts,
@@ -138,6 +141,7 @@ class FitnessManager:
         self.listeners: list[Callable[[], None]] = []
         self.live_listeners: list[Callable[[], None]] = []
         self.sleep_listeners: list[Callable[[], None]] = []
+        self.workout_history_listeners: list[Callable[[], None]] = []
         self._sleep_tracking_started_at: str | None = None
         self._sleep_event_record: SleepRecord | None = None
         self._sleep_history_refresh_task = None
@@ -160,6 +164,12 @@ class FitnessManager:
             f"{STORE_KEY_PREFIX}.{entry.entry_id}",
         )
         self.history: list[dict] = []
+        # User-deleted canonical workouts are retained as compact tombstones so
+        # provider/history reconciliation cannot resurrect them on the next sync.
+        self.deleted_workouts: list[dict[str, Any]] = []
+        # One cutoff is used for bulk user deletion so deleting years of history
+        # does not require thousands of per-workout tombstones.
+        self.deleted_workouts_before: str | None = None
         self.session_armed = False
         self.session_active = False
         self.session_paused = False
@@ -291,6 +301,8 @@ class FitnessManager:
     async def async_setup(self):
         stored = await self.store.async_load() or {}
         self.history = list(stored.get("history") or [])
+        self.deleted_workouts = list(stored.get("deleted_workouts") or [])
+        self.deleted_workouts_before = stored.get("deleted_workouts_before")
         self.ai_general = stored.get("ai_general")
         self.ai_workout = stored.get("ai_workout")
         self.ai_general_verdict = stored.get("ai_general_verdict")
@@ -320,6 +332,10 @@ class FitnessManager:
         self.selected_feedback_area_id = stored.get(
             "selected_feedback_area_id"
         )
+
+        # Apply the current retention policy before calendars/evaluations can
+        # observe restored history. A later normal save persists the pruned set.
+        self._prune_workout_history()
 
         valid_area_ids = {
             area_id
@@ -517,6 +533,11 @@ class FitnessManager:
         self.sleep_listeners.append(listener)
         return lambda: self.sleep_listeners.remove(listener)
 
+    def add_workout_history_listener(self, listener):
+        """Register a listener for canonical workout-history changes only."""
+        self.workout_history_listeners.append(listener)
+        return lambda: self.workout_history_listeners.remove(listener)
+
     def sensor_was_materialized(self, key: str) -> bool:
         """Return whether a sensor entity has ever had a valid value."""
         return key in self.materialized_sensor_keys
@@ -596,6 +617,14 @@ class FitnessManager:
                 listener()
             except Exception:
                 _LOGGER.exception("Fitness sleep entity listener failed")
+
+    def _notify_workout_history(self):
+        """Notify only entities that render canonical workout history."""
+        for listener in list(self.workout_history_listeners):
+            try:
+                listener()
+            except Exception:
+                _LOGGER.exception("Fitness workout-history listener failed")
 
     def _sleep_records_from_history(self) -> list[SleepRecord]:
         records: list[SleepRecord] = []
@@ -789,9 +818,12 @@ class FitnessManager:
             self._notify()
 
     async def _save(self):
+        self._prune_workout_history()
         await self.store.async_save(
             {
-                "history": self.history[-MAX_STORED_WORKOUTS:],
+                "history": self.history,
+                "deleted_workouts": self.deleted_workouts[-1000:],
+                "deleted_workouts_before": self.deleted_workouts_before,
                 "ai_general": self.ai_general,
                 "ai_workout": self.ai_workout,
                 "ai_general_verdict": self.ai_general_verdict,
@@ -2707,6 +2739,7 @@ class FitnessManager:
 
         if self._remember_completed_workout(workout):
             await self._save()
+            self._notify_workout_history()
             self._notify()
 
         if self.config.get(CONF_AI_ENABLED):
@@ -3630,6 +3663,7 @@ class FitnessManager:
 
         if history_changed:
             await self._save()
+            self._notify_workout_history()
         self._notify()
 
         # HR recovery requires post-exercise HR samples. Keep ANT capture alive
@@ -4409,6 +4443,96 @@ class FitnessManager:
         workout = self._apply_beta2_workout_metrics(workout)
         return self._apply_personal_workout_context(workout)
 
+    def workout_retention_days(self) -> int:
+        """Return configured canonical workout retention in days.
+
+        Zero explicitly means unlimited. The default is intentionally long but
+        bounded so the JSON-backed canonical store does not grow forever on a
+        long-running Home Assistant installation.
+        """
+        raw = self.config.get(
+            CONF_WORKOUT_RETENTION_DAYS,
+            DEFAULT_WORKOUT_RETENTION_DAYS,
+        )
+        try:
+            days = int(raw)
+        except (TypeError, ValueError):
+            days = DEFAULT_WORKOUT_RETENTION_DAYS
+        return max(0, min(days, MAX_WORKOUT_RETENTION_DAYS))
+
+    def _retention_cutoff(self) -> datetime | None:
+        """Return the oldest automatically retained workout timestamp."""
+        days = self.workout_retention_days()
+        if days == 0:
+            return None
+        return datetime.now(timezone.utc) - timedelta(days=days)
+
+    def _bulk_deleted_cutoff(self) -> datetime | None:
+        """Return the permanent user bulk-deletion cutoff when configured."""
+        return _dt(getattr(self, "deleted_workouts_before", None))
+
+    def _workout_is_outside_retention(self, workout: Workout | None) -> bool:
+        if workout is None:
+            return True
+        start = _dt(workout.start)
+        cutoff = self._retention_cutoff()
+        return bool(start is not None and cutoff is not None and start < cutoff)
+
+    def _prune_workout_history(self) -> bool:
+        """Apply configured automatic retention and explicit bulk deletion."""
+        before = len(self.history)
+        retention_cutoff = self._retention_cutoff()
+        deleted_cutoff = self._bulk_deleted_cutoff()
+        kept: list[dict] = []
+        for item in self.history:
+            try:
+                start = _dt(item.get("start"))
+            except AttributeError:
+                kept.append(item)
+                continue
+            if start is None:
+                kept.append(item)
+                continue
+            if retention_cutoff is not None and start < retention_cutoff:
+                continue
+            if deleted_cutoff is not None and start < deleted_cutoff:
+                continue
+            kept.append(item)
+        self.history = kept
+
+        # Individual tombstones older than a permanent bulk-deletion cutoff are
+        # redundant and can be discarded safely.
+        if deleted_cutoff is not None:
+            self.deleted_workouts = [
+                item
+                for item in self.deleted_workouts
+                if _dt(item.get("start")) is None
+                or _dt(item.get("start")) >= deleted_cutoff
+            ]
+        return len(self.history) != before
+
+    async def async_delete_workouts_before(self, days: int) -> int:
+        """Delete canonical workouts older than *days* and block re-import.
+
+        The resulting cutoff is persistent. Provider or Recorder reconciliation
+        cannot resurrect workouts older than the most recent explicit bulk
+        deletion cutoff.
+        """
+        days = max(1, min(int(days), MAX_WORKOUT_RETENTION_DAYS))
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        existing = self._bulk_deleted_cutoff()
+        if existing is None or cutoff > existing:
+            self.deleted_workouts_before = cutoff.isoformat()
+
+        before = len(self.history)
+        self._prune_workout_history()
+        deleted = before - len(self.history)
+        await self._save()
+        if deleted:
+            self._notify_workout_history()
+            self._notify()
+        return deleted
+
     async def _async_reconcile_external_workouts(self) -> bool:
         """Merge every currently exposed provider workout into history."""
         candidates = discover_external_workouts(self.hass, self.config)
@@ -4425,6 +4549,7 @@ class FitnessManager:
             changed = self._remember_completed_workout(workout) or changed
         if changed:
             await self._save()
+            self._notify_workout_history()
             self._notify()
         return changed
 
@@ -4450,6 +4575,7 @@ class FitnessManager:
             changed = self._remember_completed_workout(workout) or changed
         if changed:
             await self._save()
+            self._notify_workout_history()
             self._notify()
         return len(candidates)
 
@@ -4502,12 +4628,103 @@ class FitnessManager:
             changed = self._remember_completed_workout(workout) or changed
         if changed:
             await self._save()
+            self._notify_workout_history()
             self._notify()
         return len(candidates)
+
+    @staticmethod
+    def _calendar_uid(entry_id: str, workout: Workout | None) -> str | None:
+        """Return the source-independent calendar UID for a workout."""
+        if workout is None:
+            return None
+        start = _dt(workout.start)
+        if start is None:
+            return None
+        return f"fitness-{entry_id}-t5-{int(start.timestamp()) // 300}"
+
+    def _workout_is_deleted(self, workout: Workout | None) -> bool:
+        """Return True when a user-deleted workout matches this candidate."""
+        if workout is None or not workout.start:
+            return False
+        start = _dt(workout.start)
+        bulk_cutoff = self._bulk_deleted_cutoff()
+        if start is not None and bulk_cutoff is not None and start < bulk_cutoff:
+            return True
+        for item in self.deleted_workouts:
+            if not isinstance(item, dict):
+                continue
+            try:
+                tombstone = Workout(
+                    source="fitness_deleted",
+                    name=item.get("name"),
+                    sport=item.get("sport"),
+                    start=item.get("start"),
+                    end=item.get("end"),
+                    duration_s=item.get("duration_s"),
+                    distance_m=item.get("distance_m"),
+                )
+            except TypeError:
+                continue
+            if _same_real_workout(workout, tombstone):
+                return True
+        return False
+
+    async def async_delete_calendar_workout(self, uid: str, entry_id: str) -> bool:
+        """Delete one canonical workout and remember that deletion.
+
+        A tombstone is necessary because Garmin/Strava/Recorder history can
+        expose the same physical workout again after the user deletes it.
+        """
+        target = None
+        for workout in self.local_workouts():
+            if self._calendar_uid(entry_id, workout) == uid:
+                target = workout
+                break
+        if target is None:
+            return False
+
+        kept: list[dict] = []
+        for item in self.history:
+            try:
+                candidate = Workout(**item)
+            except TypeError:
+                kept.append(item)
+                continue
+            if _same_real_workout(candidate, target):
+                continue
+            kept.append(item)
+
+        self.history = kept
+        tombstone = {
+            "start": target.start,
+            "end": target.end,
+            "duration_s": target.duration_s,
+            "distance_m": target.distance_m,
+            "sport": target.sport,
+            "name": target.name,
+            "deleted_at": datetime.now(timezone.utc).isoformat(),
+        }
+        if not any(
+            item.get("start") == tombstone["start"]
+            and item.get("sport") == tombstone["sport"]
+            for item in self.deleted_workouts
+            if isinstance(item, dict)
+        ):
+            self.deleted_workouts.append(tombstone)
+            self.deleted_workouts = self.deleted_workouts[-1000:]
+
+        await self._save()
+        self._notify_workout_history()
+        self._notify()
+        return True
 
     def _remember_completed_workout(self, workout: Workout | None) -> bool:
         """Merge a completed workout into persistent history without duplicates."""
         if workout is None or not workout.start:
+            return False
+        if self._workout_is_outside_retention(workout):
+            return False
+        if self._workout_is_deleted(workout):
             return False
         before = json.dumps(self.history, sort_keys=True, default=str)
         records = self.local_workouts()
@@ -4517,7 +4734,8 @@ class FitnessManager:
             key=lambda item: _dt(item.start)
             or datetime.min.replace(tzinfo=timezone.utc)
         )
-        self.history = [item.as_dict() for item in merged[-MAX_STORED_WORKOUTS:]]
+        self.history = [item.as_dict() for item in merged]
+        self._prune_workout_history()
         after = json.dumps(self.history, sort_keys=True, default=str)
         return before != after
 

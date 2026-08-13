@@ -9,7 +9,7 @@
 
 **Bring workouts, live sensors, sleep and recovery together — then make them useful.**
 
-[Features](#what-fitness-does) · [What's new in 2026.8.10](#whats-new-in-2026810) · [FAQ](#questions--answers) · [Science & methods](docs/SCIENCE.md) · [Changelog](CHANGELOG.md)
+[Features](#what-fitness-does) · [Workout calendar](docs/WORKOUT_CALENDAR.md) · [FAQ](#questions--answers) · [Science & methods](docs/SCIENCE.md) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -30,6 +30,7 @@ For example, **HA-ANT-Plus** can supply live heart rate, speed, cadence or power
 | --- | --- |
 | 🏃 **Live workout** | Combines compatible live heart rate, speed, pace, cadence, power, distance and other measurements into one session. |
 | 🧩 **Workout merging** | Reconciles live capture and later provider uploads so one physical workout does not have to become several unrelated workouts. |
+| 📅 **Workout calendar & history** | Stores canonical completed workouts, backfills compatible provider/Recorder history, enriches existing workouts when another source adds data, and exposes one Home Assistant calendar event per physical workout. Retention is configurable per profile. |
 | 😮‍💨 **Recovery & readiness** | Uses available sleep, personal HRV/RHR context, recent training and HR recovery to describe readiness and estimate when you may be ready for another workout. |
 | 📈 **Training evaluation** | Builds personal trends for training load, adaptation, cardiorespiratory fitness and comparable workouts as enough history becomes available. |
 | 😴 **Sleep** | Merges compatible sleep sources conservatively, deduplicates nights and exposes sleep stages, score, HRV and rolling sleep context when available. |
@@ -38,20 +39,6 @@ For example, **HA-ANT-Plus** can supply live heart rate, speed, cadence or power
 | 🤖 **Optional coaching** | AI or deterministic localized TTS can explain existing workout/recovery evidence without becoming the measurement engine. |
 
 Fitness is **capability-aware**: if the selected sources do not provide enough evidence for a feature, Fitness leaves it unavailable instead of manufacturing a number.
-
-## What's new in 2026.8.10
-
-2026.8.10 focuses on making **recovery and training context more useful, personal and explainable**.
-
-- **Ready for the next workout** — an evidence-informed recovery estimate based on the latest canonical workout plus the recovery evidence actually available to Fitness. It includes remaining time, an approximate ready-at time, recovery progress, confidence, limiting factors and an uncertainty range rather than pretending recovery happens at one biologically exact minute.
-- **Personal HRV baseline** — recent HRV is interpreted against your own preceding history instead of a universal HRV target. The latest night and rolling trend remain inspectable.
-- **Better Training Readiness** — readiness combines independent recovery domains only when enough evidence exists, exposes its components and confidence, and keeps the recovery-time estimate conceptually separate while presenting both together in the dashboard.
-- **Training adaptation** — recent workload is interpreted together with longer-term personal history and recovery/fitness signals. Sparse history reports insufficient data instead of producing an unstable high-load verdict.
-- **Correct 7-day sleep deficit** — one validated main sleep is counted per local wake date so duplicate provider synchronization cannot inflate the result.
-- **Smarter workout reconciliation** — stored workouts are re-clustered so stale live/provider duplicates do not inflate workout counts or training load.
-- **Recovery & Sleep dashboard polish** — readiness, recovery progress/signals and last-sleep information are organized into a clearer responsive view, with state-aware colors and localized user-facing labels.
-
-For the detailed development history, see the **[Changelog](CHANGELOG.md)**.
 
 ## How it fits together
 
@@ -88,7 +75,7 @@ The frontend resource is normally registered automatically. If you ever need the
 1. Install **Fitness** through HACS as a custom repository, or copy `custom_components/fitness/` into your Home Assistant configuration.
 2. Restart Home Assistant.
 3. Open **Settings → Devices & services → Add integration → Fitness**.
-4. Create your profile and select the Home Assistant devices/entities that provide your workout, live and recovery data.
+4. Create your profile, choose how long canonical workout history should be retained, and select the Home Assistant devices/entities that provide your workout, live and recovery data.
 5. Optionally configure coaching, speakers, notifications and light feedback.
 6. Add the bundled Fitness dashboard/cards — and train.
 
@@ -123,6 +110,12 @@ RPE is your 1–10 rating of how hard the whole session felt. Fitness can use pr
 ### Why does Fitness compare me with myself?
 
 Because many fitness signals depend on the person, protocol, sport and device. Where appropriate, Fitness prefers validated personal history and comparable workouts over simplistic universal good/bad thresholds.
+
+### How long are workouts stored?
+
+Canonical workout history is retained per Fitness profile. The default is **3650 days (10 years)**, which gives long-term analysis plenty of history without making an unbounded JSON store the default. Set retention to **0 days** in the Fitness options to keep canonical workouts indefinitely. Automatic retention removes only Fitness's stored copy; if you later increase retention and a provider still exposes an older workout, Fitness may import it again.
+
+Individual calendar events can be deleted from Home Assistant. For bulk cleanup, the `fitness.delete_workouts_before` action permanently removes workouts older than the requested number of days from that Fitness profile and records one cutoff so provider/history synchronization cannot recreate them.
 
 ### Does Fitness use AI to calculate my metrics?
 

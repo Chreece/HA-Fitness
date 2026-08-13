@@ -18,17 +18,11 @@ def test_readme_keeps_tldr_and_questions_answers():
     assert "### Does Fitness use AI to calculate my metrics?" in README
 
 
-def test_readme_summarizes_2026_8_10():
-    assert "## What's new in 2026.8.10" in README
-    for phrase in (
-        "Ready for the next workout",
-        "Personal HRV baseline",
-        "Training Readiness",
-        "Training adaptation",
-        "7-day sleep deficit",
-        "workout reconciliation",
-    ):
-        assert phrase in README
+def test_readme_is_evergreen_not_release_notes():
+    assert "## What's new in 2026.8.10" not in README
+    assert "## What's new in 2026.8.11" not in README
+    assert "[Changelog](CHANGELOG.md)" in README
+    assert "[Workout calendar](docs/WORKOUT_CALENDAR.md)" in README
 
 
 def test_readme_has_science_and_health_boundaries():
@@ -38,6 +32,7 @@ def test_readme_has_science_and_health_boundaries():
     assert "[LICENSE](LICENSE)" in README
 
 
-def test_changelog_has_stable_2026_8_10_summary():
+def test_changelog_keeps_2026_8_10_and_documents_2026_8_11():
     assert "## 2026.8.10 — Recovery, readiness & personal context" in CHANGELOG
+    assert "## 2026.8.11 — Unified workout calendar & historical reconciliation" in CHANGELOG
     assert "[Science & methods](docs/SCIENCE.md)" in CHANGELOG

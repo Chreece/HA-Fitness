@@ -42,6 +42,7 @@ CONF_THRESHOLD_POWER = "threshold_power"
 CONF_LIVE_DEVICE_IDS = "live_device_ids"
 CONF_WORKOUT_DEVICE_IDS = "workout_device_ids"
 CONF_DETAILED_STRENGTH_ANALYSIS = "detailed_strength_analysis"
+CONF_WORKOUT_RETENTION_DAYS = "workout_retention_days"
 CONF_SLEEP_DEVICE_IDS = "sleep_device_ids"
 
 CONF_AI_ENABLED = "ai_enabled"
@@ -95,4 +96,8 @@ MIN_LOCAL_WORKOUT_SAMPLES = 20
 
 STORE_VERSION = 1
 STORE_KEY_PREFIX = "fitness_history"
-MAX_STORED_WORKOUTS = 2000
+DEFAULT_WORKOUT_RETENTION_DAYS = 3650
+MAX_WORKOUT_RETENTION_DAYS = 36500
+SERVICE_DELETE_WORKOUTS_BEFORE = "delete_workouts_before"
+ATTR_CONFIG_ENTRY_ID = "config_entry_id"
+ATTR_DAYS = "days"

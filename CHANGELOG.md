@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026.8.11 — Unified workout calendar & historical reconciliation
+
+2026.8.11 adds a canonical workout calendar and extends workout reconciliation beyond the newest provider activity.
+
+### Highlights
+
+- Added one Home Assistant **Workout calendar** per Fitness profile. Each event represents one canonical physical workout with its actual start/end time.
+- Added historical workout ingestion from currently exposed provider history, supported provider-specific history APIs, and selected completed-workout entities in Home Assistant Recorder.
+- Historical, local and newly synchronized provider workouts all use the same conservative `merged_workouts()` reconciliation path. Later Garmin/Strava/Hevy/etc. data enriches an existing workout instead of being ignored or creating a duplicate.
+- Local completed workouts now enter the same canonical history path as provider workouts.
+- Increased canonical workout retention from 200 to **2,000 workouts** so historical backfill remains useful.
+- Added Home Assistant calendar deletion support. Deleting an event removes the canonical Fitness workout and stores a compact tombstone so provider/history synchronization cannot automatically resurrect it.
+- Added normalized workout start latitude/longitude fields and calendar `location` output when explicit start GPS coordinates are available.
+- Added compact localized calendar summaries for all 15 languages already supported by Fitness. Full structured workout measurements/calculations stay in Fitness history/dashboard because Home Assistant `CalendarEvent` does not expose arbitrary rendered per-event attributes.
+- Added regression tests and dedicated documentation for calendar identity, GPS start location, deletion persistence, localization, historical reconciliation and retention.
+
+### Storage behavior
+
+Workout calendar events are projections of Fitness canonical workout storage; they are not maintained in a second calendar database. The newest 2,000 canonical workouts are retained. Deleted workout tombstones are persisted separately (up to 1,000) so explicit user deletion survives restart and provider re-sync.
+
+---
+
 ## 2026.8.10 — Recovery, readiness & personal context
 
 2026.8.10 turns the beta recovery work into a cohesive release focused on **personal baselines, explainable recovery and trustworthy history**.

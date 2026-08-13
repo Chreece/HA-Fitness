@@ -1,0 +1,17 @@
+delete_workouts_before:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: fitness
+    days:
+      required: true
+      default: 365
+      selector:
+        number:
+          min: 1
+          max: 36500
+          step: 1
+          mode: box
+          unit_of_measurement: d

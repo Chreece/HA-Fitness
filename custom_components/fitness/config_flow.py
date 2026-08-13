@@ -38,7 +38,10 @@ from .const import (
     CONF_VO2MAX,
     CONF_WEIGHT,
     CONF_WORKOUT_DEVICE_IDS,
+    CONF_WORKOUT_RETENTION_DAYS,
     CONF_SLEEP_DEVICE_IDS,
+    DEFAULT_WORKOUT_RETENTION_DAYS,
+    MAX_WORKOUT_RETENTION_DAYS,
     DOMAIN,
     SUPPORTED_LANGUAGES,
 )
@@ -209,7 +212,7 @@ def _validate(hass, user_input, specs):
 
 
 class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    VERSION = 11
+    VERSION = 12
 
     def __init__(self):
         self._data = {}
@@ -354,12 +357,42 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._data[CONF_DETAILED_STRENGTH_ANALYSIS] = bool(
                 user_input.get(CONF_DETAILED_STRENGTH_ANALYSIS, False)
             )
-            return await self.async_step_sleep_devices()
+            return await self.async_step_history()
 
         return self.async_show_form(
             step_id="workout_devices",
             data_schema=vol.Schema(
                 {vol.Optional(CONF_WORKOUT_DEVICE_IDS, default=_choice_ids(workout_device_choices(self.hass))): _supported_device_multi(workout_device_choices(self.hass)), vol.Optional(CONF_DETAILED_STRENGTH_ANALYSIS, default=False): bool}
+            ),
+        )
+
+    async def async_step_history(self, user_input=None):
+        """Configure canonical workout-history retention."""
+        if user_input is not None:
+            self._data[CONF_WORKOUT_RETENTION_DAYS] = int(
+                user_input.get(
+                    CONF_WORKOUT_RETENTION_DAYS,
+                    DEFAULT_WORKOUT_RETENTION_DAYS,
+                )
+            )
+            return await self.async_step_sleep_devices()
+        return self.async_show_form(
+            step_id="history",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_WORKOUT_RETENTION_DAYS,
+                        default=DEFAULT_WORKOUT_RETENTION_DAYS,
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=MAX_WORKOUT_RETENTION_DAYS,
+                            step=1,
+                            unit_of_measurement="d",
+                            mode=selector.NumberSelectorMode.BOX,
+                        )
+                    )
+                }
             ),
         )
 
@@ -531,6 +564,7 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 "fitness_inputs",
                 "live_devices",
                 "workout_devices",
+                "history",
                 "sleep_devices",
                 "ai",
                 "feedback",
@@ -764,6 +798,45 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                         CONF_DETAILED_STRENGTH_ANALYSIS,
                         default=bool(current.get(CONF_DETAILED_STRENGTH_ANALYSIS, False)),
                     ): bool,
+                }
+            ),
+        )
+
+    async def async_step_history(self, user_input=None):
+        """Edit canonical workout-history retention."""
+        current = self._current()
+        if user_input is not None:
+            return await self._save_merge(
+                {
+                    CONF_WORKOUT_RETENTION_DAYS: int(
+                        user_input.get(
+                            CONF_WORKOUT_RETENTION_DAYS,
+                            DEFAULT_WORKOUT_RETENTION_DAYS,
+                        )
+                    )
+                }
+            )
+        return self.async_show_form(
+            step_id="history",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_WORKOUT_RETENTION_DAYS,
+                        default=int(
+                            current.get(
+                                CONF_WORKOUT_RETENTION_DAYS,
+                                DEFAULT_WORKOUT_RETENTION_DAYS,
+                            )
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=MAX_WORKOUT_RETENTION_DAYS,
+                            step=1,
+                            unit_of_measurement="d",
+                            mode=selector.NumberSelectorMode.BOX,
+                        )
+                    )
                 }
             ),
         )

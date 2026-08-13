@@ -123,6 +123,14 @@ _FIELD_KEYS: dict[str, tuple[str, ...]] = {
     "total_reps": ("total_reps", "totalReps", "reps"),
     "exercise_count": ("exercise_count", "exerciseCount"),
     "volume_kg": ("volume_kg", "volumeKg", "total_volume", "volume"),
+    "start_latitude": (
+        "startLatitude", "start_latitude", "startLat", "start_lat",
+        "startingLatitude", "starting_latitude",
+    ),
+    "start_longitude": (
+        "startLongitude", "start_longitude", "startLon", "startLng",
+        "start_lon", "start_lng", "startingLongitude", "starting_longitude",
+    ),
     "device_name": (
         "device_name", "deviceName", "device", "source_device",
     ),
@@ -175,6 +183,8 @@ class Workout:
     total_reps: float | None = None
     exercise_count: float | None = None
     volume_kg: float | None = None
+    start_latitude: float | None = None
+    start_longitude: float | None = None
     device_name: str | None = None
     gear_name: str | None = None
     sample_count: int | None = None
