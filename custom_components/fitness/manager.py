@@ -5011,7 +5011,7 @@ class FitnessManager:
         # Current recovery state modifies, but never dominates, the workout dose.
         readiness = self.readiness_evaluation()
         sleep = self.sleep_long_term_summary()
-        recorder = self.recorder_long_term_summary()
+        recorder = self.recorder_long_term_evaluation()
         workout_long = self.workout_long_term_summary()
         modifier = 1.0
         modifiers: list[dict[str, Any]] = []
