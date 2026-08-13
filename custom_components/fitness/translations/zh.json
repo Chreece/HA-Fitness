@@ -1926,6 +1926,54 @@
           },
           "field_source": {
             "name": "字段来源"
+          },
+          "confidence_percent": {
+            "name": "置信度"
+          },
+          "components_available": {
+            "name": "可用组成部分"
+          },
+          "components": {
+            "name": "准备度组成"
+          },
+          "level": {
+            "name": "等级"
+          },
+          "reason": {
+            "name": "原因"
+          },
+          "data_source": {
+            "name": "数据来源"
+          },
+          "updated_at": {
+            "name": "更新时间"
+          },
+          "rpe_source": {
+            "name": "RPE 来源"
+          },
+          "rpe_provider": {
+            "name": "RPE 提供方"
+          },
+          "rpe_provider_capability": {
+            "name": "提供方 RPE 能力"
+          },
+          "provider_base_rpe": {
+            "name": "提供方 RPE"
+          },
+          "user_override_rpe": {
+            "name": "用户 RPE 覆盖"
+          },
+          "sport": {
+            "name": "运动类型"
+          },
+          "strength_analysis": {
+            "name": "力量分析"
+          },
+          "method": {
+            "name": "方法"
+          },
+          "estimated_1rm_formula": {
+            "name": "估算 1RM 公式"
           }
         }
       },
@@ -2532,7 +2580,33 @@
         }
       },
       "readiness": {
-        "name": "训练准备度"
+        "name": "训练准备度",
+        "state_attributes": {
+          "confidence_percent": {
+            "name": "置信度"
+          },
+          "components_available": {
+            "name": "可用组成部分"
+          },
+          "components": {
+            "name": "准备度组成"
+          },
+          "level": {
+            "name": "等级"
+          },
+          "reason": {
+            "name": "原因"
+          },
+          "data_source": {
+            "name": "数据来源"
+          },
+          "updated_at": {
+            "name": "更新时间"
+          },
+          "method": {
+            "name": "方法"
+          }
+        }
       },
       "last_workout_rpe": {
         "name": "上次训练RPE",
@@ -2545,6 +2619,24 @@
           },
           "field_source": {
             "name": "字段来源"
+          },
+          "rpe_source": {
+            "name": "RPE 来源"
+          },
+          "rpe_provider": {
+            "name": "RPE 提供方"
+          },
+          "rpe_provider_capability": {
+            "name": "提供方 RPE 能力"
+          },
+          "provider_base_rpe": {
+            "name": "提供方 RPE"
+          },
+          "user_override_rpe": {
+            "name": "用户 RPE 覆盖"
+          },
+          "sport": {
+            "name": "运动类型"
           }
         }
       },
@@ -2559,6 +2651,24 @@
           },
           "field_source": {
             "name": "字段来源"
+          },
+          "rpe_source": {
+            "name": "RPE 来源"
+          },
+          "rpe_provider": {
+            "name": "RPE 提供方"
+          },
+          "rpe_provider_capability": {
+            "name": "提供方 RPE 能力"
+          },
+          "provider_base_rpe": {
+            "name": "提供方 RPE"
+          },
+          "user_override_rpe": {
+            "name": "用户 RPE 覆盖"
+          },
+          "sport": {
+            "name": "运动类型"
           }
         }
       },
@@ -2573,6 +2683,24 @@
           },
           "field_source": {
             "name": "字段来源"
+          },
+          "rpe_source": {
+            "name": "RPE 来源"
+          },
+          "rpe_provider": {
+            "name": "RPE 提供方"
+          },
+          "rpe_provider_capability": {
+            "name": "提供方 RPE 能力"
+          },
+          "provider_base_rpe": {
+            "name": "提供方 RPE"
+          },
+          "user_override_rpe": {
+            "name": "用户 RPE 覆盖"
+          },
+          "sport": {
+            "name": "运动类型"
           }
         }
       },
@@ -2615,6 +2743,18 @@
           },
           "field_source": {
             "name": "字段来源"
+          },
+          "sport": {
+            "name": "运动类型"
+          },
+          "strength_analysis": {
+            "name": "力量分析"
+          },
+          "method": {
+            "name": "方法"
+          },
+          "estimated_1rm_formula": {
+            "name": "估算 1RM 公式"
           }
         }
       },
@@ -2629,6 +2769,18 @@
           },
           "field_source": {
             "name": "字段来源"
+          },
+          "sport": {
+            "name": "运动类型"
+          },
+          "strength_analysis": {
+            "name": "力量分析"
+          },
+          "method": {
+            "name": "方法"
+          },
+          "estimated_1rm_formula": {
+            "name": "估算 1RM 公式"
           }
         }
       },
@@ -2643,6 +2795,18 @@
           },
           "field_source": {
             "name": "字段来源"
+          },
+          "sport": {
+            "name": "运动类型"
+          },
+          "strength_analysis": {
+            "name": "力量分析"
+          },
+          "method": {
+            "name": "方法"
+          },
+          "estimated_1rm_formula": {
+            "name": "估算 1RM 公式"
           }
         }
       }

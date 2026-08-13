@@ -1926,6 +1926,54 @@
           },
           "field_source": {
             "name": "필드 소스"
+          },
+          "confidence_percent": {
+            "name": "신뢰도"
+          },
+          "components_available": {
+            "name": "사용 가능한 구성 요소"
+          },
+          "components": {
+            "name": "준비도 구성 요소"
+          },
+          "level": {
+            "name": "수준"
+          },
+          "reason": {
+            "name": "이유"
+          },
+          "data_source": {
+            "name": "데이터 소스"
+          },
+          "updated_at": {
+            "name": "업데이트"
+          },
+          "rpe_source": {
+            "name": "RPE 소스"
+          },
+          "rpe_provider": {
+            "name": "RPE 제공자"
+          },
+          "rpe_provider_capability": {
+            "name": "제공자 RPE 지원"
+          },
+          "provider_base_rpe": {
+            "name": "제공자 RPE"
+          },
+          "user_override_rpe": {
+            "name": "사용자 RPE 재정의"
+          },
+          "sport": {
+            "name": "스포츠"
+          },
+          "strength_analysis": {
+            "name": "근력 분석"
+          },
+          "method": {
+            "name": "방법"
+          },
+          "estimated_1rm_formula": {
+            "name": "추정 1RM 공식"
           }
         }
       },
@@ -2532,7 +2580,33 @@
         }
       },
       "readiness": {
-        "name": "훈련 준비도"
+        "name": "훈련 준비도",
+        "state_attributes": {
+          "confidence_percent": {
+            "name": "신뢰도"
+          },
+          "components_available": {
+            "name": "사용 가능한 구성 요소"
+          },
+          "components": {
+            "name": "준비도 구성 요소"
+          },
+          "level": {
+            "name": "수준"
+          },
+          "reason": {
+            "name": "이유"
+          },
+          "data_source": {
+            "name": "데이터 소스"
+          },
+          "updated_at": {
+            "name": "업데이트"
+          },
+          "method": {
+            "name": "방법"
+          }
+        }
       },
       "last_workout_rpe": {
         "name": "최근 운동 RPE",
@@ -2545,6 +2619,24 @@
           },
           "field_source": {
             "name": "필드 소스"
+          },
+          "rpe_source": {
+            "name": "RPE 소스"
+          },
+          "rpe_provider": {
+            "name": "RPE 제공자"
+          },
+          "rpe_provider_capability": {
+            "name": "제공자 RPE 지원"
+          },
+          "provider_base_rpe": {
+            "name": "제공자 RPE"
+          },
+          "user_override_rpe": {
+            "name": "사용자 RPE 재정의"
+          },
+          "sport": {
+            "name": "스포츠"
           }
         }
       },
@@ -2559,6 +2651,24 @@
           },
           "field_source": {
             "name": "필드 소스"
+          },
+          "rpe_source": {
+            "name": "RPE 소스"
+          },
+          "rpe_provider": {
+            "name": "RPE 제공자"
+          },
+          "rpe_provider_capability": {
+            "name": "제공자 RPE 지원"
+          },
+          "provider_base_rpe": {
+            "name": "제공자 RPE"
+          },
+          "user_override_rpe": {
+            "name": "사용자 RPE 재정의"
+          },
+          "sport": {
+            "name": "스포츠"
           }
         }
       },
@@ -2573,6 +2683,24 @@
           },
           "field_source": {
             "name": "필드 소스"
+          },
+          "rpe_source": {
+            "name": "RPE 소스"
+          },
+          "rpe_provider": {
+            "name": "RPE 제공자"
+          },
+          "rpe_provider_capability": {
+            "name": "제공자 RPE 지원"
+          },
+          "provider_base_rpe": {
+            "name": "제공자 RPE"
+          },
+          "user_override_rpe": {
+            "name": "사용자 RPE 재정의"
+          },
+          "sport": {
+            "name": "스포츠"
           }
         }
       },
@@ -2615,6 +2743,18 @@
           },
           "field_source": {
             "name": "필드 소스"
+          },
+          "sport": {
+            "name": "스포츠"
+          },
+          "strength_analysis": {
+            "name": "근력 분석"
+          },
+          "method": {
+            "name": "방법"
+          },
+          "estimated_1rm_formula": {
+            "name": "추정 1RM 공식"
           }
         }
       },
@@ -2629,6 +2769,18 @@
           },
           "field_source": {
             "name": "필드 소스"
+          },
+          "sport": {
+            "name": "스포츠"
+          },
+          "strength_analysis": {
+            "name": "근력 분석"
+          },
+          "method": {
+            "name": "방법"
+          },
+          "estimated_1rm_formula": {
+            "name": "추정 1RM 공식"
           }
         }
       },
@@ -2643,6 +2795,18 @@
           },
           "field_source": {
             "name": "필드 소스"
+          },
+          "sport": {
+            "name": "스포츠"
+          },
+          "strength_analysis": {
+            "name": "근력 분석"
+          },
+          "method": {
+            "name": "방법"
+          },
+          "estimated_1rm_formula": {
+            "name": "추정 1RM 공식"
           }
         }
       }

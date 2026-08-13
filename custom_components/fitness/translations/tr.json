@@ -1926,6 +1926,54 @@
           },
           "field_source": {
             "name": "Alan kaynağı"
+          },
+          "confidence_percent": {
+            "name": "Güven"
+          },
+          "components_available": {
+            "name": "Kullanılabilir bileşenler"
+          },
+          "components": {
+            "name": "Hazırlık bileşenleri"
+          },
+          "level": {
+            "name": "Seviye"
+          },
+          "reason": {
+            "name": "Neden"
+          },
+          "data_source": {
+            "name": "Veri kaynağı"
+          },
+          "updated_at": {
+            "name": "Güncellendi"
+          },
+          "rpe_source": {
+            "name": "RPE kaynağı"
+          },
+          "rpe_provider": {
+            "name": "RPE sağlayıcısı"
+          },
+          "rpe_provider_capability": {
+            "name": "Sağlayıcı RPE desteği"
+          },
+          "provider_base_rpe": {
+            "name": "Sağlayıcı RPE"
+          },
+          "user_override_rpe": {
+            "name": "Kullanıcı RPE düzeltmesi"
+          },
+          "sport": {
+            "name": "Spor"
+          },
+          "strength_analysis": {
+            "name": "Kuvvet analizi"
+          },
+          "method": {
+            "name": "Yöntem"
+          },
+          "estimated_1rm_formula": {
+            "name": "Tahmini 1RM formülü"
           }
         }
       },
@@ -2532,7 +2580,33 @@
         }
       },
       "readiness": {
-        "name": "Antrenman hazırlığı"
+        "name": "Antrenman hazırlığı",
+        "state_attributes": {
+          "confidence_percent": {
+            "name": "Güven"
+          },
+          "components_available": {
+            "name": "Kullanılabilir bileşenler"
+          },
+          "components": {
+            "name": "Hazırlık bileşenleri"
+          },
+          "level": {
+            "name": "Seviye"
+          },
+          "reason": {
+            "name": "Neden"
+          },
+          "data_source": {
+            "name": "Veri kaynağı"
+          },
+          "updated_at": {
+            "name": "Güncellendi"
+          },
+          "method": {
+            "name": "Yöntem"
+          }
+        }
       },
       "last_workout_rpe": {
         "name": "Son antrenman RPE",
@@ -2545,6 +2619,24 @@
           },
           "field_source": {
             "name": "Alan kaynağı"
+          },
+          "rpe_source": {
+            "name": "RPE kaynağı"
+          },
+          "rpe_provider": {
+            "name": "RPE sağlayıcısı"
+          },
+          "rpe_provider_capability": {
+            "name": "Sağlayıcı RPE desteği"
+          },
+          "provider_base_rpe": {
+            "name": "Sağlayıcı RPE"
+          },
+          "user_override_rpe": {
+            "name": "Kullanıcı RPE düzeltmesi"
+          },
+          "sport": {
+            "name": "Spor"
           }
         }
       },
@@ -2559,6 +2651,24 @@
           },
           "field_source": {
             "name": "Alan kaynağı"
+          },
+          "rpe_source": {
+            "name": "RPE kaynağı"
+          },
+          "rpe_provider": {
+            "name": "RPE sağlayıcısı"
+          },
+          "rpe_provider_capability": {
+            "name": "Sağlayıcı RPE desteği"
+          },
+          "provider_base_rpe": {
+            "name": "Sağlayıcı RPE"
+          },
+          "user_override_rpe": {
+            "name": "Kullanıcı RPE düzeltmesi"
+          },
+          "sport": {
+            "name": "Spor"
           }
         }
       },
@@ -2573,6 +2683,24 @@
           },
           "field_source": {
             "name": "Alan kaynağı"
+          },
+          "rpe_source": {
+            "name": "RPE kaynağı"
+          },
+          "rpe_provider": {
+            "name": "RPE sağlayıcısı"
+          },
+          "rpe_provider_capability": {
+            "name": "Sağlayıcı RPE desteği"
+          },
+          "provider_base_rpe": {
+            "name": "Sağlayıcı RPE"
+          },
+          "user_override_rpe": {
+            "name": "Kullanıcı RPE düzeltmesi"
+          },
+          "sport": {
+            "name": "Spor"
           }
         }
       },
@@ -2615,6 +2743,18 @@
           },
           "field_source": {
             "name": "Alan kaynağı"
+          },
+          "sport": {
+            "name": "Spor"
+          },
+          "strength_analysis": {
+            "name": "Kuvvet analizi"
+          },
+          "method": {
+            "name": "Yöntem"
+          },
+          "estimated_1rm_formula": {
+            "name": "Tahmini 1RM formülü"
           }
         }
       },
@@ -2629,6 +2769,18 @@
           },
           "field_source": {
             "name": "Alan kaynağı"
+          },
+          "sport": {
+            "name": "Spor"
+          },
+          "strength_analysis": {
+            "name": "Kuvvet analizi"
+          },
+          "method": {
+            "name": "Yöntem"
+          },
+          "estimated_1rm_formula": {
+            "name": "Tahmini 1RM formülü"
           }
         }
       },
@@ -2643,6 +2795,18 @@
           },
           "field_source": {
             "name": "Alan kaynağı"
+          },
+          "sport": {
+            "name": "Spor"
+          },
+          "strength_analysis": {
+            "name": "Kuvvet analizi"
+          },
+          "method": {
+            "name": "Yöntem"
+          },
+          "estimated_1rm_formula": {
+            "name": "Tahmini 1RM formülü"
           }
         }
       }

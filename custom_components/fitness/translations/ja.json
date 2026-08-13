@@ -1926,6 +1926,54 @@
           },
           "field_source": {
             "name": "フィールドのソース"
+          },
+          "confidence_percent": {
+            "name": "信頼度"
+          },
+          "components_available": {
+            "name": "利用可能な要素"
+          },
+          "components": {
+            "name": "準備度の要素"
+          },
+          "level": {
+            "name": "レベル"
+          },
+          "reason": {
+            "name": "理由"
+          },
+          "data_source": {
+            "name": "データソース"
+          },
+          "updated_at": {
+            "name": "更新日時"
+          },
+          "rpe_source": {
+            "name": "RPE ソース"
+          },
+          "rpe_provider": {
+            "name": "RPE プロバイダー"
+          },
+          "rpe_provider_capability": {
+            "name": "プロバイダーの RPE 対応"
+          },
+          "provider_base_rpe": {
+            "name": "プロバイダー RPE"
+          },
+          "user_override_rpe": {
+            "name": "ユーザー RPE 上書き"
+          },
+          "sport": {
+            "name": "スポーツ"
+          },
+          "strength_analysis": {
+            "name": "筋力分析"
+          },
+          "method": {
+            "name": "方法"
+          },
+          "estimated_1rm_formula": {
+            "name": "推定 1RM 式"
           }
         }
       },
@@ -2532,7 +2580,33 @@
         }
       },
       "readiness": {
-        "name": "トレーニング準備度"
+        "name": "トレーニング準備度",
+        "state_attributes": {
+          "confidence_percent": {
+            "name": "信頼度"
+          },
+          "components_available": {
+            "name": "利用可能な要素"
+          },
+          "components": {
+            "name": "準備度の要素"
+          },
+          "level": {
+            "name": "レベル"
+          },
+          "reason": {
+            "name": "理由"
+          },
+          "data_source": {
+            "name": "データソース"
+          },
+          "updated_at": {
+            "name": "更新日時"
+          },
+          "method": {
+            "name": "方法"
+          }
+        }
       },
       "last_workout_rpe": {
         "name": "前回ワークアウトRPE",
@@ -2545,6 +2619,24 @@
           },
           "field_source": {
             "name": "フィールドのソース"
+          },
+          "rpe_source": {
+            "name": "RPE ソース"
+          },
+          "rpe_provider": {
+            "name": "RPE プロバイダー"
+          },
+          "rpe_provider_capability": {
+            "name": "プロバイダーの RPE 対応"
+          },
+          "provider_base_rpe": {
+            "name": "プロバイダー RPE"
+          },
+          "user_override_rpe": {
+            "name": "ユーザー RPE 上書き"
+          },
+          "sport": {
+            "name": "スポーツ"
           }
         }
       },
@@ -2559,6 +2651,24 @@
           },
           "field_source": {
             "name": "フィールドのソース"
+          },
+          "rpe_source": {
+            "name": "RPE ソース"
+          },
+          "rpe_provider": {
+            "name": "RPE プロバイダー"
+          },
+          "rpe_provider_capability": {
+            "name": "プロバイダーの RPE 対応"
+          },
+          "provider_base_rpe": {
+            "name": "プロバイダー RPE"
+          },
+          "user_override_rpe": {
+            "name": "ユーザー RPE 上書き"
+          },
+          "sport": {
+            "name": "スポーツ"
           }
         }
       },
@@ -2573,6 +2683,24 @@
           },
           "field_source": {
             "name": "フィールドのソース"
+          },
+          "rpe_source": {
+            "name": "RPE ソース"
+          },
+          "rpe_provider": {
+            "name": "RPE プロバイダー"
+          },
+          "rpe_provider_capability": {
+            "name": "プロバイダーの RPE 対応"
+          },
+          "provider_base_rpe": {
+            "name": "プロバイダー RPE"
+          },
+          "user_override_rpe": {
+            "name": "ユーザー RPE 上書き"
+          },
+          "sport": {
+            "name": "スポーツ"
           }
         }
       },
@@ -2615,6 +2743,18 @@
           },
           "field_source": {
             "name": "フィールドのソース"
+          },
+          "sport": {
+            "name": "スポーツ"
+          },
+          "strength_analysis": {
+            "name": "筋力分析"
+          },
+          "method": {
+            "name": "方法"
+          },
+          "estimated_1rm_formula": {
+            "name": "推定 1RM 式"
           }
         }
       },
@@ -2629,6 +2769,18 @@
           },
           "field_source": {
             "name": "フィールドのソース"
+          },
+          "sport": {
+            "name": "スポーツ"
+          },
+          "strength_analysis": {
+            "name": "筋力分析"
+          },
+          "method": {
+            "name": "方法"
+          },
+          "estimated_1rm_formula": {
+            "name": "推定 1RM 式"
           }
         }
       },
@@ -2643,6 +2795,18 @@
           },
           "field_source": {
             "name": "フィールドのソース"
+          },
+          "sport": {
+            "name": "スポーツ"
+          },
+          "strength_analysis": {
+            "name": "筋力分析"
+          },
+          "method": {
+            "name": "方法"
+          },
+          "estimated_1rm_formula": {
+            "name": "推定 1RM 式"
           }
         }
       }

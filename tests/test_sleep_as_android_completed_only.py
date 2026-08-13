@@ -6,9 +6,9 @@ REGISTRY = (ROOT/"custom_components/fitness/providers/sleep_adapters/registry.py
 
 def test_sleep_as_android_is_completed_only():
     assert "if self._sleep_as_android_active:" in MANAGER
-    assert "phase transition are intentionally" in MANAGER
+    assert "phase transition remain silent" in MANAGER
     assert 'event_type == "stopped"' in MANAGER
-    assert "_schedule_sleep_as_android_history_refresh(delay=1.5)" in MANAGER
+    assert "_schedule_sleep_as_android_history_refresh(delay=1.5, retries=3)" in MANAGER
     assert "_latest_completed_session" in SAA
     assert '"sleep_phase" in label' in REGISTRY
 

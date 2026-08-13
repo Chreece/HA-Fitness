@@ -1926,6 +1926,54 @@
           },
           "field_source": {
             "name": "Джерело поля"
+          },
+          "confidence_percent": {
+            "name": "Впевненість"
+          },
+          "components_available": {
+            "name": "Доступні компоненти"
+          },
+          "components": {
+            "name": "Компоненти готовності"
+          },
+          "level": {
+            "name": "Рівень"
+          },
+          "reason": {
+            "name": "Причина"
+          },
+          "data_source": {
+            "name": "Джерело даних"
+          },
+          "updated_at": {
+            "name": "Оновлено"
+          },
+          "rpe_source": {
+            "name": "Джерело RPE"
+          },
+          "rpe_provider": {
+            "name": "Постачальник RPE"
+          },
+          "rpe_provider_capability": {
+            "name": "Підтримка RPE постачальником"
+          },
+          "provider_base_rpe": {
+            "name": "RPE постачальника"
+          },
+          "user_override_rpe": {
+            "name": "RPE, змінений користувачем"
+          },
+          "sport": {
+            "name": "Вид спорту"
+          },
+          "strength_analysis": {
+            "name": "Силовий аналіз"
+          },
+          "method": {
+            "name": "Метод"
+          },
+          "estimated_1rm_formula": {
+            "name": "Формула розрахункового 1RM"
           }
         }
       },
@@ -2532,7 +2580,33 @@
         }
       },
       "readiness": {
-        "name": "Готовність до тренування"
+        "name": "Готовність до тренування",
+        "state_attributes": {
+          "confidence_percent": {
+            "name": "Впевненість"
+          },
+          "components_available": {
+            "name": "Доступні компоненти"
+          },
+          "components": {
+            "name": "Компоненти готовності"
+          },
+          "level": {
+            "name": "Рівень"
+          },
+          "reason": {
+            "name": "Причина"
+          },
+          "data_source": {
+            "name": "Джерело даних"
+          },
+          "updated_at": {
+            "name": "Оновлено"
+          },
+          "method": {
+            "name": "Метод"
+          }
+        }
       },
       "last_workout_rpe": {
         "name": "RPE останнього тренування",
@@ -2545,6 +2619,24 @@
           },
           "field_source": {
             "name": "Джерело поля"
+          },
+          "rpe_source": {
+            "name": "Джерело RPE"
+          },
+          "rpe_provider": {
+            "name": "Постачальник RPE"
+          },
+          "rpe_provider_capability": {
+            "name": "Підтримка RPE постачальником"
+          },
+          "provider_base_rpe": {
+            "name": "RPE постачальника"
+          },
+          "user_override_rpe": {
+            "name": "RPE, змінений користувачем"
+          },
+          "sport": {
+            "name": "Вид спорту"
           }
         }
       },
@@ -2559,6 +2651,24 @@
           },
           "field_source": {
             "name": "Джерело поля"
+          },
+          "rpe_source": {
+            "name": "Джерело RPE"
+          },
+          "rpe_provider": {
+            "name": "Постачальник RPE"
+          },
+          "rpe_provider_capability": {
+            "name": "Підтримка RPE постачальником"
+          },
+          "provider_base_rpe": {
+            "name": "RPE постачальника"
+          },
+          "user_override_rpe": {
+            "name": "RPE, змінений користувачем"
+          },
+          "sport": {
+            "name": "Вид спорту"
           }
         }
       },
@@ -2573,6 +2683,24 @@
           },
           "field_source": {
             "name": "Джерело поля"
+          },
+          "rpe_source": {
+            "name": "Джерело RPE"
+          },
+          "rpe_provider": {
+            "name": "Постачальник RPE"
+          },
+          "rpe_provider_capability": {
+            "name": "Підтримка RPE постачальником"
+          },
+          "provider_base_rpe": {
+            "name": "RPE постачальника"
+          },
+          "user_override_rpe": {
+            "name": "RPE, змінений користувачем"
+          },
+          "sport": {
+            "name": "Вид спорту"
           }
         }
       },
@@ -2615,6 +2743,18 @@
           },
           "field_source": {
             "name": "Джерело поля"
+          },
+          "sport": {
+            "name": "Вид спорту"
+          },
+          "strength_analysis": {
+            "name": "Силовий аналіз"
+          },
+          "method": {
+            "name": "Метод"
+          },
+          "estimated_1rm_formula": {
+            "name": "Формула розрахункового 1RM"
           }
         }
       },
@@ -2629,6 +2769,18 @@
           },
           "field_source": {
             "name": "Джерело поля"
+          },
+          "sport": {
+            "name": "Вид спорту"
+          },
+          "strength_analysis": {
+            "name": "Силовий аналіз"
+          },
+          "method": {
+            "name": "Метод"
+          },
+          "estimated_1rm_formula": {
+            "name": "Формула розрахункового 1RM"
           }
         }
       },
@@ -2643,6 +2795,18 @@
           },
           "field_source": {
             "name": "Джерело поля"
+          },
+          "sport": {
+            "name": "Вид спорту"
+          },
+          "strength_analysis": {
+            "name": "Силовий аналіз"
+          },
+          "method": {
+            "name": "Метод"
+          },
+          "estimated_1rm_formula": {
+            "name": "Формула розрахункового 1RM"
           }
         }
       }

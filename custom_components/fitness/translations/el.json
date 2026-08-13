@@ -1926,6 +1926,54 @@
           },
           "field_source": {
             "name": "Πηγή πεδίου"
+          },
+          "confidence_percent": {
+            "name": "Βεβαιότητα"
+          },
+          "components_available": {
+            "name": "Διαθέσιμα στοιχεία"
+          },
+          "components": {
+            "name": "Στοιχεία ετοιμότητας"
+          },
+          "level": {
+            "name": "Επίπεδο"
+          },
+          "reason": {
+            "name": "Αιτία"
+          },
+          "data_source": {
+            "name": "Πηγή δεδομένων"
+          },
+          "updated_at": {
+            "name": "Ενημερώθηκε"
+          },
+          "rpe_source": {
+            "name": "Πηγή RPE"
+          },
+          "rpe_provider": {
+            "name": "Πάροχος RPE"
+          },
+          "rpe_provider_capability": {
+            "name": "Δυνατότητα RPE παρόχου"
+          },
+          "provider_base_rpe": {
+            "name": "RPE παρόχου"
+          },
+          "user_override_rpe": {
+            "name": "RPE χρήστη"
+          },
+          "sport": {
+            "name": "Άθλημα"
+          },
+          "strength_analysis": {
+            "name": "Ανάλυση δύναμης"
+          },
+          "method": {
+            "name": "Μέθοδος"
+          },
+          "estimated_1rm_formula": {
+            "name": "Τύπος εκτιμώμενου 1RM"
           }
         }
       },
@@ -2532,7 +2580,33 @@
         }
       },
       "readiness": {
-        "name": "Ετοιμότητα προπόνησης"
+        "name": "Ετοιμότητα προπόνησης",
+        "state_attributes": {
+          "confidence_percent": {
+            "name": "Βεβαιότητα"
+          },
+          "components_available": {
+            "name": "Διαθέσιμα στοιχεία"
+          },
+          "components": {
+            "name": "Στοιχεία ετοιμότητας"
+          },
+          "level": {
+            "name": "Επίπεδο"
+          },
+          "reason": {
+            "name": "Αιτία"
+          },
+          "data_source": {
+            "name": "Πηγή δεδομένων"
+          },
+          "updated_at": {
+            "name": "Ενημερώθηκε"
+          },
+          "method": {
+            "name": "Μέθοδος"
+          }
+        }
       },
       "last_workout_rpe": {
         "name": "RPE τελευταίας προπόνησης",
@@ -2545,6 +2619,24 @@
           },
           "field_source": {
             "name": "Πηγή πεδίου"
+          },
+          "rpe_source": {
+            "name": "Πηγή RPE"
+          },
+          "rpe_provider": {
+            "name": "Πάροχος RPE"
+          },
+          "rpe_provider_capability": {
+            "name": "Δυνατότητα RPE παρόχου"
+          },
+          "provider_base_rpe": {
+            "name": "RPE παρόχου"
+          },
+          "user_override_rpe": {
+            "name": "RPE χρήστη"
+          },
+          "sport": {
+            "name": "Άθλημα"
           }
         }
       },
@@ -2559,6 +2651,24 @@
           },
           "field_source": {
             "name": "Πηγή πεδίου"
+          },
+          "rpe_source": {
+            "name": "Πηγή RPE"
+          },
+          "rpe_provider": {
+            "name": "Πάροχος RPE"
+          },
+          "rpe_provider_capability": {
+            "name": "Δυνατότητα RPE παρόχου"
+          },
+          "provider_base_rpe": {
+            "name": "RPE παρόχου"
+          },
+          "user_override_rpe": {
+            "name": "RPE χρήστη"
+          },
+          "sport": {
+            "name": "Άθλημα"
           }
         }
       },
@@ -2573,6 +2683,24 @@
           },
           "field_source": {
             "name": "Πηγή πεδίου"
+          },
+          "rpe_source": {
+            "name": "Πηγή RPE"
+          },
+          "rpe_provider": {
+            "name": "Πάροχος RPE"
+          },
+          "rpe_provider_capability": {
+            "name": "Δυνατότητα RPE παρόχου"
+          },
+          "provider_base_rpe": {
+            "name": "RPE παρόχου"
+          },
+          "user_override_rpe": {
+            "name": "RPE χρήστη"
+          },
+          "sport": {
+            "name": "Άθλημα"
           }
         }
       },
@@ -2615,6 +2743,18 @@
           },
           "field_source": {
             "name": "Πηγή πεδίου"
+          },
+          "sport": {
+            "name": "Άθλημα"
+          },
+          "strength_analysis": {
+            "name": "Ανάλυση δύναμης"
+          },
+          "method": {
+            "name": "Μέθοδος"
+          },
+          "estimated_1rm_formula": {
+            "name": "Τύπος εκτιμώμενου 1RM"
           }
         }
       },
@@ -2629,6 +2769,18 @@
           },
           "field_source": {
             "name": "Πηγή πεδίου"
+          },
+          "sport": {
+            "name": "Άθλημα"
+          },
+          "strength_analysis": {
+            "name": "Ανάλυση δύναμης"
+          },
+          "method": {
+            "name": "Μέθοδος"
+          },
+          "estimated_1rm_formula": {
+            "name": "Τύπος εκτιμώμενου 1RM"
           }
         }
       },
@@ -2643,6 +2795,18 @@
           },
           "field_source": {
             "name": "Πηγή πεδίου"
+          },
+          "sport": {
+            "name": "Άθλημα"
+          },
+          "strength_analysis": {
+            "name": "Ανάλυση δύναμης"
+          },
+          "method": {
+            "name": "Μέθοδος"
+          },
+          "estimated_1rm_formula": {
+            "name": "Τύπος εκτιμώμενου 1RM"
           }
         }
       }

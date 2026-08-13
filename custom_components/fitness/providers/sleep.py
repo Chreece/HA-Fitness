@@ -116,7 +116,13 @@ def _same_sleep(a: SleepRecord, b: SleepRecord) -> bool:
     interval, observed = (ai, bo) if ai and bo else ((bi, ao) if bi and ao else (None, None))
     if interval and observed:
         _start, end = interval
-        return abs((observed - end).total_seconds()) <= 12 * 3600
+        # Sleep as Android sensor aggregates (for example sleep_score) can keep
+        # yesterday's value until the integration publishes the new result. Do
+        # not attach such a stale sparse record to tonight's freshly completed
+        # event timeline merely because it is within the broad daily window.
+        sparse = b if ai and bo else a
+        tolerance = 2 * 3600 if sparse.provider_domain == "sleep_as_android" else 12 * 3600
+        return abs((observed - end).total_seconds()) <= tolerance
     return False
 
 

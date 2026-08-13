@@ -2,6 +2,8 @@
 
 ## 2026.8.10-beta1
 
+- Fixed Sleep as Android completion latency: a STOPPED event now materializes the completed sleep immediately from the live tracking/phase event timeline instead of waiting for Recorder to commit. Recorder reconstruction remains the restart/history source and now retries delayed commits. Stale Sleep as Android aggregate values (such as yesterday's sleep score) are no longer merged into a newly completed night unless they were refreshed near that sleep's end.
+
 - Workout-device cleanup is now capability-aware: provider placeholder zeroes for unsupported movement/mechanical metrics are treated as missing, stale optional Workout registry entities are pruned on setup, and the old duplicate single-source entity is removed in favor of the merged source list.
 - Workout highlights now render the workout name as its own safely wrapping heading and suppress irrelevant zero/unknown/unavailable tiles so translated or long titles cannot escape their card.
 - RPE provider provenance is now adapter-aware. Fitness uses a provider-supplied session RPE as the initial completed-workout value when available, while keeping the Workout-card control editable; user overrides preserve the provider baseline and immediately recalculate session-RPE load and long-term RPE statistics.

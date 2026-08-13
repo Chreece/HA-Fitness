@@ -1926,6 +1926,54 @@
           },
           "field_source": {
             "name": "Fonte do campo"
+          },
+          "confidence_percent": {
+            "name": "Confiança"
+          },
+          "components_available": {
+            "name": "Componentes disponíveis"
+          },
+          "components": {
+            "name": "Componentes de prontidão"
+          },
+          "level": {
+            "name": "Nível"
+          },
+          "reason": {
+            "name": "Motivo"
+          },
+          "data_source": {
+            "name": "Fonte de dados"
+          },
+          "updated_at": {
+            "name": "Atualizado"
+          },
+          "rpe_source": {
+            "name": "Fonte de RPE"
+          },
+          "rpe_provider": {
+            "name": "Fornecedor RPE"
+          },
+          "rpe_provider_capability": {
+            "name": "Capacidade RPE do fornecedor"
+          },
+          "provider_base_rpe": {
+            "name": "RPE do fornecedor"
+          },
+          "user_override_rpe": {
+            "name": "RPE alterado pelo utilizador"
+          },
+          "sport": {
+            "name": "Desporto"
+          },
+          "strength_analysis": {
+            "name": "Análise de força"
+          },
+          "method": {
+            "name": "Método"
+          },
+          "estimated_1rm_formula": {
+            "name": "Fórmula de 1RM estimado"
           }
         }
       },
@@ -2532,7 +2580,33 @@
         }
       },
       "readiness": {
-        "name": "Prontidão para treinar"
+        "name": "Prontidão para treinar",
+        "state_attributes": {
+          "confidence_percent": {
+            "name": "Confiança"
+          },
+          "components_available": {
+            "name": "Componentes disponíveis"
+          },
+          "components": {
+            "name": "Componentes de prontidão"
+          },
+          "level": {
+            "name": "Nível"
+          },
+          "reason": {
+            "name": "Motivo"
+          },
+          "data_source": {
+            "name": "Fonte de dados"
+          },
+          "updated_at": {
+            "name": "Atualizado"
+          },
+          "method": {
+            "name": "Método"
+          }
+        }
       },
       "last_workout_rpe": {
         "name": "RPE do último treino",
@@ -2545,6 +2619,24 @@
           },
           "field_source": {
             "name": "Fonte do campo"
+          },
+          "rpe_source": {
+            "name": "Fonte de RPE"
+          },
+          "rpe_provider": {
+            "name": "Fornecedor RPE"
+          },
+          "rpe_provider_capability": {
+            "name": "Capacidade RPE do fornecedor"
+          },
+          "provider_base_rpe": {
+            "name": "RPE do fornecedor"
+          },
+          "user_override_rpe": {
+            "name": "RPE alterado pelo utilizador"
+          },
+          "sport": {
+            "name": "Desporto"
           }
         }
       },
@@ -2559,6 +2651,24 @@
           },
           "field_source": {
             "name": "Fonte do campo"
+          },
+          "rpe_source": {
+            "name": "Fonte de RPE"
+          },
+          "rpe_provider": {
+            "name": "Fornecedor RPE"
+          },
+          "rpe_provider_capability": {
+            "name": "Capacidade RPE do fornecedor"
+          },
+          "provider_base_rpe": {
+            "name": "RPE do fornecedor"
+          },
+          "user_override_rpe": {
+            "name": "RPE alterado pelo utilizador"
+          },
+          "sport": {
+            "name": "Desporto"
           }
         }
       },
@@ -2573,6 +2683,24 @@
           },
           "field_source": {
             "name": "Fonte do campo"
+          },
+          "rpe_source": {
+            "name": "Fonte de RPE"
+          },
+          "rpe_provider": {
+            "name": "Fornecedor RPE"
+          },
+          "rpe_provider_capability": {
+            "name": "Capacidade RPE do fornecedor"
+          },
+          "provider_base_rpe": {
+            "name": "RPE do fornecedor"
+          },
+          "user_override_rpe": {
+            "name": "RPE alterado pelo utilizador"
+          },
+          "sport": {
+            "name": "Desporto"
           }
         }
       },
@@ -2615,6 +2743,18 @@
           },
           "field_source": {
             "name": "Fonte do campo"
+          },
+          "sport": {
+            "name": "Desporto"
+          },
+          "strength_analysis": {
+            "name": "Análise de força"
+          },
+          "method": {
+            "name": "Método"
+          },
+          "estimated_1rm_formula": {
+            "name": "Fórmula de 1RM estimado"
           }
         }
       },
@@ -2629,6 +2769,18 @@
           },
           "field_source": {
             "name": "Fonte do campo"
+          },
+          "sport": {
+            "name": "Desporto"
+          },
+          "strength_analysis": {
+            "name": "Análise de força"
+          },
+          "method": {
+            "name": "Método"
+          },
+          "estimated_1rm_formula": {
+            "name": "Fórmula de 1RM estimado"
           }
         }
       },
@@ -2643,6 +2795,18 @@
           },
           "field_source": {
             "name": "Fonte do campo"
+          },
+          "sport": {
+            "name": "Desporto"
+          },
+          "strength_analysis": {
+            "name": "Análise de força"
+          },
+          "method": {
+            "name": "Método"
+          },
+          "estimated_1rm_formula": {
+            "name": "Fórmula de 1RM estimado"
           }
         }
       }

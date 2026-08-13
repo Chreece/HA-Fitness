@@ -1926,6 +1926,54 @@
           },
           "field_source": {
             "name": "Veldbron"
+          },
+          "confidence_percent": {
+            "name": "Betrouwbaarheid"
+          },
+          "components_available": {
+            "name": "Beschikbare componenten"
+          },
+          "components": {
+            "name": "Gereedheidscomponenten"
+          },
+          "level": {
+            "name": "Niveau"
+          },
+          "reason": {
+            "name": "Reden"
+          },
+          "data_source": {
+            "name": "Gegevensbron"
+          },
+          "updated_at": {
+            "name": "Bijgewerkt"
+          },
+          "rpe_source": {
+            "name": "RPE-bron"
+          },
+          "rpe_provider": {
+            "name": "RPE-provider"
+          },
+          "rpe_provider_capability": {
+            "name": "RPE-mogelijkheid provider"
+          },
+          "provider_base_rpe": {
+            "name": "Provider-RPE"
+          },
+          "user_override_rpe": {
+            "name": "RPE door gebruiker aangepast"
+          },
+          "sport": {
+            "name": "Sport"
+          },
+          "strength_analysis": {
+            "name": "Krachtanalyse"
+          },
+          "method": {
+            "name": "Methode"
+          },
+          "estimated_1rm_formula": {
+            "name": "Formule geschatte 1RM"
           }
         }
       },
@@ -2532,7 +2580,33 @@
         }
       },
       "readiness": {
-        "name": "Trainingsbereidheid"
+        "name": "Trainingsbereidheid",
+        "state_attributes": {
+          "confidence_percent": {
+            "name": "Betrouwbaarheid"
+          },
+          "components_available": {
+            "name": "Beschikbare componenten"
+          },
+          "components": {
+            "name": "Gereedheidscomponenten"
+          },
+          "level": {
+            "name": "Niveau"
+          },
+          "reason": {
+            "name": "Reden"
+          },
+          "data_source": {
+            "name": "Gegevensbron"
+          },
+          "updated_at": {
+            "name": "Bijgewerkt"
+          },
+          "method": {
+            "name": "Methode"
+          }
+        }
       },
       "last_workout_rpe": {
         "name": "RPE laatste training",
@@ -2545,6 +2619,24 @@
           },
           "field_source": {
             "name": "Veldbron"
+          },
+          "rpe_source": {
+            "name": "RPE-bron"
+          },
+          "rpe_provider": {
+            "name": "RPE-provider"
+          },
+          "rpe_provider_capability": {
+            "name": "RPE-mogelijkheid provider"
+          },
+          "provider_base_rpe": {
+            "name": "Provider-RPE"
+          },
+          "user_override_rpe": {
+            "name": "RPE door gebruiker aangepast"
+          },
+          "sport": {
+            "name": "Sport"
           }
         }
       },
@@ -2559,6 +2651,24 @@
           },
           "field_source": {
             "name": "Veldbron"
+          },
+          "rpe_source": {
+            "name": "RPE-bron"
+          },
+          "rpe_provider": {
+            "name": "RPE-provider"
+          },
+          "rpe_provider_capability": {
+            "name": "RPE-mogelijkheid provider"
+          },
+          "provider_base_rpe": {
+            "name": "Provider-RPE"
+          },
+          "user_override_rpe": {
+            "name": "RPE door gebruiker aangepast"
+          },
+          "sport": {
+            "name": "Sport"
           }
         }
       },
@@ -2573,6 +2683,24 @@
           },
           "field_source": {
             "name": "Veldbron"
+          },
+          "rpe_source": {
+            "name": "RPE-bron"
+          },
+          "rpe_provider": {
+            "name": "RPE-provider"
+          },
+          "rpe_provider_capability": {
+            "name": "RPE-mogelijkheid provider"
+          },
+          "provider_base_rpe": {
+            "name": "Provider-RPE"
+          },
+          "user_override_rpe": {
+            "name": "RPE door gebruiker aangepast"
+          },
+          "sport": {
+            "name": "Sport"
           }
         }
       },
@@ -2615,6 +2743,18 @@
           },
           "field_source": {
             "name": "Veldbron"
+          },
+          "sport": {
+            "name": "Sport"
+          },
+          "strength_analysis": {
+            "name": "Krachtanalyse"
+          },
+          "method": {
+            "name": "Methode"
+          },
+          "estimated_1rm_formula": {
+            "name": "Formule geschatte 1RM"
           }
         }
       },
@@ -2629,6 +2769,18 @@
           },
           "field_source": {
             "name": "Veldbron"
+          },
+          "sport": {
+            "name": "Sport"
+          },
+          "strength_analysis": {
+            "name": "Krachtanalyse"
+          },
+          "method": {
+            "name": "Methode"
+          },
+          "estimated_1rm_formula": {
+            "name": "Formule geschatte 1RM"
           }
         }
       },
@@ -2643,6 +2795,18 @@
           },
           "field_source": {
             "name": "Veldbron"
+          },
+          "sport": {
+            "name": "Sport"
+          },
+          "strength_analysis": {
+            "name": "Krachtanalyse"
+          },
+          "method": {
+            "name": "Methode"
+          },
+          "estimated_1rm_formula": {
+            "name": "Formule geschatte 1RM"
           }
         }
       }

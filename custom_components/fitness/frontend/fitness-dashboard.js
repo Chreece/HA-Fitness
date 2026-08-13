@@ -1,4 +1,4 @@
-const FITNESS_DASHBOARD_VERSION = "2026.8.10.4";
+const FITNESS_DASHBOARD_VERSION = "2026.8.10.5";
 
 
 const FITNESS_READINESS_TEXT = {
@@ -1317,12 +1317,12 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
       <div class="title">${_fitnessEscape(this.config.title || l.recovery_snapshot || "Recovery snapshot")}</div>
       <div class="readiness-hero entity-link" data-more-info="${_fitnessEscape(e.readiness || "")}">
         <div class="readiness-ring" style="--p:${bounded * 3.6}deg"><div><strong>${score == null ? "—" : score.toFixed(0)}</strong><span>/ 100</span></div></div>
-        <div class="readiness-copy"><small>${_fitnessEscape(readinessName)}</small><strong>${_fitnessEscape(levelText)}</strong>${confidence == null ? "" : `<span>${confidence.toFixed(0)}% confidence from available evidence</span>`}</div>
+        <div class="readiness-copy"><small>${_fitnessEscape(readinessName)}</small><strong>${_fitnessEscape(levelText)}</strong>${confidence == null ? "" : `<span>${confidence.toFixed(0)}% ${_fitnessEscape(rtext.confidence)}</span>`}</div>
       </div>
       ${componentRows ? `<div class="components entity-link" data-more-info="${_fitnessEscape(e.readiness || "")}">${componentRows}</div>` : ""}
       <div class="context">
-        ${hrvVs == null ? "" : `<span>HRV ${hrvVs > 0 ? "+" : ""}${hrvVs.toFixed(1)}% vs 28d</span>`}
-        ${rhrVs == null ? "" : `<span>RHR ${rhrVs > 0 ? "+" : ""}${rhrVs.toFixed(1)} bpm vs 28d</span>`}
+        ${hrvVs == null ? "" : `<span>HRV ${hrvVs > 0 ? "+" : ""}${hrvVs.toFixed(1)}% ${_fitnessEscape(rtext.vs28)}</span>`}
+        ${rhrVs == null ? "" : `<span>RHR ${rhrVs > 0 ? "+" : ""}${rhrVs.toFixed(1)} bpm ${_fitnessEscape(rtext.vs28)}</span>`}
       </div>
       <div class="metrics">
         ${this._sleepScoreMetric(l.sleep_score || "Sleep score", sleepScore, e.last_sleep_score)}
@@ -1589,7 +1589,7 @@ class FitnessWorkoutRpeCard extends FitnessAutoProfileCard {
     const load = _fitnessNumber(loadState?.state);
     const compare = _fitnessNumber(compareState?.state);
     const choices = Array.from({length:10}, (_,i) => i+1).map((value) =>
-      `<button type="button" class="rpe-choice${Math.round(rpeValue || 0) === value ? " selected" : ""}" data-rpe="${value}" aria-label="${value}">${value}</button>`
+      `<button type="button" class="rpe-choice${Math.round(rpeValue || 0) === value ? " selected" : ""}" data-rpe="${value}" aria-label="${value}" style="--rpe-hue:${Math.round(205 - (value - 1) * (205 / 9))}">${value}</button>`
     ).join("");
     const meta = [
       load == null ? "" : `<span class="entity-link" data-more-info="${_fitnessEscape(e.last_workout_session_rpe_load || "")}"><ha-icon icon="mdi:chart-bell-curve-cumulative"></ha-icon>${_fitnessEscape(_fitnessDisplay(loadState,1))}</span>`,
@@ -1603,7 +1603,7 @@ class FitnessWorkoutRpeCard extends FitnessAutoProfileCard {
     </ha-card><style>
       ha-card{padding:14px 16px;overflow:hidden}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}ha-card{background:linear-gradient(135deg,color-mix(in srgb,var(--primary-color) 7%,var(--ha-card-background,var(--card-background-color))),var(--ha-card-background,var(--card-background-color)) 58%)}
       .head{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:10px;align-items:center;min-width:0}.icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--primary-color) 14%,transparent);color:var(--primary-color)}.icon ha-icon{--mdc-icon-size:22px}.title{min-width:0}.title strong{display:block;font-size:15px;line-height:1.25}.title span{display:block;margin-top:3px;color:var(--secondary-text-color);font-size:11px;line-height:1.35;overflow-wrap:break-word}.score{display:flex;align-items:baseline;gap:3px;white-space:nowrap}.score strong{font-size:25px;line-height:1}.score span{font-size:11px;color:var(--secondary-text-color)}
-      .rpe-scale{display:grid;grid-template-columns:repeat(auto-fit,minmax(38px,1fr));gap:6px;margin-top:13px}.rpe-choice{appearance:none;border:1px solid color-mix(in srgb,var(--divider-color) 75%,transparent);border-radius:11px;min-height:40px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation;transition:transform .08s ease,background .15s ease,border-color .15s ease}.rpe-choice:hover{border-color:var(--primary-color);background:color-mix(in srgb,var(--primary-color) 9%,var(--secondary-background-color))}.rpe-choice:active{transform:scale(.95)}.rpe-choice.selected{border-color:var(--primary-color);background:var(--primary-color);color:var(--text-primary-color,#fff);box-shadow:0 0 0 1px color-mix(in srgb,var(--primary-color) 35%,transparent)}
+      .rpe-scale{display:grid;grid-template-columns:repeat(auto-fit,minmax(38px,1fr));gap:6px;margin-top:13px}.rpe-choice{appearance:none;border:1px solid hsl(var(--rpe-hue) 78% 52% / .38);border-radius:11px;min-height:40px;background:hsl(var(--rpe-hue) 78% 52% / .10);color:var(--primary-text-color);font:inherit;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation;transition:transform .08s ease,background .15s ease,border-color .15s ease,box-shadow .15s ease}.rpe-choice:hover{border-color:hsl(var(--rpe-hue) 82% 52% / .82);background:hsl(var(--rpe-hue) 82% 52% / .22)}.rpe-choice:active{transform:scale(.95)}.rpe-choice.selected{border-color:hsl(var(--rpe-hue) 88% 48%);background:hsl(var(--rpe-hue) 88% 48%);color:#fff;box-shadow:0 0 0 1px hsl(var(--rpe-hue) 88% 48% / .35)}
       .foot{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-top:10px;min-width:0}.foot>span{min-width:0;color:var(--secondary-text-color);font-size:10px;line-height:1.35;overflow-wrap:break-word}.meta{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.meta span{display:flex;align-items:center;gap:3px;white-space:nowrap;font-size:10px;font-weight:600}.meta ha-icon{--mdc-icon-size:14px;color:var(--primary-color)}.meta .up{color:var(--success-color,#43a047)}.meta .down{color:var(--warning-color,#fb8c00)}
       @media(max-width:460px){.head{grid-template-columns:34px minmax(0,1fr) auto}.icon{width:34px;height:34px}.rpe-scale{grid-template-columns:repeat(5,minmax(0,1fr))}.foot{flex-direction:column}.meta{justify-content:flex-start}.title span{font-size:10px}}
     </style>`;

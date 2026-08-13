@@ -993,7 +993,7 @@ class FitnessSensor(SensorEntity):
         if kind == "sleep":
             if m == "readiness":
                 readiness = self.manager.readiness_evaluation()
-                attrs = dict(readiness)
+                attrs = _localized_readiness_attributes(self.manager._ai_language(), readiness)
                 attrs.pop("score", None)
                 details = evaluation_user_details(
                     self.manager._ai_language(),

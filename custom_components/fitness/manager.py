@@ -142,6 +142,14 @@ class FitnessManager:
         self._sleep_event_record: SleepRecord | None = None
         self._sleep_history_refresh_task = None
         self._sleep_as_android_active = False
+        # Keep the current Sleep as Android event timeline in memory so a
+        # completed sleep can be published immediately at STOPPED. Recorder is
+        # authoritative for restart/backfill, but its asynchronous write must
+        # never delay the just-finished night from reaching Fitness.
+        self._sleep_as_android_live_events: dict[str, list[dict[str, Any]]] = {
+            "tracking": [],
+            "phase": [],
+        }
         # Canonical merged nightly records retained for evidence-based sleep
         # trends. These are Fitness facts, not provider-specific duplicates.
         self.sleep_history: list[dict[str, Any]] = []
@@ -447,7 +455,7 @@ class FitnessManager:
             self._async_delayed_long_term_refresh()
         )
         # Restore only the latest already-completed Sleep as Android session.
-        self._schedule_sleep_as_android_history_refresh(delay=5.0)
+        self._schedule_sleep_as_android_history_refresh(delay=5.0, retries=0)
 
         # Generate an initial general assessment only if AI is configured and
         # there is not already a persisted one.
@@ -631,53 +639,68 @@ class FitnessManager:
     def latest_sleep(self):
         return getattr(self, "_latest_sleep_cache", None)
 
-    def _schedule_sleep_as_android_history_refresh(self, *, delay: float = 1.5) -> None:
-        """Debounce a single completed-session Recorder reconstruction."""
+    def _schedule_sleep_as_android_history_refresh(
+        self, *, delay: float = 1.5, retries: int = 3
+    ) -> None:
+        """Debounce Recorder reconstruction and tolerate delayed Recorder writes."""
         if not sleep_as_android_event_entity_ids(self.hass, self.config):
             return
         if self._sleep_history_refresh_task and not self._sleep_history_refresh_task.done():
             self._sleep_history_refresh_task.cancel()
         self._sleep_history_refresh_task = self.hass.async_create_task(
-            self._async_refresh_sleep_as_android_history(delay=delay)
+            self._async_refresh_sleep_as_android_history(delay=delay, retries=retries)
         )
 
-    async def _async_refresh_sleep_as_android_history(self, *, delay: float = 0.0) -> None:
-        if delay:
-            await asyncio.sleep(delay)
+    async def _async_refresh_sleep_as_android_history(
+        self, *, delay: float = 0.0, retries: int = 3
+    ) -> None:
         ids = sleep_as_android_event_entity_ids(self.hass, self.config)
         tracking = ids.get("tracking")
         phase = ids.get("phase")
         if not tracking:
             return
         entity_ids = [tracking] + ([phase] if phase else [])
-        try:
-            from functools import partial
-            from homeassistant.components.recorder import get_instance
-            from homeassistant.components.recorder.history import get_significant_states
-            history = await get_instance(self.hass).async_add_executor_job(
-                partial(
-                    get_significant_states,
-                    self.hass,
-                    datetime.now(timezone.utc) - timedelta(days=8),
-                    entity_ids=entity_ids,
-                    include_start_time_state=False,
-                    significant_changes_only=False,
-                    minimal_response=False,
-                    no_attributes=False,
+        reconstructed = []
+        # Recorder commits state/event changes asynchronously. A STOPPED event
+        # can therefore reach the state listener before Recorder history sees
+        # it. Retry a few times instead of silently losing the finished night.
+        retry_delays = [delay] + [2.0, 5.0, 10.0][:max(0, retries)]
+        for wait in retry_delays:
+            if wait:
+                await asyncio.sleep(wait)
+            try:
+                from functools import partial
+                from homeassistant.components.recorder import get_instance
+                from homeassistant.components.recorder.history import get_significant_states
+                history = await get_instance(self.hass).async_add_executor_job(
+                    partial(
+                        get_significant_states,
+                        self.hass,
+                        datetime.now(timezone.utc) - timedelta(days=8),
+                        entity_ids=entity_ids,
+                        include_start_time_state=False,
+                        significant_changes_only=False,
+                        minimal_response=False,
+                        no_attributes=False,
+                    )
                 )
-            )
-        except asyncio.CancelledError:
-            raise
-        except Exception as err:
-            _LOGGER.debug("Sleep as Android Recorder reconstruction unavailable: %s", err)
-            return
-        reconstructed = records_from_event_history(
-            tracking_entity_id=tracking,
-            phase_entity_id=phase,
-            tracking_states=list(history.get(tracking) or []),
-            phase_states=list(history.get(phase) or []) if phase else [],
-        ) if isinstance(history, dict) else []
+            except asyncio.CancelledError:
+                raise
+            except Exception as err:
+                _LOGGER.debug("Sleep as Android Recorder reconstruction unavailable: %s", err)
+                return
+            reconstructed = records_from_event_history(
+                tracking_entity_id=tracking,
+                phase_entity_id=phase,
+                tracking_states=list(history.get(tracking) or []),
+                phase_states=list(history.get(phase) or []) if phase else [],
+            ) if isinstance(history, dict) else []
+            if reconstructed:
+                break
         if not reconstructed:
+            _LOGGER.debug(
+                "Sleep as Android Recorder history still has no completed session after retries"
+            )
             return
         self._sleep_event_record = reconstructed[-1]
         changed = False
@@ -705,22 +728,55 @@ class FitnessManager:
 
         if new_state is not None and entity_id in {tracking_entity, phase_entity}:
             event_type = str(new_state.attributes.get("event_type") or "").lower()
+            kind = "tracking" if entity_id == tracking_entity else "phase"
+            snapshot = {
+                "attributes": dict(new_state.attributes),
+                "last_updated": getattr(new_state, "last_updated", None),
+                "last_changed": getattr(new_state, "last_changed", None),
+            }
+
             if entity_id == tracking_entity and event_type == "started":
                 self._sleep_as_android_active = True
+                self._sleep_as_android_live_events = {"tracking": [], "phase": []}
+                self._sleep_as_android_live_events["tracking"].append(snapshot)
                 return
+
             if self._sleep_as_android_active:
+                self._sleep_as_android_live_events[kind].append(snapshot)
                 if entity_id == tracking_entity and event_type == "stopped":
                     self._sleep_as_android_active = False
-                    # Recorder writes asynchronously; reconstruct once after it
-                    # contains the final STOPPED and phase transition.
-                    self._schedule_sleep_as_android_history_refresh(delay=1.5)
-                # paused/resumed and every phase transition are intentionally
-                # silent: no partial sleep/history/evaluation/AI update.
+                    # Publish immediately from the live event timeline. This is
+                    # independent of Recorder commit latency and therefore makes
+                    # Sleep as Android the latest Fitness sleep as soon as STOPPED
+                    # arrives. Recorder then backfills/persists the same session.
+                    immediate = record_from_event_history(
+                        tracking_entity_id=tracking_entity,
+                        phase_entity_id=phase_entity,
+                        tracking_states=list(self._sleep_as_android_live_events["tracking"]),
+                        phase_states=list(self._sleep_as_android_live_events["phase"]),
+                    )
+                    if immediate is not None:
+                        self._sleep_event_record = immediate
+                        records = discover_sleep_records(self.hass, self.config)
+                        records.append(immediate)
+                        self._latest_sleep_cache = newest_sleep(records)
+                        changed = self._remember_sleep_record(self._latest_sleep_cache)
+                        self._notify_sleep()
+                        if changed:
+                            self._notify()
+                    # Recorder writes asynchronously; retry until the final
+                    # STOPPED/phase transitions become visible there.
+                    self._schedule_sleep_as_android_history_refresh(delay=1.5, retries=3)
+                # paused/resumed and every phase transition remain silent while
+                # the sleep is active: no partial night is published.
                 return
+
             if entity_id == tracking_entity and event_type == "stopped":
-                self._schedule_sleep_as_android_history_refresh(delay=1.5)
+                # HA may have restarted during the sleep, so the in-memory START
+                # can be missing. Recorder reconstruction is the recovery path.
+                self._schedule_sleep_as_android_history_refresh(delay=1.5, retries=3)
                 return
-            # SAA phase events outside a completed stop are never materialized.
+            # SAA phase events outside a tracked active sleep are not published.
             return
 
         records = discover_sleep_records(self.hass, self.config)
@@ -3924,10 +3980,25 @@ class FitnessManager:
         workout.comparable_workout_count = len(comparable)
 
         if not comparable:
-            workout.personal_context_summary = (
-                "No sufficiently comparable prior Fitness workouts are "
-                "available yet."
-            )
+            messages = {
+                "en": "No sufficiently comparable prior Fitness workouts are available yet.",
+                "el": "Δεν υπάρχουν ακόμη αρκετές προηγούμενες προπονήσεις Fitness που να είναι συγκρίσιμες.",
+                "de": "Es sind noch nicht genügend vergleichbare frühere Fitness-Trainings verfügbar.",
+                "fr": "Il n’y a pas encore assez d’entraînements Fitness antérieurs comparables.",
+                "es": "Aún no hay suficientes entrenamientos anteriores de Fitness que sean comparables.",
+                "it": "Non sono ancora disponibili abbastanza allenamenti Fitness precedenti comparabili.",
+                "pt": "Ainda não existem treinos Fitness anteriores suficientemente comparáveis.",
+                "nl": "Er zijn nog niet genoeg vergelijkbare eerdere Fitness-trainingen beschikbaar.",
+                "pl": "Nie ma jeszcze wystarczającej liczby porównywalnych wcześniejszych treningów Fitness.",
+                "ru": "Пока недостаточно сопоставимых предыдущих тренировок Fitness.",
+                "uk": "Поки що недостатньо зіставних попередніх тренувань Fitness.",
+                "tr": "Henüz yeterince karşılaştırılabilir önceki Fitness antrenmanı yok.",
+                "zh": "目前还没有足够可比较的历史 Fitness 训练。",
+                "ja": "比較可能な過去の Fitness ワークアウトがまだ十分にありません。",
+                "ko": "아직 비교할 수 있는 이전 Fitness 운동이 충분하지 않습니다.",
+            }
+            lang = str(self._ai_language() or "en").lower().split("-")[0].split("_")[0]
+            workout.personal_context_summary = messages.get(lang, messages["en"])
             return workout
 
         def baseline(field_name: str) -> float | None:
@@ -4052,10 +4123,25 @@ class FitnessManager:
                 + "."
             )
         else:
-            workout.personal_context_summary = (
-                f"{len(comparable)} comparable prior workouts were found, "
-                "but no directly comparable derived metrics were available."
-            )
+            templates = {
+                "en": "{count} comparable prior workouts were found, but no directly comparable derived metrics were available.",
+                "el": "Βρέθηκαν {count} συγκρίσιμες προηγούμενες προπονήσεις, αλλά δεν υπήρχαν άμεσα συγκρίσιμες υπολογισμένες μετρήσεις.",
+                "de": "{count} vergleichbare frühere Trainings wurden gefunden, aber keine direkt vergleichbaren berechneten Messwerte waren verfügbar.",
+                "fr": "{count} entraînements antérieurs comparables ont été trouvés, mais aucune mesure calculée directement comparable n’était disponible.",
+                "es": "Se encontraron {count} entrenamientos anteriores comparables, pero no había métricas calculadas directamente comparables.",
+                "it": "Sono stati trovati {count} allenamenti precedenti comparabili, ma non erano disponibili metriche calcolate direttamente confrontabili.",
+                "pt": "Foram encontrados {count} treinos anteriores comparáveis, mas não havia métricas calculadas diretamente comparáveis.",
+                "nl": "Er zijn {count} vergelijkbare eerdere trainingen gevonden, maar er waren geen direct vergelijkbare berekende waarden beschikbaar.",
+                "pl": "Znaleziono {count} porównywalnych wcześniejszych treningów, ale brakowało bezpośrednio porównywalnych obliczonych metryk.",
+                "ru": "Найдено сопоставимых предыдущих тренировок: {count}, но напрямую сравнимых расчётных показателей нет.",
+                "uk": "Знайдено зіставних попередніх тренувань: {count}, але безпосередньо порівнюваних розрахованих показників немає.",
+                "tr": "{count} karşılaştırılabilir önceki antrenman bulundu, ancak doğrudan karşılaştırılabilir hesaplanmış metrik yoktu.",
+                "zh": "找到了 {count} 次可比较的历史训练，但没有可直接比较的计算指标。",
+                "ja": "比較可能な過去のワークアウトが {count} 件見つかりましたが、直接比較できる計算指標はありませんでした。",
+                "ko": "비교 가능한 이전 운동 {count}개를 찾았지만 직접 비교할 수 있는 계산 지표가 없었습니다.",
+            }
+            lang = str(self._ai_language() or "en").lower().split("-")[0].split("_")[0]
+            workout.personal_context_summary = templates.get(lang, templates["en"]).format(count=len(comparable))
 
         return workout
 
@@ -4920,6 +5006,7 @@ class FitnessManager:
                 "level": "insufficient_data",
                 "confidence_percent": round(sum(item["base_weight"] for item in components.values()) * 100.0, 0),
                 "components_available": available,
+                "available_components": available,
                 "components": components,
                 "reason": "insufficient_evidence",
                 "data_source": "fitness_canonical_recovery_data",
@@ -4948,6 +5035,7 @@ class FitnessManager:
             "level": level,
             "confidence_percent": round(weight_total * 100.0, 0),
             "components_available": available,
+            "available_components": available,
             "components": components,
             "reason": None,
             "data_source": "fitness_canonical_recovery_data",
