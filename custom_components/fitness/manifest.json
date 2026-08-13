@@ -2,7 +2,8 @@
   "domain": "fitness",
   "name": "Fitness",
   "after_dependencies": [
-    "recorder"
+    "recorder",
+    "bluetooth"
   ],
   "codeowners": [
     "@Chreece"
@@ -15,6 +16,8 @@
   "integration_type": "service",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/Chreece/HA-Fitness/issues",
-  "requirements": [],
+  "requirements": [
+    "openant==1.3.4"
+  ],
   "version": "2026.8.11"
 }

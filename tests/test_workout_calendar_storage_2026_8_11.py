@@ -103,24 +103,20 @@ def _manager(*, retention_days: int = const.DEFAULT_WORKOUT_RETENTION_DAYS) -> M
 
 
 def _run_async(coro):
-    """Run a coroutine without destroying pytest's current event loop.
+    """Run a coroutine and leave a valid current loop for older tests.
 
-    asyncio.run() closes the loop it creates and clears the thread's current
-    loop. Some existing HA-Fitness tests still call asyncio.get_event_loop(),
-    so preserve and restore the suite loop explicitly.
+    Python 3.13 warns when code asks for an implicitly-created current loop,
+    so this helper creates and installs its loops explicitly.
     """
+    loop = asyncio.new_event_loop()
     try:
-        previous_loop = asyncio.get_event_loop()
-    except RuntimeError:
-        previous_loop = None
-
-    try:
-        return asyncio.run(coro)
+        asyncio.set_event_loop(loop)
+        return loop.run_until_complete(coro)
     finally:
-        if previous_loop is not None and not previous_loop.is_closed():
-            asyncio.set_event_loop(previous_loop)
-        else:
-            asyncio.set_event_loop(asyncio.new_event_loop())
+        loop.close()
+        # Several older HA-Fitness tests still expect a current loop after
+        # this test file has run.
+        asyncio.set_event_loop(asyncio.new_event_loop())
 
 
 def test_deleted_workout_is_tombstoned_and_not_reimported():
@@ -256,15 +252,16 @@ def test_bulk_delete_uses_one_persistent_cutoff_and_blocks_reimport():
     _run_async(run())
 
 
-def test_async_test_runner_preserves_current_event_loop():
-    try:
-        before = asyncio.get_event_loop()
-    except RuntimeError:
-        before = asyncio.new_event_loop()
-        asyncio.set_event_loop(before)
-
+def test_async_test_runner_leaves_valid_current_event_loop():
     async def run():
         return asyncio.get_running_loop() is not None
 
     assert _run_async(run()) is True
-    assert asyncio.get_event_loop() is before
+
+    # The helper deliberately installs a fresh loop after closing its private
+    # test loop. The important contract for the rest of this legacy test suite
+    # is that get_event_loop() still returns a usable, open current loop.
+    current = asyncio.get_event_loop()
+    assert current is not None
+    assert not current.is_closed()
+    assert not current.is_running()

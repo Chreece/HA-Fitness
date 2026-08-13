@@ -40,6 +40,11 @@ CONF_THRESHOLD_PACE = "threshold_pace"
 CONF_THRESHOLD_POWER = "threshold_power"
 
 CONF_LIVE_DEVICE_IDS = "live_device_ids"
+CONF_LIVE_SENSOR_IDS = "live_sensor_ids"
+CONF_BLUETOOTH_ENABLED = "bluetooth_fitness_enabled"
+CONF_ANTPLUS_ENABLED = "antplus_enabled"
+LIVE_ADAPTER_STORE_VERSION = 1
+LIVE_ADAPTER_STORE_KEY = "fitness.live_adapters"
 CONF_WORKOUT_DEVICE_IDS = "workout_device_ids"
 CONF_DETAILED_STRENGTH_ANALYSIS = "detailed_strength_analysis"
 CONF_WORKOUT_RETENTION_DAYS = "workout_retention_days"

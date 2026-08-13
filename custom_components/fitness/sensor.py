@@ -335,6 +335,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
     its state unavailable; it is never removed and its history/entity ID remain.
     """
     manager = hass.data[DOMAIN][entry.entry_id]
+    from .live import get_live_runtime
+    native_live_enabled = get_live_runtime(hass).live_enabled
+    # Native live-adapter gate: no enabled adapter means no Live Workout device.
     registry = er.async_get(hass)
 
     # Remove obsolete Evaluation mirrors from older betas instead of leaving
@@ -377,10 +380,25 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 registry.async_remove(registry_entry.entity_id)
                 manager.materialized_sensor_keys.discard(key)
 
+    if not native_live_enabled:
+        live_keys = {desc.key for desc in DESCRIPTIONS if desc.kind == "live"}
+        prefix = f"{entry.entry_id}_"
+        for registry_entry in list(registry.entities.values()):
+            if registry_entry.platform != DOMAIN:
+                continue
+            unique_id = registry_entry.unique_id or ""
+            if not unique_id.startswith(prefix):
+                continue
+            key = unique_id[len(prefix):]
+            if key in live_keys:
+                registry.async_remove(registry_entry.entity_id)
+                manager.forget_materialized_sensor(key, persist=False)
+
     descriptions = {
         desc.key: desc
         for desc in DESCRIPTIONS
-        if not (
+        if not (desc.kind == "live" and not native_live_enabled)
+        and not (
             desc.metric.startswith("ai_")
             and not manager.config.get("ai_enabled")
         )
@@ -440,10 +458,11 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     # Session status is the control/status anchor and always has a meaningful
     # value: idle / waiting_for_live_data / active / recovery.
-    manager.remember_materialized_sensor(
-        "session_status",
-        persist=True,
-    )
+    if native_live_enabled:
+        manager.remember_materialized_sensor(
+            "session_status",
+            persist=True,
+        )
 
     # Recovery time is a stable Recovery-device entity, not a transient
     # capability. It must exist even when no completed workout is available yet.

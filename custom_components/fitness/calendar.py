@@ -143,7 +143,7 @@ class FitnessWorkoutCalendar(CalendarEntity):
 
     def _handle_manager_update(self):
         self.async_write_ha_state()
-        self.hass.async_create_task(self.async_update_event_listeners())
+        self.async_update_event_listeners()
 
     def _events(self) -> list[CalendarEvent]:
         events = []

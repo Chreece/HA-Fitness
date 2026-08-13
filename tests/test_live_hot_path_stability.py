@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,7 +33,9 @@ def test_live_source_mapping_is_cached():
 
 def test_live_samples_are_capped_at_one_hz():
     start = MANAGER.index("def _capture_sample")
-    end = MANAGER.index("def _antplus_capture_switches", start)
+    match = re.search(r"\n    def [a-zA-Z0-9_]+\(", MANAGER[start + 1:])
+    assert match is not None
+    end = start + 1 + match.start()
     block = MANAGER[start:end]
 
     assert "loop_now - self._last_sample_monotonic < 1.0" in block

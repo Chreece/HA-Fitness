@@ -809,8 +809,18 @@ class FitnessComparisonCard extends HTMLElement {
       const max = Number(metric.max || 30);
       const pct = Math.min(50, Math.abs(value) / max * 50);
       const left = value < 0 ? 50 - pct : 50;
+      const marker = Math.max(0, Math.min(100, 50 + (value / Math.max(max, 0.001)) * 50));
       const unit = state.attributes.unit_of_measurement || metric.unit || "";
-      return `<div class="row entity-link" data-more-info="${this._escape(metric.entity)}"><div class="line"><span>${this._escape(metric.name || entityName(this._hass, metric.entity))}</span><strong>${value > 0 ? "+" : ""}${value.toFixed(metric.decimals ?? 1)}${unit ? ` ${this._escape(unit)}` : ""}</strong></div><div class="axis"><div class="zero"></div><div class="bar" style="left:${left}%;width:${pct}%"></div></div></div>`;
+      const decimals = metric.decimals ?? 1;
+      const signed = (number) => `${number > 0 ? "+" : ""}${number.toFixed(decimals)}${unit ? ` ${this._escape(unit)}` : ""}`;
+      const isHrBaseline = String(metric.entity).includes("hr_vs_baseline");
+      const distance = Math.abs(value);
+      const baselineTone = !isHrBaseline ? "var(--primary-color)"
+        : distance <= 2 ? "#43a047"
+        : distance <= 5 ? "#f9a825"
+        : distance <= 8 ? "#ef6c00"
+        : "#e53935";
+      return `<div class="row entity-link" style="--baseline-tone:${baselineTone}" data-more-info="${this._escape(metric.entity)}"><div class="line"><span>${this._escape(metric.name || entityName(this._hass, metric.entity))}</span><strong>${signed(value)}</strong></div><div class="axis"><div class="zero"></div><div class="bar" style="left:${left}%;width:${pct}%"></div><i class="current-marker" style="left:${marker}%"></i></div><div class="axis-values"><span>${signed(-max)}</span><b>${signed(value)}</b><span>${signed(max)}</span></div></div>`;
     }).filter(Boolean).join("");
     const labels = this._profile?.labels || {};
     const title = this.config.title || labels.workout_comparison || "Compared with your baseline";
@@ -818,7 +828,7 @@ class FitnessComparisonCard extends HTMLElement {
       this.shadowRoot.innerHTML = `<ha-card><div class="empty"><strong>${this._escape(title)}</strong><div>${this._escape(labels.no_comparison || "No compatible baseline comparison data is currently available.")}</div></div></ha-card><style>.empty{padding:24px;color:var(--secondary-text-color)}strong{display:block;color:var(--primary-text-color);margin-bottom:8px}</style>`;
       return;
     }
-    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="rows">${rows}</div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 8px}.rows{padding:0 16px 16px}.row{margin:12px 0}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.line{display:flex;justify-content:space-between;gap:16px;font-size:13px}.line span{color:var(--secondary-text-color)}.axis{height:8px;position:relative;background:var(--secondary-background-color);border-radius:5px;margin-top:6px;overflow:hidden}.zero{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--divider-color)}.bar{position:absolute;top:0;bottom:0;background:var(--primary-color);border-radius:5px}</style>`;
+    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="rows">${rows}</div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 8px}.rows{padding:0 16px 16px}.row{margin:12px 0}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.line{display:flex;justify-content:space-between;gap:16px;font-size:13px}.line span{color:var(--secondary-text-color)}.axis{height:8px;position:relative;background:var(--secondary-background-color);border-radius:5px;margin-top:6px;overflow:visible}.zero{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--divider-color)}.bar{position:absolute;top:0;bottom:0;background:var(--baseline-tone);border-radius:5px}.current-marker{position:absolute;top:-3px;width:2px;height:14px;border-radius:2px;background:var(--baseline-tone);transform:translateX(-1px)}.axis-values{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-top:4px;font-size:9px;color:var(--secondary-text-color)}.axis-values span:last-child{text-align:right}.axis-values b{padding:1px 5px;border-radius:999px;color:var(--baseline-tone);background:var(--secondary-background-color);font-weight:650}</style>`;
   }
 
   _escape(value) { return String(value ?? "").replace(/[&<>"']/g, (ch) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch])); }
@@ -882,17 +892,29 @@ class FitnessSleepStageCard extends HTMLElement {
 
   _render() {
     if (!this.shadowRoot || !this._hass) return;
-    const palette = ["#78909c", "#42a5f5", "#5c6bc0", "#ab47bc"];
+    const sleepPalette = ["#42a5f5", "#5c6bc0", "#ab47bc"];
     const entities = this._resolvedEntities || this.config.entities || [];
-    const values = entities.map((entity, index) => {
+    const awakeEntity = this._profile?.entities?.last_sleep_awake
+      || entities.find((entity) => String(entity).toLowerCase().includes("awake"))
+      || null;
+
+    const rawValues = entities.map((entity) => {
       const state = this._hass.states[entity];
       const value = Number(state?.state);
-      return Number.isFinite(value) && value >= 0 ? { entity, value, color: palette[index % palette.length] } : null;
+      return Number.isFinite(value) && value >= 0 ? { entity, value } : null;
     }).filter(Boolean);
-    const stageTotal = values.reduce((sum, item) => sum + item.value, 0);
+
+    const awakeItem = rawValues.find((item) => item.entity === awakeEntity) || null;
+    const values = rawValues
+      .filter((item) => item.entity !== awakeEntity)
+      .map((item, index) => ({
+        ...item,
+        color: sleepPalette[index % sleepPalette.length],
+      }));
+    const asleepStageTotal = values.reduce((sum, item) => sum + item.value, 0);
     const durationState = this._durationEntity ? this._hass.states[this._durationEntity] : null;
     const durationValue = Number(durationState?.state);
-    const total = stageTotal;
+    const total = asleepStageTotal;
     const durationUnit = durationState?.attributes?.unit_of_measurement || "min";
     const normalizedDurationMinutes = Number.isFinite(durationValue) && durationValue > 0
       ? (
@@ -903,7 +925,13 @@ class FitnessSleepStageCard extends HTMLElement {
               : durationValue
         )
       : 0;
-    const effectiveTotalMinutes = Math.max(stageTotal, normalizedDurationMinutes);
+    // The pie represents classified sleep only: Light + Deep + REM.
+    // Its center therefore uses the exact sum of the visible sleep stages so
+    // users can add the displayed stage durations and always reach the center
+    // total. Canonical backend sleep duration remains available separately.
+    const effectiveTotalMinutes = asleepStageTotal > 0
+      ? asleepStageTotal
+      : normalizedDurationMinutes;
     const displayTotal = this._formatMinutes(effectiveTotalMinutes, "min");
     const labels = this._profile?.labels || {};
     const title = this.config.title || labels.latest_sleep || "Latest sleep";
@@ -922,6 +950,12 @@ class FitnessSleepStageCard extends HTMLElement {
       const pct = item.value / total * 100;
       return `<div class="legend-row entity-link" data-more-info="${this._escape(item.entity)}"><span class="dot" style="background:${item.color}"></span><span class="label">${this._escape(entityName(this._hass, item.entity))}</span><strong>${this._formatMinutes(item.value, unit)}</strong><span class="pct">${pct.toFixed(0)}%</span></div>`;
     }).join("");
+
+    const awakeRow = awakeItem ? (() => {
+      const state = this._hass.states[awakeItem.entity];
+      const unit = state?.attributes?.unit_of_measurement || "";
+      return `<div class="awake-row entity-link" data-more-info="${this._escape(awakeItem.entity)}"><ha-icon icon="mdi:eye-outline"></ha-icon><span>${this._escape(entityName(this._hass, awakeItem.entity))}</span><strong>${this._formatMinutes(awakeItem.value, unit)}</strong></div>`;
+    })() : "";
     const summary = this._sleepSummaryEntities || {};
     const summaryMetrics = [
       [summary.score, labels.sleep_score || "Sleep score", true],
@@ -940,7 +974,7 @@ class FitnessSleepStageCard extends HTMLElement {
           : `${this._escape(state.state)}${unit ? ` ${this._escape(unit)}` : ""}`;
       return `<div class="sleep-summary-metric entity-link" data-more-info="${this._escape(entityId)}"><span>${this._escape(label)}</span><strong>${display}</strong></div>`;
     }).filter(Boolean).join("");
-    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="body"><div class="donut" style="background:conic-gradient(${stops})"><div class="hole"><strong>${displayTotal}</strong></div></div><div class="legend">${legend}</div>${summaryMetrics ? `<div class="sleep-summary">${summaryMetrics}</div>` : ""}</div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 6px}.body{display:flex;flex-direction:column;align-items:center;gap:16px;padding:10px 16px 18px;min-width:0}.donut{width:124px;height:124px;border-radius:50%;display:grid;place-items:center}.hole{width:76px;height:76px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color));display:flex;flex-direction:column;align-items:center;justify-content:center}.hole strong{font-size:18px;text-align:center;line-height:1.15;padding:4px}.hole span{font-size:11px;color:var(--secondary-text-color)}.legend{width:100%;min-width:0}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.legend-row{display:grid;grid-template-columns:10px minmax(0,1fr) minmax(72px,max-content) 38px;column-gap:10px;align-items:center;min-width:0;padding:7px 0;font-size:12px}.dot{width:9px;height:9px;border-radius:50%}.label{color:var(--secondary-text-color);min-width:0;white-space:normal;overflow-wrap:normal;word-break:normal;hyphens:auto}.legend-row strong{text-align:right;white-space:nowrap;line-height:1.3}.pct{text-align:right;white-space:nowrap;color:var(--secondary-text-color)}.sleep-summary{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding-top:4px;border-top:1px solid var(--divider-color)}.sleep-summary-metric{min-width:0;padding:9px 10px;border-radius:11px;background:var(--secondary-background-color)}.sleep-summary-metric span{display:block;font-size:9px;line-height:1.25;color:var(--secondary-text-color);overflow-wrap:normal;word-break:normal;hyphens:auto}.sleep-summary-metric strong{display:block;margin-top:3px;font-size:13px;line-height:1.25;white-space:normal;word-break:normal}@media(max-width:430px){.sleep-summary{grid-template-columns:1fr 1fr}.sleep-summary-metric:last-child{grid-column:1/-1}}</style>`;
+    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="body"><div class="donut" style="background:conic-gradient(${stops})"><div class="hole"><strong>${displayTotal}</strong></div></div><div class="legend">${legend}</div>${awakeRow ? `<div class="awake-wrap">${awakeRow}</div>` : ""}${summaryMetrics ? `<div class="sleep-summary">${summaryMetrics}</div>` : ""}</div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 6px}.body{display:flex;flex-direction:column;align-items:center;gap:16px;padding:10px 16px 18px;min-width:0}.donut{width:124px;height:124px;border-radius:50%;display:grid;place-items:center}.hole{width:76px;height:76px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color));display:flex;flex-direction:column;align-items:center;justify-content:center}.hole strong{font-size:18px;text-align:center;line-height:1.15;padding:4px}.hole span{font-size:11px;color:var(--secondary-text-color)}.legend{width:100%;min-width:0}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.legend-row{display:grid;grid-template-columns:10px minmax(0,1fr) minmax(72px,max-content) 38px;column-gap:10px;align-items:center;min-width:0;padding:7px 0;font-size:12px}.dot{width:9px;height:9px;border-radius:50%}.label{color:var(--secondary-text-color);min-width:0;white-space:normal;overflow-wrap:normal;word-break:normal;hyphens:auto}.legend-row strong{text-align:right;white-space:nowrap;line-height:1.3}.pct{text-align:right;white-space:nowrap;color:var(--secondary-text-color)}.awake-wrap{width:100%;padding-top:4px}.awake-row{display:grid;grid-template-columns:20px minmax(0,1fr) max-content;gap:8px;align-items:center;padding:8px 10px;border-radius:11px;background:var(--card-background-color);font-size:11px}.awake-row ha-icon{--mdc-icon-size:16px;color:var(--secondary-text-color)}.awake-row span{color:var(--secondary-text-color);min-width:0}.awake-row strong{font-size:12px;white-space:nowrap}.sleep-summary{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding-top:4px;border-top:1px solid var(--divider-color)}.sleep-summary-metric{min-width:0;padding:9px 10px;border-radius:11px;background:var(--secondary-background-color)}.sleep-summary-metric span{display:block;font-size:9px;line-height:1.25;color:var(--secondary-text-color);overflow-wrap:normal;word-break:normal;hyphens:auto}.sleep-summary-metric strong{display:block;margin-top:3px;font-size:13px;line-height:1.25;white-space:normal;word-break:normal}@media(max-width:430px){.sleep-summary{grid-template-columns:1fr 1fr}.sleep-summary-metric:last-child{grid-column:1/-1}}</style>`;
   }
 
   _escape(value) { return String(value ?? "").replace(/[&<>"']/g, (ch) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch])); }
@@ -1250,20 +1284,23 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
     const status = slope == null ? "" : slope > 0.35 ? (l.improving || "Improving") : slope < -0.35 ? (l.declining || "Declining") : (l.stable || "Stable");
     const arrow = slope == null ? "→" : slope > 0.35 ? "↗" : slope < -0.35 ? "↘" : "→";
     const delta28 = current != null && mean28 ? ((current - mean28) / mean28 * 100) : null;
-    const bar = Math.max(0, Math.min(100, pctPred ?? 0));
+    const progressMin = 50;
+    const progressMax = Math.max(130, Math.ceil((pctPred ?? 100) / 10) * 10);
+    const bar = pctPred == null ? 0 : Math.max(0, Math.min(100, ((pctPred - progressMin) / (progressMax - progressMin)) * 100));
     const rawSeries = Array.isArray(_fitnessAttr(trend, "daily_series")) ? _fitnessAttr(trend, "daily_series") : [];
     const series = rawSeries.map(x => ({v:_fitnessNumber(x?.value), d:String(x?.start || "")})).filter(x => x.v != null).slice(-90);
     let spark = "";
     if (series.length >= 5) {
       const vals = series.map(x => x.v), lo = Math.min(...vals), hi = Math.max(...vals), span = Math.max(hi-lo, 0.1);
       const pts = series.map((x,i) => `${(i/(series.length-1)*100).toFixed(2)},${(34-((x.v-lo)/span)*28).toFixed(2)}`).join(" ");
-      spark = `<div class="history entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || "")}"><div class="history-head"><span>${_fitnessEscape(l.history || "History")}</span><small>${series.length} ${_fitnessEscape(l.days_90 || "days")}</small></div><svg viewBox="0 0 100 38" preserveAspectRatio="none" aria-label="VO2max history"><polyline points="${pts}"/></svg></div>`;
+      spark = `<div class="history entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || "")}"><div class="history-head"><span>${_fitnessEscape(l.history || "History")}</span><small>${series.length} ${_fitnessEscape(l.days_90 || "days")}</small></div><svg viewBox="0 0 100 38" preserveAspectRatio="none" aria-label="VO2max history"><polyline points="${pts}"/></svg><div class="history-values"><span>${series[0].v.toFixed(1)}</span><b>${current == null ? series[series.length-1].v.toFixed(1) : current.toFixed(1)} mL/kg/min</b></div></div>`;
     }
 
     this.shadowRoot.innerHTML = `<ha-card>
       <div class="head"><div><div class="title">${_fitnessEscape(this.config.title || l.progress_snapshot || "Fitness progress")}</div><div class="sub">${_fitnessEscape(status)}</div></div><div class="trend">${arrow}${slope == null ? "" : ` ${slope > 0 ? "+" : ""}${slope.toFixed(2)}%`}</div></div>
       <div class="hero entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || e.vo2max_percent_predicted || "")}"><strong>${current == null ? "—" : current.toFixed(1)}</strong><span>mL/kg/min</span><small>${_fitnessEscape(l.current_vo2max || "Current VO₂max")}</small></div>
       <div class="progress"><div style="width:${bar}%"></div></div>
+      <div class="progress-values"><span>${progressMin}%</span><b>${pctPred == null ? "—" : `${pctPred.toFixed(1)}%`}</b><span>${progressMax}%</span></div>
       ${spark}
       <div class="metrics entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || e.vo2max_percent_predicted || "")}">
         ${this._metric(l.mean_28d || "28-day mean", mean28, "mL/kg/min")}
@@ -1281,7 +1318,7 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
     return `<style>
       ha-card{padding:18px}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.head{display:flex;justify-content:space-between;align-items:flex-start}.title{font-size:19px;font-weight:650}.sub{font-size:12px;color:var(--secondary-text-color);margin-top:3px}.trend{font-size:16px;font-weight:700;color:var(--primary-color)}
       .hero{display:grid;grid-template-columns:auto auto 1fr;align-items:end;gap:6px;margin:20px 0 10px}.hero strong{font-size:40px;line-height:1}.hero span{font-size:12px;color:var(--secondary-text-color);padding-bottom:4px}.hero small{text-align:right;color:var(--secondary-text-color)}
-      .progress{height:8px;background:var(--secondary-background-color);border-radius:999px;overflow:hidden}.progress div{height:100%;background:var(--primary-color);border-radius:999px}
+      .progress{height:8px;background:var(--secondary-background-color);border-radius:999px;overflow:hidden}.progress div{height:100%;background:var(--primary-color);border-radius:999px}.progress-values{display:grid;grid-template-columns:1fr auto 1fr;margin-top:5px;font-size:9px;color:var(--secondary-text-color)}.progress-values span:last-child{text-align:right}.progress-values b{color:var(--primary-text-color);font-weight:650}.history-values{display:flex;justify-content:space-between;gap:10px;margin-top:2px;font-size:9px;color:var(--secondary-text-color)}.history-values b{color:var(--primary-text-color);font-weight:650}
       .history{margin-top:16px;padding:10px 12px;border-radius:12px;background:var(--secondary-background-color)}.history-head{display:flex;justify-content:space-between;color:var(--secondary-text-color);font-size:11px}.history svg{width:100%;height:76px;margin-top:7px;overflow:visible}.history polyline{fill:none;stroke:var(--primary-color);stroke-width:1.8;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}
       .metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}.metric{padding:10px 12px;border-radius:12px;background:var(--secondary-background-color)}.metric span{display:block;color:var(--secondary-text-color);font-size:11px;margin-bottom:3px}.metric strong{font-size:14px}
       .empty{padding:6px}.empty small{display:block;color:var(--secondary-text-color);margin-top:8px}
@@ -1404,7 +1441,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
 
       <section class="recovery-readiness-panel">
         <div class="section-label">${_fitnessEscape(l.recovery_readiness || "Recovery & readiness")}</div>
-        <div class="readiness-panel entity-link" data-more-info="${_fitnessEscape(e.readiness || "")}">
+        ${!recoveryTime ? `<div class="readiness-panel entity-link" data-more-info="${_fitnessEscape(e.readiness || "")}">
         <div class="readiness-ring" style="--p:${bounded * 3.6}deg">
           <div><strong>${score == null ? "—" : score.toFixed(0)}</strong><span>/ 100</span></div>
         </div>
@@ -1413,7 +1450,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
           <strong>${_fitnessEscape(levelText)}</strong>
           ${confidence == null ? "" : `<span>${confidence.toFixed(0)}% ${_fitnessEscape(rtext.confidence)}</span>`}
         </div>
-        </div>
+        </div>` : ""}
 
         ${recoveryTime ? `<div class="next-workout entity-link" data-more-info="${_fitnessEscape(e.estimated_recovery_time || "")}">
         <div class="next-main">
@@ -1435,6 +1472,11 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
           <strong>${recoveryPct.toFixed(0)}%</strong>
         </div>
         <div class="recovery-progress"><i style="width:${recoveryPct}%"></i></div>
+
+        <div class="readiness-inline entity-link" data-more-info="${_fitnessEscape(e.readiness || "")}">
+          <div><small>${_fitnessEscape(readinessName)}</small><strong>${_fitnessEscape(levelText)}</strong>${confidence == null ? "" : `<span>${confidence.toFixed(0)}% ${_fitnessEscape(rtext.confidence)}</span>`}</div>
+          <b>${score == null ? "—" : score.toFixed(0)}<small>/100</small></b>
+        </div>
 
         <div class="recovery-grid">
           <div>
@@ -1463,7 +1505,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
       .entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}
       .title{font-size:19px;font-weight:650}
 
-      .recovery-readiness-panel{margin-top:15px;padding:12px;border-radius:20px;background:var(--secondary-background-color);overflow:hidden}
+      .recovery-readiness-panel{margin-top:10px;padding:9px;border-radius:16px;background:var(--secondary-background-color);overflow:hidden}
       .section-label{font-size:10px;font-weight:650;color:var(--secondary-text-color);padding:0 4px 8px}
       .readiness-panel{
         display:grid;grid-template-columns:112px minmax(0,1fr);align-items:center;
@@ -1487,7 +1529,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
       .readiness-copy span{display:block;color:var(--secondary-text-color);font-size:11px;margin-top:6px}
 
       .next-workout{
-        margin-top:8px;padding:14px;border-radius:16px;
+        margin-top:5px;padding:10px 11px;border-radius:13px;
         background:linear-gradient(135deg,color-mix(in srgb,var(--recovery) 12%,transparent),var(--card-background-color));
         border-left:4px solid var(--recovery);min-width:0
       }
@@ -1501,7 +1543,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
       .next-icon ha-icon{--mdc-icon-size:27px}
       .next-copy{min-width:0}
       .next-copy small{display:block;color:var(--secondary-text-color);font-size:10px;line-height:1.25}
-      .next-copy strong{display:block;color:var(--recovery);font-size:25px;line-height:1.1;margin-top:2px;overflow-wrap:anywhere}
+      .next-copy strong{display:block;color:var(--recovery);font-size:22px;line-height:1.1;margin-top:2px;overflow-wrap:anywhere}
       .next-copy span{display:block;color:var(--secondary-text-color);font-size:11px;line-height:1.35;margin-top:5px;overflow-wrap:anywhere}
       .next-copy b{color:var(--primary-text-color)}
       .next-confidence{font-size:17px;font-weight:700;color:var(--recovery);text-align:right;white-space:nowrap}
@@ -1511,6 +1553,8 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
       .progress-head strong{color:var(--primary-text-color);font-size:12px}
       .recovery-progress{height:7px;border-radius:999px;background:var(--divider-color);overflow:hidden;margin-top:6px}
       .recovery-progress i{display:block;height:100%;border-radius:999px;background:var(--recovery)}
+      .readiness-inline{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px;padding:7px 9px;border-radius:10px;background:color-mix(in srgb,var(--readiness) 10%,var(--card-background-color));border-left:3px solid var(--readiness)}
+      .readiness-inline>div{min-width:0}.readiness-inline small{display:block;font-size:9px;color:var(--secondary-text-color)}.readiness-inline>div>strong{display:block;color:var(--readiness);font-size:13px;margin-top:2px}.readiness-inline span{display:block;font-size:9px;color:var(--secondary-text-color);margin-top:2px}.readiness-inline>b{font-size:20px;color:var(--readiness);white-space:nowrap}.readiness-inline>b small{display:inline;margin-left:2px}
 
       .recovery-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:11px}
       .recovery-grid>div{min-width:0;padding:9px 10px;border-radius:11px;background:var(--card-background-color)}
@@ -1729,6 +1773,7 @@ class FitnessTrainingLoadCard extends FitnessAutoProfileCard {
         <div class="scale"></div>
         <i style="left:${position}%"></i>
       </div>
+      <div class="load-scale-values"><span>0×</span><b>${baselineReliable && ratio != null ? `${ratio.toFixed(2)}×` : "—"}</b><span>2.40×</span></div>
 
       <div class="status-row">
         <div>
@@ -1759,7 +1804,7 @@ class FitnessTrainingLoadCard extends FitnessAutoProfileCard {
       .ratio.building{color:var(--secondary-text-color)}.ratio.low{color:#42a5f5}.ratio.balanced{color:#43a047}.ratio.elevated{color:#c0ca33}.ratio.high{color:#fb8c00}.ratio.excessive{color:#e53935}
       .load-scale{position:relative;margin-top:14px;height:16px;padding:3px 0}
       .scale{height:9px;border-radius:999px;background:linear-gradient(90deg,#42a5f5 0%,#26c6da 16%,#43a047 34%,#c0ca33 52%,#fdd835 66%,#fb8c00 80%,#e53935 100%)}
-      .load-scale i{position:absolute;top:0;width:4px;height:16px;border-radius:3px;background:var(--primary-text-color);box-shadow:0 0 0 1px var(--card-background-color);transform:translateX(-2px)}
+      .load-scale i{position:absolute;top:0;width:4px;height:16px;border-radius:3px;background:var(--primary-text-color);box-shadow:0 0 0 1px var(--card-background-color);transform:translateX(-2px)}.load-scale-values{display:grid;grid-template-columns:1fr auto 1fr;margin-top:2px;font-size:9px;color:var(--secondary-text-color)}.load-scale-values span:last-child{text-align:right}.load-scale-values b{color:var(--primary-text-color);font-weight:650}
       .status-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:7px}
       .status-row>div{min-width:0}.status-row span{display:block;font-size:10px;color:var(--secondary-text-color)}.status-row strong{display:block;font-size:13px;margin-top:2px}
       .status-row strong.building{color:var(--secondary-text-color)}.status-row strong.low{color:#42a5f5}.status-row strong.balanced{color:#43a047}.status-row strong.elevated{color:#c0ca33}.status-row strong.high{color:#fb8c00}.status-row strong.excessive{color:#e53935}
@@ -1868,10 +1913,47 @@ class FitnessCompositeCard extends FitnessAutoProfileCard {
     return el;
   }
 
-  _shell(title, icon, children) {
-    this.shadowRoot.innerHTML = `<ha-card><div class="composite-head"><ha-icon icon="${icon}"></ha-icon><strong>${_fitnessEscape(title)}</strong></div><div class="composite-body"></div></ha-card><style>
-      ha-card{padding:16px}.composite-head{display:flex;align-items:center;gap:10px;font-size:20px;margin:2px 2px 12px}.composite-head ha-icon{color:var(--primary-color)}
-      .composite-body{display:grid;gap:12px}.composite-body>*{--ha-card-background:transparent;--ha-card-border-width:0px;--ha-card-box-shadow:none}
+  _shell(title, icon, children, accent = "var(--primary-color)") {
+    this.shadowRoot.innerHTML = `<ha-card style="--fitness-card-accent:${accent}">
+      <div class="composite-head">
+        <div class="composite-icon"><ha-icon icon="${icon}"></ha-icon></div>
+        <strong>${_fitnessEscape(title)}</strong>
+      </div>
+      <div class="composite-body"></div>
+    </ha-card><style>
+      ha-card{
+        padding:8px;overflow:hidden;
+        box-shadow:none;
+        border:0;
+        background:var(--ha-card-background,var(--card-background-color))
+      }
+      .composite-head{
+        display:flex;align-items:center;gap:8px;min-width:0;
+        margin:0 0 6px;padding:3px 4px;font-size:15px
+      }
+      .composite-head strong{min-width:0;line-height:1.2;overflow-wrap:anywhere}
+      .composite-icon{
+        width:30px;height:30px;flex:0 0 30px;border-radius:9px;display:grid;place-items:center;
+        color:var(--fitness-card-accent);
+        background:color-mix(in srgb,var(--fitness-card-accent) 12%,transparent)
+      }
+      .composite-icon ha-icon{--mdc-icon-size:18px}
+      .composite-body{
+        display:grid;gap:7px;
+        padding:0;
+        background:transparent
+      }
+      .composite-body>*{
+        --ha-card-background:transparent;
+        --ha-card-border-width:0px;
+        --ha-card-box-shadow:none
+      }
+      @media(max-width:420px){
+        ha-card{padding:7px}
+        .composite-head{font-size:14px;margin-bottom:5px}
+        .composite-icon{width:28px;height:28px;flex-basis:28px}
+        .composite-body{padding:0}
+      }
     </style>`;
     const body = this.shadowRoot.querySelector(".composite-body");
     this._compositeChildren = children.filter(Boolean);
@@ -1923,10 +2005,40 @@ class FitnessLiveWorkoutCard extends FitnessAutoProfileCard {
       <div class="live-grid">${metrics || `<div class="live-empty">${_fitnessEscape(l.no_live_data || "No live workout data is available yet.")}</div>`}</div>
       ${controls ? `<div class="live-controls">${controls}</div>` : ""}
     </ha-card><style>
-      ha-card{padding:16px;overflow:hidden}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.live-head{display:flex;align-items:center;gap:10px;margin:2px 2px 14px;min-width:0}.live-head>ha-icon{color:var(--primary-color);--mdc-icon-size:28px}.live-head>div{min-width:0}.live-head strong{display:block;font-size:20px;line-height:1.25;overflow-wrap:anywhere}.live-head span{display:block;color:var(--secondary-text-color);font-size:11px;margin-top:2px;overflow-wrap:anywhere}
-      .live-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px}.live-metric{min-width:0;padding:11px 12px;border-radius:12px;background:var(--secondary-background-color);overflow:hidden}.live-metric span{display:block;color:var(--secondary-text-color);font-size:10px;line-height:1.3;overflow-wrap:anywhere}.live-metric strong{display:block;font-size:15px;line-height:1.3;margin-top:4px;overflow-wrap:anywhere}.live-empty{grid-column:1/-1;color:var(--secondary-text-color);padding:12px 2px}
-      .live-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:12px}.live-control{appearance:none;border:1px solid var(--divider-color);background:var(--secondary-background-color);color:var(--primary-text-color);border-radius:12px;min-height:46px;padding:8px 10px;display:flex;align-items:center;justify-content:center;gap:7px;font:inherit;cursor:pointer;min-width:0}.live-control ha-icon{color:var(--primary-color);--mdc-icon-size:21px}.live-control span{min-width:0;font-size:12px;font-weight:600;line-height:1.25;overflow-wrap:anywhere}.live-control:active{transform:scale(.98)}
-      @media(max-width:420px){.live-grid,.live-controls{grid-template-columns:1fr 1fr}}
+      ha-card{
+        --fitness-card-accent:var(--success-color,#43a047);
+        padding:10px;overflow:hidden;box-shadow:none;border:0;border-radius:20px;
+        background:var(--secondary-background-color)
+      }
+      .live-grid,.live-controls{padding:0;background:transparent}
+      .entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}
+      .live-head{display:flex;align-items:center;gap:8px;margin:0 0 6px;padding:3px 4px;min-width:0}
+      .live-head>ha-icon{
+        width:30px;height:30px;padding:6px;box-sizing:border-box;border-radius:9px;
+        color:var(--fitness-card-accent);--mdc-icon-size:18px;
+        background:color-mix(in srgb,var(--fitness-card-accent) 12%,transparent)
+      }
+      .live-head>div{min-width:0}.live-head strong{display:block;font-size:15px;line-height:1.2;overflow-wrap:anywhere}.live-head span{display:block;color:var(--secondary-text-color);font-size:10px;margin-top:1px;overflow-wrap:anywhere}
+      .live-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:6px}
+      .live-metric{min-width:0;padding:8px 9px;border-radius:10px;background:var(--card-background-color);overflow:hidden}
+      .live-metric span{display:block;color:var(--secondary-text-color);font-size:9px;line-height:1.25;overflow-wrap:anywhere}
+      .live-metric strong{display:block;font-size:14px;line-height:1.2;margin-top:2px;overflow-wrap:anywhere}
+      .live-empty{grid-column:1/-1;color:var(--secondary-text-color);padding:8px 2px}
+      .live-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;margin-top:6px}
+      .live-control{
+        appearance:none;border:1px solid color-mix(in srgb,var(--fitness-card-accent) 25%,var(--divider-color));
+        background:var(--card-background-color);
+        color:var(--primary-text-color);border-radius:10px;min-height:38px;padding:6px 8px;
+        display:flex;align-items:center;justify-content:center;gap:6px;font:inherit;cursor:pointer;min-width:0
+      }
+      .live-control ha-icon{color:var(--fitness-card-accent);--mdc-icon-size:18px}
+      .live-control span{min-width:0;font-size:11px;font-weight:600;line-height:1.2;overflow-wrap:anywhere}
+      .live-control:active{transform:scale(.98)}
+      @media(max-width:420px){
+        ha-card{padding:7px}
+        .live-grid,.live-controls{grid-template-columns:1fr 1fr;padding:0}
+        .live-head>ha-icon{width:28px;height:28px}
+      }
     </style>`;
     for (const button of this.shadowRoot.querySelectorAll(".live-control")) {
       button.addEventListener("click", () => {
@@ -2049,7 +2161,7 @@ class FitnessWorkoutCard extends FitnessCompositeCard {
     if (e.last_workout_strength_sets && this._hass.states[e.last_workout_strength_sets]?.attributes?.strength_analysis) {
       children.push(this._mount("fitness-strength-details-card"));
     }
-    this._shell(this.config.title || l.latest_workout || "Latest workout", "mdi:run", children);
+    this._shell(this.config.title || l.latest_workout || "Latest workout", "mdi:run", children, "var(--primary-color)");
   }
 }
 
@@ -2073,7 +2185,7 @@ class FitnessSleepRecoveryCard extends FitnessCompositeCard {
     if (["last_sleep_awake","last_sleep_light","last_sleep_deep","last_sleep_rem"].some(k => e[k] && this._hass.states[e[k]])) {
       children.push(this._mount("fitness-sleep-stage-card"));
     }
-    this._shell(this.config.title || l.recovery || "Recovery & sleep", "mdi:heart-pulse", children);
+    this._shell(this.config.title || l.recovery || "Recovery & sleep", "mdi:heart-pulse", children, "var(--warning-color,#f9a825)");
   }
 }
 
@@ -2094,7 +2206,7 @@ class FitnessEvaluationCard extends FitnessCompositeCard {
     const children = [];
     if (e.cardiorespiratory_fitness_trend || e.vo2max_percent_predicted) children.push(this._mount("fitness-progress-card"));
     if (e.training_load) children.push(this._mount("fitness-training-load-card"));
-    this._shell(this.config.title || l.evaluation || "Evaluation", "mdi:chart-line", children);
+    this._shell(this.config.title || l.evaluation || "Evaluation", "mdi:chart-line", children, "var(--primary-color)");
   }
 }
 
@@ -2144,9 +2256,7 @@ class FitnessDashboardStrategy extends HTMLElement {
 
     const liveSections = [
       section([
-        heading(l.current || "Current workout", "mdi:run-fast"),
-        tileGrid(hass, liveCore, 2),
-        controls.length ? tileGrid(hass, controls, 2) : null,
+        { type: "custom:fitness-live-workout-card", profile_entry_id: profile.entry_id },
       ]),
     ];
 
@@ -2170,6 +2280,244 @@ class FitnessDashboardStrategy extends HTMLElement {
     ];
   }
 }
+
+
+const _FITNESS_TAB_PANEL_BASE = `
+  ha-card{
+    padding:10px !important;
+    border:0 !important;
+    border-radius:20px !important;
+    box-shadow:none !important;
+    overflow:hidden !important;
+    background:var(--secondary-background-color) !important;
+  }
+  .title,h3{
+    margin:0 !important;
+    padding:2px 4px 7px !important;
+    font-size:15px !important;
+    line-height:1.2 !important;
+    font-weight:650 !important;
+  }
+  .empty{
+    padding:10px !important;
+    border-radius:14px !important;
+    background:var(--card-background-color) !important;
+  }
+`;
+
+const _fitnessInstallTabPanelTheme = (CardClass, extraCss = "") => {
+  if (!CardClass?.prototype?._render || CardClass.prototype._fitnessTabPanelTheme) return;
+  const original = CardClass.prototype._render;
+  CardClass.prototype._render = function (...args) {
+    const result = original.apply(this, args);
+    const root = this.shadowRoot;
+    if (root && !root.querySelector("style[data-fitness-tab-panel]")) {
+      const style = document.createElement("style");
+      style.dataset.fitnessTabPanel = "1";
+      style.textContent = _FITNESS_TAB_PANEL_BASE + extraCss;
+      root.appendChild(style);
+    }
+    return result;
+  };
+  CardClass.prototype._fitnessTabPanelTheme = true;
+};
+
+_fitnessInstallTabPanelTheme(FitnessWorkoutHighlightsCard, `
+  .workout-name{
+    padding:3px 4px 8px !important;
+    font-size:16px !important;
+  }
+  .hi-grid{gap:6px !important;margin-top:0 !important}
+  .hi{
+    padding:8px 9px !important;border-radius:11px !important;
+    background:var(--card-background-color) !important;
+  }
+  .hi span{font-size:9px !important}
+  .hi strong{font-size:13px !important;margin-top:2px !important}
+`);
+
+_fitnessInstallTabPanelTheme(FitnessRouteCard, `
+  .head{padding:2px 4px 7px !important}
+  .map{border-radius:14px !important;overflow:hidden !important}
+  .workout-summary{
+    gap:6px !important;padding:7px 0 0 !important;
+  }
+  .summary-item{
+    padding:8px 9px !important;border-radius:11px !important;
+    background:var(--card-background-color) !important;
+  }
+  .privacy{padding:6px 3px 1px !important}
+`);
+
+_fitnessInstallTabPanelTheme(FitnessWorkoutRpeCard, `
+  .head{
+    padding:9px !important;border-radius:14px !important;
+    background:var(--card-background-color) !important;
+  }
+  .rpe-scale{
+    padding:8px !important;border-radius:14px !important;
+    background:var(--card-background-color) !important;
+    margin-top:7px !important;
+  }
+  .foot{
+    padding:7px 8px !important;border-radius:12px !important;
+    background:var(--card-background-color) !important;
+    margin-top:7px !important;
+  }
+`);
+
+_fitnessInstallTabPanelTheme(FitnessComparisonCard, `
+  .rows{padding:0 !important;display:grid !important;gap:6px !important}
+  .row{
+    margin:0 !important;padding:9px 10px !important;border-radius:12px !important;
+    background:var(--card-background-color) !important;
+  }
+  .axis-values b{background:var(--secondary-background-color) !important}
+`);
+
+_fitnessInstallTabPanelTheme(FitnessStrengthDetailsCard, `
+  .strength-head{padding:3px 4px 7px !important}
+  .volume-hero{
+    margin:0 0 6px !important;padding:9px 10px !important;border-radius:12px !important;
+    background:var(--card-background-color) !important;
+  }
+  .strength-list{gap:6px !important;margin-top:0 !important}
+  .strength-row{
+    padding:9px 10px !important;border-radius:12px !important;
+    background:var(--card-background-color) !important;
+  }
+`);
+
+_fitnessInstallTabPanelTheme(FitnessRecoveryCard, `
+  .title{padding:2px 4px 7px !important}
+  .recovery-readiness-panel{
+    margin-top:0 !important;padding:0 !important;border-radius:0 !important;
+    background:transparent !important;
+  }
+  .section-label{padding:0 4px 6px !important}
+  .readiness-panel,.next-workout{
+    border-radius:14px !important;
+  }
+  .readiness-panel{
+    padding:10px !important;
+    background:linear-gradient(
+      135deg,
+      color-mix(in srgb,var(--readiness) 12%,transparent),
+      var(--card-background-color)
+    ) !important;
+  }
+  .next-workout{
+    margin-top:6px !important;padding:10px !important;
+    border-left:0 !important;
+    background:linear-gradient(
+      135deg,
+      color-mix(in srgb,var(--recovery) 10%,transparent),
+      var(--card-background-color)
+    ) !important;
+  }
+  .recovery-grid{gap:6px !important;margin-top:7px !important}
+  .recovery-grid>div{
+    padding:8px 9px !important;border-radius:11px !important;
+    background:var(--card-background-color) !important;
+  }
+  .components{gap:6px !important;margin-top:7px !important}
+  .component{
+    padding:8px 9px !important;border-radius:11px !important;
+    background:var(--card-background-color) !important;
+  }
+  .context{
+    padding:7px 8px !important;border-radius:11px !important;
+    background:var(--card-background-color) !important;
+    margin-top:7px !important;
+  }
+`);
+
+_fitnessInstallTabPanelTheme(FitnessSleepStageCard, `
+  .body{gap:10px !important;padding:3px 0 0 !important}
+  .donut{
+    margin:0 auto !important;
+    box-shadow:0 0 0 8px var(--card-background-color) !important;
+  }
+  .legend{
+    padding:7px 9px !important;border-radius:14px !important;
+    background:var(--card-background-color) !important;
+  }
+  .legend-row{padding:5px 0 !important}
+  .sleep-summary{
+    gap:6px !important;padding-top:7px !important;border-top:0 !important;
+  }
+  .sleep-summary-metric{
+    padding:8px 9px !important;border-radius:11px !important;
+    background:var(--card-background-color) !important;
+  }
+`);
+
+_fitnessInstallTabPanelTheme(FitnessProgressCard, `
+  .hero,.current,.summary,.history,.progress-wrap{
+    border-radius:14px !important;
+  }
+  .hero,.current,.summary,.history{
+    background:var(--card-background-color) !important;
+  }
+  .metrics{
+    gap:6px !important;margin-top:7px !important;
+  }
+  .metric{
+    padding:8px 9px !important;border-radius:11px !important;
+    background:var(--card-background-color) !important;
+  }
+`);
+
+_fitnessInstallTabPanelTheme(FitnessTrainingAdaptationCard, `
+  .hero{
+    padding:10px !important;border-radius:14px !important;
+    background:linear-gradient(
+      135deg,
+      color-mix(in srgb,var(--adapt) 12%,transparent),
+      var(--card-background-color)
+    ) !important;
+  }
+  .metrics{gap:6px !important;margin-top:6px !important}
+  .metrics>div{
+    padding:8px 9px !important;border-radius:11px !important;
+    background:var(--card-background-color) !important;
+  }
+  .evidence{
+    padding:6px 8px !important;border-radius:10px !important;
+    background:var(--card-background-color) !important;
+  }
+`);
+
+_fitnessInstallTabPanelTheme(FitnessTrainingLoadCard, `
+  .header{
+    padding:9px 10px !important;border-radius:14px !important;
+    background:var(--card-background-color) !important;
+  }
+  .adapt-summary{
+    border-left:0 !important;
+    background:color-mix(in srgb,var(--adapt) 8%,var(--secondary-background-color)) !important;
+  }
+  .load-scale,.status-row{
+    padding:8px 9px !important;border-radius:12px !important;
+    background:var(--card-background-color) !important;
+  }
+  .load-scale{margin-top:6px !important;height:auto !important}
+  .status-row{margin-top:6px !important}
+  .metrics{gap:6px !important;margin-top:6px !important}
+  .metrics>div{
+    padding:8px 9px !important;border-radius:11px !important;
+    background:var(--card-background-color) !important;
+  }
+`);
+
+_fitnessInstallTabPanelTheme(FitnessTodayCard, `
+  .today-head{padding:3px 4px 7px !important}
+  .today-grid{gap:6px !important;margin-top:0 !important}
+  .today-item{
+    padding:8px 9px !important;border-radius:11px !important;
+    background:var(--card-background-color) !important;
+  }
+`);
 
 class FitnessComparisonCardEditor extends FitnessProfileCardEditor {}
 class FitnessSleepStageCardEditor extends FitnessProfileCardEditor {}

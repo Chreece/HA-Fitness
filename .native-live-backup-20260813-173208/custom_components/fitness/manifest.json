@@ -1,0 +1,20 @@
+{
+  "domain": "fitness",
+  "name": "Fitness",
+  "after_dependencies": [
+    "recorder"
+  ],
+  "codeowners": [
+    "@Chreece"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "http"
+  ],
+  "documentation": "https://github.com/Chreece/HA-Fitness",
+  "integration_type": "service",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/Chreece/HA-Fitness/issues",
+  "requirements": [],
+  "version": "2026.8.11"
+}

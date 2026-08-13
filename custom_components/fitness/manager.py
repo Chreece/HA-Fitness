@@ -22,8 +22,8 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
 
 from .explanations import provenance_text
+from .live import get_live_runtime
 from .const import (
-    ANTPLUS_DOMAINS,
     CONF_AI_ENABLED,
     CONF_AI_ENTITY,
     CONF_FEEDBACK_AREA_IDS,
@@ -205,8 +205,6 @@ class FitnessManager:
         # Pre-workout states of ANT+ Capture switches. Persisted so a Home
         # Assistant restart cannot make Fitness forget which switches it
         # temporarily enabled for a workout.
-        self._capture_switch_snapshot: dict[str, str] = {}
-        self._capture_switches_changed_by_fitness: set[str] = set()
 
         # Recovery begins after Stop Workout. The workout timer is already
         # stopped and Live entities become unavailable, but capture can remain
@@ -319,12 +317,6 @@ class FitnessManager:
         self.history_validation = dict(stored.get("history_validation") or {})
         self.materialized_sensor_keys = set(
             stored.get("materialized_sensor_keys") or []
-        )
-        self._capture_switch_snapshot = dict(
-            stored.get("capture_switch_snapshot") or {}
-        )
-        self._capture_switches_changed_by_fitness = set(
-            stored.get("capture_switches_changed_by_fitness") or []
         )
         self._last_announced_workout_signature = stored.get(
             "last_announced_workout_signature"
@@ -457,13 +449,6 @@ class FitnessManager:
         self.hass.async_create_task(
             self._async_arm_external_workout_announcements()
         )
-
-        # Recover a pre-workout capture snapshot if HA restarted while Fitness
-        # had temporarily enabled ANT+ Capture switches.
-        if self._capture_switch_snapshot:
-            self.hass.async_create_task(
-                self._async_restore_stale_capture_snapshot()
-            )
 
         # Refresh HA Recorder long-term statistics after integrations have had
         # a moment to restore their entities. Failure is non-fatal.
@@ -836,12 +821,6 @@ class FitnessManager:
                 "sleep_history": self.sleep_history[-120:],
                 "materialized_sensor_keys": sorted(
                     self.materialized_sensor_keys
-                ),
-                "capture_switch_snapshot": dict(
-                    self._capture_switch_snapshot
-                ),
-                "capture_switches_changed_by_fitness": sorted(
-                    self._capture_switches_changed_by_fitness
                 ),
                 "last_announced_workout_signature": (
                     self._last_announced_workout_signature
@@ -1437,13 +1416,6 @@ class FitnessManager:
                 self.last_feedback_pulse_interval
             ),
             "last_feedback_pulse_count": self.last_feedback_pulse_count,
-            "antplus_capture_switches": self._antplus_capture_switches(),
-            "antplus_capture_snapshot": dict(
-                self._capture_switch_snapshot
-            ),
-            "antplus_capture_changed_by_fitness": sorted(
-                self._capture_switches_changed_by_fitness
-            ),
             "periodic_live_announcements": bool(
                 self.config.get(CONF_PERIODIC_LIVE_ANNOUNCEMENTS)
             ),
@@ -2902,6 +2874,7 @@ class FitnessManager:
                 if items
             }
 
+        native = get_live_runtime(self.hass).live_values(self.entry.entry_id)
         result = {}
         for metric in (
             METRIC_HEART_RATE,
@@ -2912,15 +2885,17 @@ class FitnessManager:
             METRIC_ALTITUDE,
         ):
             source = self._switch_live_source_if_needed(metric)
-            result[metric] = (
-                numeric_entity_state(
-                    self.hass,
-                    source.entity_id,
-                    quantity=self._live_quantity(metric),
+            result[metric] = native.get(metric)
+            if result[metric] is None:
+                result[metric] = (
+                    numeric_entity_state(
+                        self.hass,
+                        source.entity_id,
+                        quantity=self._live_quantity(metric),
+                    )
+                    if source is not None
+                    else None
                 )
-                if source is not None
-                else None
-            )
         return result
 
     def live_sources(self):
@@ -3140,312 +3115,6 @@ class FitnessManager:
         self._last_sample_monotonic = loop_now
         return True
 
-    def _antplus_capture_switches(self) -> list[str]:
-        """Find every Capture-like switch belonging to ANT+ integrations."""
-        entity_registry = er.async_get(self.hass)
-        device_registry = dr.async_get(self.hass)
-        candidates: list[tuple[int, str]] = []
-
-        def config_entry_domain(config_entry_id: str | None) -> str | None:
-            if not config_entry_id:
-                return None
-            config_entry = self.hass.config_entries.async_get_entry(
-                config_entry_id
-            )
-            return (
-                config_entry.domain
-                if config_entry is not None
-                else None
-            )
-
-        for entry in entity_registry.entities.values():
-            if not entry.entity_id.startswith("switch."):
-                continue
-
-            belongs_to_antplus = (
-                config_entry_domain(entry.config_entry_id)
-                in ANTPLUS_DOMAINS
-            )
-
-            if not belongs_to_antplus and entry.device_id:
-                device = device_registry.async_get(entry.device_id)
-                if device is not None:
-                    belongs_to_antplus = any(
-                        config_entry_domain(config_entry_id)
-                        in ANTPLUS_DOMAINS
-                        for config_entry_id in (
-                            getattr(device, "config_entries", None)
-                            or []
-                        )
-                    )
-
-            if not belongs_to_antplus:
-                continue
-
-            state = self.hass.states.get(entry.entity_id)
-            label = " ".join(
-                (
-                    entry.entity_id,
-                    entry.name or "",
-                    entry.original_name or "",
-                    str(
-                        state.attributes.get("friendly_name") or ""
-                    ) if state else "",
-                )
-            ).lower()
-
-            score = 0
-            if "capture" in label:
-                score += 100
-            if "scan" in label:
-                score += 50
-            if "record" in label:
-                score += 40
-
-            if score:
-                candidates.append((score, entry.entity_id))
-
-        candidates.sort(
-            key=lambda item: (-item[0], item[1])
-        )
-        return [
-            entity_id
-            for _score, entity_id in candidates
-        ]
-
-    async def _async_restore_stale_capture_snapshot(self) -> None:
-        """Restore a persisted capture snapshot after a HA restart."""
-        await asyncio.sleep(5)
-
-        if (
-            self.session_active
-            or self.session_armed
-            or self.recovery_active
-            or not self._capture_switch_snapshot
-        ):
-            return
-
-        self.capture_control = await self._async_antplus_control(False)
-        self._notify()
-
-    async def _async_antplus_control(self, start: bool) -> str:
-        """Temporarily enable all ANT+ Capture switches and restore them later."""
-        switch_ids = self._antplus_capture_switches()
-
-        if switch_ids:
-            if start:
-                # Snapshot current states only once per workout ownership cycle.
-                if not self._capture_switch_snapshot:
-                    for entity_id in switch_ids:
-                        state = self.hass.states.get(entity_id)
-                        if (
-                            state is not None
-                            and state.state in ("on", "off")
-                        ):
-                            self._capture_switch_snapshot[
-                                entity_id
-                            ] = state.state
-
-                    self._capture_switches_changed_by_fitness = set()
-                    await self._save()
-
-                turned_on: list[str] = []
-                already_on: list[str] = []
-                unavailable: list[str] = []
-                failed: list[str] = []
-
-                for entity_id in switch_ids:
-                    state = self.hass.states.get(entity_id)
-
-                    if (
-                        state is None
-                        or state.state in ("unknown", "unavailable")
-                    ):
-                        unavailable.append(entity_id)
-                        continue
-
-                    # If a switch appeared after the initial snapshot, snapshot
-                    # it before Fitness modifies it.
-                    if (
-                        entity_id not in self._capture_switch_snapshot
-                        and state.state in ("on", "off")
-                    ):
-                        self._capture_switch_snapshot[
-                            entity_id
-                        ] = state.state
-
-                    if state.state == "on":
-                        already_on.append(entity_id)
-                        continue
-
-                    if state.state != "off":
-                        unavailable.append(entity_id)
-                        continue
-
-                    try:
-                        await self.hass.services.async_call(
-                            "switch",
-                            "turn_on",
-                            {},
-                            target={"entity_id": entity_id},
-                            blocking=True,
-                        )
-                        turned_on.append(entity_id)
-                        self._capture_switches_changed_by_fitness.add(
-                            entity_id
-                        )
-                    except Exception:
-                        failed.append(entity_id)
-
-                await self._save()
-
-                return (
-                    "capture_snapshot:"
-                    f"turned_on={len(turned_on)},"
-                    f"already_on={len(already_on)},"
-                    f"unavailable={len(unavailable)},"
-                    f"failed={len(failed)}"
-                )
-
-            # Stop/recovery completion: restore exact original states.
-            if self._capture_switch_snapshot:
-                snapshot = dict(self._capture_switch_snapshot)
-                restored_on: list[str] = []
-                restored_off: list[str] = []
-                unavailable: list[str] = []
-                failed: list[str] = []
-
-                for entity_id, original_state in snapshot.items():
-                    state = self.hass.states.get(entity_id)
-
-                    if (
-                        state is None
-                        or state.state in ("unknown", "unavailable")
-                    ):
-                        unavailable.append(entity_id)
-                        continue
-
-                    if state.state == original_state:
-                        if original_state == "on":
-                            restored_on.append(entity_id)
-                        else:
-                            restored_off.append(entity_id)
-                        continue
-
-                    service = (
-                        "turn_on"
-                        if original_state == "on"
-                        else "turn_off"
-                    )
-
-                    try:
-                        await self.hass.services.async_call(
-                            "switch",
-                            service,
-                            {},
-                            target={"entity_id": entity_id},
-                            blocking=True,
-                        )
-                        if original_state == "on":
-                            restored_on.append(entity_id)
-                        else:
-                            restored_off.append(entity_id)
-                    except Exception:
-                        failed.append(entity_id)
-
-                unresolved = set(unavailable) | set(failed)
-
-                # Never forget a switch that could not yet be restored.
-                if unresolved:
-                    self._capture_switch_snapshot = {
-                        entity_id: original_state
-                        for entity_id, original_state
-                        in snapshot.items()
-                        if entity_id in unresolved
-                    }
-                    self._capture_switches_changed_by_fitness.intersection_update(
-                        unresolved
-                    )
-                else:
-                    self._capture_switch_snapshot = {}
-                    self._capture_switches_changed_by_fitness = set()
-
-                await self._save()
-
-                return (
-                    "capture_restore:"
-                    f"on={len(restored_on)},"
-                    f"off={len(restored_off)},"
-                    f"unresolved={len(unresolved)}"
-                )
-
-            return "capture_restore:no_snapshot"
-
-        # Compatibility fallback for ANT+ integrations without stateful
-        # capture switches.
-        device_ids = set(
-            source_device_ids(self.hass, self.config)
-        )
-        registry = er.async_get(self.hass)
-
-        service_names = (
-            ("start_capture", "start_scan", "start")
-            if start
-            else ("stop_capture", "stop_scan", "stop")
-        )
-
-        for domain in ANTPLUS_DOMAINS:
-            for service in service_names:
-                if self.hass.services.has_service(domain, service):
-                    await self.hass.services.async_call(
-                        domain,
-                        service,
-                        {},
-                        blocking=True,
-                    )
-                    return f"service:{domain}.{service}"
-
-        wanted = (
-            ("start", "capture")
-            if start
-            else ("stop", "capture")
-        )
-        pressed: list[str] = []
-
-        for entry in registry.entities.values():
-            if entry.device_id not in device_ids:
-                continue
-            if not entry.entity_id.startswith("button."):
-                continue
-
-            label = " ".join(
-                (
-                    entry.entity_id,
-                    entry.name or "",
-                    entry.original_name or "",
-                )
-            ).lower()
-
-            if not all(token in label for token in wanted):
-                continue
-
-            try:
-                await self.hass.services.async_call(
-                    "button",
-                    "press",
-                    {},
-                    target={"entity_id": entry.entity_id},
-                    blocking=True,
-                )
-                pressed.append(entry.entity_id)
-            except Exception:
-                continue
-
-        if pressed:
-            return "buttons:" + ",".join(sorted(pressed))
-
-        return "no_antplus_capture_control_found"
-
     async def async_start_session(self):
         """Arm workout capture; the timer starts only on first valid live data."""
         if self.session_active or self.session_armed:
@@ -3475,7 +3144,7 @@ class FitnessManager:
         self.last_feedback_tts_result = None
         self.last_feedback_message = None
 
-        self.capture_control = await self._async_antplus_control(True)
+        self.capture_control = await get_live_runtime(self.hass).async_prepare_session(self.entry)
 
         # If usable data already exists after capture is enabled, timing can
         # begin immediately. Otherwise remain armed until a later source event.
@@ -3611,7 +3280,7 @@ class FitnessManager:
             self._session_intensity_resting_hr = None
             self._candidate_live_intensity = None
             self._candidate_live_intensity_since = None
-            self.capture_control = await self._async_antplus_control(False)
+            self.capture_control = await get_live_runtime(self.hass).async_finish_session(self.entry, keep_heart_rate=False)
 
             if self._session_waiting_red or self._feedback_scene_active:
                 self._queue_session_status_cue(
@@ -3675,6 +3344,12 @@ class FitnessManager:
                 break
 
         if workout is not None and last_hr is not None:
+            # Release every non-HR live sensor immediately, but keep whichever
+            # assigned transport can still supply heart rate for HRR. The live
+            # runtime retains the pre-workout capture snapshot for final restore.
+            self.capture_control = await get_live_runtime(self.hass).async_finish_session(
+                self.entry, keep_heart_rate=True
+            )
             self.recovery_active = True
             self._recovery_reference_hr = last_hr
             self._recovery_workout_start = workout.start
@@ -3683,7 +3358,7 @@ class FitnessManager:
                 self._async_collect_heart_rate_recovery()
             )
         else:
-            self.capture_control = await self._async_antplus_control(False)
+            self.capture_control = await get_live_runtime(self.hass).async_finish_session(self.entry, keep_heart_rate=False)
             if workout is not None:
                 self._queue_session_guidance("no_recovery")
                 if workout.session_rpe is None:
@@ -3722,7 +3397,7 @@ class FitnessManager:
         workout_start = self._recovery_workout_start
         if reference is None or workout_start is None:
             self.recovery_active = False
-            self.capture_control = await self._async_antplus_control(False)
+            self.capture_control = await get_live_runtime(self.hass).async_finish_session(self.entry, keep_heart_rate=False)
             return
 
         checkpoints = (
@@ -3792,7 +3467,7 @@ class FitnessManager:
             self._session_intensity_resting_hr = None
             self._candidate_live_intensity = None
             self._candidate_live_intensity_since = None
-            self.capture_control = await self._async_antplus_control(False)
+            self.capture_control = await get_live_runtime(self.hass).async_finish_recovery(self.entry)
             await self._save()
             self._notify()
 

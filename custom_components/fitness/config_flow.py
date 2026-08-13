@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+import asyncio
 
 import voluptuous as vol
 
@@ -26,6 +27,9 @@ from .const import (
     CONF_HEIGHT,
     CONF_LANGUAGE,
     CONF_LIVE_DEVICE_IDS,
+    CONF_LIVE_SENSOR_IDS,
+    CONF_BLUETOOTH_ENABLED,
+    CONF_ANTPLUS_ENABLED,
     CONF_MAX_HR,
     CONF_PERIODIC_LIVE_ANNOUNCEMENTS,
     CONF_PERIODIC_LIVE_INTERVAL_MINUTES,
@@ -223,6 +227,95 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._autofill_defaults = exact_profile_defaults(self.hass)
         return self._autofill_defaults
 
+    async def async_step_integration_discovery(self, discovery_info):
+        """Assign a newly discovered physical live sensor to Fitness user(s)."""
+        sensor_id = str((discovery_info or {}).get("sensor_id", "")).strip()
+        if not sensor_id:
+            return self.async_abort(reason="invalid_discovery")
+
+        from .live import get_live_runtime
+        runtime = get_live_runtime(self.hass)
+        await runtime.async_initialize()
+        sensor = runtime.sensors.get(sensor_id)
+        if sensor is None:
+            return self.async_abort(reason="sensor_unavailable")
+
+        self._discovery_sensor_id = sensor_id
+        await self.async_set_unique_id(f"live_sensor:{sensor_id}")
+        return await self.async_step_assign_live_sensor()
+
+    async def async_step_assign_live_sensor(self, user_input=None):
+        """Choose every Fitness profile allowed to use a discovered sensor."""
+        from .live import get_live_runtime
+        runtime = get_live_runtime(self.hass)
+        sensor_id = getattr(self, "_discovery_sensor_id", None)
+        sensor = runtime.sensors.get(sensor_id) if sensor_id else None
+        if sensor is None:
+            return self.async_abort(reason="sensor_unavailable")
+
+        profiles = [
+            {"value": entry.entry_id, "label": entry.title}
+            for entry in runtime.profile_entries.values()
+        ]
+        if not profiles:
+            return self.async_abort(reason="no_fitness_profiles")
+
+        if user_input is not None:
+            selected_profiles = set(user_input.get("fitness_profile_ids") or [])
+            if not selected_profiles:
+                return self.async_show_form(
+                    step_id="assign_live_sensor",
+                    data_schema=vol.Schema(
+                        {
+                            vol.Required("fitness_profile_ids"): selector.SelectSelector(
+                                selector.SelectSelectorConfig(
+                                    options=profiles,
+                                    multiple=True,
+                                    mode=selector.SelectSelectorMode.DROPDOWN,
+                                )
+                            )
+                        }
+                    ),
+                    errors={"base": "select_profile"},
+                    description_placeholders={"sensor": sensor.label()},
+                )
+
+            reload_ids = []
+            for entry in runtime.profile_entries.values():
+                ids = list(({**entry.data, **entry.options}.get(CONF_LIVE_SENSOR_IDS) or []))
+                if entry.entry_id in selected_profiles and sensor_id not in ids:
+                    ids.append(sensor_id)
+                elif entry.entry_id not in selected_profiles and sensor_id in ids:
+                    ids.remove(sensor_id)
+                options = dict(entry.options)
+                options[CONF_LIVE_SENSOR_IDS] = ids
+                self.hass.config_entries.async_update_entry(entry, options=options)
+                if entry.entry_id in selected_profiles:
+                    runtime.ensure_sensor_device(entry.entry_id, sensor_id)
+                reload_ids.append(entry.entry_id)
+
+            async def _reload_profiles():
+                for entry_id in reload_ids:
+                    await self.hass.config_entries.async_reload(entry_id)
+            self.hass.async_create_task(_reload_profiles())
+            return self.async_abort(reason="live_sensor_assigned")
+
+        return self.async_show_form(
+            step_id="assign_live_sensor",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("fitness_profile_ids"): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=profiles,
+                            multiple=True,
+                            mode=selector.SelectSelectorMode.DROPDOWN,
+                        )
+                    )
+                }
+            ),
+            description_placeholders={"sensor": sensor.label()},
+        )
+
     async def async_step_user(self, user_input=None):
         errors = {}
         if user_input is not None:
@@ -318,7 +411,7 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._data.update(
                     {k: v for k, v in user_input.items() if v not in (None, "")}
                 )
-                return await self.async_step_live_devices()
+                return await self._async_next_live_setup_step()
 
         return self.async_show_form(
             step_id="optional",
@@ -335,17 +428,89 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_live_devices(self, user_input=None):
-        if user_input is not None:
-            ids = list(user_input.get(CONF_LIVE_DEVICE_IDS) or [])
-            if ids:
-                self._data[CONF_LIVE_DEVICE_IDS] = ids
+
+    async def _async_next_live_setup_step(self):
+        """Create missing global adapters before asking for live sensors."""
+        from .live import get_live_runtime
+        runtime = get_live_runtime(self.hass)
+        await runtime.async_initialize()
+        if len(runtime.configured_transports) < 2:
+            return await self.async_step_live_transports()
+        if runtime.live_enabled:
+            return await self.async_step_live_devices()
+        return await self.async_step_workout_devices()
+
+    async def async_step_live_transports(self, user_input=None):
+        """Create missing global Fitness live adapters before sensor selection."""
+        from .live import get_live_runtime
+        runtime = get_live_runtime(self.hass)
+        await runtime.async_initialize()
+        missing = {"bluetooth", "antplus"} - runtime.configured_transports
+        if not missing:
+            if runtime.live_enabled:
+                return await self.async_step_live_devices()
             return await self.async_step_workout_devices()
 
+        if user_input is not None:
+            if "bluetooth" in missing and bool(user_input.get(CONF_BLUETOOTH_ENABLED, False)):
+                await runtime.async_configure_transport("bluetooth", enabled=True)
+            if "antplus" in missing and bool(user_input.get(CONF_ANTPLUS_ENABLED, False)):
+                await runtime.async_configure_transport("antplus", enabled=True)
+            if runtime.live_enabled:
+                return await self.async_step_live_devices()
+            return await self.async_step_workout_devices()
+
+        schema = {}
+        if "bluetooth" in missing:
+            schema[vol.Optional(CONF_BLUETOOTH_ENABLED, default=False)] = bool
+        if "antplus" in missing:
+            schema[vol.Optional(CONF_ANTPLUS_ENABLED, default=False)] = bool
+        return self.async_show_form(
+            step_id="live_transports",
+            data_schema=vol.Schema(schema),
+        )
+
+    async def async_step_live_devices(self, user_input=None):
+        from .live import get_live_runtime
+        runtime = get_live_runtime(self.hass)
+        await runtime.async_initialize()
+        if user_input is not None:
+            await runtime.async_end_setup_discovery()
+            self._data[CONF_LIVE_SENSOR_IDS] = list(
+                user_input.get(CONF_LIVE_SENSOR_IDS) or []
+            )
+            generic_ids = list(user_input.get(CONF_LIVE_DEVICE_IDS) or [])
+            if generic_ids:
+                self._data[CONF_LIVE_DEVICE_IDS] = generic_ids
+            return await self.async_step_workout_devices()
+
+        if not getattr(self, "_native_live_scan_started", False):
+            await runtime.async_begin_setup_discovery()
+            self._native_live_scan_started = True
+            # ANT+ has no advertisement cache: give broadcasting sensors a short
+            # window to appear before constructing the selector. BLE meanwhile
+            # uses HA's already-cached service advertisements immediately.
+            await asyncio.sleep(2.5)
+        choices = [
+            {"value": sensor.sensor_id, "label": sensor.label()}
+            for sensor in runtime.sensors.values()
+            if runtime.adapter_enabled(sensor.transport)
+        ]
         return self.async_show_form(
             step_id="live_devices",
             data_schema=vol.Schema(
-                {vol.Optional(CONF_LIVE_DEVICE_IDS, default=_choice_ids(live_device_choices(self.hass))): _supported_device_multi(live_device_choices(self.hass))}
+                {
+                    vol.Optional(CONF_LIVE_SENSOR_IDS, default=[]): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=choices,
+                            multiple=True,
+                            mode=selector.SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                    vol.Optional(CONF_LIVE_DEVICE_IDS, default=[]): _supported_device_multi(
+                        live_device_choices(self.hass)
+                    ),
+                }
             ),
         )
 
@@ -557,19 +722,37 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
         )
 
     async def async_step_init(self, user_input=None):
-        return self.async_show_menu(
-            step_id="init",
-            menu_options=[
-                "profile",
-                "fitness_inputs",
-                "live_devices",
-                "workout_devices",
-                "history",
-                "sleep_devices",
-                "ai",
-                "feedback",
-            ],
-        )
+        from .live import get_live_runtime
+        runtime = get_live_runtime(self.hass)
+        await runtime.async_initialize()
+        menu = ["profile", "fitness_inputs"]
+        if len(runtime.configured_transports) < 2:
+            menu.append("live_transports")
+        if runtime.live_enabled:
+            menu.append("live_devices")
+        menu.extend(["workout_devices", "history", "sleep_devices", "ai", "feedback"])
+        return self.async_show_menu(step_id="init", menu_options=menu)
+
+    async def async_step_live_transports(self, user_input=None):
+        """Create any still-missing global adapter from a user configure flow."""
+        from .live import get_live_runtime
+        runtime = get_live_runtime(self.hass)
+        await runtime.async_initialize()
+        missing = {"bluetooth", "antplus"} - runtime.configured_transports
+        if not missing:
+            return self.async_abort(reason="adapters_already_configured")
+        if user_input is not None:
+            if "bluetooth" in missing and user_input.get(CONF_BLUETOOTH_ENABLED):
+                await runtime.async_configure_transport("bluetooth", enabled=True)
+            if "antplus" in missing and user_input.get(CONF_ANTPLUS_ENABLED):
+                await runtime.async_configure_transport("antplus", enabled=True)
+            return self.async_create_entry(title="", data=dict(self.config_entry.options))
+        schema = {}
+        if "bluetooth" in missing:
+            schema[vol.Optional(CONF_BLUETOOTH_ENABLED, default=False)] = bool
+        if "antplus" in missing:
+            schema[vol.Optional(CONF_ANTPLUS_ENABLED, default=False)] = bool
+        return self.async_show_form(step_id="live_transports", data_schema=vol.Schema(schema))
 
     async def async_step_profile(self, user_input=None):
         """Edit DOB/sex profile data."""
@@ -743,27 +926,52 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_live_devices(self, user_input=None):
         current = self._current()
-
+        from .live import get_live_runtime
+        runtime = get_live_runtime(self.hass)
+        await runtime.async_initialize()
+        if user_input is None and not getattr(self, "_native_live_scan_started", False):
+            await runtime.async_begin_setup_discovery()
+            self._native_live_scan_started = True
+            await asyncio.sleep(2.5)
+        selected_native = list(current.get(CONF_LIVE_SENSOR_IDS) or [])
+        choice_map = {
+            x.sensor_id: x.label()
+            for x in runtime.sensors.values()
+            if runtime.adapter_enabled(x.transport)
+        }
+        # Never silently drop an assigned sensor just because it has not
+        # advertised again since this HA restart.
+        for sensor_id in selected_native:
+            choice_map.setdefault(sensor_id, f"{sensor_id} — waiting for discovery")
+        choices = [
+            {"value": sensor_id, "label": label}
+            for sensor_id, label in sorted(choice_map.items())
+        ]
+        generic_choices = live_device_choices(self.hass)
         if user_input is not None:
+            await runtime.async_end_setup_discovery()
             return await self._save_merge(
                 {
-                    CONF_LIVE_DEVICE_IDS: list(
-                        user_input.get(CONF_LIVE_DEVICE_IDS) or []
-                    )
+                    CONF_LIVE_SENSOR_IDS: list(user_input.get(CONF_LIVE_SENSOR_IDS) or []),
+                    CONF_LIVE_DEVICE_IDS: list(user_input.get(CONF_LIVE_DEVICE_IDS) or []),
                 }
             )
-
+        known_generic = set(_choice_ids(generic_choices))
+        selected_generic = [
+            x for x in (current.get(CONF_LIVE_DEVICE_IDS) or []) if x in known_generic
+        ]
         return self.async_show_form(
             step_id="live_devices",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(
-                        CONF_LIVE_DEVICE_IDS,
-                        default=[
-                            item for item in (current.get(CONF_LIVE_DEVICE_IDS) or [])
-                            if item in set(_choice_ids(live_device_choices(self.hass)))
-                        ],
-                    ): _supported_device_multi(live_device_choices(self.hass))
+                    vol.Optional(CONF_LIVE_SENSOR_IDS, default=selected_native): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=choices, multiple=True, mode=selector.SelectSelectorMode.DROPDOWN
+                        )
+                    ),
+                    vol.Optional(CONF_LIVE_DEVICE_IDS, default=selected_generic): _supported_device_multi(
+                        generic_choices
+                    ),
                 }
             ),
         )

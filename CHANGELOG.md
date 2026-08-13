@@ -2,6 +2,14 @@
 
 ## 2026.8.11 — Unified workout calendar & historical reconciliation
 
+- Refined the Recovery dashboard card by integrating Training Readiness into the next-workout recovery panel and reducing visual height.
+- Training Readiness now models elapsed training recovery continuously between recovery anchors instead of changing only at fixed time thresholds.
+- Added numeric endpoints/current markers to workout-baseline, VO₂max and training-load gauges; heart-rate baseline deviation now uses distance-from-baseline status colors.
+- Fixed Latest Sleep total duration so Awake time is excluded from actual sleep while remaining visible in stage composition.
+
+
+- Added configurable canonical workout retention per Fitness profile. The default is 3650 days (10 years); `0` keeps workouts indefinitely. Automatic retention is reversible in the sense that increasing it can allow still-exposed provider history to be imported again.
+- Added the `fitness.delete_workouts_before` action for explicit bulk cleanup by age. It stores one persistent deletion cutoff so old Garmin/Strava/Recorder history cannot repopulate deliberately removed workouts.
 2026.8.11 adds a canonical workout calendar and extends workout reconciliation beyond the newest provider activity.
 
 ### Highlights
@@ -10,7 +18,7 @@
 - Added historical workout ingestion from currently exposed provider history, supported provider-specific history APIs, and selected completed-workout entities in Home Assistant Recorder.
 - Historical, local and newly synchronized provider workouts all use the same conservative `merged_workouts()` reconciliation path. Later Garmin/Strava/Hevy/etc. data enriches an existing workout instead of being ignored or creating a duplicate.
 - Local completed workouts now enter the same canonical history path as provider workouts.
-- Increased canonical workout retention from 200 to **2,000 workouts** so historical backfill remains useful.
+- Replaced the fixed workout-count cap with configurable canonical workout retention. The default is **3650 days (10 years)** and `0` means unlimited.
 - Added Home Assistant calendar deletion support. Deleting an event removes the canonical Fitness workout and stores a compact tombstone so provider/history synchronization cannot automatically resurrect it.
 - Added normalized workout start latitude/longitude fields and calendar `location` output when explicit start GPS coordinates are available.
 - Added compact localized calendar summaries for all 15 languages already supported by Fitness. Full structured workout measurements/calculations stay in Fitness history/dashboard because Home Assistant `CalendarEvent` does not expose arbitrary rendered per-event attributes.
@@ -18,7 +26,7 @@
 
 ### Storage behavior
 
-Workout calendar events are projections of Fitness canonical workout storage; they are not maintained in a second calendar database. The newest 2,000 canonical workouts are retained. Deleted workout tombstones are persisted separately (up to 1,000) so explicit user deletion survives restart and provider re-sync.
+Workout calendar events are projections of Fitness canonical workout storage; they are not maintained in a second calendar database. Canonical retention is configured per profile (default 3650 days; `0` unlimited). Individual deleted-workout tombstones are persisted separately (up to 1,000), while bulk deletion uses one persistent cutoff timestamp so explicit user cleanup survives restart and provider re-sync.
 
 ---
 

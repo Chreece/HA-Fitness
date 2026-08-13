@@ -20,7 +20,7 @@ from .const import (
 from .manager import FitnessManager
 from .dashboard import async_setup_dashboard
 
-PLATFORMS = ["sensor", "button", "select", "number", "calendar"]
+PLATFORMS = ["sensor", "button", "select", "number", "calendar", "binary_sensor", "switch"]
 
 _DELETE_WORKOUTS_BEFORE_SCHEMA = vol.Schema(
     {
@@ -52,6 +52,11 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         _delete_workouts_before,
         schema=_DELETE_WORKOUTS_BEFORE_SCHEMA,
     )
+
+    # Live adapters are global Fitness infrastructure, independent of any one
+    # person's config entry. Disabled transports are not imported/loaded.
+    from .live import get_live_runtime
+    await get_live_runtime(hass).async_initialize()
     return True
 
 
@@ -115,6 +120,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data.setdefault(DOMAIN, {})
     await async_setup_dashboard(hass)
+    from .live import get_live_runtime
+    runtime = get_live_runtime(hass)
+    await runtime.async_register_profile(entry)
     manager = FitnessManager(hass, entry)
     hass.data[DOMAIN][entry.entry_id] = manager
 
@@ -134,4 +142,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         manager = hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
         if manager:
             await manager.async_shutdown()
+        runtime = hass.data.get(DOMAIN, {}).get("_live_runtime")
+        if runtime:
+            await runtime.async_unregister_profile(entry.entry_id)
     return unloaded

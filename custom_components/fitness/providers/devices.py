@@ -1,15 +1,12 @@
-"""Live metric discovery from selected devices or automatic ANT+ devices."""
-
+"""Live metric discovery from explicitly selected Home Assistant devices."""
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 
 from ..const import (
-    ANTPLUS_DOMAINS,
     CONF_LIVE_DEVICE_IDS,
     LIVE_METRICS,
     METRIC_ALTITUDE,
@@ -30,30 +27,15 @@ class MetricSource:
     available_numeric: bool
 
 
-def _domain(hass: HomeAssistant, config_entry_id: str | None) -> str | None:
-    if not config_entry_id:
-        return None
-    entry = hass.config_entries.async_get_entry(config_entry_id)
-    return entry.domain if entry else None
-
-
-def _auto_antplus_devices(hass: HomeAssistant) -> list[str]:
-    registry = dr.async_get(hass)
-    ids: list[str] = []
-    for device in registry.devices.values():
-        entry_id = getattr(device, "config_entry_id", None)
-        if _domain(hass, entry_id) in ANTPLUS_DOMAINS:
-            ids.append(device.id)
-            continue
-        entries = getattr(device, "config_entries", None) or []
-        if any(_domain(hass, eid) in ANTPLUS_DOMAINS for eid in entries):
-            ids.append(device.id)
-    return ids
-
-
 def source_device_ids(hass: HomeAssistant, config: dict) -> list[str]:
-    selected = list(config.get(CONF_LIVE_DEVICE_IDS) or [])
-    return selected or _auto_antplus_devices(hass)
+    """Return only explicitly selected generic HA live devices.
+
+    Native ANT+/Bluetooth sensors are supplied by fitness.live and must never
+    leak back through Home Assistant entity discovery. This intentionally
+    removes the historical automatic HA-ANT+ device fallback.
+    """
+    del hass
+    return list(config.get(CONF_LIVE_DEVICE_IDS) or [])
 
 
 def _text(hass: HomeAssistant, entry: er.RegistryEntry) -> str:
@@ -98,7 +80,6 @@ def _score(hass: HomeAssistant, entry: er.RegistryEntry, metric: str) -> int:
     unit = _unit(hass, entry)
     dc = _device_class(hass, entry)
     score = 0
-
     if metric == METRIC_HEART_RATE:
         if dc in ("heart_rate", "heart rate"):
             score += 100
@@ -106,7 +87,6 @@ def _score(hass: HomeAssistant, entry: er.RegistryEntry, metric: str) -> int:
             score += 80
         if any(x in text for x in ("heart_rate", "heartrate", "hrm", "pulse")):
             score += 45
-
     elif metric == METRIC_POWER:
         if dc == "power":
             score += 100
@@ -116,7 +96,6 @@ def _score(hass: HomeAssistant, entry: er.RegistryEntry, metric: str) -> int:
             score += 40
         if any(x in text for x in ("battery", "signal", "rssi")):
             score -= 120
-
     elif metric == METRIC_CADENCE:
         if dc == "cadence":
             score += 100
@@ -124,7 +103,6 @@ def _score(hass: HomeAssistant, entry: er.RegistryEntry, metric: str) -> int:
             score += 65
         if "cadence" in text:
             score += 45
-
     elif metric == METRIC_SPEED:
         if dc == "speed":
             score += 100
@@ -132,7 +110,6 @@ def _score(hass: HomeAssistant, entry: er.RegistryEntry, metric: str) -> int:
             score += 75
         if "speed" in text or "velocity" in text:
             score += 40
-
     elif metric == METRIC_DISTANCE:
         if dc == "distance":
             score += 100
@@ -142,7 +119,6 @@ def _score(hass: HomeAssistant, entry: er.RegistryEntry, metric: str) -> int:
             score += 45
         if any(x in text for x in ("altitude", "elevation", "stride_length")):
             score -= 70
-
     elif metric == METRIC_ALTITUDE:
         if dc == "altitude":
             score += 100
@@ -150,29 +126,24 @@ def _score(hass: HomeAssistant, entry: er.RegistryEntry, metric: str) -> int:
             score += 70
         if unit in ("m", "ft"):
             score += 20
-
     return score
 
 
-def source_is_usable(
-    hass: HomeAssistant,
-    source: MetricSource,
-) -> bool:
-    """Return whether a live metric source currently has a numeric value."""
+def source_is_usable(hass: HomeAssistant, source: MetricSource) -> bool:
     return _available(hass, source.entity_id)
 
 
-def discover_candidates(hass: HomeAssistant, config: dict) -> dict[str, list[MetricSource]]:
+def discover_candidates(
+    hass: HomeAssistant, config: dict
+) -> dict[str, list[MetricSource]]:
     device_ids = set(source_device_ids(hass, config))
     registry = er.async_get(hass)
     result = {metric: [] for metric in LIVE_METRICS}
-
     for entry in registry.entities.values():
         if entry.device_id not in device_ids:
             continue
         if not entry.entity_id.startswith("sensor."):
             continue
-
         for metric in LIVE_METRICS:
             score = _score(hass, entry, metric)
             if score >= 50:
@@ -185,11 +156,8 @@ def discover_candidates(hass: HomeAssistant, config: dict) -> dict[str, list[Met
                         available_numeric=_available(hass, entry.entity_id),
                     )
                 )
-
     for items in result.values():
-        items.sort(
-            key=lambda x: (-int(x.available_numeric), -x.score, x.entity_id)
-        )
+        items.sort(key=lambda x: (-int(x.available_numeric), -x.score, x.entity_id))
     return result
 
 
