@@ -18,11 +18,16 @@ def test_catalog_is_not_read_from_ble_advertisement_callback():
     assert "JSONDecodeError" in IDENTITY
 
 
-def test_capture_is_adapter_scoped_not_sensor_scoped():
+def test_adapter_switch_is_the_only_transport_lifecycle_control():
     assert "_sensor_workout_capture_baseline" not in RUNTIME
     assert "_sensor_workout_capture_override" not in RUNTIME
     assert "async_set_sensor_transport_capture" not in RUNTIME
-    assert "Compatibility shim: capture is controlled only by the adapter switch." in RUNTIME
+    assert "async_start_capture" not in RUNTIME
+    assert "async_stop_capture" not in RUNTIME
+    claim = RUNTIME.split("async def _claim_transport", 1)[1].split(
+        "async def _release_transport", 1
+    )[0]
+    assert "adapter_enabled(transport)" in claim
 
 
 def test_gatt_fallback_and_ant_return_are_automatic():

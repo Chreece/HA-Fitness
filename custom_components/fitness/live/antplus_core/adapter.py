@@ -438,6 +438,7 @@ class AntAdapterManager:
             atomic_writes=True,
         )
         self._stored_capture_states: dict[str, bool] = {}
+        self._registry_identity_cache: dict[str, tuple[Any, ...]] = {}
 
     @property
     def records(self) -> dict[str, AdapterPresence]:
@@ -490,12 +491,35 @@ class AntAdapterManager:
                 return
 
         known[record.adapter.stable_key] = stored
+        # This is internal identity persistence, not a user configuration change.
+        # The integration-wide config-entry update listener normally reloads an
+        # entry on data/options changes, so suppress that one reload before saving
+        # newly learned adapter identity.
+        runtime = self.hass.data.get(DOMAIN, {}).get("_live_runtime")
+        if runtime is not None:
+            runtime.suppress_entry_reload_once(self.entry.entry_id)
         self.hass.config_entries.async_update_entry(
             self.entry,
             data={**self.entry.data, KNOWN_ADAPTERS_KEY: known},
         )
 
     def _merge_or_register_device(self, adapter: AntUsbAdapter) -> None:
+        """Materialize adapter DeviceInfo only when stable identity changes.
+
+        Remote gateway presence messages are heartbeats and may arrive frequently.
+        Re-entering Home Assistant's device/entity registries for every heartbeat
+        can block the event loop and make pages such as Integrations appear frozen.
+        """
+        signature = (
+            adapter.ha_identifier,
+            adapter.name,
+            adapter.manufacturer,
+            adapter.product,
+            adapter.serial,
+        )
+        if self._registry_identity_cache.get(adapter.stable_key) == signature:
+            return
+
         device_registry = dr.async_get(self.hass)
         entity_registry = er.async_get(self.hass)
 
@@ -591,6 +615,8 @@ class AntAdapterManager:
                     )
             device_registry.async_remove_device(legacy.id)
 
+        self._registry_identity_cache[adapter.stable_key] = signature
+
     def _ensure_record(
         self,
         adapter: AntUsbAdapter,
@@ -682,14 +708,22 @@ class AntAdapterManager:
             )
         )
 
-    def stop(self) -> None:
-        for scanner in tuple(self._local_scanners.values()):
-            scanner.stop()
+    async def async_stop(self) -> None:
+        """Stop local scanner hardware without blocking Home Assistant's loop."""
+        scanners = tuple(self._local_scanners.values())
         self._local_scanners.clear()
-
         for unsub in self._unsubs:
             unsub()
         self._unsubs.clear()
+
+        if scanners:
+            await asyncio.gather(
+                *(
+                    self.hass.async_add_executor_job(scanner.stop)
+                    for scanner in scanners
+                ),
+                return_exceptions=True,
+            )
 
     async def _async_local_tick(self, _now) -> None:
         await self.async_refresh_local()
@@ -753,7 +787,7 @@ class AntAdapterManager:
             bool(enabled),
         )
 
-    def _sync_local_capture(self, stable_key: str) -> None:
+    async def _async_sync_local_capture(self, stable_key: str) -> None:
         record = self._records.get(stable_key)
         if record is None:
             return
@@ -779,8 +813,10 @@ class AntAdapterManager:
             return
 
         if scanner is not None:
-            scanner.stop()
             self._local_scanners.pop(stable_key, None)
+            # openant Node.stop may perform synchronous USB work. Never call it
+            # directly from a Home Assistant coroutine/timer callback.
+            await self.hass.async_add_executor_job(scanner.stop)
 
     def _set_local_capture_state(
         self,
@@ -874,7 +910,7 @@ class AntAdapterManager:
         # Notify before dispatch so the switch moves immediately.
         self._notify(stable_key)
 
-        self._sync_local_capture(stable_key)
+        await self._async_sync_local_capture(stable_key)
 
         for gateway_id in sorted(record.remote_gateways or {}):
             self._send_remote_capture(
@@ -1021,7 +1057,7 @@ class AntAdapterManager:
             changed = not record.local_present
             record.local_present = True
             record.local_missing_since = None
-            self._sync_local_capture(adapter.stable_key)
+            await self._async_sync_local_capture(adapter.stable_key)
             if changed:
                 self._notify(adapter.stable_key)
 
@@ -1039,7 +1075,7 @@ class AntAdapterManager:
             record.local_present = False
             record.local_missing_since = None
             record.local_capture_enabled = False
-            self._sync_local_capture(stable_key)
+            await self._async_sync_local_capture(stable_key)
             self._notify(stable_key)
 
     def update_remote_gateway(

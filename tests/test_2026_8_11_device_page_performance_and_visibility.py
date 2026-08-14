@@ -11,16 +11,14 @@ BINARY = (FIT / "binary_sensor.py").read_text(encoding="utf-8")
 FRONTEND = (FIT / "frontend/fitness-dashboard.js").read_text(encoding="utf-8")
 
 
-def test_gatt_entity_availability_never_resolves_ble_device_or_proxy():
+def test_gatt_support_check_never_resolves_ble_device_or_proxy():
     support = RUNTIME.split("def bluetooth_gatt_supported", 1)[1].split(
         "def bluetooth_gatt_capable", 1
     )[0]
     assert "async_ble_device_from_address" not in support
     assert 'endpoint.metadata.get("connectable", False)' in support
-
-    buttons = BUTTON.split("class _SensorGattButton", 1)[1]
-    assert "async_ble_device_from_address" not in buttons
-
+    assert "SensorGattConnectButton" not in BUTTON
+    assert "SensorGattDisconnectButton" not in BUTTON
 
 def test_ble_device_resolution_happens_only_in_real_connection_path():
     assert "async_ble_device_from_address" in BLUETOOTH

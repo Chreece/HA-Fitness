@@ -62,7 +62,7 @@
           "live_device_ids": "Other Home Assistant live devices"
         },
         "data_description": {
-          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live capture.",
+          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
           "live_device_ids": "Optional Home Assistant devices exposing compatible live heart-rate, power, cadence, speed, distance or altitude entities."
         }
       },
@@ -215,7 +215,7 @@
           "live_device_ids": "Other Home Assistant live devices"
         },
         "data_description": {
-          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live capture.",
+          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
           "live_device_ids": "Optional Home Assistant devices exposing compatible live heart-rate, power, cadence, speed, distance or altitude entities."
         }
       },

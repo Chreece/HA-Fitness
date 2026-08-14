@@ -158,7 +158,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await async_setup_dashboard(hass)
     await runtime.async_register_profile(entry)
-    runtime.cleanup_profile_live_registry(entry)
+    # The Live Workout device is permanent profile infrastructure.  Do not
+    # create/delete it as sensors or adapters appear and disappear.
+    runtime.ensure_profile_live_registry(entry)
     manager = FitnessManager(hass, entry)
     hass.data[DOMAIN][entry.entry_id] = manager
 

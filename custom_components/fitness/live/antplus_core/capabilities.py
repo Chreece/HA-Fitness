@@ -252,8 +252,12 @@ def supports_bicycle_power_calibration(device: AntDevice) -> bool:
 
 
 def record_observed_page(device: AntDevice, device_type: int, payload: bytes) -> bool:
-    """Record one observed ANT page and return whether capability state changed."""
-    before = capability_snapshot(device)
+    """Record one observed ANT page and return whether this is new evidence.
+
+    Capability resolution is intentionally *not* performed here. High-rate ANT
+    profiles repeat the same pages continuously; recomputing the full capability
+    model for every RF packet wastes CPU/GIL and can starve Home Assistant.
+    """
     if not payload:
         return False
     pages_by_profile = device.decoder_state.setdefault("observed_pages", {})
@@ -261,8 +265,11 @@ def record_observed_page(device: AntDevice, device_type: int, payload: bytes) ->
     if not isinstance(pages, set):
         pages = set(pages)
         pages_by_profile[device_type] = pages
-    pages.add(int(payload[0]) & 0x7F)
-    return capability_snapshot(device) != before
+    page = int(payload[0]) & 0x7F
+    if page in pages:
+        return False
+    pages.add(page)
+    return True
 
 
 def record_fe_command_status(device: AntDevice, command_id: int, status_raw: int) -> bool:

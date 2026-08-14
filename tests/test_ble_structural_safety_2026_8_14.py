@@ -63,7 +63,9 @@ def test_source_and_availability_do_not_count_as_topology_changes():
     assert "previous_endpoint.metadata" in structural
     fast = register.split("if (", 1)[1].split("endpoint_capabilities", 1)[0]
     assert "known_endpoint.source == source" not in fast
-    assert "known_endpoint.source = source" in register
+    assert "refresh_transport_endpoint(" in register
+    refresh = _method_source(RUNTIME, "refresh_transport_endpoint")
+    assert "endpoint.source = source" in refresh
 
 
 def test_semantic_name_stops_advertisement_aliases_forcing_slow_path():
@@ -96,7 +98,7 @@ def test_persisted_topology_drops_rssi_and_raw_ad_payloads():
 def test_radio_driven_structure_materialization_is_coalesced():
     method = _method_source(RUNTIME, "_notify_structure_throttled")
     assert "_structure_notify_handle" in method
-    assert "call_later(0.1" in method
+    assert "call_later(2.0" in method
     publish_details = _method_source(RUNTIME, "publish_details")
     assert "_notify_structure_throttled()" in publish_details
     register = _method_source(RUNTIME, "register_transport_sensor")
@@ -131,19 +133,42 @@ def test_accept_flow_defers_device_and_entity_materialization():
     finalize = flow.split("async def _finalize_assignment()", 1)[1].split(
         'return self.async_abort(reason="live_sensor_assigned")', 1
     )[0]
-    assert "await asyncio.sleep(0)" in finalize
-    assert "runtime.ensure_sensor_device(sensor_id)" in finalize
-    assert "runtime._notify_structure_throttled()" in finalize
+    assert "await asyncio.sleep(0.5)" in finalize
+    assert "runtime.finalize_sensor_acceptance(canonical_id)" in finalize
+    assert "finalize_sensor_acceptance" in RUNTIME and "self._notify_structure_throttled()" in RUNTIME.split("def finalize_sensor_acceptance", 1)[1].split("def _schedule_sensor_device_refresh", 1)[0]
 
 
 def test_bluetooth_callback_is_filtered_by_standard_fitness_services():
     setup = _method_source(BT, "async_setup")
     assert "for service_uuid in SERVICE_CAPABILITIES" in setup
     assert "service_uuid=service_uuid" in setup
+    assert "replay=bluetooth.BluetoothCallbackReplay.DISABLED" in setup
     assert "BluetoothCallbackMatcher(connectable=False)" not in setup
     discovered = _method_source(BT, "_async_discovered")
+    assert "_provisional_identity_signature" in discovered
     assert "_last_discovery_fingerprint" in discovered
-    assert "now_mono - previous[1] < 0.05" in discovered
+    assert "previous_discovery[0] == discovery_fingerprint" in discovered
+    assert "known_sensor is not None and previous_identity == identity_signature" in discovered
+    assert "previous_identity == identity_signature" in discovered
+
+
+def test_accepted_ble_sensor_uses_cheap_identity_path_and_rate_limited_passive_decode():
+    discovered = _method_source(BT, "_async_discovered")
+    cheap = discovered.split(
+        "if known_sensor is not None and previous_identity == identity_signature:", 1
+    )[1].split("else:", 1)[0]
+    assert "sensor = known_sensor" in cheap
+    assert "register_transport_sensor" not in cheap
+    assert "refresh_transport_endpoint" in cheap
+    assert "PASSIVE_DECODE_MIN_INTERVAL = 5.0" in BT
+    assert "_provisional_passive_last_decode" in discovered
+    assert "now_mono - last_passive_decode >= PASSIVE_DECODE_MIN_INTERVAL" in discovered
+
+
+def test_bluetooth_presence_uses_advertisement_scanners_not_connectable_only():
+    refresh = _method_source(BT, "_refresh_available")
+    assert "scanner_count(self.hass, connectable=False)" in refresh
+    assert "scanner_count(self.hass, connectable=True)" not in refresh
 
 
 def test_long_protocol_diagnostics_do_not_exceed_ha_state_limit():
@@ -223,12 +248,12 @@ def test_normal_advertisement_does_not_even_resolve_device_registry_identity():
         ROOT / "custom_components/fitness/live/runtime.py"
     ).read_text(encoding="utf-8")
     registration = runtime.split("def register_transport_sensor", 1)[1].split(
-        "def publish", 1
+        "# Compatibility for older provider code/tests", 1
     )[0]
-    gate = registration.split("self.ensure_sensor_device(sensor.sensor_id)", 1)[0]
-    assert "structural_change" in gate[-500:]
-    assert "and self.sensor_is_accepted(sensor.sensor_id)" in gate[-500:]
-
+    # Normal advertisements return through the fast path; structural identity
+    # changes only schedule a debounced control-plane DeviceInfo refresh.
+    assert "self._schedule_sensor_device_refresh(sensor.sensor_id)" in registration
+    assert "self.ensure_sensor_device(sensor.sensor_id)" not in registration
 
 def test_enabled_availability_entity_does_not_duplicate_full_transport_metadata():
     binary = (

@@ -19,6 +19,15 @@ from ..const import (
 from .runtime import LiveSensor
 from .antplus_core.adapter import AntAdapterManager
 from .antplus_core.receiver import AntPlusReceiver
+from .antplus_core.const import (
+    DEVICE_TYPE_POWER,
+    DEVICE_TYPE_FITNESS_EQUIPMENT,
+    DEVICE_TYPE_HEART_RATE,
+    DEVICE_TYPE_BIKE_SPEED_CADENCE,
+    DEVICE_TYPE_BIKE_CADENCE,
+    DEVICE_TYPE_BIKE_SPEED,
+    DEVICE_TYPE_STRIDE_SPEED,
+)
 from .antplus_core.remote import async_register_remote_listener
 from .antplus_core.capabilities import capability_snapshot
 
@@ -41,6 +50,29 @@ METRIC_MAP = {
     "altitude": METRIC_ALTITUDE,
     "elevation": METRIC_ALTITUDE,
 }
+
+
+def _profile_capabilities(profiles: list[int]) -> set[str]:
+    """Return standard potential live metrics from ANT profile identity alone."""
+    caps: set[str] = set()
+    profile_set = {int(profile) for profile in profiles}
+    if DEVICE_TYPE_HEART_RATE in profile_set:
+        caps.add(METRIC_HEART_RATE)
+    if DEVICE_TYPE_POWER in profile_set:
+        caps.add(METRIC_POWER)
+    if DEVICE_TYPE_BIKE_CADENCE in profile_set:
+        caps.add(METRIC_CADENCE)
+    if DEVICE_TYPE_BIKE_SPEED in profile_set:
+        caps.add(METRIC_SPEED)
+    if DEVICE_TYPE_BIKE_SPEED_CADENCE in profile_set:
+        caps.update({METRIC_SPEED, METRIC_CADENCE})
+    if DEVICE_TYPE_STRIDE_SPEED in profile_set:
+        caps.update({METRIC_SPEED, METRIC_DISTANCE, METRIC_CADENCE})
+    if DEVICE_TYPE_FITNESS_EQUIPMENT in profile_set:
+        caps.update(
+            {METRIC_SPEED, METRIC_DISTANCE, METRIC_CADENCE, METRIC_POWER}
+        )
+    return caps
 
 
 class _DiscoveryAdapterManager(AntAdapterManager):
@@ -77,7 +109,6 @@ class AntPlusFitnessProvider:
     def __init__(self, runtime) -> None:
         self.runtime = runtime
         self.hass = runtime.hass
-        self.capture_active = False
         self.available = False
         self.last_error: str | None = None
         self.receiver: AntPlusReceiver | None = None
@@ -92,13 +123,13 @@ class AntPlusFitnessProvider:
         self._extra_metric_cache: dict[tuple[int, str], Any] = {}
         self._extra_telemetry_last_publish: dict[int, float] = {}
         self._host_entry = None
-        self._capture_requested = False
         self._publish_lock = threading.Lock()
         self._pending_publish: dict[int, Any] = {}
         self._publish_scheduled: set[int] = set()
         self._pending_structural: set[int] = set()
         self._device_sensor_ids: dict[int, str] = {}
         self._device_accepted: dict[int, bool] = {}
+        self._device_structure_signature: dict[int, tuple[object, ...]] = {}
 
     async def async_setup(self) -> None:
         """Start ANT+ adapter/gateway discovery even without local hardware."""
@@ -153,15 +184,15 @@ class AntPlusFitnessProvider:
         for device in tuple(self.receiver.devices.values()):
             self._publish_device(device)
 
-        if self._capture_requested:
-            await self.async_start_capture()
+        # Respect each adapter's persisted Capture preference. Provider/module
+        # startup must never force Capture ON.
+        await self._async_restore_receiver_states()
 
     async def async_bind_hub(self, entry) -> None:
         """Attach global adapter devices/storage to the Local Sensors entry."""
         if self._host_entry is not None or self.receiver is None:
             return
 
-        capture_requested = self._capture_requested
         if self._remote_unsub:
             self._remote_unsub()
             self._remote_unsub = None
@@ -169,10 +200,9 @@ class AntPlusFitnessProvider:
             self._adapter_unsub()
             self._adapter_unsub = None
         if self.adapter_manager is not None:
-            self.adapter_manager.stop()
+            await self.adapter_manager.async_stop()
         self.adapter_manager = None
 
-        self._capture_requested = capture_requested
         await self._async_create_adapter_manager(entry)
 
     def _schedule_publish_device(self, device, *, structural: bool) -> None:
@@ -180,7 +210,7 @@ class AntPlusFitnessProvider:
 
         The ANT worker may emit several metric callbacks for one packet and several
         profiles for one physical device. Only the newest device snapshot is kept.
-        Accepted sensors are drained at most 4 times/s; known unaccepted sensors do
+        Accepted sensors are drained at most 2 times/s; known unaccepted sensors do
         not schedule metric work on Home Assistant's event loop at all.
         """
         try:
@@ -204,7 +234,7 @@ class AntPlusFitnessProvider:
         self.hass.loop.call_soon_threadsafe(self._flush_publish_device, device_id)
 
     def _flush_publish_device(self, device_id: int) -> None:
-        """Drain one device mailbox and keep the gate closed for 250 ms."""
+        """Drain one device mailbox and keep the gate closed for 500 ms."""
         with self._publish_lock:
             device = self._pending_publish.pop(device_id, None)
             structural = device_id in self._pending_structural
@@ -219,7 +249,7 @@ class AntPlusFitnessProvider:
 
         # Keep `_publish_scheduled` set during the cooldown. Worker callbacks only
         # replace `_pending_publish`; they do not create more thread-safe HA jobs.
-        self.hass.loop.call_later(0.25, self._finish_publish_window, device_id)
+        self.hass.loop.call_later(0.5, self._finish_publish_window, device_id)
 
     def _finish_publish_window(self, device_id: int) -> None:
         with self._publish_lock:
@@ -240,13 +270,18 @@ class AntPlusFitnessProvider:
         Home Assistant still exposes the advertised event surface without guessing
         the vendor/profile meaning of individual bits.
         """
+        # Most ANT packets are high-rate telemetry and can never generate raw HA
+        # events. Reject them before resolving the capability model.
+        device_type = int(device_type)
+        if device_type not in (16, 115):
+            return
         snapshot = capability_snapshot(device)
         event_keys: list[str] = []
-        if int(device_type) == 16:
+        if device_type == 16:
             for key in ("generic_control_event", "controls_availability_event"):
                 if key in snapshot.events:
                     event_keys.append(key)
-        elif int(device_type) == 115 and "dropper_event" in snapshot.events:
+        elif device_type == 115 and "dropper_event" in snapshot.events:
             event_keys.append("dropper_event")
         if not event_keys:
             return
@@ -286,12 +321,45 @@ class AntPlusFitnessProvider:
                 },
             )
 
+    def refresh_telemetry_gates(self) -> None:
+        """Enable ANT metric decoding only for sensors needed by live sessions."""
+        if self.receiver is None:
+            return
+        with self._publish_lock:
+            mappings = tuple(self._device_sensor_ids.items())
+        for device_id, sensor_id in mappings:
+            canonical_id = self.runtime.resolve_sensor_id(sensor_id)
+            if canonical_id != sensor_id:
+                with self._publish_lock:
+                    self._device_sensor_ids[device_id] = canonical_id
+                sensor_id = canonical_id
+            enabled = self.runtime.sensor_live_telemetry_needed(sensor_id)
+            self.receiver.set_device_telemetry_enabled(device_id, enabled)
+
     def sensor_acceptance_changed(self, sensor_id: str, accepted: bool) -> None:
-        """Update the worker-side fast-path cache after assignment/deletion."""
+        """Update publish and decode gates after assignment/deletion."""
+        affected: list[int] = []
+        target_sensor_id = self.runtime.resolve_sensor_id(sensor_id)
         with self._publish_lock:
             for device_id, mapped_sensor_id in tuple(self._device_sensor_ids.items()):
-                if mapped_sensor_id == sensor_id:
+                canonical_id = self.runtime.resolve_sensor_id(mapped_sensor_id)
+                if canonical_id == target_sensor_id:
+                    self._device_sensor_ids[device_id] = canonical_id
                     self._device_accepted[device_id] = bool(accepted)
+                    affected.append(device_id)
+        if self.receiver is not None:
+            for device_id in affected:
+                mapped = self._device_sensor_ids.get(device_id)
+                canonical = self.runtime.resolve_sensor_id(mapped) if mapped else None
+                if mapped and canonical != mapped:
+                    with self._publish_lock:
+                        self._device_sensor_ids[device_id] = canonical
+                    mapped = canonical
+                self.receiver.set_device_accepted(device_id, bool(accepted and mapped))
+                self.receiver.set_device_telemetry_enabled(
+                    device_id,
+                    bool(mapped and self.runtime.sensor_live_telemetry_needed(mapped)),
+                )
 
     def forget_device(self, device_id: int) -> None:
         """Forget receiver-side ANT identity so the next RF packets rediscover it."""
@@ -304,6 +372,7 @@ class AntPlusFitnessProvider:
             self._pending_structural.discard(device_id)
             self._device_sensor_ids.pop(device_id, None)
             self._device_accepted.pop(device_id, None)
+            self._device_structure_signature.pop(device_id, None)
 
     def _metric_values(self, device) -> tuple[set[str], dict[str, float]]:
         """Return canonical Fitness capabilities and current values."""
@@ -429,14 +498,14 @@ class AntPlusFitnessProvider:
         self._publish_extra_metrics(device, sensor_id)
 
     def _publish_device(self, device) -> None:
-        caps, values = self._metric_values(device)
-        if not caps:
-            return
-
+        metric_caps, values = self._metric_values(device)
         device_id = int(getattr(device, "device_id"))
         manufacturer = getattr(device, "manufacturer_name", None)
         model = getattr(device, "model_no", None)
         profiles = sorted(getattr(device, "profiles", set()))
+        caps = _profile_capabilities(profiles) | metric_caps
+        if not caps:
+            return
         # Never promote the ANT numeric model number to the HA device name/model.
         # A semantic identity resolver/catalog will enrich this once enough
         # common-page or BLE Device Information data exists.
@@ -458,6 +527,37 @@ class AntPlusFitnessProvider:
             "protocol_events": {"antplus": sorted(snapshot.events)},
             "capability_evidence": evidence,
         }
+        structure_signature = (
+            tuple(profiles),
+            tuple(metadata["transmission_types"]),
+            manufacturer,
+            metadata["manufacturer_id"],
+            model,
+            metadata["serial_no"],
+            metadata["hardware_rev"],
+            metadata["software_ver"],
+            tuple(sorted(snapshot.controls)),
+            tuple(sorted(snapshot.events)),
+        )
+        previous_structure = self._device_structure_signature.get(device_id)
+        mapped_sensor_id = self._device_sensor_ids.get(device_id)
+        if previous_structure == structure_signature and mapped_sensor_id:
+            canonical_id = self.runtime.resolve_sensor_id(mapped_sensor_id)
+            if canonical_id != mapped_sensor_id:
+                mapped_sensor_id = canonical_id
+                with self._publish_lock:
+                    self._device_sensor_ids[device_id] = canonical_id
+            accepted = self.runtime.sensor_is_accepted(mapped_sensor_id)
+            with self._publish_lock:
+                self._device_accepted[device_id] = accepted
+            if self.receiver is not None:
+                self.receiver.set_device_accepted(device_id, accepted)
+                self.receiver.set_device_telemetry_enabled(
+                    device_id,
+                    self.runtime.sensor_live_telemetry_needed(mapped_sensor_id),
+                )
+            return
+
         sensor = self.runtime.register_transport_sensor(
             transport=self.transport, endpoint_id=endpoint_id, name=name,
             capabilities=caps, address=str(device_id),
@@ -465,9 +565,16 @@ class AntPlusFitnessProvider:
             available=True, metadata=metadata,
         )
         accepted = self.runtime.sensor_is_accepted(sensor.sensor_id)
+        self._device_structure_signature[device_id] = structure_signature
         with self._publish_lock:
             self._device_sensor_ids[device_id] = sensor.sensor_id
             self._device_accepted[device_id] = accepted
+        if self.receiver is not None:
+            self.receiver.set_device_accepted(device_id, accepted)
+            self.receiver.set_device_telemetry_enabled(
+                device_id,
+                self.runtime.sensor_live_telemetry_needed(sensor.sensor_id),
+            )
 
         # Keep raw protocol identity/capabilities as disabled diagnostics.
         diagnostic_values = {
@@ -483,7 +590,9 @@ class AntPlusFitnessProvider:
         diagnostic_meta = {key: {"name": key.replace("_", " ").title(), "entity_category": "diagnostic", "enabled_default": False, "icon": "mdi:information-outline"} for key in diagnostic_values}
         if diagnostic_values:
             self.runtime.publish_details(sensor.sensor_id, diagnostic_values, transport="antplus", metadata=diagnostic_meta, priority=20)
-        self.runtime.ensure_sensor_device(sensor.sensor_id)
+        # A generic ANT profile remains provisional until runtime has stable
+        # common-page/catalog identity. Device Registry work is owned by the
+        # post-Add/control-plane path; never perform registry lookup here.
         if accepted:
             if values:
                 self.runtime.publish(sensor.sensor_id, values, transport=self.transport)
@@ -497,17 +606,10 @@ class AntPlusFitnessProvider:
         )
 
     def _adapter_changed(self, stable_key: str) -> None:
+        del stable_key
         self.available = self._has_available_receiver()
         self.runtime.set_adapter_presence("antplus", self.available)
         self.runtime.notify_changed()
-        if not self._capture_requested or self.adapter_manager is None:
-            return
-        record = self.adapter_manager.get(stable_key)
-        if record is None or record.desired_capture:
-            return
-        self.hass.async_create_task(
-            self.adapter_manager.async_set_capture(stable_key, True)
-        )
 
     @property
     def receiver_count(self) -> int:
@@ -533,41 +635,57 @@ class AntPlusFitnessProvider:
                     "available": record.available,
                     "connection": record.connection,
                     "sources": record.sources,
-                    "capture": record.displayed_capture,
-                    "error": record.capture_error,
                 }
             )
         return result
 
-    async def async_start_capture(self) -> None:
-        """Capture on every present/future local adapter or remote gateway."""
-        self._capture_requested = True
-        self.capture_active = True
-        self.last_error = None
-        if self.receiver is not None:
-            self.receiver.enable_capture()
+    async def _async_restore_receiver_states(self) -> None:
+        """Apply persisted Capture preferences without changing them."""
         if self.adapter_manager is None:
             return
-        for key in tuple(self.adapter_manager.records):
+        for key, record in tuple(self.adapter_manager.records.items()):
             try:
-                await self.adapter_manager.async_set_capture(key, True)
+                # Startup only applies the preference already loaded; it does not
+                # mutate the user's Capture setting.
+                self.adapter_manager._sync_local_capture(key)
+                for gateway_id in sorted(record.remote_gateways or {}):
+                    self.adapter_manager._send_remote_capture(
+                        key, gateway_id, bool(record.desired_capture)
+                    )
             except Exception as err:
                 self.last_error = str(err)
-                _LOGGER.debug("ANT+ capture start failed for %s: %s", key, err)
+                _LOGGER.debug(
+                    "ANT+ receiver state restore failed for %s: %s", key, err
+                )
+
+    async def _async_enable_receivers(self) -> None:
+        """Enable ANT receiver paths while the adapter module is active."""
+        self.last_error = None
+        if self.receiver is not None:
+            # The vendored ANT receiver performs synchronous USB control work.
+            # Never execute that on Home Assistant's event loop.
+            await self.hass.async_add_executor_job(self.receiver.enable_capture)
+        if self.adapter_manager is not None:
+            for key in tuple(self.adapter_manager.records):
+                try:
+                    await self.adapter_manager.async_set_capture(key, True)
+                except Exception as err:
+                    self.last_error = str(err)
+                    _LOGGER.debug("ANT+ receiver enable failed for %s: %s", key, err)
         self.available = self._has_available_receiver()
 
-    async def async_stop_capture(self) -> None:
-        self._capture_requested = False
+    async def _async_disable_receivers(self) -> None:
+        """Disable ANT receiver paths only when the adapter module unloads."""
         if self.adapter_manager is not None:
             for key in tuple(self.adapter_manager.records):
                 try:
                     await self.adapter_manager.async_set_capture(key, False)
                 except Exception as err:
                     self.last_error = str(err)
-                    _LOGGER.debug("ANT+ capture stop failed for %s: %s", key, err)
+                    _LOGGER.debug("ANT+ receiver disable failed for %s: %s", key, err)
         if self.receiver is not None:
-            self.receiver.disable_capture()
-        self.capture_active = False
+            # Receiver shutdown may issue synchronous USB control transfers too.
+            await self.hass.async_add_executor_job(self.receiver.disable_capture)
         self.available = self._has_available_receiver()
 
     async def async_connect_profile(
@@ -582,7 +700,7 @@ class AntPlusFitnessProvider:
         del profile_id, keep_heart_rate
 
     async def async_shutdown(self) -> None:
-        await self.async_stop_capture()
+        await self._async_disable_receivers()
         for attr in (
             "_metric_unsub",
             "_packet_unsub",
@@ -595,10 +713,10 @@ class AntPlusFitnessProvider:
                 unsub()
                 setattr(self, attr, None)
         if self.adapter_manager is not None:
-            self.adapter_manager.stop()
+            await self.adapter_manager.async_stop()
         self.adapter_manager = None
         if self.receiver is not None:
-            self.receiver.diagnostics.stop()
+            await self.hass.async_add_executor_job(self.receiver.diagnostics.stop)
         self.receiver = None
         self._host_entry = None
         self.available = False

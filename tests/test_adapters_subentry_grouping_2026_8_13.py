@@ -16,19 +16,13 @@ def test_protocol_specific_adapter_subentries_exist():
     assert 'SENSORS_SUBENTRY_TYPE = "sensors"' in R
 
 
-def test_adapter_and_sensor_entities_are_owned_by_correct_subentries():
-    # ANT receiver hardware controls remain on the ANT+ adapter subentry.
-    assert 'runtime.adapter_subentry_id("antplus")' in B
-    # Physical sensor capture controls are retired; only genuinely sensor-specific
-    # GATT actions are created under the Sensors subentry.
-    assert 'SensorTransportStartCaptureButton(runtime, sensor_id, transport)' not in B
-    assert 'SensorTransportStopCaptureButton(runtime, sensor_id, transport)' not in B
-    assert 'SensorGattConnectButton(runtime, sensor_id)' in B
-    assert 'subentry = runtime.ensure_sensors_subentry()' in B
-    assert 'runtime.adapter_subentry_id(transport)' in BS
-    assert 'runtime.adapter_subentry_id("antplus")' in BS
-    assert 'runtime.adapter_subentry_id(transport)' in SW
-
+def test_transport_buttons_are_not_owned_by_adapter_or_sensor_subentries():
+    # The adapter Activate switches own lifecycle. There are no capture or
+    # manual GATT transport buttons to assign to either subentry.
+    assert "AntReceiverStartCaptureButton" not in B
+    assert "AntReceiverStopCaptureButton" not in B
+    assert "SensorGattConnectButton" not in B
+    assert "SensorGattDisconnectButton" not in B
 
 def test_existing_adapter_devices_migrate_to_protocol_subentries():
     assert '_migrate_adapter_devices_to_transport_subentries()' in R

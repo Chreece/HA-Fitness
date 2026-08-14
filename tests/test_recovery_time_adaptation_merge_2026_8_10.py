@@ -13,7 +13,8 @@ DASH = (ROOT / 'custom_components/fitness/dashboard.py').read_text(encoding='utf
 def test_workout_history_is_deduplicated_on_read():
     start = MANAGER.index('def local_workouts')
     end = MANAGER.index('def latest_workout', start)
-    assert 'return merged_workouts(result)' in MANAGER[start:end]
+    assert 'merged = merged_workouts(result)' in MANAGER[start:end]
+    assert '_local_workouts_cache' in MANAGER[start:end]
     assert 'a_live != b_live and start_delta <= 90' in WORKOUTS
     assert 'if da <= 0 or db <= 0:' in WORKOUTS
 

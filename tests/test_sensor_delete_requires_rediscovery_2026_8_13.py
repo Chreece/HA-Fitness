@@ -15,10 +15,12 @@ def test_deleted_sensor_is_persistently_revoked_until_reassigned():
     assert "self._requires_reassignment.discard(sensor_id)" in marked
 
 
-def test_device_delete_persists_revocation_before_returning_to_ha():
+def test_device_delete_revokes_immediately_and_persists_after_return():
     assert "await runtime.async_forget_sensor" in INIT
     forgotten = RUNTIME[RUNTIME.index("async def async_forget_sensor"):RUNTIME.index("def _listen_for_registry_deletions")]
-    assert "await self._async_save_adapter_config()" in forgotten
+    assert "await self._async_save_adapter_config()" not in forgotten
+    assert "self._schedule_save()" in forgotten
+    assert "self._schedule_deleted_sensor_cleanup" in forgotten
 
 
 def test_revoked_sensor_is_rediscoverable_despite_stale_profile_selection():

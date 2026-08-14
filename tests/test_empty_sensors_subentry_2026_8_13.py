@@ -1,21 +1,27 @@
 from pathlib import Path
 
-R = Path("custom_components/fitness/live/runtime.py").read_text()
+ROOT = Path(__file__).resolve().parents[1]
+R = (ROOT / "custom_components/fitness/live/runtime.py").read_text()
+I = (ROOT / "custom_components/fitness/__init__.py").read_text()
 
 
-def test_sensor_subentry_is_not_created_unconditionally_on_hub_setup():
-    block = R[R.index("async def async_register_hub"):R.index("def _cleanup_legacy_profile_infrastructure")]
-    assert "self.ensure_sensors_subentry()" not in block
-    assert "self.remove_sensors_subentry_if_empty()" in block
+def test_sensors_subentry_is_permanent_hub_infrastructure():
+    register = R[R.index("async def async_register_hub"):R.index("def _cleanup_legacy_profile_infrastructure")]
+    assert "self.ensure_sensors_subentry()" in register
+    assert "remove_sensors_subentry_if_empty" not in R
 
 
-def test_empty_sensor_subentry_is_removed_after_last_sensor_is_forgotten():
-    assert "def remove_sensors_subentry_if_empty" in R
-    assert "async_remove_subentry" in R
-    block = R[R.index("def _forget_sensor_memory"):R.index("def _listen_for_registry_deletions")]
-    assert "self.remove_sensors_subentry_if_empty()" in block
+def test_sensor_count_never_removes_or_creates_subentry_during_delete_cleanup():
+    block = R[R.index("def _schedule_deleted_sensor_cleanup"):R.index("def forget_sensor")]
+    assert "async_remove_subentry" not in block
+    assert "async_add_subentry" not in block
+    assert "ensure_sensors_subentry" not in block
 
 
-def test_sensor_subentry_remains_lazy_until_an_accepted_sensor_needs_a_device():
-    block = R[R.index("def ensure_sensor_device"):R.index("def request_hub_reload")]
-    assert "subentry_id = self._sensor_subentry_id()" in block
+def test_profile_live_device_is_created_once_and_never_runtime_deleted():
+    assert "runtime.ensure_profile_live_registry(entry)" in I
+    assert "cleanup_profile_live_registry" not in I
+    block = R[R.index("def ensure_profile_live_registry"):R.index("def _start_presence_monitor")]
+    assert "async_get_or_create" in block
+    assert "async_remove_device" not in block
+    assert "entity_registry" not in block

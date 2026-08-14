@@ -37,7 +37,7 @@ def test_owner_select_available_only_during_two_profile_live_overlap():
 
 
 def test_session_start_stop_refreshes_owner_selector_low_frequency():
-    prepare = R[R.index("async def async_prepare_session") : R.index("async def async_manual_gatt_connect")]
+    prepare = R[R.index("async def async_prepare_session") : R.index("async def async_finish_session")]
     finish = R[R.index("async def async_finish_session") : R.index("async def async_finish_recovery")]
     token='(sensor.sensor_id, "workout_owner", None)'
     assert token in prepare

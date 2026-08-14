@@ -242,9 +242,12 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         from .live import get_live_runtime
         runtime = get_live_runtime(self.hass)
         await runtime.async_initialize()
+        sensor_id = runtime.resolve_sensor_id(sensor_id)
         sensor = runtime.sensors.get(sensor_id)
         if sensor is None:
             return self.async_abort(reason="sensor_unavailable")
+        if runtime.sensor_is_accepted(sensor_id):
+            return self.async_abort(reason="live_sensor_assigned")
 
         self._discovery_sensor_id = sensor_id
         # Give the discovery card a useful title instead of the generic Fitness
@@ -258,9 +261,13 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         from .live import get_live_runtime
         runtime = get_live_runtime(self.hass)
         sensor_id = getattr(self, "_discovery_sensor_id", None)
+        sensor_id = runtime.resolve_sensor_id(sensor_id) if sensor_id else None
+        self._discovery_sensor_id = sensor_id
         sensor = runtime.sensors.get(sensor_id) if sensor_id else None
         if sensor is None:
             return self.async_abort(reason="sensor_unavailable")
+        if runtime.sensor_is_accepted(sensor_id):
+            return self.async_abort(reason="live_sensor_assigned")
 
         # Snapshot profile entries: accepting a sensor updates/reloads profile
         # config entries, which mutates runtime.profile_entries asynchronously.
@@ -295,7 +302,12 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             pending_updates: list[tuple[str, dict]] = []
             for entry in profile_entries:
-                ids = list(({**entry.data, **entry.options}.get(CONF_LIVE_SENSOR_IDS) or []))
+                raw_ids = list(({**entry.data, **entry.options}.get(CONF_LIVE_SENSOR_IDS) or []))
+                ids = []
+                for configured_id in raw_ids:
+                    canonical_id = runtime.resolve_sensor_id(configured_id)
+                    if canonical_id not in ids:
+                        ids.append(canonical_id)
                 if entry.entry_id in selected_profiles and sensor_id not in ids:
                     ids.append(sensor_id)
                 elif entry.entry_id not in selected_profiles and sensor_id in ids:
@@ -306,23 +318,28 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     pending_updates.append((entry.entry_id, options))
 
             # Acceptance is committed in memory immediately so a racing radio packet
-            # cannot create another discovery flow. Everything that can reload config
-            # entries or mutate device/subentry registries is deferred until after this
-            # flow response has returned to the frontend.
+            # cannot create another discovery flow. Profile Live infrastructure is
+            # stable, so assignment persists routing only and never reloads profiles.
             runtime.mark_sensor_accepted(sensor_id)
 
             async def _finalize_assignment() -> None:
-                await asyncio.sleep(0)
+                # Let the config-flow response reach the frontend before doing Device
+                # Registry materialization. ConfigEntry updates are persisted with the
+                # reload listener suppressed because assignment is data routing only.
+                await asyncio.sleep(0.5)
+                changed_entries: list[str] = []
                 for entry_id, options in pending_updates:
                     entry = self.hass.config_entries.async_get_entry(entry_id)
-                    if entry is not None:
-                        # Assignment changes alter whether this profile owns a
-                        # native Live Workout device. Let the normal update
-                        # listener reload the profile exactly once so entities
-                        # are created/removed consistently.
-                        self.hass.config_entries.async_update_entry(entry, options=options)
-                runtime.ensure_sensor_device(sensor_id)
-                runtime._notify_structure_throttled()
+                    if entry is None:
+                        continue
+                    if getattr(getattr(entry, "state", None), "value", None) == "loaded":
+                        runtime.suppress_entry_reload_once(entry_id)
+                    self.hass.config_entries.async_update_entry(entry, options=options)
+                    changed_entries.append(entry_id)
+
+                canonical_id = runtime.resolve_sensor_id(sensor_id)
+                runtime.finalize_sensor_acceptance(canonical_id)
+                runtime.schedule_profile_assignment_refresh(changed_entries)
 
             self.hass.async_create_background_task(
                 _finalize_assignment(),
@@ -828,6 +845,7 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
 
         if user_input is not None:
             selected_profiles = set(user_input.get("fitness_profile_ids") or [])
+            changed_entries: list[str] = []
             for entry in profile_entries:
                 ids = list(
                     ({**entry.data, **entry.options}.get(CONF_LIVE_SENSOR_IDS) or [])
@@ -849,9 +867,14 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                     ids.append(sensor_id)
                 options = dict(entry.options)
                 options[CONF_LIVE_SENSOR_IDS] = ids
-                # Reassignment changes the profile's native Live surface, so
-                # allow the profile update listener to reload it exactly once.
+                # Assignment is a routing relationship, not profile structure.
+                # Persist it without invoking the profile reload listener.
+                if getattr(getattr(entry, "state", None), "value", None) == "loaded":
+                    runtime.suppress_entry_reload_once(entry.entry_id)
                 self.hass.config_entries.async_update_entry(entry, options=options)
+                changed_entries.append(entry.entry_id)
+
+            runtime.schedule_profile_assignment_refresh(changed_entries)
 
             # Refresh the disabled Workout owner diagnostic so its
             # assigned_profiles attribute reflects this explicit reassignment.

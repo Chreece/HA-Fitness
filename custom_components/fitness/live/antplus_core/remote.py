@@ -24,6 +24,7 @@ from .receiver import AntPlusReceiver
 _LOGGER = logging.getLogger(__name__)
 
 REMOTE_PACKET_QUEUE_MAX = 4096
+REMOTE_INPUT_BATCH_QUEUE_MAX = 512
 REMOTE_EVENT_QUEUE_MAX = 1024
 REMOTE_QUEUE_WARNING_INTERVAL = 250
 REMOTE_WORKER_COALESCE_WINDOW = 0.10
@@ -131,9 +132,16 @@ class RemotePacketWorker:
         self._lock = threading.Lock()
         self._wake = threading.Event()
         self._stop = threading.Event()
+        # MainThread only appends untouched HA event batches here. The worker
+        # performs packet copying, page inspection, classification, diagnostics
+        # and telemetry coalescing.
+        self._incoming: deque[tuple[str, list[dict[str, Any]]]] = deque(
+            maxlen=REMOTE_INPUT_BATCH_QUEUE_MAX
+        )
         self._telemetry: OrderedDict[tuple, tuple[str, dict[str, Any]]] = OrderedDict()
         self._events: deque[tuple[str, dict[str, Any]]] = deque(maxlen=REMOTE_EVENT_QUEUE_MAX)
         self._dropped = 0
+        self._dropped_batches = 0
         self._diagnostics = receiver.diagnostics
         self._thread = threading.Thread(
             target=self._run,
@@ -146,52 +154,67 @@ class RemotePacketWorker:
     def dropped_packets(self) -> int:
         return self._dropped
 
+    def enqueue_batch(
+        self,
+        gateway_id: str,
+        packets: list[dict[str, Any]],
+    ) -> None:
+        """Hand one HA event batch to the worker with O(1) MainThread work."""
+        if not packets:
+            return
+        with self._lock:
+            if len(self._incoming) >= REMOTE_INPUT_BATCH_QUEUE_MAX:
+                self._incoming.popleft()
+                self._dropped_batches += 1
+            # Keep the event-owned list reference. Home Assistant does not mutate
+            # event data after dispatch; individual packet copies happen off-loop.
+            self._incoming.append((gateway_id, packets))
+        self._wake.set()
+
     def enqueue(self, gateway_id: str, packet: dict[str, Any]) -> None:
-        """Store newest telemetry while preserving discrete event packets."""
+        """Compatibility helper for a single packet."""
+        self.enqueue_batch(gateway_id, [packet])
+
+    def _ingest_packet(self, gateway_id: str, packet: dict[str, Any]) -> None:
+        """Classify and coalesce one packet entirely on the worker thread."""
         self._diagnostics.inc("remote_packets_received")
         item = (gateway_id, dict(packet))
-        with self._lock:
-            if _remote_packet_is_event(packet):
-                self._diagnostics.inc("remote_event_packets")
-                if len(self._events) >= REMOTE_EVENT_QUEUE_MAX:
-                    self._dropped += 1
-                self._events.append(item)
-            else:
-                self._diagnostics.inc("remote_telemetry_packets")
-                key = _remote_packet_key(gateway_id, packet)
-                if key in self._telemetry:
-                    self._diagnostics.inc("remote_coalesced_replacements")
-                    self._telemetry.pop(key, None)
-                elif len(self._telemetry) >= REMOTE_PACKET_QUEUE_MAX:
-                    self._telemetry.popitem(last=False)
-                    self._dropped += 1
-                self._telemetry[key] = item
+        if _remote_packet_is_event(packet):
+            self._diagnostics.inc("remote_event_packets")
+            if len(self._events) >= REMOTE_EVENT_QUEUE_MAX:
+                self._dropped += 1
+            self._events.append(item)
+        else:
+            self._diagnostics.inc("remote_telemetry_packets")
+            key = _remote_packet_key(gateway_id, packet)
+            if key in self._telemetry:
+                self._diagnostics.inc("remote_coalesced_replacements")
+                self._telemetry.pop(key, None)
+            elif len(self._telemetry) >= REMOTE_PACKET_QUEUE_MAX:
+                self._telemetry.popitem(last=False)
+                self._dropped += 1
+            self._telemetry[key] = item
 
-            if self._dropped and (
-                self._dropped == 1
-                or self._dropped % REMOTE_QUEUE_WARNING_INTERVAL == 0
-            ):
-                _LOGGER.warning(
-                    "Remote ANT+ coalescer dropped %d stale packet(s)",
-                    self._dropped,
-                )
-        self._diagnostics.set_gauge("remote_pending_telemetry", len(self._telemetry))
-        self._diagnostics.set_gauge("remote_pending_events", len(self._events))
-        self._wake.set()
+        if self._dropped and (
+            self._dropped == 1
+            or self._dropped % REMOTE_QUEUE_WARNING_INTERVAL == 0
+        ):
+            _LOGGER.warning(
+                "Remote ANT+ coalescer dropped %d stale packet(s)",
+                self._dropped,
+            )
+
+    def _take_incoming(self) -> list[tuple[str, list[dict[str, Any]]]]:
+        with self._lock:
+            batches = list(self._incoming)
+            self._incoming.clear()
+            self._wake.clear()
+        return batches
 
     def stop(self) -> None:
+        """Request worker shutdown without blocking Home Assistant callbacks."""
         self._stop.set()
         self._wake.set()
-        self._thread.join(timeout=2.0)
-
-    def _take_pending(self) -> tuple[list[tuple[str, dict[str, Any]]], list[tuple[str, dict[str, Any]]]]:
-        with self._lock:
-            events = list(self._events)
-            self._events.clear()
-            telemetry = list(self._telemetry.values())
-            self._telemetry.clear()
-            self._wake.clear()
-        return events, telemetry
 
     def _decode_item(self, item: tuple[str, dict[str, Any]]) -> None:
         gateway_id, packet = item
@@ -220,10 +243,35 @@ class RemotePacketWorker:
         while not self._stop.is_set():
             if not self._wake.wait(timeout=0.5):
                 continue
-            # Give a short RF window time to collapse repeated telemetry.
+            # Give a short RF window time to collapse repeated HA event batches.
             if self._stop.wait(REMOTE_WORKER_COALESCE_WINDOW):
                 return
-            events, telemetry = self._take_pending()
+
+            batches = self._take_incoming()
+            packet_count = 0
+            for gateway_id, packets in batches:
+                for packet in packets:
+                    if not isinstance(packet, dict):
+                        continue
+                    packet_count += 1
+                    self._ingest_packet(gateway_id, packet)
+
+            self._diagnostics.inc("remote_bus_packets", packet_count)
+            self._diagnostics.set_gauge(
+                "remote_pending_telemetry", len(self._telemetry)
+            )
+            self._diagnostics.set_gauge(
+                "remote_pending_events", len(self._events)
+            )
+            self._diagnostics.set_gauge(
+                "remote_dropped_input_batches", self._dropped_batches
+            )
+
+            events = list(self._events)
+            self._events.clear()
+            telemetry = list(self._telemetry.values())
+            self._telemetry.clear()
+
             for item in events:
                 self._decode_item(item)
             for item in telemetry:
@@ -277,30 +325,26 @@ def async_register_remote_listener(
         elif not isinstance(packets, list):
             return
 
-        receiver.diagnostics.inc("remote_bus_events")
-        receiver.diagnostics.inc("remote_bus_packets", len(packets))
-
-        # Never decode ANT packets in Home Assistant's event loop. The remote
-        # gateway can deliver hundreds of packets per second from multi-profile
-        # high-rate devices; enqueue only and let the dedicated worker do
-        # validation, OpenANT parsing and receiver updates.
-        active_adapters: set[str] = set()
-        for packet in packets:
+        # Reject the common one-packet accepted-idle event before it enters the
+        # worker at all. Do not loop over multi-packet batches on HA's MainThread;
+        # those stay O(1) here and are coalesced on the worker thread.
+        if len(packets) == 1:
+            packet = packets[0]
             if isinstance(packet, dict):
-                adapter_id = str(packet.get("adapter_id", "")).strip()
-                if adapter_id:
-                    active_adapters.add(adapter_id)
-                packet_worker.enqueue(gateway_id, packet)
+                try:
+                    if receiver.fast_ignore_idle_packet(
+                        int(packet.get("device_id", -1)),
+                        int(packet.get("device_type", -1)),
+                    ):
+                        return
+                except (TypeError, ValueError):
+                    pass
 
-        # Receiving RF data is itself authoritative proof that this remote
-        # physical adapter is capturing. This closes the race where a slow ANT
-        # handshake can outlive HA's optimistic Capture confirmation timeout.
-        for adapter_id in active_adapters:
-            adapter_manager.update_remote_capture_state(
-                gateway_id,
-                adapter_id,
-                True,
-            )
+        receiver.diagnostics.inc("remote_bus_events")
+
+        # Absolutely no per-packet decode/copy work belongs on Home Assistant's
+        # MainThread. Hand the remaining event batch to the worker and return.
+        packet_worker.enqueue_batch(gateway_id, packets)
 
     @callback
     def handle_gateway_hello(event: Event) -> None:

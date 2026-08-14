@@ -201,14 +201,12 @@ DESCRIPTIONS = (
     # Live device
     Desc(key="session_status", translation_key="session_status", kind="live", metric="session_status"),
     Desc(key="session_duration", translation_key="session_duration", kind="live", metric="session_duration", unit="s"),
-    Desc(key="current_heart_rate", translation_key="current_heart_rate", kind="live", metric=METRIC_HEART_RATE, unit="bpm"),
-    Desc(key="current_power", translation_key="current_power", kind="live", metric=METRIC_POWER, unit="W"),
-    Desc(key="current_cadence", translation_key="current_cadence", kind="live", metric=METRIC_CADENCE, unit="1/min"),
-    Desc(key="current_speed", translation_key="current_speed", kind="live", metric=METRIC_SPEED, unit="km/h"),
-    Desc(key="current_distance", translation_key="current_distance", kind="live", metric=METRIC_DISTANCE, unit="km"),
-    Desc(key="current_altitude", translation_key="current_altitude", kind="live", metric=METRIC_ALTITUDE, unit="m"),
 
-    # Live derived metrics. Creation is capability-driven in async_setup_entry.
+    # The profile Live device intentionally exposes calculations only. Raw radio
+    # measurements (heart rate, power, cadence, speed, distance and altitude)
+    # belong exclusively to the physical sensor device under Sensors & Adapters.
+    # The calculations below consume only measurements routed from physical
+    # sensors assigned to this profile; no mirrored raw entities are created.
     Desc(key="heart_rate_percent_max", translation_key="heart_rate_percent_max", kind="live", metric="heart_rate_percent_max", unit="%"),
     Desc(key="heart_rate_reserve_percent", translation_key="heart_rate_reserve_percent", kind="live", metric="heart_rate_reserve_percent", unit="%"),
     Desc(key="heart_rate_intensity", translation_key="heart_rate_intensity", kind="live", metric="heart_rate_intensity"),
@@ -339,12 +337,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
         return
 
     manager = hass.data[DOMAIN][entry.entry_id]
-    native_live_enabled = bool(
-        runtime.live_surface_available
-        and runtime.profile_has_assigned_live_sensor(entry)
-    )
-    # Native Live Workout exists only after this profile has at least one
-    # accepted physical sensor assigned under Sensors & Adapters.
+    # Profile Live entities are permanent calculation infrastructure. Physical
+    # sensor assignment affects data routing only, never profile entity/device
+    # creation.
     registry = er.async_get(hass)
 
     # Remove obsolete Evaluation mirrors from older betas instead of leaving
@@ -367,6 +362,37 @@ async def async_setup_entry(hass, entry, async_add_entities):
         "vo2max_28d_mean", "vo2max_trend_14_vs_previous_14",
     }
     prefix = f"{entry.entry_id}_"
+    # Live calculation entities are stable profile infrastructure. They are
+    # created independently of radio/sensor assignment so accepting, deleting or
+    # reassigning a physical sensor never requires rebuilding the profile.
+    descriptions = {
+        desc.key: desc
+        for desc in DESCRIPTIONS
+        if not (
+            desc.metric.startswith("ai_")
+            and not manager.config.get("ai_enabled")
+        )
+    }
+    live_keys = {desc.key for desc in DESCRIPTIONS if desc.kind == "live"}
+    # Raw source mirrors existed in older betas on each profile Live device.
+    # They are migrated away permanently: their canonical home is the physical
+    # sensor device under Sensors & Adapters.
+    deprecated_live_mirror_keys = {
+        "current_heart_rate",
+        "current_power",
+        "current_cadence",
+        "current_speed",
+        "current_distance",
+        "current_altitude",
+    }
+    registry_keys: set[str] = set()
+
+    # One profile setup gets one whole-registry pass.  Older versions performed
+    # four independent scans here; during reload storms that multiplied the cost
+    # of every profile reconstruction.  Do migrations, stale cleanup and restore
+    # bookkeeping while the registry is already in cache.
+    latest_sleep = None
+    latest_sleep_checked = False
     for registry_entry in list(registry.entities.values()):
         if registry_entry.platform != DOMAIN:
             continue
@@ -374,6 +400,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         if not unique_id.startswith(prefix):
             continue
         key = unique_id[len(prefix):]
+
         if key in deprecated_evaluation_keys:
             registry.async_remove(registry_entry.entity_id)
             manager.materialized_sensor_keys.discard(key)
@@ -382,78 +409,25 @@ async def async_setup_entry(hass, entry, async_add_entities):
         # beta.28 could materialize Garmin's broad daytime "Awake duration"
         # as last-sleep awake time. Revalidate that one key during migration.
         if key == "last_sleep_awake":
-            sleep = manager.latest_sleep()
-            if sleep is None or sleep.awake_s is None:
+            if not latest_sleep_checked:
+                latest_sleep = manager.latest_sleep()
+                latest_sleep_checked = True
+            if latest_sleep is None or latest_sleep.awake_s is None:
                 registry.async_remove(registry_entry.entity_id)
                 manager.materialized_sensor_keys.discard(key)
-
-    if not native_live_enabled:
-        live_keys = {desc.key for desc in DESCRIPTIONS if desc.kind == "live"}
-        prefix = f"{entry.entry_id}_"
-        for registry_entry in list(registry.entities.values()):
-            if registry_entry.platform != DOMAIN:
                 continue
-            unique_id = registry_entry.unique_id or ""
-            if not unique_id.startswith(prefix):
-                continue
-            key = unique_id[len(prefix):]
-            if key in live_keys:
-                registry.async_remove(registry_entry.entity_id)
-                manager.forget_materialized_sensor(key, persist=False)
 
-    descriptions = {
-        desc.key: desc
-        for desc in DESCRIPTIONS
-        if not (desc.kind == "live" and not native_live_enabled)
-        and not (
-            desc.metric.startswith("ai_")
-            and not manager.config.get("ai_enabled")
-        )
-    }
-
-    # Preserve entities already created by older Fitness versions. This also
-    # makes an alpha.31 -> alpha.32 upgrade non-destructive.
-    registry_keys: set[str] = set()
-
-    # Keep the Workout device capability-aware. Old releases permanently
-    # materialized every metric after it had appeared once, which left stale
-    # unknown/unavailable entities when the next workout was a different type.
-    # On setup, remove the obsolete duplicate source entity and optional workout
-    # registry entries that have no meaningful value for the current workout.
-    stale_registry_entity_ids: list[str] = []
-    for registry_entry in list(registry.entities.values()):
-        if registry_entry.platform != DOMAIN:
-            continue
-        unique_id = registry_entry.unique_id or ""
-        if not unique_id.startswith(prefix):
-            continue
-        key = unique_id[len(prefix):]
-        if key == "last_workout_source":
-            stale_registry_entity_ids.append(registry_entry.entity_id)
+        if key in deprecated_live_mirror_keys:
+            registry.async_remove(registry_entry.entity_id)
             manager.forget_materialized_sensor(key, persist=False)
             continue
-        desc = descriptions.get(key)
-        if desc is None or desc.kind != "workout" or key in {"last_workout", "last_workout_sources"}:
-            continue
-        # Never evaluate entity state while a platform is being set up.  Some
-        # workout/evaluation values require provider aggregation and longitudinal
-        # calculations; probing them here serially blocks Home Assistant's event
-        # loop and can cascade into unrelated integration startup timeouts.
-        # Existing optional entities are retained and become unavailable naturally
-        # when their current workout does not expose the metric.
 
-    for entity_id in stale_registry_entity_ids:
-        registry.async_remove(entity_id)
-
-    for registry_entry in registry.entities.values():
-        if registry_entry.platform != DOMAIN:
+        # Remove the obsolete duplicate source entity from older versions.
+        if key == "last_workout_source":
+            registry.async_remove(registry_entry.entity_id)
+            manager.forget_materialized_sensor(key, persist=False)
             continue
 
-        unique_id = registry_entry.unique_id or ""
-        if not unique_id.startswith(prefix):
-            continue
-
-        key = unique_id[len(prefix):]
         if key in descriptions:
             registry_keys.add(key)
 
@@ -462,13 +436,12 @@ async def async_setup_entry(hass, entry, async_add_entities):
         persist=True,
     )
 
-    # Session status is the control/status anchor and always has a meaningful
-    # value: idle / waiting_for_live_data / active / recovery.
-    if native_live_enabled:
-        manager.remember_materialized_sensor(
-            "session_status",
-            persist=True,
-        )
+    # The Live device is permanent profile infrastructure. Materialize its
+    # complete calculation surface once, independent of sensor assignment. This
+    # prevents accepting/reassigning/deleting a radio sensor from creating or
+    # deleting profile entities. Values remain unavailable until their assigned
+    # physical sensor inputs and an active session make the calculation valid.
+    manager.remember_materialized_sensors(live_keys, persist=True)
 
     # Recovery time is a stable Recovery-device entity, not a transient
     # capability. It must exist even when no completed workout is available yet.
@@ -483,7 +456,11 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     created_keys: set[str] = set()
 
-    def collect_new_entities(*, allow_probe: bool = False) -> list[FitnessSensor]:
+    def collect_new_entities(
+        *,
+        allow_probe: bool = False,
+        kinds: set[str] | None = None,
+    ) -> list[FitnessSensor]:
         """Collect materialized entities without blocking platform startup.
 
         Startup only restores keys already known to Fitness. Optional new metrics
@@ -494,6 +471,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
         for key, desc in descriptions.items():
             if key in created_keys:
+                continue
+            if kinds is not None and desc.kind not in kinds:
                 continue
 
             previously_created = manager.sensor_was_materialized(key)
@@ -520,17 +499,58 @@ async def async_setup_entry(hass, entry, async_add_entities):
     if initial:
         async_add_entities(initial)
 
+    pending_materialization_kinds: set[str] = set()
+    materialization_handle = None
+
     @callback
-    def materialize_new_valid_sensors() -> None:
-        new_entities = collect_new_entities(allow_probe=True)
+    def _materialize_pending_sensors() -> None:
+        nonlocal materialization_handle
+        materialization_handle = None
+        kinds = set(pending_materialization_kinds)
+        pending_materialization_kinds.clear()
+        if not kinds:
+            return
+        new_entities = collect_new_entities(allow_probe=True, kinds=kinds)
         if new_entities:
             async_add_entities(new_entities)
 
-    entry.async_on_unload(
-        manager.add_listener(
-            materialize_new_valid_sensors
+    @callback
+    def _schedule_materialization(kinds: set[str]) -> None:
+        nonlocal materialization_handle
+        pending_materialization_kinds.update(kinds)
+        if materialization_handle is not None:
+            return
+        # Entity discovery is control-plane work. Coalesce bursts and probe only
+        # the domain that actually changed instead of walking all 116 descriptions
+        # inside every manager notification.
+        materialization_handle = hass.loop.call_later(
+            1.0, _materialize_pending_sensors
         )
-    )
+
+    @callback
+    def _materialize_general() -> None:
+        _schedule_materialization({"workout", "evaluation"})
+
+    @callback
+    def _materialize_sleep() -> None:
+        _schedule_materialization({"sleep", "evaluation"})
+
+    @callback
+    def _materialize_live() -> None:
+        _schedule_materialization({"live"})
+
+    @callback
+    def _cancel_materialization() -> None:
+        nonlocal materialization_handle
+        if materialization_handle is not None:
+            materialization_handle.cancel()
+            materialization_handle = None
+        pending_materialization_kinds.clear()
+
+    entry.async_on_unload(manager.add_listener(_materialize_general))
+    entry.async_on_unload(manager.add_sleep_listener(_materialize_sleep))
+    entry.async_on_unload(manager.add_live_listener(_materialize_live))
+    entry.async_on_unload(_cancel_materialization)
 
     @callback
     def recovery_time_tick(_now) -> None:
@@ -706,20 +726,8 @@ class FitnessSensor(SensorEntity):
             if m == "session_duration":
                 return round(self.manager.session_duration())
 
-            live = self.manager.live_values()
             derived = self.manager.live_derived_values()
             session_stats = self.manager.live_session_statistics()
-
-            if m in (
-                METRIC_HEART_RATE,
-                METRIC_POWER,
-                METRIC_CADENCE,
-                METRIC_SPEED,
-                METRIC_DISTANCE,
-                METRIC_ALTITUDE,
-            ):
-                value = live.get(m)
-                return round(value, 2) if value is not None else None
 
             if m == "heart_rate_percent_max":
                 value = derived.get(m)

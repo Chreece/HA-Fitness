@@ -123,19 +123,17 @@ def test_ble_keeps_advertisement_and_gatt_information_as_diagnostics():
     assert '"enabled_default": False' in bt
 
 
-def test_gatt_manual_buttons_and_ant_preference_are_guarded():
+def test_gatt_is_automatic_and_ant_preference_is_guarded():
     buttons = (ROOT / "custom_components/fitness/button.py").read_text(encoding="utf-8")
     runtime = (LIVE / "runtime.py").read_text(encoding="utf-8")
     bt = (LIVE / "bluetooth.py").read_text(encoding="utf-8")
-    assert "class SensorGattConnectButton" in buttons
-    assert "class SensorGattDisconnectButton" in buttons
-    assert "not self.runtime.ant_data_fresh(sensor)" in buttons
-    assert "sensor_has_automatic_users" in buttons
-    assert "if ant_usable and self.ant_data_fresh(sensor):" in runtime
+    assert "SensorGattConnectButton" not in buttons
+    assert "SensorGattDisconnectButton" not in buttons
     assert 'return "antplus"' in runtime
-    assert "await disconnect_one(entry.entry_id, sensor.sensor_id)" in runtime
-    assert "def sensor_users" in bt
-
+    assert 'return "bluetooth"' in runtime
+    assert "async_connect_profile" in runtime
+    assert "async_disconnect_sensor" in runtime
+    assert "async_ble_device_from_address" in bt
 
 def test_protocol_events_have_real_event_entities():
     init = (ROOT / "custom_components/fitness/__init__.py").read_text(encoding="utf-8")
@@ -188,12 +186,12 @@ def test_pnp_id_is_decomposed_and_can_supply_model_id():
     assert 'metadata.setdefault("model_id", f"0x{product_id:04X}")' in bt
 
 
-def test_manual_gatt_is_dropped_when_ant_returns():
+def test_automatic_gatt_is_dropped_when_ant_returns():
     runtime = (LIVE / "runtime.py").read_text(encoding="utf-8")
-    assert "def _disconnect_manual_gatt_when_ant_returns" in runtime
+    assert "async_manual_gatt_connect" not in runtime
+    assert "async_manual_gatt_disconnect" not in runtime
     assert 'if transport == "antplus" and self.bluetooth_gatt_connected(sensor_id):' in runtime
-    assert "await self.async_manual_gatt_disconnect(sensor_id)" in runtime
-
+    assert "self._schedule_sensor_claim_reconcile(sensor_id)" in runtime
 
 def test_each_detected_control_is_a_diagnostic_ha_entity():
     binary = (ROOT / "custom_components/fitness/binary_sensor.py").read_text(encoding="utf-8")

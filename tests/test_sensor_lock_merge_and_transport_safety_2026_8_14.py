@@ -47,14 +47,14 @@ def test_gatt_reconcile_is_exclusive_and_connection_failures_release_claims():
     assert "Unable to connect Fitness BLE GATT sensor" in reconcile
 
 
-def test_failed_capture_start_cannot_leave_phantom_transport_claim():
+def test_transport_claim_is_bookkeeping_only_and_never_starts_capture():
     claim = RUNTIME.split("async def _claim_transport", 1)[1].split(
         "async def _release_transport", 1
     )[0]
-    assert "except Exception:" in claim
-    assert "claims.discard(entry_id)" in claim
-    assert "self._transport_claims.pop(transport, None)" in claim
-
+    assert "async_start_capture" not in claim
+    assert "async_stop_capture" not in claim
+    assert "adapter_enabled(transport)" in claim
+    assert "_transport_claims" in claim
 
 def test_gatt_retry_is_not_advertisement_frequency():
     claim = RUNTIME.split("def _schedule_sensor_claim_reconcile", 1)[1].split(

@@ -26,17 +26,20 @@ def test_ant_metric_path_does_not_reenter_structural_registration_each_packet():
     assert "_device_accepted" in ANT
     assert "if sensor_id is not None and not self._device_accepted.get(device_id, False):" in ANT
     assert "self._publish_metric_values(device, sensor_id)" in ANT
-    assert "self.hass.loop.call_later(0.25, self._finish_publish_window, device_id)" in ANT
+    assert "self.hass.loop.call_later(0.5, self._finish_publish_window, device_id)" in ANT
 
 
 def test_unaccepted_merge_skips_registry_reload_and_tombstone_wins():
     assert "requires_reassignment = (" in RUNTIME
     assert 'primary.metadata.pop("accepted", None)' in RUNTIME
-    assert "if had_accepted_device and not requires_reassignment:" in RUNTIME
+    assert "secondary_had_accepted_device" in RUNTIME
+    assert "if secondary_had_accepted_device and not requires_reassignment:" in RUNTIME
     assert "self._schedule_merged_registry_cleanup(secondary.sensor_id)" in RUNTIME
 
 
-def test_assignment_does_not_double_reload_profiles():
+def test_assignment_never_reloads_profiles():
     block = FLOW[FLOW.index("async def async_step_assign_live_sensor"):FLOW.index("async def async_step_user")]
     assert "async_update_entry(entry, options=options)" in block
-    assert "async_reload(entry_id)" not in block
+    assert "runtime.suppress_entry_reload_once(entry_id)" in block
+    assert "runtime.schedule_profile_assignment_refresh(changed_entries)" in block
+    assert "async_reload(" not in block

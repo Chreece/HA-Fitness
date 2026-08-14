@@ -21,10 +21,17 @@ def test_hardware_presence_is_separate_from_module_enabled_state():
     assert "if self.live_available and self.hub_entry is None" in RUNTIME
 
 
-def test_live_profile_surface_is_hardware_gated():
+def test_live_profile_surface_and_controls_are_stable_across_hardware_changes():
     assert "runtime.live_surface_available" in CONFIG
-    assert "runtime.live_surface_available" in SELECT
-    assert "cleanup_profile_live_registry" in RUNTIME
+    assert "runtime.live_surface_available" not in SELECT
+    assert "def ensure_profile_live_registry" in RUNTIME
+    assert "cleanup_profile_live_registry" not in RUNTIME
+    ensure = RUNTIME[
+        RUNTIME.index("def ensure_profile_live_registry"):
+        RUNTIME.index("def _start_presence_monitor")
+    ]
+    assert "async_get_or_create" in ensure
+    assert "async_remove_device" not in ensure
 
 
 def test_sensor_deletion_forgets_assignment_and_allows_rediscovery():
@@ -34,19 +41,11 @@ def test_sensor_deletion_forgets_assignment_and_allows_rediscovery():
     assert "CONF_LIVE_SENSOR_IDS" in RUNTIME
 
 
-def test_capture_controls_are_receiver_scoped_not_physical_sensor_scoped():
-    # Receiver-level ANT scan control remains a true hardware control.
-    assert "AntReceiverStartCaptureButton" in BUTTON
-    assert "AntReceiverStopCaptureButton" in BUTTON
-    assert "adapter_manager.async_set_capture(self.stable_key, True)" in BUTTON
-    assert "adapter_manager.async_set_capture(self.stable_key, False)" in BUTTON
-    assert "AntReceiverCapture" in BINARY
-    # Physical sensor capture controls were removed; the adapter enable switch
-    # controls the module and GATT connect/disconnect is the sensor action.
-    assert "class SensorTransportStartCaptureButton" not in BUTTON
-    assert "class SensorTransportStopCaptureButton" not in BUTTON
-    assert "SensorGattConnectButton" in BUTTON
-
+def test_no_capture_controls_are_exposed_anywhere():
+    assert "AntReceiverStartCaptureButton" not in BUTTON
+    assert "AntReceiverStopCaptureButton" not in BUTTON
+    assert "SensorGattConnectButton" not in BUTTON
+    assert "SensorGattDisconnectButton" not in BUTTON
 
 def test_passive_ble_values_use_vendor_registry_and_are_separate_from_gatt():
     assert "STRYD_MANUFACTURER_ID" not in BT

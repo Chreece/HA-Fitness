@@ -38,7 +38,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
             materialized_receivers.add(stable_key)
             added.extend([
                 AntReceiverAvailable(runtime, stable_key),
-                AntReceiverCapture(runtime, stable_key),
                 AntReceiverProblem(runtime, stable_key),
             ])
         if added:
@@ -135,20 +134,6 @@ class AdapterAvailable(_AdapterBase):
     @property
     def is_on(self):
         return self.runtime.adapter_available(self.transport)
-
-
-class AdapterCapture(_AdapterBase):
-    _attr_name = "Capture active"
-    _attr_icon = "mdi:record-rec"
-
-    def __init__(self, *args):
-        super().__init__(*args)
-        self._attr_unique_id = f"fitness_{self.transport}_capture_active"
-
-    @property
-    def is_on(self):
-        provider = self.provider
-        return bool(provider and provider.capture_active)
 
 
 class AdapterProblem(_AdapterBase):
@@ -321,17 +306,6 @@ class AntReceiverAvailable(_AntReceiverDiagnostic):
     @property
     def is_on(self):
         return bool(self.record and self.record.available)
-
-
-class AntReceiverCapture(_AntReceiverDiagnostic):
-    _attr_name = "Capture active"
-    _attr_icon = "mdi:record-rec"
-    def __init__(self, runtime, stable_key: str):
-        super().__init__(runtime, stable_key)
-        self._attr_unique_id = f"fitness_ant_receiver_{stable_key}_capture_active"
-    @property
-    def is_on(self):
-        return bool(self.record and self.record.displayed_capture)
 
 
 class AntReceiverProblem(_AntReceiverDiagnostic):

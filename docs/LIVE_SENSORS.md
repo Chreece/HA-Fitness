@@ -65,7 +65,7 @@ Battery is treated as one passive physical value across transports. `Last seen` 
 
 Positively detected semantic protocol events are represented by Home Assistant Event entities. Fitness retains detected control capabilities diagnostically. It does not send guessed ANT+/Bluetooth control payloads: writable controls require a verified encoder, valid range/unit contract and protocol acknowledgement handling before they become actionable.
 
-Bluetooth GATT connect/disconnect is an actionable transport control. Manual connect is unavailable while fresh ANT+ data exists. During a workout, Fitness prefers fresh ANT+ broadcasts; if ANT+ is unavailable/stale and a connectable BLE endpoint exists, Fitness opens GATT automatically **only for the profile that exclusively owns that physical sensor for the workout**. If ANT+ resumes, the same owner hands transport back to ANT+ and BLE GATT is disconnected. Transport handover never changes workout ownership.
+The adapter **Activate** switch is the only transport/module control. There are no capture buttons and no manual GATT connect/disconnect buttons. While Bluetooth is enabled, Fitness listens passively through Home Assistant's Bluetooth stack. During a workout, Fitness prefers fresh ANT+ broadcasts; if ANT+ is unavailable/stale and a connectable BLE endpoint exists, Fitness opens GATT automatically **only for the profile that exclusively owns that physical sensor for the workout**. If ANT+ resumes, the same owner hands transport back to ANT+ and BLE GATT is disconnected automatically. Transport handover never changes workout ownership.
 
 ## Shared assignments and exclusive workout ownership
 

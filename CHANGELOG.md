@@ -1,5 +1,36 @@
 # Changelog
 
+- Made unaccepted Bluetooth discovery sensors effectively zero-background after their first stable identity registration: recurring advertisements now refresh only in-memory last-seen/RSSI/source/availability and return before runtime registration, diagnostics, vendor decoding, passive telemetry, storage, structure notifications or config-flow work.
+- Dynamic Bluetooth advertisement payload diagnostics and proprietary passive decoding now begin only after the user accepts the sensor; discovery itself retains only stable identity/capability facts.
+
+- Made native sensor deletion UI-safe: deletion now revokes the sensor in memory and returns without synchronously persisting the sensor store or rescanning entity platforms.
+- Deferred profile/subentry/entity cleanup until after the Home Assistant device-delete transaction and added a short endpoint rediscovery quarantine so active ANT+/BLE broadcasts cannot immediately rebuild discovery while the delete UI is closing.
+
+- Removed repeated ANT capability-model work from high-rate telemetry: repeated pages no longer recompute capability snapshots; capability resolution now runs only for new capability evidence/command status.
+- Collapsed ANT metric notifications to one newest-device callback per RF packet instead of one callback per changed metric, eliminating multi-metric scheduler/GIL amplification.
+- Raw ANT protocol-event handling now rejects ordinary telemetry profiles before capability analysis.
+
+- Removed per-packet remote ANT+ work from Home Assistant's MainThread. HA event callbacks now hand one bounded packet batch to the ANT worker and return; packet copying, event classification, page/key parsing, diagnostics and telemetry coalescing all run off-loop.
+- Ordinary remote RF traffic no longer confirms or mutates adapter Capture state. Capture state is updated only by explicit gateway hello/status/control confirmation events.
+
+- Prevented remote ANT+ adapter heartbeat/presence messages from re-entering Home Assistant device/entity registries when adapter identity is unchanged; registry materialization is now identity-gated.
+- ANT+ provider startup and adapter callbacks now respect the user's persisted Capture state instead of forcing Capture ON.
+
+- Converted radio-driven topology persistence, DeviceInfo enrichment and entity materialization from periodic throttles into true quiet-period debounces. Continuous ANT+ traffic can no longer run registry/storage work every ~0.75 s.
+- Reduced accepted ANT+ event-loop mailbox delivery from 4 Hz to 2 Hz and physical sensor HA state publication from 2 Hz to 1 Hz; workout live sampling remains on its independent path.
+- Idle radio packets now return before scanning Fitness profiles for workout ownership when no armed/active/recovery session exists.
+
+- Prevented premature generic ANT+ discovery: ANT-only endpoints such as a bare `Power Meter` stay provisional until catalog/common-page identity is strong enough to merge or safely create one physical device.
+- Fixed accepted-BLE + provisional-ANT merge overhead: registry cleanup now runs only when the discarded side actually had an accepted HA device, and accepted-registry cleanup is delayed out of the ANT identity burst.
+- Reduced radio-driven topology pressure by debouncing structure materialization to 750 ms and removing global runtime fan-out from ordinary identity/capability enrichment.
+
+- Restored Home Assistant event-loop safety for adapter-owned ANT receiver activation/deactivation: synchronous USB receiver enable/disable calls now run through `async_add_executor_job` while the adapter switch remains the sole lifecycle control.
+
+- Simplified native live transport lifecycle: adapter `Activate` switches are now the only module controls. Workouts never start/stop ANT+/Bluetooth capture.
+- Removed all ANT receiver capture buttons/state entities and all manual Bluetooth GATT connect/disconnect buttons. Old entities are pruned automatically.
+- Bluetooth GATT is now fully automatic: after a physical sensor is exclusively claimed, Fitness connects GATT only when fresh ANT+ is unavailable, disconnects when ANT+ returns, and disconnects when the owning session no longer needs it.
+- ANT receiver paths stay active for the lifetime of the enabled ANT+ provider and are disabled only when the ANT+ adapter module is switched off/unloaded.
+
 - Removed Bluetooth-manager/proxy resolution from physical sensor GATT button availability. Opening a device page now evaluates only cached connectability; BLE-device resolution happens only during an actual GATT connection attempt.
 - Removed per-sensor Start/Stop Capture and Capture Active entities. Adapter enablement is again the transport/module control boundary; obsolete capture entities are pruned from the entity registry.
 - Tightened adaptive dashboard visibility: Training Load requires a reliable personal baseline and sufficient recent workout evidence, and baseline-comparison elements require enough comparable workouts before rendering.

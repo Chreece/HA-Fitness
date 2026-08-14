@@ -228,6 +228,7 @@ class FitnessManager:
         # Startup-critical entity properties must never trigger provider scans or
         # longitudinal calculations.  These caches are populated after HA has
         # reached EVENT_HOMEASSISTANT_STARTED and invalidated on relevant changes.
+        self._local_workouts_cache: tuple[Workout, ...] | None = None
         self._latest_workout_cache: Workout | None = None
         self._latest_workout_cache_ready = False
         self._readiness_cache: dict[str, Any] | None = None
@@ -580,9 +581,21 @@ class FitnessManager:
         self._readiness_cache = None
         self._recovery_time_cache = None
 
-    def _notify(self):
+    def _invalidate_workout_history_cache(self) -> None:
+        """Invalidate caches derived from persisted completed-workout history."""
+        self._local_workouts_cache = None
+        self._latest_workout_cache_ready = False
         self._invalidate_evaluation_cache()
-        """Notify all entity listeners without one broken entity blocking others."""
+
+    def _notify(self):
+        """Notify general entities without invalidating historical evaluations.
+
+        UI/session/feedback notifications can happen frequently and do not mean
+        workout, sleep, or longitudinal source data changed. Invalidating the
+        expensive readiness/evaluation cache here made the next entity state
+        write rebuild full history synchronously on Home Assistant's MainThread.
+        Data-specific paths invalidate their own caches explicitly.
+        """
         for listener in list(self.listeners):
             try:
                 listener()
@@ -610,8 +623,7 @@ class FitnessManager:
                 _LOGGER.exception("Fitness sleep entity listener failed")
 
     def _notify_workout_history(self):
-        self._latest_workout_cache_ready = False
-        self._invalidate_evaluation_cache()
+        self._invalidate_workout_history_cache()
         """Notify only entities that render canonical workout history."""
         for listener in list(self.workout_history_listeners):
             try:
@@ -891,6 +903,7 @@ class FitnessManager:
     @callback
     def _async_profile_source_change(self, event: Event):
         """Refresh profile-derived entities without scanning workout providers."""
+        self._invalidate_evaluation_cache()
         self._notify()
 
     @staticmethod
@@ -981,16 +994,6 @@ class FitnessManager:
         if self.recovery_active:
             return
 
-        latest = self.latest_workout()
-        if not self._workout_has_real_information(latest):
-            return
-
-        signature = self._workout_signature(latest)
-        if signature is None or signature == self._last_external_signature:
-            return
-
-        self._external_workout_candidate_signature = signature
-
         if (
             self._external_workout_debounce_task
             and not self._external_workout_debounce_task.done()
@@ -998,13 +1001,10 @@ class FitnessManager:
             self._external_workout_debounce_task.cancel()
 
         self._external_workout_debounce_task = self.hass.async_create_task(
-            self._async_process_external_workout_after_settle(signature)
+            self._async_process_external_workout_after_settle()
         )
 
-    async def _async_process_external_workout_after_settle(
-        self,
-        candidate_signature: str,
-    ) -> None:
+    async def _async_process_external_workout_after_settle(self) -> None:
         """Accept one stable provider workout after its entities settle."""
         try:
             await asyncio.sleep(8)
@@ -1019,15 +1019,13 @@ class FitnessManager:
             return
 
         signature = self._workout_signature(latest)
-        if (
-            signature is None
-            or signature != candidate_signature
-            or signature != self._external_workout_candidate_signature
-        ):
+        if signature is None:
             return
 
         if signature == self._last_external_signature:
             return
+
+        self._external_workout_candidate_signature = signature
 
         self._last_external_signature = signature
 
@@ -4193,7 +4191,13 @@ class FitnessManager:
                 if _dt(item.get("start")) is None
                 or _dt(item.get("start")) >= deleted_cutoff
             ]
-        return len(self.history) != before
+        changed = len(self.history) != before
+        if changed:
+            self._local_workouts_cache = None
+            self._latest_workout_cache_ready = False
+            if hasattr(self, "_invalidate_evaluation_cache"):
+                self._invalidate_evaluation_cache()
+        return changed
 
     async def async_delete_workouts_before(self, days: int) -> int:
         """Delete canonical workouts older than *days* and block re-import.
@@ -4379,6 +4383,10 @@ class FitnessManager:
             kept.append(item)
 
         self.history = kept
+        self._local_workouts_cache = None
+        self._latest_workout_cache_ready = False
+        if hasattr(self, "_invalidate_evaluation_cache"):
+            self._invalidate_evaluation_cache()
         tombstone = {
             "start": target.start,
             "end": target.end,
@@ -4410,7 +4418,7 @@ class FitnessManager:
             return False
         if self._workout_is_deleted(workout):
             return False
-        before = json.dumps(self.history, sort_keys=True, default=str)
+        before = self.history
         records = self.local_workouts()
         records.append(workout)
         merged = merged_workouts(records)
@@ -4418,26 +4426,43 @@ class FitnessManager:
             key=lambda item: _dt(item.start)
             or datetime.min.replace(tzinfo=timezone.utc)
         )
-        self.history = [item.as_dict() for item in merged]
-        self._prune_workout_history()
-        after = json.dumps(self.history, sort_keys=True, default=str)
-        return before != after
+        canonical_history = [item.as_dict() for item in merged]
+        self.history = canonical_history
+        pruned = self._prune_workout_history()
+        if pruned:
+            # Pruning changed the canonical set; rebuild lazily from persisted
+            # history on the next read.
+            self._local_workouts_cache = None
+        else:
+            self._local_workouts_cache = tuple(merged)
+        changed = before != self.history
+        if changed:
+            self._latest_workout_cache_ready = False
+            if hasattr(self, "_invalidate_evaluation_cache"):
+                self._invalidate_evaluation_cache()
+        return changed
 
     def local_workouts(self) -> list[Workout]:
-        """Return canonical de-duplicated Fitness workout history.
+        """Return cached canonical de-duplicated Fitness workout history.
 
-        Historical storage may still contain two provider representations that
-        were written before a later merge rule became available. Re-clustering
-        on read prevents those stale duplicates from inflating 7/28-day load,
-        workout counts, recovery estimates, or training-adaptation status.
+        Historical storage changes far less often than entities are rendered.
+        Re-cluster once per real history mutation, then serve copies of the
+        canonical cache so readiness/evaluation entity reads never repeatedly
+        merge the same history on Home Assistant's MainThread.
         """
+        cached = getattr(self, "_local_workouts_cache", None)
+        if cached is not None:
+            return list(cached)
+
         result = []
         for item in self.history:
             try:
                 result.append(Workout(**item))
             except TypeError:
                 continue
-        return merged_workouts(result)
+        merged = merged_workouts(result)
+        self._local_workouts_cache = tuple(merged)
+        return list(self._local_workouts_cache)
 
     def latest_workout(self) -> Workout | None:
         """Return the canonical latest workout without repeated registry scans."""
@@ -4600,6 +4625,7 @@ class FitnessManager:
         self.long_term_statistics, self.history_validation = summarize_all(self.metric_history, now)
         self.long_term_statistics_updated = now.isoformat()
         await self._save()
+        self._invalidate_evaluation_cache()
         self._notify()
 
     def workout_long_term_summary(self) -> dict[str, Any]:

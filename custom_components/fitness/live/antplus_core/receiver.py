@@ -18,6 +18,12 @@ from .const import (
     ANTPLUS_NETWORK_NUMBER,
     ANTPLUS_RF_FREQUENCY,
     DEVICE_TYPE_FITNESS_EQUIPMENT,
+    DEVICE_TYPE_HEART_RATE,
+    DEVICE_TYPE_POWER,
+    DEVICE_TYPE_BIKE_SPEED_CADENCE,
+    DEVICE_TYPE_BIKE_CADENCE,
+    DEVICE_TYPE_BIKE_SPEED,
+    DEVICE_TYPE_STRIDE_SPEED,
     DEVICE_TYPE_NAMES,
 )
 from .decoder import decode_packet
@@ -40,6 +46,22 @@ MAX_CONFIRMED_DEVICES = 256
 MAX_PROFILES_PER_DEVICE = 16
 MAX_METRICS_PER_DEVICE = 96
 
+
+# Common Page 80/81 semantics are profile-defined. A known ANT device type is
+# not enough evidence that page numbers 0x50/0x51 carry common identity data.
+# Keep this deliberately conservative and limited to semantic profiles Fitness
+# implements. Recognized/raw-only profiles must never be guessed.
+COMMON_IDENTITY_PAGE_PROFILES = frozenset({
+    DEVICE_TYPE_POWER,
+    DEVICE_TYPE_FITNESS_EQUIPMENT,
+    DEVICE_TYPE_HEART_RATE,
+    DEVICE_TYPE_BIKE_SPEED_CADENCE,
+    DEVICE_TYPE_BIKE_CADENCE,
+    DEVICE_TYPE_BIKE_SPEED,
+    DEVICE_TYPE_STRIDE_SPEED,
+})
+IDENTITY_CONFIRM_OBSERVATIONS = 2
+
 DeviceCallback = Callable[[AntDevice], None]
 MetricCallback = Callable[[AntDevice, str], None]
 StateCallback = Callable[[], None]
@@ -61,6 +83,26 @@ class AntPlusReceiver:
         self._metric_callbacks: list[MetricCallback] = []
         self._state_callbacks: list[StateCallback] = []
         self._packet_callbacks: list[PacketCallback] = []
+        # MainThread may toggle acceptance while ANT workers are busy. Use
+        # copy-on-write immutable snapshots so HA never waits on the packet lock.
+        self._telemetry_enabled_devices: frozenset[int] = frozenset()
+        # Accepted/configured devices are a separate concept from live telemetry.
+        # An accepted sensor that nobody is actively using must be almost free on
+        # the ANT worker: known-profile packets are dropped before identity,
+        # capability and decoder work. Copy-on-write keeps MainThread updates
+        # lock-free for the radio workers.
+        self._accepted_devices: frozenset[int] = frozenset()
+        # Lock-free snapshot used by local/remote transport ingress. This lets an
+        # accepted idle sensor be rejected before diagnostics, payload conversion,
+        # worker queueing or decoder/capability bookkeeping. The snapshot changes
+        # only when a new ANT profile is learned, so copy-on-write is cheap.
+        self._known_profiles_snapshot: dict[int, frozenset[int]] = {}
+        self._forget_requested: frozenset[int] = frozenset()
+        # Identity is structural state. Never mutate it from one radio packet.
+        # Candidate tuples must repeat before they are committed.
+        self._identity_candidates: dict[
+            tuple[int, int, int], tuple[tuple[tuple[str, object], ...], int]
+        ] = {}
         self.diagnostics = AntPlusDiagnostics()
 
         # Unconfirmed RF discoveries. A tuple is promoted only after repeated
@@ -100,13 +142,50 @@ class AntPlusReceiver:
         return self._state
 
     def forget_device(self, device_id: int) -> None:
-        """Evict one confirmed ANT device so subsequent RF traffic is rediscovered."""
+        """Request receiver-side forget without blocking Home Assistant."""
         device_id = int(device_id)
-        with self._lock:
-            self.devices.pop(device_id, None)
-            for key in tuple(self._discovery_candidates):
-                if key[0] == device_id:
-                    self._discovery_candidates.pop(key, None)
+        self._telemetry_enabled_devices = (
+            self._telemetry_enabled_devices - {device_id}
+        )
+        self._accepted_devices = self._accepted_devices - {device_id}
+        known = dict(self._known_profiles_snapshot)
+        known.pop(device_id, None)
+        self._known_profiles_snapshot = known
+        self._forget_requested = self._forget_requested | {device_id}
+
+    def set_device_telemetry_enabled(
+        self, device_id: int, enabled: bool
+    ) -> None:
+        """Publish one lock-free live-telemetry snapshot for ANT workers."""
+        device_id = int(device_id)
+        current = self._telemetry_enabled_devices
+        self._telemetry_enabled_devices = (
+            current | {device_id} if enabled else current - {device_id}
+        )
+
+    def set_device_accepted(self, device_id: int, accepted: bool) -> None:
+        """Publish whether one ANT identity belongs to a configured sensor."""
+        device_id = int(device_id)
+        current = self._accepted_devices
+        self._accepted_devices = (
+            current | {device_id} if accepted else current - {device_id}
+        )
+
+    def fast_ignore_idle_packet(self, device_id: int, device_type: int) -> bool:
+        """Return True when transport ingress can drop one packet immediately.
+
+        Only already-known ANT profiles of configured sensors are suppressed. A new
+        device/profile still reaches normal discovery, while active/recovery telemetry
+        is never filtered here. This method is intentionally lock-free because remote
+        gateway events may call it on Home Assistant's MainThread.
+        """
+        device_id = int(device_id)
+        device_type = int(device_type)
+        return bool(
+            device_id in self._accepted_devices
+            and device_id not in self._telemetry_enabled_devices
+            and device_type in self._known_profiles_snapshot.get(device_id, frozenset())
+        )
 
     def add_device_callback(self, callback: DeviceCallback) -> Callable[[], None]:
         self._device_callbacks.append(callback)
@@ -190,7 +269,6 @@ class AntPlusReceiver:
         with self._control_lock:
             changed = self._capture_enabled
             self._capture_enabled = False
-
         # Stop the local USB receiver.
         self.stop()
 
@@ -326,9 +404,11 @@ class AntPlusReceiver:
         if len(data) < 13:
             return
 
-        payload = bytes(data[:8])
         device_id = int(data[9]) | (int(data[10]) << 8)
         device_type = int(data[11])
+        if self.fast_ignore_idle_packet(device_id, device_type):
+            return
+        payload = bytes(data[:8])
         transmission_type = int(data[12])
 
         self.process_packet(
@@ -445,6 +525,12 @@ class AntPlusReceiver:
         through local USB and/or multiple remote gateways, all packets update
         the same AntDevice instance.
         """
+        # Absolute ingress gate for accepted idle sensors. Local USB and remote
+        # gateways also call this before entering process_packet(), but keep the
+        # check here for direct/test callers and future transports.
+        if self.fast_ignore_idle_packet(device_id, device_type):
+            return
+
         self.diagnostics.inc("receiver_packets_seen")
         self.diagnostics.inc_profile("receiver_packets_seen", device_type)
         # One global Capture switch controls every ANT+ source.
@@ -466,6 +552,17 @@ class AntPlusReceiver:
             raise ValueError(
                 f"ANT payload must contain exactly 8 bytes, got {len(payload)}"
             )
+
+        if device_id in self._forget_requested:
+            with self._lock:
+                self.devices.pop(device_id, None)
+                for key in tuple(self._discovery_candidates):
+                    if key[0] == device_id:
+                        self._discovery_candidates.pop(key, None)
+                for key in tuple(self._identity_candidates):
+                    if key[0] == device_id:
+                        self._identity_candidates.pop(key, None)
+            self._forget_requested = self._forget_requested - {device_id}
 
         new_device = False
         new_profile = False
@@ -513,7 +610,29 @@ class AntPlusReceiver:
                     )
                     return
                 device.profiles.add(device_type)
+                known_profiles = dict(self._known_profiles_snapshot)
+                known_profiles[device_id] = frozenset(device.profiles)
+                self._known_profiles_snapshot = known_profiles
                 new_profile = True
+
+            # Once the provider marks a physical sensor provisional/unaccepted,
+            # ordinary RF telemetry is no longer useful. Keep only packets that
+            # can establish a new ANT profile or stable common-page identity.
+            #
+            # ANT common pages 0x50/0x51 carry manufacturer/product identity.
+            # Everything else waits until the user accepts the sensor.
+            telemetry_enabled = device_id in self._telemetry_enabled_devices
+            page = int(payload[0]) & 0x7F
+            identity_page = (
+                device_type in COMMON_IDENTITY_PAGE_PROFILES
+                and page in (0x50, 0x51)
+            ) or (
+                device_type == DEVICE_TYPE_HEART_RATE
+                and page in (2, 3)
+            )
+            if not telemetry_enabled and not new_profile and not identity_page:
+                self.diagnostics.inc("provisional_packets_ignored")
+                return
 
             device.transmission_types.add(transmission_type)
             profile_tx = device.decoder_state.setdefault("profile_transmission_types", {})
@@ -525,51 +644,49 @@ class AntPlusReceiver:
             sources = device.decoder_state.setdefault("sources", set())
             sources.add(source)
 
-            before_metadata = (
-                device.manufacturer_id,
-                device.manufacturer_name,
-                device.model_no,
-                device.hardware_rev,
-                device.serial_no,
-                device.software_ver,
+            metadata_changed = self._observe_metadata_candidate(
+                device, device_type, payload
             )
 
-            self._decode_metadata(device, device_type, payload)
-
-            after_metadata = (
-                device.manufacturer_id,
-                device.manufacturer_name,
-                device.model_no,
-                device.hardware_rev,
-                device.serial_no,
-                device.software_ver,
-            )
-
-            metadata_changed = before_metadata != after_metadata
-
-            # Central capability model tracks positive page evidence before
-            # entities/events are exposed. Capability changes are surfaced to
-            # the same device callbacks used for profile discovery.
-            before_capabilities = capability_signature(device)
-            record_observed_page(device, device_type, payload)
+            # Repeated ANT pages are the normal hot path. Only a genuinely new
+            # observed page can change page-evidence capabilities, so avoid full
+            # capability resolution for repeated telemetry packets.
+            observed = device.decoder_state.get("observed_pages", {}).get(device_type, set())
+            page_is_new = page not in observed
+            before_capabilities = capability_signature(device) if page_is_new else None
+            new_capability_page = record_observed_page(device, device_type, payload)
 
             changed_metrics: list[str] = []
 
-            decode_started = time.perf_counter()
-            decoded_metrics = decode_packet(device, device_type, payload)
-            decode_elapsed = time.perf_counter() - decode_started
-            self.diagnostics.inc("decode_calls")
-            self.diagnostics.inc_profile("decode_calls", device_type)
-            self.diagnostics.inc("metrics_produced", len(decoded_metrics))
-            self.diagnostics.add_time("decode_total", decode_elapsed)
-            self.diagnostics.set_gauge("last_decode_device_type", device_type)
+            if telemetry_enabled:
+                decode_started = time.perf_counter()
+                decoded_metrics = decode_packet(device, device_type, payload)
+                decode_elapsed = time.perf_counter() - decode_started
+                self.diagnostics.inc("decode_calls")
+                self.diagnostics.inc_profile("decode_calls", device_type)
+                self.diagnostics.inc("metrics_produced", len(decoded_metrics))
+                self.diagnostics.add_time("decode_total", decode_elapsed)
+                self.diagnostics.set_gauge("last_decode_device_type", device_type)
+            else:
+                decoded_metrics = []
+                self.diagnostics.inc("telemetry_decode_suppressed")
+                self.diagnostics.inc_profile(
+                    "telemetry_decode_suppressed", device_type
+                )
 
-            # FE-C command status is authoritative capability feedback. A PASS
-            # can confirm an optional control; NOT_SUPPORTED/REJECTED revokes it.
-            if device_type == DEVICE_TYPE_FITNESS_EQUIPMENT and (payload[0] & 0x7F) == 0x47:
-                record_fe_command_status(device, payload[1], payload[3])
+            # FE-C command status is authoritative capability feedback. Only this
+            # page or a newly observed page can change the capability model.
+            command_capability_changed = False
+            if device_type == DEVICE_TYPE_FITNESS_EQUIPMENT and page == 0x47:
+                command_capability_changed = record_fe_command_status(
+                    device, payload[1], payload[3]
+                )
 
-            capability_changed = capability_signature(device) != before_capabilities
+            capability_changed = command_capability_changed
+            if new_capability_page and before_capabilities is not None:
+                capability_changed = (
+                    capability_signature(device) != before_capabilities
+                ) or capability_changed
 
             for metric in decoded_metrics:
                 old = device.metrics.get(metric.key)
@@ -596,11 +713,14 @@ class AntPlusReceiver:
                 ):
                     changed_metrics.append(metric.key)
 
-        for callback in tuple(self._packet_callbacks):
-            try:
-                callback(device, device_type, transmission_type, payload, source)
-            except Exception:
-                _LOGGER.debug("ANT+ packet callback failed", exc_info=True)
+        if telemetry_enabled or int(device_type) in (16, 115):
+            for callback in tuple(self._packet_callbacks):
+                try:
+                    callback(
+                        device, device_type, transmission_type, payload, source
+                    )
+                except Exception:
+                    _LOGGER.debug("ANT+ packet callback failed", exc_info=True)
 
         if new_device:
             _LOGGER.info(
@@ -629,7 +749,11 @@ class AntPlusReceiver:
                     )
 
         self.diagnostics.inc("metrics_changed", len(changed_metrics))
-        for key in changed_metrics:
+        if changed_metrics:
+            # Provider consumers only need the newest device snapshot. Emitting
+            # one callback per changed metric multiplies lock/scheduler/GIL work
+            # for multi-metric packets without preserving any extra information.
+            key = changed_metrics[-1]
             for callback in tuple(self._metric_callbacks):
                 try:
                     callback(device, key)
@@ -639,77 +763,98 @@ class AntPlusReceiver:
                         exc_info=True,
                     )
 
-    def _decode_metadata(
-        self, device: AntDevice, device_type: int, data: bytes
-    ) -> None:
-        """Decode identification without mistaking proprietary pages for common pages."""
+    def _metadata_candidate(
+        self, device_type: int, data: bytes
+    ) -> dict[str, object]:
+        """Decode only identity layouts explicitly supported by this profile."""
         page = data[0] & 0x7F
+        candidate: dict[str, object] = {}
 
-        # Decode standardized common pages only for profiles Fitness knows.
-        # Unknown/proprietary payloads may reuse the same page numbers with
-        # unrelated semantics and must never be guessed from a vendor name.
-        if device_type in DEVICE_TYPE_NAMES:
-            if page == 80:
-                hardware_rev = data[3]
-                manufacturer_id = data[4] | (data[5] << 8)
-                model_no = data[6] | (data[7] << 8)
+        if (
+            device_type in COMMON_IDENTITY_PAGE_PROFILES
+            and page == 80
+        ):
+            hardware_rev = data[3]
+            manufacturer_id = data[4] | (data[5] << 8)
+            model_no = data[6] | (data[7] << 8)
 
-                if hardware_rev != 0xFF:
-                    device.hardware_rev = hardware_rev
+            if hardware_rev != 0xFF:
+                candidate["hardware_rev"] = hardware_rev
+            if manufacturer_id != 0xFFFF:
+                candidate["manufacturer_id"] = manufacturer_id
+                candidate["manufacturer_name"] = (
+                    catalog_manufacturer_name("antplus", manufacturer_id)
+                    or f"ANT manufacturer {manufacturer_id}"
+                )
+            if model_no != 0xFFFF:
+                candidate["model_no"] = model_no
 
-                if manufacturer_id not in (0xFFFF,):
-                    device.manufacturer_id = manufacturer_id
-                    device.manufacturer_name = (
-                        catalog_manufacturer_name("antplus", manufacturer_id)
-                        or f"ANT manufacturer {manufacturer_id}"
-                    )
+        elif (
+            device_type in COMMON_IDENTITY_PAGE_PROFILES
+            and page == 81
+        ):
+            sw_rev = data[2]
+            sw_main = data[3]
+            serial_no = int.from_bytes(data[4:8], byteorder="little")
 
-                if model_no != 0xFFFF:
-                    device.model_no = model_no
+            if not (sw_rev == 0xFF and sw_main == 0xFF):
+                candidate["software_ver"] = (
+                    str(sw_main / 10)
+                    if sw_rev == 0xFF
+                    else str((sw_main * 100 + sw_rev) / 1000)
+                )
+            if serial_no != 0xFFFFFFFF:
+                candidate["serial_no"] = serial_no
 
-            elif page == 81:
-                sw_rev = data[2]
-                sw_main = data[3]
-                serial_no = int.from_bytes(data[4:8], byteorder="little")
+        # HRM identification is part of profile pages 2/3 rather than inferred
+        # from generic common-page numbers.
+        elif device_type == DEVICE_TYPE_HEART_RATE and page == 2:
+            manufacturer_id = data[1]
+            serial_fragment = data[2] | (data[3] << 8)
+            if manufacturer_id != 0xFF:
+                candidate["manufacturer_id"] = manufacturer_id
+                candidate["manufacturer_name"] = (
+                    catalog_manufacturer_name("antplus", manufacturer_id)
+                    or f"ANT manufacturer {manufacturer_id}"
+                )
+            if serial_fragment != 0xFFFF:
+                candidate["serial_no"] = serial_fragment
 
-                # Software revision is manufacturer-defined. 0xFF/0xFF means
-                # unavailable; otherwise keep the actual transmitted value.
-                if not (sw_rev == 0xFF and sw_main == 0xFF):
-                    device.software_ver = (
-                        str(sw_main / 10)
-                        if sw_rev == 0xFF
-                        else str((sw_main * 100 + sw_rev) / 1000)
-                    )
+        elif device_type == DEVICE_TYPE_HEART_RATE and page == 3:
+            hardware_rev = data[1]
+            software_rev = data[2]
+            model_no = data[3]
+            if hardware_rev != 0xFF:
+                candidate["hardware_rev"] = hardware_rev
+            if software_rev != 0xFF:
+                candidate["software_ver"] = str(software_rev)
+            if model_no != 0xFF:
+                candidate["model_no"] = model_no
 
-                if serial_no != 0xFFFFFFFF:
-                    device.serial_no = serial_no
+        return candidate
 
-        # HRM profile has identification fields on profile pages 2 and 3.
-        if device_type == 120:
-            if page == 2:
-                manufacturer_id = data[1]
-                serial_fragment = data[2] | (data[3] << 8)
+    def _observe_metadata_candidate(
+        self, device: AntDevice, device_type: int, data: bytes
+    ) -> bool:
+        """Commit structural identity only after repeated identical evidence."""
+        candidate = self._metadata_candidate(device_type, data)
+        if not candidate:
+            return False
 
-                if manufacturer_id != 0xFF:
-                    device.manufacturer_id = manufacturer_id
-                    device.manufacturer_name = (
-                        catalog_manufacturer_name("antplus", manufacturer_id)
-                        or f"ANT manufacturer {manufacturer_id}"
-                    )
+        page = int(data[0]) & 0x7F
+        key = (int(device.device_id), int(device_type), page)
+        signature = tuple(sorted(candidate.items()))
+        previous = self._identity_candidates.get(key)
+        count = previous[1] + 1 if previous and previous[0] == signature else 1
+        self._identity_candidates[key] = (signature, count)
+        if count < IDENTITY_CONFIRM_OBSERVATIONS:
+            return False
 
-                if serial_fragment != 0xFFFF:
-                    device.serial_no = serial_fragment
+        changed = False
+        for attr, value in candidate.items():
+            if getattr(device, attr) != value:
+                setattr(device, attr, value)
+                changed = True
+        return changed
 
-            elif page == 3:
-                hardware_rev = data[1]
-                software_rev = data[2]
-                model_no = data[3]
 
-                if hardware_rev != 0xFF:
-                    device.hardware_rev = hardware_rev
-
-                if software_rev != 0xFF:
-                    device.software_ver = str(software_rev)
-
-                if model_no != 0xFF:
-                    device.model_no = model_no

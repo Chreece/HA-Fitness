@@ -68,6 +68,8 @@ SERVICE_CAPABILITIES = {
 
 BATTERY_SERVICE = BASE.format("180f")
 RAW_DIAGNOSTIC_MIN_INTERVAL = 10.0
+PASSIVE_DECODE_MIN_INTERVAL = 5.0
+DISCOVERY_DEDUPE_WINDOW = 0.5
 
 
 def _passive_advertisement_values(info) -> tuple[dict[str, float], dict[str, dict]]:
@@ -112,7 +114,6 @@ class BluetoothFitnessProvider:
     def __init__(self, runtime) -> None:
         self.runtime = runtime
         self.hass = runtime.hass
-        self.capture_active = False
         self.available = False
         self.last_error: str | None = None
         self._unsubs: list[object] = []
@@ -125,6 +126,11 @@ class BluetoothFitnessProvider:
         self._raw_diag_last_publish: dict[str, float] = {}
         self._raw_diag_last_value: dict[str, tuple[str, str, str]] = {}
         self._stable_diag_last_value: dict[str, tuple[tuple[str, object], ...]] = {}
+        # Unaccepted discovery devices are control-plane objects, not telemetry
+        # consumers. Once their stable advertisement identity has been registered,
+        # recurring advertisements only refresh volatile presence in runtime.
+        self._provisional_identity_signature: dict[str, tuple[object, ...]] = {}
+        self._provisional_passive_last_decode: dict[str, float] = {}
 
     async def async_setup(self) -> None:
         """Register one HA Bluetooth discovery callback; no private scanner."""
@@ -141,7 +147,9 @@ class BluetoothFitnessProvider:
         # Let Home Assistant's Bluetooth manager discard unrelated devices before
         # our callback runs. One registration per standard fitness service gives
         # us OR semantics without receiving every changing BLE advertisement in
-        # the installation. `_async_discovered` deduplicates multi-service hits.
+        # the installation. Disable per-registration history replay because the
+        # cache is replayed exactly once below after every matcher is installed.
+        # `_async_discovered` also deduplicates multi-service hits from one packet.
         for service_uuid in SERVICE_CAPABILITIES:
             self._unsubs.append(
                 bluetooth.async_register_callback(
@@ -151,6 +159,7 @@ class BluetoothFitnessProvider:
                         service_uuid=service_uuid, connectable=False
                     ),
                     BluetoothScanningMode.PASSIVE,
+                    replay=bluetooth.BluetoothCallbackReplay.DISABLED,
                 )
             )
         self._refresh_available()
@@ -166,7 +175,10 @@ class BluetoothFitnessProvider:
             self.available = True
             return
         try:
-            self.available = bool(scanner_count(self.hass, connectable=True))
+            # Passive Fitness discovery only needs a scanner capable of receiving
+            # advertisements. GATT connectivity is resolved separately at connect
+            # time with async_ble_device_from_address(..., connectable=True).
+            self.available = bool(scanner_count(self.hass, connectable=False))
         except TypeError:
             try:
                 self.available = bool(scanner_count(self.hass))
@@ -176,28 +188,12 @@ class BluetoothFitnessProvider:
             self.available = False
 
     def _async_discovered(self, info, _change) -> None:
-        # A device advertising several fitness services can match more than one
-        # registered service callback for the same physical advertisement. Drop
-        # only those immediate duplicate callback deliveries; payload changes are
-        # retained because manufacturer/service bytes participate in the fingerprint.
+        """Consume one HA Bluetooth advertisement without discovery hot-loop work."""
+        address = str(info.address).upper()
         manufacturer_data = getattr(info, "manufacturer_data", {}) or {}
         service_data = getattr(info, "service_data", {}) or {}
-        fingerprint = (
-            str(info.address).upper(),
-            str(getattr(info, "source", None) or ""),
-            str(info.name or ""),
-            getattr(info, "rssi", None),
-            tuple(sorted(str(x).lower() for x in (info.service_uuids or []))),
-            tuple(sorted((int(key), bytes(value)) for key, value in manufacturer_data.items())),
-            tuple(sorted((str(key).lower(), bytes(value)) for key, value in service_data.items())),
-        )
-        now_mono = self.hass.loop.time()
-        previous = self._last_discovery_fingerprint.get(str(info.address).upper())
-        if previous is not None and previous[0] == fingerprint and now_mono - previous[1] < 0.05:
-            return
-        self._last_discovery_fingerprint[str(info.address).upper()] = (fingerprint, now_mono)
-
         uuids = {str(x).lower() for x in (info.service_uuids or [])}
+
         capabilities: set[str] = set()
         for service, caps in SERVICE_CAPABILITIES.items():
             if service in uuids:
@@ -205,27 +201,96 @@ class BluetoothFitnessProvider:
         if not capabilities:
             return
 
-        endpoint_id = f"bluetooth:{info.address.upper()}"
-        # Only stable identity/capability facts belong to endpoint metadata.
-        # Raw advertisement payloads are volatile telemetry and must never make
-        # an advertisement look like a topology/device-identity change.
-        sensor = self.runtime.register_transport_sensor(
-            transport=self.transport,
-            endpoint_id=endpoint_id,
-            name=info.name or info.address,
-            capabilities=capabilities,
-            address=info.address,
-            source=getattr(info, "source", None),
-            last_seen=datetime.now(timezone.utc),
-            rssi=getattr(info, "rssi", None),
-            available=True,
-            metadata={
-                "advertised_name": info.name,
-                "service_uuids": sorted(uuids),
-                "connectable": bool(getattr(info, "connectable", False)),
-                "manufacturer_data_ids": sorted(int(x) for x in manufacturer_data),
-            },
+        endpoint_id = f"bluetooth:{address}"
+        now_mono = self.hass.loop.time()
+
+        # One advertisement can match several service-specific callback
+        # registrations.  Collapse those callbacks before any runtime registration,
+        # vendor decoding or diagnostic publication. Include the volatile payload
+        # so genuinely new advertisements still pass immediately.
+        discovery_fingerprint = (
+            str(info.name or ""),
+            tuple(sorted(uuids)),
+            tuple(sorted((int(key), bytes(value)) for key, value in manufacturer_data.items())),
+            tuple(sorted((str(key).lower(), bytes(value)) for key, value in service_data.items())),
+            str(getattr(info, "source", None) or ""),
+            bool(getattr(info, "connectable", False)),
         )
+        previous_discovery = self._last_discovery_fingerprint.get(endpoint_id)
+        if (
+            previous_discovery is not None
+            and previous_discovery[0] == discovery_fingerprint
+            and now_mono - previous_discovery[1] <= DISCOVERY_DEDUPE_WINDOW
+        ):
+            return
+        self._last_discovery_fingerprint[endpoint_id] = (
+            discovery_fingerprint,
+            now_mono,
+        )
+
+        known_sensor_id = self.runtime.endpoint_aliases.get(endpoint_id)
+        known_sensor = (
+            self.runtime.sensors.get(self.runtime.resolve_sensor_id(known_sensor_id))
+            if known_sensor_id
+            else None
+        )
+        accepted = bool(
+            known_sensor is not None
+            and self.runtime.sensor_is_accepted(known_sensor.sensor_id)
+        )
+
+        # For a provisional discovery device, the advertisement payload itself is
+        # not useful after stable identity has been registered. RSSI, service bytes,
+        # manufacturer bytes and passive telemetry can change continuously. Feeding
+        # those through vendor decoding/diagnostic publication before acceptance
+        # gives an untouched discovery card a permanent background workload.
+        identity_signature = (
+            address,
+            str(info.name or ""),
+            tuple(sorted(uuids)),
+            tuple(sorted(int(key) for key in manufacturer_data)),
+            bool(getattr(info, "connectable", False)),
+        )
+        previous_identity = self._provisional_identity_signature.get(endpoint_id)
+
+        if known_sensor is not None and previous_identity == identity_signature:
+            self.runtime.refresh_transport_endpoint(
+                known_sensor.sensor_id,
+                self.transport,
+                last_seen=datetime.now(timezone.utc),
+                rssi=getattr(info, "rssi", None),
+                source=getattr(info, "source", None),
+                available=True,
+            )
+            if not accepted:
+                # Recurring provisional advertisements stop here; only volatile
+                # in-memory presence fields above are refreshed.
+                return
+            # Accepted sensors also stay on the cheap path when their stable
+            # advertisement identity is unchanged.  They may continue below for
+            # rate-limited passive values, but do not re-run merge/registry logic.
+            sensor = known_sensor
+        else:
+            sensor = self.runtime.register_transport_sensor(
+                transport=self.transport,
+                endpoint_id=endpoint_id,
+                name=info.name or info.address,
+                capabilities=capabilities,
+                address=info.address,
+                source=getattr(info, "source", None),
+                last_seen=datetime.now(timezone.utc),
+                rssi=getattr(info, "rssi", None),
+                available=True,
+                metadata={
+                    "advertised_name": info.name,
+                    "service_uuids": sorted(uuids),
+                    "connectable": bool(getattr(info, "connectable", False)),
+                    "manufacturer_data_ids": sorted(int(x) for x in manufacturer_data),
+                },
+            )
+            self._provisional_identity_signature[endpoint_id] = identity_signature
+            accepted = self.runtime.sensor_is_accepted(sensor.sensor_id)
+
         endpoint = sensor.endpoints.get(self.transport)
         endpoint_meta = dict(endpoint.metadata) if endpoint is not None else {}
         stable_details = {
@@ -234,7 +299,10 @@ class BluetoothFitnessProvider:
             "bluetooth_services": ", ".join(endpoint_meta.get("service_uuids") or sorted(uuids)),
             "bluetooth_connectable": bool(endpoint_meta.get("connectable", False)),
             "bluetooth_manufacturer_data_ids": ", ".join(
-                str(int(x)) for x in (endpoint_meta.get("manufacturer_data_ids") or sorted(manufacturer_data))
+                str(int(x)) for x in (
+                    endpoint_meta.get("manufacturer_data_ids")
+                    or sorted(manufacturer_data)
+                )
             ),
         }
         detail_meta = {
@@ -251,20 +319,32 @@ class BluetoothFitnessProvider:
         if self._stable_diag_last_value.get(endpoint_id) != stable_signature:
             self._stable_diag_last_value[endpoint_id] = stable_signature
             self.runtime.publish_details(
-                sensor.sensor_id, stable_details, transport="bluetooth_advertisement",
-                priority=5, metadata=detail_meta,
+                sensor.sensor_id,
+                stable_details,
+                transport="bluetooth_advertisement",
+                priority=5,
+                metadata=detail_meta,
             )
 
-        # Keep raw advertisement blobs available for diagnostics, but inspect and
-        # serialize them only on a slow clock. This avoids hex/string construction
-        # at advertisement frequency even when the diagnostic entities are disabled.
+        # Raw changing payload diagnostics and proprietary passive decoders are
+        # useful only after the user accepts the sensor. Before acceptance they
+        # must not create a permanent telemetry workload behind a discovery card.
+        if not accepted:
+            return
+
         last_raw_check = self._raw_diag_last_publish.get(
             endpoint_id, -RAW_DIAGNOSTIC_MIN_INTERVAL
         )
         if now_mono - last_raw_check >= RAW_DIAGNOSTIC_MIN_INTERVAL:
             self._raw_diag_last_publish[endpoint_id] = now_mono
-            raw_manufacturer = str({int(key): bytes(value).hex() for key, value in manufacturer_data.items()})
-            raw_service = str({str(key).lower(): bytes(value).hex() for key, value in service_data.items()})
+            raw_manufacturer = str({
+                int(key): bytes(value).hex()
+                for key, value in manufacturer_data.items()
+            })
+            raw_service = str({
+                str(key).lower(): bytes(value).hex()
+                for key, value in service_data.items()
+            })
             bluetooth_source = str(getattr(info, "source", None) or "")
             raw_pair = (raw_manufacturer, raw_service, bluetooth_source)
             if self._raw_diag_last_value.get(endpoint_id) != raw_pair:
@@ -276,25 +356,24 @@ class BluetoothFitnessProvider:
                         "bluetooth_service_data": raw_service,
                         "bluetooth_source": bluetooth_source,
                     },
-                    transport="bluetooth_advertisement", priority=5, metadata=detail_meta,
+                    transport="bluetooth_advertisement",
+                    priority=5,
+                    metadata=detail_meta,
                 )
-        passive, passive_meta = _passive_advertisement_values(info)
-        if passive:
-            self.runtime.publish_passive(
-                sensor.sensor_id, passive, transport=self.transport, metadata=passive_meta
-            )
 
-    async def async_start_capture(self) -> None:
-        # BLE advertisements remain passive. Active GATT is opened only for
-        # assigned sensors by async_connect_profile().
-        self.capture_active = True
-        self.last_error = None
-        self._refresh_available()
-
-    async def async_stop_capture(self) -> None:
-        for profile_id in tuple(self._profile_clients):
-            await self.async_disconnect_profile(profile_id, keep_heart_rate=False)
-        self.capture_active = False
+        last_passive_decode = self._provisional_passive_last_decode.get(
+            endpoint_id, -PASSIVE_DECODE_MIN_INTERVAL
+        )
+        if now_mono - last_passive_decode >= PASSIVE_DECODE_MIN_INTERVAL:
+            self._provisional_passive_last_decode[endpoint_id] = now_mono
+            passive, passive_meta = _passive_advertisement_values(info)
+            if passive:
+                self.runtime.publish_passive(
+                    sensor.sensor_id,
+                    passive,
+                    transport=self.transport,
+                    metadata=passive_meta,
+                )
 
     def sensor_connected(self, sensor_id: str) -> bool:
         client = self._clients.get(str(sensor_id))
@@ -304,9 +383,6 @@ class BluetoothFitnessProvider:
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
         return set(self._sensor_users.get(sensor_id, set()))
 
-    def sensor_has_automatic_users(self, sensor_id: str) -> bool:
-        return any(not str(owner).startswith("manual:") for owner in self.sensor_users(sensor_id))
-
     def _connect_lock(self, sensor_id: str) -> asyncio.Lock:
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
         return self._connect_locks.setdefault(sensor_id, asyncio.Lock())
@@ -314,9 +390,7 @@ class BluetoothFitnessProvider:
     async def async_connect_profile(
         self, profile_id: str, sensors: list[LiveSensor]
     ) -> None:
-        if not self.capture_active:
-            return
-
+        """Connect GATT only when runtime selected Bluetooth as fallback."""
         for requested_sensor in sensors:
             sensor_id = self.runtime.resolve_sensor_id(requested_sensor.sensor_id)
             lock = self._connect_lock(sensor_id)
@@ -649,7 +723,8 @@ class BluetoothFitnessProvider:
                 pass
         self._unsubs.clear()
         self._last_discovery_fingerprint.clear()
-        await self.async_stop_capture()
+        for profile_id in tuple(self._profile_clients):
+            await self.async_disconnect_profile(profile_id, keep_heart_rate=False)
         self._connect_locks.clear()
         self.available = False
         self.hass.async_create_task(self.runtime.async_refresh_adapter_presence())

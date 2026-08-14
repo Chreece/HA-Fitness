@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict, field, fields
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 import math
 import re
@@ -1225,15 +1225,37 @@ def merge_workouts(group: list[Workout]) -> Workout:
 
 
 def merged_workouts(workouts: list[Workout]) -> list[Workout]:
-    """Cluster candidates into physical workouts and merge each cluster."""
+    """Cluster candidates into physical workouts and merge each cluster.
+
+    Workout identity can never match when start times differ by more than five
+    minutes. Keep only still-eligible groups in the comparison set instead of
+    comparing every historical workout with every older group. This preserves
+    complete-link clustering while making long histories approximately linear
+    when sessions are separated in time.
+    """
     groups: list[list[Workout]] = []
+    active_groups: list[list[Workout]] = []
 
     for workout in sorted(
         workouts,
         key=lambda w: _dt(w.start) or datetime.min.replace(tzinfo=timezone.utc),
     ):
+        current_start = _dt(workout.start)
+        if current_start is None:
+            # Records without a usable start can never match _same_real_workout.
+            groups.append([workout])
+            continue
+
+        cutoff = current_start - timedelta(seconds=300)
+        active_groups = [
+            group
+            for group in active_groups
+            if (last_start := _dt(group[-1].start)) is not None
+            and last_start >= cutoff
+        ]
+
         placed = False
-        for group in groups:
+        for group in active_groups:
             # Complete-link clustering: a new record must agree with every
             # member already in the group. This prevents transitive chain
             # merges such as A≈B and B≈C accidentally merging A+B+C when A and
@@ -1246,15 +1268,30 @@ def merged_workouts(workouts: list[Workout]) -> list[Workout]:
                 placed = True
                 break
         if not placed:
-            groups.append([workout])
+            group = [workout]
+            groups.append(group)
+            active_groups.append(group)
 
     return [merge_workouts(group) for group in groups]
 
 
 def newest(workouts: list[Workout]) -> Workout | None:
-    merged = merged_workouts(workouts)
+    """Return the newest canonical workout without merging all history.
 
-    def key(w: Workout):
-        return _dt(w.start) or datetime.min.replace(tzinfo=timezone.utc)
+    A workout can only merge with another representation whose start is within
+    five minutes. Therefore only the final five-minute window can possibly
+    affect which canonical workout is newest; older records cannot merge into
+    or overtake it.
+    """
+    dated = [(start, workout) for workout in workouts if (start := _dt(workout.start)) is not None]
+    if not dated:
+        return None
 
-    return max(merged, key=key) if merged else None
+    latest_start = max(start for start, _workout in dated)
+    cutoff = latest_start - timedelta(seconds=300)
+    candidates = [workout for start, workout in dated if start >= cutoff]
+    merged = merged_workouts(candidates)
+    return max(
+        merged,
+        key=lambda w: _dt(w.start) or datetime.min.replace(tzinfo=timezone.utc),
+    ) if merged else None

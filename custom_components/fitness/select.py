@@ -36,11 +36,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
         _collect_owner_selects()
         entry.async_on_unload(runtime.add_structure_listener(_collect_owner_selects))
         return
-    if not (
-        runtime.live_surface_available
-        and runtime.profile_has_assigned_live_sensor(entry)
-    ):
-        return
+    # The profile Live device is stable infrastructure. Keep its room selector
+    # registered even when no physical sensor is currently assigned; assignment
+    # changes must not require a profile reload to create/remove this entity.
     manager = hass.data[DOMAIN][entry.entry_id]
     async_add_entities(
         [

@@ -19,12 +19,16 @@ def test_complete_identity_dependencies_are_shipped():
     assert (FIT / "event.py").is_file()
 
 
-def test_sensor_capture_controls_are_removed_in_favor_of_adapter_switch():
+def test_capture_and_manual_gatt_controls_are_removed_in_favor_of_adapter_switch():
     assert "class SensorTransportStartCaptureButton" not in BUTTON
     assert "class SensorTransportStopCaptureButton" not in BUTTON
+    assert "AntReceiverStartCaptureButton" not in BUTTON
+    assert "AntReceiverStopCaptureButton" not in BUTTON
+    assert "SensorGattConnectButton" not in BUTTON
+    assert "SensorGattDisconnectButton" not in BUTTON
     assert "async_set_sensor_transport_capture" not in RUNTIME
-    assert 'stored.get("sensor_transport_capture")' not in RUNTIME
-    assert "Compatibility shim: capture is controlled only by the adapter switch." in RUNTIME
+    assert "async_manual_gatt_connect" not in RUNTIME
+    assert "async_manual_gatt_disconnect" not in RUNTIME
 
 
 def test_live_transport_selection_uses_adapter_state_only():
@@ -34,12 +38,16 @@ def test_live_transport_selection_uses_adapter_state_only():
     assert "_sensor_workout_capture" not in choose
 
 
-def test_live_profile_surface_requires_an_accepted_assigned_sensor():
+def test_live_profile_calculation_surface_and_device_are_stable():
     assert "def profile_has_assigned_live_sensor" in RUNTIME
-    assert "runtime.profile_has_assigned_live_sensor(entry)" in SENSOR
-    assert "runtime.profile_has_assigned_live_sensor(entry)" in BUTTON
-    assert "runtime.profile_has_assigned_live_sensor(entry)" in SELECT
-    assert "self.profile_has_assigned_live_sensor(entry)" in RUNTIME
+    assert "manager.remember_materialized_sensors(live_keys, persist=True)" in SENSOR
+    assert "runtime.profile_has_assigned_live_sensor(entry)" not in SENSOR
+    assert "entities = [\n        StartWorkoutButton" in BUTTON
+    assert "runtime.profile_has_assigned_live_sensor(entry)" not in SELECT
+    assert "def ensure_profile_live_registry" in RUNTIME
+    ensure = RUNTIME[RUNTIME.index("def ensure_profile_live_registry"):RUNTIME.index("def _start_presence_monitor")]
+    assert "profile_has_assigned_live_sensor" not in ensure
+    assert "async_remove_device" not in ensure
 
 
 def test_fitness_sleep_score_is_marked_as_calculated_and_non_medical():

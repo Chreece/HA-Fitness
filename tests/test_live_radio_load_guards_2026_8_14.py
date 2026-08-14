@@ -73,8 +73,10 @@ def test_profile_hot_path_is_coalesced_to_two_hz():
 def test_recurring_ble_advertisement_has_volatile_fast_path():
     register = _method_source("register_transport_sensor")
     assert "Fast path for recurring advertisements" in register
-    assert "known_endpoint.last_seen = last_seen" in register
-    assert "known_endpoint.rssi = rssi" in register
+    assert "refresh_transport_endpoint(" in register
+    refresh = _method_source("refresh_transport_endpoint")
+    assert "endpoint.last_seen = last_seen" in refresh
+    assert "endpoint.rssi = rssi" in refresh
     fast = register.split("Fast path for recurring advertisements", 1)[1].split("endpoint = TransportEndpoint", 1)[0]
     assert "_schedule_save" not in fast
     assert "self._notify()" not in fast
