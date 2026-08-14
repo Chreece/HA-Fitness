@@ -30,11 +30,20 @@ class _PhysicalSensorEntity(SensorEntity):
 
     def __init__(self, runtime, sensor_id: str) -> None:
         self.runtime = runtime
-        self.sensor_id = sensor_id
-        self._attr_device_info = runtime.sensor_device_info(sensor_id)
+        self.sensor_id = runtime.resolve_sensor_id(sensor_id)
+        self._attr_device_info = runtime.sensor_device_info(self.sensor_id)
+
+    @property
+    def _value_listener_token(self) -> tuple[str, str | None]:
+        raise NotImplementedError
 
     async def async_added_to_hass(self):
-        self.async_on_remove(self.runtime.add_listener(self._update))
+        kind, key = self._value_listener_token
+        self.async_on_remove(
+            self.runtime.add_sensor_value_listener(
+                self.sensor_id, kind, key, self._update
+            )
+        )
 
     def _update(self):
         self.async_write_ha_state()
@@ -49,6 +58,10 @@ class PhysicalMetricSensor(_PhysicalSensorEntity):
         self._attr_native_unit_of_measurement = unit
         self._attr_icon = icon
         self._attr_unique_id = f"fitness_{sensor_id}_{metric}"
+
+    @property
+    def _value_listener_token(self) -> tuple[str, str | None]:
+        return ("metric", self.metric)
 
     @property
     def native_value(self):
@@ -82,6 +95,10 @@ class PhysicalPassiveSensor(_PhysicalSensorEntity):
             self._attr_state_class = SensorStateClass.MEASUREMENT
 
     @property
+    def _value_listener_token(self) -> tuple[str, str | None]:
+        return ("passive", self.key)
+
+    @property
     def native_value(self):
         return self.runtime.sensor_passive_values.get(self.sensor_id, {}).get(self.key)
 
@@ -98,6 +115,10 @@ class PhysicalActiveTransportSensor(_PhysicalSensorEntity):
     def __init__(self, runtime, sensor_id: str) -> None:
         super().__init__(runtime, sensor_id)
         self._attr_unique_id = f"fitness_{sensor_id}_active_transport"
+
+    @property
+    def _value_listener_token(self) -> tuple[str, str | None]:
+        return ("active_transport", None)
 
     @property
     def native_value(self):
@@ -137,6 +158,10 @@ class PhysicalLastSeenSensor(_PhysicalSensorEntity):
         self._last_bucket: datetime | None = None
 
     @property
+    def _value_listener_token(self) -> tuple[str, str | None]:
+        return ("last_seen", None)
+
+    @property
     def native_value(self) -> datetime | None:
         sensor = self.runtime.sensors.get(self.sensor_id)
         seen = sensor.last_seen if sensor else None
@@ -155,17 +180,60 @@ class PhysicalLastSeenSensor(_PhysicalSensorEntity):
 
 
 async def async_setup_sensor_entities(runtime, async_add_entities) -> None:
-    entities = []
-    for sensor in runtime.sensors.values():
-        if not runtime.sensor_is_accepted(sensor.sensor_id):
-            runtime.remove_unaccepted_sensor_device(sensor.sensor_id)
-            continue
-        runtime.ensure_sensor_device(sensor.sensor_id)
-        entities.append(PhysicalActiveTransportSensor(runtime, sensor.sensor_id))
-        entities.append(PhysicalLastSeenSensor(runtime, sensor.sensor_id))
-        for metric in METRIC_META:
-            if metric in sensor.capabilities:
-                entities.append(PhysicalMetricSensor(runtime, sensor.sensor_id, metric))
-        for key in sorted(runtime.sensor_passive_values.get(sensor.sensor_id, {})):
-            entities.append(PhysicalPassiveSensor(runtime, sensor.sensor_id, key))
-    async_add_entities(entities, config_subentry_id=runtime.sensors_subentry_id)
+    """Materialize accepted physical-sensor entities without reloading the hub."""
+    materialized: set[tuple[str, str, str]] = set()
+
+    def _collect() -> None:
+        accepted_ids = {
+            sensor.sensor_id
+            for sensor in runtime.sensors.values()
+            if runtime.sensor_is_accepted(sensor.sensor_id)
+        }
+        # Device deletion can later re-use the same canonical physical ID. Forget
+        # local materialization markers once a sensor is no longer accepted/present.
+        materialized.intersection_update(
+            item for item in materialized if item[0] in accepted_ids
+        )
+
+        entities = []
+        for sensor_id in sorted(accepted_ids):
+            sensor = runtime.sensors.get(sensor_id)
+            if sensor is None:
+                continue
+            runtime.ensure_sensor_device(sensor_id)
+
+            key = (sensor_id, "diagnostic", "active_transport")
+            if key not in materialized:
+                materialized.add(key)
+                entities.append(PhysicalActiveTransportSensor(runtime, sensor_id))
+
+            key = (sensor_id, "diagnostic", "last_seen")
+            if key not in materialized:
+                materialized.add(key)
+                entities.append(PhysicalLastSeenSensor(runtime, sensor_id))
+
+            for metric in METRIC_META:
+                if metric not in sensor.capabilities:
+                    continue
+                key = (sensor_id, "metric", metric)
+                if key in materialized:
+                    continue
+                materialized.add(key)
+                entities.append(PhysicalMetricSensor(runtime, sensor_id, metric))
+
+            for passive_key in sorted(runtime.sensor_passive_values.get(sensor_id, {})):
+                key = (sensor_id, "passive", passive_key)
+                if key in materialized:
+                    continue
+                materialized.add(key)
+                entities.append(PhysicalPassiveSensor(runtime, sensor_id, passive_key))
+
+        if entities:
+            subentry = runtime.ensure_sensors_subentry()
+            async_add_entities(
+                entities,
+                config_subentry_id=subentry.subentry_id if subentry is not None else None,
+            )
+
+    _collect()
+    runtime.hub_entry.async_on_unload(runtime.add_structure_listener(_collect))

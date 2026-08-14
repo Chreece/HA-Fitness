@@ -499,6 +499,32 @@ class AntAdapterManager:
         device_registry = dr.async_get(self.hass)
         entity_registry = er.async_get(self.hass)
 
+        # Ensure the logical ANT+ parent exists before the physical receiver is
+        # registered.  Receiver discovery may happen before HA's entity platforms
+        # create the parent, which otherwise leaves the USB/gateway device at the
+        # root of Sensors & Adapters.
+        adapters_subentry_id = None
+        for subentry in self.entry.subentries.values():
+            if (
+                getattr(subentry, "unique_id", None) == "fitness_antplus_adapters"
+                or getattr(subentry, "subentry_type", None) == "antplus_adapters"
+            ):
+                adapters_subentry_id = subentry.subentry_id
+                break
+        parent = device_registry.async_get_device_by_identifier(
+            (DOMAIN, "live_adapter:antplus"),
+            self.entry.entry_id,
+        )
+        if parent is None:
+            parent = device_registry.async_get_or_create(
+                config_entry_id=self.entry.entry_id,
+                config_subentry_id=adapters_subentry_id,
+                identifiers={(DOMAIN, "live_adapter:antplus")},
+                name="ANT+ Adapter",
+                manufacturer="Fitness",
+                model="ANT+ Adapter",
+            )
+
         identifier = adapter.ha_identifier
         physical = device_registry.async_get_device_by_identifier(
             identifier,
@@ -526,11 +552,13 @@ class AntAdapterManager:
         if physical is None:
             physical = device_registry.async_get_or_create(
                 config_entry_id=self.entry.entry_id,
+                config_subentry_id=adapters_subentry_id,
                 identifiers={identifier},
                 name=adapter.name,
                 manufacturer=adapter.manufacturer or "Dynastream / Garmin",
                 model=adapter.product or f"ANT USB {adapter.vid}:{adapter.pid}",
                 serial_number=adapter.serial,
+                via_device_id=parent.id,
             )
         else:
             device_registry.async_update_device(
@@ -544,10 +572,6 @@ class AntAdapterManager:
         # Fitness owns a logical ANT+ Adapter device. Every physical local/remote
         # ANT receiver belongs to the same Adapters subentry and is a child of
         # that logical transport device, not a root-level Fitness device.
-        parent = device_registry.async_get_device_by_identifier(
-            (DOMAIN, "live_adapter:antplus"),
-            self.entry.entry_id,
-        )
         if physical is not None and parent is not None:
             update_kwargs = {"via_device_id": parent.id}
             if physical.config_subentry_id != parent.config_subentry_id:

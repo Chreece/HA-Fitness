@@ -7,15 +7,16 @@ C = Path('custom_components/fitness/config_flow.py').read_text()
 
 def test_unaccepted_discoveries_do_not_create_devices():
     assert 'if self.hub_entry is not None and self.sensor_is_accepted(sensor.sensor_id):' in R
-    assert 'if not runtime.sensor_is_accepted(sensor.sensor_id):' in E
-    assert 'runtime.remove_unaccepted_sensor_device(sensor.sensor_id)' in E
+    assert 'if runtime.sensor_is_accepted(sensor.sensor_id)' in E
+    assert 'accepted_ids' in E
     assert 'def remove_unaccepted_sensor_device' in R
 
 
-def test_acceptance_creates_device_and_reloads_hub_entities():
+def test_acceptance_is_lightweight_and_dynamic():
     section = R[R.index('def mark_sensor_accepted'):R.index('def remove_unaccepted_sensor_device')]
-    assert 'self.ensure_sensor_device(sensor_id)' in section
-    assert 'self.request_hub_reload()' in section
+    assert 'self.ensure_sensor_device(sensor_id)' not in section
+    assert 'self.request_hub_reload()' not in section
+    assert 'self._notify_structure()' in section
 
 
 def test_discovery_card_uses_physical_sensor_name():

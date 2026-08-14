@@ -21,7 +21,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 AdapterStartCaptureButton(runtime, "bluetooth"),
                 AdapterStopCaptureButton(runtime, "bluetooth"),
             ])
-        async_add_entities(entities, config_subentry_id=runtime.adapters_subentry_id)
+        async_add_entities(entities, config_subentry_id=runtime.adapter_subentry_id("bluetooth"))
 
         materialized: set[str] = set()
         def _add_ant_receivers():
@@ -35,7 +35,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
                     AntReceiverStopCaptureButton(runtime, stable_key),
                 ])
             if added:
-                async_add_entities(added, config_subentry_id=runtime.adapters_subentry_id)
+                async_add_entities(added, config_subentry_id=runtime.adapter_subentry_id("antplus"))
         _add_ant_receivers()
         entry.async_on_unload(runtime.add_listener(_add_ant_receivers))
         return

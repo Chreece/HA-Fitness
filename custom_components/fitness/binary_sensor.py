@@ -12,12 +12,14 @@ async def async_setup_entry(hass, entry, async_add_entities):
     runtime = get_live_runtime(hass)
     if entry.data.get("entry_type") != HUB_ENTRY_TYPE:
         return
-    adapter_entities = []
     for transport in sorted(runtime.adapter_entity_transports):
-        adapter_entities.extend([AdapterAvailable(runtime, transport), AdapterProblem(runtime, transport)])
+        adapter_entities = [AdapterAvailable(runtime, transport), AdapterProblem(runtime, transport)]
         if transport == "bluetooth":
             adapter_entities.append(AdapterCapture(runtime, transport))
-    async_add_entities(adapter_entities, config_subentry_id=runtime.adapters_subentry_id)
+        async_add_entities(
+            adapter_entities,
+            config_subentry_id=runtime.adapter_subentry_id(transport),
+        )
 
     materialized_receivers: set[str] = set()
     def _add_ant_receiver_diagnostics():
@@ -32,19 +34,31 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 AntReceiverProblem(runtime, stable_key),
             ])
         if added:
-            async_add_entities(added, config_subentry_id=runtime.adapters_subentry_id)
+            async_add_entities(added, config_subentry_id=runtime.adapter_subentry_id("antplus"))
     _add_ant_receiver_diagnostics()
     entry.async_on_unload(runtime.add_listener(_add_ant_receiver_diagnostics))
 
-    sensor_entities = [
-        LiveSensorAvailable(runtime, sensor.sensor_id)
-        for sensor in runtime.sensors.values()
-        if runtime.sensor_is_accepted(sensor.sensor_id)
-    ]
-    async_add_entities(
-        sensor_entities,
-        config_subentry_id=runtime.sensors_subentry_id,
-    )
+    materialized_sensor_ids: set[str] = set()
+
+    def _add_live_sensor_availability() -> None:
+        accepted_ids = {
+            sensor.sensor_id
+            for sensor in runtime.sensors.values()
+            if runtime.sensor_is_accepted(sensor.sensor_id)
+        }
+        materialized_sensor_ids.intersection_update(accepted_ids)
+        new_ids = sorted(accepted_ids - materialized_sensor_ids)
+        if not new_ids:
+            return
+        materialized_sensor_ids.update(new_ids)
+        subentry = runtime.ensure_sensors_subentry()
+        async_add_entities(
+            [LiveSensorAvailable(runtime, sensor_id) for sensor_id in new_ids],
+            config_subentry_id=subentry.subentry_id if subentry is not None else None,
+        )
+
+    _add_live_sensor_availability()
+    entry.async_on_unload(runtime.add_structure_listener(_add_live_sensor_availability))
 
 
 class _RuntimeEntity(BinarySensorEntity):
@@ -135,6 +149,13 @@ class LiveSensorAvailable(_RuntimeEntity):
         self.sensor_id = runtime.resolve_sensor_id(sensor_id)
         self._attr_unique_id = f"fitness_{self.sensor_id}_available"
         self._attr_device_info = runtime.sensor_device_info(self.sensor_id)
+
+    async def async_added_to_hass(self):
+        self.async_on_remove(
+            self.runtime.add_sensor_value_listener(
+                self.sensor_id, "availability", None, self._update
+            )
+        )
 
     @property
     def is_on(self):

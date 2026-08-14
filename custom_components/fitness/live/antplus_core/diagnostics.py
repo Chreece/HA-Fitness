@@ -73,7 +73,10 @@ class AntPlusDiagnostics:
                     cpu_ratio,
                     remote - last_remote,
                 )
-                log_diagnostics(self)
+                snapshot = self.snapshot()
+                _LOGGER.warning(
+                    "ANT+ DIAGNOSTICS hot-CPU snapshot: %s", snapshot
+                )
                 last_dump = now_wall
                 hot_samples = 0
             last_wall = now_wall

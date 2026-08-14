@@ -167,6 +167,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry):
+    from .live import get_live_runtime
+
+    runtime = get_live_runtime(hass)
+    if runtime.consume_entry_reload_suppression(entry.entry_id):
+        return
     await hass.config_entries.async_reload(entry.entry_id)
 
 
@@ -187,3 +192,48 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if runtime:
             await runtime.async_unregister_profile(entry.entry_id)
     return unloaded
+
+
+async def async_remove_config_entry_device(hass, config_entry, device_entry) -> bool:
+    """Allow native Fitness sensors/adapters/receivers to be deleted.
+
+    Physical sensors are forgotten completely so their next transmission starts
+    a fresh discovery/assignment flow. Adapter and receiver registry devices are
+    removable too; the always-on presence layer recreates them only when their
+    underlying hardware/proxy/gateway is detected again.
+    """
+    from .live import get_live_runtime
+    from .live.runtime import HUB_ENTRY_TYPE
+
+    if config_entry.data.get("entry_type") != HUB_ENTRY_TYPE:
+        return False
+
+    identifiers = {
+        str(identifier)
+        for domain, identifier in device_entry.identifiers
+        if domain == DOMAIN
+    }
+    runtime = get_live_runtime(hass)
+    await runtime.async_initialize()
+
+    sensor_identifier = next(
+        (value for value in identifiers if value.startswith("live_sensor:")),
+        None,
+    )
+    if sensor_identifier is not None:
+        # Persist revocation before Home Assistant finishes removing the device.
+        # Continuous BLE/ANT advertisements may arrive during deletion; they must
+        # only start a fresh discovery flow, never recreate an accepted device.
+        await runtime.async_forget_sensor(sensor_identifier.split(":", 1)[1])
+        return True
+
+    if any(value.startswith("usb_adapter:") for value in identifiers):
+        # The receiver remains physically discoverable. Do not immediately
+        # recreate it here; the next ANT receiver refresh/transmission does so.
+        return True
+
+    if any(value.startswith("live_adapter:") for value in identifiers):
+        # Logical adapters are derived from physical radio presence.
+        return True
+
+    return False

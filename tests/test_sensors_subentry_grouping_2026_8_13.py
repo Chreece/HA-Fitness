@@ -16,12 +16,12 @@ def test_sensors_use_real_config_subentry_not_fake_collection_device():
     assert 'new_config_subentry_id=subentry_id' in R
     assert 'config_subentry_id=subentry_id' in R
     assert '_remove_legacy_grouping_devices()' in R
-    assert 'config_subentry_id=runtime.sensors_subentry_id' in S
-    assert 'config_subentry_id=runtime.sensors_subentry_id' in B
+    assert 'runtime.ensure_sensors_subentry()' in S
+    assert 'runtime.ensure_sensors_subentry()' in B
     assert 'finalize_sensor_subentry_registry' not in R
 
 
 def test_adapters_use_real_adapters_subentry():
-    assert 'ADAPTERS_SUBENTRY_TYPE = "adapters"' in R
-    assert 'title="Adapters"' in R
-    assert '_migrate_adapter_devices_to_subentry()' in R
+    assert 'ANTPLUS_SUBENTRY_TYPE = "antplus_adapters"' in R
+    assert 'BLUETOOTH_SUBENTRY_TYPE = "bluetooth_adapters"' in R
+    assert '_migrate_adapter_devices_to_transport_subentries()' in R

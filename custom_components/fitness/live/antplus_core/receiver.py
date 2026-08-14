@@ -99,6 +99,15 @@ class AntPlusReceiver:
     def state(self) -> str:
         return self._state
 
+    def forget_device(self, device_id: int) -> None:
+        """Evict one confirmed ANT device so subsequent RF traffic is rediscovered."""
+        device_id = int(device_id)
+        with self._lock:
+            self.devices.pop(device_id, None)
+            for key in tuple(self._discovery_candidates):
+                if key[0] == device_id:
+                    self._discovery_candidates.pop(key, None)
+
     def add_device_callback(self, callback: DeviceCallback) -> Callable[[], None]:
         self._device_callbacks.append(callback)
         return lambda: self._remove_callback(self._device_callbacks, callback)

@@ -1349,7 +1349,23 @@ class FitnessSensor(SensorEntity):
                 "percent_predicted": e.get("vo2max_percent_predicted"),
                 "days_28d": recorder.get("vo2max_days_28d"),
                 "days_90d": recorder.get("vo2max_days_90d"),
-                "daily_series": recorder.get("vo2max_daily") or [],
+                # Recorder statistics rows contain many fields and can easily
+                # exceed HA's 16 KiB state-attribute limit. The dashboard needs
+                # only date/start + value, so expose a compact max-90-day series.
+                "daily_series": [
+                    {
+                        "start": item.get("start") or item.get("date"),
+                        "value": item.get("value")
+                        if item.get("value") is not None
+                        else item.get("mean"),
+                    }
+                    for item in (recorder.get("vo2max_daily") or [])[-90:]
+                    if isinstance(item, dict)
+                    and (
+                        item.get("value") is not None
+                        or item.get("mean") is not None
+                    )
+                ],
                 "minimum_days_28d": 21,
                 "minimum_days_90d": 60,
             },

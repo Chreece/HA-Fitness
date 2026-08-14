@@ -41,7 +41,9 @@ def test_sleep_history_requires_completed_night_coverage():
 
 
 def test_evaluation_exposes_auditable_history_series():
-    assert '"daily_series": recorder.get("vo2max_daily") or []' in SENSOR
+    assert '"daily_series": [' in SENSOR
+    assert '(recorder.get("vo2max_daily") or [])[-90:]' in SENSOR
+    assert '"start": item.get("start") or item.get("date")' in SENSOR
     assert '"minimum_days_28d": 21' in SENSOR
     assert '"minimum_days_90d": 60' in SENSOR
     assert 'class="history' in FRONTEND

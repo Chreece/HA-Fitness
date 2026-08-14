@@ -262,9 +262,13 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if sensor is None:
             return self.async_abort(reason="sensor_unavailable")
 
+        # Snapshot profile entries: accepting a sensor updates/reloads profile
+        # config entries, which mutates runtime.profile_entries asynchronously.
+        # Never iterate the live mapping while applying assignments.
+        profile_entries = list(runtime.profile_entries.values())
         profiles = [
             {"value": entry.entry_id, "label": entry.title}
-            for entry in runtime.profile_entries.values()
+            for entry in profile_entries
         ]
         if not profiles:
             return self.async_abort(reason="no_fitness_profiles")
@@ -289,8 +293,8 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     description_placeholders={"sensor": sensor.label()},
                 )
 
-            reload_ids = []
-            for entry in runtime.profile_entries.values():
+            pending_updates: list[tuple[str, dict]] = []
+            for entry in profile_entries:
                 ids = list(({**entry.data, **entry.options}.get(CONF_LIVE_SENSOR_IDS) or []))
                 if entry.entry_id in selected_profiles and sensor_id not in ids:
                     ids.append(sensor_id)
@@ -298,16 +302,30 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     ids.remove(sensor_id)
                 options = dict(entry.options)
                 options[CONF_LIVE_SENSOR_IDS] = ids
-                self.hass.config_entries.async_update_entry(entry, options=options)
-                reload_ids.append(entry.entry_id)
+                if options != dict(entry.options):
+                    pending_updates.append((entry.entry_id, options))
 
+            # Acceptance is committed in memory immediately so a racing radio packet
+            # cannot create another discovery flow. Everything that can reload config
+            # entries or mutate device/subentry registries is deferred until after this
+            # flow response has returned to the frontend.
             runtime.mark_sensor_accepted(sensor_id)
-            runtime.ensure_sensor_device(sensor_id)
 
-            async def _reload_profiles():
-                for entry_id in reload_ids:
-                    await self.hass.config_entries.async_reload(entry_id)
-            self.hass.async_create_task(_reload_profiles())
+            async def _finalize_assignment() -> None:
+                await asyncio.sleep(0)
+                for entry_id, options in pending_updates:
+                    entry = self.hass.config_entries.async_get_entry(entry_id)
+                    if entry is not None:
+                        runtime.suppress_entry_reload_once(entry.entry_id)
+                        self.hass.config_entries.async_update_entry(entry, options=options)
+                runtime.ensure_sensor_device(sensor_id)
+                runtime._notify_structure()
+
+            self.hass.async_create_background_task(
+                _finalize_assignment(),
+                f"fitness finalize live sensor assignment {sensor_id}",
+                eager_start=False,
+            )
             return self.async_abort(reason="live_sensor_assigned")
 
         return self.async_show_form(

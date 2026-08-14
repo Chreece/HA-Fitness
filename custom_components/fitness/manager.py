@@ -354,16 +354,30 @@ class FitnessManager:
         if self.hass.is_running:
             self.hass.async_create_task(self._async_post_start_setup())
         else:
+            started_unsub = None
+
             @callback
             def _home_assistant_started(_event: Event) -> None:
-                self.hass.async_create_task(self._async_post_start_setup())
-
-            self.remove_listeners.append(
-                self.hass.bus.async_listen_once(
-                    EVENT_HOMEASSISTANT_STARTED,
-                    _home_assistant_started,
+                # async_listen_once removes itself before invoking this callback.
+                # Drop our stored unsubscriber now so async_shutdown never tries
+                # to remove the already-consumed HA job a second time.
+                nonlocal started_unsub
+                if started_unsub is not None:
+                    try:
+                        self.remove_listeners.remove(started_unsub)
+                    except ValueError:
+                        pass
+                    started_unsub = None
+                self.hass.async_create_background_task(
+                    self._async_post_start_setup(),
+                    "fitness post-start setup",
                 )
+
+            started_unsub = self.hass.bus.async_listen_once(
+                EVENT_HOMEASSISTANT_STARTED,
+                _home_assistant_started,
             )
+            self.remove_listeners.append(started_unsub)
 
     async def _async_post_start_setup(self) -> None:
         """Initialize provider mappings only after HA bootstrap has completed."""

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Any
@@ -85,6 +86,12 @@ class AntPlusFitnessProvider:
         self._metric_unsub = None
         self._host_entry = None
         self._capture_requested = False
+        self._publish_lock = threading.Lock()
+        self._pending_publish: dict[int, Any] = {}
+        self._publish_scheduled: set[int] = set()
+        self._pending_structural: set[int] = set()
+        self._device_sensor_ids: dict[int, str] = {}
+        self._device_accepted: dict[int, bool] = {}
 
     async def async_setup(self) -> None:
         """Start ANT+ adapter/gateway discovery even without local hardware."""
@@ -95,10 +102,10 @@ class AntPlusFitnessProvider:
             self.receiver = AntPlusReceiver()
             self.receiver.diagnostics.start_watchdog()
             self._device_unsub = self.receiver.add_device_callback(
-                self._schedule_publish_device
+                lambda device: self._schedule_publish_device(device, structural=True)
             )
             self._metric_unsub = self.receiver.add_metric_callback(
-                lambda device, _key: self._schedule_publish_device(device)
+                lambda device, _key: self._schedule_publish_device(device, structural=False)
             )
             await self._async_create_adapter_manager(self.runtime.hub_entry)
             self.last_error = None
@@ -160,11 +167,84 @@ class AntPlusFitnessProvider:
         self._capture_requested = capture_requested
         await self._async_create_adapter_manager(entry)
 
-    def _schedule_publish_device(self, device) -> None:
-        """Receiver callbacks may originate on OpenANT/remote worker threads."""
-        self.hass.loop.call_soon_threadsafe(self._publish_device, device)
+    def _schedule_publish_device(self, device, *, structural: bool) -> None:
+        """Bridge ANT worker callbacks into one bounded per-device HA mailbox.
 
-    def _publish_device(self, device) -> None:
+        The ANT worker may emit several metric callbacks for one packet and several
+        profiles for one physical device. Only the newest device snapshot is kept.
+        Accepted sensors are drained at most 4 times/s; known unaccepted sensors do
+        not schedule metric work on Home Assistant's event loop at all.
+        """
+        try:
+            device_id = int(getattr(device, "device_id"))
+        except (TypeError, ValueError, AttributeError):
+            return
+
+        with self._publish_lock:
+            if not structural:
+                sensor_id = self._device_sensor_ids.get(device_id)
+                if sensor_id is not None and not self._device_accepted.get(device_id, False):
+                    return
+            else:
+                self._pending_structural.add(device_id)
+
+            self._pending_publish[device_id] = device
+            if device_id in self._publish_scheduled:
+                return
+            self._publish_scheduled.add(device_id)
+
+        self.hass.loop.call_soon_threadsafe(self._flush_publish_device, device_id)
+
+    def _flush_publish_device(self, device_id: int) -> None:
+        """Drain one device mailbox and keep the gate closed for 250 ms."""
+        with self._publish_lock:
+            device = self._pending_publish.pop(device_id, None)
+            structural = device_id in self._pending_structural
+            self._pending_structural.discard(device_id)
+
+        if device is not None:
+            sensor_id = self._device_sensor_ids.get(device_id)
+            if structural or sensor_id is None:
+                self._publish_device(device)
+            elif self._device_accepted.get(device_id, False):
+                self._publish_metric_values(device, sensor_id)
+
+        # Keep `_publish_scheduled` set during the cooldown. Worker callbacks only
+        # replace `_pending_publish`; they do not create more thread-safe HA jobs.
+        self.hass.loop.call_later(0.25, self._finish_publish_window, device_id)
+
+    def _finish_publish_window(self, device_id: int) -> None:
+        with self._publish_lock:
+            if device_id in self._pending_publish:
+                # New data arrived during the cooldown; keep the gate closed and
+                # drain the newest snapshot now.
+                pass
+            else:
+                self._publish_scheduled.discard(device_id)
+                return
+        self._flush_publish_device(device_id)
+
+    def sensor_acceptance_changed(self, sensor_id: str, accepted: bool) -> None:
+        """Update the worker-side fast-path cache after assignment/deletion."""
+        with self._publish_lock:
+            for device_id, mapped_sensor_id in tuple(self._device_sensor_ids.items()):
+                if mapped_sensor_id == sensor_id:
+                    self._device_accepted[device_id] = bool(accepted)
+
+    def forget_device(self, device_id: int) -> None:
+        """Forget receiver-side ANT identity so the next RF packets rediscover it."""
+        device_id = int(device_id)
+        if self.receiver is not None:
+            self.receiver.forget_device(device_id)
+        with self._publish_lock:
+            self._pending_publish.pop(device_id, None)
+            self._publish_scheduled.discard(device_id)
+            self._pending_structural.discard(device_id)
+            self._device_sensor_ids.pop(device_id, None)
+            self._device_accepted.pop(device_id, None)
+
+    def _metric_values(self, device) -> tuple[set[str], dict[str, float]]:
+        """Return canonical Fitness capabilities and current values."""
         caps: set[str] = set()
         values: dict[str, float] = {}
         for key, metric in getattr(device, "metrics", {}).items():
@@ -186,7 +266,16 @@ class AntPlusFitnessProvider:
             elif canonical == METRIC_ALTITUDE and unit in {"ft", "feet", "foot"}:
                 value *= 0.3048
             values[canonical] = value
+        return caps, values
 
+    def _publish_metric_values(self, device, sensor_id: str) -> None:
+        """Fast metric-only path for an already registered accepted sensor."""
+        _caps, values = self._metric_values(device)
+        if values:
+            self.runtime.publish(sensor_id, values, transport=self.transport)
+
+    def _publish_device(self, device) -> None:
+        caps, values = self._metric_values(device)
         if not caps:
             return
 
@@ -217,7 +306,11 @@ class AntPlusFitnessProvider:
                 "serial_no": getattr(device, "serial_no", None),
             },
         )
-        if values:
+        accepted = self.runtime.sensor_is_accepted(sensor.sensor_id)
+        with self._publish_lock:
+            self._device_sensor_ids[device_id] = sensor.sensor_id
+            self._device_accepted[device_id] = accepted
+        if accepted and values:
             self.runtime.publish(sensor.sensor_id, values, transport=self.transport)
 
     def _has_available_receiver(self) -> bool:
