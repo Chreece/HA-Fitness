@@ -149,6 +149,49 @@ def _candidate_rank(record: SleepRecord, field_name: str) -> tuple[int, int, int
     return (explicit_timing, stage_detail, _richness(record), record.provider_domain)
 
 
+
+def _clamp_score(value: float) -> float:
+    return max(0.0, min(100.0, float(value)))
+
+
+def fitness_derived_sleep_score(record: SleepRecord) -> float | None:
+    """Return a conservative Fitness-derived sleep score when providers omit one.
+
+    This is a transparent wellness heuristic, not a clinical sleep-quality
+    assessment. It requires actual sleep duration plus Light/Deep/REM stages.
+    Provider-native scores always take precedence.
+    """
+    if record.score is not None or record.duration_s is None:
+        return None
+    stages = (record.light_sleep_s, record.deep_sleep_s, record.rem_sleep_s)
+    if any(value is None for value in stages):
+        return None
+    classified = sum(float(value or 0.0) for value in stages)
+    if classified <= 0:
+        return None
+
+    hours = float(record.duration_s) / 3600.0
+    # Broad 8-hour-centered duration component. This intentionally does not
+    # claim individual medical sleep requirements.
+    duration_score = _clamp_score(100.0 - abs(hours - 8.0) * 20.0)
+
+    deep_pct = float(record.deep_sleep_s or 0.0) / classified * 100.0
+    rem_pct = float(record.rem_sleep_s or 0.0) / classified * 100.0
+    deep_score = _clamp_score(100.0 - abs(deep_pct - 20.0) * 4.0)
+    rem_score = _clamp_score(100.0 - abs(rem_pct - 25.0) * 4.0)
+    stage_score = (deep_score + rem_score) / 2.0
+
+    bed_seconds = record.time_in_bed_s
+    if bed_seconds is None and record.awake_s is not None:
+        bed_seconds = float(record.duration_s) + float(record.awake_s)
+    if bed_seconds is not None and float(bed_seconds) > 0:
+        efficiency = float(record.duration_s) / float(bed_seconds) * 100.0
+        efficiency_score = _clamp_score((efficiency - 65.0) / 25.0 * 100.0)
+        score = 0.55 * duration_score + 0.25 * efficiency_score + 0.20 * stage_score
+    else:
+        score = 0.70 * duration_score + 0.30 * stage_score
+    return round(_clamp_score(score), 1)
+
 def merge_sleep_records(group: list[SleepRecord]) -> SleepRecord:
     """Merge representations of one sleep period, retaining full provenance."""
     if not group:
@@ -252,6 +295,18 @@ def merge_sleep_records(group: list[SleepRecord]) -> SleepRecord:
             merged.provider_values.setdefault(record.provider_domain, {})[
                 f"normalized_{field_name}"
             ] = candidate_value
+
+    if merged.score is None:
+        calculated_score = fitness_derived_sleep_score(merged)
+        if calculated_score is not None:
+            merged.score = calculated_score
+            merged.field_sources["score"] = "fitness_calculated"
+            merged.provider_values.setdefault("fitness", {})["derived_sleep_score"] = calculated_score
+            merged.provider_values["fitness"]["derived_sleep_score_method"] = (
+                "duration_55_efficiency_25_stages_20"
+                if (merged.time_in_bed_s is not None or merged.awake_s is not None)
+                else "duration_70_stages_30"
+            )
 
     if len(merged.provider_domains) > 1:
         merged.provider_domain = "merged"

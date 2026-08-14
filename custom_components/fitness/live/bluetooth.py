@@ -1,6 +1,7 @@
 """Bluetooth SIG fitness-sensor transport for Fitness."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -37,6 +38,18 @@ CHAR_FTMS_TREADMILL = BASE.format("2acd")
 CHAR_FTMS_CROSS_TRAINER = BASE.format("2ace")
 CHAR_FTMS_ROWER = BASE.format("2ad1")
 CHAR_FTMS_INDOOR_BIKE = BASE.format("2ad2")
+CHAR_FTMS_CONTROL_POINT = BASE.format("2ad9")
+CHAR_FTMS_FEATURE = BASE.format("2acc")
+
+# Bluetooth Device Information Service (DIS) characteristics.
+CHAR_SYSTEM_ID = BASE.format("2a23")
+CHAR_MODEL_NUMBER = BASE.format("2a24")
+CHAR_SERIAL_NUMBER = BASE.format("2a25")
+CHAR_FIRMWARE_REVISION = BASE.format("2a26")
+CHAR_HARDWARE_REVISION = BASE.format("2a27")
+CHAR_SOFTWARE_REVISION = BASE.format("2a28")
+CHAR_MANUFACTURER_NAME = BASE.format("2a29")
+CHAR_PNP_ID = BASE.format("2a50")
 
 SERVICE_CAPABILITIES = {
     SERVICE_HR: {METRIC_HEART_RATE},
@@ -54,6 +67,7 @@ SERVICE_CAPABILITIES = {
 
 BATTERY_SERVICE = BASE.format("180f")
 STRYD_MANUFACTURER_ID = 43690
+RAW_DIAGNOSTIC_MIN_INTERVAL = 10.0
 
 
 def _passive_advertisement_values(info) -> tuple[dict[str, float], dict[str, dict]]:
@@ -111,11 +125,16 @@ class BluetoothFitnessProvider:
         self.capture_active = False
         self.available = False
         self.last_error: str | None = None
-        self._unsub = None
+        self._unsubs: list[object] = []
+        self._last_discovery_fingerprint: dict[str, tuple[tuple[object, ...], float]] = {}
         self._clients: dict[str, BleakClient] = {}
+        self._connect_locks: dict[str, asyncio.Lock] = {}
         self._profile_clients: dict[str, set[str]] = {}
         self._sensor_users: dict[str, set[str]] = {}
         self._revolution_state: dict[str, _RevolutionState] = {}
+        self._raw_diag_last_publish: dict[str, float] = {}
+        self._raw_diag_last_value: dict[str, tuple[str, str, str]] = {}
+        self._stable_diag_last_value: dict[str, tuple[tuple[str, object], ...]] = {}
 
     async def async_setup(self) -> None:
         """Register one HA Bluetooth discovery callback; no private scanner."""
@@ -126,12 +145,21 @@ class BluetoothFitnessProvider:
             self.last_error = "Home Assistant Bluetooth could not be initialized"
             return
 
-        self._unsub = bluetooth.async_register_callback(
-            self.hass,
-            self._async_discovered,
-            BluetoothCallbackMatcher(connectable=False),
-            BluetoothScanningMode.PASSIVE,
-        )
+        # Let Home Assistant's Bluetooth manager discard unrelated devices before
+        # our callback runs. One registration per standard fitness service gives
+        # us OR semantics without receiving every changing BLE advertisement in
+        # the installation. `_async_discovered` deduplicates multi-service hits.
+        for service_uuid in SERVICE_CAPABILITIES:
+            self._unsubs.append(
+                bluetooth.async_register_callback(
+                    self.hass,
+                    self._async_discovered,
+                    BluetoothCallbackMatcher(
+                        service_uuid=service_uuid, connectable=False
+                    ),
+                    BluetoothScanningMode.PASSIVE,
+                )
+            )
         self._refresh_available()
         self.runtime.set_adapter_presence("bluetooth", self.available)
 
@@ -155,6 +183,27 @@ class BluetoothFitnessProvider:
             self.available = False
 
     def _async_discovered(self, info, _change) -> None:
+        # A device advertising several fitness services can match more than one
+        # registered service callback for the same physical advertisement. Drop
+        # only those immediate duplicate callback deliveries; payload changes are
+        # retained because manufacturer/service bytes participate in the fingerprint.
+        manufacturer_data = getattr(info, "manufacturer_data", {}) or {}
+        service_data = getattr(info, "service_data", {}) or {}
+        fingerprint = (
+            str(info.address).upper(),
+            str(getattr(info, "source", None) or ""),
+            str(info.name or ""),
+            getattr(info, "rssi", None),
+            tuple(sorted(str(x).lower() for x in (info.service_uuids or []))),
+            tuple(sorted((int(key), bytes(value)) for key, value in manufacturer_data.items())),
+            tuple(sorted((str(key).lower(), bytes(value)) for key, value in service_data.items())),
+        )
+        now_mono = self.hass.loop.time()
+        previous = self._last_discovery_fingerprint.get(str(info.address).upper())
+        if previous is not None and previous[0] == fingerprint and now_mono - previous[1] < 0.05:
+            return
+        self._last_discovery_fingerprint[str(info.address).upper()] = (fingerprint, now_mono)
+
         uuids = {str(x).lower() for x in (info.service_uuids or [])}
         capabilities: set[str] = set()
         for service, caps in SERVICE_CAPABILITIES.items():
@@ -164,6 +213,9 @@ class BluetoothFitnessProvider:
             return
 
         endpoint_id = f"bluetooth:{info.address.upper()}"
+        # Only stable identity/capability facts belong to endpoint metadata.
+        # Raw advertisement payloads are volatile telemetry and must never make
+        # an advertisement look like a topology/device-identity change.
         sensor = self.runtime.register_transport_sensor(
             transport=self.transport,
             endpoint_id=endpoint_id,
@@ -177,15 +229,67 @@ class BluetoothFitnessProvider:
             metadata={
                 "advertised_name": info.name,
                 "service_uuids": sorted(uuids),
+                "connectable": bool(getattr(info, "connectable", False)),
+                "manufacturer_data_ids": sorted(int(x) for x in manufacturer_data),
             },
         )
+        endpoint = sensor.endpoints.get(self.transport)
+        endpoint_meta = dict(endpoint.metadata) if endpoint is not None else {}
+        stable_details = {
+            "bluetooth_address": info.address,
+            "bluetooth_advertised_name": endpoint_meta.get("advertised_name") or info.name or "",
+            "bluetooth_services": ", ".join(endpoint_meta.get("service_uuids") or sorted(uuids)),
+            "bluetooth_connectable": bool(endpoint_meta.get("connectable", False)),
+            "bluetooth_manufacturer_data_ids": ", ".join(
+                str(int(x)) for x in (endpoint_meta.get("manufacturer_data_ids") or sorted(manufacturer_data))
+            ),
+        }
+        detail_meta = {
+            "bluetooth_address": {"name": "Bluetooth address", "icon": "mdi:bluetooth", "enabled_default": False, "entity_category": "diagnostic"},
+            "bluetooth_advertised_name": {"name": "Bluetooth advertised name", "icon": "mdi:form-textbox", "enabled_default": False, "entity_category": "diagnostic"},
+            "bluetooth_services": {"name": "Bluetooth services", "icon": "mdi:bluetooth-settings", "enabled_default": False, "entity_category": "diagnostic"},
+            "bluetooth_connectable": {"name": "Bluetooth connectable", "icon": "mdi:bluetooth-connect", "enabled_default": False, "entity_category": "diagnostic"},
+            "bluetooth_source": {"name": "Bluetooth source", "icon": "mdi:access-point", "enabled_default": False, "entity_category": "diagnostic"},
+            "bluetooth_manufacturer_data_ids": {"name": "Bluetooth manufacturer data IDs", "icon": "mdi:identifier", "enabled_default": False, "entity_category": "diagnostic"},
+            "bluetooth_manufacturer_data": {"name": "Bluetooth manufacturer data", "icon": "mdi:code-json", "enabled_default": False, "entity_category": "diagnostic"},
+            "bluetooth_service_data": {"name": "Bluetooth service data", "icon": "mdi:code-json", "enabled_default": False, "entity_category": "diagnostic"},
+        }
+        stable_signature = tuple(sorted(stable_details.items()))
+        if self._stable_diag_last_value.get(endpoint_id) != stable_signature:
+            self._stable_diag_last_value[endpoint_id] = stable_signature
+            self.runtime.publish_details(
+                sensor.sensor_id, stable_details, transport="bluetooth_advertisement",
+                priority=5, metadata=detail_meta,
+            )
+
+        # Keep raw advertisement blobs available for diagnostics, but inspect and
+        # serialize them only on a slow clock. This avoids hex/string construction
+        # at advertisement frequency even when the diagnostic entities are disabled.
+        last_raw_check = self._raw_diag_last_publish.get(
+            endpoint_id, -RAW_DIAGNOSTIC_MIN_INTERVAL
+        )
+        if now_mono - last_raw_check >= RAW_DIAGNOSTIC_MIN_INTERVAL:
+            self._raw_diag_last_publish[endpoint_id] = now_mono
+            raw_manufacturer = str({int(key): bytes(value).hex() for key, value in manufacturer_data.items()})
+            raw_service = str({str(key).lower(): bytes(value).hex() for key, value in service_data.items()})
+            bluetooth_source = str(getattr(info, "source", None) or "")
+            raw_pair = (raw_manufacturer, raw_service, bluetooth_source)
+            if self._raw_diag_last_value.get(endpoint_id) != raw_pair:
+                self._raw_diag_last_value[endpoint_id] = raw_pair
+                self.runtime.publish_details(
+                    sensor.sensor_id,
+                    {
+                        "bluetooth_manufacturer_data": raw_manufacturer,
+                        "bluetooth_service_data": raw_service,
+                        "bluetooth_source": bluetooth_source,
+                    },
+                    transport="bluetooth_advertisement", priority=5, metadata=detail_meta,
+                )
         passive, passive_meta = _passive_advertisement_values(info)
         if passive:
             self.runtime.publish_passive(
                 sensor.sensor_id, passive, transport=self.transport, metadata=passive_meta
             )
-        self._refresh_available()
-        self.runtime.set_adapter_presence("bluetooth", self.available)
 
     async def async_start_capture(self) -> None:
         # BLE advertisements remain passive. Active GATT is opened only for
@@ -199,59 +303,128 @@ class BluetoothFitnessProvider:
             await self.async_disconnect_profile(profile_id, keep_heart_rate=False)
         self.capture_active = False
 
+    def can_connect_sensor(self, sensor: LiveSensor) -> bool:
+        endpoint = sensor.endpoints.get(self.transport)
+        if endpoint is None or not endpoint.address:
+            return False
+        # Cached advertisements may not expose a `connectable` attribute on every
+        # HA version/proxy. A connectable BLEDevice is the authoritative answer.
+        try:
+            return bluetooth.async_ble_device_from_address(
+                self.hass, endpoint.address, connectable=True
+            ) is not None
+        except Exception:
+            return bool(endpoint.metadata.get("connectable", False))
+
+    def sensor_connected(self, sensor_id: str) -> bool:
+        client = self._clients.get(str(sensor_id))
+        return bool(client is not None and client.is_connected)
+
+    def sensor_users(self, sensor_id: str) -> set[str]:
+        sensor_id = self.runtime.resolve_sensor_id(sensor_id)
+        return set(self._sensor_users.get(sensor_id, set()))
+
+    def sensor_has_automatic_users(self, sensor_id: str) -> bool:
+        return any(not str(owner).startswith("manual:") for owner in self.sensor_users(sensor_id))
+
+    def _connect_lock(self, sensor_id: str) -> asyncio.Lock:
+        sensor_id = self.runtime.resolve_sensor_id(sensor_id)
+        return self._connect_locks.setdefault(sensor_id, asyncio.Lock())
+
     async def async_connect_profile(
         self, profile_id: str, sensors: list[LiveSensor]
     ) -> None:
         if not self.capture_active:
             return
 
-        for sensor in sensors:
-            endpoint = sensor.endpoints.get(self.transport)
-            if endpoint is None or not endpoint.address:
-                continue
+        for requested_sensor in sensors:
+            sensor_id = self.runtime.resolve_sensor_id(requested_sensor.sensor_id)
+            lock = self._connect_lock(sensor_id)
+            async with lock:
+                # Re-resolve and re-check after acquiring the lock: another profile
+                # may have completed the shared GATT connection while we waited.
+                sensor_id = self.runtime.resolve_sensor_id(sensor_id)
+                sensor = self.runtime.sensors.get(sensor_id, requested_sensor)
+                endpoint = sensor.endpoints.get(self.transport)
+                if endpoint is None or not endpoint.address:
+                    continue
 
-            existing = self._clients.get(sensor.sensor_id)
-            if existing is not None and existing.is_connected:
-                self._profile_clients.setdefault(profile_id, set()).add(sensor.sensor_id)
-                self._sensor_users.setdefault(sensor.sensor_id, set()).add(profile_id)
-                continue
+                existing = self._clients.get(sensor_id)
+                if existing is not None and existing.is_connected:
+                    self._profile_clients.setdefault(profile_id, set()).add(sensor_id)
+                    self._sensor_users.setdefault(sensor_id, set()).add(profile_id)
+                    continue
 
-            # HA resolves the best connectable path. The BLEDevice can therefore
-            # point at local Bluetooth or a compatible remote Bluetooth proxy.
-            ble_device = bluetooth.async_ble_device_from_address(
-                self.hass, endpoint.address, connectable=True
-            )
-            if ble_device is None:
-                continue
-
-            try:
-                client = await establish_connection(
-                    BleakClient,
-                    device=ble_device,
-                    name=sensor.name or endpoint.address,
-                    max_attempts=4,
+                # HA resolves the best connectable path. The BLEDevice can therefore
+                # point at local Bluetooth or a compatible remote Bluetooth proxy.
+                ble_device = bluetooth.async_ble_device_from_address(
+                    self.hass, endpoint.address, connectable=True
                 )
-                self._clients[sensor.sensor_id] = client
-                self._profile_clients.setdefault(profile_id, set()).add(sensor.sensor_id)
-                self._sensor_users.setdefault(sensor.sensor_id, set()).add(profile_id)
-                sensor = await self._async_enrich_identity(sensor, endpoint, client)
-                await self._subscribe(sensor, client)
-            except Exception as err:
-                self.last_error = f"{sensor.name}: {err}"
-                _LOGGER.debug(
-                    "Bluetooth fitness connect failed for %s: %s",
-                    sensor.sensor_id,
-                    err,
-                )
+                if ble_device is None:
+                    continue
+
+                client = None
+                try:
+                    client = await establish_connection(
+                        BleakClient,
+                        device=ble_device,
+                        name=sensor.name or endpoint.address,
+                        max_attempts=4,
+                    )
+                    # Publish ownership only after the connection is established.
+                    # This prevents a failed/racing connect from leaving phantom users.
+                    self._clients[sensor_id] = client
+                    self._profile_clients.setdefault(profile_id, set()).add(sensor_id)
+                    self._sensor_users.setdefault(sensor_id, set()).add(profile_id)
+                    sensor = await self._async_enrich_identity(sensor, endpoint, client)
+                    new_id = self.runtime.resolve_sensor_id(sensor.sensor_id)
+                    if new_id != sensor_id:
+                        # Identity enrichment can merge the provisional BLE sensor into
+                        # an existing ANT+ physical sensor. Keep both IDs serialized by
+                        # the same lock so a second owner cannot race the hand-over.
+                        self._connect_locks.setdefault(new_id, lock)
+                        sensor_id = new_id
+                    await self._subscribe(sensor, client)
+                    self.runtime._notify_values_throttled({
+                        (sensor.sensor_id, "gatt_connection", None)
+                    })
+                except Exception as err:
+                    self.last_error = f"{sensor.name}: {err}"
+                    _LOGGER.debug(
+                        "Bluetooth fitness connect failed for %s: %s",
+                        sensor.sensor_id,
+                        err,
+                    )
+                    # If failure happened after the client was registered, clean the
+                    # partial ownership/connection before another profile retries.
+                    current_id = self.runtime.resolve_sensor_id(sensor.sensor_id)
+                    self._profile_clients.get(profile_id, set()).discard(current_id)
+                    users = self._sensor_users.get(current_id)
+                    if users is not None:
+                        users.discard(profile_id)
+                        if not users:
+                            self._sensor_users.pop(current_id, None)
+                    if client is not None and self._clients.get(current_id) is client:
+                        self._clients.pop(current_id, None)
+                        try:
+                            await client.disconnect()
+                        except Exception:
+                            pass
 
     async def _async_enrich_identity(self, sensor: LiveSensor, endpoint, client: BleakClient) -> LiveSensor:
-        """Read standard Device Information when available and refine identity."""
+        """Read standard DIS/GATT metadata and refine the canonical identity."""
         metadata = dict(endpoint.metadata)
-        for uuid, key in (
-            (BASE.format("2a29"), "manufacturer"),
-            (BASE.format("2a24"), "model"),
-            (BASE.format("2a25"), "serial_number"),
-        ):
+        details: dict[str, object] = {}
+        detail_meta: dict[str, dict] = {}
+        char_map = (
+            (CHAR_MANUFACTURER_NAME, "manufacturer", "Manufacturer"),
+            (CHAR_MODEL_NUMBER, "model", "Model"),
+            (CHAR_SERIAL_NUMBER, "serial_number", "Serial number"),
+            (CHAR_HARDWARE_REVISION, "hardware_revision", "Hardware revision"),
+            (CHAR_SOFTWARE_REVISION, "software_revision", "Software revision"),
+            (CHAR_FIRMWARE_REVISION, "firmware_revision", "Firmware revision"),
+        )
+        for uuid, key, label in char_map:
             try:
                 raw = await client.read_gatt_char(uuid)
                 value = bytes(raw).decode("utf-8", errors="ignore").strip("\x00 ")
@@ -259,35 +432,129 @@ class BluetoothFitnessProvider:
                 continue
             if value:
                 metadata[key] = value
+                details[key] = value
+                detail_meta[key] = {
+                    "name": label, "icon": "mdi:information-outline",
+                    "enabled_default": False, "entity_category": "diagnostic",
+                }
+        for uuid, key, label in (
+            (CHAR_SYSTEM_ID, "bluetooth_system_id", "Bluetooth system ID"),
+            (CHAR_PNP_ID, "bluetooth_pnp_id", "Bluetooth PnP ID"),
+        ):
+            try:
+                raw = bytes(await client.read_gatt_char(uuid))
+            except Exception:
+                continue
+            if not raw:
+                continue
+            details[key] = raw.hex()
+            metadata[key] = raw.hex()
+            detail_meta[key] = {
+                "name": label, "icon": "mdi:identifier",
+                "enabled_default": False, "entity_category": "diagnostic",
+            }
+            # Bluetooth SIG Device Information PnP ID is a stable 7-byte tuple:
+            # vendor-ID source, vendor ID, product ID and product version. Keep
+            # every field separately and use the product ID as HA model_id when
+            # the device did not provide a stronger model identifier.
+            if uuid == CHAR_PNP_ID and len(raw) >= 7:
+                vendor_source = raw[0]
+                vendor_id = int.from_bytes(raw[1:3], "little")
+                product_id = int.from_bytes(raw[3:5], "little")
+                product_version = int.from_bytes(raw[5:7], "little")
+                pnp_values = {
+                    "bluetooth_vendor_id_source": vendor_source,
+                    "bluetooth_vendor_id": vendor_id,
+                    "bluetooth_product_id": product_id,
+                    "bluetooth_product_version": product_version,
+                }
+                details.update(pnp_values)
+                metadata.update(pnp_values)
+                metadata.setdefault("model_id", f"0x{product_id:04X}")
+                for pnp_key in pnp_values:
+                    detail_meta[pnp_key] = {
+                        "name": pnp_key.replace("bluetooth_", "Bluetooth ").replace("_", " ").title(),
+                        "icon": "mdi:identifier", "enabled_default": False,
+                        "entity_category": "diagnostic",
+                    }
+
+        metadata["identity_source"] = "gatt_device_information"
+        # Record actual discovered GATT surface after connection. This is useful
+        # diagnostics and the basis for safe future control entities.
+        try:
+            service_uuids = sorted(str(service.uuid).lower() for service in client.services)
+            characteristic_properties = {
+                str(char.uuid).lower(): sorted(str(prop).lower() for prop in (getattr(char, "properties", []) or []))
+                for service in client.services
+                for char in service.characteristics
+            }
+            characteristic_uuids = sorted(characteristic_properties)
+        except Exception:
+            service_uuids, characteristic_uuids, characteristic_properties = [], [], {}
+        if service_uuids:
+            metadata["gatt_services"] = service_uuids
+            details["bluetooth_gatt_services"] = ", ".join(service_uuids)
+            detail_meta["bluetooth_gatt_services"] = {
+                "name": "Bluetooth GATT services", "icon": "mdi:bluetooth-settings",
+                "enabled_default": False, "entity_category": "diagnostic",
+            }
+        if characteristic_uuids:
+            metadata["gatt_characteristics"] = characteristic_uuids
+            details["bluetooth_gatt_characteristics"] = ", ".join(characteristic_uuids)
+            detail_meta["bluetooth_gatt_characteristics"] = {
+                "name": "Bluetooth GATT characteristics", "icon": "mdi:format-list-bulleted",
+                "enabled_default": False, "entity_category": "diagnostic",
+            }
+        if characteristic_properties:
+            metadata["gatt_characteristic_properties"] = characteristic_properties
+            details["bluetooth_gatt_characteristic_properties"] = str(characteristic_properties)
+            detail_meta["bluetooth_gatt_characteristic_properties"] = {
+                "name": "Bluetooth GATT characteristic properties",
+                "icon": "mdi:format-list-checks", "enabled_default": False,
+                "entity_category": "diagnostic",
+            }
+        control_props = set(characteristic_properties.get(CHAR_FTMS_CONTROL_POINT, []))
+        control_writable = bool(control_props & {"write", "write-without-response"})
+        control_reports = bool(control_props & {"indicate", "notify"})
+        if CHAR_FTMS_CONTROL_POINT in characteristic_uuids and control_writable and control_reports:
+            metadata.setdefault("protocol_controls", {})["bluetooth"] = ["ftms_control_point"]
+            details["bluetooth_supported_controls"] = "ftms_control_point"
+            detail_meta["bluetooth_supported_controls"] = {
+                "name": "Bluetooth supported controls",
+                "icon": "mdi:gamepad-variant-outline",
+                "enabled_default": False,
+                "entity_category": "diagnostic",
+            }
         refined_name = metadata.get("model") or sensor.name
         merged = self.runtime.register_transport_sensor(
-            transport=self.transport,
-            endpoint_id=endpoint.endpoint_id,
-            name=str(refined_name),
-            capabilities=set(endpoint.capabilities),
-            address=endpoint.address,
-            source=endpoint.source,
-            last_seen=datetime.now(timezone.utc),
-            rssi=endpoint.rssi,
-            available=True,
-            metadata=metadata,
+            transport=self.transport, endpoint_id=endpoint.endpoint_id,
+            name=str(refined_name), capabilities=set(endpoint.capabilities),
+            address=endpoint.address, source=endpoint.source,
+            last_seen=datetime.now(timezone.utc), rssi=endpoint.rssi,
+            available=True, metadata=metadata,
         )
-        # Strong identity information may merge this endpoint into an already
-        # known ANT+ physical device. Continue using the canonical object.
+        if details:
+            self.runtime.publish_details(
+                merged.sensor_id, details, transport="bluetooth_gatt",
+                metadata=detail_meta, priority=80,
+            )
+        self.runtime.ensure_sensor_device(merged.sensor_id)
         if merged.sensor_id != sensor.sensor_id:
             old_id = sensor.sensor_id
             new_id = merged.sensor_id
             self._clients[new_id] = self._clients.pop(old_id, client)
             for profile_id, ids in self._profile_clients.items():
                 if old_id in ids:
-                    ids.discard(old_id)
-                    ids.add(new_id)
+                    ids.discard(old_id); ids.add(new_id)
             users = self._sensor_users.pop(old_id, set())
             if users:
                 self._sensor_users.setdefault(new_id, set()).update(users)
             state = self._revolution_state.pop(old_id, None)
             if state is not None:
                 self._revolution_state[new_id] = state
+            old_lock = self._connect_locks.get(old_id)
+            if old_lock is not None:
+                self._connect_locks.setdefault(new_id, old_lock)
         return merged
 
     async def _subscribe(self, sensor: LiveSensor, client: BleakClient) -> None:
@@ -327,6 +594,30 @@ class BluetoothFitnessProvider:
         # fields whose byte layout is unambiguous across the FTMS profile.
         await start(CHAR_FTMS_TREADMILL, _parse_ftms_treadmill)
 
+    async def async_disconnect_sensor(self, profile_id: str, sensor_id: str) -> None:
+        sensor_id = self.runtime.resolve_sensor_id(sensor_id)
+        lock = self._connect_lock(sensor_id)
+        async with lock:
+            # A connect/enrichment that completed while we waited may have merged
+            # the sensor ID, so resolve it again under the same serialization point.
+            sensor_id = self.runtime.resolve_sensor_id(sensor_id)
+            self._profile_clients.get(profile_id, set()).discard(sensor_id)
+            users = self._sensor_users.setdefault(sensor_id, set())
+            users.discard(profile_id)
+            if users:
+                return
+            self._sensor_users.pop(sensor_id, None)
+            self._revolution_state.pop(sensor_id, None)
+            client = self._clients.pop(sensor_id, None)
+            if client is not None:
+                try:
+                    await client.disconnect()
+                except Exception:
+                    pass
+            self.runtime._notify_values_throttled({
+                (sensor_id, "gatt_connection", None)
+            })
+
     async def async_disconnect_profile(
         self, profile_id: str, *, keep_heart_rate: bool = False
     ) -> None:
@@ -336,20 +627,7 @@ class BluetoothFitnessProvider:
             if keep_heart_rate and sensor and METRIC_HEART_RATE in sensor.capabilities:
                 continue
 
-            self._profile_clients.get(profile_id, set()).discard(sensor_id)
-            users = self._sensor_users.setdefault(sensor_id, set())
-            users.discard(profile_id)
-            if users:
-                continue
-
-            self._sensor_users.pop(sensor_id, None)
-            self._revolution_state.pop(sensor_id, None)
-            client = self._clients.pop(sensor_id, None)
-            if client is not None:
-                try:
-                    await client.disconnect()
-                except Exception:
-                    pass
+            await self.async_disconnect_sensor(profile_id, sensor_id)
 
         if not self._profile_clients.get(profile_id):
             self._profile_clients.pop(profile_id, None)
@@ -384,10 +662,15 @@ class BluetoothFitnessProvider:
         ]
 
     async def async_shutdown(self) -> None:
-        if self._unsub:
-            self._unsub()
-            self._unsub = None
+        for unsub in tuple(self._unsubs):
+            try:
+                unsub()
+            except Exception:
+                pass
+        self._unsubs.clear()
+        self._last_discovery_fingerprint.clear()
         await self.async_stop_capture()
+        self._connect_locks.clear()
         self.available = False
         self.hass.async_create_task(self.runtime.async_refresh_adapter_presence())
         self.runtime.notify_changed()

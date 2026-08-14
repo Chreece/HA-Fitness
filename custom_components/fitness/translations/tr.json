@@ -71,11 +71,13 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data",
-          "detailed_strength_analysis": "Ayrıntılı kuvvet analizi"
+          "detailed_strength_analysis": "Ayrıntılı kuvvet analizi",
+          "workout_retention_days": "Antrenman saklama"
         },
         "data_description": {
           "workout_device_ids": "Geçmiş cihazları. Yalnızca tam desteklenen Garmin, Strava, Polar, Hevy, Peloton ve Oura sözleşmeleri önceden seçilir.",
-          "detailed_strength_analysis": "Kuvvet verileri varsa egzersiz/set ayrıntıları, tahmini 1RM ve egzersiz bazlı ilerlemeyi analiz et."
+          "detailed_strength_analysis": "Kuvvet verileri varsa egzersiz/set ayrıntıları, tahmini 1RM ve egzersiz bazlı ilerlemeyi analiz et.",
+          "workout_retention_days": "Fitness standart antrenmanlarının saklanacağı gün sayısı. 0 sınırsızdır."
         }
       },
       "ai": {
@@ -159,7 +161,8 @@
           "workout_devices": "Antrenman / uzun dönem verileri",
           "ai": "Yapay zekâ yorumu",
           "feedback": "Koçluk, ışıklar ve duyurular",
-          "sleep_devices": "Uyku cihazları"
+          "sleep_devices": "Uyku cihazları",
+          "sensor_assignments": "Sensör atamaları"
         }
       },
       "profile": {
@@ -221,11 +224,13 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data",
-          "detailed_strength_analysis": "Ayrıntılı kuvvet analizi"
+          "detailed_strength_analysis": "Ayrıntılı kuvvet analizi",
+          "workout_retention_days": "Antrenman saklama"
         },
         "data_description": {
           "workout_device_ids": "Geçmiş cihazları. Yalnızca tam desteklenen Garmin, Strava, Polar, Hevy, Peloton ve Oura sözleşmeleri önceden seçilir.",
-          "detailed_strength_analysis": "Kuvvet verileri varsa egzersiz/set ayrıntıları, tahmini 1RM ve egzersiz bazlı ilerlemeyi analiz et."
+          "detailed_strength_analysis": "Kuvvet verileri varsa egzersiz/set ayrıntıları, tahmini 1RM ve egzersiz bazlı ilerlemeyi analiz et.",
+          "workout_retention_days": "Fitness standart antrenmanlarının saklanacağı gün sayısı. 0 sınırsızdır."
         }
       },
       "ai": {
@@ -271,7 +276,35 @@
         "data_description": {
           "sleep_device_ids": "Yalnızca Fitness tarafından ayrıştırılabilen uyku verilerine sahip cihazlar gösterilir."
         }
+      },
+      "sensor_assignments": {
+        "title": "Sensör atamaları",
+        "description": "Hangi Fitness profillerinin kullanabileceğini değiştirmek için algılanan fiziksel bir fitness sensörü seçin. Atama birden fazla profile yapılabilir, ancak antrenman sırasında ölçümler yalnızca tek bir profile kilitlenir.",
+        "data": {
+          "live_sensor_id": "Fitness sensörü"
+        },
+        "data_description": {
+          "live_sensor_id": "Hangi Fitness profillerinin kullanabileceğini değiştirmek için algılanan fiziksel bir fitness sensörü seçin. Atama birden fazla profile yapılabilir, ancak antrenman sırasında ölçümler yalnızca tek bir profile kilitlenir."
+        }
+      },
+      "sensor_assignment": {
+        "title": "Sensörü profillere ata",
+        "description": "{sensor} kullanmasına izin verilen tüm Fitness profillerini seçin. Çakışan antrenmanlarda fiziksel sensör, tüm çakışma dönemi bitene kadar ilk uygun oturuma özel olarak kilitli kalır.",
+        "data": {
+          "fitness_profile_ids": "İzin verilen Fitness profilleri"
+        },
+        "data_description": {
+          "fitness_profile_ids": "Bir sensör gelecekte kullanılmak üzere birden fazla profile atanabilir. Ölçümler aynı anda paylaşılmaz: bir fiziksel sensör yalnızca tek bir antrenman sahibine veri sağlar."
+        }
       }
+    },
+    "abort": {
+      "no_live_sensors": "Yeniden atanabilecek kabul edilmiş Yerel Fitness sensörü yok.",
+      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
+      "no_fitness_profiles": "Create a Fitness user before assigning this sensor."
+    },
+    "error": {
+      "sensor_unavailable": "The discovered fitness sensor is no longer available."
     }
   },
   "entity": {
@@ -3078,6 +3111,9 @@
     "select": {
       "workout_room": {
         "name": "Antrenman room"
+      },
+      "sensor_workout_owner": {
+        "name": "Antrenman sahibi"
       }
     },
     "number": {

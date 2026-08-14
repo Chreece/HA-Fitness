@@ -63,6 +63,23 @@ class PhysicalMetricSensor(_PhysicalSensorEntity):
     def _value_listener_token(self) -> tuple[str, str | None]:
         return ("metric", self.metric)
 
+    async def async_added_to_hass(self):
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            self.runtime.add_sensor_value_listener(
+                self.sensor_id, "availability", None, self._update
+            )
+        )
+
+    @property
+    def available(self) -> bool:
+        sensor = self.runtime.sensors.get(self.sensor_id)
+        return bool(
+            sensor is not None
+            and sensor.available
+            and self.native_value is not None
+        )
+
     @property
     def native_value(self):
         return self.runtime.sensor_values.get(self.sensor_id, {}).get(self.metric)
@@ -104,7 +121,64 @@ class PhysicalPassiveSensor(_PhysicalSensorEntity):
 
     @property
     def extra_state_attributes(self):
-        return {"transport": "bluetooth", "passive": True}
+        sources = dict(self.runtime.sensor_passive_sources.get(self.sensor_id, {}).get(self.key, {}))
+        return {
+            "transport": next(iter(sources), None) if len(sources) == 1 else "merged",
+            "passive": True,
+            "source_values": sources,
+        }
+
+
+class PhysicalDetailSensor(_PhysicalSensorEntity):
+    """Merged protocol/device information retained as diagnostic entities."""
+
+    def __init__(self, runtime, sensor_id: str, key: str) -> None:
+        super().__init__(runtime, sensor_id)
+        self.key = key
+        meta = runtime.sensor_detail_meta.get(sensor_id, {}).get(key, {})
+        self._attr_name = str(meta.get("name") or key.replace("_", " ").title())
+        self._attr_unique_id = f"fitness_{sensor_id}_detail_{key}"
+        unit = meta.get("unit")
+        if unit:
+            self._attr_native_unit_of_measurement = str(unit)
+        if meta.get("icon"):
+            self._attr_icon = str(meta["icon"])
+        if meta.get("device_class"):
+            self._attr_device_class = str(meta["device_class"])
+        if meta.get("state_class") in {"measurement", "total", "total_increasing"}:
+            self._attr_state_class = str(meta["state_class"])
+        if str(meta.get("entity_category") or "").lower() == "diagnostic":
+            self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        self._attr_entity_registry_enabled_default = bool(meta.get("enabled_default", False))
+
+    @property
+    def _value_listener_token(self) -> tuple[str, str | None]:
+        return ("detail", self.key)
+
+    def _raw_value(self):
+        return self.runtime.sensor_detail_values.get(self.sensor_id, {}).get(self.key)
+
+    @property
+    def native_value(self):
+        value = self._raw_value()
+        rendered = str(value) if isinstance(value, (dict, list, tuple, set)) else value
+        # Home Assistant's state string is capped at 255 characters. Large raw
+        # GATT/service/manufacturer diagnostics belong in attributes, not state.
+        if isinstance(rendered, str) and len(rendered) > 255:
+            return f"{len(rendered)} characters"
+        return rendered
+
+    @property
+    def extra_state_attributes(self):
+        value = self._raw_value()
+        rendered = str(value) if isinstance(value, (dict, list, tuple, set)) else value
+        attributes = {
+            "source": self.runtime.sensor_detail_source.get(self.sensor_id, {}).get(self.key),
+            "source_values": dict(self.runtime.sensor_detail_sources.get(self.sensor_id, {}).get(self.key, {})),
+        }
+        if isinstance(rendered, str) and len(rendered) > 255:
+            attributes["full_value"] = rendered
+        return attributes
 
 
 class PhysicalActiveTransportSensor(_PhysicalSensorEntity):
@@ -130,18 +204,108 @@ class PhysicalActiveTransportSensor(_PhysicalSensorEntity):
         sensor = self.runtime.sensors.get(self.sensor_id)
         if sensor is None:
             return {}
-        details = self.runtime.sensor_transport_details(self.sensor_id)
-        # Keep recorder-facing attributes structural. RSSI/last_seen are volatile and
-        # can change several times per second while a sensor is broadcasting.
-        for item in details.values():
-            item.pop("rssi", None)
-            item.pop("last_seen", None)
+        # Keep this enabled diagnostic entity tiny. Full ANT/GATT metadata already
+        # has dedicated opt-in diagnostic entities and should not be duplicated in
+        # Recorder attributes every time transport ownership changes.
+        details = {
+            transport: {
+                "address": endpoint.address,
+                "endpoint_id": endpoint.endpoint_id,
+                "capabilities": sorted(endpoint.capabilities),
+            }
+            for transport, endpoint in sensor.endpoints.items()
+        }
         return {
             "preferred_transport": sensor.preferred_transport,
-            "available_transports": [
+            "known_transports": [
                 t for t in ("antplus", "bluetooth") if t in sensor.transports
             ],
+            "available_transports": [
+                t for t in ("antplus", "bluetooth")
+                if t in sensor.endpoints and sensor.endpoints[t].available
+            ],
             "transport_details": details,
+        }
+
+
+class PhysicalWorkoutOwnerSensor(_PhysicalSensorEntity):
+    """Diagnostic view of the exclusive workout lock for this physical sensor."""
+
+    _attr_name = "Workout owner"
+    _attr_icon = "mdi:account-lock-outline"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
+
+    def __init__(self, runtime, sensor_id: str) -> None:
+        super().__init__(runtime, sensor_id)
+        self._attr_unique_id = f"fitness_{sensor_id}_workout_owner"
+
+    @property
+    def _value_listener_token(self) -> tuple[str, str | None]:
+        return ("workout_owner", None)
+
+    @property
+    def native_value(self):
+        owner = self.runtime.sensor_workout_owner(self.sensor_id)
+        if owner is None:
+            return "free"
+        entry = self.runtime.profile_entries.get(owner)
+        return entry.title if entry is not None else owner
+
+    @property
+    def extra_state_attributes(self):
+        owner = self.runtime.sensor_workout_owner(self.sensor_id)
+        assigned = []
+        for entry in self.runtime.profile_entries.values():
+            if self.sensor_id in self.runtime.selected_sensor_ids(entry):
+                assigned.append({"entry_id": entry.entry_id, "name": entry.title})
+        return {
+            "owner_entry_id": owner,
+            "assigned_profiles": assigned,
+            "release_policy": "when_all_overlapping_fitness_sessions_are_idle",
+        }
+
+
+class PhysicalSignalStrengthSensor(_PhysicalSensorEntity):
+    """Merged radio signal diagnostic sampled on the low-rate Last-seen clock."""
+
+    _attr_name = "Signal strength"
+    _attr_icon = "mdi:signal"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_device_class = SensorDeviceClass.SIGNAL_STRENGTH
+    _attr_native_unit_of_measurement = "dBm"
+    _attr_entity_registry_enabled_default = False
+
+    def __init__(self, runtime, sensor_id: str) -> None:
+        super().__init__(runtime, sensor_id)
+        self._attr_unique_id = f"fitness_{sensor_id}_signal_strength"
+
+    @property
+    def _value_listener_token(self) -> tuple[str, str | None]:
+        # RSSI can change on every BLE advertisement. Sampling it on the same
+        # five-minute diagnostic clock as Last seen prevents Recorder churn.
+        return ("last_seen", None)
+
+    @property
+    def native_value(self):
+        sensor = self.runtime.sensors.get(self.sensor_id)
+        if sensor is None:
+            return None
+        values = [ep.rssi for ep in sensor.endpoints.values() if ep.rssi is not None]
+        return max(values) if values else None
+
+    @property
+    def extra_state_attributes(self):
+        sensor = self.runtime.sensors.get(self.sensor_id)
+        if sensor is None:
+            return {}
+        return {
+            "source_values": {
+                transport: endpoint.rssi
+                for transport, endpoint in sensor.endpoints.items()
+                if endpoint.rssi is not None
+            },
+            "sampling": "5_minute_diagnostic_bucket",
         }
 
 
@@ -212,6 +376,17 @@ async def async_setup_sensor_entities(runtime, async_add_entities) -> None:
                 materialized.add(key)
                 entities.append(PhysicalLastSeenSensor(runtime, sensor_id))
 
+            key = (sensor_id, "diagnostic", "workout_owner")
+            if key not in materialized:
+                materialized.add(key)
+                entities.append(PhysicalWorkoutOwnerSensor(runtime, sensor_id))
+
+            if any(endpoint.rssi is not None for endpoint in sensor.endpoints.values()):
+                key = (sensor_id, "diagnostic", "signal_strength")
+                if key not in materialized:
+                    materialized.add(key)
+                    entities.append(PhysicalSignalStrengthSensor(runtime, sensor_id))
+
             for metric in METRIC_META:
                 if metric not in sensor.capabilities:
                     continue
@@ -227,6 +402,13 @@ async def async_setup_sensor_entities(runtime, async_add_entities) -> None:
                     continue
                 materialized.add(key)
                 entities.append(PhysicalPassiveSensor(runtime, sensor_id, passive_key))
+
+            for detail_key in sorted(runtime.sensor_detail_values.get(sensor_id, {})):
+                key = (sensor_id, "detail", detail_key)
+                if key in materialized:
+                    continue
+                materialized.add(key)
+                entities.append(PhysicalDetailSensor(runtime, sensor_id, detail_key))
 
         if entities:
             subentry = runtime.ensure_sensors_subentry()

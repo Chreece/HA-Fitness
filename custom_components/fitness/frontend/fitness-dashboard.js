@@ -1,4 +1,4 @@
-const FITNESS_DASHBOARD_VERSION = "2026.8.10.11";
+const FITNESS_DASHBOARD_VERSION = "2026.8.11.1";
 
 
 const FITNESS_READINESS_TEXT = {
@@ -576,7 +576,7 @@ class FitnessRouteCard extends HTMLElement {
     const title = this.config.title || labels.route || (entityId ? entityName(this._hass, entityId) : "Workout route");
     const height = Number(this.config.height || 340);
     if (points.length < 2) {
-      this.shadowRoot.innerHTML = `<ha-card><div class="empty"><strong>${this._escape(title)}</strong><div>${this._escape(this.config.empty_text || labels.no_route || "No GPS route available")}</div></div></ha-card><style>.empty{padding:24px;color:var(--secondary-text-color)}strong{display:block;color:var(--primary-text-color);margin-bottom:8px}</style>`;
+      this.shadowRoot.innerHTML = "";
       return;
     }
 
@@ -801,6 +801,7 @@ class FitnessComparisonCard extends HTMLElement {
   _render() {
     if (!this.shadowRoot || !this._hass) return;
     const metrics = this._resolvedMetrics || this.config.metrics || [];
+    const labels = this._profile?.labels || {};
     const rows = metrics.map((metric) => {
       const state = this._hass.states[metric.entity];
       if (!state || state.state === "unknown" || state.state === "unavailable") return "";
@@ -820,15 +821,22 @@ class FitnessComparisonCard extends HTMLElement {
         : distance <= 5 ? "#f9a825"
         : distance <= 8 ? "#ef6c00"
         : "#e53935";
+      if (isHrBaseline) {
+        const baseline = Number(state.attributes?.personal_baseline_average_hr_bpm);
+        const current = Number(state.attributes?.current_average_hr_bpm);
+        if (Number.isFinite(baseline) && Number.isFinite(current)) {
+          const absolute = (number) => `${number.toFixed(decimals)}${unit ? ` ${this._escape(unit)}` : ""}`;
+          return `<div class="row entity-link" style="--baseline-tone:${baselineTone}" data-more-info="${this._escape(metric.entity)}"><div class="line"><span>${this._escape(metric.name || entityName(this._hass, metric.entity))}</span><strong>${signed(value)}</strong></div><div class="baseline-readout"><span>${this._escape(labels.baseline || "Baseline")} <b>${absolute(baseline)}</b></span><span>${this._escape(labels.current || "Current")} <b class="hot">${absolute(current)}</b></span></div><div class="axis"><div class="zero"></div><div class="bar" style="left:${left}%;width:${pct}%"></div><i class="current-marker" style="left:${marker}%"></i></div><div class="axis-values"><span>${absolute(baseline-max)}</span><b>${absolute(baseline)}</b><span>${absolute(baseline+max)}</span></div></div>`;
+        }
+      }
       return `<div class="row entity-link" style="--baseline-tone:${baselineTone}" data-more-info="${this._escape(metric.entity)}"><div class="line"><span>${this._escape(metric.name || entityName(this._hass, metric.entity))}</span><strong>${signed(value)}</strong></div><div class="axis"><div class="zero"></div><div class="bar" style="left:${left}%;width:${pct}%"></div><i class="current-marker" style="left:${marker}%"></i></div><div class="axis-values"><span>${signed(-max)}</span><b>${signed(value)}</b><span>${signed(max)}</span></div></div>`;
     }).filter(Boolean).join("");
-    const labels = this._profile?.labels || {};
     const title = this.config.title || labels.workout_comparison || "Compared with your baseline";
     if (!rows) {
-      this.shadowRoot.innerHTML = `<ha-card><div class="empty"><strong>${this._escape(title)}</strong><div>${this._escape(labels.no_comparison || "No compatible baseline comparison data is currently available.")}</div></div></ha-card><style>.empty{padding:24px;color:var(--secondary-text-color)}strong{display:block;color:var(--primary-text-color);margin-bottom:8px}</style>`;
+      this.shadowRoot.innerHTML = "";
       return;
     }
-    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="rows">${rows}</div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 8px}.rows{padding:0 16px 16px}.row{margin:12px 0}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.line{display:flex;justify-content:space-between;gap:16px;font-size:13px}.line span{color:var(--secondary-text-color)}.axis{height:8px;position:relative;background:var(--secondary-background-color);border-radius:5px;margin-top:6px;overflow:visible}.zero{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--divider-color)}.bar{position:absolute;top:0;bottom:0;background:var(--baseline-tone);border-radius:5px}.current-marker{position:absolute;top:-3px;width:2px;height:14px;border-radius:2px;background:var(--baseline-tone);transform:translateX(-1px)}.axis-values{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-top:4px;font-size:9px;color:var(--secondary-text-color)}.axis-values span:last-child{text-align:right}.axis-values b{padding:1px 5px;border-radius:999px;color:var(--baseline-tone);background:var(--secondary-background-color);font-weight:650}</style>`;
+    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="rows">${rows}</div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 8px}.rows{padding:0 16px 16px}.row{margin:12px 0}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.line{display:flex;justify-content:space-between;gap:16px;font-size:13px}.line span{color:var(--secondary-text-color)}.baseline-readout{display:flex;justify-content:space-between;gap:10px;margin-top:5px;font-size:10px;color:var(--secondary-text-color)}.baseline-readout b{color:var(--primary-text-color)}.baseline-readout b.hot{color:var(--baseline-tone)}.axis{height:8px;position:relative;background:var(--secondary-background-color);border-radius:5px;margin-top:6px;overflow:visible}.zero{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--divider-color)}.bar{position:absolute;top:0;bottom:0;background:var(--baseline-tone);border-radius:5px}.current-marker{position:absolute;top:-3px;width:2px;height:14px;border-radius:2px;background:var(--baseline-tone);transform:translateX(-1px)}.axis-values{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-top:4px;font-size:9px;color:var(--secondary-text-color)}.axis-values span:last-child{text-align:right}.axis-values b{padding:1px 5px;border-radius:999px;color:var(--baseline-tone);background:var(--secondary-background-color);font-weight:650}</style>`;
   }
 
   _escape(value) { return String(value ?? "").replace(/[&<>"']/g, (ch) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch])); }
@@ -936,7 +944,7 @@ class FitnessSleepStageCard extends HTMLElement {
     const labels = this._profile?.labels || {};
     const title = this.config.title || labels.latest_sleep || "Latest sleep";
     if (!values.length || total <= 0) {
-      this.shadowRoot.innerHTML = `<ha-card><div class="empty"><strong>${this._escape(title)}</strong><div>${this._escape(labels.no_sleep_stages || "No compatible sleep-stage data is currently available.")}</div></div></ha-card><style>.empty{padding:24px;color:var(--secondary-text-color)}strong{display:block;color:var(--primary-text-color);margin-bottom:8px}</style>`;
+      this.shadowRoot.innerHTML = "";
       return;
     }
     let cursor = 0;
@@ -972,7 +980,10 @@ class FitnessSleepStageCard extends HTMLElement {
         : Number.isFinite(number) && ["min","minute","minutes"].includes(String(unit).toLowerCase())
           ? this._formatMinutes(number, unit)
           : `${this._escape(state.state)}${unit ? ` ${this._escape(unit)}` : ""}`;
-      return `<div class="sleep-summary-metric entity-link" data-more-info="${this._escape(entityId)}"><span>${this._escape(label)}</span><strong>${display}</strong></div>`;
+      const displayLabel = state.attributes?.calculated_by_fitness
+        ? (labels.fitness_sleep_score || "Fitness sleep score")
+        : label;
+      return `<div class="sleep-summary-metric entity-link" data-more-info="${this._escape(entityId)}"><span>${this._escape(displayLabel)}</span><strong>${display}</strong></div>`;
     }).filter(Boolean).join("");
     this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="body"><div class="donut" style="background:conic-gradient(${stops})"><div class="hole"><strong>${displayTotal}</strong></div></div><div class="legend">${legend}</div>${awakeRow ? `<div class="awake-wrap">${awakeRow}</div>` : ""}${summaryMetrics ? `<div class="sleep-summary">${summaryMetrics}</div>` : ""}</div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 6px}.body{display:flex;flex-direction:column;align-items:center;gap:16px;padding:10px 16px 18px;min-width:0}.donut{width:124px;height:124px;border-radius:50%;display:grid;place-items:center}.hole{width:76px;height:76px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color));display:flex;flex-direction:column;align-items:center;justify-content:center}.hole strong{font-size:18px;text-align:center;line-height:1.15;padding:4px}.hole span{font-size:11px;color:var(--secondary-text-color)}.legend{width:100%;min-width:0}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.legend-row{display:grid;grid-template-columns:10px minmax(0,1fr) minmax(72px,max-content) 38px;column-gap:10px;align-items:center;min-width:0;padding:7px 0;font-size:12px}.dot{width:9px;height:9px;border-radius:50%}.label{color:var(--secondary-text-color);min-width:0;white-space:normal;overflow-wrap:normal;word-break:normal;hyphens:auto}.legend-row strong{text-align:right;white-space:nowrap;line-height:1.3}.pct{text-align:right;white-space:nowrap;color:var(--secondary-text-color)}.awake-wrap{width:100%;padding-top:4px}.awake-row{display:grid;grid-template-columns:20px minmax(0,1fr) max-content;gap:8px;align-items:center;padding:8px 10px;border-radius:11px;background:var(--card-background-color);font-size:11px}.awake-row ha-icon{--mdc-icon-size:16px;color:var(--secondary-text-color)}.awake-row span{color:var(--secondary-text-color);min-width:0}.awake-row strong{font-size:12px;white-space:nowrap}.sleep-summary{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding-top:4px;border-top:1px solid var(--divider-color)}.sleep-summary-metric{min-width:0;padding:9px 10px;border-radius:11px;background:var(--secondary-background-color)}.sleep-summary-metric span{display:block;font-size:9px;line-height:1.25;color:var(--secondary-text-color);overflow-wrap:normal;word-break:normal;hyphens:auto}.sleep-summary-metric strong{display:block;margin-top:3px;font-size:13px;line-height:1.25;white-space:normal;word-break:normal}@media(max-width:430px){.sleep-summary{grid-template-columns:1fr 1fr}.sleep-summary-metric:last-child{grid-column:1/-1}}</style>`;
   }
@@ -984,6 +995,13 @@ class FitnessSleepStageCard extends HTMLElement {
 const _fitnessNumber = (value) => {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+};
+const _fitnessUsableState = (hass, entityId) => {
+  if (!entityId) return false;
+  const state = hass?.states?.[entityId];
+  if (!state) return false;
+  const value = String(state.state ?? "").toLowerCase();
+  return value !== "" && !["unknown", "unavailable", "none", "null"].includes(value);
 };
 const _fitnessAttr = (state, ...keys) => {
   for (const key of keys) {
@@ -1203,13 +1221,18 @@ class FitnessWorkoutHighlightsCard extends FitnessAutoProfileCard {
       return `<div class="hi entity-link" data-more-info="${_fitnessEscape(id)}"><span>${_fitnessEscape(entityName(this._hass,id))}</span><strong>${_fitnessEscape(_fitnessDisplay(state,1))}</strong></div>`;
     }).filter(Boolean);
     if (running && runPace && !e.last_workout_average_speed) {
+      const paceInfoEntity = e.last_workout_distance || e.last_workout_duration || e.last_workout || "";
       itemList.splice(Math.min(2, itemList.length), 0,
-        `<div class="hi entity-link" data-more-info="${_fitnessEscape(id)}"><span>${_fitnessEscape(l.pace || "Pace")}</span><strong>${_fitnessEscape(runPace)}</strong></div>`);
+        `<div class="hi entity-link" data-more-info="${_fitnessEscape(paceInfoEntity)}"><span>${_fitnessEscape(l.pace || "Pace")}</span><strong>${_fitnessEscape(runPace)}</strong></div>`);
     }
     const items = itemList.join("");
+    if (!workoutName && !items) {
+      this.shadowRoot.innerHTML = "";
+      return;
+    }
     this.shadowRoot.innerHTML = `<ha-card>
       ${workoutName ? `<div class="workout-name entity-link" data-more-info="${_fitnessEscape(e.last_workout || "")}">${_fitnessEscape(workoutName)}</div>` : ""}
-      <div class="hi-grid">${items || `<small>${_fitnessEscape(l.no_workout_data || "No completed workout data is available yet.")}</small>`}</div>
+      ${items ? `<div class="hi-grid">${items}</div>` : ""}
     </ha-card><style>
       ha-card{padding:18px;min-width:0;overflow:hidden}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}
       .workout-name{font-size:20px;font-weight:700;line-height:1.25;min-width:0;max-width:100%;overflow-wrap:anywhere;word-break:normal;white-space:normal}
@@ -1273,7 +1296,7 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
     const trend = this._hass.states[e.cardiorespiratory_fitness_trend];
     const predicted = this._hass.states[e.vo2max_percent_predicted];
     if (!trend && !predicted) {
-      this.shadowRoot.innerHTML = `<ha-card><div class="empty">${_fitnessEscape(l.progress_snapshot || "Fitness progress")}<small>No compatible fitness-progress data is available yet.</small></div></ha-card>${this._style()}`;
+      this.shadowRoot.innerHTML = "";
       return;
     }
     const current = _fitnessNumber(_fitnessAttr(trend, "current_vo2max_ml_kg_min")) ?? _fitnessNumber(trend?.state);
@@ -1289,6 +1312,16 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
     const bar = pctPred == null ? 0 : Math.max(0, Math.min(100, ((pctPred - progressMin) / (progressMax - progressMin)) * 100));
     const rawSeries = Array.isArray(_fitnessAttr(trend, "daily_series")) ? _fitnessAttr(trend, "daily_series") : [];
     const series = rawSeries.map(x => ({v:_fitnessNumber(x?.value), d:String(x?.start || "")})).filter(x => x.v != null).slice(-90);
+    if ([current, mean28, mean90, slope, pctPred].every(value => value == null) && !series.length) {
+      this.shadowRoot.innerHTML = "";
+      return;
+    }
+    const metricCards = [
+      this._metric(l.mean_28d || "28-day mean", mean28, "mL/kg/min"),
+      this._metric(l.mean_90d || "90-day mean", mean90, "mL/kg/min"),
+      this._metric(l.predicted_percent || "% of predicted", pctPred, "%"),
+      this._metric("Δ 28d", delta28, "%", true),
+    ].filter(Boolean).join("");
     let spark = "";
     if (series.length >= 5) {
       const vals = series.map(x => x.v), lo = Math.min(...vals), hi = Math.max(...vals), span = Math.max(hi-lo, 0.1);
@@ -1302,16 +1335,12 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
       <div class="progress"><div style="width:${bar}%"></div></div>
       <div class="progress-values"><span>${progressMin}%</span><b>${pctPred == null ? "—" : `${pctPred.toFixed(1)}%`}</b><span>${progressMax}%</span></div>
       ${spark}
-      <div class="metrics entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || e.vo2max_percent_predicted || "")}">
-        ${this._metric(l.mean_28d || "28-day mean", mean28, "mL/kg/min")}
-        ${this._metric(l.mean_90d || "90-day mean", mean90, "mL/kg/min")}
-        ${this._metric(l.predicted_percent || "% of predicted", pctPred, "%")}
-        ${this._metric("Δ 28d", delta28, "%", true)}
-      </div>
+      ${metricCards ? `<div class="metrics entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || e.vo2max_percent_predicted || "")}">${metricCards}</div>` : ""}
     </ha-card>${this._style()}`;
   }
   _metric(label, value, unit, signed=false) {
-    const formatted = value == null ? "—" : `${signed && value > 0 ? "+" : ""}${value.toFixed(1)}${unit ? ` ${unit}` : ""}`;
+    if (value == null) return "";
+    const formatted = `${signed && value > 0 ? "+" : ""}${value.toFixed(1)}${unit ? ` ${unit}` : ""}`;
     return `<div class="metric"><span>${_fitnessEscape(label)}</span><strong>${formatted}</strong></div>`;
   }
   _style() {
@@ -1371,11 +1400,28 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
     const limitingFactorText = limiterLabels[limitingFactor] || limitingFactor.replaceAll("_", " ");
 
     const readyAt = readyAtRaw ? new Date(readyAtRaw) : null;
-    const readyAtText = readyAt && !Number.isNaN(readyAt.getTime())
-      ? new Intl.DateTimeFormat(this._hass.language || undefined, {
-          weekday: "short", hour: "2-digit", minute: "2-digit"
-        }).format(readyAt)
-      : "—";
+    const readyAtText = (() => {
+      if (!readyAt || Number.isNaN(readyAt.getTime())) return "—";
+      const language = this._hass.language || undefined;
+      const timeText = new Intl.DateTimeFormat(language, {hour:"2-digit", minute:"2-digit"}).format(readyAt);
+      const now = new Date();
+      const sameDay = (a,b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+      const tomorrow = new Date(now); tomorrow.setDate(now.getDate()+1);
+      const at = String(l.at_time || "at").trim();
+      if (sameDay(readyAt, now)) return [at, timeText].filter(Boolean).join(" ");
+      if (sameDay(readyAt, tomorrow)) {
+        const day = new Intl.RelativeTimeFormat(language, {numeric:"auto"}).format(1, "day");
+        return [day, at, timeText].filter(Boolean).join(" ");
+      }
+      const day = new Intl.DateTimeFormat(language, {weekday:"short", month:"short", day:"numeric"}).format(readyAt);
+      return [day, at, timeText].filter(Boolean).join(" ");
+    })();
+    const fullyRecovered = remaining != null && remaining <= 0;
+    const recoveryDisplay = remaining == null ? "—"
+      : fullyRecovered ? (l.total_recovery || "Total recovery")
+      : remaining < 1 ? `~${Math.max(1, Math.round(remaining * 60))} min`
+      : `~${Math.round(remaining)} ${l.hours_short || "h"}`;
+    const recoveryIcon = fullyRecovered ? "mdi:check-circle" : "mdi:timer-sand-complete";
 
     const recoveryTones = {
       ready: "#2e7d32",
@@ -1435,6 +1481,19 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
 
     const hrvVs = _fitnessNumber(_fitnessAttr(autonomic, "sleep_hrv_vs_28d_percent"));
     const rhrVs = _fitnessNumber(_fitnessAttr(autonomic, "resting_hr_vs_28d_bpm"));
+    const hasRecoveryInfo = Boolean(
+      score != null
+      || remaining != null
+      || componentRows
+      || signalRows
+      || hrvVs != null
+      || rhrVs != null
+      || limitingFactor
+    );
+    if (!hasRecoveryInfo) {
+      this.shadowRoot.innerHTML = "";
+      return;
+    }
 
     this.shadowRoot.innerHTML = `<ha-card style="--readiness:${readinessTone};--recovery:${recoveryTone}">
       <div class="title">${_fitnessEscape(this.config.title || l.recovery_snapshot || "Recovery snapshot")}</div>
@@ -1454,12 +1513,10 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
 
         ${recoveryTime ? `<div class="next-workout entity-link" data-more-info="${_fitnessEscape(e.estimated_recovery_time || "")}">
         <div class="next-main">
-          <div class="next-icon"><ha-icon icon="mdi:timer-sand-complete"></ha-icon></div>
+          <div class="next-icon"><ha-icon icon="${recoveryIcon}"></ha-icon></div>
           <div class="next-copy">
-            <small>${_fitnessEscape(l.next_workout || "Ready for next workout")}</small>
-            <strong>${remaining == null ? "—" : remaining <= 0
-              ? _fitnessEscape(l.ready_now || "Ready for next workout")
-              : `~${Math.round(remaining)} ${_fitnessEscape(l.hours_short || "h")}`}</strong>
+            <small>${_fitnessEscape(l.recovery_from_last_workout || "Time to recover from last workout")}</small>
+            <strong>${_fitnessEscape(recoveryDisplay)}</strong>
             ${remaining != null && remaining > 0
               ? `<span>${_fitnessEscape(l.ready_at || "Ready around")} <b>${_fitnessEscape(readyAtText)}</b></span>`
               : ""}
@@ -1740,6 +1797,15 @@ class FitnessTrainingLoadCard extends FitnessAutoProfileCard {
     const adaptationVo2 = _fitnessNumber(_fitnessAttr(adaptation, "vo2max_slope_percent_per_30d"));
     const adaptationHrv = _fitnessNumber(_fitnessAttr(adaptation, "hrv_7d_vs_baseline_percent"));
     const adaptationReadiness = _fitnessNumber(_fitnessAttr(adaptation, "readiness_score"));
+    const hasLoadData = [recent, baseline, ratio, workouts7, days7, mins7].some(value => value != null);
+    const hasAdaptationData = Boolean(adaptation) && (
+      adaptationStatus !== "insufficient_data"
+      || [adaptationEvidence, adaptationVo2, adaptationHrv, adaptationReadiness].some(value => value != null)
+    );
+    if (!hasLoadData && !hasAdaptationData) {
+      this.shadowRoot.innerHTML = "";
+      return;
+    }
     const adaptationTones = {
       productive:"#2e7d32", maintaining:"#00897b",
       insufficient_stimulus:"#5c6bc0", absent:"#78909c",
@@ -1749,12 +1815,21 @@ class FitnessTrainingLoadCard extends FitnessAutoProfileCard {
     };
     const adaptationTone = adaptationTones[adaptationStatus] || adaptationTones.insufficient_data;
     const entityId = e.training_load || "";
+    const loadMetrics = [
+      ["TRIMP 7d", recent, value => value.toFixed(1)],
+      [l.baseline_28d || "28-day weekly baseline", baseline, value => value.toFixed(1)],
+      [l.workouts_7d || "Workouts / 7 days", workouts7, value => value.toFixed(0)],
+      [l.active_days_7d || "Active days / 7 days", days7, value => value.toFixed(0)],
+      [l.training_minutes_7d || "Training / 7 days", mins7, value => `${Math.round(value)} min`],
+    ].filter(([, value]) => value != null).map(([label, value, formatter]) =>
+      `<div><span>${_fitnessEscape(label)}</span><strong>${formatter(value)}</strong></div>`
+    ).join("");
 
     this.shadowRoot.innerHTML = `<ha-card>
       <div class="header">
         <div>
           <h3>${_fitnessEscape(l.training_load_snapshot || "Training load")}</h3>
-          ${adaptation ? `<div class="adapt-summary entity-link" style="--adapt:${adaptationTone}" data-more-info="${_fitnessEscape(e.training_adaptation_status || "")}">
+          ${hasAdaptationData ? `<div class="adapt-summary entity-link" style="--adapt:${adaptationTone}" data-more-info="${_fitnessEscape(e.training_adaptation_status || "")}">
             <div class="adapt-title"><span>${_fitnessEscape(l.training_adaptation_card || "Training adaptation")}</span><strong>${_fitnessEscape(adaptationLabel)}</strong></div>
             ${adaptationStatus === "insufficient_data"
               ? `<p>${_fitnessEscape(l.adaptation_building || "Building enough history for a reliable adaptation assessment")}</p>`
@@ -1766,30 +1841,14 @@ class FitnessTrainingLoadCard extends FitnessAutoProfileCard {
             ${adaptationEvidence == null ? "" : `<small>${_fitnessEscape(l.adaptation_evidence || "Evidence")}: ${adaptationEvidence.toFixed(0)}</small>`}
           </div>` : ""}
         </div>
-        <div class="ratio ${zone}">${baselineReliable && ratio != null ? `${ratio.toFixed(2)}×` : "—"}</div>
+        ${ratio != null ? `<div class="ratio ${zone}">${ratio.toFixed(2)}×</div>` : ""}
       </div>
 
-      <div class="load-scale entity-link" data-more-info="${_fitnessEscape(entityId)}">
-        <div class="scale"></div>
-        <i style="left:${position}%"></i>
-      </div>
-      <div class="load-scale-values"><span>0×</span><b>${baselineReliable && ratio != null ? `${ratio.toFixed(2)}×` : "—"}</b><span>2.40×</span></div>
+      ${baselineReliable && ratio != null ? `<div class="load-scale entity-link" data-more-info="${_fitnessEscape(entityId)}"><div class="scale"></div><i style="left:${position}%"></i></div><div class="load-scale-values"><span>0×</span><b>${ratio.toFixed(2)}×</b><span>2.40×</span></div>` : ""}
 
-      <div class="status-row">
-        <div>
-          <span>${_fitnessEscape(l.load_ratio || "Load vs baseline")}</span>
-          <strong class="${zone}">${_fitnessEscape(zoneText)}</strong>
-        </div>
-        ${!baselineReliable ? `<p>${_fitnessEscape(l.baseline_building_hint || "More comparable workouts are needed before load balance can be judged reliably.")}</p>` : ""}
-      </div>
+      ${ratio != null ? `<div class="status-row"><div><span>${_fitnessEscape(l.load_ratio || "Load vs baseline")}</span><strong class="${zone}">${_fitnessEscape(zoneText)}</strong></div>${!baselineReliable ? `<p>${_fitnessEscape(l.baseline_building_hint || "More comparable workouts are needed before load balance can be judged reliably.")}</p>` : ""}</div>` : ""}
 
-      <div class="metrics entity-link" data-more-info="${_fitnessEscape(entityId)}">
-        <div><span>${_fitnessEscape("TRIMP 7d")}</span><strong>${recent == null ? "—" : recent.toFixed(1)}</strong></div>
-        <div><span>${_fitnessEscape(l.baseline_28d || "28-day weekly baseline")}</span><strong>${baseline == null ? "—" : baseline.toFixed(1)}</strong></div>
-        <div><span>${_fitnessEscape(l.workouts_7d || "Workouts / 7 days")}</span><strong>${workouts7 == null ? "—" : workouts7.toFixed(0)}</strong></div>
-        <div><span>${_fitnessEscape(l.active_days_7d || "Active days / 7 days")}</span><strong>${days7 == null ? "—" : days7.toFixed(0)}</strong></div>
-        <div><span>${_fitnessEscape(l.training_minutes_7d || "Training / 7 days")}</span><strong>${mins7 == null ? "—" : `${Math.round(mins7)} min`}</strong></div>
-      </div>
+      ${loadMetrics ? `<div class="metrics entity-link" data-more-info="${_fitnessEscape(entityId)}">${loadMetrics}</div>` : ""}
     </ha-card><style>
       ha-card{padding:16px;overflow:hidden}
       .entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}
@@ -2181,9 +2240,19 @@ class FitnessSleepRecoveryCard extends FitnessCompositeCard {
     if (!this.shadowRoot || !this._hass || !this._profile) return;
     const l = this._profile.labels || {};
     const e = this._profile.entities || {};
-    const children = [this._mount("fitness-recovery-card")];
-    if (["last_sleep_awake","last_sleep_light","last_sleep_deep","last_sleep_rem"].some(k => e[k] && this._hass.states[e[k]])) {
+    const children = [];
+    if (_fitnessUsableState(this._hass, e.readiness) || _fitnessUsableState(this._hass, e.estimated_recovery_time) || _fitnessUsableState(this._hass, e.autonomic_recovery_trend)) {
+      children.push(this._mount("fitness-recovery-card"));
+    }
+    if (["last_sleep_light","last_sleep_deep","last_sleep_rem"].some(k => _fitnessUsableState(this._hass, e[k]))) {
       children.push(this._mount("fitness-sleep-stage-card"));
+    }
+    if (!children.length) {
+      this.shadowRoot.innerHTML = "";
+      this._compositeChildren = [];
+      this._compositeBuilt = true;
+      this._compositeSignatureValue = this._compositeSignature();
+      return;
     }
     this._shell(this.config.title || l.recovery || "Recovery & sleep", "mdi:heart-pulse", children, "var(--warning-color,#f9a825)");
   }
@@ -2204,8 +2273,19 @@ class FitnessEvaluationCard extends FitnessCompositeCard {
     const l = this._profile.labels || {};
     const e = this._profile.entities || {};
     const children = [];
-    if (e.cardiorespiratory_fitness_trend || e.vo2max_percent_predicted) children.push(this._mount("fitness-progress-card"));
-    if (e.training_load) children.push(this._mount("fitness-training-load-card"));
+    const hasProgress = _fitnessUsableState(this._hass, e.cardiorespiratory_fitness_trend)
+      || _fitnessUsableState(this._hass, e.vo2max_percent_predicted);
+    const hasLoad = _fitnessUsableState(this._hass, e.training_load)
+      || _fitnessUsableState(this._hass, e.training_adaptation_status);
+    if (hasProgress) children.push(this._mount("fitness-progress-card"));
+    if (hasLoad) children.push(this._mount("fitness-training-load-card"));
+    if (!children.length) {
+      this.shadowRoot.innerHTML = "";
+      this._compositeChildren = [];
+      this._compositeBuilt = true;
+      this._compositeSignatureValue = this._compositeSignature();
+      return;
+    }
     this._shell(this.config.title || l.evaluation || "Evaluation", "mdi:chart-line", children, "var(--primary-color)");
   }
 }

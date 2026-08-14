@@ -71,11 +71,13 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data",
-          "detailed_strength_analysis": "详细力量分析"
+          "detailed_strength_analysis": "详细力量分析",
+          "workout_retention_days": "训练保留期"
         },
         "data_description": {
           "workout_device_ids": "历史设备。仅预选明确支持的 Garmin、Strava、Polar、Hevy、Peloton 和 Oura 适配器契约。",
-          "detailed_strength_analysis": "有力量训练数据时，分析动作/组数、估算1RM和各动作进展。"
+          "detailed_strength_analysis": "有力量训练数据时，分析动作/组数、估算1RM和各动作进展。",
+          "workout_retention_days": "保留 Fitness 规范化训练记录的天数。0 表示无限期。"
         }
       },
       "ai": {
@@ -159,7 +161,8 @@
           "workout_devices": "训练 / 长期数据",
           "ai": "AI 解读",
           "feedback": "指导、灯光与播报",
-          "sleep_devices": "睡眠设备"
+          "sleep_devices": "睡眠设备",
+          "sensor_assignments": "传感器分配"
         }
       },
       "profile": {
@@ -221,11 +224,13 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data",
-          "detailed_strength_analysis": "详细力量分析"
+          "detailed_strength_analysis": "详细力量分析",
+          "workout_retention_days": "训练保留期"
         },
         "data_description": {
           "workout_device_ids": "历史设备。仅预选明确支持的 Garmin、Strava、Polar、Hevy、Peloton 和 Oura 适配器契约。",
-          "detailed_strength_analysis": "有力量训练数据时，分析动作/组数、估算1RM和各动作进展。"
+          "detailed_strength_analysis": "有力量训练数据时，分析动作/组数、估算1RM和各动作进展。",
+          "workout_retention_days": "保留 Fitness 规范化训练记录的天数。0 表示无限期。"
         }
       },
       "ai": {
@@ -271,7 +276,35 @@
         "data_description": {
           "sleep_device_ids": "仅显示 Fitness 能够解析睡眠数据的设备。"
         }
+      },
+      "sensor_assignments": {
+        "title": "传感器分配",
+        "description": "选择已发现的实体健身传感器，以更改允许使用它的 Fitness 配置文件。传感器可以分配给多个配置文件，但训练测量值在同一时间只会独占锁定给一个配置文件。",
+        "data": {
+          "live_sensor_id": "Fitness 传感器"
+        },
+        "data_description": {
+          "live_sensor_id": "选择已发现的实体健身传感器，以更改允许使用它的 Fitness 配置文件。传感器可以分配给多个配置文件，但训练测量值在同一时间只会独占锁定给一个配置文件。"
+        }
+      },
+      "sensor_assignment": {
+        "title": "将传感器分配给配置文件",
+        "description": "选择允许使用 {sensor} 的所有 Fitness 配置文件。当训练时间重叠时，实体传感器会独占锁定给第一个符合条件的会话，直到所有重叠会话都结束。",
+        "data": {
+          "fitness_profile_ids": "允许的 Fitness 配置文件"
+        },
+        "data_description": {
+          "fitness_profile_ids": "传感器可以分配给多个配置文件供以后使用，但测量值不会同时共享；一个实体传感器一次只向一个训练所有者提供数据。"
+        }
       }
+    },
+    "abort": {
+      "no_live_sensors": "没有可重新分配的已接受本地 Fitness 传感器。",
+      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
+      "no_fitness_profiles": "Create a Fitness user before assigning this sensor."
+    },
+    "error": {
+      "sensor_unavailable": "The discovered fitness sensor is no longer available."
     }
   },
   "entity": {
@@ -3078,6 +3111,9 @@
     "select": {
       "workout_room": {
         "name": "训练 room"
+      },
+      "sensor_workout_owner": {
+        "name": "训练所有者"
       }
     },
     "number": {

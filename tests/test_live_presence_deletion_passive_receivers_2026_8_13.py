@@ -34,14 +34,20 @@ def test_sensor_deletion_forgets_assignment_and_allows_rediscovery():
     assert "CONF_LIVE_SENSOR_IDS" in RUNTIME
 
 
-def test_ant_capture_controls_are_per_physical_receiver():
+def test_capture_controls_are_receiver_and_physical_sensor_scoped():
+    # Receiver-level ANT scan control remains a hardware control.
     assert "AntReceiverStartCaptureButton" in BUTTON
     assert "AntReceiverStopCaptureButton" in BUTTON
     assert "adapter_manager.async_set_capture(self.stable_key, True)" in BUTTON
     assert "adapter_manager.async_set_capture(self.stable_key, False)" in BUTTON
     assert "AntReceiverCapture" in BINARY
-    # Logical ANT+ Adapter no longer gets transport-level capture buttons.
-    assert 'AdapterStartCaptureButton(runtime, "bluetooth")' in BUTTON
+    # Per-sensor logical capture gates exist for whichever transports that
+    # physical sensor actually has; Bluetooth no longer gets adapter buttons.
+    assert "class SensorTransportStartCaptureButton" in BUTTON
+    assert "class SensorTransportStopCaptureButton" in BUTTON
+    assert 'SensorTransportStartCaptureButton(runtime, sensor_id, transport)' in BUTTON
+    assert 'SensorTransportStopCaptureButton(runtime, sensor_id, transport)' in BUTTON
+    assert 'AdapterStartCaptureButton(runtime, "bluetooth")' not in BUTTON
     assert 'AdapterStartCaptureButton(runtime, "antplus")' not in BUTTON
 
 

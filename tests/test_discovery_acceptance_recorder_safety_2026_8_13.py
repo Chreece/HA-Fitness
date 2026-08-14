@@ -6,7 +6,10 @@ C = Path('custom_components/fitness/config_flow.py').read_text()
 
 
 def test_unaccepted_discoveries_do_not_create_devices():
-    assert 'if self.hub_entry is not None and self.sensor_is_accepted(sensor.sensor_id):' in R
+    registration = R[R.index('def register_transport_sensor'):R.index('# Compatibility for older provider code/tests')]
+    device_gate = registration[registration.index('Device Registry work is control-plane only'):registration.index('self.ensure_sensor_device(sensor.sensor_id)') + len('self.ensure_sensor_device(sensor.sensor_id)')]
+    assert 'structural_change' in device_gate
+    assert 'and self.sensor_is_accepted(sensor.sensor_id)' in device_gate
     assert 'if runtime.sensor_is_accepted(sensor.sensor_id)' in E
     assert 'accepted_ids' in E
     assert 'def remove_unaccepted_sensor_device' in R
@@ -16,7 +19,7 @@ def test_acceptance_is_lightweight_and_dynamic():
     section = R[R.index('def mark_sensor_accepted'):R.index('def remove_unaccepted_sensor_device')]
     assert 'self.ensure_sensor_device(sensor_id)' not in section
     assert 'self.request_hub_reload()' not in section
-    assert 'self._notify_structure()' in section
+    assert 'self._notify_structure()' not in section
 
 
 def test_discovery_card_uses_physical_sensor_name():
@@ -40,5 +43,8 @@ def test_passive_advertisements_do_not_save_or_notify_on_rssi_last_seen_only():
 
 def test_transport_attributes_exclude_volatile_recorder_fields():
     section = E[E.index('class PhysicalActiveTransportSensor'):E.index('class PhysicalLastSeenSensor')]
-    assert 'item.pop("rssi", None)' in section
-    assert 'item.pop("last_seen", None)' in section
+    assert '"capabilities": sorted(endpoint.capabilities)' in section
+    assert 'sensor_transport_details' not in section
+    active = section.split('class PhysicalSignalStrengthSensor', 1)[0]
+    assert '"rssi"' not in active
+    assert '"last_seen"' not in active

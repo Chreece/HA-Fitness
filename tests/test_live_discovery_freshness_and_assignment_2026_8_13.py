@@ -23,17 +23,20 @@ def test_acceptance_does_not_reload_or_create_devices_inline():
     marked = R[R.index("def mark_sensor_accepted") : R.index("def remove_unaccepted_sensor_device")]
     assert "self.ensure_sensor_device(sensor_id)" not in marked
     assert "self.request_hub_reload()" not in marked
-    assert "self._notify_structure()" in marked
+    assert "self._notify_structure()" not in marked
 
 
-def test_assignment_finalization_is_deferred_and_suppresses_profile_reload():
+def test_assignment_finalization_is_deferred_and_reloads_changed_profile_once():
     section = C[C.index("pending_updates: list") : C.index('return self.async_abort(reason="live_sensor_assigned")')]
     assert "async def _finalize_assignment()" in section
     assert "eager_start=False" in section
-    assert "runtime.suppress_entry_reload_once(entry.entry_id)" in section
+    # Assignment changes whether the native Live device should exist, so the
+    # normal profile update listener must be allowed to reload the profile.
+    assert "runtime.suppress_entry_reload_once(entry.entry_id)" not in section
+    assert "self.hass.config_entries.async_update_entry(entry, options=options)" in section
     assert "runtime.ensure_sensor_device(sensor_id)" in section
     assert "runtime.request_hub_reload()" not in section
-    assert "runtime._notify_structure()" in section
+    assert "runtime._notify_structure_throttled()" in section
     assert "consume_entry_reload_suppression" in I
 
 

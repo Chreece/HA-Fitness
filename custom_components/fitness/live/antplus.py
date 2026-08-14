@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Any
@@ -19,6 +20,7 @@ from .runtime import LiveSensor
 from .antplus_core.adapter import AntAdapterManager
 from .antplus_core.receiver import AntPlusReceiver
 from .antplus_core.remote import async_register_remote_listener
+from .antplus_core.capabilities import capability_snapshot
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -84,6 +86,11 @@ class AntPlusFitnessProvider:
         self._adapter_unsub = None
         self._device_unsub = None
         self._metric_unsub = None
+        self._packet_unsub = None
+        self._event_metric_cache: dict[tuple[int, str], Any] = {}
+        self._raw_event_cache: dict[tuple[str, str], tuple[bytes, float]] = {}
+        self._extra_metric_cache: dict[tuple[int, str], Any] = {}
+        self._extra_telemetry_last_publish: dict[int, float] = {}
         self._host_entry = None
         self._capture_requested = False
         self._publish_lock = threading.Lock()
@@ -107,6 +114,7 @@ class AntPlusFitnessProvider:
             self._metric_unsub = self.receiver.add_metric_callback(
                 lambda device, _key: self._schedule_publish_device(device, structural=False)
             )
+            self._packet_unsub = self.receiver.add_packet_callback(self._schedule_protocol_event)
             await self._async_create_adapter_manager(self.runtime.hub_entry)
             self.last_error = None
         except Exception as err:
@@ -224,6 +232,60 @@ class AntPlusFitnessProvider:
                 return
         self._flush_publish_device(device_id)
 
+    def _schedule_protocol_event(self, device, device_type: int, transmission_type: int, payload: bytes, source: str) -> None:
+        """Bridge discrete/raw ANT event-capable packets to HA Event entities.
+
+        High-rate telemetry profiles never enter this path. For event-oriented
+        profiles without a semantic decoder, raw payload changes are retained so
+        Home Assistant still exposes the advertised event surface without guessing
+        the vendor/profile meaning of individual bits.
+        """
+        snapshot = capability_snapshot(device)
+        event_keys: list[str] = []
+        if int(device_type) == 16:
+            for key in ("generic_control_event", "controls_availability_event"):
+                if key in snapshot.events:
+                    event_keys.append(key)
+        elif int(device_type) == 115 and "dropper_event" in snapshot.events:
+            event_keys.append("dropper_event")
+        if not event_keys:
+            return
+        device_id = int(getattr(device, "device_id"))
+        with self._publish_lock:
+            sensor_id = self._device_sensor_ids.get(device_id)
+            accepted = bool(sensor_id and self._device_accepted.get(device_id, False))
+        if not accepted or sensor_id is None:
+            return
+        raw = bytes(payload)
+        page = raw[0] & 0x7F if raw else None
+        self.hass.loop.call_soon_threadsafe(
+            self._emit_raw_protocol_events, sensor_id, tuple(event_keys),
+            int(device_type), int(transmission_type), raw, str(source), page,
+        )
+
+    def _emit_raw_protocol_events(
+        self, sensor_id: str, event_keys: tuple[str, ...], device_type: int,
+        transmission_type: int, payload: bytes, source: str, page: int | None,
+    ) -> None:
+        now = time.monotonic()
+        for event_key in event_keys:
+            cache_key = (sensor_id, event_key)
+            previous = self._raw_event_cache.get(cache_key)
+            # Identical retransmissions are part of ANT reliability, not new HA
+            # events. Allow the same payload again after 500 ms so a real repeated
+            # button/control action is not suppressed forever.
+            if previous is not None and previous[0] == payload and now - previous[1] < 0.5:
+                continue
+            self._raw_event_cache[cache_key] = (payload, now)
+            self.runtime.emit_sensor_event(
+                sensor_id, event_key, "event",
+                {
+                    "transport": "antplus", "device_type": device_type,
+                    "transmission_type": transmission_type, "page": page,
+                    "payload": payload.hex(), "source": source,
+                },
+            )
+
     def sensor_acceptance_changed(self, sensor_id: str, accepted: bool) -> None:
         """Update the worker-side fast-path cache after assignment/deletion."""
         with self._publish_lock:
@@ -268,11 +330,103 @@ class AntPlusFitnessProvider:
             values[canonical] = value
         return caps, values
 
+    def _publish_extra_metrics(self, device, sensor_id: str) -> None:
+        """Publish decoded ANT+ information not consumed by the live core.
+
+        Static/device information is retained immediately. Non-core telemetry is
+        sampled at at most 1 Hz and disabled by default, so exposing the full
+        decoder surface cannot recreate the radio-load problem. Event counters
+        are still inspected on every bounded ANT mailbox flush.
+        """
+        details: dict[str, Any] = {}
+        meta: dict[str, dict[str, Any]] = {}
+        supported_events = set(capability_snapshot(device).events)
+        device_id = int(getattr(device, "device_id"))
+        now_mono = time.monotonic()
+        allow_telemetry = (
+            now_mono - self._extra_telemetry_last_publish.get(device_id, 0.0) >= 1.0
+        )
+        published_telemetry = False
+
+        for key, metric in getattr(device, "metrics", {}).items():
+            key = str(key)
+            if METRIC_MAP.get(key.lower()) is not None:
+                continue
+            value = getattr(metric, "value", None)
+            if value is None:
+                continue
+
+            event_key = None
+            if key == "shift_event_count" and "shift_event" in supported_events:
+                event_key = "shift_event"
+            elif key.startswith("calibration_"):
+                if "fe_calibration_event" in supported_events:
+                    event_key = "fe_calibration_event"
+                elif "power_calibration_event" in supported_events:
+                    event_key = "power_calibration_event"
+            elif key == "command_status" and "fe_command_status_event" in supported_events:
+                event_key = "fe_command_status_event"
+
+            if event_key:
+                cache_key = (device_id, key)
+                previous = self._event_metric_cache.get(cache_key)
+                self._event_metric_cache[cache_key] = value
+                if previous is not None and previous != value:
+                    self.runtime.emit_sensor_event(
+                        sensor_id, event_key, "event",
+                        {"metric": key, "value": value, "previous": previous, "transport": "antplus"},
+                    )
+
+            availability_mode = str(getattr(metric, "availability_mode", "metric") or "metric")
+            is_device_info = availability_mode == "device"
+            if not is_device_info and not event_key and not allow_telemetry:
+                continue
+
+            value_cache_key = (device_id, key)
+            if self._extra_metric_cache.get(value_cache_key) == value:
+                continue
+            self._extra_metric_cache[value_cache_key] = value
+            details[key] = value
+            if not is_device_info:
+                published_telemetry = True
+
+            category = getattr(metric, "entity_category", None)
+            category_value = getattr(category, "value", category)
+            meta[key] = {
+                "name": getattr(metric, "name", None) or key.replace("_", " ").title(),
+                "unit": getattr(metric, "unit", None),
+                "device_class": getattr(metric, "device_class", None),
+                "state_class": getattr(metric, "state_class", None),
+                "icon": getattr(metric, "icon", None),
+                "entity_category": category_value,
+                # Every non-core ANT metric is opt-in. Core HR/power/cadence/etc.
+                # remain normal entities; full protocol telemetry stays available
+                # without generating Recorder/state churn by default.
+                "enabled_default": False,
+                "availability_mode": availability_mode,
+            }
+
+        if published_telemetry:
+            self._extra_telemetry_last_publish[device_id] = now_mono
+
+        # Battery is one canonical entity across ANT+ and BLE.
+        if "battery_level" in details:
+            self.runtime.publish_passive(
+                sensor_id, {"battery": details.pop("battery_level")}, transport="antplus",
+                metadata={"battery": {"name": "Battery", "unit": "%", "device_class": "battery", "state_class": "measurement", "icon": "mdi:battery"}},
+            )
+            meta.pop("battery_level", None)
+        if details:
+            self.runtime.publish_details(
+                sensor_id, details, transport="antplus", metadata=meta, priority=65
+            )
+
     def _publish_metric_values(self, device, sensor_id: str) -> None:
         """Fast metric-only path for an already registered accepted sensor."""
         _caps, values = self._metric_values(device)
         if values:
             self.runtime.publish(sensor_id, values, transport=self.transport)
+        self._publish_extra_metrics(device, sensor_id)
 
     def _publish_device(self, device) -> None:
         caps, values = self._metric_values(device)
@@ -282,36 +436,58 @@ class AntPlusFitnessProvider:
         device_id = int(getattr(device, "device_id"))
         manufacturer = getattr(device, "manufacturer_name", None)
         model = getattr(device, "model_no", None)
-        name_parts = [
-            x for x in (manufacturer, f"{model}" if model else None) if x
-        ]
-        name = " ".join(name_parts) if name_parts else f"ANT+ {device_id}"
+        profiles = sorted(getattr(device, "profiles", set()))
+        # Never promote the ANT numeric model number to the HA device name/model.
+        # A semantic identity resolver/catalog will enrich this once enough
+        # common-page or BLE Device Information data exists.
+        name = "Fitness sensor"
         endpoint_id = f"antplus:{device_id}"
+        snapshot = capability_snapshot(device)
+        evidence = dict(snapshot.evidence)
+        metadata = {
+            "device_number": device_id,
+            "profiles": profiles,
+            "transmission_types": sorted(getattr(device, "transmission_types", set())),
+            "manufacturer": manufacturer,
+            "manufacturer_id": getattr(device, "manufacturer_id", None),
+            "model_no": model,
+            "serial_no": getattr(device, "serial_no", None),
+            "hardware_rev": getattr(device, "hardware_rev", None),
+            "software_ver": getattr(device, "software_ver", None),
+            "protocol_controls": {"antplus": sorted(snapshot.controls)},
+            "protocol_events": {"antplus": sorted(snapshot.events)},
+            "capability_evidence": evidence,
+        }
         sensor = self.runtime.register_transport_sensor(
-            transport=self.transport,
-            endpoint_id=endpoint_id,
-            name=name,
-            capabilities=caps,
-            address=str(device_id),
-            last_seen=getattr(device, "last_seen", None)
-            or datetime.now(timezone.utc),
-            available=True,
-            metadata={
-                "device_number": device_id,
-                "profiles": sorted(getattr(device, "profiles", set())),
-                "manufacturer": manufacturer,
-                "manufacturer_id": getattr(device, "manufacturer_id", None),
-                "model": f"{model}" if model is not None else None,
-                "model_no": model,
-                "serial_no": getattr(device, "serial_no", None),
-            },
+            transport=self.transport, endpoint_id=endpoint_id, name=name,
+            capabilities=caps, address=str(device_id),
+            last_seen=getattr(device, "last_seen", None) or datetime.now(timezone.utc),
+            available=True, metadata=metadata,
         )
         accepted = self.runtime.sensor_is_accepted(sensor.sensor_id)
         with self._publish_lock:
             self._device_sensor_ids[device_id] = sensor.sensor_id
             self._device_accepted[device_id] = accepted
-        if accepted and values:
-            self.runtime.publish(sensor.sensor_id, values, transport=self.transport)
+
+        # Keep raw protocol identity/capabilities as disabled diagnostics.
+        diagnostic_values = {
+            "ant_device_number": device_id,
+            "ant_profiles": ", ".join(str(x) for x in profiles),
+            "ant_transmission_types": ", ".join(str(x) for x in sorted(getattr(device, "transmission_types", set()))),
+            "ant_manufacturer_id": getattr(device, "manufacturer_id", None),
+            "ant_model_number": model,
+            "ant_supported_controls": ", ".join(sorted(snapshot.controls)),
+            "ant_supported_events": ", ".join(sorted(snapshot.events)),
+        }
+        diagnostic_values = {k: v for k, v in diagnostic_values.items() if v not in (None, "")}
+        diagnostic_meta = {key: {"name": key.replace("_", " ").title(), "entity_category": "diagnostic", "enabled_default": False, "icon": "mdi:information-outline"} for key in diagnostic_values}
+        if diagnostic_values:
+            self.runtime.publish_details(sensor.sensor_id, diagnostic_values, transport="antplus", metadata=diagnostic_meta, priority=20)
+        self.runtime.ensure_sensor_device(sensor.sensor_id)
+        if accepted:
+            if values:
+                self.runtime.publish(sensor.sensor_id, values, transport=self.transport)
+            self._publish_extra_metrics(device, sensor.sensor_id)
 
     def _has_available_receiver(self) -> bool:
         if self.adapter_manager is None:
@@ -409,6 +585,7 @@ class AntPlusFitnessProvider:
         await self.async_stop_capture()
         for attr in (
             "_metric_unsub",
+            "_packet_unsub",
             "_device_unsub",
             "_adapter_unsub",
             "_remote_unsub",

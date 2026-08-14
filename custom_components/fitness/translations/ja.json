@@ -71,11 +71,13 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data",
-          "detailed_strength_analysis": "詳細な筋力分析"
+          "detailed_strength_analysis": "詳細な筋力分析",
+          "workout_retention_days": "ワークアウト保持期間"
         },
         "data_description": {
           "workout_device_ids": "履歴デバイス。明確に対応する Garmin、Strava、Polar、Hevy、Peloton、Oura の契約だけを事前選択します。",
-          "detailed_strength_analysis": "筋力データがある場合、種目/セット、推定1RM、種目ごとの進捗を分析します。"
+          "detailed_strength_analysis": "筋力データがある場合、種目/セット、推定1RM、種目ごとの進捗を分析します。",
+          "workout_retention_days": "Fitness の正規化ワークアウトを保持する日数。0 は無期限です。"
         }
       },
       "ai": {
@@ -159,7 +161,8 @@
           "workout_devices": "ワークアウト / 長期データ",
           "ai": "AI 解釈",
           "feedback": "コーチング、ライト、アナウンス",
-          "sleep_devices": "睡眠デバイス"
+          "sleep_devices": "睡眠デバイス",
+          "sensor_assignments": "センサー割り当て"
         }
       },
       "profile": {
@@ -221,11 +224,13 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data",
-          "detailed_strength_analysis": "詳細な筋力分析"
+          "detailed_strength_analysis": "詳細な筋力分析",
+          "workout_retention_days": "ワークアウト保持期間"
         },
         "data_description": {
           "workout_device_ids": "履歴デバイス。明確に対応する Garmin、Strava、Polar、Hevy、Peloton、Oura の契約だけを事前選択します。",
-          "detailed_strength_analysis": "筋力データがある場合、種目/セット、推定1RM、種目ごとの進捗を分析します。"
+          "detailed_strength_analysis": "筋力データがある場合、種目/セット、推定1RM、種目ごとの進捗を分析します。",
+          "workout_retention_days": "Fitness の正規化ワークアウトを保持する日数。0 は無期限です。"
         }
       },
       "ai": {
@@ -271,7 +276,35 @@
         "data_description": {
           "sleep_device_ids": "Fitness が解析できる睡眠データを持つデバイスのみ表示されます。"
         }
+      },
+      "sensor_assignments": {
+        "title": "センサー割り当て",
+        "description": "検出済みの物理フィットネスセンサーを選び、使用を許可する Fitness プロファイルを変更します。複数プロファイルに割り当て可能ですが、トレーニング中の測定値は一度に1つのプロファイルへ排他的にロックされます。",
+        "data": {
+          "live_sensor_id": "Fitness センサー"
+        },
+        "data_description": {
+          "live_sensor_id": "検出済みの物理フィットネスセンサーを選び、使用を許可する Fitness プロファイルを変更します。複数プロファイルに割り当て可能ですが、トレーニング中の測定値は一度に1つのプロファイルへ排他的にロックされます。"
+        }
+      },
+      "sensor_assignment": {
+        "title": "センサーをプロファイルへ割り当て",
+        "description": "{sensor} の使用を許可するすべての Fitness プロファイルを選びます。トレーニングが重なる場合、物理センサーは最初の対象セッションに排他的にロックされ、重複期間の全セッションが終了するまで維持されます。",
+        "data": {
+          "fitness_profile_ids": "許可する Fitness プロファイル"
+        },
+        "data_description": {
+          "fitness_profile_ids": "将来の利用のため複数プロファイルへ割り当てできますが、測定値は同時共有されません。1つの物理センサーは一度に1人のトレーニング所有者だけへデータを提供します。"
+        }
       }
+    },
+    "abort": {
+      "no_live_sensors": "再割り当てできる承認済みのローカル Fitness センサーがありません。",
+      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
+      "no_fitness_profiles": "Create a Fitness user before assigning this sensor."
+    },
+    "error": {
+      "sensor_unavailable": "The discovered fitness sensor is no longer available."
     }
   },
   "entity": {
@@ -3078,6 +3111,9 @@
     "select": {
       "workout_room": {
         "name": "ワークアウト room"
+      },
+      "sensor_workout_owner": {
+        "name": "ワークアウト所有者"
       }
     },
     "number": {

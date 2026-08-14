@@ -52,6 +52,24 @@ def _metric(
     )
 
 
+def native_profile_types() -> set[int]:
+    """Return ANT+ profiles with semantic native decoders.
+
+    Recognized-but-not-yet-semantic profiles are still retained through raw
+    diagnostics; this set is only for capability/diagnostic reporting.
+    """
+    return {
+        DEVICE_TYPE_HEART_RATE,
+        DEVICE_TYPE_POWER,
+        DEVICE_TYPE_FITNESS_EQUIPMENT,
+        DEVICE_TYPE_BIKE_CADENCE,
+        DEVICE_TYPE_BIKE_SPEED,
+        DEVICE_TYPE_BIKE_SPEED_CADENCE,
+        DEVICE_TYPE_SHIFTING,
+        DEVICE_TYPE_STRIDE_SPEED,
+    }
+
+
 def decode_native_packet(
     device: AntDevice, device_type: int, payload: bytes
 ) -> list[AntMetric]:

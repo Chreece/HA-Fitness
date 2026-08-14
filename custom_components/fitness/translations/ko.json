@@ -71,11 +71,13 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data",
-          "detailed_strength_analysis": "상세 근력 분석"
+          "detailed_strength_analysis": "상세 근력 분석",
+          "workout_retention_days": "운동 보관 기간"
         },
         "data_description": {
           "workout_device_ids": "기록 장치. 명확히 지원되는 Garmin, Strava, Polar, Hevy, Peloton, Oura 계약만 미리 선택합니다.",
-          "detailed_strength_analysis": "근력 데이터가 있을 때 운동/세트, 추정 1RM, 운동별 진행 상황을 분석합니다."
+          "detailed_strength_analysis": "근력 데이터가 있을 때 운동/세트, 추정 1RM, 운동별 진행 상황을 분석합니다.",
+          "workout_retention_days": "Fitness 표준 운동을 보관할 일수입니다. 0은 무제한입니다."
         }
       },
       "ai": {
@@ -159,7 +161,8 @@
           "workout_devices": "운동 / 장기 데이터",
           "ai": "AI 해석",
           "feedback": "코칭, 조명 및 안내",
-          "sleep_devices": "수면 기기"
+          "sleep_devices": "수면 기기",
+          "sensor_assignments": "센서 할당"
         }
       },
       "profile": {
@@ -221,11 +224,13 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data",
-          "detailed_strength_analysis": "상세 근력 분석"
+          "detailed_strength_analysis": "상세 근력 분석",
+          "workout_retention_days": "운동 보관 기간"
         },
         "data_description": {
           "workout_device_ids": "기록 장치. 명확히 지원되는 Garmin, Strava, Polar, Hevy, Peloton, Oura 계약만 미리 선택합니다.",
-          "detailed_strength_analysis": "근력 데이터가 있을 때 운동/세트, 추정 1RM, 운동별 진행 상황을 분석합니다."
+          "detailed_strength_analysis": "근력 데이터가 있을 때 운동/세트, 추정 1RM, 운동별 진행 상황을 분석합니다.",
+          "workout_retention_days": "Fitness 표준 운동을 보관할 일수입니다. 0은 무제한입니다."
         }
       },
       "ai": {
@@ -271,7 +276,35 @@
         "data_description": {
           "sleep_device_ids": "Fitness가 분석할 수 있는 수면 데이터가 있는 기기만 표시됩니다."
         }
+      },
+      "sensor_assignments": {
+        "title": "센서 할당",
+        "description": "검색된 실제 피트니스 센서를 선택하여 어떤 Fitness 프로필이 사용할 수 있는지 변경합니다. 여러 프로필에 할당할 수 있지만 운동 중 측정값은 한 번에 하나의 프로필에만 독점적으로 잠깁니다.",
+        "data": {
+          "live_sensor_id": "Fitness 센서"
+        },
+        "data_description": {
+          "live_sensor_id": "검색된 실제 피트니스 센서를 선택하여 어떤 Fitness 프로필이 사용할 수 있는지 변경합니다. 여러 프로필에 할당할 수 있지만 운동 중 측정값은 한 번에 하나의 프로필에만 독점적으로 잠깁니다."
+        }
+      },
+      "sensor_assignment": {
+        "title": "센서를 프로필에 할당",
+        "description": "{sensor} 사용이 허용된 모든 Fitness 프로필을 선택합니다. 운동 시간이 겹치면 실제 센서는 첫 번째 적격 세션에 독점 잠금되며 겹치는 모든 세션이 끝날 때까지 유지됩니다.",
+        "data": {
+          "fitness_profile_ids": "허용된 Fitness 프로필"
+        },
+        "data_description": {
+          "fitness_profile_ids": "향후 사용을 위해 하나의 센서를 여러 프로필에 할당할 수 있지만 측정값은 동시에 공유되지 않습니다. 실제 센서 하나는 한 번에 한 운동 소유자에게만 데이터를 제공합니다."
+        }
       }
+    },
+    "abort": {
+      "no_live_sensors": "다시 할당할 수 있는 승인된 로컬 Fitness 센서가 없습니다.",
+      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
+      "no_fitness_profiles": "Create a Fitness user before assigning this sensor."
+    },
+    "error": {
+      "sensor_unavailable": "The discovered fitness sensor is no longer available."
     }
   },
   "entity": {
@@ -3078,6 +3111,9 @@
     "select": {
       "workout_room": {
         "name": "운동 room"
+      },
+      "sensor_workout_owner": {
+        "name": "운동 소유자"
       }
     },
     "number": {

@@ -71,11 +71,13 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data",
-          "detailed_strength_analysis": "Gedetailleerde krachtanalyse"
+          "detailed_strength_analysis": "Gedetailleerde krachtanalyse",
+          "workout_retention_days": "Bewaartermijn workouts"
         },
         "data_description": {
           "workout_device_ids": "Historische apparaten. Alleen exact ondersteunde Garmin-, Strava-, Polar-, Hevy-, Peloton- en Oura-contracten worden voorgeselecteerd.",
-          "detailed_strength_analysis": "Analyseer oefeningen/sets, geschatte 1RM en voortgang per oefening wanneer krachtdata beschikbaar is."
+          "detailed_strength_analysis": "Analyseer oefeningen/sets, geschatte 1RM en voortgang per oefening wanneer krachtdata beschikbaar is.",
+          "workout_retention_days": "Aantal dagen dat canonieke Fitness-workouts worden bewaard. 0 betekent onbeperkt."
         }
       },
       "ai": {
@@ -159,7 +161,8 @@
           "workout_devices": "Training / langetermijngegevens",
           "ai": "AI-interpretatie",
           "feedback": "Coaching, verlichting en meldingen",
-          "sleep_devices": "Slaapapparaten"
+          "sleep_devices": "Slaapapparaten",
+          "sensor_assignments": "Sensortoewijzingen"
         }
       },
       "profile": {
@@ -221,11 +224,13 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data",
-          "detailed_strength_analysis": "Gedetailleerde krachtanalyse"
+          "detailed_strength_analysis": "Gedetailleerde krachtanalyse",
+          "workout_retention_days": "Bewaartermijn workouts"
         },
         "data_description": {
           "workout_device_ids": "Historische apparaten. Alleen exact ondersteunde Garmin-, Strava-, Polar-, Hevy-, Peloton- en Oura-contracten worden voorgeselecteerd.",
-          "detailed_strength_analysis": "Analyseer oefeningen/sets, geschatte 1RM en voortgang per oefening wanneer krachtdata beschikbaar is."
+          "detailed_strength_analysis": "Analyseer oefeningen/sets, geschatte 1RM en voortgang per oefening wanneer krachtdata beschikbaar is.",
+          "workout_retention_days": "Aantal dagen dat canonieke Fitness-workouts worden bewaard. 0 betekent onbeperkt."
         }
       },
       "ai": {
@@ -271,7 +276,35 @@
         "data_description": {
           "sleep_device_ids": "Alleen apparaten met slaapgegevens die Fitness kan verwerken worden getoond."
         }
+      },
+      "sensor_assignments": {
+        "title": "Sensortoewijzingen",
+        "description": "Kies een gedetecteerde fysieke fitnesssensor om te wijzigen welke Fitness-profielen deze mogen gebruiken. De toewijzing mag gedeeld zijn, maar trainingsmetingen worden exclusief aan één profiel vergrendeld.",
+        "data": {
+          "live_sensor_id": "Fitnesssensor"
+        },
+        "data_description": {
+          "live_sensor_id": "Kies een gedetecteerde fysieke fitnesssensor om te wijzigen welke Fitness-profielen deze mogen gebruiken. De toewijzing mag gedeeld zijn, maar trainingsmetingen worden exclusief aan één profiel vergrendeld."
+        }
+      },
+      "sensor_assignment": {
+        "title": "Sensor aan profielen toewijzen",
+        "description": "Kies alle Fitness-profielen die {sensor} mogen gebruiken. Bij overlappende trainingen blijft de fysieke sensor exclusief vergrendeld aan de eerste geschikte sessie totdat de volledige overlappende trainingsperiode is afgelopen.",
+        "data": {
+          "fitness_profile_ids": "Toegestane Fitness-profielen"
+        },
+        "data_description": {
+          "fitness_profile_ids": "Een sensor kan voor toekomstig gebruik aan meerdere profielen worden toegewezen. Metingen worden nooit tegelijk gedeeld: één fysieke sensor levert gegevens aan slechts één trainingseigenaar."
+        }
       }
+    },
+    "abort": {
+      "no_live_sensors": "Er zijn geen geaccepteerde lokale Fitness-sensoren beschikbaar om opnieuw toe te wijzen.",
+      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
+      "no_fitness_profiles": "Create a Fitness user before assigning this sensor."
+    },
+    "error": {
+      "sensor_unavailable": "The discovered fitness sensor is no longer available."
     }
   },
   "entity": {
@@ -3078,6 +3111,9 @@
     "select": {
       "workout_room": {
         "name": "Training room"
+      },
+      "sensor_workout_owner": {
+        "name": "Workout-eigenaar"
       }
     },
     "number": {

@@ -3,6 +3,7 @@
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import CoreState, HomeAssistant, ServiceCall, callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.storage import Store
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 import importlib
 import voluptuous as vol
@@ -17,13 +18,15 @@ from .const import (
     DOMAIN,
     MAX_WORKOUT_RETENTION_DAYS,
     SERVICE_DELETE_WORKOUTS_BEFORE,
+    STORE_KEY_PREFIX,
+    STORE_VERSION,
     SUPPORTED_LANGUAGES,
 )
 from .manager import FitnessManager
 from .dashboard import async_setup_dashboard
 
 PLATFORMS = ["sensor", "button", "select", "number", "calendar", "binary_sensor", "switch"]
-HUB_PLATFORMS = ["sensor", "button", "binary_sensor", "switch"]
+HUB_PLATFORMS = ["sensor", "button", "binary_sensor", "switch", "event", "select"]
 
 _DELETE_WORKOUTS_BEFORE_SCHEMA = vol.Schema(
     {
@@ -192,6 +195,28 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if runtime:
             await runtime.async_unregister_profile(entry.entry_id)
     return unloaded
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Delete every Fitness-owned persistent record for a removed user profile."""
+    from .live.runtime import HUB_ENTRY_TYPE
+
+    if entry.data.get("entry_type") == HUB_ENTRY_TYPE:
+        return
+
+    # The profile store contains canonical workouts, deletion tombstones, sleep
+    # history, long-term/metric history, AI evaluations and other Fitness-owned
+    # per-user state. Removing the config entry must remove the store itself,
+    # not merely unload its entities.
+    store = Store(hass, STORE_VERSION, f"{STORE_KEY_PREFIX}.{entry.entry_id}")
+    await store.async_remove()
+
+    runtime = hass.data.get(DOMAIN, {}).get("_live_runtime")
+    if runtime is not None:
+        # Defensive cleanup if HA invokes removal while runtime still knows the
+        # profile. Sensor assignments live in the removed config entry, so no
+        # shared physical sensor or other user's data is deleted.
+        await runtime.async_unregister_profile(entry.entry_id)
 
 
 async def async_remove_config_entry_device(hass, config_entry, device_entry) -> bool:

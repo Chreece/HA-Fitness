@@ -30,7 +30,8 @@ def test_radio_state_writes_are_coalesced_and_idle_profiles_skipped():
     assert "self._notify_values_throttled(physical_dirty)" in RUNTIME
     assert "_pending_sensor_value_changes" in RUNTIME
     assert "_notify_sensor_value_changes" in RUNTIME
-    assert "not manager.session_armed and not manager.session_active" in RUNTIME
+    assert "def _profile_is_live_session" in RUNTIME
+    assert "manager.session_armed or manager.session_active" in RUNTIME
 
 
 def test_hot_cpu_watchdog_does_not_dump_every_thread_automatically():

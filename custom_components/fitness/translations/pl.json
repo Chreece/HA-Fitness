@@ -71,11 +71,13 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data",
-          "detailed_strength_analysis": "Szczegółowa analiza siłowa"
+          "detailed_strength_analysis": "Szczegółowa analiza siłowa",
+          "workout_retention_days": "Przechowywanie treningów"
         },
         "data_description": {
           "workout_device_ids": "Urządzenia historii. Wybierane są tylko dokładnie obsługiwane kontrakty Garmin, Strava, Polar, Hevy, Peloton i Oura.",
-          "detailed_strength_analysis": "Analizuj ćwiczenia/serie, szacowane 1RM i postęp dla ćwiczeń, gdy dane siłowe są dostępne."
+          "detailed_strength_analysis": "Analizuj ćwiczenia/serie, szacowane 1RM i postęp dla ćwiczeń, gdy dane siłowe są dostępne.",
+          "workout_retention_days": "Liczba dni przechowywania kanonicznych treningów Fitness. 0 oznacza bez limitu."
         }
       },
       "ai": {
@@ -159,7 +161,8 @@
           "workout_devices": "Trening / dane długoterminowe",
           "ai": "Interpretacja AI",
           "feedback": "Coaching, światła i komunikaty",
-          "sleep_devices": "Urządzenia snu"
+          "sleep_devices": "Urządzenia snu",
+          "sensor_assignments": "Przypisania czujników"
         }
       },
       "profile": {
@@ -221,11 +224,13 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data",
-          "detailed_strength_analysis": "Szczegółowa analiza siłowa"
+          "detailed_strength_analysis": "Szczegółowa analiza siłowa",
+          "workout_retention_days": "Przechowywanie treningów"
         },
         "data_description": {
           "workout_device_ids": "Urządzenia historii. Wybierane są tylko dokładnie obsługiwane kontrakty Garmin, Strava, Polar, Hevy, Peloton i Oura.",
-          "detailed_strength_analysis": "Analizuj ćwiczenia/serie, szacowane 1RM i postęp dla ćwiczeń, gdy dane siłowe są dostępne."
+          "detailed_strength_analysis": "Analizuj ćwiczenia/serie, szacowane 1RM i postęp dla ćwiczeń, gdy dane siłowe są dostępne.",
+          "workout_retention_days": "Liczba dni przechowywania kanonicznych treningów Fitness. 0 oznacza bez limitu."
         }
       },
       "ai": {
@@ -271,7 +276,35 @@
         "data_description": {
           "sleep_device_ids": "Wyświetlane są tylko urządzenia z danymi snu, które Fitness potrafi przetworzyć."
         }
+      },
+      "sensor_assignments": {
+        "title": "Przypisania czujników",
+        "description": "Wybierz wykryty fizyczny czujnik fitness, aby zmienić profile Fitness, które mogą go używać. Przypisanie może być współdzielone, lecz podczas treningu pomiary są blokowane wyłącznie dla jednego profilu.",
+        "data": {
+          "live_sensor_id": "Czujnik Fitness"
+        },
+        "data_description": {
+          "live_sensor_id": "Wybierz wykryty fizyczny czujnik fitness, aby zmienić profile Fitness, które mogą go używać. Przypisanie może być współdzielone, lecz podczas treningu pomiary są blokowane wyłącznie dla jednego profilu."
+        }
+      },
+      "sensor_assignment": {
+        "title": "Przypisz czujnik do profili",
+        "description": "Wybierz wszystkie profile Fitness, które mogą używać {sensor}. Przy nakładających się treningach fizyczny czujnik pozostaje zablokowany dla pierwszej uprawnionej sesji aż do zakończenia całego okresu nakładania się sesji.",
+        "data": {
+          "fitness_profile_ids": "Dozwolone profile Fitness"
+        },
+        "data_description": {
+          "fitness_profile_ids": "Czujnik może być przypisany do wielu profili do przyszłego użycia. Pomiary nie są jednak współdzielone jednocześnie: jeden fizyczny czujnik zasila tylko jednego właściciela treningu."
+        }
       }
+    },
+    "abort": {
+      "no_live_sensors": "Brak zaakceptowanych lokalnych czujników Fitness dostępnych do ponownego przypisania.",
+      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
+      "no_fitness_profiles": "Create a Fitness user before assigning this sensor."
+    },
+    "error": {
+      "sensor_unavailable": "The discovered fitness sensor is no longer available."
     }
   },
   "entity": {
@@ -3078,6 +3111,9 @@
     "select": {
       "workout_room": {
         "name": "Trening room"
+      },
+      "sensor_workout_owner": {
+        "name": "Właściciel treningu"
       }
     },
     "number": {

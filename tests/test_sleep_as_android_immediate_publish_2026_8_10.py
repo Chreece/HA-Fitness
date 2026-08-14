@@ -78,7 +78,14 @@ def test_stale_sparse_saa_score_does_not_merge_into_new_night():
     merged = sleep.merged_sleeps([event_record, stale_score])
     assert len(merged) == 2
     timed = next(item for item in merged if item.end == end.isoformat())
-    assert timed.score is None
+    # The stale provider score must not contaminate the new night. Fitness may
+    # still calculate its own clearly-labelled heuristic score from complete
+    # stage data.
+    assert timed.score != 88
+    assert timed.field_sources.get("score") == "fitness_calculated"
+    assert timed.provider_values.get("fitness", {}).get("derived_sleep_score") == timed.score
+    sparse = next(item for item in merged if item is not timed)
+    assert sparse.score == 88
 
 
 def test_fresh_sparse_saa_score_can_merge_into_completed_night():
@@ -96,3 +103,43 @@ def test_fresh_sparse_saa_score_can_merge_into_completed_night():
     merged = sleep.merged_sleeps([event_record, score])
     assert len(merged) == 1
     assert merged[0].score == 91
+
+
+def test_fitness_derives_sleep_score_only_from_complete_stage_sleep():
+    record = SleepRecord(
+        source="sensor.sleep",
+        provider_domain="generic",
+        duration_s=8 * 3600,
+        light_sleep_s=4 * 3600,
+        deep_sleep_s=2 * 3600,
+        rem_sleep_s=2 * 3600,
+    )
+    score = sleep.fitness_derived_sleep_score(record)
+    assert score is not None
+    assert 0 <= score <= 100
+
+    incomplete = SleepRecord(
+        source="sensor.sleep",
+        provider_domain="generic",
+        duration_s=8 * 3600,
+        light_sleep_s=5 * 3600,
+        deep_sleep_s=3 * 3600,
+    )
+    assert sleep.fitness_derived_sleep_score(incomplete) is None
+
+
+def test_provider_native_sleep_score_always_wins_over_fitness_heuristic():
+    native = SleepRecord(
+        source="sensor.sleep",
+        provider_domain="provider",
+        duration_s=8 * 3600,
+        light_sleep_s=4 * 3600,
+        deep_sleep_s=2 * 3600,
+        rem_sleep_s=2 * 3600,
+        score=91,
+    )
+    assert sleep.fitness_derived_sleep_score(native) is None
+    merged = sleep.merged_sleeps([native])
+    assert len(merged) == 1
+    assert merged[0].score == 91
+    assert merged[0].field_sources.get("score") != "fitness_calculated"

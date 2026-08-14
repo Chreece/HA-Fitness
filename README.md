@@ -28,7 +28,7 @@ For example, **HA-ANT-Plus** can supply live heart rate, speed, cadence or power
 
 | Area | In practice |
 | --- | --- |
-| 🏃 **Live workout** | Combines compatible live heart rate, speed, pace, cadence, power, distance and other measurements into one session. |
+| 🏃 **Live workout** | Combines compatible live heart rate, speed, pace, cadence, power, distance and other measurements into one session. Native ANT+/Bluetooth sensors may be assigned to several profiles for reuse, but each physical sensor is exclusively locked to one workout owner during overlapping sessions so one person's measurements cannot feed another person's workout. |
 | 🧩 **Workout merging** | Reconciles live capture and later provider uploads so one physical workout does not have to become several unrelated workouts. |
 | 📅 **Workout calendar & history** | Stores canonical completed workouts, backfills compatible provider/Recorder history, enriches existing workouts when another source adds data, and exposes one Home Assistant calendar event per physical workout. Retention is configurable per profile. |
 | 😮‍💨 **Recovery & readiness** | Uses available sleep, personal HRV/RHR context, recent training and HR recovery to describe readiness and estimate when you may be ready for another workout. |

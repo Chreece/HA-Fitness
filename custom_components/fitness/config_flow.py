@@ -316,10 +316,13 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 for entry_id, options in pending_updates:
                     entry = self.hass.config_entries.async_get_entry(entry_id)
                     if entry is not None:
-                        runtime.suppress_entry_reload_once(entry.entry_id)
+                        # Assignment changes alter whether this profile owns a
+                        # native Live Workout device. Let the normal update
+                        # listener reload the profile exactly once so entities
+                        # are created/removed consistently.
                         self.hass.config_entries.async_update_entry(entry, options=options)
                 runtime.ensure_sensor_device(sensor_id)
-                runtime._notify_structure()
+                runtime._notify_structure_throttled()
 
             self.hass.async_create_background_task(
                 _finalize_assignment(),
@@ -519,12 +522,24 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._data[CONF_DETAILED_STRENGTH_ANALYSIS] = bool(
                 user_input.get(CONF_DETAILED_STRENGTH_ANALYSIS, False)
             )
-            return await self.async_step_history()
+            self._data[CONF_WORKOUT_RETENTION_DAYS] = int(
+                user_input.get(CONF_WORKOUT_RETENTION_DAYS, DEFAULT_WORKOUT_RETENTION_DAYS)
+            )
+            return await self.async_step_sleep_devices()
 
         return self.async_show_form(
             step_id="workout_devices",
             data_schema=vol.Schema(
-                {vol.Optional(CONF_WORKOUT_DEVICE_IDS, default=_choice_ids(workout_device_choices(self.hass))): _supported_device_multi(workout_device_choices(self.hass)), vol.Optional(CONF_DETAILED_STRENGTH_ANALYSIS, default=False): bool}
+                {
+                    vol.Optional(CONF_WORKOUT_DEVICE_IDS, default=_choice_ids(workout_device_choices(self.hass))): _supported_device_multi(workout_device_choices(self.hass)),
+                    vol.Optional(CONF_DETAILED_STRENGTH_ANALYSIS, default=False): bool,
+                    vol.Required(CONF_WORKOUT_RETENTION_DAYS, default=DEFAULT_WORKOUT_RETENTION_DAYS): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0, max=MAX_WORKOUT_RETENTION_DAYS, step=1,
+                            unit_of_measurement="d", mode=selector.NumberSelectorMode.BOX,
+                        )
+                    ),
+                }
             ),
         )
 
@@ -721,15 +736,146 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         from .live import get_live_runtime
         from .live.runtime import HUB_ENTRY_TYPE
-        if self.config_entry.data.get("entry_type") == HUB_ENTRY_TYPE:
-            return self.async_abort(reason="adapters_managed_on_devices")
         runtime = get_live_runtime(self.hass)
         await runtime.async_initialize()
+        if self.config_entry.data.get("entry_type") == HUB_ENTRY_TYPE:
+            return self.async_show_menu(
+                step_id="init",
+                menu_options=["sensor_assignments"],
+            )
         menu = ["profile", "fitness_inputs"]
         if runtime.live_surface_available:
             menu.append("live_devices")
-        menu.extend(["workout_devices", "history", "sleep_devices", "ai", "feedback"])
+        menu.extend(["workout_devices", "sleep_devices", "ai", "feedback"])
         return self.async_show_menu(step_id="init", menu_options=menu)
+
+    async def async_step_sensor_assignments(self, user_input=None):
+        """Choose a physical Local Fitness sensor to reassign after setup."""
+        from .live import get_live_runtime
+
+        runtime = get_live_runtime(self.hass)
+        await runtime.async_initialize()
+        choices = [
+            {"value": sensor.sensor_id, "label": sensor.label()}
+            for sensor in sorted(runtime.sensors.values(), key=lambda item: item.label().lower())
+            if runtime.sensor_is_accepted(sensor.sensor_id)
+        ]
+        if not choices:
+            return self.async_abort(reason="no_live_sensors")
+
+        if user_input is not None:
+            sensor_id = runtime.resolve_sensor_id(
+                str(user_input.get("live_sensor_id") or "")
+            )
+            if sensor_id not in {item["value"] for item in choices}:
+                return self.async_show_form(
+                    step_id="sensor_assignments",
+                    data_schema=vol.Schema(
+                        {
+                            vol.Required("live_sensor_id"): selector.SelectSelector(
+                                selector.SelectSelectorConfig(
+                                    options=choices,
+                                    mode=selector.SelectSelectorMode.DROPDOWN,
+                                )
+                            )
+                        }
+                    ),
+                    errors={"base": "sensor_unavailable"},
+                )
+            self._assignment_sensor_id = sensor_id
+            return await self.async_step_sensor_assignment()
+
+        return self.async_show_form(
+            step_id="sensor_assignments",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("live_sensor_id"): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=choices,
+                            mode=selector.SelectSelectorMode.DROPDOWN,
+                        )
+                    )
+                }
+            ),
+        )
+
+    async def async_step_sensor_assignment(self, user_input=None):
+        """Edit the many-to-many profile assignment for one physical sensor."""
+        from .live import get_live_runtime
+
+        runtime = get_live_runtime(self.hass)
+        await runtime.async_initialize()
+        sensor_id = runtime.resolve_sensor_id(
+            str(getattr(self, "_assignment_sensor_id", ""))
+        )
+        sensor = runtime.sensors.get(sensor_id)
+        if sensor is None or not runtime.sensor_is_accepted(sensor_id):
+            return self.async_abort(reason="sensor_unavailable")
+
+        profile_entries = list(runtime.profile_entries.values())
+        profiles = [
+            {"value": entry.entry_id, "label": entry.title}
+            for entry in profile_entries
+        ]
+        if not profiles:
+            return self.async_abort(reason="no_fitness_profiles")
+
+        current_profiles = [
+            entry.entry_id
+            for entry in profile_entries
+            if sensor_id in runtime.selected_sensor_ids(entry)
+        ]
+
+        if user_input is not None:
+            selected_profiles = set(user_input.get("fitness_profile_ids") or [])
+            for entry in profile_entries:
+                ids = list(
+                    ({**entry.data, **entry.options}.get(CONF_LIVE_SENSOR_IDS) or [])
+                )
+                resolved_ids = [runtime.resolve_sensor_id(str(item)) for item in ids]
+                has_sensor = sensor_id in resolved_ids
+                should_have = entry.entry_id in selected_profiles
+                if has_sensor == should_have:
+                    continue
+                # Remove aliases for this canonical physical sensor before adding
+                # the current canonical ID. This keeps assignments stable after
+                # ANT/BLE identities merge.
+                ids = [
+                    item
+                    for item in ids
+                    if runtime.resolve_sensor_id(str(item)) != sensor_id
+                ]
+                if should_have:
+                    ids.append(sensor_id)
+                options = dict(entry.options)
+                options[CONF_LIVE_SENSOR_IDS] = ids
+                # Reassignment changes the profile's native Live surface, so
+                # allow the profile update listener to reload it exactly once.
+                self.hass.config_entries.async_update_entry(entry, options=options)
+
+            # Refresh the disabled Workout owner diagnostic so its
+            # assigned_profiles attribute reflects this explicit reassignment.
+            runtime._notify_values_throttled({(sensor_id, "workout_owner", None)})
+            return self.async_create_entry(title="", data={})
+
+        return self.async_show_form(
+            step_id="sensor_assignment",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        "fitness_profile_ids",
+                        default=current_profiles,
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=profiles,
+                            multiple=True,
+                            mode=selector.SelectSelectorMode.DROPDOWN,
+                        )
+                    )
+                }
+            ),
+            description_placeholders={"sensor": sensor.label()},
+        )
 
     async def async_step_profile(self, user_input=None):
         """Edit DOB/sex profile data."""
@@ -969,6 +1115,12 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                     CONF_DETAILED_STRENGTH_ANALYSIS: bool(
                         user_input.get(CONF_DETAILED_STRENGTH_ANALYSIS, False)
                     ),
+                    CONF_WORKOUT_RETENTION_DAYS: int(
+                        user_input.get(
+                            CONF_WORKOUT_RETENTION_DAYS,
+                            DEFAULT_WORKOUT_RETENTION_DAYS,
+                        )
+                    ),
                 }
             )
 
@@ -987,6 +1139,15 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                         CONF_DETAILED_STRENGTH_ANALYSIS,
                         default=bool(current.get(CONF_DETAILED_STRENGTH_ANALYSIS, False)),
                     ): bool,
+                    vol.Required(
+                        CONF_WORKOUT_RETENTION_DAYS,
+                        default=int(current.get(CONF_WORKOUT_RETENTION_DAYS, DEFAULT_WORKOUT_RETENTION_DAYS)),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0, max=MAX_WORKOUT_RETENTION_DAYS, step=1,
+                            unit_of_measurement="d", mode=selector.NumberSelectorMode.BOX,
+                        )
+                    ),
                 }
             ),
         )

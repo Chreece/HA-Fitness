@@ -16,9 +16,14 @@ def test_protocol_specific_adapter_subentries_exist():
     assert 'SENSORS_SUBENTRY_TYPE = "sensors"' in R
 
 
-def test_adapter_entities_are_owned_by_transport_subentries():
-    assert 'runtime.adapter_subentry_id("bluetooth")' in B
+def test_adapter_and_sensor_entities_are_owned_by_correct_subentries():
+    # ANT receiver hardware controls remain on the ANT+ adapter subentry.
     assert 'runtime.adapter_subentry_id("antplus")' in B
+    # Bluetooth capture controls moved from the logical adapter onto each
+    # accepted physical sensor, under the Sensors subentry.
+    assert 'SensorTransportStartCaptureButton(runtime, sensor_id, transport)' in B
+    assert 'SensorTransportStopCaptureButton(runtime, sensor_id, transport)' in B
+    assert 'subentry = runtime.ensure_sensors_subentry()' in B
     assert 'runtime.adapter_subentry_id(transport)' in BS
     assert 'runtime.adapter_subentry_id("antplus")' in BS
     assert 'runtime.adapter_subentry_id(transport)' in SW

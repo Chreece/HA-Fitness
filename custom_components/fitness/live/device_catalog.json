@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "manufacturers": {
+    "antplus": {"1": "Garmin", "95": "Stryd"},
+    "bluetooth_manufacturer_data": {"43690": "Stryd"}
+  },
+  "products": [
+    {
+      "id": "stryd_running_power_meter",
+      "manufacturer": "Stryd",
+      "model": "Stryd Running Power Meter",
+      "name": "Stryd",
+      "match_any": [
+        {"transport": "antplus", "manufacturer_id": 95},
+        {"transport": "bluetooth", "manufacturer_data_id": 43690},
+        {"name_prefix": "stryd"}
+      ]
+    }
+  ],
+  "profile_models": {
+    "11": "Power Meter", "17": "Fitness Equipment", "30": "Running Dynamics Sensor",
+    "31": "Muscle Oxygen Sensor", "34": "Shifting Sensor", "40": "Radar Sensor",
+    "48": "Tire Pressure Sensor", "115": "Dropper Seatpost", "119": "Weight Scale",
+    "120": "Heart Rate Sensor", "121": "Bike Speed/Cadence Sensor",
+    "122": "Bike Cadence Sensor", "123": "Bike Speed Sensor",
+    "124": "Stride Speed/Distance Sensor", "127": "Core Temperature Sensor"
+  }
+}

@@ -71,11 +71,13 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data",
-          "detailed_strength_analysis": "Детальний аналіз силових тренувань"
+          "detailed_strength_analysis": "Детальний аналіз силових тренувань",
+          "workout_retention_days": "Зберігання тренувань"
         },
         "data_description": {
           "workout_device_ids": "Пристрої історії. Попередньо вибираються лише точні підтримувані контракти Garmin, Strava, Polar, Hevy, Peloton та Oura.",
-          "detailed_strength_analysis": "Аналіз вправ/підходів, оціненого 1RM і прогресу за вправами за наявності даних."
+          "detailed_strength_analysis": "Аналіз вправ/підходів, оціненого 1RM і прогресу за вправами за наявності даних.",
+          "workout_retention_days": "Кількість днів зберігання канонічних тренувань Fitness. 0 означає без обмежень."
         }
       },
       "ai": {
@@ -159,7 +161,8 @@
           "workout_devices": "Тренування / довгострокові дані",
           "ai": "Інтерпретація ШІ",
           "feedback": "Коучинг, світло та оголошення",
-          "sleep_devices": "Пристрої сну"
+          "sleep_devices": "Пристрої сну",
+          "sensor_assignments": "Призначення датчиків"
         }
       },
       "profile": {
@@ -221,11 +224,13 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data",
-          "detailed_strength_analysis": "Детальний аналіз силових тренувань"
+          "detailed_strength_analysis": "Детальний аналіз силових тренувань",
+          "workout_retention_days": "Зберігання тренувань"
         },
         "data_description": {
           "workout_device_ids": "Пристрої історії. Попередньо вибираються лише точні підтримувані контракти Garmin, Strava, Polar, Hevy, Peloton та Oura.",
-          "detailed_strength_analysis": "Аналіз вправ/підходів, оціненого 1RM і прогресу за вправами за наявності даних."
+          "detailed_strength_analysis": "Аналіз вправ/підходів, оціненого 1RM і прогресу за вправами за наявності даних.",
+          "workout_retention_days": "Кількість днів зберігання канонічних тренувань Fitness. 0 означає без обмежень."
         }
       },
       "ai": {
@@ -271,7 +276,35 @@
         "data_description": {
           "sleep_device_ids": "Показуються лише пристрої з даними сну, які Fitness може обробити."
         }
+      },
+      "sensor_assignments": {
+        "title": "Призначення датчиків",
+        "description": "Виберіть виявлений фізичний фітнес-датчик, щоб змінити профілі Fitness, яким дозволено його використовувати. Призначення може бути спільним, але під час тренування вимірювання ексклюзивно закріплюються за одним профілем.",
+        "data": {
+          "live_sensor_id": "Датчик Fitness"
+        },
+        "data_description": {
+          "live_sensor_id": "Виберіть виявлений фізичний фітнес-датчик, щоб змінити профілі Fitness, яким дозволено його використовувати. Призначення може бути спільним, але під час тренування вимірювання ексклюзивно закріплюються за одним профілем."
+        }
+      },
+      "sensor_assignment": {
+        "title": "Призначити датчик профілям",
+        "description": "Виберіть усі профілі Fitness, яким дозволено використовувати {sensor}. Під час тренувань, що перекриваються, фізичний датчик залишається заблокованим за першою придатною сесією до завершення всього періоду перекриття.",
+        "data": {
+          "fitness_profile_ids": "Дозволені профілі Fitness"
+        },
+        "data_description": {
+          "fitness_profile_ids": "Датчик можна призначити кільком профілям для майбутнього використання. Вимірювання не передаються одночасно: один фізичний датчик обслуговує лише одного власника тренування."
+        }
       }
+    },
+    "abort": {
+      "no_live_sensors": "Немає прийнятих локальних датчиків Fitness, доступних для перепризначення.",
+      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
+      "no_fitness_profiles": "Create a Fitness user before assigning this sensor."
+    },
+    "error": {
+      "sensor_unavailable": "The discovered fitness sensor is no longer available."
     }
   },
   "entity": {
@@ -3078,6 +3111,9 @@
     "select": {
       "workout_room": {
         "name": "Тренування room"
+      },
+      "sensor_workout_owner": {
+        "name": "Власник тренування"
       }
     },
     "number": {

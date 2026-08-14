@@ -339,8 +339,12 @@ async def async_setup_entry(hass, entry, async_add_entities):
         return
 
     manager = hass.data[DOMAIN][entry.entry_id]
-    native_live_enabled = runtime.live_surface_available
-    # Native live-adapter gate: no enabled adapter means no Live Workout device.
+    native_live_enabled = bool(
+        runtime.live_surface_available
+        and runtime.profile_has_assigned_live_sensor(entry)
+    )
+    # Native Live Workout exists only after this profile has at least one
+    # accepted physical sensor assigned under Sensors & Adapters.
     registry = er.async_get(hass)
 
     # Remove obsolete Evaluation mirrors from older betas instead of leaving
@@ -1200,6 +1204,12 @@ class FitnessSensor(SensorEntity):
                         attrs["provider_base_rpe"] = rpe_meta.get("provider_base_rpe")
                     if rpe_meta.get("user_override_rpe") is not None:
                         attrs["user_override_rpe"] = rpe_meta.get("user_override_rpe")
+            if m == "workout_hr_vs_baseline" and workout.avg_hr is not None and workout.avg_hr_vs_baseline_bpm is not None:
+                attrs["current_average_hr_bpm"] = round(float(workout.avg_hr), 1)
+                attrs["personal_baseline_average_hr_bpm"] = round(
+                    float(workout.avg_hr) - float(workout.avg_hr_vs_baseline_bpm), 1
+                )
+                attrs["absolute_deviation_bpm"] = round(abs(float(workout.avg_hr_vs_baseline_bpm)), 1)
             return attrs
 
         if kind == "sleep":
@@ -1257,6 +1267,10 @@ class FitnessSensor(SensorEntity):
             field_source = (sleep.field_sources or {}).get(field_name) if field_name else None
             if field_source:
                 attrs["field_source"] = field_source
+            if m == "sleep_score" and field_source == "fitness_calculated":
+                attrs["calculated_by_fitness"] = True
+                attrs["calculation_type"] = "wellness_heuristic"
+                attrs["medical_interpretation"] = False
             if m in {"workout_strength_sets", "workout_estimated_1rm", "workout_strength_progression"}:
                 details = (w.extra or {}).get("fitness_strength") if isinstance(w.extra, dict) else None
                 if isinstance(details, dict):

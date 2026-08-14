@@ -8,6 +8,16 @@ from .live import get_live_runtime
 from .live.runtime import HUB_ENTRY_TYPE
 
 
+def _sensor_control_capabilities(sensor) -> dict[str, set[str]]:
+    result: dict[str, set[str]] = {}
+    for endpoint in sensor.endpoints.values():
+        mapping = endpoint.metadata.get("protocol_controls") or {}
+        values = mapping.get(endpoint.transport, []) if isinstance(mapping, dict) else mapping
+        for value in values or []:
+            result.setdefault(str(value), set()).add(endpoint.transport)
+    return result
+
+
 async def async_setup_entry(hass, entry, async_add_entities):
     runtime = get_live_runtime(hass)
     if entry.data.get("entry_type") != HUB_ENTRY_TYPE:
@@ -39,6 +49,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     entry.async_on_unload(runtime.add_listener(_add_ant_receiver_diagnostics))
 
     materialized_sensor_ids: set[str] = set()
+    materialized_controls: set[tuple[str, str]] = set()
 
     def _add_live_sensor_availability() -> None:
         accepted_ids = {
@@ -48,12 +59,29 @@ async def async_setup_entry(hass, entry, async_add_entities):
         }
         materialized_sensor_ids.intersection_update(accepted_ids)
         new_ids = sorted(accepted_ids - materialized_sensor_ids)
-        if not new_ids:
-            return
+        added = [LiveSensorAvailable(runtime, sensor_id) for sensor_id in new_ids]
         materialized_sensor_ids.update(new_ids)
+
+        for sensor_id in sorted(accepted_ids):
+            sensor = runtime.sensors.get(sensor_id)
+            if sensor is None:
+                continue
+            gatt_token = (sensor_id, "__gatt_connected__")
+            if "bluetooth" in sensor.endpoints and gatt_token not in materialized_controls:
+                materialized_controls.add(gatt_token)
+                added.append(BluetoothGattConnected(runtime, sensor_id))
+            for capability, transports in sorted(_sensor_control_capabilities(sensor).items()):
+                token = (sensor_id, capability)
+                if token in materialized_controls:
+                    continue
+                materialized_controls.add(token)
+                added.append(PhysicalControlSupported(runtime, sensor_id, capability, transports))
+
+        if not added:
+            return
         subentry = runtime.ensure_sensors_subentry()
         async_add_entities(
-            [LiveSensorAvailable(runtime, sensor_id) for sensor_id in new_ids],
+            added,
             config_subentry_id=subentry.subentry_id if subentry is not None else None,
         )
 
@@ -173,8 +201,94 @@ class LiveSensorAvailable(_RuntimeEntity):
             "capabilities": sorted(sensor.capabilities),
             "preferred_transport": sensor.preferred_transport,
             "active_transport": sensor.active_transport,
-            "available_transports": sorted(sensor.transports),
-            "transport_details": self.runtime.sensor_transport_details(self.sensor_id),
+            "known_transports": sorted(sensor.transports),
+            "available_transports": sorted(
+                transport
+                for transport, endpoint in sensor.endpoints.items()
+                if endpoint.available
+            ),
+        }
+
+
+class BluetoothGattConnected(BinarySensorEntity):
+    _attr_has_entity_name = True
+    _attr_name = "Bluetooth GATT connected"
+    _attr_icon = "mdi:bluetooth-connect"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, runtime, sensor_id: str):
+        self.runtime = runtime
+        self.sensor_id = runtime.resolve_sensor_id(sensor_id)
+        self._attr_unique_id = f"fitness_{self.sensor_id}_gatt_connected"
+        self._attr_device_info = runtime.sensor_device_info(self.sensor_id)
+
+    async def async_added_to_hass(self):
+        self.async_on_remove(
+            self.runtime.add_sensor_value_listener(
+                self.sensor_id, "gatt_connection", None, self._update
+            )
+        )
+
+    def _update(self):
+        self.async_write_ha_state()
+
+    @property
+    def is_on(self):
+        return self.runtime.bluetooth_gatt_connected(self.sensor_id)
+
+    @property
+    def extra_state_attributes(self):
+        provider = self.runtime.providers.get("bluetooth")
+        users = getattr(provider, "sensor_users", None) if provider else None
+        return {
+            "owners": sorted(users(self.sensor_id)) if users is not None else [],
+            "ant_data_fresh": bool(
+                (sensor := self.runtime.sensors.get(self.sensor_id))
+                and self.runtime.ant_data_fresh(sensor)
+            ),
+        }
+
+
+class PhysicalControlSupported(BinarySensorEntity):
+    """A positively detected protocol control capability.
+
+    This is intentionally diagnostic until Fitness has a verified encoder/range
+    contract for the capability. It creates no radio polling or state churn.
+    """
+
+    _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
+    _attr_icon = "mdi:gamepad-variant-outline"
+
+    def __init__(self, runtime, sensor_id: str, capability: str, transports: set[str]):
+        self.runtime = runtime
+        self.sensor_id = runtime.resolve_sensor_id(sensor_id)
+        self.capability = str(capability)
+        self.transports = set(transports)
+        self._attr_name = f"Supports {self.capability.replace('_', ' ')}"
+        self._attr_unique_id = f"fitness_{self.sensor_id}_control_{self.capability}"
+        self._attr_device_info = runtime.sensor_device_info(self.sensor_id)
+
+    @property
+    def is_on(self):
+        return True
+
+    @property
+    def extra_state_attributes(self):
+        evidence = {}
+        sensor = self.runtime.sensors.get(self.sensor_id)
+        if sensor is not None:
+            for endpoint in sensor.endpoints.values():
+                item = endpoint.metadata.get("capability_evidence") or {}
+                if self.capability in item:
+                    evidence[endpoint.transport] = item[self.capability]
+        return {
+            "capability": self.capability,
+            "transports": sorted(self.transports),
+            "evidence": evidence,
+            "actionable": False,
+            "reason": "A verified protocol encoder/range/acknowledgement contract is required before writes are enabled.",
         }
 
 

@@ -71,11 +71,13 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data",
-          "detailed_strength_analysis": "Detaillierte Kraftanalyse"
+          "detailed_strength_analysis": "Detaillierte Kraftanalyse",
+          "workout_retention_days": "Workout-Aufbewahrung"
         },
         "data_description": {
           "workout_device_ids": "Geräte für abgeschlossene Workouts/Verlauf. Nur exakt unterstützte Garmin-, Strava-, Polar-, Hevy-, Peloton- und Oura-Adapterverträge werden vorausgewählt.",
-          "detailed_strength_analysis": "Übungen/Sätze, geschätztes 1RM und Fortschritt je Übung analysieren, wenn Kraftdaten vorhanden sind."
+          "detailed_strength_analysis": "Übungen/Sätze, geschätztes 1RM und Fortschritt je Übung analysieren, wenn Kraftdaten vorhanden sind.",
+          "workout_retention_days": "Anzahl der Tage, für die kanonische Fitness-Trainings gespeichert werden. 0 bedeutet unbegrenzt."
         }
       },
       "ai": {
@@ -159,7 +161,8 @@
           "workout_devices": "Training / Langzeitdaten",
           "ai": "KI-Interpretation",
           "feedback": "Coaching, Lichter und Ansagen",
-          "sleep_devices": "Schlafgeräte"
+          "sleep_devices": "Schlafgeräte",
+          "sensor_assignments": "Sensorzuweisungen"
         }
       },
       "profile": {
@@ -221,11 +224,13 @@
         "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
         "data": {
           "workout_device_ids": "Devices providing workout / fitness history data",
-          "detailed_strength_analysis": "Detaillierte Kraftanalyse"
+          "detailed_strength_analysis": "Detaillierte Kraftanalyse",
+          "workout_retention_days": "Workout-Aufbewahrung"
         },
         "data_description": {
           "workout_device_ids": "Geräte für abgeschlossene Workouts/Verlauf. Nur exakt unterstützte Garmin-, Strava-, Polar-, Hevy-, Peloton- und Oura-Adapterverträge werden vorausgewählt.",
-          "detailed_strength_analysis": "Übungen/Sätze, geschätztes 1RM und Fortschritt je Übung analysieren, wenn Kraftdaten vorhanden sind."
+          "detailed_strength_analysis": "Übungen/Sätze, geschätztes 1RM und Fortschritt je Übung analysieren, wenn Kraftdaten vorhanden sind.",
+          "workout_retention_days": "Anzahl der Tage, für die kanonische Fitness-Trainings gespeichert werden. 0 bedeutet unbegrenzt."
         }
       },
       "ai": {
@@ -271,7 +276,35 @@
         "data_description": {
           "sleep_device_ids": "Es werden nur Geräte mit Schlafdaten angezeigt, die Fitness auswerten kann."
         }
+      },
+      "sensor_assignments": {
+        "title": "Sensorzuweisungen",
+        "description": "Wähle einen erkannten physischen Fitness-Sensor aus, um festzulegen, welche Fitness-Profile ihn verwenden dürfen. Die Zuweisung kann geteilt sein, Messdaten während eines Trainings sind jedoch exklusiv einem Profil zugeordnet.",
+        "data": {
+          "live_sensor_id": "Fitness-Sensor"
+        },
+        "data_description": {
+          "live_sensor_id": "Wähle einen erkannten physischen Fitness-Sensor aus, um festzulegen, welche Fitness-Profile ihn verwenden dürfen. Die Zuweisung kann geteilt sein, Messdaten während eines Trainings sind jedoch exklusiv einem Profil zugeordnet."
+        }
+      },
+      "sensor_assignment": {
+        "title": "Sensor Profilen zuweisen",
+        "description": "Wähle alle Fitness-Profile, die {sensor} verwenden dürfen. Bei überlappenden Trainings wird der physische Sensor exklusiv für die erste berechtigte Sitzung gesperrt, bis der gesamte überlappende Trainingszeitraum beendet ist.",
+        "data": {
+          "fitness_profile_ids": "Zulässige Fitness-Profile"
+        },
+        "data_description": {
+          "fitness_profile_ids": "Ein Sensor darf mehreren Profilen für die spätere Nutzung zugewiesen sein. Messdaten werden dennoch nie gleichzeitig geteilt: Ein physischer Sensor versorgt immer nur einen Trainingsbesitzer."
+        }
       }
+    },
+    "abort": {
+      "no_live_sensors": "Es sind keine akzeptierten lokalen Fitness-Sensoren zum Neuzuweisen verfügbar.",
+      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
+      "no_fitness_profiles": "Create a Fitness user before assigning this sensor."
+    },
+    "error": {
+      "sensor_unavailable": "The discovered fitness sensor is no longer available."
     }
   },
   "entity": {
@@ -3078,6 +3111,9 @@
     "select": {
       "workout_room": {
         "name": "Training room"
+      },
+      "sensor_workout_owner": {
+        "name": "Workout-Besitzer"
       }
     },
     "number": {

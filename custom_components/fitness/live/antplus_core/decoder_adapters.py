@@ -100,7 +100,7 @@ def decode_with_adapters(
 
 
 def decoder_backend_rows() -> list[dict[str, object]]:
-    from .profile_support import native_profile_types
+    from .decoder import native_profile_types
 
     return [
         {

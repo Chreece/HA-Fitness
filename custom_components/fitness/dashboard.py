@@ -25,7 +25,7 @@ from .providers.workouts import workout_sport_kind
 _LOGGER = logging.getLogger(__name__)
 
 _RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"
-_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.10.11"
+_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.11.1"
 _SETUP_KEY = "_dashboard_frontend_setup"
 
 _PACE_TEXT: dict[str, str] = {
@@ -978,6 +978,26 @@ _RPE_DASHBOARD_TEXT: dict[str, dict[str, str]] = {
 
 for _code, _rpe_labels in _RPE_DASHBOARD_TEXT.items():
     _DASHBOARD_TEXT.setdefault(_code, {}).update(_rpe_labels)
+
+_RECOVERY_REFINEMENT_TEXT: dict[str, dict[str, str]] = {
+    "en": {"recovery_from_last_workout":"Time to recover from last workout","total_recovery":"Total recovery","at_time":"at","baseline":"Baseline","current":"Current","fitness_sleep_score":"Fitness sleep score"},
+    "el": {"recovery_from_last_workout":"Χρόνος αποκατάστασης από την τελευταία προπόνηση","total_recovery":"Πλήρης αποκατάσταση","at_time":"στις","baseline":"Βάση","current":"Τώρα","fitness_sleep_score":"Βαθμολογία ύπνου Fitness"},
+    "de": {"recovery_from_last_workout":"Erholungszeit nach dem letzten Training","total_recovery":"Vollständig erholt","at_time":"um","baseline":"Basis","current":"Aktuell","fitness_sleep_score":"Fitness-Schlafscore"},
+    "fr": {"recovery_from_last_workout":"Temps de récupération après le dernier entraînement","total_recovery":"Récupération complète","at_time":"à","baseline":"Référence","current":"Actuel","fitness_sleep_score":"Score de sommeil Fitness"},
+    "es": {"recovery_from_last_workout":"Tiempo de recuperación del último entrenamiento","total_recovery":"Recuperación completa","at_time":"a las","baseline":"Referencia","current":"Actual","fitness_sleep_score":"Puntuación de sueño Fitness"},
+    "it": {"recovery_from_last_workout":"Tempo di recupero dall'ultimo allenamento","total_recovery":"Recupero completo","at_time":"alle","baseline":"Baseline","current":"Attuale","fitness_sleep_score":"Punteggio sonno Fitness"},
+    "pt": {"recovery_from_last_workout":"Tempo de recuperação do último treino","total_recovery":"Recuperação total","at_time":"às","baseline":"Referência","current":"Atual","fitness_sleep_score":"Pontuação de sono Fitness"},
+    "nl": {"recovery_from_last_workout":"Hersteltijd van de laatste training","total_recovery":"Volledig hersteld","at_time":"om","baseline":"Basislijn","current":"Huidig","fitness_sleep_score":"Fitness-slaapscore"},
+    "pl": {"recovery_from_last_workout":"Czas regeneracji po ostatnim treningu","total_recovery":"Pełna regeneracja","at_time":"o","baseline":"Poziom bazowy","current":"Aktualnie","fitness_sleep_score":"Wynik snu Fitness"},
+    "ru": {"recovery_from_last_workout":"Время восстановления после последней тренировки","total_recovery":"Полное восстановление","at_time":"в","baseline":"Базовый уровень","current":"Сейчас","fitness_sleep_score":"Оценка сна Fitness"},
+    "uk": {"recovery_from_last_workout":"Час відновлення після останнього тренування","total_recovery":"Повне відновлення","at_time":"о","baseline":"Базовий рівень","current":"Зараз","fitness_sleep_score":"Оцінка сну Fitness"},
+    "tr": {"recovery_from_last_workout":"Son antrenmandan toparlanma süresi","total_recovery":"Tam toparlanma","at_time":"saat","baseline":"Baz","current":"Güncel","fitness_sleep_score":"Fitness uyku puanı"},
+    "zh": {"recovery_from_last_workout":"上次训练后的恢复时间","total_recovery":"完全恢复","at_time":"于","baseline":"基线","current":"当前","fitness_sleep_score":"Fitness 睡眠评分"},
+    "ja": {"recovery_from_last_workout":"前回ワークアウトからの回復時間","total_recovery":"完全回復","at_time":"","baseline":"ベースライン","current":"現在","fitness_sleep_score":"Fitness 睡眠スコア"},
+    "ko": {"recovery_from_last_workout":"마지막 운동 후 회복 시간","total_recovery":"완전 회복","at_time":"","baseline":"기준선","current":"현재","fitness_sleep_score":"Fitness 수면 점수"},
+}
+for _code, _labels in _RECOVERY_REFINEMENT_TEXT.items():
+    _DASHBOARD_TEXT.setdefault(_code, {}).update(_labels)
 
 def _language(entry) -> str:
     raw = str(entry.options.get(CONF_LANGUAGE, entry.data.get(CONF_LANGUAGE, "en")) or "en")

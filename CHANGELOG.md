@@ -1,7 +1,34 @@
 # Changelog
 
+### Runtime safety and shared-sensor refinements
+
+- Hardened the optional sensor recognition catalog so malformed/missing JSON can never abort Fitness startup and catalog I/O is no longer performed from Bluetooth advertisement callbacks.
+- Added exercise-owned temporary per-sensor capture policy: ANT+ is enabled for the workout, BLE/GATT is enabled only when ANT+ becomes unavailable, and the user's pre-workout capture positions are restored when no overlapping Fitness session remains.
+- Added explicit mid-workout physical-sensor owner transfer. The current owner must be paused; the target must have the sensor assigned and be armed/active. Live values and transport ownership are cleared before the handoff so measurements cannot feed two profiles.
+- Moved workout retention into the Workout configuration section and added translations.
+- Removing a Fitness user config entry now removes its complete Fitness-owned persistent profile store.
+- Workout calendars use `<profile name> <translated Workouts>`.
+
+
 ## 2026.8.11 — Unified workout calendar & historical reconciliation
 
+- Added exclusive physical-sensor workout ownership across shared Fitness profiles: a sensor may be assigned to many profiles but feeds only one active workout owner, with deterministic oldest-session claiming.
+- Sensor locks now persist until every overlapping armed/active/recovery session is finished, preventing a still-worn sensor from being inherited by another ongoing workout after the original owner stops.
+- Added Local Sensors → Sensor assignments so accepted native sensors can be reassigned to any combination of Fitness profiles after setup.
+- ANT↔Bluetooth transport handover now operates strictly underneath the physical workout lock; first ANT takeover packets no longer hide the previous BLE state before GATT disconnect reconciliation.
+- Physical ANT/BLE identity merges now migrate workout locks, measurement provenance and per-profile transport state safely to the canonical sensor ID.
+- Added retry/claim guards so failed BLE fallback cannot create phantom transport ownership or retry at advertisement frequency.
+
+- Reworked native ANT+/Bluetooth physical-sensor identity into a canonical, data-driven model. Raw numeric ANT model/manufacturer IDs remain diagnostics and can no longer replace a meaningful HA device name/model; standard ANT common pages and Bluetooth Device Information enrich manufacturer, model, serial, hardware and software/firmware information in-place.
+- Added an expandable `live/device_catalog.json` for manufacturer/product/profile recognition instead of runtime vendor exceptions. Cross-transport auto-merge remains conservative: serial identity or an explicit catalog product-family rule is required.
+- Added merged diagnostic entities for decoded ANT+ metadata/advanced metrics and BLE advertisement/GATT information. Equal facts from ANT+/BLE share one canonical entity with per-transport source values; battery is one merged passive entity. High-frequency/advanced protocol diagnostics are disabled by default.
+- Added physical-sensor protocol Event entities for positively detected ANT+ event capabilities, plus manual Bluetooth GATT connect/disconnect buttons. GATT is automatically used for assigned workouts only when ANT+ data is not fresh, is shared safely between multiple Fitness profiles, and is disconnected as soon as fresh ANT+ data takes ownership.
+- Hardened native radio hot paths with per-sensor/per-metric dirty notifications, unchanged-value suppression, coalesced workout-manager processing and a fast repeated-advertisement path so radio traffic cannot fan out into writes for every physical Fitness entity.
+- Hardened BLE discovery/device materialization further: volatile manufacturer/service payload bytes, RSSI, scanner source and availability no longer participate in topology identity; raw advertisement diagnostics are sampled at 10-second intervals, HA-side Bluetooth callbacks are service-filtered, device-registry updates are identity-signature cached, and entity materialization after discovery acceptance is deferred/coalesced off the config-flow response path.
+- Added stale endpoint expiry and bounded diagnostic states: silent radios can become unavailable without deleting topology, active GATT connections stay available, long protocol diagnostics are moved to attributes instead of exceeding Home Assistant's 255-character state limit, and the enabled Active transport entity no longer duplicates the complete GATT/ANT diagnostic surface into Recorder.
+- Control capabilities advertised/confirmed by ANT+/BLE are retained as diagnostics, but Fitness does not fabricate writable protocol payloads. A control becomes actionable only when a verified encoder/range/acknowledgement contract is implemented.
+- Serialized Bluetooth GATT connect/disconnect per canonical physical sensor so multiple Fitness profiles cannot race duplicate connections; failed partial connections now clean up ownership/client state before retry.
+- Reduced enabled physical-sensor state payloads further: normal advertisements no longer resolve Device Registry identity unless stable topology actually changes, and the Available entity exposes only compact canonical status rather than duplicating full transport/GATT diagnostics.
 - Fixed Home Assistant startup stalls caused by Fitness synchronously rebuilding provider/workout/recovery/evaluation state while entity platforms were being added. Profile startup now restores persisted Fitness state only; provider discovery/listener registration is deferred until `EVENT_HOMEASSISTANT_STARTED`.
 - Added cached canonical latest-workout, readiness and recovery snapshots so dozens of Fitness entities no longer rescan provider registries or rebuild longitudinal summaries independently during state writes.
 - Fitness Evaluation and readiness/recovery entity properties now remain unavailable during HA bootstrap instead of triggering expensive calculations on the main event loop; they refresh immediately after post-start initialization.
