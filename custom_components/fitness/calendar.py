@@ -134,7 +134,7 @@ class FitnessWorkoutCalendar(CalendarEntity):
         self.language = str(manager.config.get("language") or "en")
         self._attr_name = f"{profile} {tr(self.language, 'workouts')}"
         self._attr_unique_id = f"{entry.entry_id}_workouts"
-        self._attr_device_info = device_info(entry, "evaluation")
+        self._attr_device_info = device_info(entry, "workout")
 
     async def async_added_to_hass(self):
         self.async_on_remove(

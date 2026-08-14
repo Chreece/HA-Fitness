@@ -16,6 +16,6 @@ def test_all_non_ai_evaluation_metrics_have_specific_catalog_entry():
         SENSOR,
     )
     for metric in metrics:
-        if metric in {"ai_general", "ai_workout"}:
+        if metric in {"ai_general", "ai_workout", "evaluation_data"}:
             continue
         assert f'"{metric}": (' in EXPLANATIONS, metric

@@ -22,10 +22,11 @@ def test_sleep_summary_metrics_live_only_in_last_sleep_card():
     for key in ("last_sleep_score", "last_sleep_hrv", "sleep_deficit_7d"):
         assert key in sleep
     assert "sleep-summary" in sleep
-    assert "last_sleep_duration" not in recovery
-    assert "last_sleep_score" not in recovery
-    assert "last_sleep_hrv" not in recovery
+    assert "e.last_sleep_duration" not in recovery
+    assert "e.last_sleep_score" not in recovery
+    assert "e.last_sleep_hrv" not in recovery
     assert "sleep_deficit_7d" not in recovery
+    assert '_fitnessSleepSourceMetric(this._profile, this._hass, "last_sleep_hrv"' in recovery
 
 
 def test_readiness_component_bars_have_state_colours():
@@ -52,4 +53,4 @@ def test_recovery_limiter_is_localized_in_all_languages():
 def test_frontend_backend_revision_match():
     f = re.search(r'FITNESS_DASHBOARD_VERSION = "([^"]+)"', JS)
     b = re.search(r'_RESOURCE_URL = f".*?\\?v=([^"]+)"', DASH)
-    assert f and b and f.group(1) == b.group(1) == "2026.8.11.3"
+    assert f and b and f.group(1) == b.group(1) == "2026.8.11.6"

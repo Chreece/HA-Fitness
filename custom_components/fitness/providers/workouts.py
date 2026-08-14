@@ -140,6 +140,70 @@ _FIELD_KEYS: dict[str, tuple[str, ...]] = {
 }
 
 
+FITNESS_LIVE_SOURCE = "fitness_live_capture"
+FITNESS_CALCULATED_SOURCE = "fitness_calculated"
+
+
+def workout_is_fitness_owned(workout: "Workout | None") -> bool:
+    """Return whether Fitness itself created the physical workout record.
+
+    Provider/watch records may later enrich a live-captured workout. Ownership
+    must survive every merge/canonicalization pass, so the original live source
+    is checked transitively through ``sources`` rather than relying on the
+    synthetic current ``source`` value (for example ``merged:garmin``).
+    """
+    if workout is None:
+        return False
+    return (
+        workout.source == FITNESS_LIVE_SOURCE
+        or FITNESS_LIVE_SOURCE in (workout.sources or [])
+        or FITNESS_LIVE_SOURCE in (workout.provider_values or {})
+        or FITNESS_LIVE_SOURCE in set((workout.field_sources or {}).values())
+        # ``sample_count`` is written only by Fitness Live capture. It also
+        # lets this release repair ownership for canonical records produced by
+        # older merge code that already dropped the original source list.
+        or workout.sample_count is not None
+    )
+
+
+def fitness_owned_workout_value(workout: "Workout | None", field_name: str):
+    """Return the value Fitness itself captured/owned for one workout field.
+
+    A canonical workout can be enriched by Garmin/Strava/etc. The canonical
+    value may therefore belong to an upstream provider. Fitness-owned HA
+    entities must never mirror that provider value. During merge we retain the
+    normalized live-capture value under ``provider_values`` so the original
+    Fitness measurement remains available even after provider enrichment.
+    """
+    if not workout_is_fitness_owned(workout):
+        return None
+    assert workout is not None
+
+    # The canonical title is identity metadata for the Fitness-owned workout.
+    # It may be improved by a provider after matching without turning the
+    # underlying workout into an externally owned record.
+    if field_name == "name":
+        return workout.name or workout.sport or "Workout"
+
+    if field_name == "session_rpe":
+        meta = (workout.extra or {}).get("fitness_rpe")
+        if isinstance(meta, dict) and meta.get("active_source") == "user_override":
+            return workout.session_rpe
+
+    live_values = (workout.provider_values or {}).get(FITNESS_LIVE_SOURCE)
+    if isinstance(live_values, dict):
+        key = f"normalized_{field_name}"
+        if key in live_values:
+            return live_values[key]
+
+    source = (workout.field_sources or {}).get(field_name)
+    if source in {FITNESS_LIVE_SOURCE, FITNESS_CALCULATED_SOURCE}:
+        return getattr(workout, field_name, None)
+    if workout.source == FITNESS_LIVE_SOURCE:
+        return getattr(workout, field_name, None)
+    return None
+
+
 @dataclass(slots=True)
 class Workout:
     source: str
@@ -909,8 +973,8 @@ def _sports_compatible(a: Workout, b: Workout) -> bool:
     if sa in generic or sb in generic:
         return True
 
-    a_live = a.source == "fitness_live_capture" or "fitness_live_capture" in (a.sources or [])
-    b_live = b.source == "fitness_live_capture" or "fitness_live_capture" in (b.sources or [])
+    a_live = workout_is_fitness_owned(a)
+    b_live = workout_is_fitness_owned(b)
     return a_live != b_live
 
 
@@ -1013,8 +1077,8 @@ def _same_real_workout(a: Workout, b: Workout) -> bool:
     distance_match = _distance_compatible(a, b)
     end_match = _end_time_compatible(a, b)
 
-    a_live = a.source == "fitness_live_capture" or "fitness_live_capture" in (a.sources or [])
-    b_live = b.source == "fitness_live_capture" or "fitness_live_capture" in (b.sources or [])
+    a_live = workout_is_fitness_owned(a)
+    b_live = workout_is_fitness_owned(b)
     # A live capture and a watch/provider activity starting within 90 seconds are
     # overwhelmingly likely to be two views of the same physical session.
     # Provider duration semantics can differ (elapsed vs moving vs live timer),
@@ -1128,8 +1192,18 @@ def merge_workouts(group: list[Workout]) -> Workout:
     ]
 
     for workout in ordered:
-        if workout.source not in merged.sources:
-            merged.sources.append(workout.source)
+        # Preserve original provenance transitively. A previously canonicalized
+        # merged workout has a synthetic ``source`` (``merged:...``) but its
+        # ``sources`` list contains the real origins. Re-merging must never
+        # collapse that list and lose ``fitness_live_capture`` ownership.
+        provenance_sources = list(workout.sources or [])
+        if not provenance_sources and workout.source:
+            provenance_sources = [workout.source]
+        if workout_is_fitness_owned(workout) and FITNESS_LIVE_SOURCE not in provenance_sources:
+            provenance_sources.append(FITNESS_LIVE_SOURCE)
+        for source in provenance_sources:
+            if source not in merged.sources:
+                merged.sources.append(source)
         for domain in workout.provider_domains:
             if domain not in merged.provider_domains:
                 merged.provider_domains.append(domain)
@@ -1148,9 +1222,18 @@ def merge_workouts(group: list[Workout]) -> Workout:
 
             current = getattr(merged, field_name)
             provider = (
-                workout.provider_domains[0]
-                if workout.provider_domains else workout.source
+                (workout.field_sources or {}).get(field_name)
+                or (workout.provider_domains[0] if workout.provider_domains else workout.source)
             )
+
+            # Retain Fitness's own normalized live-capture facts even when an
+            # external provider is richer/canonical. These values back only
+            # Fitness-owned workout entities; they are never used to mirror an
+            # upstream provider.
+            if workout.source == FITNESS_LIVE_SOURCE:
+                merged.provider_values.setdefault(FITNESS_LIVE_SOURCE, {})[
+                    f"normalized_{field_name}"
+                ] = value
 
             # Keep first (richest provider) as canonical, but retain all
             # disagreements in provider_values + field_sources.
@@ -1198,11 +1281,7 @@ def merge_workouts(group: list[Workout]) -> Workout:
     # calculated fields from the live capture remain available. This prevents a
     # provisional "Evening Workout/Ride" label from replacing an explicit
     # provider sport/name after sync.
-    live_records = [
-        item for item in ordered
-        if item.source == "fitness_live_capture"
-        or "fitness_live_capture" in (item.sources or [])
-    ]
+    live_records = [item for item in ordered if workout_is_fitness_owned(item)]
     external_records = [item for item in ordered if item not in live_records]
     if live_records and external_records:
         explicit = next(

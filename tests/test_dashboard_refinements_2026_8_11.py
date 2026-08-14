@@ -10,11 +10,12 @@ def test_single_frontend_module_contract_is_preserved():
     assert '_RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"' in BACKEND
     front = re.search(r'FITNESS_DASHBOARD_VERSION = "([^"]+)"', FRONTEND).group(1)
     back = re.search(r'\?v=([^"}]+)', BACKEND).group(1)
-    assert front == back == "2026.8.11.3"
+    assert front == back == "2026.8.11.6"
 
 def test_sleep_total_excludes_awake_regression():
     assert "asleepStageTotal" in FRONTEND
-    assert "item.entity !== awakeEntity" in FRONTEND
+    assert "const awakeItem = rawValues.find" in FRONTEND
+    assert "const total = asleepStageTotal;" in FRONTEND
     assert 252 + 115 + 81 == 448
     assert 227 + 252 + 115 + 81 == 675
 

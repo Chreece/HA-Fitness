@@ -20,12 +20,23 @@ from .const import (
     CONF_WORKOUT_DEVICE_IDS,
     DOMAIN,
 )
-from .providers.workouts import _FIELD_KEYS, workout_sport_kind
+from .profile_data import (
+    DATA_MAP_KIND_TO_KEY,
+    LIVE_RAW_ROUTE_KEYS,
+    routes_from_attributes,
+)
+from .providers.workouts import (
+    FITNESS_LIVE_SOURCE,
+    _FIELD_KEYS,
+    fitness_owned_workout_value,
+    workout_is_fitness_owned,
+    workout_sport_kind,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 _RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"
-_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.11.3"
+_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.11.6"
 _SETUP_KEY = "_dashboard_frontend_setup"
 
 _PACE_TEXT: dict[str, str] = {
@@ -35,11 +46,11 @@ _PACE_TEXT: dict[str, str] = {
     "zh": "配速", "ja": "ペース", "ko": "페이스",
 }
 
-# Factual completed-workout metrics are owned by their upstream Home Assistant
-# integrations. The dashboard gets source routes for these fields instead of
-# relying on duplicate Fitness sensor entities. Values are normalized only for
-# display/calculation fallback; when the provider exposes a direct sensor/state
-# or top-level attribute, the frontend reads that source entity live.
+# Factual completed-workout metrics are routed to the integration that actually
+# owns each field. Pure provider workouts stay on Garmin/Strava/Hevy/etc. A
+# workout created by Fitness Live remains Fitness-owned after provider merging,
+# and fields captured by Fitness may route to Fitness's own workout entities.
+# Provider-enriched fields still route directly to the provider, never mirrors.
 _WORKOUT_SOURCE_FIELDS: dict[str, tuple[str, str | None]] = {
     "last_workout": ("name", None),
     "last_workout_duration": ("duration_s", "min"),
@@ -102,6 +113,39 @@ _WORKOUT_STATE_TOKENS: dict[str, tuple[tuple[str, ...], ...]] = {
     "volume_kg": (("volume",),),
     "device_name": (("device",),),
     "gear_name": (("gear",),),
+}
+
+# Latest-sleep facts are source-owned exactly like completed-workout facts.
+# The canonical value is retained only as a dashboard fallback for providers
+# whose source entity is an event/history carrier rather than a numeric sensor.
+_SLEEP_SOURCE_FIELDS: dict[str, tuple[str, str | None]] = {
+    "last_sleep_duration": ("duration_s", "min"),
+    "last_sleep_score": ("score", None),
+    "last_sleep_efficiency": ("efficiency_percent", "%"),
+    "last_sleep_time_in_bed": ("time_in_bed_s", "min"),
+    "last_sleep_awake": ("awake_s", "min"),
+    "last_sleep_light": ("light_sleep_s", "min"),
+    "last_sleep_deep": ("deep_sleep_s", "min"),
+    "last_sleep_rem": ("rem_sleep_s", "min"),
+    "last_sleep_hrv": ("hrv_ms", "ms"),
+    "last_sleep_average_hr": ("average_hr", "bpm"),
+    "last_sleep_respiratory_rate": ("respiratory_rate", "1/min"),
+    "last_sleep_spo2": ("spo2_percent", "%"),
+    "last_sleep_recovery_score": ("recovery_score", None),
+    "last_sleep_readiness_score": ("readiness_score", None),
+}
+
+# Current provider/profile inputs used by Evaluation cards. Fitness owns only
+# the derived trend/delta entities; the dashboard reads these current values
+# from the original HA entities when one exists.
+_EVALUATION_SOURCE_FIELDS: dict[str, tuple[str, str | None]] = {
+    "vo2max": ("vo2max", "mL/kg/min"),
+    "resting_hr": ("resting_hr", "bpm"),
+    "hrv_last_night": ("hrv_last_night", "ms"),
+    "hrv_weekly": ("hrv_weekly", "ms"),
+    "weight": ("weight_kg", "kg"),
+    "training_readiness": ("training_readiness", None),
+    "provider_sleep_score": ("sleep_score", None),
 }
 
 _DASHBOARD_TEXT: dict[str, dict[str, str]] = {
@@ -1101,6 +1145,82 @@ def _workout_source_value(workout, field_name: str) -> Any:
     return value
 
 
+def _sleep_source_value(record, field_name: str) -> Any:
+    value = getattr(record, field_name, None)
+    if value is None:
+        return None
+    if field_name in {
+        "duration_s", "time_in_bed_s", "awake_s", "light_sleep_s",
+        "deep_sleep_s", "rem_sleep_s",
+    }:
+        return round(float(value) / 60.0, 3)
+    return value
+
+
+def _sleep_source_metrics(hass: HomeAssistant, record) -> dict[str, dict[str, Any]]:
+    """Return source routes for latest-sleep facts without Fitness mirrors."""
+    if record is None:
+        return {}
+    result: dict[str, dict[str, Any]] = {}
+    for dashboard_key, (field_name, unit) in _SLEEP_SOURCE_FIELDS.items():
+        canonical = _sleep_source_value(record, field_name)
+        if canonical is None:
+            continue
+        source = (record.field_sources or {}).get(field_name)
+        route: dict[str, Any] = {
+            "value": canonical,
+            "unit": unit,
+            "field": field_name,
+            "source_type": "fitness_calculated" if source == "fitness_calculated" else "source",
+        }
+        if isinstance(source, str) and "." in source and hass.states.get(source) is not None:
+            route["entity_id"] = source
+            route["transform"] = "state"
+        elif isinstance(record.source, str) and "." in record.source and hass.states.get(record.source) is not None:
+            # Event/history providers may reconstruct the metric from Recorder.
+            # Keep More Info attached to the real source and use canonical value.
+            route["entity_id"] = record.source
+            route["transform"] = "fallback"
+        result[dashboard_key] = route
+    return result
+
+
+def _evaluation_source_metrics(hass: HomeAssistant, manager) -> dict[str, dict[str, Any]]:
+    """Return direct source routes for current Evaluation inputs."""
+    evaluation = manager.evaluation()
+    provider = evaluation.get("provider_metrics") or {}
+    result: dict[str, dict[str, Any]] = {}
+    config_fallbacks = {
+        "vo2max": "vo2max",
+        "resting_hr": "resting_hr",
+        "weight": "weight",
+    }
+    for dashboard_key, (provider_key, unit) in _EVALUATION_SOURCE_FIELDS.items():
+        value = provider.get(provider_key)
+        entity_id = provider.get(f"{provider_key}_entity")
+        if value is None and dashboard_key in config_fallbacks:
+            configured = manager.config.get(config_fallbacks[dashboard_key])
+            if isinstance(configured, str) and "." in configured:
+                entity_id = configured
+                state = hass.states.get(entity_id)
+                if state is not None and state.state not in ("unknown", "unavailable", ""):
+                    try:
+                        value = float(state.state)
+                    except (TypeError, ValueError):
+                        value = state.state
+            elif configured is not None:
+                value = configured
+        if value is None:
+            continue
+        route: dict[str, Any] = {"value": value, "unit": unit, "field": provider_key}
+        if isinstance(entity_id, str) and hass.states.get(entity_id) is not None:
+            route.update({"entity_id": entity_id, "transform": "state"})
+        else:
+            route["transform"] = "fallback"
+        result[dashboard_key] = route
+    return result
+
+
 def _source_entry_domain(hass: HomeAssistant, registry_entry) -> str:
     config_entry_id = getattr(registry_entry, "config_entry_id", None)
     if not config_entry_id:
@@ -1132,7 +1252,9 @@ def _attribute_transform(field_name: str, matched_key: str) -> str:
     return "identity"
 
 
-def _workout_source_metrics(hass: HomeAssistant, manager, workout) -> dict[str, dict[str, Any]]:
+def _workout_source_metrics(
+    hass: HomeAssistant, manager, workout, profile_entities: dict[str, str] | None = None
+) -> dict[str, dict[str, Any]]:
     """Return dashboard routes to upstream workout entities, never mirrors."""
     if workout is None:
         return {}
@@ -1162,6 +1284,26 @@ def _workout_source_metrics(hass: HomeAssistant, manager, workout) -> dict[str, 
         if canonical is None:
             continue
         provider = (workout.field_sources or {}).get(field_name)
+
+        # A workout physically created by Fitness remains Fitness-owned even
+        # after Garmin/Strava enrichment. If this specific field was captured
+        # by Fitness Live, route the dashboard to Fitness's own workout entity.
+        # Fields whose canonical source is an upstream provider continue to
+        # route directly to that provider, so no mirror is introduced.
+        if workout_is_fitness_owned(workout) and provider == FITNESS_LIVE_SOURCE:
+            own_value = fitness_owned_workout_value(workout, field_name)
+            if own_value is not None:
+                route = {
+                    "value": _workout_source_value(workout, field_name),
+                    "unit": unit,
+                    "field": field_name,
+                    "source_type": "fitness_owned",
+                }
+                entity_id = (profile_entities or {}).get(dashboard_key)
+                if entity_id and hass.states.get(entity_id) is not None:
+                    route.update({"entity_id": entity_id, "transform": "state"})
+                result[dashboard_key] = route
+                continue
 
         def score(item) -> int:
             registry_entry, domain, label = item
@@ -1311,6 +1453,49 @@ def _route_candidates(hass: HomeAssistant, manager) -> list[dict[str, str]]:
     return result
 
 
+def _profile_data_routes(hass: HomeAssistant, entity_id: str | None) -> dict[str, dict[str, Any]]:
+    """Read routing metadata from one stable profile data-map sensor."""
+    if not entity_id:
+        return {}
+    state = hass.states.get(entity_id)
+    if state is None:
+        return {}
+    return routes_from_attributes(dict(state.attributes or {}))
+
+
+def _with_workout_fallback_values(routes: dict[str, dict[str, Any]], workout) -> dict[str, dict[str, Any]]:
+    """Attach transient display fallbacks without persisting mirror attributes."""
+    result = {key: dict(route) for key, route in routes.items()}
+    if workout is None:
+        return result
+    for key, (field_name, unit) in _WORKOUT_SOURCE_FIELDS.items():
+        route = result.get(key)
+        if route is None:
+            continue
+        route.setdefault("field", field_name)
+        route.setdefault("unit", unit)
+        value = _workout_source_value(workout, field_name)
+        if value is not None:
+            route["value"] = value
+    return result
+
+
+def _with_sleep_fallback_values(routes: dict[str, dict[str, Any]], record) -> dict[str, dict[str, Any]]:
+    result = {key: dict(route) for key, route in routes.items()}
+    if record is None:
+        return result
+    for key, (field_name, unit) in _SLEEP_SOURCE_FIELDS.items():
+        route = result.get(key)
+        if route is None:
+            continue
+        route.setdefault("field", field_name)
+        route.setdefault("unit", unit)
+        value = _sleep_source_value(record, field_name)
+        if value is not None:
+            route["value"] = value
+    return result
+
+
 @websocket_api.websocket_command({vol.Required("type"): "fitness/dashboard/config"})
 @websocket_api.async_response
 async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> None:
@@ -1332,7 +1517,59 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                 entities[key] = registry_entry.entity_id
         lang = _language(entry)
         latest_workout = manager.latest_workout()
-        workout_source_metrics = _workout_source_metrics(hass, manager, latest_workout)
+        latest_sleep = manager.latest_sleep()
+
+        data_entities = {
+            "workout": entities.get(DATA_MAP_KIND_TO_KEY["workout"]),
+            "live": entities.get(DATA_MAP_KIND_TO_KEY["live"]),
+            "recovery": entities.get(DATA_MAP_KIND_TO_KEY["sleep"]),
+            "evaluation": entities.get(DATA_MAP_KIND_TO_KEY["evaluation"]),
+        }
+        live_routes = _profile_data_routes(hass, data_entities["live"])
+        workout_routes = _profile_data_routes(hass, data_entities["workout"])
+        recovery_routes = _profile_data_routes(hass, data_entities["recovery"])
+        evaluation_routes = _profile_data_routes(hass, data_entities["evaluation"])
+
+        # Bootstrap compatibility: the map sensors are populated asynchronously
+        # after profile setup so HA startup stays non-blocking. If a dashboard is
+        # opened during that brief window, resolve once using the old backend
+        # helpers. Normal dashboard operation reads only the stable map sensors.
+        if not workout_routes and latest_workout is not None:
+            workout_routes = _workout_source_metrics(
+                hass, manager, latest_workout, entities
+            )
+        if not recovery_routes and latest_sleep is not None:
+            recovery_routes = _sleep_source_metrics(hass, latest_sleep)
+        if not evaluation_routes:
+            evaluation_routes = _evaluation_source_metrics(hass, manager)
+
+        workout_source_metrics = _with_workout_fallback_values(
+            workout_routes, latest_workout
+        )
+        sleep_source_metrics = _with_sleep_fallback_values(
+            recovery_routes, latest_sleep
+        )
+        evaluation_source_metrics = {
+            key: {
+                **route,
+                **(
+                    {"value": route.get("configured_value")}
+                    if route.get("transform") == "configured"
+                    and route.get("configured_value") is not None
+                    else {}
+                ),
+            }
+            for key, route in evaluation_routes.items()
+        }
+
+        # Compatibility aliases for existing Live card code. These keys point
+        # directly at the physical/source entities from live_data; they are not
+        # Fitness mirrors and can change without recreating profile entities.
+        for key in LIVE_RAW_ROUTE_KEYS:
+            source = (live_routes.get(key) or {}).get("entity_id")
+            if source:
+                entities[key] = source
+
         profiles.append(
             {
                 "entry_id": entry.entry_id,
@@ -1344,6 +1581,7 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                     for code, labels in _DASHBOARD_TEXT.items()
                 },
                 "entities": entities,
+                "data_entities": data_entities,
                 "live_entity_keys": [
                     key for key in entities
                     if key in {
@@ -1368,8 +1606,11 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                     "available": latest_workout is not None,
                     "sport": workout_sport_kind(latest_workout),
                     "name": latest_workout.name if latest_workout is not None else None,
+                    "fitness_owned": workout_is_fitness_owned(latest_workout),
                 },
                 "workout_source_metrics": workout_source_metrics,
+                "sleep_source_metrics": sleep_source_metrics,
+                "evaluation_source_metrics": evaluation_source_metrics,
                 "route_candidates": _route_candidates(hass, manager),
             }
         )

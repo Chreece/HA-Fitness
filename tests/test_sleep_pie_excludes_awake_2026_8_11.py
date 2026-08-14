@@ -27,14 +27,15 @@ def test_exact_screenshot_sleep_arithmetic():
 
 def test_awake_is_removed_from_pie_data():
     assert "const awakeItem = rawValues.find" in FRONTEND
-    assert ".filter((item) => item.entity !== awakeEntity)" in FRONTEND
+    assert "const awakeItem = rawValues.find" in FRONTEND
+    assert "const values = stageItems.map" in FRONTEND
     assert "const total = asleepStageTotal;" in FRONTEND
     assert "const stops = values.map" in FRONTEND
 
 
 def test_center_is_exact_sum_of_visible_sleep_stages():
     assert "const effectiveTotalMinutes = asleepStageTotal > 0" in FRONTEND
-    assert "users can add the displayed stage durations" in FRONTEND
+    assert "const total = asleepStageTotal;" in FRONTEND
 
 
 def test_awake_is_separate_duration_only_row():
@@ -44,7 +45,7 @@ def test_awake_is_separate_duration_only_row():
         "const summary =", 1
     )[0]
     assert "pct" not in awake_template
-    assert "_formatMinutes(awakeItem.value, unit)" in awake_template
+    assert '_formatMinutes(awakeItem.value, "min")' in awake_template
 
 
 def test_sleep_stage_percentages_are_normalized_against_sleep_only():
@@ -59,5 +60,5 @@ def test_backend_resource_contract_is_unchanged():
     BACKEND = (
         ROOT / "custom_components/fitness/dashboard.py"
     ).read_text(encoding="utf-8")
-    assert 'const FITNESS_DASHBOARD_VERSION = "2026.8.11.3";' in FRONTEND
-    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.11.3"' in BACKEND
+    assert 'const FITNESS_DASHBOARD_VERSION = "2026.8.11.6";' in FRONTEND
+    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.11.6"' in BACKEND

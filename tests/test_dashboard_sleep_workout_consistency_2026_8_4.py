@@ -3,10 +3,11 @@ ROOT = Path(__file__).resolve().parents[1]
 JS = (ROOT / "custom_components/fitness/frontend/fitness-dashboard.js").read_text()
 MANIFEST = (ROOT / "custom_components/fitness/manifest.json").read_text()
 
-def test_sleep_stage_total_uses_merged_duration_entity():
-    assert "this._durationEntity = e.last_sleep_duration || null" in JS
+def test_sleep_stage_total_uses_source_routed_canonical_duration():
+    assert '_fitnessSleepSourceMetric(this._profile, this._hass, "last_sleep_duration")' in JS
     assert "const displayTotal" in JS
     assert "${displayTotal}" in JS
+    assert "e.last_sleep_duration" not in JS
 
 def test_workout_metrics_always_remain_visible_and_route_is_optional():
     assert "const hasRoute = (this._profile.route_candidates || []).length > 0" in JS

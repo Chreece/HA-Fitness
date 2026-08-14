@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 from datetime import datetime, timedelta
 
 from homeassistant.components.sensor import (
@@ -42,6 +43,15 @@ from .explanations import sensor_explanation  # Deterministic; never AI-generate
 from .evaluation_details import evaluation_user_details
 from .live_details import CALCULATED_LIVE_METRICS, live_user_details
 from .providers.evaluation import collect_provider_metrics
+from .providers.workouts import fitness_owned_workout_value
+from .profile_data import (
+    DATA_MAP_KEYS,
+    build_profile_routes,
+    routes_to_attributes,
+)
+
+_LOGGER = logging.getLogger(__name__)
+
 
 
 def _localized_readiness_attributes(language: str | None, readiness: dict) -> dict:
@@ -201,39 +211,89 @@ class Desc(SensorEntityDescription):
 # integrations must not be mirrored as Fitness sensor entities. Fitness still
 # normalizes these fields internally for calculations/history, while the
 # dashboard links back to the original source entities.
-WORKOUT_SOURCE_MIRROR_KEYS = frozenset({
-    "last_workout",
-    "last_workout_duration",
-    "last_workout_distance",
-    "last_workout_avg_hr",
-    "last_workout_max_hr",
-    "last_workout_avg_power",
-    "last_workout_max_power",
-    "last_workout_avg_cadence",
-    "last_workout_elevation_gain",
-    "last_workout_calories",
-    "last_workout_moving_time",
-    "last_workout_elapsed_time",
-    "last_workout_average_speed",
-    "last_workout_max_speed",
-    "last_workout_weighted_power",
-    "last_workout_max_cadence",
-    "last_workout_elevation_loss",
-    "last_workout_training_load",
-    "last_workout_aerobic_effect",
-    "last_workout_anaerobic_effect",
-    "last_workout_training_effect",
-    "last_workout_vo2max",
-    "last_workout_rpe",
-    "last_workout_relative_effort",
-    "last_workout_kilojoules",
-    "last_workout_total_reps",
-    "last_workout_exercise_count",
-    "last_workout_volume",
-    "last_workout_device",
-    "last_workout_gear",
+FITNESS_OWNED_WORKOUT_FACT_FIELDS = {
+    "last_workout": "name",
+    "last_workout_duration": "duration_s",
+    "last_workout_distance": "distance_m",
+    "last_workout_avg_hr": "avg_hr",
+    "last_workout_max_hr": "max_hr",
+    "last_workout_avg_power": "avg_power",
+    "last_workout_max_power": "max_power",
+    "last_workout_avg_cadence": "avg_cadence",
+    "last_workout_elevation_gain": "elevation_gain_m",
+    "last_workout_calories": "calories",
+    "last_workout_moving_time": "moving_time_s",
+    "last_workout_elapsed_time": "elapsed_time_s",
+    "last_workout_average_speed": "average_speed_m_s",
+    "last_workout_max_speed": "max_speed_m_s",
+    "last_workout_weighted_power": "weighted_power",
+    "last_workout_max_cadence": "max_cadence",
+    "last_workout_elevation_loss": "elevation_loss_m",
+    "last_workout_training_load": "training_load",
+    "last_workout_aerobic_effect": "aerobic_training_effect",
+    "last_workout_anaerobic_effect": "anaerobic_training_effect",
+    "last_workout_training_effect": "training_effect_label",
+    "last_workout_vo2max": "vo2max",
+    "last_workout_rpe": "session_rpe",
+    "last_workout_relative_effort": "relative_effort",
+    "last_workout_kilojoules": "kilojoules",
+    "last_workout_total_reps": "total_reps",
+    "last_workout_exercise_count": "exercise_count",
+    "last_workout_volume": "volume_kg",
+    "last_workout_device": "device_name",
+    "last_workout_gear": "gear_name",
+}
+
+FITNESS_OWNED_WORKOUT_FACT_KEYS = frozenset({
+    *FITNESS_OWNED_WORKOUT_FACT_FIELDS,
     "last_workout_sources",
 })
+
+
+# Latest-sleep measurements are likewise owned by their upstream integration.
+# Fitness keeps the normalized SleepRecord internally for calculations, but it
+# must never create a second HA entity for the same measurement.
+SLEEP_SOURCE_MIRROR_KEYS = frozenset({
+    "last_sleep_source",
+    "last_sleep_duration",
+    "last_sleep_score",
+    "last_sleep_efficiency",
+    "last_sleep_time_in_bed",
+    "last_sleep_awake",
+    "last_sleep_light",
+    "last_sleep_deep",
+    "last_sleep_rem",
+    "last_sleep_hrv",
+    "last_sleep_average_hr",
+    "last_sleep_respiratory_rate",
+    "last_sleep_spo2",
+    "last_sleep_recovery_score",
+    "last_sleep_readiness_score",
+})
+
+SOURCE_MIRROR_KEYS = SLEEP_SOURCE_MIRROR_KEYS
+
+
+def _format_fitness_owned_workout_fact(key: str, value):
+    """Format one fact captured by Fitness Live for its own workout entity."""
+    if value is None:
+        return None
+    if key in {"last_workout", "last_workout_training_effect", "last_workout_device", "last_workout_gear"}:
+        return str(value)
+    if key in {"last_workout_duration", "last_workout_moving_time", "last_workout_elapsed_time"}:
+        return round(float(value) / 60.0, 1)
+    if key == "last_workout_distance":
+        return round(float(value) / 1000.0, 2)
+    if key in {"last_workout_average_speed", "last_workout_max_speed"}:
+        return round(float(value) * 3.6, 2)
+    if key in {"last_workout_avg_hr", "last_workout_max_hr", "last_workout_avg_power", "last_workout_max_power", "last_workout_weighted_power", "last_workout_calories", "last_workout_total_reps", "last_workout_exercise_count"}:
+        return round(float(value))
+    if key in {"last_workout_avg_cadence", "last_workout_max_cadence", "last_workout_elevation_gain", "last_workout_elevation_loss", "last_workout_training_load", "last_workout_aerobic_effect", "last_workout_anaerobic_effect", "last_workout_vo2max", "last_workout_relative_effort", "last_workout_kilojoules", "last_workout_volume"}:
+        return round(float(value), 1)
+    if key == "last_workout_rpe":
+        return int(round(float(value)))
+    return value
+
 
 DESCRIPTIONS = (
     # Live device
@@ -266,6 +326,7 @@ DESCRIPTIONS = (
     Desc(key="live_time_moderate", translation_key="live_time_moderate", kind="live", metric="live_time_moderate", unit="s"),
     Desc(key="live_time_vigorous", translation_key="live_time_vigorous", kind="live", metric="live_time_vigorous", unit="s"),
     Desc(key="live_time_near_maximal", translation_key="live_time_near_maximal", kind="live", metric="live_time_near_maximal", unit="s"),
+    Desc(key="live_data", name="Live data", kind="live", metric="live_data"),
 
     # Workout device
     Desc(key="last_workout", translation_key="last_workout", kind="workout", metric="workout_name"),
@@ -327,6 +388,7 @@ DESCRIPTIONS = (
     Desc(key="last_workout_trimp_vs_recent", translation_key="last_workout_trimp_vs_recent", kind="workout", metric="workout_trimp_vs_recent", unit="%"),
     Desc(key="last_workout_load_context", translation_key="last_workout_load_context", kind="workout", metric="workout_load_context"),
     Desc(key="last_workout_personal_context", translation_key="last_workout_personal_context", kind="workout", metric="workout_personal_context"),
+    Desc(key="workout_data", name="Workout data", kind="workout", metric="workout_data"),
 
     # Sleep device
     Desc(key="readiness", translation_key="readiness", kind="sleep", metric="readiness", unit="%"),
@@ -346,12 +408,13 @@ DESCRIPTIONS = (
     Desc(key="last_sleep_spo2", translation_key="last_sleep_spo2", kind="sleep", metric="sleep_spo2", unit="%"),
     Desc(key="last_sleep_recovery_score", translation_key="last_sleep_recovery_score", kind="sleep", metric="sleep_recovery_score"),
     Desc(key="last_sleep_readiness_score", translation_key="last_sleep_readiness_score", kind="sleep", metric="sleep_readiness_score"),
+    Desc(key="recovery_data", name="Recovery data", kind="sleep", metric="recovery_data"),
 
     # Evaluation device — compact evidence-based domains.
     Desc(key="sleep_consistency", translation_key="sleep_consistency", kind="evaluation", metric="sleep_consistency", unit="min"),
     Desc(key="sleep_deficit_7d", translation_key="sleep_deficit_7d", kind="evaluation", metric="sleep_deficit_7d", unit="min"),
-    Desc(key="autonomic_recovery_trend", translation_key="autonomic_recovery_trend", kind="evaluation", metric="autonomic_recovery_trend", unit="ms"),
-    Desc(key="cardiorespiratory_fitness_trend", translation_key="cardiorespiratory_fitness_trend", kind="evaluation", metric="cardiorespiratory_fitness_trend", unit="mL/kg/min"),
+    Desc(key="autonomic_recovery_trend", translation_key="autonomic_recovery_trend", kind="evaluation", metric="autonomic_recovery_trend", unit="%"),
+    Desc(key="cardiorespiratory_fitness_trend", translation_key="cardiorespiratory_fitness_trend", kind="evaluation", metric="cardiorespiratory_fitness_trend", unit="%"),
     Desc(key="vo2max_percent_predicted", translation_key="vo2max_percent_predicted", kind="evaluation", metric="vo2max_percent_predicted", unit="%"),
     Desc(key="training_load", translation_key="training_load", kind="evaluation", metric="training_load", unit="min"),
     Desc(key="heart_rate_recovery", translation_key="heart_rate_recovery", kind="evaluation", metric="heart_rate_recovery", unit="bpm"),
@@ -359,6 +422,7 @@ DESCRIPTIONS = (
     Desc(key="training_adaptation_status", translation_key="training_adaptation_status", kind="evaluation", metric="training_adaptation_status"),
     Desc(key="ai_general_evaluation", translation_key="ai_general_evaluation", kind="evaluation", metric="ai_general"),
     Desc(key="ai_workout_evaluation", translation_key="ai_workout_evaluation", kind="evaluation", metric="ai_workout"),
+    Desc(key="evaluation_data", name="Evaluation data", kind="evaluation", metric="evaluation_data"),
 
 
 )
@@ -406,7 +470,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     descriptions = {
         desc.key: desc
         for desc in DESCRIPTIONS
-        if desc.key not in WORKOUT_SOURCE_MIRROR_KEYS
+        if desc.key not in SOURCE_MIRROR_KEYS
         and not (
             desc.metric.startswith("ai_")
             and not manager.config.get("ai_enabled")
@@ -430,8 +494,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
     # four independent scans here; during reload storms that multiplied the cost
     # of every profile reconstruction.  Do migrations, stale cleanup and restore
     # bookkeeping while the registry is already in cache.
-    latest_sleep = None
-    latest_sleep_checked = False
     for registry_entry in list(registry.entities.values()):
         if registry_entry.platform != DOMAIN:
             continue
@@ -445,26 +507,14 @@ async def async_setup_entry(hass, entry, async_add_entities):
             manager.materialized_sensor_keys.discard(key)
             continue
 
-        # beta.28 could materialize Garmin's broad daytime "Awake duration"
-        # as last-sleep awake time. Revalidate that one key during migration.
-        if key == "last_sleep_awake":
-            if not latest_sleep_checked:
-                latest_sleep = manager.latest_sleep()
-                latest_sleep_checked = True
-            if latest_sleep is None or latest_sleep.awake_s is None:
-                registry.async_remove(registry_entry.entity_id)
-                manager.materialized_sensor_keys.discard(key)
-                continue
-
         if key in deprecated_live_mirror_keys:
             registry.async_remove(registry_entry.entity_id)
             manager.forget_materialized_sensor(key, persist=False)
             continue
 
-        # Completed-workout factual fields are owned by their source
-        # integrations. Older Fitness versions mirrored them under the profile
-        # Workout device; remove those duplicates during the next setup.
-        if key in WORKOUT_SOURCE_MIRROR_KEYS:
+        # Factual source fields (completed-workout and latest-sleep data) are
+        # owned by their upstream integrations. Remove legacy Fitness mirrors.
+        if key in SOURCE_MIRROR_KEYS:
             registry.async_remove(registry_entry.entity_id)
             manager.forget_materialized_sensor(key, persist=False)
             continue
@@ -489,6 +539,18 @@ async def async_setup_entry(hass, entry, async_add_entities):
     # deleting profile entities. Values remain unavailable until their assigned
     # physical sensor inputs and an active session make the calculation valid.
     manager.remember_materialized_sensors(live_keys, persist=True)
+    manager.remember_materialized_sensors(set(DATA_MAP_KEYS), persist=True)
+
+    # Factual workout entities are legitimate only for facts Fitness itself
+    # captured in a Live-created workout. Restore only the values Fitness owns;
+    # provider-enriched fields (for example Garmin calories) remain upstream.
+    fitness_workout = manager.latest_fitness_workout()
+    if fitness_workout is not None:
+        owned_keys = {"last_workout_sources"}
+        for fact_key, field_name in FITNESS_OWNED_WORKOUT_FACT_FIELDS.items():
+            if fitness_owned_workout_value(fitness_workout, field_name) is not None:
+                owned_keys.add(fact_key)
+        manager.remember_materialized_sensors(owned_keys, persist=True)
 
     # Recovery time is a stable Recovery-device entity, not a transient
     # capability. It must exist even when no completed workout is available yet.
@@ -620,8 +682,78 @@ class FitnessSensor(SensorEntity):
         self.entity_description = desc
         self._attr_unique_id = f"{entry.entry_id}_{desc.key}"
         self._attr_device_info = device_info(entry, desc.kind)
+        self._data_map_attributes: dict = {
+            "schema_version": 1,
+            "map_kind": "recovery" if desc.kind == "sleep" else desc.kind,
+            "mapped_keys": [],
+            "route_count": 0,
+            "direct_source_count": 0,
+        } if desc.key in DATA_MAP_KEYS else {}
+        self._data_map_refresh_handle = None
+
+    def _cancel_data_map_refresh(self):
+        if self._data_map_refresh_handle is not None:
+            self._data_map_refresh_handle.cancel()
+            self._data_map_refresh_handle = None
+
+    def _schedule_data_map_refresh(self, delay: float | None = None):
+        """Coalesce source-map rebuilds; live values never rewrite the map."""
+        if self.entity_description.key not in DATA_MAP_KEYS:
+            return
+        if self._data_map_refresh_handle is not None:
+            return
+        if delay is None:
+            delay = 2.0 if self.entity_description.key == "live_data" else 0.5
+        self._data_map_refresh_handle = self.hass.loop.call_later(
+            delay, self._refresh_data_map
+        )
+
+    @callback
+    def _refresh_data_map(self):
+        self._data_map_refresh_handle = None
+        key = self.entity_description.key
+        if key not in DATA_MAP_KEYS:
+            return
+        try:
+            routes = build_profile_routes(
+                self.hass,
+                self.manager,
+                self.entry,
+                DATA_MAP_KEYS[key],
+                DESCRIPTIONS,
+            )
+            attributes = routes_to_attributes(DATA_MAP_KEYS[key], routes)
+        except Exception:
+            _LOGGER.exception(
+                "Unable to refresh Fitness %s source map for %s",
+                key,
+                self.entry.entry_id,
+            )
+            return
+        if attributes == self._data_map_attributes:
+            return
+        self._data_map_attributes = attributes
+        self.async_write_ha_state()
 
     async def async_added_to_hass(self):
+        if self.entity_description.key in DATA_MAP_KEYS:
+            # Data-map sensors subscribe only to domains that can change routing.
+            # The scheduled builder is coalesced and writes HA state only when an
+            # entity ID/attribute path changes, never when the underlying value
+            # changes. This keeps Recorder traffic negligible.
+            self.async_on_remove(self.manager.add_listener(self._schedule_data_map_refresh))
+            key = self.entity_description.key
+            if key == "live_data":
+                self.async_on_remove(self.manager.add_live_listener(self._schedule_data_map_refresh))
+            elif key == "workout_data":
+                self.async_on_remove(self.manager.add_workout_history_listener(self._schedule_data_map_refresh))
+            elif key in {"recovery_data", "evaluation_data"}:
+                self.async_on_remove(self.manager.add_sleep_listener(self._schedule_data_map_refresh))
+                if key == "evaluation_data":
+                    self.async_on_remove(self.manager.add_workout_history_listener(self._schedule_data_map_refresh))
+            self.async_on_remove(self._cancel_data_map_refresh)
+            self._schedule_data_map_refresh(delay=0.5)
+            return
         # Clear only known legacy auto-generated names. This lets the current
         # translation_key supply the corrected localized title without touching
         # genuinely user-customized entity names.
@@ -674,6 +806,10 @@ class FitnessSensor(SensorEntity):
             "provider_training_status",
             "training_adaptation_status",
             "sleep_source",
+            "live_data",
+            "workout_data",
+            "recovery_data",
+            "evaluation_data",
         }
         if self.entity_description.metric in textual:
             return None
@@ -762,6 +898,9 @@ class FitnessSensor(SensorEntity):
     @property
     def native_value(self):
         m = self.entity_description.metric
+
+        if self.entity_description.key in DATA_MAP_KEYS:
+            return "ready"
 
         if self.entity_description.kind == "live":
             if m == "session_status":
@@ -868,6 +1007,17 @@ class FitnessSensor(SensorEntity):
             }
 
         if self.entity_description.kind == "workout":
+            key = self.entity_description.key
+            if key in FITNESS_OWNED_WORKOUT_FACT_KEYS:
+                w = self.manager.latest_fitness_workout()
+                if w is None:
+                    return None
+                if key == "last_workout_sources":
+                    return ", ".join(w.provider_domains or w.sources) if (w.provider_domains or w.sources) else w.source
+                field_name = FITNESS_OWNED_WORKOUT_FACT_FIELDS.get(key)
+                value = fitness_owned_workout_value(w, field_name) if field_name else None
+                return _format_fitness_owned_workout_fact(key, value)
+
             w = self.manager.latest_workout()
             if w is None:
                 return None
@@ -965,38 +1115,42 @@ class FitnessSensor(SensorEntity):
             # Domain states use one stable physical quantity. Related longitudinal
             # calculations progressively populate attributes without changing the
             # state unit or meaning.
+            # State is a Fitness-owned longitudinal calculation, not the
+            # latest source sleep duration. Lower variability means greater
+            # consistency; detailed 7d/28d context remains in attributes.
             "sleep_consistency": (
-                latest_sleep.duration_s / 60.0
-                if latest_sleep is not None and latest_sleep.duration_s is not None
-                else sleep_long_term.get("sleep_duration_7d_mean_min")
+                sleep_long_term.get("sleep_midpoint_variability_28d_min")
+                if sleep_long_term.get("sleep_midpoint_variability_28d_min") is not None
+                else sleep_long_term.get("sleep_duration_variability_28d_min")
             ),
             # Never masquerade a one-night shortfall as a 7-day metric.
             # Until enough completed nights exist in the rolling history, the
             # 7-day deficit is unavailable rather than falling back to latest sleep.
             "sleep_deficit_7d": sleep_long_term.get("sleep_deficit_7d_min"),
+            # These Evaluation states are deltas/trends calculated by Fitness.
+            # Current raw HRV/VO2 values remain owned by their source entities
+            # and are routed directly to the dashboard.
             "autonomic_recovery_trend": (
-                latest_sleep.hrv_ms
-                if latest_sleep is not None and latest_sleep.hrv_ms is not None
-                else sleep_long_term.get("sleep_hrv_7d_mean_ms")
+                sleep_long_term.get("sleep_hrv_7d_vs_baseline_percent")
+                if sleep_long_term.get("sleep_hrv_7d_vs_baseline_percent") is not None
+                else sleep_long_term.get("sleep_hrv_latest_vs_28d_percent")
             ),
             "cardiorespiratory_fitness_trend": (
-                recorder_long_term.get("vo2max_current")
-                if recorder_long_term.get("vo2max_current") is not None
-                else recorder_long_term.get("vo2max_28d_mean")
+                recorder_long_term.get("vo2max_slope_percent_per_30d")
+                if recorder_long_term.get("vo2max_slope_percent_per_30d") is not None
+                else recorder_long_term.get("vo2max_trend_14_vs_previous_14_percent")
             ),
             "training_load": (
                 workout_long_term.get("training_duration_7d_min")
                 if workout_long_term.get("training_duration_7d_min") is not None
                 else workout_long_term.get("training_duration_28d_min")
             ),
+            # State is change versus the personal 90-day HRR baseline; the
+            # latest raw HRR remains source-owned / workout-context evidence.
             "heart_rate_recovery": (
-                workout_long_term.get("latest_hrr_60s")
-                if workout_long_term.get("latest_hrr_60s") is not None
-                else (
-                    workout_long_term.get("latest_hrr_30s")
-                    if workout_long_term.get("latest_hrr_30s") is not None
-                    else workout_long_term.get("latest_hrr_120s")
-                )
+                workout_long_term.get("hrr_60s_latest_vs_90d_bpm")
+                if workout_long_term.get("hrr_60s_latest_vs_90d_bpm") is not None
+                else workout_long_term.get("hrr_120s_latest_vs_90d_bpm")
             ),
             "training_recovery_relationship": relationship.get("primary_correlation"),
         }
@@ -1201,6 +1355,9 @@ class FitnessSensor(SensorEntity):
         """
         m = self.entity_description.metric
         kind = self.entity_description.kind
+
+        if self.entity_description.key in DATA_MAP_KEYS:
+            return dict(self._data_map_attributes)
 
         if kind == "live":
             source_metric = {

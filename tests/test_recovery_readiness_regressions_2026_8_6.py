@@ -27,8 +27,9 @@ def test_last_sleep_card_owns_sleep_score_summary():
         JS.index("class FitnessRecoveryCard"):
         JS.index("class FitnessTrainingLoadCard")
     ]
-    assert "e.last_sleep_score" in sleep
+    assert '_fitnessSleepSourceMetric(this._profile, this._hass, "last_sleep_score"' in sleep
     assert "sleep-summary" in sleep
+    assert "e.last_sleep_score" not in sleep
     assert "e.last_sleep_score" not in recovery
     assert "e.last_sleep_duration" not in recovery
 

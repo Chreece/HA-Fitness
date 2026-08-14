@@ -76,7 +76,7 @@ def test_recovery_has_numeric_hrv_vs_baseline_bar_only_when_baseline_exists():
     recovery = FRONTEND.split("class FitnessRecoveryCard", 1)[1].split(
         "class FitnessTrainingAdaptationCard", 1
     )[0]
-    assert 'sleep_hrv_latest_ms' in recovery
+    assert '_fitnessSleepSourceMetric(this._profile, this._hass, "last_sleep_hrv"' in recovery
     assert 'sleep_hrv_28d_mean_ms' in recovery
     assert "hrvBaselineReady" in recovery
     assert "hrv-baseline-marker" in recovery
@@ -85,4 +85,4 @@ def test_recovery_has_numeric_hrv_vs_baseline_bar_only_when_baseline_exists():
 
 
 def test_frontend_revision_is_bumped_for_visible_changes():
-    assert 'const FITNESS_DASHBOARD_VERSION = "2026.8.11.3";' in FRONTEND
+    assert 'const FITNESS_DASHBOARD_VERSION = "2026.8.11.6";' in FRONTEND

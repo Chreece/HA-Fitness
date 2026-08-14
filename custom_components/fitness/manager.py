@@ -129,6 +129,7 @@ from .providers.workouts import (
     discover_external_workouts,
     merged_workouts,
     newest,
+    workout_is_fitness_owned,
     workout_sport_kind,
 )
 
@@ -4093,6 +4094,7 @@ class FitnessManager:
         sport = self._infer_sport()
         workout = Workout(
             source="fitness_live_capture",
+            sources=["fitness_live_capture"],
             name=self._workout_name(self.session_started, sport),
             sport=sport.lower(),
             start=self.session_started.isoformat(),
@@ -4555,15 +4557,39 @@ class FitnessManager:
         return list(self._local_workouts_cache)
 
     def latest_workout(self) -> Workout | None:
-        """Return the canonical latest workout without repeated registry scans."""
+        """Return the newest persisted canonical workout.
+
+        The canonical Fitness history is the authority once it contains data.
+        External ``last activity`` entities are discovery/import inputs, not a
+        second competing timeline: some providers update such carrier entities
+        without changing the underlying activity and can otherwise make an old
+        workout look newer than a locally captured/merged workout. New provider
+        workouts are reconciled into ``history`` by the normal provider/history
+        listeners; direct discovery remains only as a startup fallback when the
+        canonical store is empty.
+        """
         if self._latest_workout_cache_ready:
             return self._latest_workout_cache
-        candidates = self.local_workouts() + discover_external_workouts(
+        local = self.local_workouts()
+        candidates = local if local else discover_external_workouts(
             self.hass, self.config
         )
         self._latest_workout_cache = newest(candidates)
         self._latest_workout_cache_ready = True
         return self._latest_workout_cache
+
+    def latest_fitness_workout(self) -> Workout | None:
+        """Return the newest workout physically created by Fitness Live.
+
+        Provider enrichment/merging does not transfer ownership away from
+        Fitness. This powers Fitness's own factual workout entities while pure
+        Garmin/Strava/etc. workouts remain source-owned and are never mirrored.
+        """
+        return newest([
+            workout
+            for workout in self.local_workouts()
+            if workout_is_fitness_owned(workout)
+        ])
 
     @staticmethod
     def _workout_signature(

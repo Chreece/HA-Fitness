@@ -10,8 +10,8 @@ WORKOUTS = (FITNESS / "providers" / "workouts.py").read_text(encoding="utf-8")
 
 
 def test_live_capture_is_provisional_for_provider_merge():
-    assert 'a_live = a.source == "fitness_live_capture"' in WORKOUTS
-    assert 'b_live = b.source == "fitness_live_capture"' in WORKOUTS
+    assert "a_live = workout_is_fitness_owned(a)" in WORKOUTS
+    assert "b_live = workout_is_fitness_owned(b)" in WORKOUTS
     assert 'return a_live != b_live' in WORKOUTS
     assert 'provider identity fields are authoritative' in WORKOUTS
     assert 'merged.sport = explicit.sport' in WORKOUTS
