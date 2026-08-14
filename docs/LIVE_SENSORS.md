@@ -8,6 +8,53 @@ Identity is accumulated rather than guessed. Numeric protocol identifiers (for e
 
 `custom_components/fitness/live/device_catalog.json` contains data-driven manufacturer/product/profile recognition. It is intentionally separate from runtime logic so support can be expanded without adding vendor-specific branches. Automatic ANT+/Bluetooth merging remains conservative: a matching serial or an explicit product-family catalog rule is required; identical names alone never merge devices.
 
+
+### Vendor/product decoder registry
+
+The native sensor runtime contains no product-specific decode branches. Product
+recognition and proprietary payload definitions are selected from
+`custom_components/fitness/live/device_catalog.json`; the generic
+`vendor_registry.py` engine validates and executes those definitions.
+
+A non-standard sensor is extended by data, not by adding `if vendor == ...`
+logic to `bluetooth.py`, `antplus.py`, `runtime.py`, or the ANT receiver. A
+catalog product may reference one or more `decoder_ids`. Decoder definitions
+declare the transport/phase, payload source, byte offset/length/encoding,
+validation range, metric key and Home Assistant metadata. A decoder is executed
+only after the same catalog has positively matched the observed product family.
+
+For example, a proprietary Bluetooth advertisement field is represented
+conceptually as:
+
+```json
+{
+  "id": "product_decoder_v1",
+  "transport": "bluetooth",
+  "phase": "advertisement",
+  "source": {"kind": "manufacturer_data", "id": 12345},
+  "fields": [{
+    "metric": "battery",
+    "offset": 1,
+    "length": 1,
+    "encoding": "uint_le",
+    "valid_min": 0,
+    "valid_max": 100
+  }]
+}
+```
+
+The company ID and byte offset therefore live only in the catalog. Standard
+Bluetooth SIG and ANT+ profile decoding remains protocol-generic code because
+those layouts are standards rather than vendor exceptions. Invalid/missing
+decoder definitions are non-fatal: the vendor registry reports consistency
+issues and skips unsupported definitions instead of preventing Fitness startup.
+
+A regression audit scans every Python file under `custom_components/fitness/live`
+and rejects known vendor/product literals in native runtime code. Provider
+adapters under `custom_components/fitness/providers/` are intentionally outside
+this rule: Garmin/Strava/Oura/etc. adapters parse those Home Assistant
+integrations and are not native ANT+/BLE physical-sensor decoders.
+
 ## Information entities
 
 Core live measurements remain normal sensor entities. Additional decoded ANT+ values, ANT identity/profile/control/event capabilities, BLE advertisement fields, GATT services/characteristics and Device Information values are retained as merged detail entities. Diagnostic or high-frequency/advanced fields are disabled by default. When ANT+ and Bluetooth report the same canonical fact, Fitness keeps one entity and exposes the source values as attributes.

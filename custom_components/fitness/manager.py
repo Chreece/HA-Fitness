@@ -3552,7 +3552,7 @@ class FitnessManager:
         ).lower()
         has_running_evidence = any(
             token in text
-            for token in ("stryd", "footpod", "foot_pod", "running_power", "run_speed")
+            for token in ("footpod", "foot_pod", "running_power", "run_speed")
         )
         has_cycling_evidence = any(
             token in text

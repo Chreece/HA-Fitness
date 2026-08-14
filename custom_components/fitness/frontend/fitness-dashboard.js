@@ -822,11 +822,30 @@ class FitnessComparisonCard extends HTMLElement {
         : distance <= 8 ? "#ef6c00"
         : "#e53935";
       if (isHrBaseline) {
-        const baseline = Number(state.attributes?.personal_baseline_average_hr_bpm);
-        const current = Number(state.attributes?.current_average_hr_bpm);
+        let current = Number(state.attributes?.current_average_hr_bpm);
+        if (!Number.isFinite(current)) {
+          const currentId = this._profile?.entities?.last_workout_avg_hr;
+          current = Number(currentId ? this._hass.states[currentId]?.state : NaN);
+        }
+        let baseline = Number(state.attributes?.personal_baseline_average_hr_bpm);
+        if (!Number.isFinite(baseline) && Number.isFinite(current)) {
+          baseline = current - value;
+        }
         if (Number.isFinite(baseline) && Number.isFinite(current)) {
           const absolute = (number) => `${number.toFixed(decimals)}${unit ? ` ${this._escape(unit)}` : ""}`;
-          return `<div class="row entity-link" style="--baseline-tone:${baselineTone}" data-more-info="${this._escape(metric.entity)}"><div class="line"><span>${this._escape(metric.name || entityName(this._hass, metric.entity))}</span><strong>${signed(value)}</strong></div><div class="baseline-readout"><span>${this._escape(labels.baseline || "Baseline")} <b>${absolute(baseline)}</b></span><span>${this._escape(labels.current || "Current")} <b class="hot">${absolute(current)}</b></span></div><div class="axis"><div class="zero"></div><div class="bar" style="left:${left}%;width:${pct}%"></div><i class="current-marker" style="left:${marker}%"></i></div><div class="axis-values"><span>${absolute(baseline-max)}</span><b>${absolute(baseline)}</b><span>${absolute(baseline+max)}</span></div></div>`;
+          const currentMarker = Math.max(
+            0, Math.min(100, 50 + ((current - baseline) / Math.max(max, 0.001)) * 50)
+          );
+          return `<div class="row hr-baseline entity-link" style="--baseline-tone:${baselineTone}" data-more-info="${this._escape(metric.entity)}">
+            <div class="line"><span>${this._escape(metric.name || entityName(this._hass, metric.entity))}</span><strong class="delta">Δ ${signed(value)}</strong></div>
+            <div class="baseline-readout three">
+              <span>${this._escape(labels.baseline || "Baseline")} <b>${absolute(baseline)}</b></span>
+              <span>${this._escape(labels.current || "Current")} <b class="hot">${absolute(current)}</b></span>
+              <span>${this._escape(labels.difference || "Difference")} <b class="hot">${signed(value)}</b></span>
+            </div>
+            <div class="axis heat-axis"><i class="baseline-marker"></i><i class="current-marker" style="left:${currentMarker}%"></i></div>
+            <div class="axis-values"><span>${absolute(baseline-max)}</span><b>${absolute(baseline)}</b><span>${absolute(baseline+max)}</span></div>
+          </div>`;
         }
       }
       return `<div class="row entity-link" style="--baseline-tone:${baselineTone}" data-more-info="${this._escape(metric.entity)}"><div class="line"><span>${this._escape(metric.name || entityName(this._hass, metric.entity))}</span><strong>${signed(value)}</strong></div><div class="axis"><div class="zero"></div><div class="bar" style="left:${left}%;width:${pct}%"></div><i class="current-marker" style="left:${marker}%"></i></div><div class="axis-values"><span>${signed(-max)}</span><b>${signed(value)}</b><span>${signed(max)}</span></div></div>`;
@@ -836,7 +855,7 @@ class FitnessComparisonCard extends HTMLElement {
       this.shadowRoot.innerHTML = "";
       return;
     }
-    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="rows">${rows}</div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 8px}.rows{padding:0 16px 16px}.row{margin:12px 0}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.line{display:flex;justify-content:space-between;gap:16px;font-size:13px}.line span{color:var(--secondary-text-color)}.baseline-readout{display:flex;justify-content:space-between;gap:10px;margin-top:5px;font-size:10px;color:var(--secondary-text-color)}.baseline-readout b{color:var(--primary-text-color)}.baseline-readout b.hot{color:var(--baseline-tone)}.axis{height:8px;position:relative;background:var(--secondary-background-color);border-radius:5px;margin-top:6px;overflow:visible}.zero{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--divider-color)}.bar{position:absolute;top:0;bottom:0;background:var(--baseline-tone);border-radius:5px}.current-marker{position:absolute;top:-3px;width:2px;height:14px;border-radius:2px;background:var(--baseline-tone);transform:translateX(-1px)}.axis-values{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-top:4px;font-size:9px;color:var(--secondary-text-color)}.axis-values span:last-child{text-align:right}.axis-values b{padding:1px 5px;border-radius:999px;color:var(--baseline-tone);background:var(--secondary-background-color);font-weight:650}</style>`;
+    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="rows">${rows}</div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 8px}.rows{padding:0 16px 16px}.row{margin:12px 0}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.line{display:flex;justify-content:space-between;gap:16px;font-size:13px}.line span{color:var(--secondary-text-color)}.baseline-readout{display:flex;justify-content:space-between;gap:10px;margin-top:5px;font-size:10px;color:var(--secondary-text-color)}.baseline-readout.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.baseline-readout.three span{padding:6px 7px;border-radius:9px;background:var(--secondary-background-color)}.baseline-readout.three b{display:block;margin-top:2px}.baseline-readout b{color:var(--primary-text-color)}.baseline-readout b.hot,.line .delta{color:var(--baseline-tone)}.axis{height:8px;position:relative;background:var(--secondary-background-color);border-radius:5px;margin-top:6px;overflow:visible}.heat-axis{height:10px;background:linear-gradient(90deg,#e53935 0%,#ef6c00 18%,#f9a825 34%,#43a047 44%,#43a047 56%,#f9a825 66%,#ef6c00 82%,#e53935 100%)}.zero,.baseline-marker{position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;background:var(--primary-text-color);transform:translateX(-1px)}.bar{position:absolute;top:0;bottom:0;background:var(--baseline-tone);border-radius:5px}.current-marker{position:absolute;top:-3px;width:3px;height:16px;border-radius:2px;background:var(--baseline-tone);box-shadow:0 0 0 1px var(--card-background-color);transform:translateX(-1px)}.axis-values{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-top:4px;font-size:9px;color:var(--secondary-text-color)}.axis-values span:last-child{text-align:right}.axis-values b{padding:1px 5px;border-radius:999px;color:var(--baseline-tone);background:var(--secondary-background-color);font-weight:650}</style>`;
   }
 
   _escape(value) { return String(value ?? "").replace(/[&<>"']/g, (ch) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch])); }
@@ -1797,11 +1816,19 @@ class FitnessTrainingLoadCard extends FitnessAutoProfileCard {
     const adaptationVo2 = _fitnessNumber(_fitnessAttr(adaptation, "vo2max_slope_percent_per_30d"));
     const adaptationHrv = _fitnessNumber(_fitnessAttr(adaptation, "hrv_7d_vs_baseline_percent"));
     const adaptationReadiness = _fitnessNumber(_fitnessAttr(adaptation, "readiness_score"));
-    const hasLoadData = [recent, baseline, ratio, workouts7, days7, mins7].some(value => value != null);
+    const hasWorkoutLoadEvidence =
+      (recent != null && recent > 0)
+      || (baseline != null && baseline > 0)
+      || (ratio != null && baseline != null && baseline > 0)
+      || (workouts7 != null && workouts7 > 0)
+      || (days7 != null && days7 > 0)
+      || (mins7 != null && mins7 > 0);
     const hasAdaptationData = Boolean(adaptation) && (
       adaptationStatus !== "insufficient_data"
-      || [adaptationEvidence, adaptationVo2, adaptationHrv, adaptationReadiness].some(value => value != null)
+      || (adaptationEvidence != null && adaptationEvidence > 0)
+      || [adaptationVo2, adaptationHrv, adaptationReadiness].some(value => value != null)
     );
+    const hasLoadData = hasWorkoutLoadEvidence;
     if (!hasLoadData && !hasAdaptationData) {
       this.shadowRoot.innerHTML = "";
       return;
@@ -2275,8 +2302,24 @@ class FitnessEvaluationCard extends FitnessCompositeCard {
     const children = [];
     const hasProgress = _fitnessUsableState(this._hass, e.cardiorespiratory_fitness_trend)
       || _fitnessUsableState(this._hass, e.vo2max_percent_predicted);
-    const hasLoad = _fitnessUsableState(this._hass, e.training_load)
-      || _fitnessUsableState(this._hass, e.training_adaptation_status);
+    const loadState = e.training_load ? this._hass.states[e.training_load] : null;
+    const adaptationState = e.training_adaptation_status ? this._hass.states[e.training_adaptation_status] : null;
+    const loadRecent = _fitnessNumber(loadState?.state);
+    const loadBaseline = _fitnessNumber(_fitnessAttr(loadState, "baseline_28d_weekly_equivalent"));
+    const loadRatio = _fitnessNumber(_fitnessAttr(loadState, "recent_to_baseline_ratio"));
+    const loadWorkouts = _fitnessNumber(_fitnessAttr(loadState, "workouts_7d"));
+    const loadMinutes = _fitnessNumber(_fitnessAttr(loadState, "workout_minutes_7d"));
+    const adaptationStatus = String(_fitnessAttr(adaptationState, "status") || "insufficient_data");
+    const adaptationEvidence = _fitnessNumber(_fitnessAttr(adaptationState, "evidence_count"));
+    const hasLoad = (
+      (loadRecent != null && loadRecent > 0)
+      || (loadBaseline != null && loadBaseline > 0)
+      || (loadRatio != null && loadBaseline != null && loadBaseline > 0)
+      || (loadWorkouts != null && loadWorkouts > 0)
+      || (loadMinutes != null && loadMinutes > 0)
+      || (adaptationState && adaptationStatus !== "insufficient_data")
+      || (adaptationEvidence != null && adaptationEvidence > 0)
+    );
     if (hasProgress) children.push(this._mount("fitness-progress-card"));
     if (hasLoad) children.push(this._mount("fitness-training-load-card"));
     if (!children.length) {

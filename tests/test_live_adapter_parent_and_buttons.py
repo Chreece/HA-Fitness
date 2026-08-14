@@ -25,4 +25,9 @@ def test_capture_buttons_follow_receiver_and_sensor_runtime_state():
     assert 'sensor_transport_capture_enabled' in BUTTON
     assert 'async_set_sensor_transport_capture' in BUTTON
     assert 'def notify_changed(self) -> None:' in RUNTIME
-    assert 'await self.async_refresh_modules()\n        self._notify()' in RUNTIME
+    setter = RUNTIME.split("async def async_set_transport_enabled", 1)[1].split(
+        "async def async_register_profile", 1
+    )[0]
+    assert 'await self.async_refresh_modules()' in setter
+    assert 'self._mark_transport_runtime_inactive(transport)' in setter
+    assert 'self._notify()' in setter

@@ -51,10 +51,11 @@ def test_capture_controls_are_receiver_and_physical_sensor_scoped():
     assert 'AdapterStartCaptureButton(runtime, "antplus")' not in BUTTON
 
 
-def test_passive_ble_values_include_stryd_battery_and_are_separate_from_gatt():
-    assert "STRYD_MANUFACTURER_ID = 43690" in BT
-    assert "manufacturer_data.get(STRYD_MANUFACTURER_ID)" in BT
-    assert 'values["battery"]' in BT
+def test_passive_ble_values_use_vendor_registry_and_are_separate_from_gatt():
+    assert "STRYD_MANUFACTURER_ID" not in BT
+    assert "43690" not in BT
+    assert "decode_bluetooth_advertisement" in BT
+    assert 'values["battery"]' in BT  # standard SIG Battery Service remains generic
     assert "publish_passive" in BT
     assert "class PhysicalPassiveSensor" in SENSOR
     assert '"passive": True' in SENSOR

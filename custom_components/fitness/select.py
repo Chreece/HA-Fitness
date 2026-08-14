@@ -14,12 +14,27 @@ async def async_setup_entry(hass, entry, async_add_entities):
     from .live.runtime import HUB_ENTRY_TYPE
     runtime = get_live_runtime(hass)
     if entry.data.get("entry_type") == HUB_ENTRY_TYPE:
-        entities = [
-            FitnessSensorWorkoutOwnerSelect(runtime, sensor.sensor_id)
-            for sensor in runtime.sensors.values()
-            if runtime.sensor_is_accepted(sensor.sensor_id)
-        ]
-        async_add_entities(entities)
+        materialized: set[str] = set()
+
+        def _collect_owner_selects() -> None:
+            entities = []
+            for sensor in runtime.sensors.values():
+                sensor_id = runtime.resolve_sensor_id(sensor.sensor_id)
+                if sensor_id in materialized:
+                    continue
+                if not runtime.sensor_is_accepted(sensor_id):
+                    continue
+                # The ownership selector only has meaning for a sensor which is
+                # deliberately shared by more than one configured profile.
+                if len(runtime.sensor_assigned_profile_ids(sensor_id)) <= 1:
+                    continue
+                materialized.add(sensor_id)
+                entities.append(FitnessSensorWorkoutOwnerSelect(runtime, sensor_id))
+            if entities:
+                async_add_entities(entities)
+
+        _collect_owner_selects()
+        entry.async_on_unload(runtime.add_structure_listener(_collect_owner_selects))
         return
     if not (
         runtime.live_surface_available
@@ -61,11 +76,14 @@ class FitnessSensorWorkoutOwnerSelect(SelectEntity):
     def _update(self):
         self.async_write_ha_state()
 
-    def _profile_map(self) -> dict[str, str]:
+    def _profile_map(self, *, live_only: bool = False) -> dict[str, str]:
         result = {}
         sensor_id = self.runtime.resolve_sensor_id(self.sensor_id)
+        live_ids = set(self.runtime.sensor_live_assigned_profile_ids(sensor_id))
         for entry in self.runtime.profile_entries.values():
             if sensor_id not in self.runtime.selected_sensor_ids(entry):
+                continue
+            if live_only and entry.entry_id not in live_ids:
                 continue
             name = str(
                 entry.options.get("profile_name", entry.data.get("profile_name", entry.title))
@@ -79,7 +97,10 @@ class FitnessSensorWorkoutOwnerSelect(SelectEntity):
 
     @property
     def options(self) -> list[str]:
-        return list(self._profile_map())
+        # During a real transfer show only profiles participating in the live
+        # overlap. When unavailable, retain configured options for stable state.
+        mapping = self._profile_map(live_only=self.runtime.sensor_owner_transfer_available(self.sensor_id))
+        return list(mapping or self._profile_map())
 
     @property
     def current_option(self) -> str | None:
@@ -93,10 +114,12 @@ class FitnessSensorWorkoutOwnerSelect(SelectEntity):
 
     @property
     def available(self) -> bool:
-        return self.runtime.sensor_workout_owner(self.sensor_id) is not None
+        return self.runtime.sensor_owner_transfer_available(self.sensor_id)
 
     async def async_select_option(self, option: str) -> None:
-        mapping = self._profile_map()
+        if not self.runtime.sensor_owner_transfer_available(self.sensor_id):
+            return
+        mapping = self._profile_map(live_only=True)
         target = mapping.get(option)
         if target is None:
             return

@@ -24,7 +24,8 @@ def test_live_sport_inference_is_conservative():
     block = MANAGER[start:end]
     assert '"cadence"' not in block
     assert 'return "Workout"' in block
-    assert '"stryd"' in block
+    assert '"stryd"' not in block
+    assert '"running_power"' in block
     assert '"cycling"' in block
 
 

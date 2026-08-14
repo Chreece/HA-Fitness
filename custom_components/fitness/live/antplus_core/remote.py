@@ -282,7 +282,7 @@ def async_register_remote_listener(
 
         # Never decode ANT packets in Home Assistant's event loop. The remote
         # gateway can deliver hundreds of packets per second from multi-profile
-        # devices such as Stryd; enqueue only and let the dedicated worker do
+        # high-rate devices; enqueue only and let the dedicated worker do
         # validation, OpenANT parsing and receiver updates.
         active_adapters: set[str] = set()
         for packet in packets:

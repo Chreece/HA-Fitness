@@ -7,16 +7,19 @@ B = Path("custom_components/fitness/binary_sensor.py").read_text()
 I = Path("custom_components/fitness/__init__.py").read_text()
 
 
-def test_discovery_requires_recent_radio_observation_and_prunes_stale_flows():
+def test_discovery_requires_one_fresh_observation_then_stays_sticky():
     assert "DISCOVERY_RECENT_SECONDS = 30.0" in R
     assert "def sensor_recently_observed(" in R
     poll = R[R.index("async def _poll()") : R.index("@callback\n        def _start_poll", R.index("async def _poll()"))]
-    assert "self._prune_stale_sensor_discovery_flows()" in poll
-    assert "self.sensor_recently_observed(sensor.sensor_id)" in poll
+    assert "self._prune_stale_sensor_discovery_flows()" not in poll
+    assert 'sensor.metadata.get("discovery_confirmed")' in poll
     prune = R[R.index("def _prune_stale_sensor_discovery_flows") : R.index("def sensor_recently_observed")]
-    assert "self.hass.config_entries.flow.async_abort(flow_id)" in prune
+    assert "async_abort" not in prune
+    assert "discovery cards are intentionally sticky" in prune
     discover = R[R.index("def _schedule_sensor_discovery") : R.index("def sensor_is_accepted")]
-    assert "not self.sensor_recently_observed(sensor_id)" in discover
+    assert 'confirmed = bool(sensor.metadata.get("discovery_confirmed"))' in discover
+    assert 'sensor.metadata["discovery_confirmed"] = True' in discover
+    assert "if not fresh and not confirmed" in discover
 
 
 def test_acceptance_does_not_reload_or_create_devices_inline():

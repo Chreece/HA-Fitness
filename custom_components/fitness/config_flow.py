@@ -856,6 +856,7 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
             # Refresh the disabled Workout owner diagnostic so its
             # assigned_profiles attribute reflects this explicit reassignment.
             runtime._notify_values_throttled({(sensor_id, "workout_owner", None)})
+            runtime._notify_structure_throttled()
             return self.async_create_entry(title="", data={})
 
         return self.async_show_form(

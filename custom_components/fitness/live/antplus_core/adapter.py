@@ -540,7 +540,7 @@ class AntAdapterManager:
                 legacy.id,
                 new_identifiers={identifier},
                 name=adapter.name,
-                manufacturer=adapter.manufacturer or "Dynastream / Garmin",
+                manufacturer=adapter.manufacturer or "ANT+",
                 model=adapter.product or f"ANT USB {adapter.vid}:{adapter.pid}",
                 serial_number=adapter.serial,
             )
@@ -555,7 +555,7 @@ class AntAdapterManager:
                 config_subentry_id=adapters_subentry_id,
                 identifiers={identifier},
                 name=adapter.name,
-                manufacturer=adapter.manufacturer or "Dynastream / Garmin",
+                manufacturer=adapter.manufacturer or "ANT+",
                 model=adapter.product or f"ANT USB {adapter.vid}:{adapter.pid}",
                 serial_number=adapter.serial,
                 via_device_id=parent.id,
@@ -564,7 +564,7 @@ class AntAdapterManager:
             device_registry.async_update_device(
                 physical.id,
                 name=adapter.name,
-                manufacturer=adapter.manufacturer or "Dynastream / Garmin",
+                manufacturer=adapter.manufacturer or "ANT+",
                 model=adapter.product or f"ANT USB {adapter.vid}:{adapter.pid}",
                 serial_number=adapter.serial,
             )

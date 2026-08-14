@@ -22,10 +22,12 @@ def test_ant_receivers_are_real_children_of_logical_ant_adapter():
     assert 'self.runtime.ensure_ant_receiver_topology()' in SWITCH
 
 
-def test_presence_detection_auto_enables_backend_without_startup_task_leak():
-    assert 'if present and not self.adapter_enabled(transport):' in RUNTIME
-    assert 'fitness auto-enable {transport} backend' in RUNTIME
-    assert 'async_create_background_task' in RUNTIME
+def test_presence_detection_never_auto_enables_user_disabled_backend():
+    presence = RUNTIME[RUNTIME.index('def set_adapter_presence'):RUNTIME.index('async def _async_scan_local_ant_usb')]
+    assert 'if present and not self.adapter_enabled(transport):' not in presence
+    assert 'fitness auto-enable {transport} backend' not in presence
+    assert 'async_set_transport_enabled(transport, True)' not in presence
+
     block = RUNTIME[RUNTIME.index('def _start_presence_monitor'):RUNTIME.index('def publish_passive')]
     assert 'EVENT_HOMEASSISTANT_STARTED' in block
     assert 'async_create_background_task' in block

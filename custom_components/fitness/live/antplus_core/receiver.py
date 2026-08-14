@@ -19,12 +19,12 @@ from .const import (
     ANTPLUS_RF_FREQUENCY,
     DEVICE_TYPE_FITNESS_EQUIPMENT,
     DEVICE_TYPE_NAMES,
-    MANUFACTURERS,
 )
 from .decoder import decode_packet
 from .capabilities import capability_signature, record_fe_command_status, record_observed_page
 from .diagnostics import AntPlusDiagnostics
 from .models import AntDevice
+from ..vendor_registry import catalog_manufacturer_name
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -645,9 +645,9 @@ class AntPlusReceiver:
         """Decode identification without mistaking proprietary pages for common pages."""
         page = data[0] & 0x7F
 
-        # Only standardized ANT+ device types may use Common Pages 80/81.
-        # Proprietary/unknown device types can legitimately reuse 0x50/0x51
-        # for unrelated payloads, as Stryd device type 30 does.
+        # Decode standardized common pages only for profiles Fitness knows.
+        # Unknown/proprietary payloads may reuse the same page numbers with
+        # unrelated semantics and must never be guessed from a vendor name.
         if device_type in DEVICE_TYPE_NAMES:
             if page == 80:
                 hardware_rev = data[3]
@@ -659,9 +659,9 @@ class AntPlusReceiver:
 
                 if manufacturer_id not in (0xFFFF,):
                     device.manufacturer_id = manufacturer_id
-                    device.manufacturer_name = MANUFACTURERS.get(
-                        manufacturer_id,
-                        f"ANT manufacturer {manufacturer_id}",
+                    device.manufacturer_name = (
+                        catalog_manufacturer_name("antplus", manufacturer_id)
+                        or f"ANT manufacturer {manufacturer_id}"
                     )
 
                 if model_no != 0xFFFF:
@@ -692,9 +692,9 @@ class AntPlusReceiver:
 
                 if manufacturer_id != 0xFF:
                     device.manufacturer_id = manufacturer_id
-                    device.manufacturer_name = MANUFACTURERS.get(
-                        manufacturer_id,
-                        f"ANT manufacturer {manufacturer_id}",
+                    device.manufacturer_name = (
+                        catalog_manufacturer_name("antplus", manufacturer_id)
+                        or f"ANT manufacturer {manufacturer_id}"
                     )
 
                 if serial_fragment != 0xFFFF:

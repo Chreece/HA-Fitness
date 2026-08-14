@@ -79,10 +79,7 @@ DEVICE_TYPE_NAMES = {
     127: "Core Temperature",
 }
 
-MANUFACTURERS = {
-    1: "Garmin",
-    95: "Stryd",
-}
+
 
 BATTERY_STATUS_NAMES = {
     0: "Unknown",

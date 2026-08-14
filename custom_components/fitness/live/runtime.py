@@ -428,13 +428,12 @@ class LiveRuntime:
         return self.adapter_present(transport)
 
     def set_adapter_presence(self, transport: str, present: bool) -> None:
-        """Update physical radio presence and auto-load a newly detected backend.
+        """Update hardware presence without changing the user's enable switch.
 
-        Presence detection itself is always active.  A false->true transition
-        automatically enables the corresponding Fitness backend so the detected
-        hardware/proxy/gateway can immediately discover receivers and sensors.
-        A user may still disable the backend while the hardware remains present;
-        it is auto-enabled again only after a genuine disappear/reappear cycle.
+        Presence detection is control-plane only. A disabled module stays
+        disabled across restart, disappearance/reappearance and proxy changes.
+        No provider callbacks are registered until the user explicitly enables
+        that transport.
         """
         if transport not in TRANSPORTS:
             return
@@ -444,22 +443,6 @@ class LiveRuntime:
         if old == present:
             return
         self._adapter_presence[transport] = present
-
-        if present and not self.adapter_enabled(transport):
-            async def _enable_detected_backend() -> None:
-                try:
-                    await self.async_set_transport_enabled(transport, True)
-                except Exception:
-                    _LOGGER.exception(
-                        "Unable to auto-enable detected Fitness %s backend",
-                        transport,
-                    )
-
-            if self.hass.state is CoreState.running:
-                self.hass.async_create_background_task(
-                    _enable_detected_backend(),
-                    f"fitness auto-enable {transport} backend",
-                )
 
         self._notify()
         if self.hub_entry is not None:
@@ -611,7 +594,9 @@ class LiveRuntime:
                     await self.async_refresh_adapter_presence()
                     self._expire_stale_sensor_endpoints()
                     self.ensure_ant_receiver_topology()
-                    self._prune_stale_sensor_discovery_flows()
+                    # Discovery is sticky after the first fresh RF/BLE observation.
+                    # Never abort/recreate discovery flows merely because a wearable
+                    # goes quiet; that churn is unnecessary control-plane/UI work.
                     # Discovery is low-rate control-plane work. Retrying here means
                     # an RF device confirmed before profiles loaded, or a discovery
                     # flow that was dismissed/aborted, can become discoverable again
@@ -619,9 +604,11 @@ class LiveRuntime:
                     if self.profile_entries:
                         for sensor in tuple(self.sensors.values()):
                             if (
-                                sensor.available
-                                and sensor.capabilities
-                                and self.sensor_recently_observed(sensor.sensor_id)
+                                sensor.capabilities
+                                and (
+                                    bool(sensor.metadata.get("discovery_confirmed"))
+                                    or (sensor.available and self.sensor_recently_observed(sensor.sensor_id))
+                                )
                                 and not self.sensor_is_accepted(sensor.sensor_id)
                             ):
                                 self._schedule_sensor_discovery(sensor.sensor_id)
@@ -1240,7 +1227,7 @@ class LiveRuntime:
         return DeviceInfo(
             identifiers={adapter.ha_identifier},
             name=adapter.name,
-            manufacturer=adapter.manufacturer or "Dynastream / Garmin",
+            manufacturer=adapter.manufacturer or "ANT+",
             model=adapter.product or f"ANT USB {adapter.vid}:{adapter.pid}",
             serial_number=adapter.serial,
             **common,
@@ -1249,35 +1236,40 @@ class LiveRuntime:
     def adapter_device_info(self, transport: str):
         from homeassistant.helpers.device_registry import DeviceInfo
         label = "ANT+ Adapter" if transport == "antplus" else "Bluetooth Adapter"
-        translation_key = "antplus_adapter" if transport == "antplus" else "bluetooth_adapter"
+        # Home Assistant 2026.8 classifies DeviceInfo into strict primary/link/
+        # secondary shapes. Primary devices may use identifiers + name/model,
+        # but must not mix in translation/default_* fields.
         return DeviceInfo(
             identifiers={(DOMAIN, f"live_adapter:{transport}")},
-            translation_key=translation_key,
             name=label,
             manufacturer="Fitness",
             model=label,
         )
 
     def sensor_device_info(self, sensor_id: str):
-        """Return stable merged device info without exposing raw numeric IDs."""
+        """Return one valid HA primary DeviceInfo for the merged physical sensor."""
         from homeassistant.helpers.device_registry import DeviceInfo
-        sensor = self.sensors.get(self.resolve_sensor_id(sensor_id))
+        resolved_id = self.resolve_sensor_id(sensor_id)
+        sensor = self.sensors.get(resolved_id)
         if sensor is None:
             return DeviceInfo(
-                identifiers={(DOMAIN, f"live_sensor:{sensor_id}")},
-                default_name="Fitness sensor",
+                identifiers={(DOMAIN, f"live_sensor:{resolved_id}")},
+                name="Fitness sensor",
             )
+
         identifiers = {(DOMAIN, f"live_sensor:{sensor.sensor_id}")}
         for endpoint in sensor.endpoints.values():
             identifiers.add((DOMAIN, f"endpoint:{endpoint.endpoint_id}"))
+
         identity = resolve_identity(sensor)
         info = {
             "identifiers": identifiers,
-            "default_name": identity.get("name") or "Fitness sensor",
+            # Use a stable primary-device name even before catalog/GATT identity
+            # is complete. Numeric protocol IDs remain diagnostics, never names.
+            "name": identity.get("name") or sensor.name or "Fitness sensor",
         }
         if identity.get("ready"):
             info.update(
-                name=identity.get("name"),
                 manufacturer=identity.get("manufacturer"),
                 model=identity.get("model"),
                 model_id=identity.get("model_id"),
@@ -1312,16 +1304,59 @@ class LiveRuntime:
         await self.async_refresh_modules()
         self.request_hub_reload()
 
+    def _mark_transport_runtime_inactive(self, transport: str) -> None:
+        """Drop volatile runtime state when an adapter module is disabled.
+
+        Device identity/topology is retained, but no stale endpoint is left
+        looking live and no profile continues to source metrics from the
+        disabled module.
+        """
+        dirty: set[tuple[str, str, str | None]] = set()
+        for sensor in self.sensors.values():
+            endpoint = sensor.endpoints.get(transport)
+            if endpoint is None:
+                continue
+            if endpoint.available:
+                endpoint.available = False
+                dirty.add((sensor.sensor_id, "available", transport))
+            for profile_id, sources in self.measurement_sources.items():
+                values = self.measurements.setdefault(profile_id, {})
+                removed = False
+                for metric, source_id in tuple(sources.items()):
+                    if (
+                        self.resolve_sensor_id(source_id) == sensor.sensor_id
+                        and self._profile_sensor_transport.get(profile_id, {}).get(sensor.sensor_id) == transport
+                    ):
+                        sources.pop(metric, None)
+                        values.pop(metric, None)
+                        removed = True
+                if removed:
+                    self.measurement_time.pop(profile_id, None)
+                    manager = self._manager_for_profile(profile_id)
+                    if manager is not None:
+                        self._notify_profile_live_throttled(profile_id, manager)
+        for profile_map in self._profile_sensor_transport.values():
+            for sensor_id, selected in tuple(profile_map.items()):
+                if selected == transport:
+                    profile_map.pop(sensor_id, None)
+        if dirty:
+            self._notify_values_throttled(dirty)
+
     async def async_set_transport_enabled(self, transport: str, enabled: bool) -> None:
         if not self.adapter_configured(transport):
             if not enabled:
                 return
             self._configured[transport] = True
-        self._enabled[transport] = bool(enabled)
+        requested = bool(enabled)
+        if self._enabled.get(transport, False) == requested:
+            return
+        self._enabled[transport] = requested
         await self._async_save_adapter_config()
-        if enabled:
+        if requested:
             await self.async_ensure_hub_entry()
         await self.async_refresh_modules()
+        if not requested:
+            self._mark_transport_runtime_inactive(transport)
         self._notify()
 
     async def async_register_profile(self, entry) -> None:
@@ -2141,27 +2176,14 @@ class LiveRuntime:
             self._notify_values_throttled(dirty)
 
     def _prune_stale_sensor_discovery_flows(self) -> None:
-        """Remove discovery cards once the underlying sensor stops transmitting."""
-        for flow in tuple(self.hass.config_entries.flow.async_progress()):
-            context = flow.get("context") or {}
-            if (
-                str(flow.get("handler") or "") != DOMAIN
-                or str(context.get("source") or "") != "integration_discovery"
-            ):
-                continue
-            unique_id = str(context.get("unique_id") or "")
-            if not unique_id.startswith("live_sensor:"):
-                continue
-            sensor_id = self.resolve_sensor_id(unique_id.split(":", 1)[1])
-            if self.sensor_recently_observed(sensor_id):
-                continue
-            flow_id = str(flow.get("flow_id") or "")
-            if flow_id:
-                try:
-                    self.hass.config_entries.flow.async_abort(flow_id)
-                except Exception:
-                    pass
-            self._discovery_started.discard(sensor_id)
+        """Compatibility no-op: discovery cards are intentionally sticky.
+
+        Once a physical sensor has been freshly observed, Fitness keeps the
+        discovery flow until setup/rejection. Radio silence changes runtime
+        availability only; it must never abort and later recreate HA config
+        flows.
+        """
+        return
 
     def sensor_recently_observed(
         self, sensor_id: str, *, max_age: float = DISCOVERY_RECENT_SECONDS
@@ -2188,12 +2210,18 @@ class LiveRuntime:
         """Start one discovery flow for an observed, unaccepted physical sensor."""
         sensor_id = self.resolve_sensor_id(sensor_id)
         sensor = self.sensors.get(sensor_id)
-        if (
-            sensor is None
-            or self.sensor_is_accepted(sensor_id)
-            or not self.sensor_recently_observed(sensor_id)
-        ):
+        if sensor is None or self.sensor_is_accepted(sensor_id):
             return
+
+        fresh = self.sensor_recently_observed(sensor_id)
+        confirmed = bool(sensor.metadata.get("discovery_confirmed"))
+        if not fresh and not confirmed:
+            return
+        if fresh and not confirmed:
+            # Persist only the transition from never-observed to confirmed.
+            # This gives discovery restart durability without packet-rate saves.
+            sensor.metadata["discovery_confirmed"] = True
+            self._schedule_save()
 
         unique_id = f"live_sensor:{sensor_id}"
 
@@ -2286,6 +2314,7 @@ class LiveRuntime:
             self._requires_reassignment.discard(sensor_id)
             self._discovery_started.discard(sensor_id)
             sensor.metadata["accepted"] = True
+            sensor.metadata.pop("discovery_confirmed", None)
             for provider in tuple(self.providers.values()):
                 callback_fn = getattr(provider, "sensor_acceptance_changed", None)
                 if callback_fn is not None:
@@ -2329,7 +2358,7 @@ class LiveRuntime:
         signature = (
             subentry_id,
             tuple(sorted(info["identifiers"])),
-            info.get("default_name"), info.get("name"), info.get("manufacturer"),
+            info.get("name"), info.get("manufacturer"),
             info.get("model"), info.get("model_id"), info.get("serial_number"),
             info.get("hw_version"), info.get("sw_version"),
         )
@@ -2355,9 +2384,9 @@ class LiveRuntime:
             "config_entry_id": self.hub_entry.entry_id,
             "config_subentry_id": subentry_id,
             "identifiers": set(info["identifiers"]),
-            "default_name": info.get("default_name") or "Fitness sensor",
+            "name": info.get("name") or "Fitness sensor",
         }
-        for key in ("name", "manufacturer", "model", "model_id", "serial_number", "hw_version", "sw_version"):
+        for key in ("manufacturer", "model", "model_id", "serial_number", "hw_version", "sw_version"):
             value = info.get(key)
             if value not in (None, ""):
                 kwargs[key] = value
@@ -2695,6 +2724,32 @@ class LiveRuntime:
         await self._reconcile_profile_transports(target_entry)
         self._start_profile_handover_monitor(target_entry)
 
+    def sensor_assigned_profile_ids(self, sensor_id: str) -> list[str]:
+        """Return profiles which are configured to use one physical sensor."""
+        sensor_id = self.resolve_sensor_id(sensor_id)
+        return [
+            entry.entry_id
+            for entry in self.profile_entries.values()
+            if sensor_id in self.selected_sensor_ids(entry)
+        ]
+
+    def sensor_live_assigned_profile_ids(self, sensor_id: str) -> list[str]:
+        """Return assigned profiles which currently have a live workout session."""
+        return [
+            entry_id
+            for entry_id in self.sensor_assigned_profile_ids(sensor_id)
+            if self._profile_is_live_session(entry_id)
+        ]
+
+    def sensor_owner_transfer_available(self, sensor_id: str) -> bool:
+        """Return whether an ownership handoff is currently meaningful."""
+        sensor_id = self.resolve_sensor_id(sensor_id)
+        return bool(
+            len(self.sensor_assigned_profile_ids(sensor_id)) > 1
+            and len(self.sensor_live_assigned_profile_ids(sensor_id)) >= 2
+            and self.sensor_workout_owner(sensor_id) is not None
+        )
+
     def profile_has_assigned_live_sensor(self, entry) -> bool:
         """Return whether this profile has at least one accepted physical sensor."""
         for sensor_id in self.selected_sensor_ids(entry):
@@ -2964,6 +3019,12 @@ class LiveRuntime:
         self._profile_session_order[entry.entry_id] = self._session_order_counter
 
         sensors = self.sensors_for_profile(entry)
+        if sensors:
+            # Low-frequency session-state refresh for conditional ownership
+            # selectors. This is deliberately not tied to radio packets.
+            self._notify_values_throttled(
+                {(sensor.sensor_id, "workout_owner", None) for sensor in sensors}
+            )
         for sensor in sensors:
             # Exercise temporarily owns capture policy. Snapshot the persisted
             # positions before changing anything; the global epoch restores them.
@@ -3067,6 +3128,11 @@ class LiveRuntime:
         # are released only when every armed/active/recovery session is idle.
         if not keep_heart_rate:
             self._clear_workout_sensor_locks_if_idle()
+        assigned = self.sensors_for_profile(entry)
+        if assigned:
+            self._notify_values_throttled(
+                {(sensor.sensor_id, "workout_owner", None) for sensor in assigned}
+            )
         return ",".join(states) if states else "no_live_transport"
 
     async def async_finish_recovery(self, entry) -> str:

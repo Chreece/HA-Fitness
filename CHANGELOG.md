@@ -1,7 +1,18 @@
 # Changelog
 
+- Replaced remaining native sensor vendor-specific decoder branches with a data-driven vendor/product decoder registry. Product matching, company IDs and proprietary byte layouts now live in `live/device_catalog.json`; `vendor_registry.py` is generic and validates catalog consistency.
+- Removed native ANT+/BLE vendor-name tables and vendor-specific sport inference. ANT manufacturer names and proprietary BLE values now resolve through the catalog; the native `live/` Python tree has regression protection against device/vendor literals.
+
+- Fixed Home Assistant 2026.8 DeviceInfo validation for native fitness sensors/adapters by using only valid primary-device fields.
+- Disabled adapters now remain disabled across restart/presence changes; provider modules fully unload and volatile endpoint/live-source state is invalidated.
+- Moved Bluetooth adapter-level `Capture active` to per-physical-sensor ANT+/Bluetooth capture-state entities.
+- Training-load/evaluation UI now hides until real workout/load/adaptation evidence exists.
+- Average-HR-vs-baseline now shows explicit baseline/current/difference values and a full heat-band gauge around the personal baseline.
+
 ### Runtime safety and shared-sensor refinements
 
+- Made Local Sensor discovery sticky after the first fresh ANT+/BLE observation. Radio silence now changes only runtime availability; it never aborts/recreates Home Assistant discovery flows. The confirmed discovery state survives restart until setup or explicit deletion/reassignment.
+- Limited the Workout owner select to genuinely shared sensors (>1 assigned profile) and made it available only during an overlapping live session involving at least two assigned profiles. Session start/finish refreshes this control at control-plane frequency only.
 - Hardened the optional sensor recognition catalog so malformed/missing JSON can never abort Fitness startup and catalog I/O is no longer performed from Bluetooth advertisement callbacks.
 - Added exercise-owned temporary per-sensor capture policy: ANT+ is enabled for the workout, BLE/GATT is enabled only when ANT+ becomes unavailable, and the user's pre-workout capture positions are restored when no overlapping Fitness session remains.
 - Added explicit mid-workout physical-sensor owner transfer. The current owner must be paused; the target must have the sensor assigned and be armed/active. Live values and transport ownership are cleared before the handoff so measurements cannot feed two profiles.

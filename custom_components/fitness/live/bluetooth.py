@@ -20,6 +20,7 @@ from ..const import (
     METRIC_SPEED,
 )
 from .runtime import LiveSensor
+from .vendor_registry import decode_bluetooth_advertisement, vendor_registry_issues
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,20 +67,15 @@ SERVICE_CAPABILITIES = {
 }
 
 BATTERY_SERVICE = BASE.format("180f")
-STRYD_MANUFACTURER_ID = 43690
 RAW_DIAGNOSTIC_MIN_INTERVAL = 10.0
 
 
 def _passive_advertisement_values(info) -> tuple[dict[str, float], dict[str, dict]]:
-    """Decode connectionless values with known semantics.
-
-    BLE manufacturer data has no universal schema, so vendor-specific fields are
-    exposed only when Fitness has a verified decoder. Standard Battery Service
-    service data and Stryd's passive battery frame are currently supported.
-    """
+    """Decode connectionless standard and catalog-selected proprietary values."""
     values: dict[str, float] = {}
     metadata: dict[str, dict] = {}
 
+    # Bluetooth SIG standard Battery Service handling remains protocol-generic.
     service_data = getattr(info, "service_data", {}) or {}
     for key, payload in service_data.items():
         if str(key).lower() == BATTERY_SERVICE and payload:
@@ -87,24 +83,18 @@ def _passive_advertisement_values(info) -> tuple[dict[str, float], dict[str, dic
             if 0 <= battery <= 100:
                 values["battery"] = float(battery)
                 metadata["battery"] = {
-                    "name": "Battery", "unit": "%", "device_class": "battery",
-                    "state_class": "measurement", "icon": "mdi:battery",
+                    "name": "Battery",
+                    "unit": "%",
+                    "device_class": "battery",
+                    "state_class": "measurement",
+                    "icon": "mdi:battery",
                     "passive": True,
+                    "decoder": "bluetooth_sig_battery_service",
                 }
 
-    manufacturer_data = getattr(info, "manufacturer_data", {}) or {}
-    stryd = manufacturer_data.get(STRYD_MANUFACTURER_ID)
-    if stryd and len(stryd) >= 2:
-        # Home Assistant strips the two-byte company identifier. This is the
-        # passive Stryd battery byte already verified by HA-Stryd-BLE.
-        battery = int(bytes(stryd)[1])
-        if 0 <= battery <= 100:
-            values["battery"] = float(battery)
-            metadata["battery"] = {
-                "name": "Battery", "unit": "%", "device_class": "battery",
-                "state_class": "measurement", "icon": "mdi:battery",
-                "passive": True, "manufacturer_id": STRYD_MANUFACTURER_ID,
-            }
+    vendor_values, vendor_metadata = decode_bluetooth_advertisement(info)
+    values.update(vendor_values)
+    metadata.update(vendor_metadata)
     return values, metadata
 
 
@@ -139,6 +129,9 @@ class BluetoothFitnessProvider:
     async def async_setup(self) -> None:
         """Register one HA Bluetooth discovery callback; no private scanner."""
         from homeassistant.setup import async_setup_component
+
+        for issue in vendor_registry_issues():
+            _LOGGER.warning("Fitness vendor registry: %s", issue)
 
         if not await async_setup_component(self.hass, "bluetooth", {}):
             self.available = False

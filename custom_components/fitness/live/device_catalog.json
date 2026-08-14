@@ -1,8 +1,13 @@
 {
-  "version": 1,
+  "version": 2,
   "manufacturers": {
-    "antplus": {"1": "Garmin", "95": "Stryd"},
-    "bluetooth_manufacturer_data": {"43690": "Stryd"}
+    "antplus": {
+      "1": "Garmin",
+      "95": "Stryd"
+    },
+    "bluetooth_manufacturer_data": {
+      "43690": "Stryd"
+    }
   },
   "products": [
     {
@@ -11,18 +16,67 @@
       "model": "Stryd Running Power Meter",
       "name": "Stryd",
       "match_any": [
-        {"transport": "antplus", "manufacturer_id": 95},
-        {"transport": "bluetooth", "manufacturer_data_id": 43690},
-        {"name_prefix": "stryd"}
+        {
+          "transport": "antplus",
+          "manufacturer_id": 95
+        },
+        {
+          "transport": "bluetooth",
+          "manufacturer_data_id": 43690
+        },
+        {
+          "name_prefix": "stryd"
+        }
+      ],
+      "decoder_ids": [
+        "stryd_ble_passive_battery_v1"
       ]
     }
   ],
   "profile_models": {
-    "11": "Power Meter", "17": "Fitness Equipment", "30": "Running Dynamics Sensor",
-    "31": "Muscle Oxygen Sensor", "34": "Shifting Sensor", "40": "Radar Sensor",
-    "48": "Tire Pressure Sensor", "115": "Dropper Seatpost", "119": "Weight Scale",
-    "120": "Heart Rate Sensor", "121": "Bike Speed/Cadence Sensor",
-    "122": "Bike Cadence Sensor", "123": "Bike Speed Sensor",
-    "124": "Stride Speed/Distance Sensor", "127": "Core Temperature Sensor"
-  }
+    "11": "Power Meter",
+    "17": "Fitness Equipment",
+    "30": "Running Dynamics Sensor",
+    "31": "Muscle Oxygen Sensor",
+    "34": "Shifting Sensor",
+    "40": "Radar Sensor",
+    "48": "Tire Pressure Sensor",
+    "115": "Dropper Seatpost",
+    "119": "Weight Scale",
+    "120": "Heart Rate Sensor",
+    "121": "Bike Speed/Cadence Sensor",
+    "122": "Bike Cadence Sensor",
+    "123": "Bike Speed Sensor",
+    "124": "Stride Speed/Distance Sensor",
+    "127": "Core Temperature Sensor"
+  },
+  "vendor_decoders": [
+    {
+      "id": "stryd_ble_passive_battery_v1",
+      "transport": "bluetooth",
+      "phase": "advertisement",
+      "source": {
+        "kind": "manufacturer_data",
+        "id": 43690
+      },
+      "fields": [
+        {
+          "metric": "battery",
+          "offset": 1,
+          "length": 1,
+          "encoding": "uint_le",
+          "valid_min": 0,
+          "valid_max": 100,
+          "metadata": {
+            "name": "Battery",
+            "unit": "%",
+            "device_class": "battery",
+            "state_class": "measurement",
+            "icon": "mdi:battery",
+            "passive": true
+          }
+        }
+      ]
+    }
+  ]
 }
