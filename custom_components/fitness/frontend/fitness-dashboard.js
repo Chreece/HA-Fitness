@@ -1,4 +1,4 @@
-const FITNESS_DASHBOARD_VERSION = "2026.8.11.1";
+const FITNESS_DASHBOARD_VERSION = "2026.8.11.2";
 
 
 const FITNESS_READINESS_TEXT = {
@@ -789,7 +789,7 @@ class FitnessComparisonCard extends HTMLElement {
         ["last_workout_power_vs_baseline", 30],
         ["last_workout_speed_vs_baseline", 30],
         ["last_workout_trimp_vs_recent", 50],
-      ].filter(([key]) => Boolean(e[key])).map(([key, max]) => ({ entity: e[key], max }));
+      ].filter(([key]) => Boolean(e[key])).map(([key, max]) => ({ key, entity: e[key], max }));
     } catch (_err) {
       this._resolvedMetrics = [];
     }
@@ -800,8 +800,25 @@ class FitnessComparisonCard extends HTMLElement {
 
   _render() {
     if (!this.shadowRoot || !this._hass) return;
-    const metrics = this._resolvedMetrics || this.config.metrics || [];
     const labels = this._profile?.labels || {};
+    const profileEntities = this._profile?.entities || {};
+    const comparableCount = _fitnessNumber(
+      profileEntities.last_workout_comparable_count
+        ? this._hass.states[profileEntities.last_workout_comparable_count]?.state
+        : null
+    );
+    const baselineKeys = new Set([
+      "last_workout_efficiency_vs_baseline",
+      "last_workout_decoupling_vs_baseline",
+      "last_workout_hr_vs_baseline",
+      "last_workout_power_vs_baseline",
+      "last_workout_speed_vs_baseline",
+      "last_workout_trimp_vs_recent",
+    ]);
+    const metrics = (this._resolvedMetrics || this.config.metrics || []).filter((metric) => {
+      const key = String(metric.key || "");
+      return !baselineKeys.has(key) || (comparableCount != null && comparableCount >= 3);
+    });
     const rows = metrics.map((metric) => {
       const state = this._hass.states[metric.entity];
       if (!state || state.state === "unknown" || state.state === "unavailable") return "";
@@ -814,7 +831,8 @@ class FitnessComparisonCard extends HTMLElement {
       const unit = state.attributes.unit_of_measurement || metric.unit || "";
       const decimals = metric.decimals ?? 1;
       const signed = (number) => `${number > 0 ? "+" : ""}${number.toFixed(decimals)}${unit ? ` ${this._escape(unit)}` : ""}`;
-      const isHrBaseline = String(metric.entity).includes("hr_vs_baseline");
+      const isHrBaseline = metric.key === "last_workout_hr_vs_baseline"
+        || String(metric.entity).includes("hr_vs_baseline");
       const distance = Math.abs(value);
       const baselineTone = !isHrBaseline ? "var(--primary-color)"
         : distance <= 2 ? "#43a047"
@@ -843,8 +861,12 @@ class FitnessComparisonCard extends HTMLElement {
               <span>${this._escape(labels.current || "Current")} <b class="hot">${absolute(current)}</b></span>
               <span>${this._escape(labels.difference || "Difference")} <b class="hot">${signed(value)}</b></span>
             </div>
-            <div class="axis heat-axis"><i class="baseline-marker"></i><i class="current-marker" style="left:${currentMarker}%"></i></div>
-            <div class="axis-values"><span>${absolute(baseline-max)}</span><b>${absolute(baseline)}</b><span>${absolute(baseline+max)}</span></div>
+            <div class="axis heat-axis">
+              <i class="baseline-marker"></i>
+              <em class="baseline-number">${absolute(baseline)}</em>
+              <i class="current-marker" style="left:${currentMarker}%"></i>
+            </div>
+            <div class="axis-values"><span>${absolute(baseline-max)}</span><b>${_fitnessEscape(labels.baseline || "Baseline")}: ${absolute(baseline)}</b><span>${absolute(baseline+max)}</span></div>
           </div>`;
         }
       }
@@ -855,7 +877,7 @@ class FitnessComparisonCard extends HTMLElement {
       this.shadowRoot.innerHTML = "";
       return;
     }
-    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="rows">${rows}</div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 8px}.rows{padding:0 16px 16px}.row{margin:12px 0}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.line{display:flex;justify-content:space-between;gap:16px;font-size:13px}.line span{color:var(--secondary-text-color)}.baseline-readout{display:flex;justify-content:space-between;gap:10px;margin-top:5px;font-size:10px;color:var(--secondary-text-color)}.baseline-readout.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.baseline-readout.three span{padding:6px 7px;border-radius:9px;background:var(--secondary-background-color)}.baseline-readout.three b{display:block;margin-top:2px}.baseline-readout b{color:var(--primary-text-color)}.baseline-readout b.hot,.line .delta{color:var(--baseline-tone)}.axis{height:8px;position:relative;background:var(--secondary-background-color);border-radius:5px;margin-top:6px;overflow:visible}.heat-axis{height:10px;background:linear-gradient(90deg,#e53935 0%,#ef6c00 18%,#f9a825 34%,#43a047 44%,#43a047 56%,#f9a825 66%,#ef6c00 82%,#e53935 100%)}.zero,.baseline-marker{position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;background:var(--primary-text-color);transform:translateX(-1px)}.bar{position:absolute;top:0;bottom:0;background:var(--baseline-tone);border-radius:5px}.current-marker{position:absolute;top:-3px;width:3px;height:16px;border-radius:2px;background:var(--baseline-tone);box-shadow:0 0 0 1px var(--card-background-color);transform:translateX(-1px)}.axis-values{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-top:4px;font-size:9px;color:var(--secondary-text-color)}.axis-values span:last-child{text-align:right}.axis-values b{padding:1px 5px;border-radius:999px;color:var(--baseline-tone);background:var(--secondary-background-color);font-weight:650}</style>`;
+    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="rows">${rows}</div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 8px}.rows{padding:0 16px 16px}.row{margin:12px 0}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.line{display:flex;justify-content:space-between;gap:16px;font-size:13px}.line span{color:var(--secondary-text-color)}.baseline-readout{display:flex;justify-content:space-between;gap:10px;margin-top:5px;font-size:10px;color:var(--secondary-text-color)}.baseline-readout.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.baseline-readout.three span{padding:6px 7px;border-radius:9px;background:var(--secondary-background-color)}.baseline-readout.three b{display:block;margin-top:2px}.baseline-readout b{color:var(--primary-text-color)}.baseline-readout b.hot,.line .delta{color:var(--baseline-tone)}.axis{height:8px;position:relative;background:var(--secondary-background-color);border-radius:5px;margin-top:6px;overflow:visible}.heat-axis{height:10px;background:linear-gradient(90deg,#e53935 0%,#ef6c00 18%,#f9a825 34%,#43a047 44%,#43a047 56%,#f9a825 66%,#ef6c00 82%,#e53935 100%)}.zero,.baseline-marker{position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;background:var(--primary-text-color);transform:translateX(-1px)}.baseline-number{position:absolute;left:50%;top:-20px;transform:translateX(-50%);font-size:9px;font-style:normal;font-weight:700;color:var(--primary-text-color);background:var(--card-background-color);padding:1px 4px;border-radius:6px;white-space:nowrap}.bar{position:absolute;top:0;bottom:0;background:var(--baseline-tone);border-radius:5px}.current-marker{position:absolute;top:-3px;width:3px;height:16px;border-radius:2px;background:var(--baseline-tone);box-shadow:0 0 0 1px var(--card-background-color);transform:translateX(-1px)}.axis-values{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-top:4px;font-size:9px;color:var(--secondary-text-color)}.axis-values span:last-child{text-align:right}.axis-values b{padding:1px 5px;border-radius:999px;color:var(--baseline-tone);background:var(--secondary-background-color);font-weight:650}</style>`;
   }
 
   _escape(value) { return String(value ?? "").replace(/[&<>"']/g, (ch) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch])); }
@@ -1499,7 +1521,27 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
     }).join("");
 
     const hrvVs = _fitnessNumber(_fitnessAttr(autonomic, "sleep_hrv_vs_28d_percent"));
+    const hrvLatest = _fitnessNumber(_fitnessAttr(autonomic, "sleep_hrv_latest_ms"));
+    const hrvBaseline = _fitnessNumber(_fitnessAttr(autonomic, "sleep_hrv_28d_mean_ms"));
     const rhrVs = _fitnessNumber(_fitnessAttr(autonomic, "resting_hr_vs_28d_bpm"));
+    const hrvBaselineReady = hrvVs != null && hrvLatest != null && hrvBaseline != null && hrvBaseline > 0;
+    const hrvPosition = hrvBaselineReady
+      ? Math.max(1, Math.min(99, 50 + (hrvVs / 20) * 50))
+      : 50;
+    const hrvTone = hrvVs == null ? "#78909c"
+      : hrvVs >= -3 ? "#2e7d32"
+      : hrvVs >= -7 ? "#f9a825"
+      : hrvVs >= -12 ? "#ef6c00"
+      : "#c62828";
+    const hrvBaselineBar = hrvBaselineReady ? `<div class="hrv-baseline entity-link" style="--hrv-tone:${hrvTone}" data-more-info="${_fitnessEscape(e.autonomic_recovery_trend || "")}">
+      <div class="hrv-head"><span>HRV ${_fitnessEscape(l.baseline || "Baseline")}</span><strong>${hrvVs >= 0 ? "+" : ""}${hrvVs.toFixed(1)}%</strong></div>
+      <div class="hrv-values">
+        <span>${_fitnessEscape(l.baseline || "Baseline")} <b>${hrvBaseline.toFixed(1)} ms</b></span>
+        <span>${_fitnessEscape(l.current || "Current")} <b>${hrvLatest.toFixed(1)} ms</b></span>
+      </div>
+      <div class="hrv-axis"><i class="hrv-baseline-marker"></i><i class="hrv-current-marker" style="left:${hrvPosition}%"></i></div>
+      <div class="hrv-axis-values"><span>${Math.max(0, hrvBaseline * 0.8).toFixed(0)}</span><b>${hrvBaseline.toFixed(1)} ms</b><span>${(hrvBaseline * 1.2).toFixed(0)}</span></div>
+    </div>` : "";
     const hasRecoveryInfo = Boolean(
       score != null
       || remaining != null
@@ -1565,6 +1607,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
         </div>
 
         ${signalRows ? `<div class="signal-head">${_fitnessEscape(l.recovery_signals_label || "Recovery signals")}</div><div class="signals">${signalRows}</div>` : ""}
+        ${hrvBaselineBar}
         <div class="physio-note">${_fitnessEscape(l.physio_note || "Available physiological markers may recover at different rates.")}</div>
         </div>` : ""}
       </section>
@@ -1572,7 +1615,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
       ${componentRows ? `<div class="components entity-link" data-more-info="${_fitnessEscape(e.readiness || "")}">${componentRows}</div>` : ""}
 
       <div class="context">
-        ${hrvVs == null ? "" : `<span>HRV ${hrvVs > 0 ? "+" : ""}${hrvVs.toFixed(1)}% ${_fitnessEscape(rtext.vs28)}</span>`}
+        ${hrvBaselineBar || hrvVs == null ? "" : `<span>HRV ${hrvVs > 0 ? "+" : ""}${hrvVs.toFixed(1)}% ${_fitnessEscape(rtext.vs28)}</span>`}
         ${rhrVs == null ? "" : `<span>RHR ${rhrVs > 0 ? "+" : ""}${rhrVs.toFixed(1)} bpm ${_fitnessEscape(rtext.vs28)}</span>`}
       </div>
 
@@ -1644,6 +1687,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
       .signal-supportive,.signal-near_baseline,.signal-above_baseline{color:#2e7d32}
       .signal-reduced,.signal-below_baseline{color:#c62828}
       .signal-slightly_below_baseline,.signal-slightly_above_baseline{color:#ef6c00}
+      .hrv-baseline{margin-top:8px;padding:9px 10px;border-radius:12px;background:var(--card-background-color)}.hrv-head{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px}.hrv-head span{color:var(--secondary-text-color)}.hrv-head strong{color:var(--hrv-tone);font-size:12px}.hrv-values{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:7px}.hrv-values span{padding:6px 7px;border-radius:9px;background:var(--secondary-background-color);font-size:9px;color:var(--secondary-text-color)}.hrv-values b{display:block;margin-top:2px;color:var(--primary-text-color);font-size:11px}.hrv-axis{height:9px;position:relative;margin-top:10px;border-radius:5px;background:linear-gradient(90deg,#c62828 0%,#ef6c00 18%,#f9a825 35%,#2e7d32 50%,#2e7d32 100%)}.hrv-baseline-marker{position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;background:var(--primary-text-color);transform:translateX(-1px)}.hrv-current-marker{position:absolute;top:-3px;width:3px;height:15px;border-radius:2px;background:var(--hrv-tone);box-shadow:0 0 0 1px var(--card-background-color);transform:translateX(-1px)}.hrv-axis-values{display:grid;grid-template-columns:1fr auto 1fr;margin-top:4px;font-size:9px;color:var(--secondary-text-color)}.hrv-axis-values span:last-child{text-align:right}.hrv-axis-values b{font-weight:700;color:var(--primary-text-color)}
       .physio-note{margin-top:8px;font-size:9px;line-height:1.35;color:var(--secondary-text-color);overflow-wrap:anywhere}
 
       .components{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:11px}
@@ -1816,20 +1860,21 @@ class FitnessTrainingLoadCard extends FitnessAutoProfileCard {
     const adaptationVo2 = _fitnessNumber(_fitnessAttr(adaptation, "vo2max_slope_percent_per_30d"));
     const adaptationHrv = _fitnessNumber(_fitnessAttr(adaptation, "hrv_7d_vs_baseline_percent"));
     const adaptationReadiness = _fitnessNumber(_fitnessAttr(adaptation, "readiness_score"));
-    const hasWorkoutLoadEvidence =
-      (recent != null && recent > 0)
-      || (baseline != null && baseline > 0)
-      || (ratio != null && baseline != null && baseline > 0)
-      || (workouts7 != null && workouts7 > 0)
-      || (days7 != null && days7 > 0)
-      || (mins7 != null && mins7 > 0);
-    const hasAdaptationData = Boolean(adaptation) && (
-      adaptationStatus !== "insufficient_data"
-      || (adaptationEvidence != null && adaptationEvidence > 0)
-      || [adaptationVo2, adaptationHrv, adaptationReadiness].some(value => value != null)
+    const hasLoadData = Boolean(
+      baselineReliable
+      && recent != null && recent > 0
+      && baseline != null && baseline > 0
+      && ratio != null && ratio > 0
+      && workouts7 != null && workouts7 >= 2
     );
-    const hasLoadData = hasWorkoutLoadEvidence;
-    if (!hasLoadData && !hasAdaptationData) {
+    const hasAdaptationData = Boolean(
+      hasLoadData
+      && adaptation
+      && adaptationStatus !== "insufficient_data"
+      && adaptationEvidence != null
+      && adaptationEvidence >= 3
+    );
+    if (!hasLoadData) {
       this.shadowRoot.innerHTML = "";
       return;
     }
@@ -2311,14 +2356,16 @@ class FitnessEvaluationCard extends FitnessCompositeCard {
     const loadMinutes = _fitnessNumber(_fitnessAttr(loadState, "workout_minutes_7d"));
     const adaptationStatus = String(_fitnessAttr(adaptationState, "status") || "insufficient_data");
     const adaptationEvidence = _fitnessNumber(_fitnessAttr(adaptationState, "evidence_count"));
-    const hasLoad = (
-      (loadRecent != null && loadRecent > 0)
-      || (loadBaseline != null && loadBaseline > 0)
-      || (loadRatio != null && loadBaseline != null && loadBaseline > 0)
-      || (loadWorkouts != null && loadWorkouts > 0)
-      || (loadMinutes != null && loadMinutes > 0)
-      || (adaptationState && adaptationStatus !== "insufficient_data")
-      || (adaptationEvidence != null && adaptationEvidence > 0)
+    const baselineReliable = Boolean(
+      _fitnessAttr(adaptationState, "baseline_reliable")
+      ?? (loadRatio != null && loadBaseline != null && loadBaseline > 0)
+    );
+    const hasLoad = Boolean(
+      baselineReliable
+      && loadRecent != null && loadRecent > 0
+      && loadBaseline != null && loadBaseline > 0
+      && loadRatio != null && loadRatio > 0
+      && loadWorkouts != null && loadWorkouts >= 2
     );
     if (hasProgress) children.push(this._mount("fitness-progress-card"));
     if (hasLoad) children.push(this._mount("fitness-training-load-card"));

@@ -59,5 +59,5 @@ def test_backend_resource_contract_is_unchanged():
     BACKEND = (
         ROOT / "custom_components/fitness/dashboard.py"
     ).read_text(encoding="utf-8")
-    assert 'const FITNESS_DASHBOARD_VERSION = "2026.8.11.1";' in FRONTEND
-    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.11.1"' in BACKEND
+    assert 'const FITNESS_DASHBOARD_VERSION = "2026.8.11.2";' in FRONTEND
+    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.11.2"' in BACKEND

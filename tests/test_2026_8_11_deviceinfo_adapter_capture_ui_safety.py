@@ -43,14 +43,10 @@ def test_bluetooth_adapter_no_longer_has_capture_active_entity():
     assert "adapter_entities.append(AdapterCapture" not in setup
 
 
-def test_capture_active_is_materialized_per_physical_sensor_transport():
-    assert "class SensorTransportCaptureActive" in BINARY
-    assert 'added.append(SensorTransportCaptureActive(runtime, sensor_id, transport))' in BINARY
-    cls = BINARY.split("class SensorTransportCaptureActive", 1)[1].split(
-        "class AdapterProblem", 1
-    )[0]
-    assert "sensor_transport_capture_enabled" in cls
-    assert "adapter_enabled" in cls
+def test_per_sensor_capture_state_is_removed():
+    assert "class SensorTransportCaptureActive" not in BINARY
+    assert "SensorTransportCaptureActive(runtime" not in BINARY
+    assert "_bluetooth_capture_active" in RUNTIME  # registry cleanup only
 
 
 def test_disabling_adapter_unloads_module_and_invalidates_volatile_state():
@@ -65,14 +61,15 @@ def test_disabling_adapter_unloads_module_and_invalidates_volatile_state():
     assert "await self.providers.pop(name).async_shutdown()" in refresh
 
 
-def test_training_load_requires_real_evidence_not_zero_placeholder():
+def test_training_load_requires_reliable_personal_baseline():
     load = FRONTEND.split("class FitnessTrainingLoadCard", 1)[1].split(
         "class FitnessWorkoutRpeCard", 1
     )[0]
-    assert "hasWorkoutLoadEvidence" in load
+    assert "baselineReliable" in load
     assert "recent != null && recent > 0" in load
-    assert "workouts7 != null && workouts7 > 0" in load
-    assert "mins7 != null && mins7 > 0" in load
+    assert "baseline != null && baseline > 0" in load
+    assert "workouts7 != null && workouts7 >= 2" in load
+    assert "if (!hasLoadData)" in load
 
 
 def test_hr_baseline_has_explicit_baseline_current_difference_and_heat_axis():

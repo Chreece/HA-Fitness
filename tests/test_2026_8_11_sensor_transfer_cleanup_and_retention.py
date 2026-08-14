@@ -18,21 +18,20 @@ def test_catalog_is_not_read_from_ble_advertisement_callback():
     assert "JSONDecodeError" in IDENTITY
 
 
-def test_workout_capture_is_temporary_and_restored():
-    assert "_sensor_workout_capture_baseline" in RUNTIME
-    assert "_sensor_workout_capture_override" in RUNTIME
-    assert "_restore_workout_capture_overrides()" in RUNTIME
-    prepare = RUNTIME.split("async def async_prepare_session",1)[1].split("async def async_manual_gatt_connect",1)[0]
-    assert '_set_workout_capture_override(sensor.sensor_id, "antplus", True)' in prepare
-    assert '"bluetooth" in sensor.endpoints and "antplus" not in sensor.endpoints' in prepare
+def test_capture_is_adapter_scoped_not_sensor_scoped():
+    assert "_sensor_workout_capture_baseline" not in RUNTIME
+    assert "_sensor_workout_capture_override" not in RUNTIME
+    assert "async_set_sensor_transport_capture" not in RUNTIME
+    assert "Compatibility shim: capture is controlled only by the adapter switch." in RUNTIME
 
 
 def test_gatt_fallback_and_ant_return_are_automatic():
     choose = RUNTIME.split("def choose_transport",1)[1].split("async def _claim_transport",1)[0]
     assert 'return "antplus"' in choose
     assert 'return "bluetooth"' in choose
-    assert "bluetooth_gatt_connected" in choose
-    assert "_sensor_workout_capture_baseline" in choose
+    assert 'self.adapter_enabled("antplus")' in choose
+    assert 'self.adapter_enabled("bluetooth")' in choose
+    assert "_sensor_workout_capture_baseline" not in choose
 
 
 def test_mid_workout_transfer_is_explicit_and_safe():

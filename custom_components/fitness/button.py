@@ -13,42 +13,38 @@ async def async_setup_entry(hass, entry, async_add_entities):
     from .live.runtime import HUB_ENTRY_TYPE
 
     if entry.data.get("entry_type") == HUB_ENTRY_TYPE:
-        # Adapter switches keep the transport infrastructure globally available.
-        # Capture itself is controlled per physical sensor below.
+        # Physical sensors expose only genuinely sensor-specific actions such as
+        # an optional Bluetooth GATT connect/disconnect operation. ANT receiver
+        # scan capture remains receiver-scoped hardware control.
+        receiver_materialized: set[str] = set()
 
-        materialized: set[str] = set()
         def _add_ant_receivers():
             added = []
             for stable_key in runtime.ant_receiver_records():
-                if stable_key in materialized:
+                if stable_key in receiver_materialized:
                     continue
-                materialized.add(stable_key)
+                receiver_materialized.add(stable_key)
                 added.extend([
                     AntReceiverStartCaptureButton(runtime, stable_key),
                     AntReceiverStopCaptureButton(runtime, stable_key),
                 ])
             if added:
-                async_add_entities(added, config_subentry_id=runtime.adapter_subentry_id("antplus"))
+                async_add_entities(
+                    added,
+                    config_subentry_id=runtime.adapter_subentry_id("antplus"),
+                )
+
         _add_ant_receivers()
         entry.async_on_unload(runtime.add_listener(_add_ant_receivers))
 
         sensor_button_materialized: set[tuple[str, str]] = set()
-        def _add_sensor_transport_buttons():
+
+        def _add_sensor_buttons():
             added = []
             for sensor in runtime.sensors.values():
                 sensor_id = runtime.resolve_sensor_id(sensor.sensor_id)
                 if not runtime.sensor_is_accepted(sensor_id):
                     continue
-                for transport in ("antplus", "bluetooth"):
-                    if transport not in sensor.endpoints:
-                        continue
-                    key = (sensor_id, f"capture:{transport}")
-                    if key not in sensor_button_materialized:
-                        sensor_button_materialized.add(key)
-                        added.extend([
-                            SensorTransportStartCaptureButton(runtime, sensor_id, transport),
-                            SensorTransportStopCaptureButton(runtime, sensor_id, transport),
-                        ])
                 if "bluetooth" in sensor.endpoints and runtime.bluetooth_gatt_supported(sensor):
                     key = (sensor_id, "gatt")
                     if key not in sensor_button_materialized:
@@ -59,9 +55,13 @@ async def async_setup_entry(hass, entry, async_add_entities):
                         ])
             if added:
                 subentry = runtime.ensure_sensors_subentry()
-                async_add_entities(added, config_subentry_id=subentry.subentry_id if subentry else None)
-        _add_sensor_transport_buttons()
-        entry.async_on_unload(runtime.add_structure_listener(_add_sensor_transport_buttons))
+                async_add_entities(
+                    added,
+                    config_subentry_id=subentry.subentry_id if subentry else None,
+                )
+
+        _add_sensor_buttons()
+        entry.async_on_unload(runtime.add_structure_listener(_add_sensor_buttons))
         return
 
     manager = hass.data[DOMAIN][entry.entry_id]
@@ -245,90 +245,6 @@ class AntReceiverStopCaptureButton(_AntReceiverButton):
         if provider and provider.adapter_manager and self.record is not None:
             await provider.adapter_manager.async_set_capture(self.stable_key, False)
             self.runtime.notify_changed()
-
-
-class _SensorTransportCaptureButton(ButtonEntity):
-    _attr_has_entity_name = True
-
-    def __init__(self, runtime, sensor_id: str, transport: str):
-        self.runtime = runtime
-        self.sensor_id = runtime.resolve_sensor_id(sensor_id)
-        self.transport = str(transport)
-        self._attr_device_info = runtime.sensor_device_info(self.sensor_id)
-
-    async def async_added_to_hass(self):
-        self.async_on_remove(
-            self.runtime.add_sensor_value_listener(
-                self.sensor_id, "capture", self.transport, self._update
-            )
-        )
-        self.async_on_remove(
-            self.runtime.add_sensor_value_listener(
-                self.sensor_id, "workout_owner", None, self._update
-            )
-        )
-
-    def _update(self):
-        self.async_write_ha_state()
-
-    @property
-    def sensor(self):
-        return self.runtime.sensors.get(self.runtime.resolve_sensor_id(self.sensor_id))
-
-    @property
-    def endpoint_exists(self) -> bool:
-        sensor = self.sensor
-        return bool(sensor is not None and self.transport in sensor.endpoints)
-
-    @property
-    def capture_enabled(self) -> bool:
-        return self.runtime.sensor_transport_capture_enabled(self.sensor_id, self.transport)
-
-    @property
-    def available(self):
-        return bool(
-            self.endpoint_exists
-            and self.runtime.adapter_enabled(self.transport)
-            and self.runtime.sensor_workout_owner(self.sensor_id) is None
-        )
-
-
-class SensorTransportStartCaptureButton(_SensorTransportCaptureButton):
-    _attr_icon = "mdi:play"
-
-    def __init__(self, runtime, sensor_id: str, transport: str):
-        super().__init__(runtime, sensor_id, transport)
-        label = "ANT+" if transport == "antplus" else "Bluetooth"
-        self._attr_name = f"Start {label} capture"
-        self._attr_unique_id = f"fitness_{self.sensor_id}_{transport}_start_capture"
-
-    @property
-    def available(self):
-        return super().available and not self.capture_enabled
-
-    async def async_press(self):
-        await self.runtime.async_set_sensor_transport_capture(
-            self.sensor_id, self.transport, True
-        )
-
-
-class SensorTransportStopCaptureButton(_SensorTransportCaptureButton):
-    _attr_icon = "mdi:stop"
-
-    def __init__(self, runtime, sensor_id: str, transport: str):
-        super().__init__(runtime, sensor_id, transport)
-        label = "ANT+" if transport == "antplus" else "Bluetooth"
-        self._attr_name = f"Stop {label} capture"
-        self._attr_unique_id = f"fitness_{self.sensor_id}_{transport}_stop_capture"
-
-    @property
-    def available(self):
-        return super().available and self.capture_enabled
-
-    async def async_press(self):
-        await self.runtime.async_set_sensor_transport_capture(
-            self.sensor_id, self.transport, False
-        )
 
 
 class _SensorGattButton(ButtonEntity):

@@ -64,11 +64,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
             sensor = runtime.sensors.get(sensor_id)
             if sensor is None:
                 continue
-            for transport in sorted(sensor.endpoints):
-                capture_token = (sensor_id, f"__capture_{transport}__")
-                if capture_token not in materialized_controls:
-                    materialized_controls.add(capture_token)
-                    added.append(SensorTransportCaptureActive(runtime, sensor_id, transport))
             gatt_token = (sensor_id, "__gatt_connected__")
             if "bluetooth" in sensor.endpoints and gatt_token not in materialized_controls:
                 materialized_controls.add(gatt_token)
@@ -154,56 +149,6 @@ class AdapterCapture(_AdapterBase):
     def is_on(self):
         provider = self.provider
         return bool(provider and provider.capture_active)
-
-
-class SensorTransportCaptureActive(BinarySensorEntity):
-    """Per-physical-sensor logical capture gate state."""
-
-    _attr_has_entity_name = True
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-
-    def __init__(self, runtime, sensor_id: str, transport: str):
-        self.runtime = runtime
-        self.sensor_id = runtime.resolve_sensor_id(sensor_id)
-        self.transport = str(transport)
-        label = "ANT+" if self.transport == "antplus" else "Bluetooth"
-        self._attr_name = f"{label} capture active"
-        self._attr_icon = "mdi:record-rec"
-        self._attr_unique_id = (
-            f"fitness_{self.sensor_id}_{self.transport}_capture_active"
-        )
-        self._attr_device_info = runtime.sensor_device_info(self.sensor_id)
-
-    async def async_added_to_hass(self):
-        self.async_on_remove(
-            self.runtime.add_sensor_value_listener(
-                self.sensor_id, "capture", self.transport, self._update
-            )
-        )
-        self.async_on_remove(self.runtime.add_listener(self._update))
-
-    def _update(self):
-        self.async_write_ha_state()
-
-    @property
-    def is_on(self):
-        return bool(
-            self.runtime.adapter_enabled(self.transport)
-            and self.runtime.sensor_transport_capture_enabled(
-                self.sensor_id, self.transport
-            )
-        )
-
-    @property
-    def available(self):
-        sensor = self.runtime.sensors.get(
-            self.runtime.resolve_sensor_id(self.sensor_id)
-        )
-        return bool(
-            sensor is not None
-            and self.transport in sensor.endpoints
-            and self.runtime.adapter_enabled(self.transport)
-        )
 
 
 class AdapterProblem(_AdapterBase):

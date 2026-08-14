@@ -1,5 +1,12 @@
 # Changelog
 
+- Removed Bluetooth-manager/proxy resolution from physical sensor GATT button availability. Opening a device page now evaluates only cached connectability; BLE-device resolution happens only during an actual GATT connection attempt.
+- Removed per-sensor Start/Stop Capture and Capture Active entities. Adapter enablement is again the transport/module control boundary; obsolete capture entities are pruned from the entity registry.
+- Tightened adaptive dashboard visibility: Training Load requires a reliable personal baseline and sufficient recent workout evidence, and baseline-comparison elements require enough comparable workouts before rendering.
+- Fixed Average HR vs personal baseline rendering to use the stable comparison metric key, show explicit baseline/current/difference numbers, and mark the numeric baseline on the heat gauge.
+- Added an HRV-vs-28-day-baseline heat bar to Recovery when latest HRV and a meaningful baseline are both available.
+- Bumped the single Fitness dashboard resource revision to `2026.8.11.2`.
+
 - Replaced remaining native sensor vendor-specific decoder branches with a data-driven vendor/product decoder registry. Product matching, company IDs and proprietary byte layouts now live in `live/device_catalog.json`; `vendor_registry.py` is generic and validates catalog consistency.
 - Removed native ANT+/BLE vendor-name tables and vendor-specific sport inference. ANT manufacturer names and proprietary BLE values now resolve through the catalog; the native `live/` Python tree has regression protection against device/vendor literals.
 

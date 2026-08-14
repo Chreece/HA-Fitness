@@ -296,19 +296,6 @@ class BluetoothFitnessProvider:
             await self.async_disconnect_profile(profile_id, keep_heart_rate=False)
         self.capture_active = False
 
-    def can_connect_sensor(self, sensor: LiveSensor) -> bool:
-        endpoint = sensor.endpoints.get(self.transport)
-        if endpoint is None or not endpoint.address:
-            return False
-        # Cached advertisements may not expose a `connectable` attribute on every
-        # HA version/proxy. A connectable BLEDevice is the authoritative answer.
-        try:
-            return bluetooth.async_ble_device_from_address(
-                self.hass, endpoint.address, connectable=True
-            ) is not None
-        except Exception:
-            return bool(endpoint.metadata.get("connectable", False))
-
     def sensor_connected(self, sensor_id: str) -> bool:
         client = self._clients.get(str(sensor_id))
         return bool(client is not None and client.is_connected)

@@ -19,10 +19,11 @@ def test_protocol_specific_adapter_subentries_exist():
 def test_adapter_and_sensor_entities_are_owned_by_correct_subentries():
     # ANT receiver hardware controls remain on the ANT+ adapter subentry.
     assert 'runtime.adapter_subentry_id("antplus")' in B
-    # Bluetooth capture controls moved from the logical adapter onto each
-    # accepted physical sensor, under the Sensors subentry.
-    assert 'SensorTransportStartCaptureButton(runtime, sensor_id, transport)' in B
-    assert 'SensorTransportStopCaptureButton(runtime, sensor_id, transport)' in B
+    # Physical sensor capture controls are retired; only genuinely sensor-specific
+    # GATT actions are created under the Sensors subentry.
+    assert 'SensorTransportStartCaptureButton(runtime, sensor_id, transport)' not in B
+    assert 'SensorTransportStopCaptureButton(runtime, sensor_id, transport)' not in B
+    assert 'SensorGattConnectButton(runtime, sensor_id)' in B
     assert 'subentry = runtime.ensure_sensors_subentry()' in B
     assert 'runtime.adapter_subentry_id(transport)' in BS
     assert 'runtime.adapter_subentry_id("antplus")' in BS

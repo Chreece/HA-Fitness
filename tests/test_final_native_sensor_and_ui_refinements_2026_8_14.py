@@ -19,21 +19,19 @@ def test_complete_identity_dependencies_are_shipped():
     assert (FIT / "event.py").is_file()
 
 
-def test_capture_controls_are_per_physical_sensor_transport():
-    assert "class SensorTransportStartCaptureButton" in BUTTON
-    assert "class SensorTransportStopCaptureButton" in BUTTON
-    assert 'for transport in ("antplus", "bluetooth")' in BUTTON
-    assert 'if transport not in sensor.endpoints:' in BUTTON
-    assert 'AdapterStartCaptureButton(runtime, "bluetooth")' not in BUTTON
-    assert "sensor_transport_capture_enabled" in RUNTIME
-    assert "async_set_sensor_transport_capture" in RUNTIME
-    assert 'stored.get("sensor_transport_capture")' in RUNTIME
+def test_sensor_capture_controls_are_removed_in_favor_of_adapter_switch():
+    assert "class SensorTransportStartCaptureButton" not in BUTTON
+    assert "class SensorTransportStopCaptureButton" not in BUTTON
+    assert "async_set_sensor_transport_capture" not in RUNTIME
+    assert 'stored.get("sensor_transport_capture")' not in RUNTIME
+    assert "Compatibility shim: capture is controlled only by the adapter switch." in RUNTIME
 
 
-def test_capture_gates_are_respected_by_live_transport_selection_and_publish():
-    assert 'not self.sensor_transport_capture_enabled(sensor.sensor_id, "antplus")' in RUNTIME
-    assert 'self.sensor_transport_capture_enabled(sensor.sensor_id, "bluetooth")' in RUNTIME
-    assert "capture_enabled = self.sensor_transport_capture_enabled(sensor_id, transport)" in RUNTIME
+def test_live_transport_selection_uses_adapter_state_only():
+    choose = RUNTIME.split("def choose_transport", 1)[1].split("async def _claim_transport", 1)[0]
+    assert 'self.adapter_enabled("antplus")' in choose
+    assert 'self.adapter_enabled("bluetooth")' in choose
+    assert "_sensor_workout_capture" not in choose
 
 
 def test_live_profile_surface_requires_an_accepted_assigned_sensor():
@@ -63,7 +61,7 @@ def test_recovery_ui_formats_total_minutes_and_relative_ready_time():
 def test_empty_frontend_sections_hide_instead_of_rendering_placeholders():
     assert 'if (points.length < 2) {\n      this.shadowRoot.innerHTML = "";' in FRONTEND
     assert 'if (!rows) {\n      this.shadowRoot.innerHTML = "";' in FRONTEND
-    assert "if (!hasLoadData && !hasAdaptationData)" in FRONTEND
+    assert "if (!hasLoadData)" in FRONTEND
     assert "if (!children.length)" in FRONTEND
 
 
@@ -79,8 +77,8 @@ def test_hr_baseline_exposes_actual_baseline_and_current_values():
 
 
 def test_frontend_cache_revision_is_current_and_single_module():
-    assert 'const FITNESS_DASHBOARD_VERSION = "2026.8.11.1";' in FRONTEND
-    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.11.1"' in DASHBOARD
+    assert 'const FITNESS_DASHBOARD_VERSION = "2026.8.11.2";' in FRONTEND
+    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.11.2"' in DASHBOARD
 
 
 def test_ant_decoder_backend_diagnostics_have_no_missing_profile_support_module():

@@ -34,21 +34,18 @@ def test_sensor_deletion_forgets_assignment_and_allows_rediscovery():
     assert "CONF_LIVE_SENSOR_IDS" in RUNTIME
 
 
-def test_capture_controls_are_receiver_and_physical_sensor_scoped():
-    # Receiver-level ANT scan control remains a hardware control.
+def test_capture_controls_are_receiver_scoped_not_physical_sensor_scoped():
+    # Receiver-level ANT scan control remains a true hardware control.
     assert "AntReceiverStartCaptureButton" in BUTTON
     assert "AntReceiverStopCaptureButton" in BUTTON
     assert "adapter_manager.async_set_capture(self.stable_key, True)" in BUTTON
     assert "adapter_manager.async_set_capture(self.stable_key, False)" in BUTTON
     assert "AntReceiverCapture" in BINARY
-    # Per-sensor logical capture gates exist for whichever transports that
-    # physical sensor actually has; Bluetooth no longer gets adapter buttons.
-    assert "class SensorTransportStartCaptureButton" in BUTTON
-    assert "class SensorTransportStopCaptureButton" in BUTTON
-    assert 'SensorTransportStartCaptureButton(runtime, sensor_id, transport)' in BUTTON
-    assert 'SensorTransportStopCaptureButton(runtime, sensor_id, transport)' in BUTTON
-    assert 'AdapterStartCaptureButton(runtime, "bluetooth")' not in BUTTON
-    assert 'AdapterStartCaptureButton(runtime, "antplus")' not in BUTTON
+    # Physical sensor capture controls were removed; the adapter enable switch
+    # controls the module and GATT connect/disconnect is the sensor action.
+    assert "class SensorTransportStartCaptureButton" not in BUTTON
+    assert "class SensorTransportStopCaptureButton" not in BUTTON
+    assert "SensorGattConnectButton" in BUTTON
 
 
 def test_passive_ble_values_use_vendor_registry_and_are_separate_from_gatt():

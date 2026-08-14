@@ -237,16 +237,6 @@ class LiveRuntime:
         # reassigned before they may become HA devices again. Persist this set
         # so a restart cannot resurrect an accepted sensor from stale profile/store state.
         self._requires_reassignment: set[str] = set()
-        # Per-physical-sensor transport capture gates. Adapters remain globally
-        # available for discovery; these preferences decide whether a specific
-        # ANT+/BLE endpoint may feed measurements/workouts. They are persisted
-        # independently of volatile radio state and default to enabled.
-        self._sensor_transport_capture: dict[str, dict[str, bool]] = {}
-        # Temporary workout overrides are separate from persisted user capture
-        # preferences. A session may enable ANT+/BLE as needed, then restore the
-        # exact pre-workout position when the global workout epoch ends.
-        self._sensor_workout_capture_baseline: dict[str, dict[str, bool]] = {}
-        self._sensor_workout_capture_override: dict[str, dict[str, bool]] = {}
 
     async def async_initialize(self) -> None:
         if self._initialized:
@@ -258,16 +248,8 @@ class LiveRuntime:
         self._requires_reassignment = {
             str(item) for item in (stored.get("requires_reassignment") or []) if str(item)
         }
-        raw_capture = stored.get("sensor_transport_capture") or {}
-        self._sensor_transport_capture = {
-            str(sensor_id): {
-                str(transport): bool(enabled)
-                for transport, enabled in dict(values or {}).items()
-                if str(transport) in TRANSPORTS
-            }
-            for sensor_id, values in dict(raw_capture).items()
-            if str(sensor_id)
-        }
+        # Legacy per-sensor capture preferences are intentionally ignored.
+        # The adapter Enable switch is the single module/capture control surface.
 
         # ANT+ and Bluetooth adapter devices are permanent Fitness infrastructure.
         # Their provider modules are loaded only when the user explicitly turns
@@ -374,11 +356,6 @@ class LiveRuntime:
                 "adapter_device_model": ADAPTER_DEVICE_MODEL_VERSION,
                 "physical_sensors": self._serialize_sensors(),
                 "requires_reassignment": sorted(self._requires_reassignment),
-                "sensor_transport_capture": {
-                    sensor_id: dict(values)
-                    for sensor_id, values in self._sensor_transport_capture.items()
-                    if values
-                },
             }
         )
 
@@ -793,7 +770,6 @@ class LiveRuntime:
             task.cancel()
         self._sensor_device_ids.pop(sensor_id, None)
         self._sensor_device_signatures.pop(sensor_id, None)
-        self._sensor_transport_capture.pop(sensor_id, None)
         for provider in tuple(self.providers.values()):
             callback_fn = getattr(provider, "sensor_acceptance_changed", None)
             if callback_fn is not None:
@@ -905,6 +881,7 @@ class LiveRuntime:
         self._start_presence_monitor()
         self._listen_for_registry_deletions()
         self._cleanup_legacy_profile_infrastructure()
+        self._cleanup_obsolete_hub_capture_entities()
         self.ensure_transport_subentry("antplus")
         self.ensure_transport_subentry("bluetooth")
         self._remove_legacy_grouping_devices()
@@ -951,6 +928,12 @@ class LiveRuntime:
                 or uid.startswith("fitness_antplus_")
                 or "bluetooth:" in uid and uid.endswith("_available")
                 or "antplus:" in uid and uid.endswith("_available")
+                or uid.endswith("_bluetooth_start_capture")
+                or uid.endswith("_bluetooth_stop_capture")
+                or uid.endswith("_bluetooth_capture_active")
+                or uid.endswith("_antplus_start_capture")
+                or uid.endswith("_antplus_stop_capture")
+                or uid.endswith("_antplus_capture_active")
             ):
                 entity_registry.async_remove(entity.entity_id)
 
@@ -964,6 +947,32 @@ class LiveRuntime:
                 for identifier in identifiers
             ):
                 device_registry.async_remove_device(device.id)
+
+    def _cleanup_obsolete_hub_capture_entities(self) -> None:
+        """Remove retired capture entities from the Sensors & Adapters entry."""
+        if self.hub_entry is None:
+            return
+        from homeassistant.helpers import entity_registry as er
+
+        registry = er.async_get(self.hass)
+        suffixes = (
+            "_bluetooth_start_capture",
+            "_bluetooth_stop_capture",
+            "_bluetooth_capture_active",
+            "_antplus_start_capture",
+            "_antplus_stop_capture",
+            "_antplus_capture_active",
+        )
+        exact = {
+            "fitness_bluetooth_capture_active",
+            "fitness_antplus_capture_active",
+        }
+        for entity in list(registry.entities.values()):
+            if entity.platform != DOMAIN or entity.config_entry_id != self.hub_entry.entry_id:
+                continue
+            uid = str(entity.unique_id or "")
+            if uid in exact or uid.endswith(suffixes):
+                registry.async_remove(entity.entity_id)
 
     async def _async_start_hub_modules(self) -> None:
         """Start enabled live providers outside config-entry startup."""
@@ -1779,14 +1788,6 @@ class LiveRuntime:
             primary.sensor_id, secondary.sensor_id
         )
 
-        # Per-endpoint capture preferences follow the canonical physical sensor.
-        # Distinct ANT+/BLE preferences are preserved during a late identity merge.
-        primary_capture = self._sensor_transport_capture.setdefault(primary.sensor_id, {})
-        for old_id in (a_id, b_id):
-            for transport, enabled in self._sensor_transport_capture.get(old_id, {}).items():
-                primary_capture.setdefault(transport, bool(enabled))
-        if secondary.sensor_id != primary.sensor_id:
-            self._sensor_transport_capture.pop(secondary.sensor_id, None)
 
         self._requires_reassignment.discard(a_id)
         self._requires_reassignment.discard(b_id)
@@ -2485,16 +2486,6 @@ class LiveRuntime:
         _, owner = min(candidates, key=lambda item: (item[0], item[1]))
         self._sensor_workout_owner[sensor_id] = owner
         self._profile_claimed_sensors.setdefault(owner, set()).add(sensor_id)
-        self._ensure_workout_capture_baseline(sensor_id)
-        sensor = self.sensors.get(sensor_id)
-        if sensor is not None:
-            # Exercise owns capture temporarily: prefer ANT+ and permit BLE as
-            # fallback. Persisted user positions are restored after the complete
-            # overlapping workout epoch ends.
-            if "antplus" in sensor.endpoints:
-                self._set_workout_capture_override(sensor_id, "antplus", True)
-            if "bluetooth" in sensor.endpoints:
-                self._set_workout_capture_override(sensor_id, "bluetooth", True)
         self._notify_values_throttled({(sensor_id, "workout_owner", None)})
         return owner
 
@@ -2504,15 +2495,11 @@ class LiveRuntime:
             return False
         if not self._sensor_workout_owner and not self._profile_claimed_sensors:
             self._profile_session_order.clear()
-            self._restore_workout_capture_overrides()
             return False
         sensor_ids = set(self._sensor_workout_owner)
         self._sensor_workout_owner.clear()
         self._profile_claimed_sensors.clear()
-        self._sensor_workout_capture_override.clear()
-        self._sensor_workout_capture_baseline.clear()
         self._profile_session_order.clear()
-        self._restore_workout_capture_overrides()
         if sensor_ids:
             self._notify_values_throttled(
                 {(sensor_id, "workout_owner", None) for sensor_id in sensor_ids}
@@ -2567,100 +2554,17 @@ class LiveRuntime:
         )
 
     def sensor_transport_capture_enabled(self, sensor_id: str, transport: str) -> bool:
-        """Return whether one physical sensor may feed this transport.
-
-        This is a logical per-sensor gate. The global ANT receiver/Bluetooth
-        infrastructure remains available for discovery and identity enrichment.
-        """
+        """Compatibility shim: capture is controlled only by the adapter switch."""
         sensor_id = self.resolve_sensor_id(sensor_id)
-        override = self._sensor_workout_capture_override.get(sensor_id, {})
-        if transport in override:
-            return bool(override[transport])
-        return bool(self._sensor_transport_capture.get(sensor_id, {}).get(transport, True))
+        sensor = self.sensors.get(sensor_id)
+        return bool(
+            sensor is not None
+            and str(transport) in sensor.endpoints
+            and self.adapter_enabled(str(transport))
+        )
 
     def sensor_transport_capture_state(self, sensor_id: str, transport: str) -> bool:
         return self.sensor_transport_capture_enabled(sensor_id, transport)
-
-    async def async_set_sensor_transport_capture(
-        self, sensor_id: str, transport: str, enabled: bool
-    ) -> None:
-        sensor_id = self.resolve_sensor_id(sensor_id)
-        transport = str(transport)
-        sensor = self.sensors.get(sensor_id)
-        if sensor is None or transport not in sensor.endpoints:
-            raise RuntimeError(f"{transport} is not available for this sensor")
-        if self.sensor_workout_owner(sensor_id) is not None:
-            raise RuntimeError("Sensor capture cannot be changed while the sensor is workout-locked")
-
-        current = self.sensor_transport_capture_enabled(sensor_id, transport)
-        requested = bool(enabled)
-        if current == requested:
-            return
-
-        self._sensor_transport_capture.setdefault(sensor_id, {})[transport] = requested
-        dirty = {(sensor_id, "capture", transport)}
-        if requested:
-            # Drop explicit True values back to the default to keep storage small.
-            self._sensor_transport_capture[sensor_id].pop(transport, None)
-            if not self._sensor_transport_capture[sensor_id]:
-                self._sensor_transport_capture.pop(sensor_id, None)
-        else:
-            # Do not leave stale measurements visible after this transport is
-            # explicitly stopped for the physical sensor. Values from another
-            # still-enabled transport may repopulate normally on its next packet.
-            values = self.sensor_values.get(sensor_id, {})
-            sources = self.sensor_value_transport.get(sensor_id, {})
-            for metric, source_transport in tuple(sources.items()):
-                if source_transport != transport:
-                    continue
-                values.pop(metric, None)
-                sources.pop(metric, None)
-                dirty.add((sensor_id, "metric", metric))
-            if transport == "bluetooth":
-                # A manual diagnostic GATT connection must not survive a user
-                # explicitly disabling Bluetooth capture for this sensor.
-                await self.async_manual_gatt_disconnect(sensor_id)
-
-        self._schedule_save()
-        self._notify_values_throttled(dirty)
-        # A capture change may make another transport the preferred fallback.
-        owner = self.sensor_workout_owner(sensor_id)
-        if owner is not None:
-            self._schedule_sensor_claim_reconcile(sensor_id)
-
-    def _ensure_workout_capture_baseline(self, sensor_id: str) -> None:
-        sensor_id = self.resolve_sensor_id(sensor_id)
-        if sensor_id in self._sensor_workout_capture_baseline:
-            return
-        sensor = self.sensors.get(sensor_id)
-        if sensor is None:
-            return
-        self._sensor_workout_capture_baseline[sensor_id] = {
-            transport: bool(self._sensor_transport_capture.get(sensor_id, {}).get(transport, True))
-            for transport in sensor.endpoints
-        }
-
-    def _set_workout_capture_override(
-        self, sensor_id: str, transport: str, enabled: bool
-    ) -> None:
-        """Temporarily control one transport without changing user preference."""
-        sensor_id = self.resolve_sensor_id(sensor_id)
-        self._ensure_workout_capture_baseline(sensor_id)
-        current = self.sensor_transport_capture_enabled(sensor_id, transport)
-        requested = bool(enabled)
-        if current == requested:
-            return
-        self._sensor_workout_capture_override.setdefault(sensor_id, {})[transport] = requested
-        self._notify_values_throttled({(sensor_id, "capture", transport)})
-
-    def _restore_workout_capture_overrides(self) -> None:
-        dirty: set[tuple[str, str, str | None]] = set()
-        for sensor_id, overrides in self._sensor_workout_capture_override.items():
-            dirty.update((sensor_id, "capture", transport) for transport in overrides)
-        self._sensor_workout_capture_override.clear()
-        self._sensor_workout_capture_baseline.clear()
-        if dirty:
-            self._notify_values_throttled(dirty)
 
     def _profile_can_receive_transferred_sensor(self, entry_id: str, sensor_id: str) -> bool:
         manager = self._manager_for_profile(entry_id)
@@ -2787,19 +2691,23 @@ class LiveRuntime:
         return 0.0 <= age <= ANT_DATA_FRESH_SECONDS
 
     def bluetooth_gatt_supported(self, sensor: LiveSensor) -> bool:
-        """Return whether this physical BLE endpoint can support a GATT client."""
+        """Return cached GATT capability without querying HA Bluetooth.
+
+        Entity properties and device-page rendering call this method frequently.
+        It must remain O(1) and side-effect free. The real BLE-device/proxy
+        resolution is performed only when a connection is actually requested.
+        """
         endpoint = sensor.endpoints.get("bluetooth")
-        if endpoint is None or not endpoint.address or not self.adapter_enabled("bluetooth"):
-            return False
-        provider = self.providers.get("bluetooth")
-        checker = getattr(provider, "can_connect_sensor", None) if provider else None
-        return bool(checker(sensor)) if checker is not None else bool(endpoint.metadata.get("connectable", False))
+        return bool(
+            endpoint is not None
+            and endpoint.address
+            and self.adapter_enabled("bluetooth")
+            and self.providers.get("bluetooth") is not None
+            and endpoint.metadata.get("connectable", False)
+        )
 
     def bluetooth_gatt_capable(self, sensor: LiveSensor) -> bool:
-        return bool(
-            self.sensor_transport_capture_enabled(sensor.sensor_id, "bluetooth")
-            and self.bluetooth_gatt_supported(sensor)
-        )
+        return self.bluetooth_gatt_supported(sensor)
 
     def bluetooth_gatt_connected(self, sensor_id: str) -> bool:
         provider = self.providers.get("bluetooth")
@@ -2807,29 +2715,27 @@ class LiveRuntime:
         return bool(checker(self.resolve_sensor_id(sensor_id))) if checker is not None else False
 
     def choose_transport(self, sensor: LiveSensor) -> str | None:
-        """Prefer fresh ANT+ data; use GATT only as a live fallback."""
+        """Prefer fresh ANT+; use Bluetooth GATT only when ANT+ is unavailable."""
         ant_endpoint = sensor.endpoints.get("antplus")
         ant_provider = self.providers.get("antplus")
         ant_usable = bool(
             ant_endpoint is not None
             and ant_provider is not None
             and self.adapter_enabled("antplus")
-            and self.sensor_transport_capture_enabled(sensor.sensor_id, "antplus")
         )
         if ant_usable and self.ant_data_fresh(sensor):
-            # ANT+ has recovered. GATT reconciliation will disconnect BLE; after
-            # that, return the logical BT capture gate to its pre-workout value.
-            baseline = self._sensor_workout_capture_baseline.get(sensor.sensor_id, {})
-            if "bluetooth" in baseline and not self.bluetooth_gatt_connected(sensor.sensor_id):
-                self._set_workout_capture_override(
-                    sensor.sensor_id, "bluetooth", baseline["bluetooth"]
-                )
             return "antplus"
-        if "bluetooth" in sensor.endpoints and self.sensor_workout_owner(sensor.sensor_id):
-            self._set_workout_capture_override(sensor.sensor_id, "bluetooth", True)
-        if self.bluetooth_gatt_capable(sensor):
+
+        if (
+            "bluetooth" in sensor.endpoints
+            and self.adapter_enabled("bluetooth")
+            and self.bluetooth_gatt_supported(sensor)
+        ):
             return "bluetooth"
-        if ant_usable and (ant_endpoint.available or bool(getattr(ant_provider, "available", False))):
+
+        if ant_usable and (
+            ant_endpoint.available or bool(getattr(ant_provider, "available", False))
+        ):
             return "antplus"
         return None
 
@@ -2977,27 +2883,6 @@ class LiveRuntime:
                     await asyncio.sleep(TRANSPORT_HANDOVER_INTERVAL_SECONDS)
                     if entry.entry_id not in self.profile_entries:
                         return
-                    # A dual-transport sensor may still be unclaimed because ANT+
-                    # vanished before its first workout packet. Open only the
-                    # logical BLE gate after ANT freshness expires so the next
-                    # BLE/GATT measurement can claim it. This does not establish
-                    # GATT until exclusive ownership exists.
-                    for sensor_id in self.selected_sensor_ids(entry):
-                        sensor_id = self.resolve_sensor_id(sensor_id)
-                        sensor = self.sensors.get(sensor_id)
-                        if (
-                            sensor is None
-                            or "antplus" not in sensor.endpoints
-                            or "bluetooth" not in sensor.endpoints
-                            or self.sensor_workout_owner(sensor_id) not in {None, entry.entry_id}
-                        ):
-                            continue
-                        baseline = self._sensor_workout_capture_baseline.get(sensor_id, {})
-                        if self.ant_data_fresh(sensor):
-                            if "bluetooth" in baseline and not self.bluetooth_gatt_connected(sensor_id):
-                                self._set_workout_capture_override(sensor_id, "bluetooth", baseline["bluetooth"])
-                        else:
-                            self._set_workout_capture_override(sensor_id, "bluetooth", True)
                     await self._reconcile_profile_transports(entry)
             except asyncio.CancelledError:
                 raise
@@ -3025,20 +2910,6 @@ class LiveRuntime:
             self._notify_values_throttled(
                 {(sensor.sensor_id, "workout_owner", None) for sensor in sensors}
             )
-        for sensor in sensors:
-            # Exercise temporarily owns capture policy. Snapshot the persisted
-            # positions before changing anything; the global epoch restores them.
-            self._ensure_workout_capture_baseline(sensor.sensor_id)
-            if "antplus" in sensor.endpoints:
-                self._set_workout_capture_override(sensor.sensor_id, "antplus", True)
-            # For Bluetooth-only sensors, exercise must temporarily enable the
-            # sensor gate so its first packet can establish ownership. For a
-            # dual ANT+/BLE sensor, leave the user's Bluetooth position alone
-            # until ANT+ actually fails; choose_transport() then enables BLE
-            # only for the GATT fallback and restores it when ANT+ recovers.
-            if "bluetooth" in sensor.endpoints and "antplus" not in sensor.endpoints:
-                self._set_workout_capture_override(sensor.sensor_id, "bluetooth", True)
-
         # ANT reception is a shared adapter resource, but a profile waiting only
         # on sensors already locked to somebody else must not create an extra
         # transport claim. Free sensors still need ANT capture so their first
