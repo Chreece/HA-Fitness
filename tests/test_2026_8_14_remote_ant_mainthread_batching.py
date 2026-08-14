@@ -12,7 +12,8 @@ def test_remote_event_handler_has_no_per_packet_loop():
     block = REMOTE.split("def handle_packet_event", 1)[1].split(
         "def handle_gateway_hello", 1
     )[0]
-    assert "packet_worker.enqueue_batch(gateway_id, packets)" in block
+    assert "packet_worker.enqueue_batch(" in block
+    assert "ingress_checked=ingress_checked" in block
     assert "for packet in packets" not in block
     assert "update_remote_capture_state" not in block
     assert "_remote_packet_key" not in block
@@ -42,8 +43,8 @@ def test_worker_drains_batches_before_decode():
         "def _parse_adapters", 1
     )[0]
     assert "batches = self._take_incoming()" in run
-    assert "for gateway_id, packets in batches:" in run
-    assert "self._ingest_packet(gateway_id, packet)" in run
+    assert "for gateway_id, packets, ingress_checked in batches:" in run
+    assert "self._ingest_packet(gateway_id, packet, ingress_checked)" in run
     assert "for item in telemetry:" in run
 
 

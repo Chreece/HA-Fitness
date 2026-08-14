@@ -1,4 +1,4 @@
-"""Configured merged sensors must be quiet when nobody is training."""
+"""Configured merged sensors expose bounded raw data but no profile live work."""
 
 from pathlib import Path
 
@@ -16,16 +16,17 @@ def test_sensor_live_telemetry_requires_active_profile():
     assert "self.sensors_for_profile(entry)" in block
 
 
-def test_idle_publish_returns_before_metric_and_last_seen_state_writes():
+def test_idle_publish_updates_physical_values_but_returns_before_profile_work():
     block = RUNTIME.split("def publish(self, sensor_id", 1)[1].split(
         "def live_values", 1
     )[0]
+    metric_bucket = block.index("value_bucket = self.sensor_values")
+    last_seen = block.index("_mark_last_seen_change")
+    physical_notify = block.index("_notify_values_throttled(physical_dirty)")
     guard = block.index("if not self._global_workout_epoch_active():")
     ret = block.index("return", guard)
-    metric_bucket = block.index("value_bucket = self.sensor_values", ret)
-    last_seen = block.index("_mark_last_seen_change", ret)
     claim = block.index("_claim_sensor_for_workout", ret)
-    assert guard < ret < metric_bucket < last_seen < claim
+    assert metric_bucket < last_seen < physical_notify < guard < ret < claim
 
 
 def test_idle_endpoint_fast_path_does_not_schedule_claim_reconcile():
@@ -47,7 +48,7 @@ def test_claim_reconcile_has_global_live_epoch_guard():
     assert "if not self._global_workout_epoch_active():" in block
 
 
-def test_ant_decode_gate_is_live_need_not_acceptance():
+def test_ant_full_rate_decode_gate_is_live_need_not_acceptance():
     assert "def refresh_telemetry_gates" in ANT
     refresh = ANT.split("def refresh_telemetry_gates", 1)[1].split(
         "def sensor_acceptance_changed", 1

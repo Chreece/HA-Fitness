@@ -3263,21 +3263,11 @@ class LiveRuntime:
             endpoint.last_seen = seen
             endpoint.available = True
 
-        # Configured-but-idle sensors are presence objects, not live telemetry
-        # streams. Keep the freshest endpoint timestamp in memory, but do not
-        # create HA state writes, Last-seen churn, ownership tasks or metric
-        # processing until some profile actually needs live data.
-        if not self._global_workout_epoch_active():
-            if (
-                previous_available != sensor.available
-                and self.sensor_is_accepted(sensor_id)
-            ):
-                self._notify_values_throttled(
-                    {(sensor_id, "availability", None)}
-                )
-            return
-
-        # Physical HA metric entities update only during an active live epoch.
+        # Physical sensor entities are the canonical raw measurements and remain
+        # useful even when no profile has started a workout. Providers already
+        # bound idle radio work (ANT samples accepted profiles; BLE passive updates
+        # are deduplicated), while HA entity writes are coalesced below to 1 Hz.
+        # Profile/session calculations stay completely gated later in this method.
         value_bucket = self.sensor_values.setdefault(sensor_id, {})
         transport_bucket = self.sensor_value_transport.setdefault(sensor_id, {})
         physical_dirty: set[tuple[str, str, str | None]] = set()
@@ -3299,6 +3289,12 @@ class LiveRuntime:
             physical_dirty.add((sensor_id, "availability", None))
         if physical_dirty and self.sensor_is_accepted(sensor_id):
             self._notify_values_throttled(physical_dirty)
+
+        # Stop here while idle: raw values above belong to the physical device,
+        # whereas profile Live Workout calculations only run inside an actual
+        # armed/active/recovery epoch. Assignment alone must never activate them.
+        if not self._global_workout_epoch_active():
+            return
 
         if not transport_enabled or not packet_values:
             return

@@ -43,6 +43,7 @@ METRIC_MAP = {
     "cadence": METRIC_CADENCE,
     "instantaneous_cadence": METRIC_CADENCE,
     "running_cadence": METRIC_CADENCE,
+    "stride_cadence": METRIC_CADENCE,
     "speed": METRIC_SPEED,
     "instantaneous_speed": METRIC_SPEED,
     "distance": METRIC_DISTANCE,
@@ -322,7 +323,7 @@ class AntPlusFitnessProvider:
             )
 
     def refresh_telemetry_gates(self) -> None:
-        """Enable ANT metric decoding only for sensors needed by live sessions."""
+        """Enable full-rate ANT decoding for sensors needed by live sessions."""
         if self.receiver is None:
             return
         with self._publish_lock:

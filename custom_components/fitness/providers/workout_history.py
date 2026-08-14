@@ -38,13 +38,29 @@ def _tag(workout: Workout, entity_id: str, provider: str) -> Workout:
     return workout
 
 
-def workouts_from_recorder_history(hass: HomeAssistant, config: dict, history: dict[str, list[State]]) -> list[Workout]:
-    """Parse old snapshots from the selected completed-workout entities."""
-    del config
+def recorder_history_entity_metadata(
+    hass: HomeAssistant, entity_ids: list[str]
+) -> dict[str, tuple[str, str]]:
+    """Snapshot HA-owned entity metadata before Recorder parsing leaves MainThread."""
+    return {
+        entity_id: (_provider_domain(hass, entity_id), _label(hass, entity_id))
+        for entity_id in entity_ids
+    }
+
+
+def workouts_from_recorder_history_snapshot(
+    history: dict[str, list[State]],
+    metadata: dict[str, tuple[str, str]],
+) -> list[Workout]:
+    """Parse and deduplicate Recorder snapshots without touching HA registries.
+
+    This function is intentionally pure with respect to Home Assistant runtime
+    state so callers can execute the potentially large historical conversion
+    in an executor instead of blocking Home Assistant's event loop.
+    """
     candidates: list[Workout] = []
     for entity_id, states in (history or {}).items():
-        provider = _provider_domain(hass, entity_id)
-        label = _label(hass, entity_id)
+        provider, label = metadata.get(entity_id, ("unknown", entity_id.lower()))
         for state in states or []:
             if not isinstance(state, State):
                 continue
@@ -68,6 +84,15 @@ def workouts_from_recorder_history(hass: HomeAssistant, config: dict, history: d
                 if start is not None:
                     candidates.append(_tag(Workout(source=entity_id, start=start.isoformat(), sport="workout"), entity_id, provider))
     return merged_workouts(candidates)
+
+
+def workouts_from_recorder_history(
+    hass: HomeAssistant, config: dict, history: dict[str, list[State]]
+) -> list[Workout]:
+    """Compatibility wrapper for direct callers outside the async import path."""
+    del config
+    metadata = recorder_history_entity_metadata(hass, list((history or {}).keys()))
+    return workouts_from_recorder_history_snapshot(history, metadata)
 
 
 def _selected_provider_config_entries(hass: HomeAssistant, config: dict, domain: str) -> set[str]:

@@ -253,6 +253,7 @@ class FitnessManager:
         # debounced before Fitness can evaluate or announce them.
         self._external_workout_announcements_armed = False
         self._external_workout_debounce_task: asyncio.Task | None = None
+        self._external_workout_baseline_task: asyncio.Task | None = None
         self._external_workout_candidate_signature: str | None = None
 
         self._last_live_intensity: str | None = None
@@ -453,7 +454,14 @@ class FitnessManager:
         self._latest_workout_cache_ready = False
         self.latest_workout()
 
-        self.hass.async_create_task(self._async_arm_external_workout_announcements())
+        if (
+            self._external_workout_baseline_task
+            and not self._external_workout_baseline_task.done()
+        ):
+            self._external_workout_baseline_task.cancel()
+        self._external_workout_baseline_task = self.hass.async_create_task(
+            self._async_arm_external_workout_announcements()
+        )
         self.hass.async_create_task(self._async_delayed_long_term_refresh())
         self._schedule_sleep_as_android_history_refresh(delay=5.0, retries=0)
         if self.config.get(CONF_AI_ENABLED) and not self.ai_general:
@@ -495,6 +503,11 @@ class FitnessManager:
             and not self._external_workout_debounce_task.done()
         ):
             self._external_workout_debounce_task.cancel()
+        if (
+            self._external_workout_baseline_task
+            and not self._external_workout_baseline_task.done()
+        ):
+            self._external_workout_baseline_task.cancel()
 
         if (
             self._session_status_light_task
@@ -4224,7 +4237,7 @@ class FitnessManager:
     async def _async_reconcile_external_workouts(self) -> bool:
         """Merge every currently exposed provider workout into history."""
         candidates = discover_external_workouts(self.hass, self.config)
-        changed = False
+        prepared: list[Workout] = []
         for workout in sorted(
             candidates,
             key=lambda item: _dt(item.start)
@@ -4234,7 +4247,8 @@ class FitnessManager:
                 continue
             workout = self._apply_beta2_workout_metrics(workout)
             workout = self._apply_personal_workout_context(workout)
-            changed = self._remember_completed_workout(workout) or changed
+            prepared.append(workout)
+        changed = await self._async_remember_completed_workouts(prepared)
         if changed:
             await self._save()
             self._notify_workout_history()
@@ -4252,7 +4266,7 @@ class FitnessManager:
             _LOGGER.debug("Provider workout history import unavailable: %s", err)
             return 0
 
-        changed = False
+        prepared: list[Workout] = []
         for workout in sorted(
             candidates,
             key=lambda item: _dt(item.start)
@@ -4260,7 +4274,8 @@ class FitnessManager:
         ):
             workout = self._apply_beta2_workout_metrics(workout)
             workout = self._apply_personal_workout_context(workout)
-            changed = self._remember_completed_workout(workout) or changed
+            prepared.append(workout)
+        changed = await self._async_remember_completed_workouts(prepared)
         if changed:
             await self._save()
             self._notify_workout_history()
@@ -4299,13 +4314,27 @@ class FitnessManager:
             return 0
 
         try:
-            from .providers.workout_history import workouts_from_recorder_history
-            candidates = workouts_from_recorder_history(self.hass, self.config, history)
+            from .providers.workout_history import (
+                recorder_history_entity_metadata,
+                workouts_from_recorder_history_snapshot,
+            )
+
+            # HA registry/config-entry access stays on MainThread.  The Recorder
+            # result can contain thousands of State snapshots, so parsing, rich
+            # provider extraction and five-minute deduplication must not.
+            metadata = recorder_history_entity_metadata(self.hass, entity_ids)
+            candidates = await self.hass.async_add_executor_job(
+                workouts_from_recorder_history_snapshot,
+                history,
+                metadata,
+            )
+        except asyncio.CancelledError:
+            raise
         except Exception as err:
             _LOGGER.exception("Unable to parse completed workouts from Recorder: %s", err)
             return 0
 
-        changed = False
+        prepared: list[Workout] = []
         for workout in sorted(
             candidates,
             key=lambda item: _dt(item.start)
@@ -4313,7 +4342,8 @@ class FitnessManager:
         ):
             workout = self._apply_beta2_workout_metrics(workout)
             workout = self._apply_personal_workout_context(workout)
-            changed = self._remember_completed_workout(workout) or changed
+            prepared.append(workout)
+        changed = await self._async_remember_completed_workouts(prepared)
         if changed:
             await self._save()
             self._notify_workout_history()
@@ -4410,37 +4440,97 @@ class FitnessManager:
         self._notify()
         return True
 
-    def _remember_completed_workout(self, workout: Workout | None) -> bool:
-        """Merge a completed workout into persistent history without duplicates."""
-        if workout is None or not workout.start:
-            return False
-        if self._workout_is_outside_retention(workout):
-            return False
-        if self._workout_is_deleted(workout):
-            return False
-        before = self.history
-        records = self.local_workouts()
-        records.append(workout)
+    @staticmethod
+    def _canonicalize_workout_history(
+        history: list[dict[str, Any]],
+        additions: list[Workout],
+    ) -> tuple[list[Workout], list[dict[str, Any]], bool]:
+        """Canonicalize one history snapshot away from HA's event loop."""
+        records: list[Workout] = []
+        for item in history:
+            try:
+                records.append(Workout(**item))
+            except TypeError:
+                continue
+        records.extend(additions)
         merged = merged_workouts(records)
         merged.sort(
             key=lambda item: _dt(item.start)
             or datetime.min.replace(tzinfo=timezone.utc)
         )
         canonical_history = [item.as_dict() for item in merged]
+        return merged, canonical_history, canonical_history != history
+
+    def _eligible_completed_workouts(
+        self,
+        workouts: list[Workout | None],
+    ) -> list[Workout]:
+        """Filter completed-workout candidates before canonicalization."""
+        return [
+            workout
+            for workout in workouts
+            if workout is not None
+            and workout.start
+            and not self._workout_is_outside_retention(workout)
+            and not self._workout_is_deleted(workout)
+        ]
+
+    def _apply_canonical_workout_history(
+        self,
+        merged: list[Workout],
+        canonical_history: list[dict[str, Any]],
+        changed: bool,
+    ) -> bool:
+        """Commit an already-canonicalized workout history snapshot."""
         self.history = canonical_history
         pruned = self._prune_workout_history()
         if pruned:
-            # Pruning changed the canonical set; rebuild lazily from persisted
-            # history on the next read.
             self._local_workouts_cache = None
+            changed = True
         else:
             self._local_workouts_cache = tuple(merged)
-        changed = before != self.history
         if changed:
             self._latest_workout_cache_ready = False
             if hasattr(self, "_invalidate_evaluation_cache"):
                 self._invalidate_evaluation_cache()
         return changed
+
+    async def _async_remember_completed_workouts(
+        self,
+        workouts: list[Workout | None],
+    ) -> bool:
+        """Merge a batch without doing history merge/serialization on MainThread."""
+        eligible = self._eligible_completed_workouts(workouts)
+        if not eligible:
+            return False
+        history_snapshot = list(self.history)
+        merged, canonical_history, changed = await self.hass.async_add_executor_job(
+            self._canonicalize_workout_history,
+            history_snapshot,
+            eligible,
+        )
+        return self._apply_canonical_workout_history(
+            merged, canonical_history, changed
+        )
+
+    def _remember_completed_workouts(
+        self,
+        workouts: list[Workout | None],
+    ) -> bool:
+        """Synchronous single/batch helper for rare direct history mutations."""
+        eligible = self._eligible_completed_workouts(workouts)
+        if not eligible:
+            return False
+        merged, canonical_history, changed = self._canonicalize_workout_history(
+            list(self.history), eligible
+        )
+        return self._apply_canonical_workout_history(
+            merged, canonical_history, changed
+        )
+
+    def _remember_completed_workout(self, workout: Workout | None) -> bool:
+        """Merge one completed workout into persistent history."""
+        return self._remember_completed_workouts([workout])
 
     def local_workouts(self) -> list[Workout]:
         """Return cached canonical de-duplicated Fitness workout history.

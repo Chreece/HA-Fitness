@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict, field, fields
+from dataclasses import dataclass, field, fields
 from datetime import datetime, timedelta, timezone
 from typing import Any
 import math
@@ -227,7 +227,30 @@ class Workout:
     extra: dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> dict:
-        return asdict(self)
+        """Serialize without recursively deep-copying provider payloads.
+
+        ``dataclasses.asdict`` recursively walks every nested value. Workout
+        provenance may contain large provider dictionaries/lists, so doing that
+        for every historical workout can monopolize Home Assistant's MainThread.
+        Workout instances are treated as immutable snapshots after merge; shallow
+        copies of their top-level containers are sufficient for persistent state.
+        """
+        result: dict[str, Any] = {}
+        for item in fields(self):
+            value = getattr(self, item.name)
+            if isinstance(value, dict):
+                if item.name == "provider_values":
+                    result[item.name] = {
+                        str(key): dict(nested) if isinstance(nested, dict) else nested
+                        for key, nested in value.items()
+                    }
+                else:
+                    result[item.name] = dict(value)
+            elif isinstance(value, list):
+                result[item.name] = list(value)
+            else:
+                result[item.name] = value
+        return result
 
 
 def _valid(v) -> bool:

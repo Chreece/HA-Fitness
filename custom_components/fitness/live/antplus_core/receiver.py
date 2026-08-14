@@ -46,6 +46,12 @@ MAX_CONFIRMED_DEVICES = 256
 MAX_PROFILES_PER_DEVICE = 16
 MAX_METRICS_PER_DEVICE = 96
 
+# Accepted physical sensors remain visible even while no profile is training.
+# Decode at most two packets per second per ANT profile while idle so raw HA
+# entities (power/cadence/speed/distance/etc.) stay current without radio-rate
+# decoder or callback load. Active/recovery sessions bypass this sampler.
+IDLE_ACCEPTED_PACKET_INTERVAL_SECONDS = 0.5
+
 
 # Common Page 80/81 semantics are profile-defined. A known ANT device type is
 # not enough evidence that page numbers 0x50/0x51 carry common identity data.
@@ -86,17 +92,18 @@ class AntPlusReceiver:
         # MainThread may toggle acceptance while ANT workers are busy. Use
         # copy-on-write immutable snapshots so HA never waits on the packet lock.
         self._telemetry_enabled_devices: frozenset[int] = frozenset()
-        # Accepted/configured devices are a separate concept from live telemetry.
-        # An accepted sensor that nobody is actively using must be almost free on
-        # the ANT worker: known-profile packets are dropped before identity,
-        # capability and decoder work. Copy-on-write keeps MainThread updates
-        # lock-free for the radio workers.
+        # Accepted/configured devices are a separate concept from profile live
+        # telemetry. Accepted sensors may still publish their own raw physical HA
+        # entities while idle, but at a heavily sampled rate. Copy-on-write keeps
+        # MainThread acceptance/live-gate updates lock-free for radio workers.
         self._accepted_devices: frozenset[int] = frozenset()
-        # Lock-free snapshot used by local/remote transport ingress. This lets an
-        # accepted idle sensor be rejected before diagnostics, payload conversion,
-        # worker queueing or decoder/capability bookkeeping. The snapshot changes
-        # only when a new ANT profile is learned, so copy-on-write is cheap.
+        # Lock-free snapshot of already-confirmed profiles. New profiles always
+        # bypass the idle sampler so discovery can never be starved.
         self._known_profiles_snapshot: dict[int, frozenset[int]] = {}
+        # Worker-thread idle sampling state. Local ANT and the remote coalescer may
+        # race benignly here; at worst one extra packet is admitted in a window.
+        # No Home Assistant registry/state operation is performed from this map.
+        self._idle_packet_last_admitted: dict[tuple[int, int, int], float] = {}
         self._forget_requested: frozenset[int] = frozenset()
         # Identity is structural state. Never mutate it from one radio packet.
         # Candidate tuples must repeat before they are committed.
@@ -148,6 +155,9 @@ class AntPlusReceiver:
             self._telemetry_enabled_devices - {device_id}
         )
         self._accepted_devices = self._accepted_devices - {device_id}
+        for key in tuple(self._idle_packet_last_admitted):
+            if key[0] == device_id:
+                self._idle_packet_last_admitted.pop(key, None)
         known = dict(self._known_profiles_snapshot)
         known.pop(device_id, None)
         self._known_profiles_snapshot = known
@@ -170,22 +180,45 @@ class AntPlusReceiver:
         self._accepted_devices = (
             current | {device_id} if accepted else current - {device_id}
         )
+        if not accepted:
+            for key in tuple(self._idle_packet_last_admitted):
+                if key[0] == device_id:
+                    self._idle_packet_last_admitted.pop(key, None)
 
-    def fast_ignore_idle_packet(self, device_id: int, device_type: int) -> bool:
-        """Return True when transport ingress can drop one packet immediately.
+    def fast_ignore_idle_packet(
+        self, device_id: int, device_type: int, page: int = -1
+    ) -> bool:
+        """Rate-limit known accepted ANT pages while no live session needs them.
 
-        Only already-known ANT profiles of configured sensors are suppressed. A new
-        device/profile still reaches normal discovery, while active/recovery telemetry
-        is never filtered here. This method is intentionally lock-free because remote
-        gateway events may call it on Home Assistant's MainThread.
+        Raw physical sensor entities must remain useful while Fitness is idle, so an
+        accepted sensor is no longer dropped completely. Instead, each known ANT
+        page is admitted at most twice per second. Page-aware sampling is important
+        for profiles such as stride speed/distance where speed/distance and cadence
+        are carried on different rotating pages. New/unaccepted profiles always pass
+        for discovery and active/recovery telemetry is never sampled.
+
+        Call this exactly once per packet, from ``process_packet``. It intentionally
+        performs no HA work and only updates a tiny worker-side monotonic timestamp.
         """
         device_id = int(device_id)
         device_type = int(device_type)
-        return bool(
-            device_id in self._accepted_devices
-            and device_id not in self._telemetry_enabled_devices
-            and device_type in self._known_profiles_snapshot.get(device_id, frozenset())
-        )
+        page = int(page) & 0x7F if int(page) >= 0 else -1
+        if (
+            device_id not in self._accepted_devices
+            or device_id in self._telemetry_enabled_devices
+            or device_type not in self._known_profiles_snapshot.get(device_id, frozenset())
+        ):
+            return False
+        now = time.monotonic()
+        key = (device_id, device_type, page)
+        previous = self._idle_packet_last_admitted.get(key)
+        if (
+            previous is not None
+            and now - previous < IDLE_ACCEPTED_PACKET_INTERVAL_SECONDS
+        ):
+            return True
+        self._idle_packet_last_admitted[key] = now
+        return False
 
     def add_device_callback(self, callback: DeviceCallback) -> Callable[[], None]:
         self._device_callbacks.append(callback)
@@ -406,8 +439,6 @@ class AntPlusReceiver:
 
         device_id = int(data[9]) | (int(data[10]) << 8)
         device_type = int(data[11])
-        if self.fast_ignore_idle_packet(device_id, device_type):
-            return
         payload = bytes(data[:8])
         transmission_type = int(data[12])
 
@@ -518,6 +549,7 @@ class AntPlusReceiver:
         payload: bytes,
         *,
         source: str = "unknown",
+        ingress_checked: bool = False,
     ) -> None:
         """Process one ANT+ packet from any transport.
 
@@ -525,10 +557,14 @@ class AntPlusReceiver:
         through local USB and/or multiple remote gateways, all packets update
         the same AntDevice instance.
         """
-        # Absolute ingress gate for accepted idle sensors. Local USB and remote
-        # gateways also call this before entering process_packet(), but keep the
-        # check here for direct/test callers and future transports.
-        if self.fast_ignore_idle_packet(device_id, device_type):
+        # Accepted idle sensors still expose their own raw physical measurements,
+        # but only at a bounded per-page rate. Keep this gate before diagnostics,
+        # identity/capability work and decoding. Active sessions bypass it.
+        page = (int(payload[0]) & 0x7F) if payload else -1
+        if (
+            not ingress_checked
+            and self.fast_ignore_idle_packet(device_id, device_type, page)
+        ):
             return
 
         self.diagnostics.inc("receiver_packets_seen")
@@ -621,7 +657,13 @@ class AntPlusReceiver:
             #
             # ANT common pages 0x50/0x51 carry manufacturer/product identity.
             # Everything else waits until the user accepts the sensor.
-            telemetry_enabled = device_id in self._telemetry_enabled_devices
+            live_telemetry_enabled = device_id in self._telemetry_enabled_devices
+            # Accepted physical sensors decode the sampled idle packets admitted at
+            # ingress so their own HA entities remain current. Unaccepted sensors
+            # still decode only structural/identity pages until the user adds them.
+            telemetry_enabled = (
+                live_telemetry_enabled or device_id in self._accepted_devices
+            )
             page = int(payload[0]) & 0x7F
             identity_page = (
                 device_type in COMMON_IDENTITY_PAGE_PROFILES

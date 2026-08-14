@@ -50,6 +50,7 @@ class AntPlusDiagnostics:
         last_wall = time.monotonic()
         last_cpu = time.process_time()
         last_remote = 0
+        last_decode_time = 0.0
         hot_samples = 0
         last_dump = 0.0
         while not self._watchdog_stop.wait(1.0):
@@ -57,12 +58,22 @@ class AntPlusDiagnostics:
             now_cpu = time.process_time()
             with self._lock:
                 remote = int(self.counters.get("remote_packets_received", 0))
+                decode_time = float(self.timings.get("remote_decode_dispatch_total", 0.0))
             wall_delta = max(now_wall - last_wall, 0.001)
             cpu_ratio = max(now_cpu - last_cpu, 0.0) / wall_delta
-            remote_active = remote > last_remote
+            remote_delta = max(remote - last_remote, 0)
+            decode_delta = max(decode_time - last_decode_time, 0.0)
+            ant_decode_ratio = decode_delta / wall_delta
+            remote_active = remote_delta > 0
+            # Process CPU is global to Home Assistant. Do not blame ANT merely
+            # because a few packets happened to arrive while some unrelated
+            # Fitness/HA task saturated a core. Require either substantial ANT
+            # decode time or a genuinely high packet rate before auto-dumping.
+            ant_busy = ant_decode_ratio >= 0.25 or remote_delta >= 20
             self.set_gauge("process_cpu_core_ratio", round(cpu_ratio, 3))
-            self.set_gauge("remote_packets_last_watchdog_interval", remote - last_remote)
-            if remote_active and cpu_ratio >= 0.90:
+            self.set_gauge("ant_decode_core_ratio", round(ant_decode_ratio, 3))
+            self.set_gauge("remote_packets_last_watchdog_interval", remote_delta)
+            if remote_active and ant_busy and cpu_ratio >= 0.90:
                 hot_samples += 1
             else:
                 hot_samples = 0
@@ -71,7 +82,7 @@ class AntPlusDiagnostics:
                 _LOGGER.warning(
                     "ANT+ DIAGNOSTICS automatic hot-CPU trigger: core_ratio=%.3f remote_packets_delta=%d",
                     cpu_ratio,
-                    remote - last_remote,
+                    remote_delta,
                 )
                 snapshot = self.snapshot()
                 _LOGGER.warning(
@@ -82,6 +93,7 @@ class AntPlusDiagnostics:
             last_wall = now_wall
             last_cpu = now_cpu
             last_remote = remote
+            last_decode_time = decode_time
 
     def inc(self, key: str, amount: int = 1) -> None:
         with self._lock:

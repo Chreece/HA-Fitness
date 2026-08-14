@@ -64,6 +64,8 @@ def _process_remote_packet(
     receiver: AntPlusReceiver,
     packet: dict[str, Any],
     gateway_id: str,
+    *,
+    ingress_checked: bool = False,
 ) -> None:
     adapter_id = str(packet.get("adapter_id", "")).strip()
     source = f"remote:{gateway_id}"
@@ -76,6 +78,7 @@ def _process_remote_packet(
         transmission_type=_integer(packet, "transmission_type", 0, 0xFF),
         payload=_payload_bytes(packet.get("payload")),
         source=source,
+        ingress_checked=ingress_checked,
     )
 
 
@@ -135,11 +138,15 @@ class RemotePacketWorker:
         # MainThread only appends untouched HA event batches here. The worker
         # performs packet copying, page inspection, classification, diagnostics
         # and telemetry coalescing.
-        self._incoming: deque[tuple[str, list[dict[str, Any]]]] = deque(
+        self._incoming: deque[tuple[str, list[dict[str, Any]], bool]] = deque(
             maxlen=REMOTE_INPUT_BATCH_QUEUE_MAX
         )
-        self._telemetry: OrderedDict[tuple, tuple[str, dict[str, Any]]] = OrderedDict()
-        self._events: deque[tuple[str, dict[str, Any]]] = deque(maxlen=REMOTE_EVENT_QUEUE_MAX)
+        self._telemetry: OrderedDict[
+            tuple, tuple[str, dict[str, Any], bool]
+        ] = OrderedDict()
+        self._events: deque[tuple[str, dict[str, Any], bool]] = deque(
+            maxlen=REMOTE_EVENT_QUEUE_MAX
+        )
         self._dropped = 0
         self._dropped_batches = 0
         self._diagnostics = receiver.diagnostics
@@ -158,6 +165,8 @@ class RemotePacketWorker:
         self,
         gateway_id: str,
         packets: list[dict[str, Any]],
+        *,
+        ingress_checked: bool = False,
     ) -> None:
         """Hand one HA event batch to the worker with O(1) MainThread work."""
         if not packets:
@@ -168,17 +177,19 @@ class RemotePacketWorker:
                 self._dropped_batches += 1
             # Keep the event-owned list reference. Home Assistant does not mutate
             # event data after dispatch; individual packet copies happen off-loop.
-            self._incoming.append((gateway_id, packets))
+            self._incoming.append((gateway_id, packets, ingress_checked))
         self._wake.set()
 
     def enqueue(self, gateway_id: str, packet: dict[str, Any]) -> None:
         """Compatibility helper for a single packet."""
         self.enqueue_batch(gateway_id, [packet])
 
-    def _ingest_packet(self, gateway_id: str, packet: dict[str, Any]) -> None:
+    def _ingest_packet(
+        self, gateway_id: str, packet: dict[str, Any], ingress_checked: bool
+    ) -> None:
         """Classify and coalesce one packet entirely on the worker thread."""
         self._diagnostics.inc("remote_packets_received")
-        item = (gateway_id, dict(packet))
+        item = (gateway_id, dict(packet), ingress_checked)
         if _remote_packet_is_event(packet):
             self._diagnostics.inc("remote_event_packets")
             if len(self._events) >= REMOTE_EVENT_QUEUE_MAX:
@@ -204,7 +215,9 @@ class RemotePacketWorker:
                 self._dropped,
             )
 
-    def _take_incoming(self) -> list[tuple[str, list[dict[str, Any]]]]:
+    def _take_incoming(
+        self,
+    ) -> list[tuple[str, list[dict[str, Any]], bool]]:
         with self._lock:
             batches = list(self._incoming)
             self._incoming.clear()
@@ -216,11 +229,16 @@ class RemotePacketWorker:
         self._stop.set()
         self._wake.set()
 
-    def _decode_item(self, item: tuple[str, dict[str, Any]]) -> None:
-        gateway_id, packet = item
+    def _decode_item(
+        self, item: tuple[str, dict[str, Any], bool]
+    ) -> None:
+        gateway_id, packet, ingress_checked = item
         started = time.perf_counter()
         try:
-            _process_remote_packet(self._receiver, packet, gateway_id)
+            _process_remote_packet(
+                self._receiver, packet, gateway_id,
+                ingress_checked=ingress_checked,
+            )
         except (KeyError, TypeError, ValueError) as err:
             self._diagnostics.inc("remote_invalid_packets")
             _LOGGER.warning(
@@ -249,12 +267,12 @@ class RemotePacketWorker:
 
             batches = self._take_incoming()
             packet_count = 0
-            for gateway_id, packets in batches:
+            for gateway_id, packets, ingress_checked in batches:
                 for packet in packets:
                     if not isinstance(packet, dict):
                         continue
                     packet_count += 1
-                    self._ingest_packet(gateway_id, packet)
+                    self._ingest_packet(gateway_id, packet, ingress_checked)
 
             self._diagnostics.inc("remote_bus_packets", packet_count)
             self._diagnostics.set_gauge(
@@ -325,26 +343,33 @@ def async_register_remote_listener(
         elif not isinstance(packets, list):
             return
 
-        # Reject the common one-packet accepted-idle event before it enters the
-        # worker at all. Do not loop over multi-packet batches on HA's MainThread;
-        # those stay O(1) here and are coalesced on the worker thread.
+        ingress_checked = False
+        # The common one-packet event can be sampled in constant time before it
+        # enters the worker queue. When it is admitted, carry that fact with the
+        # batch so process_packet does not consume the same idle sample twice.
+        # Multi-packet batches remain O(1) here and are sampled after coalescing.
         if len(packets) == 1:
             packet = packets[0]
             if isinstance(packet, dict):
                 try:
+                    device_id = int(packet.get("device_id", -1))
+                    device_type = int(packet.get("device_type", -1))
+                    page = _remote_packet_page(packet)
                     if receiver.fast_ignore_idle_packet(
-                        int(packet.get("device_id", -1)),
-                        int(packet.get("device_type", -1)),
+                        device_id, device_type, page
                     ):
                         return
+                    ingress_checked = True
                 except (TypeError, ValueError):
                     pass
 
         receiver.diagnostics.inc("remote_bus_events")
 
-        # Absolutely no per-packet decode/copy work belongs on Home Assistant's
+        # Absolutely no decode/device-registry work belongs on Home Assistant's
         # MainThread. Hand the remaining event batch to the worker and return.
-        packet_worker.enqueue_batch(gateway_id, packets)
+        packet_worker.enqueue_batch(
+            gateway_id, packets, ingress_checked=ingress_checked
+        )
 
     @callback
     def handle_gateway_hello(event: Event) -> None:

@@ -41,6 +41,10 @@ _METHODS = {
     "_calendar_uid",
     "_workout_is_deleted",
     "async_delete_calendar_workout",
+    "_canonicalize_workout_history",
+    "_eligible_completed_workouts",
+    "_apply_canonical_workout_history",
+    "_remember_completed_workouts",
     "_remember_completed_workout",
     "local_workouts",
 }
