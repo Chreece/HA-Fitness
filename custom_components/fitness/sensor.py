@@ -197,6 +197,44 @@ class Desc(SensorEntityDescription):
     unit: str | None = None
 
 
+# Completed-workout values that already belong to upstream Home Assistant
+# integrations must not be mirrored as Fitness sensor entities. Fitness still
+# normalizes these fields internally for calculations/history, while the
+# dashboard links back to the original source entities.
+WORKOUT_SOURCE_MIRROR_KEYS = frozenset({
+    "last_workout",
+    "last_workout_duration",
+    "last_workout_distance",
+    "last_workout_avg_hr",
+    "last_workout_max_hr",
+    "last_workout_avg_power",
+    "last_workout_max_power",
+    "last_workout_avg_cadence",
+    "last_workout_elevation_gain",
+    "last_workout_calories",
+    "last_workout_moving_time",
+    "last_workout_elapsed_time",
+    "last_workout_average_speed",
+    "last_workout_max_speed",
+    "last_workout_weighted_power",
+    "last_workout_max_cadence",
+    "last_workout_elevation_loss",
+    "last_workout_training_load",
+    "last_workout_aerobic_effect",
+    "last_workout_anaerobic_effect",
+    "last_workout_training_effect",
+    "last_workout_vo2max",
+    "last_workout_rpe",
+    "last_workout_relative_effort",
+    "last_workout_kilojoules",
+    "last_workout_total_reps",
+    "last_workout_exercise_count",
+    "last_workout_volume",
+    "last_workout_device",
+    "last_workout_gear",
+    "last_workout_sources",
+})
+
 DESCRIPTIONS = (
     # Live device
     Desc(key="session_status", translation_key="session_status", kind="live", metric="session_status"),
@@ -368,7 +406,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
     descriptions = {
         desc.key: desc
         for desc in DESCRIPTIONS
-        if not (
+        if desc.key not in WORKOUT_SOURCE_MIRROR_KEYS
+        and not (
             desc.metric.startswith("ai_")
             and not manager.config.get("ai_enabled")
         )
@@ -418,6 +457,14 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 continue
 
         if key in deprecated_live_mirror_keys:
+            registry.async_remove(registry_entry.entity_id)
+            manager.forget_materialized_sensor(key, persist=False)
+            continue
+
+        # Completed-workout factual fields are owned by their source
+        # integrations. Older Fitness versions mirrored them under the profile
+        # Workout device; remove those duplicates during the next setup.
+        if key in WORKOUT_SOURCE_MIRROR_KEYS:
             registry.async_remove(registry_entry.entity_id)
             manager.forget_materialized_sensor(key, persist=False)
             continue

@@ -20,12 +20,12 @@ from .const import (
     CONF_WORKOUT_DEVICE_IDS,
     DOMAIN,
 )
-from .providers.workouts import workout_sport_kind
+from .providers.workouts import _FIELD_KEYS, workout_sport_kind
 
 _LOGGER = logging.getLogger(__name__)
 
 _RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"
-_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.11.2"
+_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.11.3"
 _SETUP_KEY = "_dashboard_frontend_setup"
 
 _PACE_TEXT: dict[str, str] = {
@@ -33,6 +33,75 @@ _PACE_TEXT: dict[str, str] = {
     "es": "Ritmo", "it": "Passo", "pt": "Ritmo", "nl": "Tempo",
     "pl": "Tempo", "ru": "Темп", "uk": "Темп", "tr": "Tempo",
     "zh": "配速", "ja": "ペース", "ko": "페이스",
+}
+
+# Factual completed-workout metrics are owned by their upstream Home Assistant
+# integrations. The dashboard gets source routes for these fields instead of
+# relying on duplicate Fitness sensor entities. Values are normalized only for
+# display/calculation fallback; when the provider exposes a direct sensor/state
+# or top-level attribute, the frontend reads that source entity live.
+_WORKOUT_SOURCE_FIELDS: dict[str, tuple[str, str | None]] = {
+    "last_workout": ("name", None),
+    "last_workout_duration": ("duration_s", "min"),
+    "last_workout_distance": ("distance_m", "km"),
+    "last_workout_avg_hr": ("avg_hr", "bpm"),
+    "last_workout_max_hr": ("max_hr", "bpm"),
+    "last_workout_avg_power": ("avg_power", "W"),
+    "last_workout_max_power": ("max_power", "W"),
+    "last_workout_avg_cadence": ("avg_cadence", "1/min"),
+    "last_workout_elevation_gain": ("elevation_gain_m", "m"),
+    "last_workout_calories": ("calories", "kcal"),
+    "last_workout_moving_time": ("moving_time_s", "min"),
+    "last_workout_elapsed_time": ("elapsed_time_s", "min"),
+    "last_workout_average_speed": ("average_speed_m_s", "km/h"),
+    "last_workout_max_speed": ("max_speed_m_s", "km/h"),
+    "last_workout_weighted_power": ("weighted_power", "W"),
+    "last_workout_max_cadence": ("max_cadence", "1/min"),
+    "last_workout_elevation_loss": ("elevation_loss_m", "m"),
+    "last_workout_training_load": ("training_load", None),
+    "last_workout_aerobic_effect": ("aerobic_training_effect", None),
+    "last_workout_anaerobic_effect": ("anaerobic_training_effect", None),
+    "last_workout_training_effect": ("training_effect_label", None),
+    "last_workout_vo2max": ("vo2max", "mL/kg/min"),
+    "last_workout_rpe": ("session_rpe", None),
+    "last_workout_relative_effort": ("relative_effort", None),
+    "last_workout_kilojoules": ("kilojoules", "kJ"),
+    "last_workout_total_reps": ("total_reps", None),
+    "last_workout_exercise_count": ("exercise_count", None),
+    "last_workout_volume": ("volume_kg", "kg"),
+    "last_workout_device": ("device_name", None),
+    "last_workout_gear": ("gear_name", None),
+}
+
+_WORKOUT_STATE_TOKENS: dict[str, tuple[tuple[str, ...], ...]] = {
+    "name": (("last", "workout"), ("last", "activity"), ("workout", "title")),
+    "duration_s": (("duration",),),
+    "distance_m": (("distance",),),
+    "avg_hr": (("heart", "rate", "average"), ("average", "heart", "rate"), ("avg", "hr")),
+    "max_hr": (("heart", "rate", "max"), ("max", "heart", "rate"), ("max", "hr")),
+    "avg_power": (("power", "average"), ("average", "power"), ("avg", "power")),
+    "max_power": (("power", "max"), ("max", "power")),
+    "weighted_power": (("weighted", "power"), ("normalized", "power")),
+    "avg_cadence": (("cadence", "average"), ("average", "cadence"), ("avg", "cadence")),
+    "max_cadence": (("cadence", "max"), ("max", "cadence")),
+    "elevation_gain_m": (("elevation", "gain"),),
+    "elevation_loss_m": (("elevation", "loss"),),
+    "calories": (("calories",),),
+    "moving_time_s": (("moving", "time"),),
+    "elapsed_time_s": (("elapsed", "time"),),
+    "average_speed_m_s": (("speed", "average"), ("average", "speed"), ("avg", "speed")),
+    "max_speed_m_s": (("speed", "max"), ("max", "speed")),
+    "training_load": (("training", "load"),),
+    "aerobic_training_effect": (("aerobic", "effect"),),
+    "anaerobic_training_effect": (("anaerobic", "effect"),),
+    "vo2max": (("vo2", "max"), ("vo2max",)),
+    "relative_effort": (("relative", "effort"),),
+    "kilojoules": (("kilojoule",), ("kj",)),
+    "total_reps": (("total", "reps"), ("reps",)),
+    "exercise_count": (("exercise", "count"),),
+    "volume_kg": (("volume",),),
+    "device_name": (("device",),),
+    "gear_name": (("gear",),),
 }
 
 _DASHBOARD_TEXT: dict[str, dict[str, str]] = {
@@ -1015,6 +1084,158 @@ def _entity_key(entry_id: str, unique_id: str | None) -> str | None:
     return unique_id[len(prefix):]
 
 
+def _norm_source_key(value: Any) -> str:
+    return "".join(ch for ch in str(value or "").casefold() if ch.isalnum())
+
+
+def _workout_source_value(workout, field_name: str) -> Any:
+    value = getattr(workout, field_name, None)
+    if value is None:
+        return None
+    if field_name in {"duration_s", "moving_time_s", "elapsed_time_s"}:
+        return round(float(value) / 60.0, 3)
+    if field_name == "distance_m":
+        return round(float(value) / 1000.0, 4)
+    if field_name in {"average_speed_m_s", "max_speed_m_s"}:
+        return round(float(value) * 3.6, 4)
+    return value
+
+
+def _source_entry_domain(hass: HomeAssistant, registry_entry) -> str:
+    config_entry_id = getattr(registry_entry, "config_entry_id", None)
+    if not config_entry_id:
+        return "unknown"
+    config_entry = hass.config_entries.async_get_entry(config_entry_id)
+    return config_entry.domain if config_entry is not None else "unknown"
+
+
+def _source_entry_label(hass: HomeAssistant, registry_entry) -> str:
+    state = hass.states.get(registry_entry.entity_id)
+    return " ".join((
+        registry_entry.entity_id,
+        registry_entry.name or "",
+        registry_entry.original_name or "",
+        str(state.attributes.get("friendly_name") or "") if state else "",
+    )).casefold().replace("-", "_").replace(" ", "_")
+
+
+def _attribute_transform(field_name: str, matched_key: str) -> str:
+    key = _norm_source_key(matched_key)
+    if field_name in {"duration_s", "moving_time_s", "elapsed_time_s"}:
+        if "minute" in key or key.endswith("min"):
+            return "identity"
+        return "seconds_to_minutes"
+    if field_name == "distance_m":
+        return "meters_to_km"
+    if field_name in {"average_speed_m_s", "max_speed_m_s"}:
+        return "mps_to_kmh"
+    return "identity"
+
+
+def _workout_source_metrics(hass: HomeAssistant, manager, workout) -> dict[str, dict[str, Any]]:
+    """Return dashboard routes to upstream workout entities, never mirrors."""
+    if workout is None:
+        return {}
+
+    selected = set(manager.config.get(CONF_WORKOUT_DEVICE_IDS) or [])
+    registry = er.async_get(hass)
+    source_ids = {
+        source for source in (workout.sources or [])
+        if isinstance(source, str) and "." in source
+    }
+    provider_domains = set(workout.provider_domains or [])
+    candidates = []
+    for registry_entry in registry.entities.values():
+        if registry_entry.platform == DOMAIN:
+            continue
+        domain = _source_entry_domain(hass, registry_entry)
+        if registry_entry.entity_id not in source_ids:
+            if registry_entry.device_id not in selected:
+                continue
+            if provider_domains and domain not in provider_domains:
+                continue
+        candidates.append((registry_entry, domain, _source_entry_label(hass, registry_entry)))
+
+    result: dict[str, dict[str, Any]] = {}
+    for dashboard_key, (field_name, unit) in _WORKOUT_SOURCE_FIELDS.items():
+        canonical = _workout_source_value(workout, field_name)
+        if canonical is None:
+            continue
+        provider = (workout.field_sources or {}).get(field_name)
+
+        def score(item) -> int:
+            registry_entry, domain, label = item
+            value = 0
+            if registry_entry.entity_id in source_ids:
+                value += 100
+            if provider and domain == provider:
+                value += 70
+            if "last" in label and any(token in label for token in ("workout", "activity", "exercise")):
+                value += 20
+            for token_group in _WORKOUT_STATE_TOKENS.get(field_name, ()):
+                if all(token in label for token in token_group):
+                    value += 60
+                    break
+            return value
+
+        ordered = sorted(candidates, key=score, reverse=True)
+        route: dict[str, Any] = {
+            "value": canonical,
+            "unit": unit,
+            "field": field_name,
+        }
+
+        # Prefer a real top-level source attribute whose key is one of the same
+        # aliases used by the completed-workout normalizer.
+        aliases = {_norm_source_key(alias) for alias in _FIELD_KEYS.get(field_name, ())}
+        direct = None
+        for registry_entry, domain, label in ordered:
+            if provider and domain != provider and any(item[1] == provider for item in ordered):
+                continue
+            state = hass.states.get(registry_entry.entity_id)
+            if state is None:
+                continue
+            for attr_name, attr_value in state.attributes.items():
+                if attr_value in (None, "", [], {}):
+                    continue
+                if _norm_source_key(attr_name) in aliases:
+                    direct = {
+                        "entity_id": registry_entry.entity_id,
+                        "attribute": str(attr_name),
+                        "transform": _attribute_transform(field_name, str(attr_name)),
+                    }
+                    break
+            if direct is not None:
+                break
+
+        # Sibling-sensor providers (Hevy/Oura/Peloton and similar) expose many
+        # factual workout fields directly as entity states.
+        if direct is None:
+            for registry_entry, domain, label in ordered:
+                if provider and domain != provider and any(item[1] == provider for item in ordered):
+                    continue
+                token_groups = _WORKOUT_STATE_TOKENS.get(field_name, ())
+                if token_groups and any(all(token in label for token in group) for group in token_groups):
+                    direct = {
+                        "entity_id": registry_entry.entity_id,
+                        "transform": "state",
+                    }
+                    break
+
+        # Even when a provider keeps the value in a nested activity payload,
+        # keep the canonical source entity for more-info/provenance and use the
+        # normalized fallback value instead of inventing a Fitness entity.
+        if direct is None and ordered:
+            direct = {
+                "entity_id": ordered[0][0].entity_id,
+                "transform": "fallback",
+            }
+        if direct:
+            route.update(direct)
+        result[dashboard_key] = route
+    return result
+
+
 def _route_matches_latest_workout(state, workout) -> bool:
     """Reject an explicitly stale route belonging to another workout."""
     if workout is None:
@@ -1110,6 +1331,8 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
             if key:
                 entities[key] = registry_entry.entity_id
         lang = _language(entry)
+        latest_workout = manager.latest_workout()
+        workout_source_metrics = _workout_source_metrics(hass, manager, latest_workout)
         profiles.append(
             {
                 "entry_id": entry.entry_id,
@@ -1142,13 +1365,11 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                     }
                 ],
                 "latest_workout": {
-                    "sport": workout_sport_kind(manager.latest_workout()),
-                    "name": (
-                        manager.latest_workout().name
-                        if manager.latest_workout() is not None
-                        else None
-                    ),
+                    "available": latest_workout is not None,
+                    "sport": workout_sport_kind(latest_workout),
+                    "name": latest_workout.name if latest_workout is not None else None,
                 },
+                "workout_source_metrics": workout_source_metrics,
                 "route_candidates": _route_candidates(hass, manager),
             }
         )

@@ -1,4 +1,4 @@
-const FITNESS_DASHBOARD_VERSION = "2026.8.11.2";
+const FITNESS_DASHBOARD_VERSION = "2026.8.11.3";
 
 
 const FITNESS_READINESS_TEXT = {
@@ -169,17 +169,7 @@ class FitnessRouteCard extends HTMLElement {
     let encoded = "";
     try { encoded = JSON.stringify(value); } catch (_err) { encoded = String(value ?? ""); }
 
-    const e = this._profile?.entities || {};
-    const summaryKeys = [
-      "last_workout","last_workout_distance","last_workout_duration",
-      "last_workout_moving_time","last_workout_average_speed",
-      "last_workout_avg_hr","last_workout_avg_power","last_workout_avg_cadence",
-      "last_workout_elevation_gain","last_workout_calories",
-    ];
-    const summary = summaryKeys.map((key) => {
-      const item = e[key] ? this._hass.states[e[key]] : null;
-      return `${key}:${item?.state || ""}`;
-    }).join("|");
+    const summary = _fitnessWorkoutSourceSignature(this._profile, this._hass);
 
     // Manual gesture zoom/pan intentionally do not participate in this
     // signature: gestures commit their own render and must not trigger a second
@@ -300,51 +290,43 @@ class FitnessRouteCard extends HTMLElement {
   }
 
   _isRunningWorkout() {
-    if (this._profile?.latest_workout?.sport === "running") return true;
-    const e = this._profile?.entities || {};
-    const state = this._hass.states[e.last_workout];
-    const sport = String(state?.attributes?.sport || "").toLowerCase();
-    return sport === "running";
+    return this._profile?.latest_workout?.sport === "running";
   }
 
   _workoutSummary() {
     const e = this._profile?.entities || {};
     const running = this._isRunningWorkout();
     const runPace = running ? _fitnessRunPace(this._profile, this._hass) : null;
-    const keys = [
+    const sourceKeys = [
       "last_workout", "last_workout_distance", "last_workout_duration",
       "last_workout_average_speed", "last_workout_avg_hr", "last_workout_max_hr",
-      "last_workout_hrr_60s", "last_workout_avg_power", "last_workout_weighted_power",
+      "last_workout_avg_power", "last_workout_weighted_power",
       "last_workout_avg_cadence", "last_workout_elevation_gain",
-      "last_workout_calories", "last_workout_banister_trimp",
-      "last_workout_aerobic_efficiency", "last_workout_aerobic_decoupling",
-      "last_workout_training_load", "last_workout_vo2max"
+      "last_workout_calories", "last_workout_training_load", "last_workout_vo2max"
     ];
-    const items = keys.map((key) => ({key, entityId: e[key]})).filter((item) => item.entityId).map(({key, entityId}) => {
-      const state = this._hass.states[entityId];
-      if (!state || ["unknown","unavailable"].includes(state.state)) return null;
+    const items = [];
+    for (const key of sourceKeys) {
+      const metric = _fitnessWorkoutSourceMetric(this._profile, this._hass, key);
+      if (!metric || metric.value === null || metric.value === undefined || metric.value === "") continue;
       if (running && key === "last_workout_average_speed") {
-        if (!runPace) return null;
-        return {
-          name: this._profile?.labels?.pace || "Pace",
-          value: runPace,
-          entityId,
-        };
+        if (runPace) items.push({name:this._profile?.labels?.pace || "Pace", value:runPace, entityId:metric.entityId});
+        continue;
       }
-      const unit = state.attributes?.unit_of_measurement || "";
-      return {
-        name: entityName(this._hass, entityId),
-        value: `${state.state}${unit ? ` ${unit}` : ""}`,
-        entityId,
-      };
-    }).filter(Boolean);
-    if (running && runPace && !e.last_workout_average_speed) {
-      const insertAt = Math.min(3, items.length);
-      items.splice(insertAt, 0, {
-        name: this._profile?.labels?.pace || "Pace",
-        value: runPace,
-        entityId: e.last_workout_average_speed || e.last_workout_distance || e.last_workout_duration,
+      items.push({
+        name: key === "last_workout" ? (_fitnessWorkoutSourceLabel(this._profile, this._hass, key, metric) || "Workout") : _fitnessWorkoutSourceLabel(this._profile, this._hass, key, metric),
+        value: metric.display,
+        entityId: metric.entityId,
       });
+    }
+    const fitnessKeys = [
+      "last_workout_hrr_60s", "last_workout_banister_trimp",
+      "last_workout_aerobic_efficiency", "last_workout_aerobic_decoupling"
+    ];
+    for (const key of fitnessKeys) {
+      const entityId = e[key];
+      const state = entityId ? this._hass.states[entityId] : null;
+      if (!state || ["unknown","unavailable"].includes(String(state.state).toLowerCase())) continue;
+      items.push({name:entityName(this._hass, entityId), value:_fitnessDisplay(state,1), entityId});
     }
     return items;
   }
@@ -1084,6 +1066,92 @@ const _fitnessDisplay = (state, decimals = 1) => {
   return `${n.toFixed(decimals)}${unit ? ` ${_fitnessEscape(unit)}` : ""}`;
 };
 
+const _fitnessWorkoutAttributeValue = (state, attribute) => {
+  if (!state || !attribute) return null;
+  const value = state.attributes?.[attribute];
+  return value === undefined || value === null || value === "" ? null : value;
+};
+
+const _fitnessKmhFromState = (state) => {
+  if (!state || ["unknown", "unavailable"].includes(String(state.state).toLowerCase())) return null;
+  const value = Number(state.state);
+  if (!Number.isFinite(value)) return null;
+  const unit = String(state.attributes?.unit_of_measurement || "").toLowerCase().replace(/\s/g, "");
+  if (["km/h", "kmh", "kph"].includes(unit)) return value;
+  if (["m/s", "mps", "m·s⁻¹"].includes(unit)) return value * 3.6;
+  if (["mph", "mi/h"].includes(unit)) return value * 1.609344;
+  return null;
+};
+
+const _fitnessWorkoutSourceMetric = (profile, hass, key, decimals = 1) => {
+  const route = profile?.workout_source_metrics?.[key];
+  if (!route) return null;
+  const entityId = route.entity_id || "";
+  const state = entityId ? hass?.states?.[entityId] : null;
+  const field = route.field || "";
+  let value = route.value;
+  let canonicalValue = Number(route.value);
+  if (!Number.isFinite(canonicalValue)) canonicalValue = null;
+  let unit = route.unit || "";
+  let direct = false;
+
+  if (route.transform === "state" && state && !["unknown","unavailable","none","null",""] .includes(String(state.state ?? "").toLowerCase())) {
+    value = state.state;
+    unit = state.attributes?.unit_of_measurement || route.unit || "";
+    direct = true;
+    if (["duration_s","moving_time_s","elapsed_time_s"].includes(field)) canonicalValue = _fitnessMinutesFromState(state);
+    else if (field === "distance_m") canonicalValue = _fitnessKmFromState(state);
+    else if (["average_speed_m_s","max_speed_m_s"].includes(field)) canonicalValue = _fitnessKmhFromState(state);
+    else {
+      const n = Number(state.state);
+      canonicalValue = Number.isFinite(n) ? n : null;
+    }
+  } else if (route.attribute && state) {
+    const raw = _fitnessWorkoutAttributeValue(state, route.attribute);
+    if (raw !== null) {
+      value = raw;
+      direct = true;
+      const n = Number(raw);
+      if (Number.isFinite(n)) {
+        canonicalValue = route.transform === "seconds_to_minutes" ? n / 60
+          : route.transform === "meters_to_km" ? n / 1000
+          : route.transform === "mps_to_kmh" ? n * 3.6
+          : n;
+        value = canonicalValue;
+        unit = route.unit || "";
+      }
+    }
+  }
+
+  const numeric = Number(value);
+  const display = Number.isFinite(numeric)
+    ? `${numeric.toFixed(decimals)}${unit ? ` ${unit}` : ""}`
+    : String(value ?? "");
+  return {route, entityId, state, value, canonicalValue, unit, display, direct};
+};
+
+const _fitnessWorkoutSourceLabel = (profile, hass, key, metric) => {
+  if (!metric) return "";
+  if (metric.route?.transform === "state" && metric.entityId) return entityName(hass, metric.entityId);
+  const attribute = String(metric.route?.attribute || "");
+  if (attribute) {
+    return attribute
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .replaceAll("_", " ")
+      .replace(/\b\w/g, (ch) => ch.toUpperCase());
+  }
+  return key.replace(/^last_workout_?/, "").replaceAll("_", " ").replace(/\b\w/g, (ch) => ch.toUpperCase()) || "Workout";
+};
+
+const _fitnessWorkoutSourceSignature = (profile, hass) => Object.entries(profile?.workout_source_metrics || {}).map(([key, route]) => {
+  const state = route?.entity_id ? hass?.states?.[route.entity_id] : null;
+  let attr = "";
+  if (route?.attribute && state) {
+    try { attr = JSON.stringify(state.attributes?.[route.attribute]); } catch (_err) { attr = String(state.attributes?.[route.attribute] ?? ""); }
+  }
+  return `source:${key}:${route?.entity_id || ""}:${state?.state || ""}:${state?.last_updated || ""}:${attr}`;
+}).join("|");
+
 const _fitnessSleepDuration = (state) => {
   if (!state || state.state === "unknown" || state.state === "unavailable") return "—";
   const value = Number(state.state);
@@ -1145,17 +1213,15 @@ const _fitnessFormatPace = (minutesPerKm) => {
 
 const _fitnessRunPace = (profile, hass) => {
   if (profile?.latest_workout?.sport !== "running") return null;
-  const e = profile?.entities || {};
-
-  // Prefer the normalized average-speed metric when present.
-  const fromSpeed = _fitnessPaceFromSpeed(hass.states[e.last_workout_average_speed]);
-  if (fromSpeed) return fromSpeed;
-
-  // Otherwise derive pace deterministically from merged Fitness distance/time.
-  const distanceKm = _fitnessKmFromState(hass.states[e.last_workout_distance]);
-  const timeMinutes =
-    _fitnessMinutesFromState(hass.states[e.last_workout_moving_time])
-    ?? _fitnessMinutesFromState(hass.states[e.last_workout_duration]);
+  const speed = _fitnessWorkoutSourceMetric(profile, hass, "last_workout_average_speed");
+  if (speed?.canonicalValue && speed.canonicalValue > 0) {
+    return _fitnessFormatPace(60 / speed.canonicalValue);
+  }
+  const distance = _fitnessWorkoutSourceMetric(profile, hass, "last_workout_distance");
+  const moving = _fitnessWorkoutSourceMetric(profile, hass, "last_workout_moving_time");
+  const duration = _fitnessWorkoutSourceMetric(profile, hass, "last_workout_duration");
+  const distanceKm = distance?.canonicalValue;
+  const timeMinutes = moving?.canonicalValue ?? duration?.canonicalValue;
   return distanceKm && timeMinutes
     ? _fitnessFormatPace(timeMinutes / distanceKm)
     : null;
@@ -1237,42 +1303,57 @@ class FitnessWorkoutHighlightsCard extends FitnessAutoProfileCard {
       "last_workout_avg_cadence","last_workout_elevation_gain","last_workout_calories",
       "last_workout_strength_sets","last_workout_estimated_1rm"
     ]);
-    const keys = [
+    const sourceKeys = [
       "last_workout_distance","last_workout_duration","last_workout_average_speed",
       "last_workout_avg_hr","last_workout_max_hr","last_workout_avg_power","last_workout_avg_cadence",
-      "last_workout_elevation_gain","last_workout_calories","last_workout_banister_trimp","last_workout_vo2max",
-      "last_workout_rpe","last_workout_session_rpe_load","last_workout_fitness_aerobic_load","last_workout_fitness_high_intensity_load",
+      "last_workout_elevation_gain","last_workout_calories","last_workout_vo2max"
+    ];
+    const fitnessKeys = [
+      "last_workout_banister_trimp","last_workout_session_rpe_load",
+      "last_workout_fitness_aerobic_load","last_workout_fitness_high_intensity_load",
       "last_workout_strength_sets","last_workout_estimated_1rm","last_workout_strength_progression"
     ];
     const running = this._profile?.latest_workout?.sport === "running";
     const runPace = running ? _fitnessRunPace(this._profile, this._hass) : null;
-    const workoutState = e.last_workout ? this._hass.states[e.last_workout] : null;
-    const workoutName = workoutState && !["unknown","unavailable"].includes(workoutState.state)
-      ? workoutState.state : null;
-    const itemList = keys.map((key) => ({key, id:e[key]})).filter((item) => item.id).map(({key,id}) => {
-      const state = this._hass.states[id];
-      if (!state || ["unknown","unavailable"].includes(state.state)) return "";
-      const numeric = Number(state.state);
-      if (zeroIsMissing.has(key) && Number.isFinite(numeric) && Math.abs(numeric) < 1e-12) return "";
+    const workoutMetric = _fitnessWorkoutSourceMetric(this._profile, this._hass, "last_workout", 0);
+    const workoutName = workoutMetric?.value || this._profile?.latest_workout?.name || null;
+
+    const itemList = [];
+    for (const key of sourceKeys) {
+      const metric = _fitnessWorkoutSourceMetric(this._profile, this._hass, key);
+      if (!metric || metric.value === null || metric.value === undefined || metric.value === "") continue;
+      const numeric = Number(metric.canonicalValue ?? metric.value);
+      if (zeroIsMissing.has(key) && Number.isFinite(numeric) && Math.abs(numeric) < 1e-12) continue;
       if (running && key === "last_workout_average_speed") {
-        return runPace
-          ? `<div class="hi entity-link" data-more-info="${_fitnessEscape(id)}"><span>${_fitnessEscape(l.pace || "Pace")}</span><strong>${_fitnessEscape(runPace)}</strong></div>`
-          : "";
+        if (runPace) itemList.push(`<div class="hi entity-link" data-more-info="${_fitnessEscape(metric.entityId || "")}"><span>${_fitnessEscape(l.pace || "Pace")}</span><strong>${_fitnessEscape(runPace)}</strong></div>`);
+        continue;
       }
-      return `<div class="hi entity-link" data-more-info="${_fitnessEscape(id)}"><span>${_fitnessEscape(entityName(this._hass,id))}</span><strong>${_fitnessEscape(_fitnessDisplay(state,1))}</strong></div>`;
-    }).filter(Boolean);
-    if (running && runPace && !e.last_workout_average_speed) {
-      const paceInfoEntity = e.last_workout_distance || e.last_workout_duration || e.last_workout || "";
-      itemList.splice(Math.min(2, itemList.length), 0,
-        `<div class="hi entity-link" data-more-info="${_fitnessEscape(paceInfoEntity)}"><span>${_fitnessEscape(l.pace || "Pace")}</span><strong>${_fitnessEscape(runPace)}</strong></div>`);
+      const label = _fitnessWorkoutSourceLabel(this._profile, this._hass, key, metric);
+      itemList.push(`<div class="hi entity-link" data-more-info="${_fitnessEscape(metric.entityId || "")}"><span>${_fitnessEscape(label)}</span><strong>${_fitnessEscape(metric.display)}</strong></div>`);
     }
+
+    const rpeId = e.session_rpe;
+    const rpeState = rpeId ? this._hass.states[rpeId] : null;
+    if (rpeState && !["unknown","unavailable"].includes(String(rpeState.state).toLowerCase())) {
+      itemList.push(`<div class="hi entity-link" data-more-info="${_fitnessEscape(rpeId)}"><span>${_fitnessEscape(entityName(this._hass,rpeId))}</span><strong>${_fitnessEscape(_fitnessDisplay(rpeState,0))}</strong></div>`);
+    }
+
+    for (const key of fitnessKeys) {
+      const id = e[key];
+      const state = id ? this._hass.states[id] : null;
+      if (!state || ["unknown","unavailable"].includes(String(state.state).toLowerCase())) continue;
+      const numeric = Number(state.state);
+      if (zeroIsMissing.has(key) && Number.isFinite(numeric) && Math.abs(numeric) < 1e-12) continue;
+      itemList.push(`<div class="hi entity-link" data-more-info="${_fitnessEscape(id)}"><span>${_fitnessEscape(entityName(this._hass,id))}</span><strong>${_fitnessEscape(_fitnessDisplay(state,1))}</strong></div>`);
+    }
+
     const items = itemList.join("");
     if (!workoutName && !items) {
       this.shadowRoot.innerHTML = "";
       return;
     }
     this.shadowRoot.innerHTML = `<ha-card>
-      ${workoutName ? `<div class="workout-name entity-link" data-more-info="${_fitnessEscape(e.last_workout || "")}">${_fitnessEscape(workoutName)}</div>` : ""}
+      ${workoutName ? `<div class="workout-name entity-link" data-more-info="${_fitnessEscape(workoutMetric?.entityId || "")}">${_fitnessEscape(workoutName)}</div>` : ""}
       ${items ? `<div class="hi-grid">${items}</div>` : ""}
     </ha-card><style>
       ha-card{padding:18px;min-width:0;overflow:hidden}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}
@@ -2186,7 +2267,7 @@ class FitnessLiveWorkoutCard extends FitnessAutoProfileCard {
 
 class FitnessWorkoutRpeCard extends FitnessAutoProfileCard {
   _relevantEntityKeys() {
-    return ["session_rpe","last_workout","last_workout_rpe","last_workout_session_rpe_load","last_workout_rpe_load_vs_baseline"];
+    return ["session_rpe","last_workout_session_rpe_load","last_workout_rpe_load_vs_baseline"];
   }
 
   _render() {
@@ -2194,10 +2275,8 @@ class FitnessWorkoutRpeCard extends FitnessAutoProfileCard {
     const e = this._profile.entities || {};
     const l = this._profile.labels || {};
     const rpeId = e.session_rpe;
-    const workoutId = e.last_workout;
-    const workout = workoutId ? this._hass.states[workoutId] : null;
     const rpeState = rpeId ? this._hass.states[rpeId] : null;
-    if (!rpeId || !rpeState || !workout || workout.state === "unavailable") {
+    if (!rpeId || !rpeState || !this._profile?.latest_workout?.available) {
       this.shadowRoot.innerHTML = "";
       return;
     }
@@ -2247,31 +2326,26 @@ class FitnessWorkoutRpeCard extends FitnessAutoProfileCard {
 class FitnessWorkoutCard extends FitnessCompositeCard {
   _relevantEntityKeys() {
     return [
-      "last_workout","last_workout_distance","last_workout_duration",
-      "last_workout_moving_time","last_workout_average_speed",
-      "last_workout_avg_hr","last_workout_max_hr","last_workout_hrr_60s",
-      "last_workout_avg_power","last_workout_weighted_power",
-      "last_workout_avg_cadence","last_workout_elevation_gain",
-      "last_workout_calories","last_workout_banister_trimp",
+      "last_workout_hrr_60s","last_workout_banister_trimp",
       "last_workout_aerobic_efficiency","last_workout_aerobic_decoupling",
-      "last_workout_training_load","last_workout_vo2max",
       "last_workout_efficiency_vs_baseline","last_workout_decoupling_vs_baseline",
       "last_workout_hr_vs_baseline","last_workout_power_vs_baseline",
       "last_workout_speed_vs_baseline","last_workout_trimp_vs_recent",
-      "session_rpe","last_workout_rpe","last_workout_session_rpe_load","last_workout_rpe_load_vs_baseline",
+      "session_rpe","last_workout_session_rpe_load","last_workout_rpe_load_vs_baseline",
       "last_workout_fitness_aerobic_load","last_workout_fitness_high_intensity_load",
       "last_workout_strength_sets","last_workout_estimated_1rm","last_workout_strength_progression",
     ];
   }
 
   _extraSignatureParts() {
-    return (this._profile?.route_candidates || []).map((route) => {
+    const sourceSignature = _fitnessWorkoutSourceSignature(this._profile, this._hass);
+    return [sourceSignature, ...(this._profile?.route_candidates || []).map((route) => {
       const state = this._hass?.states?.[route.entity_id];
       const value = state?.attributes?.[route.attribute];
       let encoded = "";
       try { encoded = JSON.stringify(value); } catch (_err) { encoded = String(value ?? ""); }
       return `route:${route.entity_id}:${route.attribute}:${encoded}`;
-    });
+    })];
   }
 
   _render() {
@@ -2283,7 +2357,7 @@ class FitnessWorkoutCard extends FitnessCompositeCard {
       children.push(this._mount("fitness-route-card", {height: Number(this.config.map_height || 330)}));
     }
     const e = this._profile.entities || {};
-    if (e.session_rpe && e.last_workout) {
+    if (e.session_rpe && this._profile?.latest_workout?.available) {
       children.push(this._mount("fitness-workout-rpe-card"));
     }
     if (["last_workout_efficiency_vs_baseline","last_workout_decoupling_vs_baseline","last_workout_hr_vs_baseline","last_workout_power_vs_baseline","last_workout_speed_vs_baseline","last_workout_trimp_vs_recent"].some(k => e[k])) {

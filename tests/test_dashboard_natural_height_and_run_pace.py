@@ -27,4 +27,4 @@ def test_running_pace_uses_merged_workout_and_distance_time_fallback():
     assert 'last_workout_moving_time' in JS
     assert 'timeMinutes / distanceKm' in JS
     assert '"latest_workout": {' in DASH
-    assert 'workout_sport_kind(manager.latest_workout())' in DASH
+    assert 'workout_sport_kind(latest_workout)' in DASH
