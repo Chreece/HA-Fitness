@@ -1,4 +1,4 @@
-"""ANT discovery must wait for merge-quality identity and stay off the hot path."""
+"""ANT discovery uses RF confirmation while identity remains merge enrichment."""
 
 from pathlib import Path
 
@@ -16,10 +16,14 @@ def test_ant_discovery_has_identity_readiness_gate():
     assert "if not self._sensor_discovery_ready(sensor_id):" in schedule
 
 
-def test_generic_ant_profile_is_not_enough_for_discovery():
+def test_rf_confirmed_semantic_ant_profile_can_discover_before_background_identity():
     block = RUNTIME.split("def _sensor_discovery_ready", 1)[1].split(
         "def _schedule_sensor_discovery", 1
     )[0]
+    assert 'ant.metadata.get("rf_identity_confirmed")' in block
+    assert "and sensor.capabilities" in block
+    # Legacy/raw paths remain conservative when they did not pass the semantic
+    # receiver confirmation contract.
     assert "manufacturer_id" in block
     assert "model_no" in block
     assert "catalog_product_id" in block

@@ -410,7 +410,15 @@ class BluetoothFitnessProvider:
             return
         if endpoint.metadata.get("identity_source") == "gatt_device_information":
             return
-        if not bool(endpoint.metadata.get("connectable", False)):
+        # `BluetoothServiceInfoBleak.connectable` describes the scanner/path that
+        # delivered an advertisement, not whether *any* Home Assistant Bluetooth
+        # controller can connect to this address. A Forerunner may therefore be
+        # observed by a passive/non-connectable proxy while a local adapter or a
+        # different proxy has a connectable route. HA explicitly recommends
+        # resolving a connectable BLEDevice for this decision.
+        if bluetooth.async_ble_device_from_address(
+            self.hass, endpoint.address, connectable=True
+        ) is None:
             return
         existing = self._identity_probe_tasks.get(sensor_id)
         if existing is not None and not existing.done():
@@ -572,6 +580,7 @@ class BluetoothFitnessProvider:
         metadata = dict(endpoint.metadata)
         details: dict[str, object] = {}
         detail_meta: dict[str, dict] = {}
+        identity_fields_found = False
         char_map = (
             (CHAR_MANUFACTURER_NAME, "manufacturer", "Manufacturer"),
             (CHAR_MODEL_NUMBER, "model", "Model"),
@@ -589,6 +598,7 @@ class BluetoothFitnessProvider:
             if value:
                 metadata[key] = value
                 details[key] = value
+                identity_fields_found = True
                 detail_meta[key] = {
                     "name": label, "icon": "mdi:information-outline",
                     "enabled_default": False, "entity_category": "diagnostic",
@@ -605,6 +615,7 @@ class BluetoothFitnessProvider:
                 continue
             details[key] = raw.hex()
             metadata[key] = raw.hex()
+            identity_fields_found = True
             detail_meta[key] = {
                 "name": label, "icon": "mdi:identifier",
                 "enabled_default": False, "entity_category": "diagnostic",
@@ -634,7 +645,12 @@ class BluetoothFitnessProvider:
                         "entity_category": "diagnostic",
                     }
 
-        metadata["identity_source"] = "gatt_device_information"
+        # Only mark identity enrichment complete if Device Information actually
+        # yielded identity facts. Some HR peripherals accept a GATT connection
+        # but expose only Heart Rate/Battery; marking those complete would prevent
+        # a later retry if a different connectable route exposes DIS.
+        if identity_fields_found:
+            metadata["identity_source"] = "gatt_device_information"
         # Record actual discovered GATT surface after connection. This is useful
         # diagnostics and the basis for safe future control entities.
         try:

@@ -1,4 +1,4 @@
-const FITNESS_DASHBOARD_VERSION = "2026.8.11.10";
+const FITNESS_DASHBOARD_VERSION = "2026.8.11.11";
 
 
 const FITNESS_READINESS_TEXT = {
@@ -1654,9 +1654,20 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
     const progressMin = 50;
     const progressMax = Math.max(130, Math.ceil((pctPred ?? 100) / 10) * 10);
     const bar = pctPred == null ? 0 : Math.max(0, Math.min(100, ((pctPred - progressMin) / (progressMax - progressMin)) * 100));
+    const predictedMarker = Math.max(0, Math.min(100, ((100 - progressMin) / (progressMax - progressMin)) * 100));
     const vo2Tone = _fitnessVo2Tone(pctPred);
     const rawSeries = Array.isArray(_fitnessAttr(trend, "daily_series")) ? _fitnessAttr(trend, "daily_series") : [];
-    const series = rawSeries.map(x => ({v:_fitnessNumber(x?.value), d:String(x?.start || "")})).filter(x => x.v != null).slice(-90);
+    // VO2 history is sparse by nature. Keep only real positive measurements
+    // with a usable timestamp, and position them on the chart by actual time
+    // rather than by array index. Missing days therefore remain genuine gaps.
+    const series = rawSeries.map((x) => {
+      const v = _fitnessNumber(x?.value);
+      const d = String(x?.start || x?.date || "");
+      const t = Date.parse(d);
+      return {v, d, t};
+    }).filter((x) => x.v != null && x.v > 0 && Number.isFinite(x.t))
+      .sort((a,b) => a.t - b.t)
+      .slice(-90);
     if ([current, mean28, mean90, slope, pctPred].every(value => value == null) && !series.length) { this.shadowRoot.innerHTML = ""; return; }
 
     const metricCards = [
@@ -1667,31 +1678,48 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
     ].filter(Boolean).join("");
 
     let history = "";
+    this._vo2HistoryPoints = [];
+    this._vo2HistoryPredicted = predictedAbsolute;
     if (series.length >= 5) {
       const n = series.length;
-      const xs = series.map((_x,i)=>i);
-      const meanX = (n-1)/2;
+      const startT = series[0].t;
+      const endT = series[n-1].t;
+      const timeSpan = Math.max(endT - startT, 1);
+      const xs = series.map((x)=>(x.t-startT)/86400000);
+      const meanX = xs.reduce((sum,x)=>sum+x,0)/n;
       const meanY = series.reduce((sum,x)=>sum+x.v,0)/n;
       const denom = xs.reduce((sum,x)=>sum+((x-meanX)**2),0) || 1;
-      const regSlope = series.reduce((sum,x,i)=>sum+((i-meanX)*(x.v-meanY)),0)/denom;
+      const regSlope = series.reduce((sum,x,i)=>sum+((xs[i]-meanX)*(x.v-meanY)),0)/denom;
       const regIntercept = meanY - regSlope*meanX;
-      const trendStart = regIntercept;
-      const trendEnd = regIntercept + regSlope*(n-1);
+      const trendStart = regIntercept + regSlope*xs[0];
+      const trendEnd = regIntercept + regSlope*xs[n-1];
       const allVals = [...series.map(x=>x.v), trendStart, trendEnd, ...(predictedAbsolute == null ? [] : [predictedAbsolute])];
       let lo = Math.min(...allVals), hi = Math.max(...allVals);
       const pad = Math.max((hi-lo)*0.12, 0.5); lo -= pad; hi += pad;
       const span = Math.max(hi-lo, 0.1);
       const y = value => 34-((value-lo)/span)*28;
-      const actualPts = series.map((x,i)=>`${(i/(n-1)*100).toFixed(2)},${y(x.v).toFixed(2)}`).join(" ");
+      const xPos = t => ((t-startT)/timeSpan)*100;
+      const actualPts = series.map((x)=>`${xPos(x.t).toFixed(2)},${y(x.v).toFixed(2)}`).join(" ");
       const trendPts = `0,${y(trendStart).toFixed(2)} 100,${y(trendEnd).toFixed(2)}`;
       const predictedY = predictedAbsolute == null ? null : y(predictedAbsolute);
-      history = `<div class="history entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || "")}">
-        <div class="history-head"><span>${_fitnessEscape(l.history || "History")}</span><small>${series.length} ${_fitnessEscape(l.days_90 || "days")}</small></div>
-        <svg viewBox="0 0 100 38" preserveAspectRatio="none" aria-label="VO2max history">
-          ${predictedY == null ? "" : `<line class="predicted-line" x1="0" y1="${predictedY.toFixed(2)}" x2="100" y2="${predictedY.toFixed(2)}"></line>`}
-          <polyline class="actual-line" points="${actualPts}"></polyline>
-          <polyline class="trend-line" points="${trendPts}"></polyline>
-        </svg>
+      this._vo2HistoryPoints = series.map((x,i) => ({
+        x:xPos(x.t), y:y(x.v), v:x.v, d:x.d, t:x.t,
+        trend:regIntercept + regSlope*xs[i],
+      }));
+      history = `<div class="history">
+        <div class="history-head"><span>${_fitnessEscape(l.history || "History")}</span><small>${series.length} measurements</small></div>
+        <div class="history-plot">
+          <svg class="vo2-history-svg entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || "")}" viewBox="0 0 100 38" preserveAspectRatio="none" aria-label="VO2max history">
+            ${predictedY == null ? "" : `<line class="predicted-line" x1="0" y1="${predictedY.toFixed(2)}" x2="100" y2="${predictedY.toFixed(2)}"></line>`}
+            <polyline class="actual-line" points="${actualPts}"></polyline>
+            <polyline class="trend-line" points="${trendPts}"></polyline>
+            <g class="history-cursor" visibility="hidden">
+              <line class="cursor-line" x1="0" y1="4" x2="0" y2="36"></line>
+              <circle class="cursor-dot" cx="0" cy="0" r="1.7"></circle>
+            </g>
+          </svg>
+          <div class="history-tooltip" hidden></div>
+        </div>
         <div class="history-legend">
           <span class="entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || "")}"><i class="actual-dot"></i>Actual</span>
           <span class="entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || "")}"><i class="trend-dot"></i>Trend</span>
@@ -1704,11 +1732,56 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
     this.shadowRoot.innerHTML = `<ha-card style="--vo2-tone:${vo2Tone}">
       <div class="head"><div><div class="title">${_fitnessEscape(this.config.title || l.progress_snapshot || "Fitness progress")}</div><div class="sub">${_fitnessEscape(status)}</div></div><div class="trend entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || "")}">${arrow}${slope == null ? "" : ` ${slope > 0 ? "+" : ""}${slope.toFixed(2)}%`}</div></div>
       <div class="hero entity-link" data-more-info="${_fitnessEscape(currentSource?.moreInfoEntityId || e.cardiorespiratory_fitness_trend || "")}"><strong>${current == null ? "—" : current.toFixed(1)}</strong><span>mL/kg/min</span><small>${_fitnessEscape(l.current_vo2max || "Current VO₂max")}</small></div>
-      <div class="progress entity-link" data-more-info="${_fitnessEscape(e.vo2max_percent_predicted || "")}"><div style="width:${bar}%"></div></div>
+      <div class="progress entity-link" data-more-info="${_fitnessEscape(e.vo2max_percent_predicted || "")}">
+        <i class="vo2-reference" style="left:${predictedMarker}%" title="100% predicted"></i>
+        ${pctPred == null ? "" : `<i class="vo2-marker" style="left:${bar}%" title="${pctPred.toFixed(1)}% of predicted"></i>`}
+      </div>
       <div class="progress-values entity-link" data-more-info="${_fitnessEscape(e.vo2max_percent_predicted || "")}"><span>${progressMin}%</span><b>${pctPred == null ? "—" : `${pctPred.toFixed(1)}%`}</b><span>${progressMax}%</span></div>
       ${history}
       ${metricCards ? `<div class="metrics">${metricCards}</div>` : ""}
     </ha-card>${this._style()}`;
+    this._bindVo2History();
+  }
+  _bindVo2History() {
+    const svg = this.shadowRoot?.querySelector(".vo2-history-svg");
+    const cursor = this.shadowRoot?.querySelector(".history-cursor");
+    const cursorLine = this.shadowRoot?.querySelector(".cursor-line");
+    const cursorDot = this.shadowRoot?.querySelector(".cursor-dot");
+    const tooltip = this.shadowRoot?.querySelector(".history-tooltip");
+    const points = Array.isArray(this._vo2HistoryPoints) ? this._vo2HistoryPoints : [];
+    if (!svg || !cursor || !cursorLine || !cursorDot || !tooltip || !points.length) return;
+    const move = (event) => {
+      const rect = svg.getBoundingClientRect();
+      if (!rect.width) return;
+      const x = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
+      let point = points[0];
+      for (const candidate of points) {
+        if (Math.abs(candidate.x - x) < Math.abs(point.x - x)) point = candidate;
+      }
+      cursor.setAttribute("visibility", "visible");
+      cursorLine.setAttribute("x1", point.x.toFixed(2));
+      cursorLine.setAttribute("x2", point.x.toFixed(2));
+      cursorDot.setAttribute("cx", point.x.toFixed(2));
+      cursorDot.setAttribute("cy", point.y.toFixed(2));
+      const language = this._hass?.language || undefined;
+      const date = new Intl.DateTimeFormat(language, {year:"numeric",month:"short",day:"numeric"}).format(new Date(point.t));
+      const bits = [`<strong>${point.v.toFixed(1)} mL/kg/min</strong>`, `<span>${_fitnessEscape(date)}</span>`];
+      if (point.trend != null) bits.push(`<small>Trend ${point.trend.toFixed(1)}</small>`);
+      if (this._vo2HistoryPredicted != null) bits.push(`<small>Predicted ${this._vo2HistoryPredicted.toFixed(1)}</small>`);
+      tooltip.innerHTML = bits.join("");
+      tooltip.hidden = false;
+      const tooltipWidth = 154;
+      const pixelX = (point.x / 100) * rect.width;
+      tooltip.style.left = `${Math.max(4, Math.min(rect.width - tooltipWidth - 4, pixelX + 9))}px`;
+      tooltip.style.top = `${Math.max(2, (point.y / 38) * rect.height - 48)}px`;
+    };
+    const hide = () => {
+      cursor.setAttribute("visibility", "hidden");
+      tooltip.hidden = true;
+    };
+    svg.addEventListener("pointermove", move);
+    svg.addEventListener("pointerdown", move);
+    svg.addEventListener("pointerleave", hide);
   }
   _metric(label, value, unit, signed=false, entityId="") {
     if (value == null) return "";
@@ -1719,8 +1792,8 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
     return `<style>
       ha-card{padding:18px}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.head{display:flex;justify-content:space-between;align-items:flex-start}.title{font-size:19px;font-weight:650}.sub{font-size:12px;color:var(--secondary-text-color);margin-top:3px}.trend{font-size:16px;font-weight:700;color:var(--vo2-tone)}
       .hero{display:grid;grid-template-columns:auto auto 1fr;align-items:end;gap:6px;margin:20px 0 10px}.hero strong{font-size:40px;line-height:1;color:var(--vo2-tone)}.hero span{font-size:12px;color:var(--secondary-text-color);padding-bottom:4px}.hero small{text-align:right;color:var(--secondary-text-color)}
-      .progress{height:10px;background:linear-gradient(90deg,#c62828 0%,#ef6c00 27%,#f9a825 45%,#7cb342 62%,#2e7d32 78%,#2e7d32 100%);border-radius:999px;overflow:hidden;position:relative}.progress div{height:100%;background:color-mix(in srgb,var(--vo2-tone) 75%,transparent);border-right:3px solid var(--vo2-tone);box-sizing:border-box}.progress-values{display:grid;grid-template-columns:1fr auto 1fr;margin-top:5px;font-size:9px;color:var(--secondary-text-color)}.progress-values span:last-child{text-align:right}.progress-values b{color:var(--vo2-tone);font-weight:700}.history-values{display:flex;justify-content:space-between;gap:10px;margin-top:3px;font-size:9px;color:var(--secondary-text-color)}.history-values b{color:var(--primary-text-color);font-weight:650}
-      .history{margin-top:16px;padding:10px 12px;border-radius:12px;background:var(--secondary-background-color)}.history-head{display:flex;justify-content:space-between;color:var(--secondary-text-color);font-size:11px}.history svg{width:100%;height:88px;margin-top:7px;overflow:visible}.actual-line{fill:none;stroke:var(--primary-color);stroke-width:1.8;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}.trend-line{fill:none;stroke:var(--vo2-tone);stroke-width:1.5;stroke-dasharray:5 3;vector-effect:non-scaling-stroke}.predicted-line{stroke:var(--secondary-text-color);stroke-width:1.2;stroke-dasharray:2.5 2.5;vector-effect:non-scaling-stroke;opacity:.8}.history-legend{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:3px;font-size:9px;color:var(--secondary-text-color)}.history-legend span{display:flex;align-items:center;gap:5px}.history-legend i{width:13px;height:3px;border-radius:3px}.actual-dot{background:var(--primary-color)}.trend-dot{background:var(--vo2-tone)}.predicted-dot{background:var(--secondary-text-color)}
+      .progress{height:10px;background:linear-gradient(90deg,#c62828 0%,#ef6c00 27%,#f9a825 45%,#7cb342 62%,#2e7d32 78%,#2e7d32 100%);border-radius:999px;overflow:visible;position:relative}.vo2-reference{position:absolute;top:-3px;width:2px;height:16px;border-radius:2px;background:var(--primary-text-color);opacity:.55;transform:translateX(-1px)}.vo2-reference:after{content:"";position:absolute;top:-2px;left:50%;width:5px;height:5px;border-radius:50%;background:var(--primary-text-color);transform:translate(-50%,-50%)}.vo2-marker{position:absolute;top:-5px;width:3px;height:20px;border-radius:2px;background:var(--vo2-tone);box-shadow:0 0 0 1px var(--card-background-color),0 0 5px color-mix(in srgb,var(--vo2-tone) 60%,transparent);transform:translateX(-1.5px);z-index:2}.vo2-marker:after{content:"";position:absolute;top:-1px;left:50%;width:8px;height:8px;border-radius:50%;background:var(--vo2-tone);border:2px solid var(--card-background-color);transform:translate(-50%,-50%)}.progress-values{display:grid;grid-template-columns:1fr auto 1fr;margin-top:5px;font-size:9px;color:var(--secondary-text-color)}.progress-values span:last-child{text-align:right}.progress-values b{color:var(--vo2-tone);font-weight:700}.history-values{display:flex;justify-content:space-between;gap:10px;margin-top:3px;font-size:9px;color:var(--secondary-text-color)}.history-values b{color:var(--primary-text-color);font-weight:650}
+      .history{margin-top:16px;padding:10px 12px;border-radius:12px;background:var(--secondary-background-color)}.history-head{display:flex;justify-content:space-between;color:var(--secondary-text-color);font-size:11px}.history-plot{position:relative;margin-top:7px;min-width:0}.history svg{width:100%;height:88px;display:block;overflow:visible;touch-action:none}.actual-line{fill:none;stroke:var(--primary-color);stroke-width:1.8;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}.trend-line{fill:none;stroke:var(--vo2-tone);stroke-width:1.5;stroke-dasharray:5 3;vector-effect:non-scaling-stroke}.predicted-line{stroke:var(--secondary-text-color);stroke-width:1.2;stroke-dasharray:2.5 2.5;vector-effect:non-scaling-stroke;opacity:.8}.cursor-line{stroke:var(--primary-text-color);stroke-width:1;stroke-dasharray:2 2;opacity:.7;vector-effect:non-scaling-stroke}.cursor-dot{fill:var(--primary-color);stroke:var(--card-background-color);stroke-width:1;vector-effect:non-scaling-stroke}.history-tooltip{position:absolute;z-index:3;min-width:132px;max-width:154px;padding:6px 8px;border-radius:9px;background:color-mix(in srgb,var(--card-background-color) 94%,black 6%);box-shadow:0 3px 12px rgba(0,0,0,.28);pointer-events:none;font-size:9px;line-height:1.3}.history-tooltip strong,.history-tooltip span,.history-tooltip small{display:block}.history-tooltip strong{font-size:11px;color:var(--primary-text-color)}.history-tooltip span{color:var(--secondary-text-color);margin-top:1px}.history-tooltip small{color:var(--secondary-text-color);margin-top:2px}.history-legend{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:3px;font-size:9px;color:var(--secondary-text-color)}.history-legend span{display:flex;align-items:center;gap:5px}.history-legend i{width:13px;height:3px;border-radius:3px}.actual-dot{background:var(--primary-color)}.trend-dot{background:var(--vo2-tone)}.predicted-dot{background:var(--secondary-text-color)}
       .metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}.metric{padding:10px 12px;border-radius:12px;background:var(--secondary-background-color)}.metric span{display:block;color:var(--secondary-text-color);font-size:11px;margin-bottom:3px}.metric strong{font-size:14px}.empty{padding:6px}.empty small{display:block;color:var(--secondary-text-color);margin-top:8px}
     </style>`;
   }
@@ -1819,7 +1892,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
         : "#c62828";
       return `<div class="component entity-link" data-more-info="${_fitnessEscape(e.readiness || "")}" style="--component-tone:${componentTone}">
         <ha-icon icon="${icon}"></ha-icon>
-        <span>${_fitnessEscape(label)}</span>
+        <span title="${_fitnessEscape(label)}">${_fitnessEscape(label)}</span>
         <strong>${value.toFixed(0)}</strong>
         <div><i style="width:${Math.max(0, Math.min(100, value))}%"></i></div>
       </div>`;
@@ -1852,7 +1925,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
 
     const hrvVs = _fitnessNumber(_fitnessAttr(autonomic, "sleep_hrv_latest_vs_28d_percent"));
     const hrvSource = _fitnessSleepSourceMetric(this._profile, this._hass, "last_sleep_hrv", 1);
-    const hrvLatest = hrvSource?.canonicalValue ?? null;
+    const hrvLatest = hrvSource?.canonicalValue ?? _fitnessNumber(_fitnessAttr(autonomic, "sleep_hrv_latest_ms")) ?? null;
     const hrvBaseline = _fitnessNumber(_fitnessAttr(autonomic, "sleep_hrv_28d_mean_ms"));
     const hrvBaselineNights = _fitnessNumber(_fitnessAttr(autonomic, "sleep_hrv_baseline_nights"));
     const rhrVs = _fitnessNumber(_fitnessAttr(autonomic, "resting_hr_vs_28d_bpm"));
@@ -1934,12 +2007,12 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
         </div>
 
         ${signalRows ? `<div class="signal-head">${_fitnessEscape(l.recovery_signals_label || "Recovery signals")}</div><div class="signals">${signalRows}</div>` : ""}
-        ${hrvBaselineBar}
         <div class="physio-note">${_fitnessEscape(l.physio_note || "Available physiological markers may recover at different rates.")}</div>
         </div>` : ""}
       </section>
 
       ${componentRows ? `<div class="components entity-link" data-more-info="${_fitnessEscape(e.readiness || "")}">${componentRows}</div>` : ""}
+      ${hrvBaselineBar}
 
       <div class="context">
         ${hrvBaselineBar || hrvVs == null ? "" : `<span class="entity-link" data-more-info="${_fitnessEscape(e.autonomic_recovery_trend || "")}">HRV ${hrvVs > 0 ? "+" : ""}${hrvVs.toFixed(1)}% ${_fitnessEscape(rtext.vs28)}</span>`}
@@ -2023,7 +2096,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
         column-gap:7px;padding:9px 10px;border-radius:12px;background:var(--secondary-background-color);min-width:0
       }
       .component ha-icon{--mdc-icon-size:18px;color:var(--component-tone)}
-      .component span{font-size:10px;color:var(--secondary-text-color);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .component span{font-size:10px;line-height:1.2;color:var(--secondary-text-color);min-width:0;white-space:normal;overflow-wrap:anywhere}
       .component strong{font-size:13px}
       .component>div{grid-column:2/4;height:4px;border-radius:999px;background:var(--divider-color);overflow:hidden;margin-top:5px}
       .component i{display:block;height:100%;border-radius:999px;background:var(--component-tone)}

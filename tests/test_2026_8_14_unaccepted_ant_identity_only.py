@@ -15,11 +15,14 @@ def test_receiver_has_per_device_telemetry_gate():
     assert "self._telemetry_enabled_devices: frozenset[int] = frozenset()" in init
 
 
-def test_unaccepted_device_skips_decode_packet():
+def test_unaccepted_device_only_gets_one_bounded_new_profile_decode():
     block = RECEIVER.split("telemetry_enabled =", 1)[1].split(
         "# FE-C command status", 1
     )[0]
-    assert "if telemetry_enabled:" in block
+    assert "discovery_decode_enabled" in block
+    assert "new_profile" in block
+    assert "SEMANTIC_DISCOVERY_PROFILE_TYPES" in block
+    assert "if telemetry_enabled or discovery_decode_enabled:" in block
     assert "decode_packet(device, device_type, payload)" in block
     assert "decoded_metrics = []" in block
     assert "telemetry_decode_suppressed" in block

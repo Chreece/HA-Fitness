@@ -2348,10 +2348,9 @@ class LiveRuntime:
         Bluetooth devices may be offered from a meaningful advertised/catalog
         identity because their address remains tied to the same endpoint.
 
-        ANT+ endpoints deliberately stay provisional while they are only a generic
-        profile such as "Power Meter". Common pages often arrive shortly after the
-        first live metric; waiting prevents a second physical HA device from being
-        accepted before ANT and Bluetooth can be proven to be the same sensor.
+        ANT+ semantic endpoints become offerable after their receiver-side RF
+        confirmation. Background manufacturer/serial pages are enrichment and
+        cross-transport merge evidence, not a prerequisite for basic discovery.
         """
         sensor_id = self.resolve_sensor_id(sensor_id)
         sensor = self.sensors.get(sensor_id)
@@ -2389,8 +2388,16 @@ class LiveRuntime:
         if ant is None:
             return False
 
-        # Unknown ANT devices are offered only after stable common-page identity
-        # exists. Manufacturer + model is sufficient when serial is unavailable.
+        # A supported ANT fitness profile is already protected by the receiver's
+        # profile-aware multi-packet RF confirmation before the endpoint reaches
+        # runtime. Do not make basic discovery wait for slow optional background
+        # identity pages. Manufacturer/serial/model data can arrive later and will
+        # still enrich or cross-transport-merge the physical sensor.
+        if ant.metadata.get("rf_identity_confirmed") and sensor.capabilities:
+            return True
+
+        # Raw/legacy ANT endpoints that did not come through that confirmed
+        # semantic path keep the conservative identity requirement.
         manufacturer_id = ant.metadata.get("manufacturer_id")
         model_no = ant.metadata.get("model_no")
         manufacturer = str(ant.metadata.get("manufacturer") or "").strip()

@@ -529,6 +529,11 @@ class AntPlusFitnessProvider:
         metadata = {
             "device_number": device_id,
             "profiles": profiles,
+            # AntPlusReceiver calls this provider only after the RF channel
+            # identity/profile has survived its profile-aware multi-packet
+            # confirmation guard. Runtime discovery may therefore offer a known
+            # semantic ANT sensor before slow manufacturer/serial pages arrive.
+            "rf_identity_confirmed": True,
             "transmission_types": sorted(getattr(device, "transmission_types", set())),
             "manufacturer": manufacturer,
             "manufacturer_id": getattr(device, "manufacturer_id", None),

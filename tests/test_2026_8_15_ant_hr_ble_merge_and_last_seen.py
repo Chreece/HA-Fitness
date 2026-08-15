@@ -46,3 +46,21 @@ def test_merge_keeps_meaningful_ble_name_while_ant_keeps_canonical_id():
     assert 'secondary.endpoints.get("bluetooth")' in block
     assert 'secondary_bt.metadata.get("advertised_name")' in block
     assert "primary.name = _normalize_name(secondary_bt_name)" in block
+
+
+def test_ble_identity_probe_uses_ha_connectable_route_not_advertisement_flag():
+    schedule = BT.split("def _schedule_identity_probe", 1)[1].split(
+        "async def _async_probe_identity", 1
+    )[0]
+    assert "async_ble_device_from_address(" in schedule
+    assert "connectable=True" in schedule
+    assert 'endpoint.metadata.get("connectable"' not in schedule
+
+
+def test_empty_gatt_probe_does_not_permanently_mark_identity_complete():
+    enrich = BT.split("async def _async_enrich_identity", 1)[1].split(
+        "async def _subscribe", 1
+    )[0]
+    assert "identity_fields_found = False" in enrich
+    assert "if identity_fields_found:" in enrich
+    assert 'metadata["identity_source"] = "gatt_device_information"' in enrich

@@ -85,8 +85,8 @@ def test_hr_baseline_exposes_actual_baseline_and_current_values():
 
 
 def test_frontend_cache_revision_is_current_and_single_module():
-    assert 'const FITNESS_DASHBOARD_VERSION = "2026.8.11.10";' in FRONTEND
-    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.11.10"' in DASHBOARD
+    assert 'const FITNESS_DASHBOARD_VERSION = "2026.8.11.11";' in FRONTEND
+    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.11.11"' in DASHBOARD
 
 
 def test_ant_decoder_backend_diagnostics_have_no_missing_profile_support_module():

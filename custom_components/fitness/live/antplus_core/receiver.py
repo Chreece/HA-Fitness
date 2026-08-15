@@ -20,10 +20,17 @@ from .const import (
     DEVICE_TYPE_FITNESS_EQUIPMENT,
     DEVICE_TYPE_HEART_RATE,
     DEVICE_TYPE_POWER,
+    DEVICE_TYPE_CONTROLS,
+    DEVICE_TYPE_LEV,
+    DEVICE_TYPE_ENVIRONMENT,
+    DEVICE_TYPE_SHIFTING,
+    DEVICE_TYPE_TIRE_PRESSURE,
+    DEVICE_TYPE_DROPPER,
     DEVICE_TYPE_BIKE_SPEED_CADENCE,
     DEVICE_TYPE_BIKE_CADENCE,
     DEVICE_TYPE_BIKE_SPEED,
     DEVICE_TYPE_STRIDE_SPEED,
+    DEVICE_TYPE_CORE_TEMP,
     DEVICE_TYPE_NAMES,
 )
 from .decoder import decode_packet
@@ -38,7 +45,31 @@ SUPPORTED_LOCAL_USB_IDS = {("0FCF", "1008"), ("0FCF", "1009")}
 
 # Wildcard ANT scan mode can occasionally yield malformed/transient extended
 # packets. Do not create a persistent HA device/profile from a single packet.
+#
+# Profiles that Fitness actually decodes semantically are already constrained by
+# a standardized ANT device type and validated extended channel identity, so they
+# can use a shorter confirmation sequence. This matters especially for low-rate
+# profiles such as Environment (commonly 0.5 Hz): a fixed five-packet rule makes
+# a valid sensor feel much slower than a 4 Hz HR/BSC sensor. Unknown/raw-only
+# profiles deliberately retain the more conservative five-packet guard.
 DISCOVERY_CONFIRM_PACKETS = 5
+SEMANTIC_DISCOVERY_CONFIRM_PACKETS = 3
+SEMANTIC_DISCOVERY_PROFILE_TYPES = frozenset({
+    DEVICE_TYPE_POWER,
+    DEVICE_TYPE_CONTROLS,
+    DEVICE_TYPE_FITNESS_EQUIPMENT,
+    DEVICE_TYPE_LEV,
+    DEVICE_TYPE_ENVIRONMENT,
+    DEVICE_TYPE_SHIFTING,
+    DEVICE_TYPE_TIRE_PRESSURE,
+    DEVICE_TYPE_DROPPER,
+    DEVICE_TYPE_HEART_RATE,
+    DEVICE_TYPE_BIKE_SPEED_CADENCE,
+    DEVICE_TYPE_BIKE_CADENCE,
+    DEVICE_TYPE_BIKE_SPEED,
+    DEVICE_TYPE_STRIDE_SPEED,
+    DEVICE_TYPE_CORE_TEMP,
+})
 DISCOVERY_CONFIRM_WINDOW_SECONDS = 10.0
 DISCOVERY_CANDIDATE_TTL_SECONDS = 30.0
 MAX_DISCOVERY_CANDIDATES = 256
@@ -54,18 +85,20 @@ IDLE_ACCEPTED_PACKET_INTERVAL_SECONDS = 0.5
 ANT_LAST_SEEN_CALLBACK_INTERVAL_SECONDS = 60.0
 
 
-# Common Page 80/81 semantics are profile-defined. A known ANT device type is
-# not enough evidence that page numbers 0x50/0x51 carry common identity data.
-# Keep this deliberately conservative and limited to semantic profiles Fitness
-# implements. Recognized/raw-only profiles must never be guessed.
+# Identity pages are profile-specific. Never infer an identity layout merely
+# because a device type is recognized. Power, FE and SDM use ANT common pages
+# 80/81; HRM uses profile pages 2/3; BSC speed/cadence profiles use their own
+# pages 2/3 (manufacturer+serial and version/model respectively). This explicit
+# policy prevents raw telemetry pages from being misread as device identity.
 COMMON_IDENTITY_PAGE_PROFILES = frozenset({
     DEVICE_TYPE_POWER,
     DEVICE_TYPE_FITNESS_EQUIPMENT,
-    DEVICE_TYPE_HEART_RATE,
+    DEVICE_TYPE_STRIDE_SPEED,
+})
+BSC_IDENTITY_PAGE_PROFILES = frozenset({
     DEVICE_TYPE_BIKE_SPEED_CADENCE,
     DEVICE_TYPE_BIKE_CADENCE,
     DEVICE_TYPE_BIKE_SPEED,
-    DEVICE_TYPE_STRIDE_SPEED,
 })
 IDENTITY_CONFIRM_OBSERVATIONS = 2
 
@@ -73,6 +106,28 @@ DeviceCallback = Callable[[AntDevice], None]
 MetricCallback = Callable[[AntDevice, str], None]
 StateCallback = Callable[[], None]
 PacketCallback = Callable[[AntDevice, int, int, bytes, str], None]
+
+
+def _discovery_confirmation_packets(device_type: int) -> int:
+    """Return the RF confirmation count for one ANT profile."""
+    return (
+        SEMANTIC_DISCOVERY_CONFIRM_PACKETS
+        if int(device_type) in SEMANTIC_DISCOVERY_PROFILE_TYPES
+        else DISCOVERY_CONFIRM_PACKETS
+    )
+
+
+def _is_identity_page(device_type: int, page: int) -> bool:
+    """Return whether ``page`` has a proven identity layout for this profile."""
+    device_type = int(device_type)
+    page = int(page) & 0x7F
+    if device_type in COMMON_IDENTITY_PAGE_PROFILES:
+        return page in (0x50, 0x51)
+    if device_type == DEVICE_TYPE_HEART_RATE:
+        return page in (2, 3)
+    if device_type in BSC_IDENTITY_PAGE_PROFILES:
+        return page in (2, 3)
+    return False
 
 
 class AntPlusReceiver:
@@ -479,6 +534,7 @@ class AntPlusReceiver:
         self._expire_discovery_candidates(now_ts)
 
         key = (device_id, device_type, transmission_type)
+        required_packets = _discovery_confirmation_packets(device_type)
         candidate = self._discovery_candidates.get(key)
 
         if candidate is None:
@@ -503,7 +559,7 @@ class AntPlusReceiver:
                 device_id,
                 device_type,
                 transmission_type,
-                DISCOVERY_CONFIRM_PACKETS,
+                required_packets,
             )
             return False
 
@@ -527,14 +583,14 @@ class AntPlusReceiver:
         candidate.setdefault("sources", set()).add(source)
 
         count = int(candidate["count"])
-        if count < DISCOVERY_CONFIRM_PACKETS:
+        if count < required_packets:
             _LOGGER.debug(
                 "ANT+ discovery candidate %s type %s tx %s: %s/%s",
                 device_id,
                 device_type,
                 transmission_type,
                 count,
-                DISCOVERY_CONFIRM_PACKETS,
+                required_packets,
             )
             return False
 
@@ -672,13 +728,7 @@ class AntPlusReceiver:
                 live_telemetry_enabled or device_id in self._accepted_devices
             )
             page = int(payload[0]) & 0x7F
-            identity_page = (
-                device_type in COMMON_IDENTITY_PAGE_PROFILES
-                and page in (0x50, 0x51)
-            ) or (
-                device_type == DEVICE_TYPE_HEART_RATE
-                and page in (2, 3)
-            )
+            identity_page = _is_identity_page(device_type, page)
             if not telemetry_enabled and not new_profile and not identity_page:
                 self.diagnostics.inc("provisional_packets_ignored")
                 return
@@ -707,7 +757,17 @@ class AntPlusReceiver:
 
             changed_metrics: list[str] = []
 
-            if telemetry_enabled:
+            # Decode exactly the packet that promotes a supported semantic
+            # profile, even before the user accepts the sensor. This is bounded
+            # control-plane work (once per newly confirmed profile) and lets
+            # profiles whose capabilities are only visible in their payload
+            # advertise what they can provide without opening the telemetry hot
+            # path for provisional sensors.
+            discovery_decode_enabled = (
+                new_profile
+                and int(device_type) in SEMANTIC_DISCOVERY_PROFILE_TYPES
+            )
+            if telemetry_enabled or discovery_decode_enabled:
                 decode_started = time.perf_counter()
                 decoded_metrics = decode_packet(device, device_type, payload)
                 decode_elapsed = time.perf_counter() - decode_started
@@ -867,6 +927,33 @@ class AntPlusReceiver:
             if serial_no != 0xFFFFFFFF:
                 candidate["serial_no"] = serial_no
 
+        # Bicycle speed/cadence individual-profile background pages use a
+        # profile-specific identity layout, not ANT Common Pages 80/81. The same
+        # layout is accepted for combined BSC devices when they actually emit
+        # these standardized background pages.
+        elif device_type in BSC_IDENTITY_PAGE_PROFILES and page == 2:
+            manufacturer_id = data[1]
+            serial_no = data[2] | (data[3] << 8)
+            if manufacturer_id != 0xFF:
+                candidate["manufacturer_id"] = manufacturer_id
+                candidate["manufacturer_name"] = (
+                    catalog_manufacturer_name("antplus", manufacturer_id)
+                    or f"ANT manufacturer {manufacturer_id}"
+                )
+            if serial_no != 0xFFFF:
+                candidate["serial_no"] = serial_no
+
+        elif device_type in BSC_IDENTITY_PAGE_PROFILES and page == 3:
+            hardware_rev = data[1]
+            software_rev = data[2]
+            model_no = data[3]
+            if hardware_rev != 0xFF:
+                candidate["hardware_rev"] = hardware_rev
+            if software_rev != 0xFF:
+                candidate["software_ver"] = str(software_rev)
+            if model_no != 0xFF:
+                candidate["model_no"] = model_no
+
         # HRM identification is part of profile pages 2/3 rather than inferred
         # from generic common-page numbers.
         elif device_type == DEVICE_TYPE_HEART_RATE and page == 2:
@@ -914,7 +1001,22 @@ class AntPlusReceiver:
         previous = self._identity_candidates.get(key)
         count = previous[1] + 1 if previous and previous[0] == signature else 1
         self._identity_candidates[key] = (signature, count)
-        if count < IDENTITY_CONFIRM_OBSERVATIONS:
+        # RF identity has already survived the profile-aware multi-packet guard.
+        # Serial-bearing identity pages are therefore safe to accept on their
+        # first valid observation; waiting for a second slow background cycle only
+        # delays cross-transport merge. Non-serial product/version pages retain
+        # the repeated-evidence guard.
+        serial_identity_page = (
+            int(device_type) == DEVICE_TYPE_HEART_RATE and page == 2
+        ) or (
+            int(device_type) in BSC_IDENTITY_PAGE_PROFILES and page == 2
+        ) or (
+            int(device_type) in COMMON_IDENTITY_PAGE_PROFILES and page == 0x51
+        )
+        required_observations = (
+            1 if serial_identity_page else IDENTITY_CONFIRM_OBSERVATIONS
+        )
+        if count < required_observations:
             return False
 
         changed = False

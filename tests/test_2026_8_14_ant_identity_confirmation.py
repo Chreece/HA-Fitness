@@ -20,17 +20,27 @@ def test_provisional_gate_uses_same_profile_qualified_identity_rule():
     process = RECEIVER.split("def process_packet", 1)[1].split(
         "device.transmission_types.add", 1
     )[0]
-    assert "device_type in COMMON_IDENTITY_PAGE_PROFILES" in process
-    assert "page in (0x50, 0x51)" in process
+    helper = RECEIVER.split("def _is_identity_page", 1)[1].split(
+        "class AntPlusReceiver", 1
+    )[0]
+    assert "identity_page = _is_identity_page(device_type, page)" in process
+    assert "COMMON_IDENTITY_PAGE_PROFILES" in helper
+    assert "BSC_IDENTITY_PAGE_PROFILES" in helper
+    assert "DEVICE_TYPE_HEART_RATE" in helper
 
 
-def test_identity_requires_repeated_identical_evidence():
+def test_identity_requires_repeated_evidence_except_serial_identity_pages():
     block = RECEIVER.split("def _observe_metadata_candidate", 1)[1].split(
         "def ", 1
     )[0]
     assert "IDENTITY_CONFIRM_OBSERVATIONS" in block
     assert "previous[0] == signature" in block
-    assert "if count < IDENTITY_CONFIRM_OBSERVATIONS:" in block
+    assert "serial_identity_page" in block
+    assert "DEVICE_TYPE_HEART_RATE and page == 2" in block
+    assert "BSC_IDENTITY_PAGE_PROFILES and page == 2" in block
+    assert "COMMON_IDENTITY_PAGE_PROFILES and page == 0x51" in block
+    assert "1 if serial_identity_page else IDENTITY_CONFIRM_OBSERVATIONS" in block
+    assert "if count < required_observations:" in block
     assert "setattr(device, attr, value)" in block
 
 

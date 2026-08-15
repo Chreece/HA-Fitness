@@ -38,8 +38,12 @@ def test_only_profile_qualified_identity_pages_bypass_provisional_gate():
     process = RECEIVER.split("def process_packet", 1)[1].split(
         "def _metadata_candidate", 1
     )[0]
-    assert "device_type in COMMON_IDENTITY_PAGE_PROFILES" in process
-    assert "page in (0x50, 0x51)" in process
+    helper = RECEIVER.split("def _is_identity_page", 1)[1].split(
+        "class AntPlusReceiver", 1
+    )[0]
+    assert "identity_page = _is_identity_page(device_type, page)" in process
+    assert "COMMON_IDENTITY_PAGE_PROFILES" in helper
+    assert "BSC_IDENTITY_PAGE_PROFILES" in helper
 
 
 def test_ant_runtime_registration_is_structural_signature_gated():
