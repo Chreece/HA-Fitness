@@ -242,10 +242,14 @@ class AntPlusReceiver:
         self._accepted_devices = (
             current | {device_id} if accepted else current - {device_id}
         )
-        if not accepted:
-            for key in tuple(self._idle_packet_last_admitted):
-                if key[0] == device_id:
-                    self._idle_packet_last_admitted.pop(key, None)
+        # Acceptance may happen after a delete/re-discover or merge that reuses
+        # the same ANT channel ID. Clear worker-side sampling state in both
+        # directions so the first packet after the transition is always admitted
+        # and can immediately populate the physical metric entity.
+        for key in tuple(self._idle_packet_last_admitted):
+            if key[0] == device_id:
+                self._idle_packet_last_admitted.pop(key, None)
+        self._last_presence_callback_monotonic.pop(device_id, None)
 
     def fast_ignore_idle_packet(
         self, device_id: int, device_type: int, page: int = -1

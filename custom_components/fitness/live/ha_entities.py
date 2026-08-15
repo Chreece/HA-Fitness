@@ -7,6 +7,7 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, Sen
 from homeassistant.const import EntityCategory, PERCENTAGE
 
 from ..const import (
+    DOMAIN,
     METRIC_ALTITUDE,
     METRIC_CADENCE,
     METRIC_DISTANCE,
@@ -346,7 +347,28 @@ class PhysicalLastSeenSensor(_PhysicalSensorEntity):
 
 async def async_setup_sensor_entities(runtime, async_add_entities) -> None:
     """Materialize accepted physical-sensor entities without reloading the hub."""
+    from homeassistant.helpers import entity_registry as er
+
     materialized: set[tuple[str, str, str]] = set()
+    entity_registry = er.async_get(runtime.hass)
+
+    def _claim(marker: tuple[str, str, str], unique_id: str) -> bool:
+        """Return True when an entity must be (re)added to the platform.
+
+        ``materialized`` is only an in-process optimization. A Home Assistant
+        device/entity deletion can remove the Registry row while the sensor
+        platform remains loaded, and the same physical ANT/BLE identity can then
+        be rediscovered in the same process. Never let the stale in-memory marker
+        suppress recreation of that entity. The registry lookup is O(1) by unique
+        ID and happens only on structural refreshes, not on radio packets.
+        """
+        if marker in materialized:
+            entity_id = entity_registry.async_get_entity_id("sensor", DOMAIN, unique_id)
+            if entity_id is not None:
+                return False
+            materialized.discard(marker)
+        materialized.add(marker)
+        return True
 
     def _collect() -> None:
         accepted_ids = {
@@ -368,47 +390,40 @@ async def async_setup_sensor_entities(runtime, async_add_entities) -> None:
             runtime.ensure_sensor_device(sensor_id)
 
             key = (sensor_id, "diagnostic", "active_transport")
-            if key not in materialized:
-                materialized.add(key)
+            if _claim(key, f"fitness_{sensor_id}_active_transport"):
                 entities.append(PhysicalActiveTransportSensor(runtime, sensor_id))
 
             key = (sensor_id, "diagnostic", "last_seen")
-            if key not in materialized:
-                materialized.add(key)
+            if _claim(key, f"fitness_{sensor_id}_last_seen"):
                 entities.append(PhysicalLastSeenSensor(runtime, sensor_id))
 
             key = (sensor_id, "diagnostic", "workout_owner")
-            if key not in materialized:
-                materialized.add(key)
+            if _claim(key, f"fitness_{sensor_id}_workout_owner"):
                 entities.append(PhysicalWorkoutOwnerSensor(runtime, sensor_id))
 
             if any(endpoint.rssi is not None for endpoint in sensor.endpoints.values()):
                 key = (sensor_id, "diagnostic", "signal_strength")
-                if key not in materialized:
-                    materialized.add(key)
+                if _claim(key, f"fitness_{sensor_id}_signal_strength"):
                     entities.append(PhysicalSignalStrengthSensor(runtime, sensor_id))
 
             for metric in METRIC_META:
                 if metric not in sensor.capabilities:
                     continue
                 key = (sensor_id, "metric", metric)
-                if key in materialized:
+                if not _claim(key, f"fitness_{sensor_id}_{metric}"):
                     continue
-                materialized.add(key)
                 entities.append(PhysicalMetricSensor(runtime, sensor_id, metric))
 
             for passive_key in sorted(runtime.sensor_passive_values.get(sensor_id, {})):
                 key = (sensor_id, "passive", passive_key)
-                if key in materialized:
+                if not _claim(key, f"fitness_{sensor_id}_passive_{passive_key}"):
                     continue
-                materialized.add(key)
                 entities.append(PhysicalPassiveSensor(runtime, sensor_id, passive_key))
 
             for detail_key in sorted(runtime.sensor_detail_values.get(sensor_id, {})):
                 key = (sensor_id, "detail", detail_key)
-                if key in materialized:
+                if not _claim(key, f"fitness_{sensor_id}_detail_{detail_key}"):
                     continue
-                materialized.add(key)
                 entities.append(PhysicalDetailSensor(runtime, sensor_id, detail_key))
 
         if entities:

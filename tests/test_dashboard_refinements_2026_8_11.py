@@ -10,7 +10,7 @@ def test_single_frontend_module_contract_is_preserved():
     assert '_RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"' in BACKEND
     front = re.search(r'FITNESS_DASHBOARD_VERSION = "([^"]+)"', FRONTEND).group(1)
     back = re.search(r'\?v=([^"}]+)', BACKEND).group(1)
-    assert front == back == "2026.8.11.13"
+    assert front == back == "2026.8.11.14"
 
 def test_sleep_total_excludes_awake_regression():
     assert "asleepStageTotal" in FRONTEND
@@ -22,7 +22,8 @@ def test_sleep_total_excludes_awake_regression():
 def test_readiness_is_integrated_into_next_workout():
     assert 'class="recovery-score-stack"' in FRONTEND
     assert 'kind:"readiness"' in FRONTEND
-    assert '${readinessTrainingStack}' in FRONTEND
+    assert '${readinessStack}' in FRONTEND
+    assert '${recoveryProgressBar ?' in FRONTEND
 
 def test_numeric_gauge_context_and_hr_baseline_tones():
     for token in ["axis-values", "current-marker", "baselineTone", "progress-values", "history-values", "load-scale-values"]:

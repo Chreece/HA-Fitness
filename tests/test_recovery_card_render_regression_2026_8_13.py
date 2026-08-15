@@ -19,7 +19,8 @@ def test_recovery_card_still_renders_primary_recovery_sections():
     section = JS[start:end]
     assert 'class="recovery-score-stack"' in section
     assert 'kind:"readiness"' in section
-    assert 'kind:"training"' in section
+    assert 'kind:"progress"' in section
     assert 'class="next-workout' in section
-    assert 'class="recovery-progress"' in section
+    assert 'recoveryProgressBar' in section
+    assert 'kind:"progress"' in section
     assert 'class="signals"' in section

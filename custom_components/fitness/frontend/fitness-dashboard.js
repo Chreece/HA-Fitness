@@ -1,4 +1,4 @@
-const FITNESS_DASHBOARD_VERSION = "2026.8.11.13";
+const FITNESS_DASHBOARD_VERSION = "2026.8.11.14";
 
 
 const FITNESS_READINESS_TEXT = {
@@ -1909,17 +1909,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
       </div>`;
     }).filter(Boolean).join("");
 
-    const trainingRecovery = _fitnessNumber(components?.training?.score);
-    const trainingEvidence = components?.training?.evidence || {};
-    const trainingHours = _fitnessNumber(trainingEvidence.hours_since_last_workout);
-    const trainingLoadRatio = _fitnessNumber(trainingEvidence.recent_to_baseline_load_ratio);
-    const trainingTone = trainingRecovery == null ? "#78909c"
-      : trainingRecovery >= 85 ? "#2e7d32"
-      : trainingRecovery >= 70 ? "#00897b"
-      : trainingRecovery >= 50 ? "#f9a825"
-      : trainingRecovery >= 30 ? "#ef6c00"
-      : "#c62828";
-    const scoreBar = ({kind, label, value, tone, detail = ""}) => value == null ? "" : `<div class="recovery-score recovery-score-${kind} entity-link" data-more-info="${_fitnessEscape(e.readiness || "")}" style="--score-tone:${tone}">
+    const scoreBar = ({kind, label, value, tone, detail = "", entityId = e.readiness || ""}) => value == null ? "" : `<div class="recovery-score recovery-score-${kind} entity-link" data-more-info="${_fitnessEscape(entityId)}" style="--score-tone:${tone}">
       <div class="recovery-score-head"><span>${_fitnessEscape(label)}</span><strong>${Math.max(0, Math.min(100, value)).toFixed(0)} <small>/ 100</small></strong></div>
       <div class="recovery-score-track"><i style="width:${Math.max(0, Math.min(100, value))}%"></i></div>
       ${detail ? `<div class="recovery-score-detail">${detail}</div>` : ""}
@@ -1931,16 +1921,16 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
     const readinessScoreBar = scoreBar({
       kind:"readiness", label:readinessName, value:score, tone:readinessTone, detail:readinessDetail,
     });
-    const trainingDetail = [
-      trainingHours == null ? "" : `${trainingHours.toFixed(1)} h ${_fitnessEscape(l.since_last_workout || "since last workout")}`,
-      trainingLoadRatio == null ? "" : `${trainingLoadRatio.toFixed(2)}× ${_fitnessEscape(l.baseline || "baseline")}`,
-    ].filter(Boolean).join(" · ");
-    const trainingRecoveryBar = scoreBar({
-      kind:"training", label:rtext.training, value:trainingRecovery, tone:trainingTone, detail:trainingDetail,
-    });
-    const readinessTrainingStack = (readinessScoreBar || trainingRecoveryBar)
-      ? `<div class="recovery-score-stack">${readinessScoreBar}${trainingRecoveryBar}</div>`
+    const readinessStack = readinessScoreBar
+      ? `<div class="recovery-score-stack">${readinessScoreBar}</div>`
       : "";
+    const recoveryProgressBar = scoreBar({
+      kind:"progress",
+      label:l.recovery_progress_label || "Recovery progress",
+      value:recoveryProgress,
+      tone:recoveryTone,
+      entityId:e.estimated_recovery_time || "",
+    });
 
     const signalLabels = {
       hrv: "HRV",
@@ -2005,7 +1995,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
 
       <section class="recovery-readiness-panel">
         <div class="section-label">${_fitnessEscape(l.recovery_readiness || "Recovery & readiness")}</div>
-        ${!recoveryTime ? readinessTrainingStack : ""}
+        ${!recoveryTime ? readinessStack : ""}
 
         ${recoveryTime ? `<div class="next-workout entity-link" data-more-info="${_fitnessEscape(e.estimated_recovery_time || "")}">
         <div class="next-main">
@@ -2020,13 +2010,9 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
           <div class="next-confidence">${recoveryConfidence == null ? "" : `${recoveryConfidence.toFixed(0)}%<small>${_fitnessEscape(l.confidence_short || "confidence")}</small>`}</div>
         </div>
 
-        <div class="progress-head">
-          <span>${_fitnessEscape(l.recovery_progress_label || "Recovery progress")}</span>
-          <strong>${recoveryPct.toFixed(0)}%</strong>
-        </div>
-        <div class="recovery-progress"><i style="width:${recoveryPct}%"></i></div>
+        ${recoveryProgressBar ? `<div class="recovery-score-stack recovery-progress-stack">${recoveryProgressBar}</div>` : ""}
 
-        ${readinessTrainingStack}
+        ${readinessStack}
 
         <div class="recovery-grid">
           <div class="entity-link" data-more-info="${_fitnessEscape(e.estimated_recovery_time || "")}">
@@ -2100,11 +2086,8 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
       .next-confidence{font-size:17px;font-weight:700;color:var(--recovery);text-align:right;white-space:nowrap}
       .next-confidence small{display:block;font-size:8px;font-weight:400;color:var(--secondary-text-color)}
 
-      .progress-head{display:flex;justify-content:space-between;gap:12px;margin-top:13px;font-size:10px;color:var(--secondary-text-color)}
-      .progress-head strong{color:var(--primary-text-color);font-size:12px}
-      .recovery-progress{height:7px;border-radius:999px;background:var(--divider-color);overflow:hidden;margin-top:6px}
-      .recovery-progress i{display:block;height:100%;border-radius:999px;background:var(--recovery)}
       .recovery-score-stack{display:grid;gap:7px;margin-top:8px}
+      .recovery-progress-stack{margin-top:12px}
       .recovery-score{padding:8px 9px;border-radius:10px;background:linear-gradient(135deg,color-mix(in srgb,var(--score-tone) 10%,var(--card-background-color)),var(--card-background-color));border-left:3px solid var(--score-tone);min-width:0}
       .recovery-score-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.recovery-score-head span{font-size:10px;color:var(--secondary-text-color);font-weight:650;overflow-wrap:anywhere}.recovery-score-head strong{font-size:18px;color:var(--score-tone);white-space:nowrap}.recovery-score-head strong small{font-size:9px;color:var(--secondary-text-color);font-weight:500}
       .recovery-score-track{height:7px;border-radius:999px;margin-top:6px;background:color-mix(in srgb,var(--score-tone) 13%,var(--divider-color));overflow:hidden}.recovery-score-track i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,color-mix(in srgb,var(--score-tone) 38%,transparent),var(--score-tone))}

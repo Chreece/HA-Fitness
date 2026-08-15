@@ -26,7 +26,7 @@ def test_recovery_card_is_prominent_beside_readiness():
     assert 'class="recovery-readiness-panel"' in JS
     assert 'class="recovery-score recovery-score-${kind} entity-link"' in JS
     assert 'kind:"readiness"' in JS
-    assert 'kind:"training"' in JS
+    assert 'kind:"progress"' in JS
     assert 'class="next-workout entity-link"' in JS
     assert 'class="dual-hero"' not in JS
     assert 'ready_for_next_workout_at' in JS

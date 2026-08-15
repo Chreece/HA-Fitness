@@ -53,8 +53,8 @@ def test_dashboard_uses_profile_data_map_entities_as_runtime_source_of_truth():
     assert "_profile_data_routes" in DASHBOARD
     assert "_fitnessProfileDataRoutes = (profile, hass, kind, fallback" in FRONTEND
     assert '_fitnessProfileDataEntities(this._profile, this._hass, "live")' in FRONTEND
-    assert 'FITNESS_DASHBOARD_VERSION = "2026.8.11.13"' in FRONTEND
-    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.11.13"' in DASHBOARD
+    assert 'FITNESS_DASHBOARD_VERSION = "2026.8.11.14"' in FRONTEND
+    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.11.14"' in DASHBOARD
 
 
 def test_workout_calendar_belongs_to_workouts_device():

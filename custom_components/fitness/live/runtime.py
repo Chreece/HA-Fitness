@@ -176,6 +176,14 @@ class LiveRuntime:
         self.measurement_time: dict[str, datetime] = {}
         self.sensor_values: dict[str, dict[str, float]] = {}
         self.sensor_value_transport: dict[str, dict[str, str]] = {}
+        # Track when each transport actually produced each metric. This is
+        # intentionally separate from endpoint presence: an ANT endpoint can be
+        # alive on identity/common pages without having delivered heart rate,
+        # power, etc. yet. BLE fallback decisions must depend on real metric
+        # evidence, not advertised capability alone.
+        self.sensor_metric_transport_seen: dict[
+            str, dict[str, dict[str, datetime]]
+        ] = {}
         self._listeners: set[Any] = set()
         self._structure_listeners: set[Any] = set()
         # High-frequency physical-sensor entities subscribe by exact sensor/value
@@ -760,6 +768,7 @@ class LiveRuntime:
                 self.endpoint_aliases.pop(endpoint.endpoint_id, None)
         self.sensor_values.pop(sensor_id, None)
         self.sensor_value_transport.pop(sensor_id, None)
+        self.sensor_metric_transport_seen.pop(sensor_id, None)
         self.sensor_passive_values.pop(sensor_id, None)
         self.sensor_passive_meta.pop(sensor_id, None)
         self.sensor_passive_sources.pop(sensor_id, None)
@@ -1888,6 +1897,14 @@ class LiveRuntime:
         if secondary.sensor_id in self.sensor_value_transport:
             primary_sources = self.sensor_value_transport.setdefault(primary.sensor_id, {})
             primary_sources.update(self.sensor_value_transport.pop(secondary.sensor_id))
+        if secondary.sensor_id in self.sensor_metric_transport_seen:
+            primary_seen = self.sensor_metric_transport_seen.setdefault(primary.sensor_id, {})
+            for metric, transports in self.sensor_metric_transport_seen.pop(secondary.sensor_id).items():
+                bucket = primary_seen.setdefault(metric, {})
+                for transport_name, timestamp in transports.items():
+                    previous = bucket.get(transport_name)
+                    if previous is None or timestamp > previous:
+                        bucket[transport_name] = timestamp
         for attr in (
             "sensor_passive_values", "sensor_passive_meta", "sensor_passive_sources",
             "sensor_detail_values", "sensor_detail_meta", "sensor_detail_sources",
@@ -3424,6 +3441,23 @@ class LiveRuntime:
     async def async_finish_recovery(self, entry) -> str:
         return await self.async_finish_session(entry, keep_heart_rate=False)
 
+    def metric_transport_seen_recently(
+        self, sensor_id: str, metric: str, transport: str, *, max_age: float = 10.0
+    ) -> bool:
+        """Return whether a transport actually produced this metric recently."""
+        sensor_id = self.resolve_sensor_id(sensor_id)
+        seen = (
+            self.sensor_metric_transport_seen
+            .get(sensor_id, {})
+            .get(str(metric), {})
+            .get(str(transport))
+        )
+        if seen is None:
+            return False
+        if seen.tzinfo is None:
+            seen = seen.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - seen).total_seconds() <= float(max_age)
+
     def publish(self, sensor_id: str, values: dict[str, float], *, transport: str | None = None) -> None:
         sensor_id = self.resolve_sensor_id(sensor_id)
         sensor = self.sensors.get(sensor_id)
@@ -3446,6 +3480,7 @@ class LiveRuntime:
         # Profile/session calculations stay completely gated later in this method.
         value_bucket = self.sensor_values.setdefault(sensor_id, {})
         transport_bucket = self.sensor_value_transport.setdefault(sensor_id, {})
+        seen_bucket = self.sensor_metric_transport_seen.setdefault(sensor_id, {})
         physical_dirty: set[tuple[str, str, str | None]] = set()
         packet_values: dict[str, float] = {}
         for key, raw in values.items():
@@ -3453,6 +3488,23 @@ class LiveRuntime:
                 continue
             value = float(raw)
             packet_values[key] = value
+            metric_seen = seen_bucket.setdefault(key, {})
+            metric_seen[transport] = seen
+
+            # ANT is the preferred connectionless raw source once it has actually
+            # produced this metric. Keep a connected BLE stream as a fast fallback,
+            # but do not let alternating ANT/BLE notifications bounce the HA entity
+            # source and create needless state writes. If ANT goes quiet, BLE resumes
+            # ownership automatically after the short freshness window.
+            if transport == "bluetooth":
+                ant_seen = metric_seen.get("antplus")
+                if (
+                    ant_seen is not None
+                    and key in value_bucket
+                    and (seen - ant_seen).total_seconds() <= 10.0
+                ):
+                    continue
+
             if value_bucket.get(key) != value or transport_bucket.get(key) != transport:
                 value_bucket[key] = value
                 transport_bucket[key] = transport

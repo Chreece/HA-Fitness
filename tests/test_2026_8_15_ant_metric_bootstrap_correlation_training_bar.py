@@ -58,12 +58,13 @@ def test_training_recovery_can_reach_100_but_load_penalties_remain():
     assert "training_score -= 4.0" in block
 
 
-def test_recovery_card_pairs_readiness_and_training_recovery_as_matching_score_bars():
-    assert 'FITNESS_DASHBOARD_VERSION = "2026.8.11.13"' in FRONTEND
+def test_recovery_card_pairs_readiness_and_recovery_progress_as_matching_score_bars():
+    assert 'FITNESS_DASHBOARD_VERSION = "2026.8.11.14"' in FRONTEND
     assert 'class="recovery-score recovery-score-${kind} entity-link"' in FRONTEND
     assert 'class="recovery-score-stack"' in FRONTEND
     assert 'kind:"readiness"' in FRONTEND
-    assert 'kind:"training"' in FRONTEND
+    assert 'kind:"progress"' in FRONTEND
+    assert "trainingRecoveryBar" not in FRONTEND
     assert 'linear-gradient(90deg,color-mix(in srgb,var(--score-tone) 38%,transparent),var(--score-tone))' in FRONTEND
     assert "training-recovery-axis" not in FRONTEND
     assert "training-recovery-marker" not in FRONTEND

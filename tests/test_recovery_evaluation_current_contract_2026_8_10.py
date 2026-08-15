@@ -10,7 +10,7 @@ def test_recovery_current_contract():
     assert 'class="recovery-readiness-panel"' in card
     assert 'class="recovery-score-stack"' in card
     assert 'kind:"readiness"' in card
-    assert 'kind:"training"' in card
+    assert 'kind:"progress"' in card
     assert 'class="next-workout entity-link"' in card
     assert 'class="dual-hero"' not in card
     assert "ready_for_next_workout_at" in card
