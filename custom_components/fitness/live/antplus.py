@@ -338,7 +338,15 @@ class AntPlusFitnessProvider:
             self.receiver.set_device_telemetry_enabled(device_id, enabled)
 
     def sensor_acceptance_changed(self, sensor_id: str, accepted: bool) -> None:
-        """Update publish and decode gates after assignment/deletion."""
+        """Update publish/decode gates and bootstrap cached ANT metrics.
+
+        Discovery deliberately performs only one bounded decode before acceptance.
+        If the user accepts the sensor after that packet, the decoded snapshot is
+        already present in ``receiver.devices`` but historically was never copied
+        into Runtime because the structural fast-path returned early.  Re-publish
+        the current device snapshot once on acceptance so core metric entities are
+        materialized immediately instead of waiting for an arbitrary later packet.
+        """
         affected: list[int] = []
         target_sensor_id = self.runtime.resolve_sensor_id(sensor_id)
         with self._publish_lock:
@@ -361,6 +369,13 @@ class AntPlusFitnessProvider:
                     device_id,
                     bool(mapped and self.runtime.sensor_live_telemetry_needed(mapped)),
                 )
+                if accepted:
+                    device = self.receiver.devices.get(device_id)
+                    if device is not None:
+                        # Structural=True deliberately bypasses the unaccepted
+                        # metric mailbox gate and lets _publish_device refresh the
+                        # canonical capability/entity surface once.
+                        self._schedule_publish_device(device, structural=True)
 
     def forget_device(self, device_id: int) -> None:
         """Forget receiver-side ANT identity so the next RF packets rediscover it."""
@@ -574,6 +589,12 @@ class AntPlusFitnessProvider:
                     device_id,
                     self.runtime.sensor_live_telemetry_needed(mapped_sensor_id),
                 )
+            # A structural ANT callback can be identical to the previously
+            # registered snapshot while acceptance has changed. Do not let the
+            # structural fast-path swallow cached measurements: an accepted
+            # sensor must immediately populate its own raw physical entities.
+            if accepted:
+                self._publish_metric_values(device, mapped_sensor_id)
             return
 
         sensor = self.runtime.register_transport_sensor(

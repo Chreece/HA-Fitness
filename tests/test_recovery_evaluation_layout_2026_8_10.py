@@ -12,7 +12,9 @@ def test_recovery_card_does_not_squeeze_two_heroes_side_by_side():
     start = JS.index("class FitnessRecoveryCard")
     end = JS.index("class FitnessTrainingLoadCard", start + 10)
     card = JS[start:end]
-    assert 'class="readiness-panel entity-link"' in card
+    assert 'class="recovery-score-stack"' in card
+    assert 'kind:"readiness"' in card
+    assert 'kind:"training"' in card
     assert 'class="next-workout entity-link"' in card
     assert "dual-hero" not in card
     assert "ready_for_next_workout_at" in card

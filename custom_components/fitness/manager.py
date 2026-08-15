@@ -5507,7 +5507,11 @@ class FitnessManager:
                 elif hours_since < 48:
                     training_score = 90.0
                 else:
-                    training_score = 96.0
+                    # With >=48 h since the last workout, the time-domain
+                    # component itself is fully recovered. TRIMP and recent-load
+                    # penalties below may still lower the final component when
+                    # there is meaningful residual training demand.
+                    training_score = 100.0
             latest_trimp = latest_workout.banister_trimp
         if training_score is not None and latest_trimp is not None:
             if float(latest_trimp) >= 150:

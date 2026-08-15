@@ -39,7 +39,7 @@ from .providers.workouts import (
 _LOGGER = logging.getLogger(__name__)
 
 _RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"
-_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.11.11"
+_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.11.13"
 _SETUP_KEY = "_dashboard_frontend_setup"
 
 _PACE_TEXT: dict[str, str] = {

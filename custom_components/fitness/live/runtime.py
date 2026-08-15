@@ -17,7 +17,13 @@ from homeassistant.core import CoreState, HomeAssistant, callback
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.helpers.storage import Store
 
-from .device_identity import canonical_identity_fields, catalog_product_id, resolve_identity
+from .device_identity import (
+    canonical_identity_fields,
+    catalog_cross_transport_ids,
+    catalog_product_id,
+    catalog_transport_correlation,
+    resolve_identity,
+)
 
 from ..const import (
     CONF_LIVE_SENSOR_IDS,
@@ -58,7 +64,6 @@ LEGACY_ADAPTERS_SUBENTRY_UNIQUE_ID = "fitness_adapters"
 ADAPTER_DEVICE_MODEL_VERSION = 1
 ANT_DATA_FRESH_SECONDS = 3.0
 TRANSPORT_HANDOVER_INTERVAL_SECONDS = 1.0
-
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -1950,10 +1955,110 @@ class LiveRuntime:
         if device is not None:
             device_registry.async_remove_device(device.id)
 
+    @staticmethod
+    def _endpoints_recently_coobserved(
+        a: LiveSensor, b: LiveSensor, max_age_seconds: float
+    ) -> bool:
+        """Require both catalog-correlation candidates to be recently observed."""
+        a_ep = next(iter(a.endpoints.values()), None)
+        b_ep = next(iter(b.endpoints.values()), None)
+        if a_ep is None or b_ep is None or a_ep.last_seen is None or b_ep.last_seen is None:
+            return False
+        now = datetime.now(timezone.utc)
+        try:
+            a_age = (now - a_ep.last_seen).total_seconds()
+            b_age = (now - b_ep.last_seen).total_seconds()
+        except (TypeError, ValueError):
+            return False
+        return (
+            0.0 <= a_age <= max_age_seconds
+            and 0.0 <= b_age <= max_age_seconds
+        )
+
+    def _maybe_merge_correlated_dual_transport(self, sensor: LiveSensor) -> LiveSensor:
+        """Apply one unambiguous data-driven cross-transport correlation rule.
+
+        Exact serial/product matching in ``_match_sensor`` always has priority.
+        Catalog correlation exists only for protocol combinations that cannot
+        expose a shared strong identifier. Both sides must already be accepted,
+        match complementary roles of the same rule, be recently observed, and be
+        globally unique for that rule. Ambiguous candidates remain separate.
+        """
+        sensor_id = self.resolve_sensor_id(sensor.sensor_id)
+        sensor = self.sensors.get(sensor_id, sensor)
+        if not self.sensor_is_accepted(sensor.sensor_id):
+            return sensor
+        match = catalog_transport_correlation(sensor)
+        if not match:
+            return sensor
+
+        rule_id = str(match["rule_id"])
+        role = str(match["role"])
+        max_age = float(match["max_age_seconds"])
+        matching: list[tuple[LiveSensor, dict[str, Any]]] = []
+        for candidate in self.sensors.values():
+            if candidate.sensor_id == sensor.sensor_id or not self.sensor_is_accepted(candidate.sensor_id):
+                continue
+            candidate_match = catalog_transport_correlation(candidate)
+            if not candidate_match or candidate_match.get("rule_id") != rule_id:
+                continue
+            if str(candidate_match.get("role")) == role:
+                continue
+            candidate_age = min(max_age, float(candidate_match.get("max_age_seconds", max_age)))
+            if not self._endpoints_recently_coobserved(sensor, candidate, candidate_age):
+                continue
+            matching.append((candidate, candidate_match))
+
+        # The fallback must be globally one-to-one. If two sensors can occupy
+        # either side of the same rule, physical identity is ambiguous and no
+        # automatic merge is permitted.
+        by_role: dict[str, list[LiveSensor]] = {}
+        for item in self.sensors.values():
+            if not self.sensor_is_accepted(item.sensor_id):
+                continue
+            item_match = catalog_transport_correlation(item)
+            if not item_match or item_match.get("rule_id") != rule_id:
+                continue
+            if not self._endpoints_recently_coobserved(sensor, item, min(max_age, float(item_match.get("max_age_seconds", max_age)))):
+                continue
+            by_role.setdefault(str(item_match.get("role")), []).append(item)
+
+        if len(matching) != 1 or any(len(items) != 1 for items in by_role.values()) or len(by_role) != 2:
+            return sensor
+
+        merged = self._merge_physical_sensors(sensor, matching[0][0])
+        merged.metadata["merge_evidence"] = rule_id
+        return merged
+
     def _match_sensor(self, endpoint: TransportEndpoint, name: str) -> LiveSensor | None:
         current = None
         if endpoint.endpoint_id in self.endpoint_aliases:
             current = self.sensors.get(self.resolve_sensor_id(self.endpoint_aliases[endpoint.endpoint_id]))
+
+        cross_ids = catalog_cross_transport_ids(
+            name, endpoint.transport, endpoint.metadata, endpoint.capabilities
+        )
+        if cross_ids:
+            candidates = []
+            for sensor in self.sensors.values():
+                if sensor is current or endpoint.transport in sensor.endpoints:
+                    continue
+                if not (sensor.capabilities & endpoint.capabilities):
+                    continue
+                sensor_ids: set[tuple[str, str, str]] = set()
+                for other_endpoint in sensor.endpoints.values():
+                    sensor_ids.update(catalog_cross_transport_ids(
+                        sensor.name,
+                        other_endpoint.transport,
+                        other_endpoint.metadata,
+                        other_endpoint.capabilities,
+                    ))
+                if cross_ids & sensor_ids:
+                    candidates.append(sensor)
+            if len(candidates) == 1:
+                matched = candidates[0]
+                matched.metadata["merge_evidence"] = "exact_cross_transport_id"
+                return self._merge_physical_sensors(current, matched) if current else matched
 
         serial = _serial(endpoint.metadata)
         if serial:
@@ -2191,6 +2296,10 @@ class LiveRuntime:
             or sensor.metadata != previous_metadata
             or sensor.capabilities != previous_caps
         )
+
+        if structural_change and self.sensor_is_accepted(sensor.sensor_id):
+            sensor = self._maybe_merge_correlated_dual_transport(sensor)
+            endpoint = sensor.endpoints.get(transport, endpoint)
 
         # RSSI and last_seen are intentionally volatile. Passive advertisements can
         # arrive several times per second, so they must not cause storage writes,
@@ -2535,6 +2644,14 @@ class LiveRuntime:
             self._discovery_started.discard(sensor_id)
             sensor.metadata["accepted"] = True
             sensor.metadata.pop("discovery_confirmed", None)
+
+            # Acceptance can be the first moment both sides of a catalog-defined
+            # dual-transport pair are eligible for the conservative correlation
+            # fallback. Merge before materialization so HA never needs to build a
+            # second set of entities only to delete it a moment later.
+            sensor = self._maybe_merge_correlated_dual_transport(sensor)
+            sensor_id = sensor.sensor_id
+
             # Acceptance blocks duplicate discovery immediately, but entity/device
             # materialization waits until the config-flow response has returned.
             self._sensor_materialization_pending.add(sensor_id)

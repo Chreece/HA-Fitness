@@ -25,7 +25,7 @@ def test_discovery_card_uses_physical_sensor_name():
 def test_last_seen_is_recorder_safe():
     section = E[E.index('class PhysicalLastSeenSensor'):E.index('async def async_setup_sensor_entities')]
     assert '_attr_entity_registry_enabled_default = False' in section
-    assert '(seen.minute // 5) * 5' in section
+    assert 'seen.replace(second=0, microsecond=0)' in section
     assert 'if bucket == self._last_bucket' in section
 
 

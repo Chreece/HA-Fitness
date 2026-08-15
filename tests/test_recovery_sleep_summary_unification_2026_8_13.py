@@ -12,7 +12,9 @@ def test_readiness_and_recovery_are_visually_unified_but_keep_distinct_entities(
     assert 'class="recovery-readiness-panel"' in card
     assert "e.readiness" in card
     assert "e.estimated_recovery_time" in card
-    assert 'class="readiness-panel entity-link"' in card
+    assert 'class="recovery-score-stack"' in card
+    assert 'kind:"readiness"' in card
+    assert 'kind:"training"' in card
     assert 'class="next-workout entity-link"' in card
 
 
@@ -53,4 +55,4 @@ def test_recovery_limiter_is_localized_in_all_languages():
 def test_frontend_backend_revision_match():
     f = re.search(r'FITNESS_DASHBOARD_VERSION = "([^"]+)"', JS)
     b = re.search(r'_RESOURCE_URL = f".*?\\?v=([^"]+)"', DASH)
-    assert f and b and f.group(1) == b.group(1) == "2026.8.11.11"
+    assert f and b and f.group(1) == b.group(1) == "2026.8.11.13"

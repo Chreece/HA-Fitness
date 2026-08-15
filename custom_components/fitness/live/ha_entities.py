@@ -331,9 +331,10 @@ class PhysicalLastSeenSensor(_PhysicalSensorEntity):
         seen = sensor.last_seen if sensor else None
         if seen is None:
             return None
-        # Five-minute precision is plenty for diagnostics and prevents a manually
-        # enabled Last seen entity from generating Recorder rows per radio packet.
-        return seen.replace(minute=(seen.minute // 5) * 5, second=0, microsecond=0)
+        # Runtime already rate-limits Last seen dirty notifications to one minute.
+        # Expose the same one-minute precision here so a continuously broadcasting
+        # sensor visibly advances every minute without packet-rate Recorder churn.
+        return seen.replace(second=0, microsecond=0)
 
     def _update(self):
         bucket = self.native_value

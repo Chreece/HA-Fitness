@@ -111,6 +111,56 @@ def _matches_rule(rule: dict[str, Any], name: str, endpoints: dict[str, Any]) ->
     return True
 
 
+def catalog_transport_correlation(sensor) -> dict[str, Any] | None:
+    """Return a data-driven cross-transport correlation role for one sensor.
+
+    Correlation rules are intentionally kept in ``device_catalog.json`` so the
+    runtime remains vendor/product agnostic. They are only a fallback when a
+    protocol does not expose a common strong serial/product identity.
+    """
+    if len(getattr(sensor, "endpoints", {}) or {}) != 1:
+        return None
+    transport, endpoint = next(iter(sensor.endpoints.items()))
+    capabilities = set(getattr(sensor, "capabilities", set()) or set())
+    advertised = _text(endpoint.metadata.get("advertised_name")) or _text(getattr(sensor, "name", None)) or ""
+
+    for rule in load_catalog().get("transport_correlation_rules", []) or []:
+        if not isinstance(rule, dict):
+            continue
+        expected_caps = {str(value) for value in (rule.get("capabilities") or [])}
+        if expected_caps and capabilities != expected_caps:
+            continue
+        roles = rule.get("roles") or {}
+        role = roles.get(str(transport))
+        if not isinstance(role, dict):
+            continue
+
+        prefixes = [str(value) for value in (role.get("name_prefixes") or []) if str(value).strip()]
+        if prefixes and not any(_clean(advertised).startswith(_clean(prefix)) for prefix in prefixes):
+            continue
+        if "manufacturer_id" in role and endpoint.metadata.get("manufacturer_id") != role.get("manufacturer_id"):
+            continue
+        required_profiles = {int(value) for value in (role.get("profiles") or [])}
+        endpoint_profiles = {int(value) for value in (endpoint.metadata.get("profiles") or [])}
+        if required_profiles and not required_profiles.issubset(endpoint_profiles):
+            continue
+        if role.get("require_serial"):
+            identity = canonical_identity_fields(endpoint.metadata)
+            if not identity.get("serial_number"):
+                continue
+
+        try:
+            max_age = float(rule.get("max_age_seconds", 300.0))
+        except (TypeError, ValueError):
+            max_age = 300.0
+        return {
+            "rule_id": str(rule.get("id") or "catalog_correlation"),
+            "role": str(transport),
+            "max_age_seconds": max(1.0, max_age),
+        }
+    return None
+
+
 def catalog_product_id(name: str, endpoints: dict[str, Any]) -> str | None:
     """Return the data-driven product-family ID for safe cross-transport merge."""
     for product in load_catalog().get("products", []) or []:
@@ -140,6 +190,125 @@ def _generic_profile_model(endpoints: dict[str, Any]) -> str | None:
     models = load_catalog().get("profile_models", {}) or {}
     names = [str(models[str(profile)]) for profile in profiles if str(profile) in models]
     return names[0] if names else None
+
+
+def _parse_int(value: Any) -> int | None:
+    text = _text(value)
+    if text is None:
+        return None
+    try:
+        return int(text, 0)
+    except (TypeError, ValueError):
+        if text.isdigit():
+            try:
+                return int(text, 10)
+            except ValueError:
+                return None
+    return None
+
+
+def _extract_cross_transport_value(metadata: dict[str, Any], spec: dict[str, Any]) -> str | None:
+    source = str(spec.get("source") or "").strip()
+    if not source:
+        return None
+    value = metadata.get(source)
+    if value in (None, ""):
+        return None
+
+    pattern = spec.get("regex")
+    if pattern:
+        match = re.search(str(pattern), str(value), re.IGNORECASE)
+        if match is None:
+            return None
+        group = int(spec.get("group", 1))
+        try:
+            value = match.group(group)
+        except (IndexError, ValueError):
+            return None
+
+    transform = str(spec.get("transform") or "text").lower()
+    if transform in {"integer", "int"}:
+        parsed = _parse_int(value)
+        return str(parsed) if parsed is not None else None
+    if transform == "lower16":
+        parsed = _parse_int(value)
+        return str(parsed & 0xFFFF) if parsed is not None else None
+    if transform == "lower20":
+        parsed = _parse_int(value)
+        return str(parsed & 0xFFFFF) if parsed is not None else None
+    return _clean(value) or None
+
+
+def catalog_cross_transport_ids(
+    name: str, transport: str, metadata: dict[str, Any], capabilities: set[str] | None = None
+) -> set[tuple[str, str, str]]:
+    """Return strong cross-transport identifiers exposed by one endpoint.
+
+    The runtime is deliberately vendor-agnostic. Vendor/profile-specific extraction
+    lives in ``device_catalog.json``. Returned tuples are ``(rule_id, key, value)``.
+    Only exact tuple matches are eligible for automatic physical-device merging.
+    """
+    result: set[tuple[str, str, str]] = set()
+    endpoint_caps = set(capabilities or set())
+
+    # Protocol-native explicit ANT identifiers are always safe to surface. BLE
+    # vendor decoders may also populate one of the same semantic metadata keys.
+    direct_keys = (
+        "ant_device_number", "antplus_device_number", "ant_id", "antplus_id"
+    )
+    direct_value = None
+    for key in direct_keys:
+        parsed = _parse_int(metadata.get(key))
+        if parsed is not None:
+            direct_value = parsed
+            break
+    if direct_value is None and transport == "antplus":
+        direct_value = _parse_int(metadata.get("device_number"))
+    if direct_value is not None:
+        # ANT device numbers are 16-bit channel identifiers and can collide across
+        # unrelated ANT profiles. Scope generic matches by semantic capability so
+        # an HR endpoint can never merge with an unrelated speed/power device that
+        # happens to reuse the same numeric channel ID.
+        for capability in sorted(endpoint_caps):
+            result.add((
+                "explicit_ant_id",
+                f"ant_device_number:{capability}",
+                str(direct_value),
+            ))
+
+    for rule in load_catalog().get("cross_transport_identity_rules", []) or []:
+        if not isinstance(rule, dict):
+            continue
+        roles = rule.get("roles") or {}
+        role = roles.get(str(transport))
+        if not isinstance(role, dict):
+            continue
+        expected_caps = {str(value) for value in (rule.get("capabilities") or [])}
+        if expected_caps and not expected_caps.issubset(endpoint_caps):
+            continue
+        prefixes = [str(value) for value in (role.get("name_prefixes") or []) if str(value).strip()]
+        advertised = _text(metadata.get("advertised_name")) or _text(name) or ""
+        if prefixes and not any(_clean(advertised).startswith(_clean(prefix)) for prefix in prefixes):
+            continue
+        if "manufacturer_id" in role and metadata.get("manufacturer_id") != role.get("manufacturer_id"):
+            continue
+        required_profiles = {int(value) for value in (role.get("profiles") or [])}
+        endpoint_profiles = {int(value) for value in (metadata.get("profiles") or [])}
+        if required_profiles and not required_profiles.issubset(endpoint_profiles):
+            continue
+
+        rule_id = str(rule.get("id") or "catalog_cross_transport_id")
+        for spec in role.get("extractors") or []:
+            if not isinstance(spec, dict):
+                continue
+            target = str(spec.get("target") or "").strip()
+            if not target:
+                continue
+            extracted = _extract_cross_transport_value(metadata, spec)
+            if extracted is not None:
+                result.add((rule_id, target, extracted))
+    return result
+
 
 def resolve_identity(sensor) -> dict[str, Any]:
     candidates: dict[str, tuple[int, str]] = {}

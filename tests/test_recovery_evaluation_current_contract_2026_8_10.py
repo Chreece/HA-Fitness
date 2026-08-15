@@ -8,7 +8,9 @@ DASH = (ROOT / "custom_components/fitness/dashboard.py").read_text(encoding="utf
 def test_recovery_current_contract():
     card = JS[JS.index("class FitnessRecoveryCard"):JS.index("class FitnessTrainingLoadCard")]
     assert 'class="recovery-readiness-panel"' in card
-    assert 'class="readiness-panel entity-link"' in card
+    assert 'class="recovery-score-stack"' in card
+    assert 'kind:"readiness"' in card
+    assert 'kind:"training"' in card
     assert 'class="next-workout entity-link"' in card
     assert 'class="dual-hero"' not in card
     assert "ready_for_next_workout_at" in card

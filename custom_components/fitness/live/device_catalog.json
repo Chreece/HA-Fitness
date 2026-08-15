@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "manufacturers": {
     "antplus": {
       "1": "Garmin",
@@ -77,6 +77,113 @@
           }
         }
       ]
+    }
+  ],
+  "transport_correlation_rules": [
+    {
+      "id": "garmin_wearable_hr_broadcast",
+      "capabilities": [
+        "heart_rate"
+      ],
+      "max_age_seconds": 600,
+      "roles": {
+        "bluetooth": {
+          "name_prefixes": [
+            "Forerunner",
+            "fēnix",
+            "fenix",
+            "Epix",
+            "Venu",
+            "vívoactive",
+            "vivoactive",
+            "Instinct",
+            "Enduro",
+            "MARQ",
+            "Descent",
+            "Approach"
+          ]
+        },
+        "antplus": {
+          "manufacturer_id": 1,
+          "profiles": [
+            120
+          ],
+          "require_serial": true
+        }
+      }
+    }
+  ],
+  "cross_transport_identity_rules": [
+    {
+      "id": "garmin_wearable_hr_ant_id",
+      "capabilities": [
+        "heart_rate"
+      ],
+      "roles": {
+        "bluetooth": {
+          "name_prefixes": [
+            "Forerunner",
+            "fēnix",
+            "fenix",
+            "Epix",
+            "Venu",
+            "vívoactive",
+            "vivoactive",
+            "Instinct",
+            "Enduro",
+            "MARQ",
+            "Descent",
+            "Approach",
+            "HR - Forerunner",
+            "HR - fēnix",
+            "HR - fenix",
+            "HR - Epix",
+            "HR - Venu"
+          ],
+          "extractors": [
+            {
+              "source": "ant_device_number",
+              "target": "ant_device_number:heart_rate",
+              "transform": "integer"
+            },
+            {
+              "source": "antplus_device_number",
+              "target": "ant_device_number:heart_rate",
+              "transform": "integer"
+            },
+            {
+              "source": "ant_id",
+              "target": "ant_device_number:heart_rate",
+              "transform": "integer"
+            },
+            {
+              "source": "antplus_id",
+              "target": "ant_device_number:heart_rate",
+              "transform": "integer"
+            },
+            {
+              "source": "advertised_name",
+              "target": "ant_device_number:heart_rate",
+              "regex": "\\bANT\\+?\\s*(?:ID)?\\s*[-:#]?\\s*(\\d{1,10})\\b",
+              "group": 1,
+              "transform": "integer"
+            }
+          ]
+        },
+        "antplus": {
+          "manufacturer_id": 1,
+          "profiles": [
+            120
+          ],
+          "extractors": [
+            {
+              "source": "device_number",
+              "target": "ant_device_number:heart_rate",
+              "transform": "integer"
+            }
+          ]
+        }
+      }
     }
   ]
 }
