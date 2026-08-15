@@ -1713,6 +1713,20 @@ class LiveRuntime:
         return current
 
     def _select_merge_primary(self, a: LiveSensor, b: LiveSensor) -> tuple[LiveSensor, LiveSensor]:
+        """Choose the canonical object without destroying a live HA entity surface.
+
+        Once a physical sensor has been accepted and materialized, its opaque
+        Fitness sensor ID is already the durable HA identity for automations,
+        entity registry entries and dashboards.  A later transport (commonly ANT+
+        after BLE) must enrich that object instead of replacing it merely because
+        ANT has the more protocol-native device number.  Prefer an already
+        materialized side first; only use ANT preference while neither side owns
+        a live HA device yet.
+        """
+        a_materialized = a.sensor_id in self._sensor_device_ids
+        b_materialized = b.sensor_id in self._sensor_device_ids
+        if a_materialized != b_materialized:
+            return (a, b) if a_materialized else (b, a)
         if bool(a.metadata.get("accepted")) != bool(b.metadata.get("accepted")):
             return (a, b) if a.metadata.get("accepted") else (b, a)
         if ("antplus" in a.endpoints) != ("antplus" in b.endpoints):
@@ -1816,9 +1830,11 @@ class LiveRuntime:
         )
         primary, secondary = self._select_merge_primary(a, b)
         # Registry cleanup is needed only when the side being discarded actually
-        # had an accepted HA device. Merging an accepted BLE sensor with an
-        # unaccepted provisional ANT endpoint must not scan/remove registries.
-        secondary_had_accepted_device = self.sensor_is_accepted(secondary.sensor_id)
+        # owns a materialized HA device.  "Accepted" alone is not enough: the
+        # second Add flow can merge before its post-response materializer runs.
+        # Treating that pending side as a real device used to schedule destructive
+        # cleanup during the merge transaction.
+        secondary_had_accepted_device = secondary.sensor_id in self._sensor_device_ids
         for transport, endpoint in secondary.endpoints.items():
             if transport not in primary.endpoints:
                 primary.endpoints[transport] = endpoint
@@ -1888,6 +1904,10 @@ class LiveRuntime:
         self.sensors.pop(secondary.sensor_id, None)
         self._sensor_device_signatures.pop(secondary.sensor_id, None)
         self._sensor_device_signatures.pop(primary.sensor_id, None)
+        # The primary owns the surviving HA device by construction.  Drop only
+        # the discarded side's registry bookkeeping; never repoint the canonical
+        # sensor at a device which the cleanup task is about to remove.
+        self._sensor_device_ids.pop(secondary.sensor_id, None)
         pending_refresh = self._sensor_device_refresh_handles.pop(secondary.sensor_id, None)
         if pending_refresh is not None:
             pending_refresh.cancel()
@@ -1941,19 +1961,27 @@ class LiveRuntime:
             return
         from homeassistant.helpers import device_registry as dr
         from homeassistant.helpers import entity_registry as er
-        entity_registry = er.async_get(self.hass)
-        for entity in list(entity_registry.entities.values()):
-            if entity.config_entry_id != self.hub_entry.entry_id or entity.platform != DOMAIN:
-                continue
-            if old_sensor_id in str(entity.unique_id or ""):
-                entity_registry.async_remove(entity.entity_id)
         device_registry = dr.async_get(self.hass)
         device = device_registry.async_get_device_by_identifier(
             (DOMAIN, f"live_sensor:{old_sensor_id}"),
             self.hub_entry.entry_id,
         )
-        if device is not None:
-            device_registry.async_remove_device(device.id)
+        if device is None:
+            return
+
+        entity_registry = er.async_get(self.hass)
+        # Remove only entities actually attached to the discarded HA device.
+        # Matching the old sensor ID as an arbitrary unique-id substring is too
+        # broad after aliases/merges and can remove entities belonging to the
+        # surviving canonical device.
+        for entity in list(entity_registry.entities.values()):
+            if (
+                entity.config_entry_id == self.hub_entry.entry_id
+                and entity.platform == DOMAIN
+                and entity.device_id == device.id
+            ):
+                entity_registry.async_remove(entity.entity_id)
+        device_registry.async_remove_device(device.id)
 
     @staticmethod
     def _endpoints_recently_coobserved(
@@ -3514,6 +3542,18 @@ class LiveRuntime:
         }
 
     async def async_shutdown(self) -> None:
+        # A transport merge/topology enrichment is deliberately debounced during
+        # normal radio activity, but shutdown must never throw that pending state
+        # away.  Flush it before providers are torn down so a successful BLE/ANT
+        # merge survives an immediate Home Assistant restart.
+        pending_topology_save = bool(self._save_pending)
+        if self._save_handle is not None:
+            self._save_handle.cancel()
+            self._save_handle = None
+        if pending_topology_save:
+            self._save_pending = False
+            await self._async_save_adapter_config()
+
         for provider in list(self.providers.values()):
             await provider.async_shutdown()
         self.providers.clear()
@@ -3538,7 +3578,7 @@ class LiveRuntime:
         if self._save_handle is not None:
             self._save_handle.cancel()
             self._save_handle = None
-            self._save_pending = False
+        self._save_pending = False
         if self._structure_notify_handle is not None:
             self._structure_notify_handle.cancel()
             self._structure_notify_handle = None
