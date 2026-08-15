@@ -52,7 +52,7 @@ def test_distance_and_speed_normalization():
 
 def test_registry_has_explicit_provider_owners():
     # Import adapters first because registry imports them by package name.
-    for name in ("garmin", "strava", "polar", "hevy", "peloton", "oura", "generic"):
+    for name in ("garmin", "strava", "polar", "hevy", "peloton", "oura", "healthsync", "generic"):
         load_module(
             f"custom_components.fitness.providers.workout_adapters.{name}",
             f"providers/workout_adapters/{name}.py",
@@ -69,6 +69,7 @@ def test_registry_has_explicit_provider_owners():
     assert supported["hevy"] == ("hevy",)
     assert supported["peloton"] == ("peloton",)
     assert supported["oura"] == ("oura",)
+    assert supported["healthsync"] == ("healthsync",)
 
     domains = [domain for values in supported.values() for domain in values]
     assert len(domains) == len(set(domains))
@@ -77,7 +78,7 @@ def test_registry_has_explicit_provider_owners():
 
 def test_adapter_diagnostic_contract():
     for name in (
-        "garmin", "strava", "polar", "hevy", "peloton", "oura", "generic"
+        "garmin", "strava", "polar", "hevy", "peloton", "oura", "healthsync", "generic"
     ):
         module_name = f"custom_components.fitness.providers.workout_adapters.{name}"
         if module_name not in sys.modules:

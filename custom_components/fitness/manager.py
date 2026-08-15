@@ -123,6 +123,7 @@ from .providers.sleep_adapters.sleep_as_android import record_from_event_history
 from .strength import analyze_strength
 from .providers.workouts import (
     Workout,
+    FITNESS_CALCULATED_SOURCE,
     _dt,
     _same_real_workout,
     _sport_key,
@@ -3944,9 +3945,36 @@ class FitnessManager:
                 workout.strength_total_sets=float(details.get("total_sets") or 0) or None
                 workout.strength_best_estimated_1rm_kg=details.get("best_estimated_1rm_kg")
                 workout.strength_progression_percent=details.get("mean_e1rm_change_percent")
-                if workout.exercise_count is None: workout.exercise_count=details.get("exercise_count")
-                if workout.total_reps is None: workout.total_reps=details.get("total_reps")
-                if workout.volume_kg is None: workout.volume_kg=details.get("volume_kg")
+
+                # These three are factual-looking provider fields, but detailed
+                # strength analysis can reconstruct them from the provider's set
+                # payload when the provider does not expose a dedicated value.
+                # Mark them explicitly as provisional Fitness fallbacks so the
+                # dashboard data map can carry the value without inventing a
+                # mirror entity, and so a later real provider value wins.
+                fallback_methods = {
+                    "exercise_count": "count_normalized_strength_exercises",
+                    "total_reps": "sum_normalized_strength_set_reps",
+                    "volume_kg": "sum_normalized_strength_set_volume",
+                }
+                for field_name, detail_key in (
+                    ("exercise_count", "exercise_count"),
+                    ("total_reps", "total_reps"),
+                    ("volume_kg", "volume_kg"),
+                ):
+                    if getattr(workout, field_name) is not None:
+                        continue
+                    fallback_value = details.get(detail_key)
+                    if fallback_value is None:
+                        continue
+                    setattr(workout, field_name, fallback_value)
+                    workout.field_sources = dict(workout.field_sources or {})
+                    workout.field_sources[field_name] = FITNESS_CALCULATED_SOURCE
+                    workout.provider_values = dict(workout.provider_values or {})
+                    fitness_values = dict(workout.provider_values.get("fitness") or {})
+                    fitness_values[f"derived_{field_name}"] = fallback_value
+                    fitness_values[f"derived_{field_name}_method"] = fallback_methods[field_name]
+                    workout.provider_values["fitness"] = fitness_values
         return workout
 
     async def async_set_session_rpe(self, value: int) -> None:

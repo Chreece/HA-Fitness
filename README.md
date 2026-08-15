@@ -85,9 +85,9 @@ The bundled frontend resource is normally registered automatically. Advanced/man
 
 ### Why install Fitness if my watch integration already works?
 
-Because they solve different problems. Your Garmin, Polar, Oura, WHOOP, Strava or other integration exposes what **that source** knows. Fitness adds the provider-independent layer on top. A chest strap can provide live HR, another device can provide power, and a watch can upload the completed workout later; Fitness can reconcile those views while retaining Fitness-owned RPE, HR recovery and personal-history context.
+Because they solve different problems. Your Garmin, Polar, Oura, WHOOP, Strava, HealthSync or other integration exposes what **that source** knows. Fitness adds the provider-independent layer on top. A chest strap can provide live HR, another device can provide power, and a watch can upload the completed workout later; Fitness can reconcile those views while retaining Fitness-owned RPE, HR recovery and personal-history context.
 
-### Does Fitness replace Garmin Connect, Strava, Polar, Hevy, etc.?
+### Does Fitness replace Garmin Connect, Strava, Polar, Hevy, HealthSync, etc.?
 
 No. Keep the source integration. Fitness reads compatible Home Assistant entities from it. Dedicated adapters understand known provider layouts, while conservative fallback parsing can work with other integrations that expose sufficiently clear workout or sleep data.
 

@@ -46,6 +46,7 @@ from .providers.evaluation import collect_provider_metrics
 from .providers.workouts import fitness_owned_workout_value
 from .profile_data import (
     DATA_MAP_KEYS,
+    DATA_MAP_SCHEMA_VERSION,
     build_profile_routes,
     routes_to_attributes,
 )
@@ -683,7 +684,7 @@ class FitnessSensor(SensorEntity):
         self._attr_unique_id = f"{entry.entry_id}_{desc.key}"
         self._attr_device_info = device_info(entry, desc.kind)
         self._data_map_attributes: dict = {
-            "schema_version": 1,
+            "schema_version": DATA_MAP_SCHEMA_VERSION,
             "map_kind": "recovery" if desc.kind == "sleep" else desc.kind,
             "mapped_keys": [],
             "route_count": 0,
@@ -697,7 +698,7 @@ class FitnessSensor(SensorEntity):
             self._data_map_refresh_handle = None
 
     def _schedule_data_map_refresh(self, delay: float | None = None):
-        """Coalesce source-map rebuilds; live values never rewrite the map."""
+        """Coalesce source-map rebuilds without mirroring high-rate source values."""
         if self.entity_description.key not in DATA_MAP_KEYS:
             return
         if self._data_map_refresh_handle is not None:
@@ -737,10 +738,11 @@ class FitnessSensor(SensorEntity):
 
     async def async_added_to_hass(self):
         if self.entity_description.key in DATA_MAP_KEYS:
-            # Data-map sensors subscribe only to domains that can change routing.
-            # The scheduled builder is coalesced and writes HA state only when an
-            # entity ID/attribute path changes, never when the underlying value
-            # changes. This keeps Recorder traffic negligible.
+            # Data-map sensors subscribe only to domains that can change routing
+            # or a low-frequency inline fallback fact. High-rate source metrics
+            # remain on their source entities and never rewrite the map sensor.
+            # The scheduled builder is coalesced and writes only on attribute
+            # changes, keeping Recorder traffic negligible.
             self.async_on_remove(self.manager.add_listener(self._schedule_data_map_refresh))
             key = self.entity_description.key
             if key == "live_data":

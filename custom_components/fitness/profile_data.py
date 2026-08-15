@@ -2,8 +2,10 @@
 
 The dashboard must never infer ownership by scanning Home Assistant on every
 render.  Each Fitness profile therefore exposes one routing sensor on each of
-its four devices (Workouts, Live workout, Recovery and Evaluation).  The sensor
-attributes contain *where* a value lives, never a copied provider value.
+its four devices (Workouts, Live workout, Recovery and Evaluation). The sensor
+attributes normally contain *where* a value lives. A deliberately small inline
+exception exists for low-frequency facts that have no authoritative scalar HA
+entity (calculated substitutes, event reconstructions and canonical corrections).
 """
 from __future__ import annotations
 
@@ -23,7 +25,26 @@ from .const import (
 from .live import get_live_runtime
 from .providers.evaluation import collect_provider_metrics
 
-DATA_MAP_SCHEMA_VERSION = 1
+DATA_MAP_SCHEMA_VERSION = 3
+
+# Inline values are an intentionally tiny exception to the routing-only map
+# contract. They are allowed only when the dashboard fact has no authoritative
+# scalar HA entity to read from. ``fitness_calculated`` is a substitute fact
+# Fitness computes because the provider omitted it; ``source_reconstructed``
+# is rebuilt exactly from source events/attributes; ``source_normalized`` is a
+# corrected canonical source fact (for example impossible sleep duration).
+INLINE_VALUE_SOURCE_TYPES = frozenset({
+    "fitness_calculated",
+    "source_reconstructed",
+    "source_normalized",
+})
+
+
+def _route_keeps_inline_value(route: dict[str, Any]) -> bool:
+    return (
+        route.get("transform") == "inline"
+        and route.get("source_type") in INLINE_VALUE_SOURCE_TYPES
+    )
 DATA_MAP_KEYS = {
     "workout_data": "workout",
     "live_data": "live",
@@ -245,9 +266,10 @@ def _evaluation_input_routes(hass, manager) -> dict[str, dict[str, Any]]:
 def build_profile_routes(hass, manager, entry, kind: str, descriptions) -> dict[str, dict[str, Any]]:
     """Build one profile-device route table.
 
-    The returned mapping contains routing metadata only.  Canonical fallback
-    values used by the dashboard are added transiently by the websocket payload;
-    they are never persisted as attributes on these map sensors.
+    The returned mapping is a routing contract. Source-owned values remain
+    pointers to their real HA entities. A small class of *substitute facts* that
+    Fitness calculates only because the source omitted that fact may carry an
+    inline value; these are never materialized as separate Fitness entities.
     """
     routes = _fitness_owned_routes(hass, entry, kind, descriptions)
 
@@ -271,10 +293,14 @@ def build_profile_routes(hass, manager, entry, kind: str, descriptions) -> dict[
             hass, manager, latest, profile_entities
         )
         for key, route in source_routes.items():
+            # Persist an inline value only for a genuine Fitness fallback fact.
+            # Canonical/provider values remain on their source entities and are
+            # deliberately not copied into the map sensor.
+            keep_value = _route_keeps_inline_value(route)
             routes[key] = {
                 field: value
                 for field, value in route.items()
-                if field != "value"
+                if field != "value" or keep_value
             }
         return routes
 
@@ -284,10 +310,14 @@ def build_profile_routes(hass, manager, entry, kind: str, descriptions) -> dict[
         latest = manager.latest_sleep()
         source_routes = _sleep_source_metrics(hass, latest)
         for key, route in source_routes.items():
+            # Persist an inline value only for a genuine Fitness fallback fact.
+            # Canonical/provider values remain on their source entities and are
+            # deliberately not copied into the map sensor.
+            keep_value = _route_keeps_inline_value(route)
             routes[key] = {
                 field: value
                 for field, value in route.items()
-                if field != "value"
+                if field != "value" or keep_value
             }
         return routes
 
@@ -320,10 +350,20 @@ def routes_to_attributes(kind: str, routes: dict[str, dict[str, Any]]) -> dict[s
             ("field", "field"),
             ("source_type", "source_type"),
             ("configured_value", "configured_value"),
+            ("method", "method"),
         ):
             value = route.get(field)
             if value is not None:
                 attrs[f"{key}_{suffix}"] = value
+
+        # Inline values are allowed only for low-frequency substitute facts that
+        # Fitness calculated because the source did not provide that field. This
+        # is intentionally *not* a general value mirror mechanism.
+        if (
+            _route_keeps_inline_value(route)
+            and route.get("value") is not None
+        ):
+            attrs[f"{key}_value"] = route["value"]
     attrs["direct_source_count"] = direct_count
     return attrs
 
@@ -348,6 +388,8 @@ def routes_from_attributes(attributes: dict[str, Any] | None) -> dict[str, dict[
             ("field", "field"),
             ("source_type", "source_type"),
             ("configured_value", "configured_value"),
+            ("method", "method"),
+            ("value", "value"),
         ):
             value = attributes.get(f"{key}_{suffix}")
             if value is not None:

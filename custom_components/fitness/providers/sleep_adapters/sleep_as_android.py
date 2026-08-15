@@ -144,6 +144,10 @@ def records_from_event_history(
             provider_values={"sleep_as_android": {
                 "tracking_entity": tracking_entity_id, "phase_entity": phase_entity_id,
                 "stage_method": "home_assistant_recorder_event_timeline",
+                "reconstructed_fields": [
+                    "duration_s",
+                    *[key for key, value in totals.items() if value > 0],
+                ],
                 "unclassified_asleep_s": max(0.0, sleep_s - totals["light_sleep_s"] - totals["deep_sleep_s"] - totals["rem_sleep_s"]),
             }},
         ))

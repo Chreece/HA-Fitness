@@ -2,11 +2,17 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers import entity_registry as er
 
+from ..const import (
+    CONF_WORKOUT_DEVICE_IDS,
+    CONF_WORKOUT_RETENTION_DAYS,
+    DEFAULT_WORKOUT_RETENTION_DAYS,
+)
 from .workouts import Workout, _activity_dicts, _dt, _extract_record, merged_workouts
 
 
@@ -109,6 +115,58 @@ def _selected_provider_config_entries(hass: HomeAssistant, config: dict, domain:
     return result
 
 
+def _selected_provider_device_ids(
+    hass: HomeAssistant, config: dict, domain: str
+) -> set[str]:
+    """Return selected provider device IDs accepted by response services."""
+    selected = set(config.get(CONF_WORKOUT_DEVICE_IDS) or [])
+    if not selected:
+        return set()
+    result: set[str] = set()
+    registry = er.async_get(hass)
+    for entry in registry.entities.values():
+        if entry.device_id not in selected or not entry.config_entry_id:
+            continue
+        config_entry = hass.config_entries.async_get_entry(entry.config_entry_id)
+        if config_entry and config_entry.domain == domain and entry.device_id:
+            result.add(entry.device_id)
+    return result
+
+
+def _healthsync_workouts(readings: list[dict[str, Any]], source: str) -> list[Workout]:
+    """Normalize HealthSync's permanent Apple Health workout archive."""
+    result: list[Workout] = []
+    for raw in readings or []:
+        if not isinstance(raw, dict):
+            continue
+        start = raw.get("start_date")
+        end = raw.get("end_date")
+        payload: dict[str, Any] = {
+            "name": raw.get("workout_type") or "Apple Health workout",
+            "sport": raw.get("workout_type"),
+            "start": start,
+            "end": end,
+            "distance_m": raw.get("distance"),
+            # HealthSync archives workout active energy in ``value``.
+            "calories": raw.get("value"),
+        }
+        start_dt = _dt(start)
+        end_dt = _dt(end)
+        if start_dt is not None and end_dt is not None and end_dt > start_dt:
+            payload["duration_s"] = (end_dt - start_dt).total_seconds()
+
+        workout = _extract_record(
+            payload, source=source, provider_domain="healthsync"
+        )
+        if workout and workout.start:
+            workout.extra.setdefault("fitness_adapter", "healthsync_history")
+            workout.extra.setdefault(
+                "fitness_history_source", "healthsync.get_readings"
+            )
+            result.append(workout)
+    return result
+
+
 def _hevy_workout(raw: dict[str, Any], source: str) -> Workout | None:
     payload = dict(raw)
     payload.setdefault("sport", "strength")
@@ -152,4 +210,40 @@ async def async_provider_history_workouts(hass: HomeAssistant, config: dict) -> 
                 if workout and workout.start:
                     result.append(workout)
 
-    return merged_workouts(result)
+    # HealthSync exposes an unlimited, private Apple Health workout archive via
+    # a response-returning service. Parse that potentially large history off
+    # Home Assistant's event loop; the HealthSync service itself already runs
+    # its SQLite query in an executor.
+    if hass.services.has_service("healthsync", "get_readings"):
+        retention_days = int(
+            config.get(CONF_WORKOUT_RETENTION_DAYS, DEFAULT_WORKOUT_RETENTION_DAYS)
+            or 0
+        )
+        history_start = (
+            datetime.now(timezone.utc) - timedelta(days=retention_days)
+            if retention_days > 0
+            else None
+        )
+        for device_id in _selected_provider_device_ids(hass, config, "healthsync"):
+            service_data = {"device_id": device_id, "metric": "workouts"}
+            if history_start is not None:
+                service_data["start"] = history_start
+            try:
+                response = await hass.services.async_call(
+                    "healthsync",
+                    "get_readings",
+                    service_data,
+                    blocking=True,
+                    return_response=True,
+                )
+            except Exception:
+                continue
+            readings = (response or {}).get("readings", []) or []
+            parsed = await hass.async_add_executor_job(
+                _healthsync_workouts, readings, f"healthsync_history:{device_id}"
+            )
+            result.extend(parsed)
+
+    if not result:
+        return []
+    return await hass.async_add_executor_job(merged_workouts, result)

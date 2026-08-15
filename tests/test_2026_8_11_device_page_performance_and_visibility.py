@@ -85,4 +85,4 @@ def test_recovery_has_numeric_hrv_vs_baseline_bar_only_when_baseline_exists():
 
 
 def test_frontend_revision_is_bumped_for_visible_changes():
-    assert 'const FITNESS_DASHBOARD_VERSION = "2026.8.11.6";' in FRONTEND
+    assert 'const FITNESS_DASHBOARD_VERSION = "2026.8.11.10";' in FRONTEND

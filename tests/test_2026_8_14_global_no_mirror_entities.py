@@ -52,10 +52,10 @@ def test_dashboard_uses_sources_for_raw_sleep_and_current_evaluation_inputs():
     assert "def _evaluation_source_metrics(" in DASHBOARD
     assert '_fitnessEvaluationSourceMetric(this._profile, this._hass, "vo2max"' in FRONTEND
     assert '_fitnessSleepSourceMetric(this._profile, this._hass, "last_sleep_hrv"' in FRONTEND
-    assert 'currentSource?.entityId || e.cardiorespiratory_fitness_trend' in FRONTEND
-    assert 'hrvSource?.entityId || e.autonomic_recovery_trend' in FRONTEND
+    assert 'currentSource?.moreInfoEntityId || e.cardiorespiratory_fitness_trend' in FRONTEND
+    assert 'e.autonomic_recovery_trend || hrvSource?.moreInfoEntityId' in FRONTEND
 
 
 def test_dashboard_version_bumped_for_no_mirror_routing():
-    assert '?v=2026.8.11.6' in DASHBOARD
-    assert 'FITNESS_DASHBOARD_VERSION = "2026.8.11.6"' in FRONTEND
+    assert '?v=2026.8.11.10' in DASHBOARD
+    assert 'FITNESS_DASHBOARD_VERSION = "2026.8.11.10"' in FRONTEND

@@ -232,6 +232,13 @@ def workout_device_entity_ids(hass: HomeAssistant, config: dict) -> list[str]:
                 matched = "last_exercise" in text or "exercise" in text
             elif "hevy" in domains:
                 matched = "last_workout" in text
+            elif "healthsync" in domains:
+                unique_id = str(getattr(entry, "unique_id", "") or "").lower()
+                matched = (
+                    "last_workout" in text
+                    or "_workout_slot_" in unique_id
+                    or "workout_slot" in text
+                )
             elif "peloton" in domains:
                 matched = any(token in text for token in (
                     "start_time", "end_time", "workout_duration", "duration",

@@ -11,7 +11,7 @@ from .base import (
     finite_number,
     selected_sensor_entries,
 )
-from ..workouts import _extract_record
+from ..workouts import SOURCE_RECONSTRUCTED_SOURCE, _extract_record
 
 DOMAINS = ("polar",)
 
@@ -29,16 +29,18 @@ def _heart_rate_fields(value):
     return value, None
 
 
-def _polar_session_rpe(attrs: dict, duration_s: float | None) -> int | None:
-    """Extract Polar's documented 1-10 session RPE when AccessLink exposes it."""
+def _polar_session_rpe_details(
+    attrs: dict, duration_s: float | None
+) -> tuple[int | None, str | None]:
+    """Return Polar session RPE plus how the normalized value was obtained."""
     load = attrs.get("training_load_pro") or attrs.get("training-load-pro")
     if not isinstance(load, dict):
-        return None
+        return None, None
 
     raw = load.get("user_rpe", load.get("user-rpe"))
     numeric = finite_number(raw)
     if numeric is not None and 1 <= numeric <= 10:
-        return max(1, min(10, int(round(numeric))))
+        return max(1, min(10, int(round(numeric)))), "native_user_rpe"
 
     # AccessLink can expose user-rpe as an enum while also exposing Perceived
     # Load. Polar documents Perceived Load = RPE x duration_minutes, so derive
@@ -47,8 +49,16 @@ def _polar_session_rpe(attrs: dict, duration_s: float | None) -> int | None:
     if perceived is not None and duration_s and duration_s > 0:
         candidate = perceived / (duration_s / 60.0)
         if 1 <= candidate <= 10:
-            return max(1, min(10, int(round(candidate))))
-    return None
+            return (
+                max(1, min(10, int(round(candidate)))),
+                "polar_perceived_load_div_duration_minutes",
+            )
+    return None, None
+
+
+def _polar_session_rpe(attrs: dict, duration_s: float | None) -> int | None:
+    """Backward-compatible value-only helper."""
+    return _polar_session_rpe_details(attrs, duration_s)[0]
 
 
 def _tag_rpe_capability(workout):
@@ -80,6 +90,7 @@ def discover(hass: HomeAssistant, config: dict) -> list:
 
         avg_hr, max_hr = _heart_rate_fields(attrs.get("heart_rate"))
         duration_s = duration_seconds(attrs.get("duration"))
+        session_rpe, session_rpe_method = _polar_session_rpe_details(attrs, duration_s)
 
         raw = {
             "name": attrs.get("sport") or "Polar exercise",
@@ -91,7 +102,7 @@ def discover(hass: HomeAssistant, config: dict) -> list:
             "max_hr": max_hr,
             "calories": attrs.get("calories"),
             "training_load": attrs.get("training_load"),
-            "session_rpe": _polar_session_rpe(attrs, duration_s),
+            "session_rpe": session_rpe,
             "device_name": attrs.get("device"),
             "training_load_pro": attrs.get("training_load_pro") or attrs.get("training-load-pro"),
             # Keep Polar-specific performance metrics as provider data.
@@ -106,6 +117,19 @@ def discover(hass: HomeAssistant, config: dict) -> list:
         if workout:
             workout.extra["fitness_adapter"] = "polar"
             _tag_rpe_capability(workout)
+            if (
+                workout.session_rpe is not None
+                and session_rpe_method == "polar_perceived_load_div_duration_minutes"
+            ):
+                # No scalar RPE entity/value exists in this provider shape; the
+                # exact source fact is reconstructed from Polar's documented
+                # Perceived Load contract. Keep it provisional so a native RPE
+                # value automatically wins if it appears later.
+                workout.field_sources["session_rpe"] = SOURCE_RECONSTRUCTED_SOURCE
+                polar_values = workout.provider_values.setdefault("polar", {})
+                polar_values["derived_session_rpe"] = workout.session_rpe
+                polar_values["derived_session_rpe_method"] = session_rpe_method
+                polar_values["derived_session_rpe_source_entity"] = entry.entity_id
             result.append(workout)
 
     return result

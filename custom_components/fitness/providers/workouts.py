@@ -29,14 +29,16 @@ _FIELD_KEYS: dict[str, tuple[str, ...]] = {
     "start": (
         "startTime", "start_time", "startTimeLocal", "start_date",
         "start_date_local", "start", "startDate", "start_time_local",
-        "startTimeGMT", "date",
+        "startTimeGMT", "date", "started_at",
     ),
     "end": (
         "endTime", "end_time", "endDate", "end_date", "stop_time",
+        "ended_at",
     ),
     "duration_s": (
         "duration", "duration_s", "durationSeconds", "elapsedDuration",
         "elapsed_time", "elapsedTime", "movingDuration",
+        "duration_min", "duration_minutes",
     ),
     "moving_time_s": (
         "moving_time", "movingTime", "moving_time_s",
@@ -142,6 +144,27 @@ _FIELD_KEYS: dict[str, tuple[str, ...]] = {
 
 FITNESS_LIVE_SOURCE = "fitness_live_capture"
 FITNESS_CALCULATED_SOURCE = "fitness_calculated"
+SOURCE_RECONSTRUCTED_SOURCE = "source_reconstructed"
+
+# Source-like workout facts that are allowed to be provisional. The first three
+# are reconstructed by Fitness detailed-strength analysis; session RPE can be
+# reconstructed exactly from a provider's documented load+duration contract.
+# A genuine provider value must always replace any provisional representation.
+FITNESS_FALLBACK_FACTUAL_FIELDS = frozenset({
+    "exercise_count",
+    "total_reps",
+    "volume_kg",
+})
+SOURCE_RECONSTRUCTED_FACTUAL_FIELDS = frozenset({
+    "session_rpe",
+})
+PROVISIONAL_FACTUAL_FIELDS = (
+    FITNESS_FALLBACK_FACTUAL_FIELDS | SOURCE_RECONSTRUCTED_FACTUAL_FIELDS
+)
+PROVISIONAL_FACT_SOURCES = frozenset({
+    FITNESS_CALCULATED_SOURCE,
+    SOURCE_RECONSTRUCTED_SOURCE,
+})
 
 
 def workout_is_fitness_owned(workout: "Workout | None") -> bool:
@@ -940,6 +963,9 @@ def _sport_key(value: str | None) -> str:
         "ebikeride": "cycling",
         "weighttraining": "strength",
         "strengthtraining": "strength",
+        "functionalstrengthtraining": "strength",
+        "traditionalstrengthtraining": "strength",
+        "highintensityintervaltraining": "hiit",
         "workout": "workout",
     }
     return aliases.get(text, text or "workout")
@@ -1235,6 +1261,38 @@ def merge_workouts(group: list[Workout]) -> Workout:
                     f"normalized_{field_name}"
                 ] = value
 
+            # Fitness fallback facts are provisional. If a real provider later
+            # supplies the field, the provider becomes canonical even when an
+            # older Fitness-enriched record happened to sort as richer. The
+            # reverse is never allowed: a calculated substitute cannot replace a
+            # real source value.
+            current_source = merged.field_sources.get(field_name)
+            fallback_fact = field_name in PROVISIONAL_FACTUAL_FIELDS
+            current_is_provisional = current_source in PROVISIONAL_FACT_SOURCES
+            provider_is_provisional = provider in PROVISIONAL_FACT_SOURCES
+            if (
+                fallback_fact
+                and current is not None
+                and current_is_provisional
+                and not provider_is_provisional
+            ):
+                merged.provider_values.setdefault(str(current_source), {})[
+                    f"normalized_{field_name}"
+                ] = current
+                setattr(merged, field_name, value)
+                merged.field_sources[field_name] = provider
+                continue
+            if (
+                fallback_fact
+                and current is not None
+                and not current_is_provisional
+                and provider_is_provisional
+            ):
+                merged.provider_values.setdefault(str(provider), {})[
+                    f"normalized_{field_name}"
+                ] = value
+                continue
+
             # Keep first (richest provider) as canonical, but retain all
             # disagreements in provider_values + field_sources.
             if current is None:
@@ -1307,13 +1365,25 @@ def merge_workouts(group: list[Workout]) -> Workout:
             continue
         meta = item.extra.get("fitness_rpe") if isinstance(item.extra, dict) else None
         active_source = meta.get("active_source") if isinstance(meta, dict) else None
-        priority = 3 if active_source == "user_override" else 2 if active_source == "provider" else 1
+        field_source = (item.field_sources or {}).get("session_rpe")
+        if active_source == "user_override":
+            priority = 3
+        elif field_source in PROVISIONAL_FACT_SOURCES:
+            # An exactly reconstructed source fact is useful only until the
+            # provider exposes a genuine RPE. Never let it beat a native value.
+            priority = 1
+        elif active_source == "provider" or field_source:
+            priority = 2
+        else:
+            priority = 1
         rpe_candidates.append((priority, item))
     if rpe_candidates:
         _, chosen_rpe = max(rpe_candidates, key=lambda pair: pair[0])
         merged.session_rpe = int(round(float(chosen_rpe.session_rpe)))
         provider = chosen_rpe.provider_domains[0] if chosen_rpe.provider_domains else chosen_rpe.source
-        merged.field_sources["session_rpe"] = provider
+        merged.field_sources["session_rpe"] = (
+            (chosen_rpe.field_sources or {}).get("session_rpe") or provider
+        )
         meta = chosen_rpe.extra.get("fitness_rpe") if isinstance(chosen_rpe.extra, dict) else None
         if isinstance(meta, dict):
             merged.extra["fitness_rpe"] = dict(meta)

@@ -1,5 +1,8 @@
 # Changelog
 
+- Added native HealthSync / Apple Health sleep and completed-workout adapters. Sleep uses the upstream Sleep last night stage attributes plus full onset/wake timestamps; dashboard routes remain source-owned and synthetic sleep score stays an inline fallback only when HealthSync has no score entity.
+- Added HealthSync recent-workout-slot parsing, Apple Health workout-type normalization (including functional/traditional strength and HIIT), runtime listener recognition for dynamically named workout slots, and permanent workout-history import through `healthsync.get_readings` bounded by the Fitness retention window and parsed off Home Assistant's event loop.
+
 - Made unaccepted Bluetooth discovery sensors effectively zero-background after their first stable identity registration: recurring advertisements now refresh only in-memory last-seen/RSSI/source/availability and return before runtime registration, diagnostics, vendor decoding, passive telemetry, storage, structure notifications or config-flow work.
 - Dynamic Bluetooth advertisement payload diagnostics and proprietary passive decoding now begin only after the user accepts the sensor; discovery itself retains only stable identity/capability facts.
 

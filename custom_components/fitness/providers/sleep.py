@@ -263,6 +263,16 @@ def merge_sleep_records(group: list[SleepRecord]) -> SleepRecord:
         candidates = [record for record in group if getattr(record, field_name) is not None]
         if not candidates:
             continue
+        if field_name == "score":
+            # A Fitness-derived score is only a substitute for a missing native
+            # provider score. If a real score appears later, it must replace the
+            # calculated fallback regardless of record richness/order.
+            native_score_candidates = [
+                record for record in candidates
+                if (record.field_sources or {}).get("score") != "fitness_calculated"
+            ]
+            if native_score_candidates:
+                candidates = native_score_candidates
         winner = (
             stage_bundle_winner
             if stage_bundle_winner is not None
@@ -279,16 +289,26 @@ def merge_sleep_records(group: list[SleepRecord]) -> SleepRecord:
         ):
             value = coherent_duration_s
         setattr(merged, field_name, value)
+        duration_was_normalized = (
+            field_name == "duration_s"
+            and coherent_duration_s is not None
+            and coherent_duration_s != getattr(winner, field_name)
+        )
         merged.field_sources[field_name] = (
             (
                 f"{winner.provider_domain}:classified_sleep_stages"
-                if field_name == "duration_s"
-                and coherent_duration_s is not None
-                and coherent_duration_s != getattr(winner, field_name)
+                if duration_was_normalized
                 else (winner.field_sources or {}).get(field_name)
             )
             or winner.provider_domain
         )
+        if duration_was_normalized:
+            fitness_values = merged.provider_values.setdefault("fitness", {})
+            fitness_values["normalized_sleep_duration_s"] = coherent_duration_s
+            fitness_values["normalized_sleep_duration_method"] = (
+                "max_provider_duration_and_classified_sleep_stages"
+            )
+            fitness_values["normalized_sleep_duration_provider"] = winner.provider_domain
 
         for record in candidates:
             candidate_value = getattr(record, field_name)

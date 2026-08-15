@@ -10,11 +10,12 @@ from homeassistant.helpers import entity_registry as er
 from ...const import CONF_SLEEP_DEVICE_IDS
 from ..sleep import SleepRecord, newest_sleep
 from .registry_types import SleepAdapterSpec
-from . import garmin, oura, fitbit, withings, whoop, suunto, sleepiq, eight_sleep, sleep_as_android
+from . import garmin, oura, fitbit, healthsync, withings, whoop, suunto, sleepiq, eight_sleep, sleep_as_android
 
 
 SPECS: tuple[SleepAdapterSpec, ...] = (
     garmin.SPEC,
+    healthsync.SPEC,
     oura.SPEC,
     fitbit.SPEC,
     withings.SPEC,
@@ -324,7 +325,14 @@ def discover_sleep_records(hass, config) -> list[SleepRecord]:
         if explicit_specs:
             for spec in explicit_specs:
                 own = [entry for entry in device_entries if _domain(hass, entry) in spec.domains]
-                record = _parse_provider(hass, own, next(iter(set(spec.domains).intersection(domains)), spec.name), spec.fields)
+                if spec.name == "healthsync":
+                    record = healthsync.discover(hass, own)
+                else:
+                    record = _parse_provider(
+                        hass, own,
+                        next(iter(set(spec.domains).intersection(domains)), spec.name),
+                        spec.fields,
+                    )
                 if record is not None:
                     records.append(record)
         else:

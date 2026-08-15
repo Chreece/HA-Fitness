@@ -26,7 +26,10 @@ from .profile_data import (
     routes_from_attributes,
 )
 from .providers.workouts import (
+    FITNESS_CALCULATED_SOURCE,
+    FITNESS_FALLBACK_FACTUAL_FIELDS,
     FITNESS_LIVE_SOURCE,
+    SOURCE_RECONSTRUCTED_SOURCE,
     _FIELD_KEYS,
     fitness_owned_workout_value,
     workout_is_fitness_owned,
@@ -36,7 +39,7 @@ from .providers.workouts import (
 _LOGGER = logging.getLogger(__name__)
 
 _RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"
-_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.11.6"
+_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.11.10"
 _SETUP_KEY = "_dashboard_frontend_setup"
 
 _PACE_TEXT: dict[str, str] = {
@@ -1158,10 +1161,20 @@ def _sleep_source_value(record, field_name: str) -> Any:
 
 
 def _sleep_source_metrics(hass: HomeAssistant, record) -> dict[str, dict[str, Any]]:
-    """Return source routes for latest-sleep facts without Fitness mirrors."""
+    """Return latest-sleep source routes plus exact missing-source substitutes."""
     if record is None:
         return {}
     result: dict[str, dict[str, Any]] = {}
+    provider_values = record.provider_values or {}
+    fitness_values = provider_values.get("fitness") or {}
+    saa_values = provider_values.get("sleep_as_android") or {}
+    healthsync_values = provider_values.get("healthsync") or {}
+    healthsync_routes = healthsync_values.get("field_routes") or {}
+    saa_method = saa_values.get("stage_method")
+    saa_tracking = saa_values.get("tracking_entity")
+    saa_phase = saa_values.get("phase_entity")
+    saa_reconstructed_fields = set(saa_values.get("reconstructed_fields") or ())
+
     for dashboard_key, (field_name, unit) in _SLEEP_SOURCE_FIELDS.items():
         canonical = _sleep_source_value(record, field_name)
         if canonical is None:
@@ -1171,14 +1184,81 @@ def _sleep_source_metrics(hass: HomeAssistant, record) -> dict[str, dict[str, An
             "value": canonical,
             "unit": unit,
             "field": field_name,
-            "source_type": "fitness_calculated" if source == "fitness_calculated" else "source",
+            "source_type": "source",
         }
-        if isinstance(source, str) and "." in source and hass.states.get(source) is not None:
+
+        if source == "fitness_calculated":
+            # Provider omitted the fact entirely. Fitness computed a transparent
+            # substitute (currently the conservative synthetic sleep score).
+            route.update({
+                "transform": "inline",
+                "source_type": "fitness_calculated",
+                "method": (
+                    fitness_values.get("derived_sleep_score_method")
+                    if field_name == "score" else None
+                ),
+            })
+        elif (
+            isinstance(healthsync_routes.get(field_name), dict)
+            and healthsync_routes[field_name].get("entity_id") == source
+            and isinstance(source, str)
+            and hass.states.get(source) is not None
+        ):
+            # HealthSync keeps Apple Health stage totals as attributes on its
+            # single "Sleep last night" sensor. Route those facts directly to
+            # the original entity+attribute rather than turning them into
+            # Fitness mirrors or inline copies.
+            source_route = healthsync_routes[field_name]
+            route["entity_id"] = source
+            route["transform"] = source_route.get("transform", "state")
+            if source_route.get("attribute"):
+                route["attribute"] = source_route["attribute"]
+            if source_route.get("unit"):
+                route["unit"] = source_route["unit"]
+        elif (
+            saa_method == "home_assistant_recorder_event_timeline"
+            and field_name in saa_reconstructed_fields
+            and (
+                (field_name == "duration_s" and source == saa_tracking)
+                or (
+                    field_name in {"awake_s", "light_sleep_s", "deep_sleep_s", "rem_sleep_s"}
+                    and source == saa_phase
+                )
+            )
+        ):
+            # Sleep as Android exposes events, not scalar completed-sleep stage
+            # sensors. Fitness reconstructs these exact facts from Recorder. Put
+            # the low-frequency value in the map, while retaining the event
+            # entity as provenance/More Info.
+            route.update({
+                "transform": "inline",
+                "source_type": "source_reconstructed",
+                "method": saa_method,
+            })
+            if isinstance(source, str) and hass.states.get(source) is not None:
+                route["entity_id"] = source
+        elif (
+            field_name == "duration_s"
+            and isinstance(source, str)
+            and source.endswith(":classified_sleep_stages")
+        ):
+            # Canonical normalization: total sleep cannot be shorter than the
+            # sum of Light+Deep+REM. If the provider later reports a coherent
+            # duration, field_sources returns to its real entity automatically.
+            route.update({
+                "transform": "inline",
+                "source_type": "source_normalized",
+                "method": fitness_values.get(
+                    "normalized_sleep_duration_method",
+                    "max_provider_duration_and_classified_sleep_stages",
+                ),
+            })
+        elif isinstance(source, str) and "." in source and hass.states.get(source) is not None:
             route["entity_id"] = source
             route["transform"] = "state"
         elif isinstance(record.source, str) and "." in record.source and hass.states.get(record.source) is not None:
-            # Event/history providers may reconstruct the metric from Recorder.
-            # Keep More Info attached to the real source and use canonical value.
+            # Generic history carriers remain a websocket-backed fallback unless
+            # the parser explicitly marked the value as reconstructed above.
             route["entity_id"] = record.source
             route["transform"] = "fallback"
         result[dashboard_key] = route
@@ -1241,6 +1321,8 @@ def _source_entry_label(hass: HomeAssistant, registry_entry) -> str:
 
 def _attribute_transform(field_name: str, matched_key: str) -> str:
     key = _norm_source_key(matched_key)
+    if field_name == "session_rpe" and "directworkoutrpe" in key:
+        return "rpe_0_100_to_1_10"
     if field_name in {"duration_s", "moving_time_s", "elapsed_time_s"}:
         if "minute" in key or key.endswith("min"):
             return "identity"
@@ -1250,6 +1332,22 @@ def _attribute_transform(field_name: str, matched_key: str) -> str:
     if field_name in {"average_speed_m_s", "max_speed_m_s"}:
         return "mps_to_kmh"
     return "identity"
+
+
+def _workout_route_candidate_allowed(field_name: str, label: str) -> bool:
+    """Reject sleep/recovery sibling sensors from completed-workout routing."""
+    normalized = " ".join(str(label or "").lower().replace("_", " ").split())
+    forbidden = (
+        "sleep", "awake", "time in bed", "bedtime", "wake time", "wakeup",
+        "rem sleep", "deep sleep", "light sleep", "sleep hrv", "sleep score",
+    )
+    if any(token in normalized for token in forbidden):
+        return False
+    if field_name in {"avg_hr", "max_hr"} and (
+        "resting heart rate" in normalized or "resting hr" in normalized
+    ):
+        return False
+    return True
 
 
 def _workout_source_metrics(
@@ -1276,7 +1374,10 @@ def _workout_source_metrics(
                 continue
             if provider_domains and domain not in provider_domains:
                 continue
-        candidates.append((registry_entry, domain, _source_entry_label(hass, registry_entry)))
+        label = _source_entry_label(hass, registry_entry)
+        if not _workout_route_candidate_allowed("", label):
+            continue
+        candidates.append((registry_entry, domain, label))
 
     result: dict[str, dict[str, Any]] = {}
     for dashboard_key, (field_name, unit) in _WORKOUT_SOURCE_FIELDS.items():
@@ -1284,6 +1385,37 @@ def _workout_source_metrics(
         if canonical is None:
             continue
         provider = (workout.field_sources or {}).get(field_name)
+
+        if (
+            provider == FITNESS_CALCULATED_SOURCE
+            and field_name in FITNESS_FALLBACK_FACTUAL_FIELDS
+        ):
+            fitness_values = (workout.provider_values or {}).get("fitness") or {}
+            result[dashboard_key] = {
+                "value": canonical,
+                "unit": unit,
+                "field": field_name,
+                "transform": "inline",
+                "source_type": "fitness_calculated",
+                "method": fitness_values.get(f"derived_{field_name}_method"),
+            }
+            continue
+
+        if provider == SOURCE_RECONSTRUCTED_SOURCE and field_name == "session_rpe":
+            polar_values = (workout.provider_values or {}).get("polar") or {}
+            route = {
+                "value": canonical,
+                "unit": unit,
+                "field": field_name,
+                "transform": "inline",
+                "source_type": "source_reconstructed",
+                "method": polar_values.get("derived_session_rpe_method"),
+            }
+            source_entity = polar_values.get("derived_session_rpe_source_entity")
+            if isinstance(source_entity, str) and hass.states.get(source_entity) is not None:
+                route["entity_id"] = source_entity
+            result[dashboard_key] = route
+            continue
 
         # A workout physically created by Fitness remains Fitness-owned even
         # after Garmin/Strava enrichment. If this specific field was captured
@@ -1310,6 +1442,11 @@ def _workout_source_metrics(
             value = 0
             if registry_entry.entity_id in source_ids:
                 value += 100
+            if domain == "healthsync":
+                state = hass.states.get(registry_entry.entity_id)
+                started_at = state.attributes.get("started_at") if state else None
+                if started_at and str(started_at) == str(workout.start):
+                    value += 150
             if provider and domain == provider:
                 value += 70
             if "last" in label and any(token in label for token in ("workout", "activity", "exercise")):
@@ -1320,18 +1457,50 @@ def _workout_source_metrics(
                     break
             return value
 
-        ordered = sorted(candidates, key=score, reverse=True)
+        ordered = sorted((item for item in candidates if _workout_route_candidate_allowed(field_name, item[2])), key=score, reverse=True)
         route: dict[str, Any] = {
             "value": canonical,
             "unit": unit,
             "field": field_name,
         }
 
+        # HealthSync recent-workout slot state is the raw Apple Health workout
+        # type/name. Route the headline directly to that slot rather than to a
+        # normalized fallback string.
+        direct = None
+        if field_name == "name":
+            for registry_entry, domain, _label in ordered:
+                if domain != "healthsync":
+                    continue
+                state = hass.states.get(registry_entry.entity_id)
+                if state is None or state.state in ("unknown", "unavailable", ""):
+                    continue
+                started_at = state.attributes.get("started_at")
+                if (
+                    registry_entry.entity_id in source_ids
+                    or (started_at and str(started_at) == str(workout.start))
+                ):
+                    direct = {
+                        "entity_id": registry_entry.entity_id,
+                        "transform": "state",
+                    }
+                    break
+
         # Prefer a real top-level source attribute whose key is one of the same
         # aliases used by the completed-workout normalizer.
-        aliases = {_norm_source_key(alias) for alias in _FIELD_KEYS.get(field_name, ())}
-        direct = None
+        route_aliases = list(_FIELD_KEYS.get(field_name, ()))
+        if field_name == "duration_s":
+            # _extract_record deliberately falls back to moving/elapsed time if
+            # a provider omits generic duration. Route to that real source fact
+            # rather than carrying a copied canonical value in the map.
+            route_aliases.extend(_FIELD_KEYS.get("moving_time_s", ()))
+            route_aliases.extend(_FIELD_KEYS.get("elapsed_time_s", ()))
+        aliases = {_norm_source_key(alias) for alias in route_aliases}
         for registry_entry, domain, label in ordered:
+            if not _workout_route_candidate_allowed(field_name, label):
+                continue
+            if direct is not None:
+                break
             if provider and domain != provider and any(item[1] == provider for item in ordered):
                 continue
             state = hass.states.get(registry_entry.entity_id)
@@ -1350,13 +1519,30 @@ def _workout_source_metrics(
             if direct is not None:
                 break
 
+        # Peloton exposes total output as Wh. Kilojoules are a pure unit
+        # conversion, so route to that real entity with a transform instead of
+        # storing an inline duplicate.
+        if direct is None and field_name == "kilojoules":
+            for registry_entry, domain, label in ordered:
+                if domain == "peloton" and "power" in label and "output" in label:
+                    direct = {
+                        "entity_id": registry_entry.entity_id,
+                        "transform": "wh_to_kj",
+                    }
+                    break
+
         # Sibling-sensor providers (Hevy/Oura/Peloton and similar) expose many
         # factual workout fields directly as entity states.
         if direct is None:
+            token_groups = list(_WORKOUT_STATE_TOKENS.get(field_name, ()))
+            if field_name == "duration_s":
+                token_groups.extend(_WORKOUT_STATE_TOKENS.get("moving_time_s", ()))
+                token_groups.extend(_WORKOUT_STATE_TOKENS.get("elapsed_time_s", ()))
             for registry_entry, domain, label in ordered:
+                if not _workout_route_candidate_allowed(field_name, label):
+                    continue
                 if provider and domain != provider and any(item[1] == provider for item in ordered):
                     continue
-                token_groups = _WORKOUT_STATE_TOKENS.get(field_name, ())
                 if token_groups and any(all(token in label for token in group) for group in token_groups):
                     direct = {
                         "entity_id": registry_entry.entity_id,
