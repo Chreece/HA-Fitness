@@ -51,3 +51,19 @@ def test_raw_only_profiles_are_not_in_common_identity_allowlist_source():
     assert "DEVICE_TYPE_POWER" in constants
     assert "DEVICE_TYPE_FITNESS_EQUIPMENT" in constants
     assert "DEVICE_TYPE_RUNNING_DYNAMICS" not in constants
+
+
+def test_hr_page2_builds_complete_32bit_serial_from_upper_fragment_and_device_number():
+    meta = RECEIVER.split("def _metadata_candidate", 1)[1].split(
+        "def _observe_metadata_candidate", 1
+    )[0]
+    assert "serial_upper = data[2] | (data[3] << 8)" in meta
+    assert "(int(serial_upper) << 16) | (int(device_id) & 0xFFFF)" in meta
+
+
+def test_accepted_ant_has_one_minute_presence_heartbeat_even_when_metric_is_unchanged():
+    process = RECEIVER.split("def process_packet", 1)[1].split(
+        "def _metadata_candidate", 1
+    )[0]
+    assert "ANT_LAST_SEEN_CALLBACK_INTERVAL_SECONDS" in process
+    assert 'callback_key = "__last_seen__"' in process

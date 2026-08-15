@@ -50,9 +50,10 @@ def test_repeated_identical_metric_packets_do_not_dirty_ha_entity():
     assert "_notify_profile_live_throttled" in publish
 
 
-def test_last_seen_is_dirtied_only_on_five_minute_bucket_change():
+def test_last_seen_is_dirtied_only_on_one_minute_bucket_change():
     method = _method_source("_mark_last_seen_change")
-    assert "seen.minute // 5" in method
+    assert "seen.replace(second=0, microsecond=0)" in method
+    assert "seen.minute // 5" not in method
     assert "if previous == bucket" in method
     assert 'return {(sensor_id, "last_seen", None)}' in method
 

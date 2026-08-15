@@ -493,6 +493,18 @@ class AntPlusFitnessProvider:
 
     def _publish_metric_values(self, device, sensor_id: str) -> None:
         """Fast metric-only path for an already registered accepted sensor."""
+        sensor_id = self.runtime.resolve_sensor_id(sensor_id)
+        sensor = self.runtime.sensors.get(sensor_id)
+        endpoint = sensor.endpoints.get(self.transport) if sensor is not None else None
+        if endpoint is not None:
+            self.runtime.refresh_transport_endpoint(
+                sensor_id,
+                self.transport,
+                last_seen=getattr(device, "last_seen", None) or datetime.now(timezone.utc),
+                rssi=endpoint.rssi,
+                source=endpoint.source,
+                available=True,
+            )
         _caps, values = self._metric_values(device)
         if values:
             self.runtime.publish(sensor_id, values, transport=self.transport)
@@ -576,6 +588,19 @@ class AntPlusFitnessProvider:
                 device_id,
                 self.runtime.sensor_live_telemetry_needed(sensor.sensor_id),
             )
+
+        # A BLE-first dual-protocol sensor may have been accepted before ANT+
+        # revealed its manufacturer/serial background pages.  Ask the Bluetooth
+        # provider for one bounded Device Information probe of plausible accepted
+        # counterparts.  Exact serial identity still decides the merge; names or
+        # matching HR values are never used as physical identity.
+        if "bluetooth" not in sensor.endpoints:
+            bt_provider = self.runtime.providers.get("bluetooth")
+            schedule_probe = getattr(
+                bt_provider, "schedule_identity_probe_candidates", None
+            ) if bt_provider is not None else None
+            if schedule_probe is not None:
+                schedule_probe(set(caps))
 
         # Keep raw protocol identity/capabilities as disabled diagnostics.
         diagnostic_values = {

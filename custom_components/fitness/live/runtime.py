@@ -1625,13 +1625,15 @@ class LiveRuntime:
     def _mark_last_seen_change(
         self, sensor_id: str, seen: datetime | None
     ) -> set[tuple[str, str, str | None]]:
-        """Return a dirty Last seen key only when its 5-minute bucket changes."""
+        """Return a dirty Last seen key only when its one-minute bucket changes."""
         if seen is None:
             bucket = None
         else:
-            bucket = seen.replace(
-                minute=(seen.minute // 5) * 5, second=0, microsecond=0
-            )
+            # Physical radios can report several packets per second.  Keep the
+            # precise timestamp in memory, but expose it to HA at most once per
+            # minute so every accepted sensor stays visibly fresh without
+            # packet-rate Recorder/state churn.
+            bucket = seen.replace(second=0, microsecond=0)
         previous = self._last_seen_notify_bucket.get(sensor_id)
         if previous == bucket:
             return set()
@@ -1835,7 +1837,29 @@ class LiveRuntime:
         elif secondary.metadata.get("accepted"):
             primary.metadata["accepted"] = True
 
-        if primary.name == "Fitness sensor" or catalog_product_id(secondary.name, secondary.endpoints):
+        # ANT device IDs are preferred as the stable canonical sensor ID, but ANT
+        # profile names (for example "Heart Rate Sensor") are intentionally
+        # generic.  When the discarded side is Bluetooth, preserve its meaningful
+        # advertised/GATT product name so a merged dual-protocol wearable does not regress
+        # to the generic ANT profile label.
+        secondary_bt = secondary.endpoints.get("bluetooth")
+        secondary_bt_name = None
+        if secondary_bt is not None:
+            secondary_bt_name = str(
+                secondary_bt.metadata.get("model")
+                or secondary_bt.metadata.get("advertised_name")
+                or secondary.name
+                or ""
+            ).strip()
+            if (
+                not secondary_bt_name
+                or re.fullmatch(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}", secondary_bt_name)
+                or secondary_bt_name.isdigit()
+            ):
+                secondary_bt_name = None
+        if secondary_bt_name:
+            primary.name = _normalize_name(secondary_bt_name)
+        elif primary.name == "Fitness sensor" or catalog_product_id(secondary.name, secondary.endpoints):
             primary.name = _normalize_name(secondary.name)
         if secondary.sensor_id in self.sensor_values:
             primary_values = self.sensor_values.setdefault(primary.sensor_id, {})

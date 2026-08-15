@@ -51,6 +51,7 @@ MAX_METRICS_PER_DEVICE = 96
 # entities (power/cadence/speed/distance/etc.) stay current without radio-rate
 # decoder or callback load. Active/recovery sessions bypass this sampler.
 IDLE_ACCEPTED_PACKET_INTERVAL_SECONDS = 0.5
+ANT_LAST_SEEN_CALLBACK_INTERVAL_SECONDS = 60.0
 
 
 # Common Page 80/81 semantics are profile-defined. A known ANT device type is
@@ -104,6 +105,11 @@ class AntPlusReceiver:
         # race benignly here; at worst one extra packet is admitted in a window.
         # No Home Assistant registry/state operation is performed from this map.
         self._idle_packet_last_admitted: dict[tuple[int, int, int], float] = {}
+        # Metric values may remain identical for minutes (for example a steady
+        # heart rate).  Keep a separate worker-side heartbeat so the physical
+        # sensor Last seen entity can still advance once per minute without
+        # turning every RF packet into a Home Assistant callback.
+        self._last_presence_callback_monotonic: dict[int, float] = {}
         self._forget_requested: frozenset[int] = frozenset()
         # Identity is structural state. Never mutate it from one radio packet.
         # Candidate tuples must repeat before they are committed.
@@ -158,6 +164,7 @@ class AntPlusReceiver:
         for key in tuple(self._idle_packet_last_admitted):
             if key[0] == device_id:
                 self._idle_packet_last_admitted.pop(key, None)
+        self._last_presence_callback_monotonic.pop(device_id, None)
         known = dict(self._known_profiles_snapshot)
         known.pop(device_id, None)
         self._known_profiles_snapshot = known
@@ -791,14 +798,26 @@ class AntPlusReceiver:
                     )
 
         self.diagnostics.inc("metrics_changed", len(changed_metrics))
+        callback_key: str | None = None
+        now_mono = time.monotonic()
         if changed_metrics:
             # Provider consumers only need the newest device snapshot. Emitting
             # one callback per changed metric multiplies lock/scheduler/GIL work
             # for multi-metric packets without preserving any extra information.
-            key = changed_metrics[-1]
+            callback_key = changed_metrics[-1]
+            self._last_presence_callback_monotonic[device_id] = now_mono
+        elif device_id in self._accepted_devices:
+            last_presence = self._last_presence_callback_monotonic.get(device_id, 0.0)
+            if now_mono - last_presence >= ANT_LAST_SEEN_CALLBACK_INTERVAL_SECONDS:
+                # No metric changed, but RF traffic is alive. One synthetic
+                # low-rate callback lets the provider advance endpoint.last_seen.
+                callback_key = "__last_seen__"
+                self._last_presence_callback_monotonic[device_id] = now_mono
+
+        if callback_key is not None:
             for callback in tuple(self._metric_callbacks):
                 try:
-                    callback(device, key)
+                    callback(device, callback_key)
                 except Exception:
                     _LOGGER.debug(
                         "ANT+ metric callback failed",
@@ -806,7 +825,7 @@ class AntPlusReceiver:
                     )
 
     def _metadata_candidate(
-        self, device_type: int, data: bytes
+        self, device_id: int, device_type: int, data: bytes
     ) -> dict[str, object]:
         """Decode only identity layouts explicitly supported by this profile."""
         page = data[0] & 0x7F
@@ -852,15 +871,21 @@ class AntPlusReceiver:
         # from generic common-page numbers.
         elif device_type == DEVICE_TYPE_HEART_RATE and page == 2:
             manufacturer_id = data[1]
-            serial_fragment = data[2] | (data[3] << 8)
+            serial_upper = data[2] | (data[3] << 8)
             if manufacturer_id != 0xFF:
                 candidate["manufacturer_id"] = manufacturer_id
                 candidate["manufacturer_name"] = (
                     catalog_manufacturer_name("antplus", manufacturer_id)
                     or f"ANT manufacturer {manufacturer_id}"
                 )
-            if serial_fragment != 0xFFFF:
-                candidate["serial_no"] = serial_fragment
+            if serial_upper != 0xFFFF:
+                # ANT+ HRM page 2 carries only the upper 16 bits of the serial.
+                # The ANT channel device number is the lower 16 bits.  Persist the
+                # complete 32-bit serial so it can be compared with Bluetooth DIS
+                # identity from the same dual-protocol physical device.
+                candidate["serial_no"] = (
+                    (int(serial_upper) << 16) | (int(device_id) & 0xFFFF)
+                )
 
         elif device_type == DEVICE_TYPE_HEART_RATE and page == 3:
             hardware_rev = data[1]
@@ -879,7 +904,7 @@ class AntPlusReceiver:
         self, device: AntDevice, device_type: int, data: bytes
     ) -> bool:
         """Commit structural identity only after repeated identical evidence."""
-        candidate = self._metadata_candidate(device_type, data)
+        candidate = self._metadata_candidate(device.device_id, device_type, data)
         if not candidate:
             return False
 

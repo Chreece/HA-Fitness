@@ -131,6 +131,8 @@ class BluetoothFitnessProvider:
         # recurring advertisements only refresh volatile presence in runtime.
         self._provisional_identity_signature: dict[str, tuple[object, ...]] = {}
         self._provisional_passive_last_decode: dict[str, float] = {}
+        self._identity_probe_tasks: dict[str, asyncio.Task] = {}
+        self._identity_probe_last_attempt: dict[str, float] = {}
 
     async def async_setup(self) -> None:
         """Register one HA Bluetooth discovery callback; no private scanner."""
@@ -375,6 +377,103 @@ class BluetoothFitnessProvider:
                     metadata=passive_meta,
                 )
 
+    def sensor_acceptance_changed(self, sensor_id: str, accepted: bool) -> None:
+        """Probe stable BLE Device Information once after a sensor is accepted."""
+        if accepted:
+            self._schedule_identity_probe(sensor_id)
+
+    def schedule_identity_probe_candidates(self, capabilities: set[str]) -> None:
+        """Probe accepted BLE-only sensors that could be the new ANT endpoint.
+
+        This is invoked only for structural ANT discovery/identity changes.  It
+        never merges by capability/name; the probe merely obtains stable DIS
+        identity so Runtime's exact serial matcher can make a safe decision.
+        """
+        wanted = set(capabilities)
+        for sensor in tuple(self.runtime.sensors.values()):
+            sensor_id = self.runtime.resolve_sensor_id(sensor.sensor_id)
+            current = self.runtime.sensors.get(sensor_id)
+            if current is None or not self.runtime.sensor_is_accepted(sensor_id):
+                continue
+            endpoint = current.endpoints.get(self.transport)
+            if endpoint is None or "antplus" in current.endpoints:
+                continue
+            if wanted and not (current.capabilities & wanted):
+                continue
+            self._schedule_identity_probe(sensor_id)
+
+    def _schedule_identity_probe(self, sensor_id: str) -> None:
+        sensor_id = self.runtime.resolve_sensor_id(sensor_id)
+        sensor = self.runtime.sensors.get(sensor_id)
+        endpoint = sensor.endpoints.get(self.transport) if sensor is not None else None
+        if sensor is None or endpoint is None or not endpoint.address:
+            return
+        if endpoint.metadata.get("identity_source") == "gatt_device_information":
+            return
+        if not bool(endpoint.metadata.get("connectable", False)):
+            return
+        existing = self._identity_probe_tasks.get(sensor_id)
+        if existing is not None and not existing.done():
+            return
+        now = self.hass.loop.time()
+        if now - self._identity_probe_last_attempt.get(sensor_id, -60.0) < 30.0:
+            return
+        self._identity_probe_last_attempt[sensor_id] = now
+
+        async def _probe() -> None:
+            try:
+                await self._async_probe_identity(sensor_id)
+            finally:
+                self._identity_probe_tasks.pop(sensor_id, None)
+
+        self._identity_probe_tasks[sensor_id] = self.hass.async_create_background_task(
+            _probe(),
+            f"fitness probe BLE identity {sensor_id}",
+            eager_start=False,
+        )
+
+    async def _async_probe_identity(self, requested_sensor_id: str) -> None:
+        """Read DIS metadata using a short-lived connection, then disconnect."""
+        sensor_id = self.runtime.resolve_sensor_id(requested_sensor_id)
+        lock = self._connect_lock(sensor_id)
+        async with lock:
+            sensor_id = self.runtime.resolve_sensor_id(sensor_id)
+            sensor = self.runtime.sensors.get(sensor_id)
+            endpoint = sensor.endpoints.get(self.transport) if sensor is not None else None
+            if sensor is None or endpoint is None or not endpoint.address:
+                return
+            if endpoint.metadata.get("identity_source") == "gatt_device_information":
+                return
+            existing = self._clients.get(sensor_id)
+            if existing is not None and existing.is_connected:
+                return
+            ble_device = bluetooth.async_ble_device_from_address(
+                self.hass, endpoint.address, connectable=True
+            )
+            if ble_device is None:
+                return
+            client = None
+            try:
+                client = await establish_connection(
+                    BleakClient,
+                    device=ble_device,
+                    name=sensor.name or endpoint.address,
+                    max_attempts=2,
+                )
+                await self._async_enrich_identity(
+                    sensor, endpoint, client, manage_client_state=False
+                )
+            except Exception as err:
+                _LOGGER.debug(
+                    "Bluetooth identity probe failed for %s: %s", sensor_id, err
+                )
+            finally:
+                if client is not None:
+                    try:
+                        await client.disconnect()
+                    except Exception:
+                        pass
+
     def sensor_connected(self, sensor_id: str) -> bool:
         client = self._clients.get(str(sensor_id))
         return bool(client is not None and client.is_connected)
@@ -465,7 +564,10 @@ class BluetoothFitnessProvider:
                         except Exception:
                             pass
 
-    async def _async_enrich_identity(self, sensor: LiveSensor, endpoint, client: BleakClient) -> LiveSensor:
+    async def _async_enrich_identity(
+        self, sensor: LiveSensor, endpoint, client: BleakClient, *,
+        manage_client_state: bool = True,
+    ) -> LiveSensor:
         """Read standard DIS/GATT metadata and refine the canonical identity."""
         metadata = dict(endpoint.metadata)
         details: dict[str, object] = {}
@@ -593,7 +695,7 @@ class BluetoothFitnessProvider:
                 metadata=detail_meta, priority=80,
             )
         self.runtime.ensure_sensor_device(merged.sensor_id)
-        if merged.sensor_id != sensor.sensor_id:
+        if merged.sensor_id != sensor.sensor_id and manage_client_state:
             old_id = sensor.sensor_id
             new_id = merged.sensor_id
             self._clients[new_id] = self._clients.pop(old_id, client)
@@ -723,6 +825,11 @@ class BluetoothFitnessProvider:
                 pass
         self._unsubs.clear()
         self._last_discovery_fingerprint.clear()
+        for task in tuple(self._identity_probe_tasks.values()):
+            if not task.done():
+                task.cancel()
+        self._identity_probe_tasks.clear()
+        self._identity_probe_last_attempt.clear()
         for profile_id in tuple(self._profile_clients):
             await self.async_disconnect_profile(profile_id, keep_heart_rate=False)
         self._connect_locks.clear()
