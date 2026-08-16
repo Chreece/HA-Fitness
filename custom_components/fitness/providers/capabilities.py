@@ -25,6 +25,7 @@ from ..const import (
     CONF_VO2MAX,
     CONF_WEIGHT,
     CONF_WORKOUT_DEVICE_IDS,
+    DOMAIN,
 )
 from .devices import discover_candidates
 from .entities import convert_to_canonical
@@ -44,6 +45,168 @@ class CapabilityChoice:
     def as_selector_option(self) -> dict[str, str]:
         suffix = f" — {', '.join(self.details)}" if self.details else ""
         return {"value": self.value, "label": f"{self.label}{suffix}"}
+
+
+
+
+_PROFILE_ENTITY_FIELDS = (
+    CONF_WEIGHT,
+    CONF_RESTING_HR,
+    CONF_HEIGHT,
+    CONF_MAX_HR,
+    CONF_VO2MAX,
+    CONF_THRESHOLD_HR,
+    CONF_THRESHOLD_PACE,
+    CONF_THRESHOLD_POWER,
+)
+_PROFILE_DEVICE_FIELDS = (
+    # Completed-workout and sleep providers are personal data sources and
+    # therefore exclusive to one Fitness profile. Generic live devices are
+    # deliberately NOT included here: live sensors may be shared across
+    # profiles and the live runtime handles ownership/handoff during sessions.
+    CONF_WORKOUT_DEVICE_IDS,
+    CONF_SLEEP_DEVICE_IDS,
+)
+
+
+def _profile_entries(hass: HomeAssistant):
+    """Return person/profile entries in deterministic creation order."""
+    return [
+        entry
+        for entry in hass.config_entries.async_entries(DOMAIN)
+        if not ({**entry.data, **entry.options}).get("entry_type")
+    ]
+
+
+def _entry_config(entry) -> dict:
+    return {**entry.data, **entry.options}
+
+
+def _entity_registry_entry(registry, entity_id: str):
+    getter = getattr(registry, "async_get", None)
+    if getter is not None:
+        found = getter(entity_id)
+        if found is not None:
+            return found
+    return getattr(registry, "entities", {}).get(entity_id)
+
+
+def _is_entity_id(value) -> bool:
+    text = str(value or "").strip()
+    return "." in text and " " not in text
+
+
+def profile_source_owners(hass: HomeAssistant) -> tuple[dict[str, str], dict[str, str]]:
+    """Return first-owner maps for personal source entities and devices.
+
+    A device is claimed not only when selected as a workout/sleep/live source,
+    but also when one of its physiological entities is assigned to a profile.
+    This keeps every personal source device inside one Fitness profile and
+    prevents account-level providers (for example Garmin) leaking metrics or
+    workouts into another user merely because a different field was selected.
+
+    Native Local Sensors keep their explicit many-to-many assignment model and
+    are intentionally not part of this ownership map.
+    """
+    registry = er.async_get(hass)
+    entity_owners: dict[str, str] = {}
+    device_owners: dict[str, str] = {}
+
+    entries = _profile_entries(hass)
+
+    # First honor explicit physiological entity assignments.  This is more
+    # intentional than an old auto-preselected workout/sleep device and makes
+    # the v13 cleanup preserve the profile the user actually configured.
+    for entry in entries:
+        entry_id = entry.entry_id
+        config = _entry_config(entry)
+        for field_name in _PROFILE_ENTITY_FIELDS:
+            value = config.get(field_name)
+            if not _is_entity_id(value):
+                continue
+            entity_id = str(value).strip()
+            entity_owners.setdefault(entity_id, entry_id)
+            registry_entry = _entity_registry_entry(registry, entity_id)
+            device_id = getattr(registry_entry, "device_id", None) if registry_entry else None
+            if device_id:
+                device_owners.setdefault(str(device_id), entry_id)
+
+    # Only then claim still-unowned devices from workout/sleep selections.
+    # Live devices intentionally remain shareable between profiles. If two
+    # profiles only selected the same personal provider device, creation
+    # order remains the deterministic tiebreaker.
+    for entry in entries:
+        entry_id = entry.entry_id
+        config = _entry_config(entry)
+        for field_name in _PROFILE_DEVICE_FIELDS:
+            for device_id in config.get(field_name) or []:
+                if device_id:
+                    device_owners.setdefault(str(device_id), entry_id)
+
+    return entity_owners, device_owners
+
+
+def profile_entity_available(
+    hass: HomeAssistant, entity_id: str, profile_entry_id: str | None = None
+) -> bool:
+    """Return whether a physiological entity can belong to this profile."""
+    entity_owners, device_owners = profile_source_owners(hass)
+    owner = entity_owners.get(entity_id)
+    if owner is not None and owner != profile_entry_id:
+        return False
+    registry_entry = _entity_registry_entry(er.async_get(hass), entity_id)
+    device_id = getattr(registry_entry, "device_id", None) if registry_entry else None
+    device_owner = device_owners.get(str(device_id)) if device_id else None
+    return device_owner is None or device_owner == profile_entry_id
+
+
+def profile_device_available(
+    hass: HomeAssistant, device_id: str, profile_entry_id: str | None = None
+) -> bool:
+    """Return whether a personal source device can belong to this profile."""
+    _entity_owners, device_owners = profile_source_owners(hass)
+    owner = device_owners.get(str(device_id))
+    return owner is None or owner == profile_entry_id
+
+
+def exclusive_profile_source_overrides(hass: HomeAssistant, entry) -> dict:
+    """Return option overrides that remove legacy cross-profile source reuse.
+
+    The earliest Fitness profile that claimed an entity/device keeps ownership.
+    Later profiles receive an explicit empty option override, which also safely
+    masks a conflicting value that may still live in immutable config-entry data.
+    """
+    entity_owners, device_owners = profile_source_owners(hass)
+    registry = er.async_get(hass)
+    current = _entry_config(entry)
+    entry_id = entry.entry_id
+    overrides: dict = {}
+
+    for field_name in _PROFILE_ENTITY_FIELDS:
+        value = current.get(field_name)
+        if not _is_entity_id(value):
+            continue
+        entity_id = str(value).strip()
+        entity_owner = entity_owners.get(entity_id)
+        registry_entry = _entity_registry_entry(registry, entity_id)
+        device_id = getattr(registry_entry, "device_id", None) if registry_entry else None
+        device_owner = device_owners.get(str(device_id)) if device_id else None
+        if (entity_owner not in (None, entry_id)) or (
+            device_owner not in (None, entry_id)
+        ):
+            overrides[field_name] = ""
+
+    for field_name in _PROFILE_DEVICE_FIELDS:
+        selected = [str(item) for item in (current.get(field_name) or []) if item]
+        allowed = [
+            device_id
+            for device_id in selected
+            if device_owners.get(device_id) in (None, entry_id)
+        ]
+        if allowed != selected:
+            overrides[field_name] = allowed
+
+    return overrides
 
 
 _PROFILE_QUANTITY = {
@@ -170,7 +333,12 @@ def _all_devices(hass: HomeAssistant):
     )
 
 
-def live_device_choices(hass: HomeAssistant) -> list[CapabilityChoice]:
+def live_device_choices(
+    hass: HomeAssistant,
+    profile_entry_id: str | None = None,
+    *,
+    include_claimed: bool = False,
+) -> list[CapabilityChoice]:
     """Return only plausible fitness devices with parseable live metrics.
 
     Known ANT+/Stryd providers may expose any supported live metric. Unknown
@@ -179,6 +347,10 @@ def live_device_choices(hass: HomeAssistant) -> list[CapabilityChoice]:
     altitude or electrical power alone never qualify a generic HA device.
     """
     result = []
+    # Live inputs are intentionally cross-profile. A heart-rate/cadence/power
+    # source can be selected by several users; the live runtime's session
+    # assignment/handoff logic decides which profile consumes it at any moment.
+    # Do not apply personal workout/sleep source ownership here.
     for device in _all_devices(hass):
         domains = set(_device_domains(hass, device))
         if domains.intersection(_LIVE_BLOCKED_DOMAINS):
@@ -209,10 +381,19 @@ def live_device_choices(hass: HomeAssistant) -> list[CapabilityChoice]:
     return result
 
 
-def workout_device_choices(hass: HomeAssistant) -> list[CapabilityChoice]:
+def workout_device_choices(
+    hass: HomeAssistant,
+    profile_entry_id: str | None = None,
+    *,
+    include_claimed: bool = False,
+) -> list[CapabilityChoice]:
     """Devices with entities matching the completed-workout runtime contract."""
     result = []
+    _entity_owners, device_owners = profile_source_owners(hass)
     for device in _all_devices(hass):
+        owner = device_owners.get(str(device.id))
+        if not include_claimed and owner is not None and owner != profile_entry_id:
+            continue
         config = {CONF_WORKOUT_DEVICE_IDS: [device.id]}
         triggers = workout_device_entity_ids(hass, config)
         if not triggers:
@@ -223,10 +404,19 @@ def workout_device_choices(hass: HomeAssistant) -> list[CapabilityChoice]:
     return result
 
 
-def sleep_device_choices(hass: HomeAssistant) -> list[CapabilityChoice]:
+def sleep_device_choices(
+    hass: HomeAssistant,
+    profile_entry_id: str | None = None,
+    *,
+    include_claimed: bool = False,
+) -> list[CapabilityChoice]:
     """Return only devices with a sleep contract Fitness will actually parse."""
     result = []
+    _entity_owners, device_owners = profile_source_owners(hass)
     for device in _all_devices(hass):
+        owner = device_owners.get(str(device.id))
+        if not include_claimed and owner is not None and owner != profile_entry_id:
+            continue
         config = {CONF_SLEEP_DEVICE_IDS: [device.id]}
         triggers = sleep_device_entity_ids(hass, config)
         if not triggers:
@@ -247,11 +437,53 @@ def supported_device_ids(hass: HomeAssistant, capability: str) -> set[str]:
         "live": live_device_choices,
         "workout": workout_device_choices,
         "sleep": sleep_device_choices,
-    }[capability](hass)
+    }[capability](hass, include_claimed=True)
     return {item.value for item in choices}
 
 
-def profile_entity_choices(hass: HomeAssistant, field: str) -> list[dict[str, str]]:
+def profile_entity_supported(
+    hass: HomeAssistant, field: str, entity_id: str, profile_entry_id: str | None = None
+) -> bool:
+    """Validate an explicitly selected physiological sensor for a profile.
+
+    Suggestions remain deliberately conservative so unrelated entities are not
+    advertised. A user-entered entity ID, however, is accepted when the live
+    state is numeric, its unit can be converted for the requested quantity and
+    the source is not owned by another Fitness profile.
+    """
+    entity_id = str(entity_id or "").strip()
+    if not entity_id.startswith("sensor."):
+        return False
+    if not profile_entity_available(hass, entity_id, profile_entry_id):
+        return False
+
+    state = hass.states.get(entity_id)
+    if state is None or state.state in ("unknown", "unavailable", ""):
+        return False
+
+    registry_entry = _entity_registry_entry(er.async_get(hass), entity_id)
+    domain = None
+    if registry_entry is not None and getattr(registry_entry, "config_entry_id", None):
+        config_entry = hass.config_entries.async_get_entry(registry_entry.config_entry_id)
+        domain = config_entry.domain if config_entry is not None else None
+    if domain in _PROFILE_BLOCKED_DOMAINS:
+        return False
+
+    try:
+        number = float(state.state)
+    except (TypeError, ValueError):
+        return False
+    converted, _canonical = convert_to_canonical(
+        number,
+        state.attributes.get("unit_of_measurement"),
+        _PROFILE_QUANTITY[field],
+    )
+    return converted is not None
+
+
+def profile_entity_choices(
+    hass: HomeAssistant, field: str, profile_entry_id: str | None = None
+) -> list[dict[str, str]]:
     """Return plausible physiological entities, ranked best-first.
 
     Unit compatibility alone is intentionally insufficient: kilograms from a
@@ -261,6 +493,7 @@ def profile_entity_choices(hass: HomeAssistant, field: str) -> list[dict[str, st
     aliases = _PROFILE_ALIASES[field]
     bad_tokens = _PROFILE_BAD_TOKENS[field]
     registry = er.async_get(hass)
+    entity_owners, device_owners = profile_source_owners(hass)
     ranked: list[tuple[int, str, dict[str, str]]] = []
 
     for entry in registry.entities.values():
@@ -275,6 +508,12 @@ def profile_entity_choices(hass: HomeAssistant, field: str) -> list[dict[str, st
             config_entry = hass.config_entries.async_get_entry(entry.config_entry_id)
             domain = config_entry.domain if config_entry is not None else None
         if domain in _PROFILE_BLOCKED_DOMAINS:
+            continue
+        entity_owner = entity_owners.get(entry.entity_id)
+        if entity_owner is not None and entity_owner != profile_entry_id:
+            continue
+        device_owner = device_owners.get(str(entry.device_id)) if entry.device_id else None
+        if device_owner is not None and device_owner != profile_entry_id:
             continue
 
         label = _entry_label(hass, entry)

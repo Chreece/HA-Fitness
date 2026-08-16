@@ -51,8 +51,8 @@ def test_stryd_merges_ant_and_ble_to_pretty_identity():
     )
     result = identity.resolve_identity(sensor)
     assert result["manufacturer"] == "Stryd"
-    assert result["model"] == "Stryd Running Power Meter"
-    assert result["name"] == "Stryd"
+    assert result["model"] == "Stryd (non-wind model)"
+    assert result["name"] == "Stryd (non-wind model)"
     assert result["ready"] is True
 
 
@@ -177,13 +177,14 @@ def test_ble_control_point_requires_write_and_response_properties():
     assert "bluetooth_gatt_characteristic_properties" in bt
 
 
-def test_pnp_id_is_decomposed_and_can_supply_model_id():
+def test_pnp_id_is_decomposed_but_not_assumed_to_be_consumer_model_id():
     bt = (LIVE / "bluetooth.py").read_text(encoding="utf-8")
     assert "bluetooth_vendor_id_source" in bt
     assert "bluetooth_vendor_id" in bt
     assert "bluetooth_product_id" in bt
     assert "bluetooth_product_version" in bt
-    assert 'metadata.setdefault("model_id", f"0x{product_id:04X}")' in bt
+    assert 'metadata.setdefault("model_id", f"0x{product_id:04X}")' not in bt
+    assert "PnP product ID is *not* a" in bt
 
 
 def test_automatic_gatt_is_dropped_when_ant_returns():

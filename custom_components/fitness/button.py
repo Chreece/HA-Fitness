@@ -69,6 +69,7 @@ class StartWorkoutButton(BaseLiveFitnessButton):
         return bool(
             self.runtime.profile_has_assigned_live_sensor(self.entry)
             and not self.manager.session_active
+            and not self.manager.session_armed
         )
 
     async def async_press(self):
@@ -85,7 +86,7 @@ class PauseWorkoutButton(BaseLiveFitnessButton):
 
     @property
     def available(self):
-        return self.manager.session_active and not self.manager.session_paused
+        return bool((self.manager.session_active or self.manager.session_armed) and not self.manager.session_paused)
 
     async def async_press(self):
         await self.manager.async_pause_session()
@@ -101,7 +102,7 @@ class ResumeWorkoutButton(BaseLiveFitnessButton):
 
     @property
     def available(self):
-        return self.manager.session_active and self.manager.session_paused
+        return bool((self.manager.session_active or self.manager.session_armed) and self.manager.session_paused)
 
     async def async_press(self):
         await self.manager.async_resume_session()

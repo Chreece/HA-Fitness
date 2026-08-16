@@ -24,7 +24,8 @@ def test_training_component_is_not_duplicated_as_small_readiness_tile():
 def test_vo2_current_and_predicted_positions_share_absolute_axis_when_available():
     assert 'useAbsoluteVo2Scale' in FRONTEND
     assert '((current - progressMin) / progressSpan) * 100' in FRONTEND
-    assert '((predictedAbsolute - progressMin) / progressSpan) * 100' in FRONTEND
+    assert 'const predictedMarker = useAbsoluteVo2Scale' in FRONTEND
+    assert '? 50' in FRONTEND
     assert '.vo2-reference{position:absolute;top:-4px' in FRONTEND
     assert 'background:#fff' in FRONTEND
     reference_css = FRONTEND.split('.vo2-reference{', 1)[1].split('.vo2-marker{', 1)[0]

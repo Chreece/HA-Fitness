@@ -15,3 +15,73 @@ delete_workouts_before:
           step: 1
           mode: box
           unit_of_measurement: d
+
+cast_tv_dashboard:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: fitness
+    entity_id:
+      required: false
+      selector:
+        entity:
+          domain: media_player
+          integration: cast
+
+start_tv_workout:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: fitness
+    entity_id:
+      required: false
+      selector:
+        entity:
+          domain: media_player
+          integration: cast
+
+stop_tv_dashboard:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: fitness
+    entity_id:
+      required: false
+      selector:
+        entity:
+          domain: media_player
+          integration: cast
+
+
+test_tts:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: fitness
+    message:
+      required: false
+      selector:
+        text:
+          multiline: false
+
+ai_tts:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: fitness
+    prompt:
+      required: true
+      selector:
+        text:
+          multiline: true
+

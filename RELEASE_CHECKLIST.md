@@ -1,6 +1,6 @@
 # Release checklist
 
-Before creating a Fitness release:
+Before creating a Fitness release (`YYYY.MM.RR-betaXX` for beta, `YYYY.MM.RR` for stable):
 
 - [ ] `pytest` passes locally.
 - [ ] HACS validation GitHub Action passes with no ignored checks.

@@ -11,7 +11,7 @@ J=(ROOT/'custom_components/fitness/frontend/fitness-dashboard.js').read_text()
 
 def test_beta2_version_and_number_platform():
     version=json.loads((ROOT/'custom_components/fitness/manifest.json').read_text())['version']
-    assert re.fullmatch(r"\d{4}\.\d{1,2}\.\d+(?:-beta\d+)?", version)
+    assert version == "0.0.0" or re.fullmatch(r"\d{4}\.\d{1,2}\.\d+(?:-(?:alpha|beta)\d+)?", version)
     assert '"number"' in I
     assert '_attr_native_step = 1' in N and '_attr_native_min_value = 1' in N and '_attr_native_max_value = 10' in N
 

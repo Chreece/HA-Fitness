@@ -58,12 +58,13 @@ def test_fitness_sleep_score_is_marked_as_calculated_and_non_medical():
     assert 'fitness_sleep_score' in DASHBOARD
 
 
-def test_recovery_ui_formats_total_minutes_and_relative_ready_time():
-    assert 'l.recovery_from_last_workout || "Time to recover from last workout"' in FRONTEND
-    assert 'l.total_recovery || "Total recovery"' in FRONTEND
-    assert 'remaining < 1 ? `~${Math.max(1, Math.round(remaining * 60))} min`' in FRONTEND
+def test_recovery_ui_uses_compact_progress_detail_and_relative_ready_time():
+    assert 'l.recovery_done_short || "Done"' in FRONTEND
+    assert 'l.ready_at_compact || "Ready at: {time}"' in FRONTEND
+    assert 'l.remaining_compact || "{time} remaining"' in FRONTEND
+    assert 'Math.round(remaining * 60)' in FRONTEND
     assert 'new Intl.RelativeTimeFormat(language, {numeric:"auto"})' in FRONTEND
-    assert 'const recoveryIcon = fullyRecovered ? "mdi:check-circle"' in FRONTEND
+    assert 'class="next-main"' not in FRONTEND
 
 
 def test_empty_frontend_sections_hide_instead_of_rendering_placeholders():
@@ -85,8 +86,8 @@ def test_hr_baseline_exposes_actual_baseline_and_current_values():
 
 
 def test_frontend_cache_revision_is_current_and_single_module():
-    assert 'const FITNESS_DASHBOARD_VERSION = "2026.8.11.14";' in FRONTEND
-    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=2026.8.11.14"' in DASHBOARD
+    assert 'const FITNESS_DASHBOARD_VERSION = "unreleased-82";' in FRONTEND
+    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-82"' in DASHBOARD
 
 
 def test_ant_decoder_backend_diagnostics_have_no_missing_profile_support_module():

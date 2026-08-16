@@ -18,8 +18,8 @@ def test_acceptance_is_lightweight_and_dynamic():
     assert 'self._notify_structure()' not in section
 
 
-def test_discovery_card_uses_physical_sensor_name():
-    assert 'self.context["title_placeholders"] = {"name": sensor.name}' in C
+def test_discovery_card_uses_physical_sensor_name_and_protocol():
+    assert 'self.context["title_placeholders"] = {"name": sensor.discovery_name()}' in C
 
 
 def test_last_seen_is_recorder_safe():

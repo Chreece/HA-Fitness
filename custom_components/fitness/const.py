@@ -52,6 +52,7 @@ CONF_SLEEP_DEVICE_IDS = "sleep_device_ids"
 
 CONF_AI_ENABLED = "ai_enabled"
 CONF_AI_ENTITY = "ai_entity"
+AI_ENTITY_SYSTEM_DEFAULT = "__home_assistant_default__"
 
 CONF_FEEDBACK_AREA_IDS = "feedback_area_ids"
 CONF_FEEDBACK_LIGHT_IDS = "feedback_light_ids"
@@ -60,6 +61,22 @@ CONF_TTS_ENTITY_ID = "tts_entity_id"
 CONF_TTS_MEDIA_PLAYER_IDS = "tts_media_player_ids"
 CONF_PERIODIC_LIVE_ANNOUNCEMENTS = "periodic_live_announcements"
 CONF_PERIODIC_LIVE_INTERVAL_MINUTES = "periodic_live_interval_minutes"
+
+# Optional full-screen Fitness TV dashboard. Audio is rendered inside the
+# dashboard browser so music and TTS can coexist without replacing HA Cast.
+CONF_TV_DASHBOARD_ENABLED = "tv_dashboard_enabled"
+CONF_TV_MEDIA_PLAYER_ID = "tv_dashboard_media_player_id"
+CONF_TV_DUCKING_PERCENT = "tv_dashboard_ducking_percent"
+CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE = "tv_dashboard_ignore_lights_when_cast_active"
+CONF_TV_YTDLP_ENABLED = "tv_dashboard_ytdlp_enabled"
+DEFAULT_TV_DUCKING_PERCENT = 25
+DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE = True
+SERVICE_CAST_TV_DASHBOARD = "cast_tv_dashboard"
+SERVICE_STOP_TV_DASHBOARD = "stop_tv_dashboard"
+SERVICE_START_TV_WORKOUT = "start_tv_workout"
+SERVICE_TEST_TTS = "test_tts"
+SERVICE_AI_TTS = "ai_tts"
+TV_DASHBOARD_PATH = "fitness-tv"
 
 
 METRIC_HEART_RATE = "heart_rate"

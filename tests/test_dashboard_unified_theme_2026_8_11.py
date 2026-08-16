@@ -20,7 +20,7 @@ def test_composite_shell_is_only_header_and_stack():
 
 def test_shared_tab_panel_theme_exists():
     assert "const _FITNESS_TAB_PANEL_BASE" in FRONTEND
-    assert "border-radius:20px !important" in FRONTEND
+    assert "border-radius:22px !important" in FRONTEND
     assert "background:var(--secondary-background-color) !important" in FRONTEND
     assert "const _fitnessInstallTabPanelTheme" in FRONTEND
 
@@ -47,4 +47,4 @@ def test_inner_metrics_are_mini_cards():
 
 
 def test_single_frontend_revision_contract_stays_unchanged():
-    assert 'const FITNESS_DASHBOARD_VERSION = "2026.8.11.14";' in FRONTEND
+    assert 'const FITNESS_DASHBOARD_VERSION = "unreleased-82";' in FRONTEND

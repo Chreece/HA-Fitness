@@ -23,7 +23,7 @@ def test_strict_autofill_and_antplus_defaults():
     assert "('garmin_connect',CONF_THRESHOLD_PACE)" in A
     assert "('hevy',CONF_WEIGHT)" in A
     assert "('oura',CONF_VO2MAX)" in A
-    assert 'profile_entity_choices(hass, field)' in A
+    assert 'profile_entity_choices(hass, field, profile_entry_id)' in A
     assert 'choices[0]["value"]' in A
     assert 'live_device_choices(self.hass)' in F
     assert 'workout_device_choices(self.hass)' in F

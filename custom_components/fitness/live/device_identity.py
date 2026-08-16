@@ -41,6 +41,8 @@ _EMPTY_CATALOG: dict[str, Any] = {
     "manufacturers": {},
     "products": [],
     "profile_models": {},
+    "antplus_model_catalog": {},
+    "model_catalog": {},
 }
 
 def _load_catalog_at_import() -> dict[str, Any]:
@@ -128,7 +130,10 @@ def catalog_transport_correlation(sensor) -> dict[str, Any] | None:
         if not isinstance(rule, dict):
             continue
         expected_caps = {str(value) for value in (rule.get("capabilities") or [])}
-        if expected_caps and capabilities != expected_caps:
+        # A correlation rule describes the minimum semantic surface that must be
+        # shared. Extra capabilities (for example passive battery or diagnostics)
+        # must not prevent the same physical device from correlating.
+        if expected_caps and not expected_caps.issubset(capabilities):
             continue
         roles = rule.get("roles") or {}
         role = roles.get(str(transport))
@@ -140,9 +145,23 @@ def catalog_transport_correlation(sensor) -> dict[str, Any] | None:
             continue
         if "manufacturer_id" in role and endpoint.metadata.get("manufacturer_id") != role.get("manufacturer_id"):
             continue
+        if "manufacturer_data_id" in role:
+            manufacturer_data_ids = {
+                int(value) for value in (endpoint.metadata.get("manufacturer_data_ids") or [])
+                if str(value).strip()
+            }
+            try:
+                required_manufacturer_data_id = int(role.get("manufacturer_data_id"))
+            except (TypeError, ValueError):
+                continue
+            if required_manufacturer_data_id not in manufacturer_data_ids:
+                continue
         required_profiles = {int(value) for value in (role.get("profiles") or [])}
         endpoint_profiles = {int(value) for value in (endpoint.metadata.get("profiles") or [])}
         if required_profiles and not required_profiles.issubset(endpoint_profiles):
+            continue
+        any_profiles = {int(value) for value in (role.get("profiles_any") or [])}
+        if any_profiles and not (any_profiles & endpoint_profiles):
             continue
         if role.get("require_serial"):
             identity = canonical_identity_fields(endpoint.metadata)
@@ -190,6 +209,124 @@ def _generic_profile_model(endpoints: dict[str, Any]) -> str | None:
     models = load_catalog().get("profile_models", {}) or {}
     names = [str(models[str(profile)]) for profile in profiles if str(profile) in models]
     return names[0] if names else None
+
+
+def _catalog_model(sensor) -> dict[str, str]:
+    """Resolve a product generation from a manufacturer-scoped model catalog.
+
+    Catalog entries explicitly declare which protocol field contains the product
+    generation model ID. This is intentionally different from treating every ANT
+    Common Page ``model_no`` or Bluetooth PnP product ID as the consumer model
+    number: those identifiers are manufacturer/protocol-specific and can use a
+    completely different numbering scheme.
+    """
+    endpoints = getattr(sensor, "endpoints", {}) or {}
+    catalog = load_catalog().get("model_catalog", {}) or {}
+
+    for vendor in catalog.values():
+        if not isinstance(vendor, dict):
+            continue
+        match = vendor.get("manufacturer_match") or {}
+        matched = False
+
+        ant = endpoints.get("antplus")
+        ant_ids = {_parse_int(value) for value in (match.get("antplus_manufacturer_ids") or [])}
+        ant_ids.discard(None)
+        if ant is not None and _parse_int(ant.metadata.get("manufacturer_id")) in ant_ids:
+            matched = True
+
+        bt = endpoints.get("bluetooth")
+        bt_company_ids = {_parse_int(value) for value in (match.get("bluetooth_manufacturer_data_ids") or [])}
+        bt_company_ids.discard(None)
+        if bt is not None and bt_company_ids:
+            observed = {_parse_int(value) for value in (bt.metadata.get("manufacturer_data_ids") or [])}
+            observed.discard(None)
+            if observed & bt_company_ids:
+                matched = True
+
+        gatt_names = {_clean(value) for value in (match.get("gatt_manufacturer_names") or []) if _text(value)}
+        if bt is not None and gatt_names:
+            gatt_manufacturer = _clean(bt.metadata.get("manufacturer"))
+            if gatt_manufacturer and gatt_manufacturer in gatt_names:
+                matched = True
+
+        if not matched:
+            continue
+
+        model_id = None
+        model_source = None
+        for raw_source in vendor.get("model_id_sources") or []:
+            if isinstance(raw_source, str):
+                source = raw_source
+                source_cfg = {}
+            elif isinstance(raw_source, dict):
+                source = str(raw_source.get("source") or "")
+                source_cfg = raw_source
+            else:
+                continue
+
+            value = None
+            if source == "bluetooth_gatt_model_number" and bt is not None:
+                # Device Information Model Number may be a purely numeric product
+                # generation ID. Non-numeric model strings remain
+                # useful identity text but are not fed into numeric range catalogs.
+                value = _parse_int(bt.metadata.get("model"))
+                if value is None:
+                    value = _parse_int(bt.metadata.get("model_number_string"))
+            elif source == "antplus_model_no" and ant is not None:
+                value = _parse_int(ant.metadata.get("model_no"))
+            elif source == "resolved_model_id":
+                value = _parse_int(getattr(sensor, "metadata", {}).get("model_id"))
+
+            if value is None:
+                continue
+            minimum = _parse_int(source_cfg.get("valid_min"))
+            maximum = _parse_int(source_cfg.get("valid_max"))
+            if minimum is not None and value < minimum:
+                continue
+            if maximum is not None and value > maximum:
+                continue
+            model_id = value
+            model_source = source
+            break
+
+        if model_id is None:
+            continue
+
+        for entry in vendor.get("models", []) or []:
+            if not isinstance(entry, dict):
+                continue
+            exact = _parse_int(entry.get("id"))
+            minimum = _parse_int(entry.get("min"))
+            maximum = _parse_int(entry.get("max"))
+            ids = {_parse_int(value) for value in (entry.get("ids") or [])}
+            ids.discard(None)
+            if exact is not None:
+                matches = model_id == exact
+            elif ids:
+                matches = model_id in ids
+            else:
+                if minimum is not None and model_id < minimum:
+                    continue
+                if maximum is not None and model_id > maximum:
+                    continue
+                matches = minimum is not None or maximum is not None
+            if not matches:
+                continue
+
+            resolved: dict[str, str] = {
+                "model_id": str(model_id),
+                "model_id_source": str(model_source or "catalog"),
+            }
+            manufacturer = _text(entry.get("manufacturer")) or _text(vendor.get("manufacturer"))
+            if manufacturer:
+                resolved["manufacturer"] = manufacturer
+            for key in ("name", "model", "release", "paired_product_name", "paired_product_release"):
+                value = _text(entry.get(key))
+                if value:
+                    resolved[key] = value
+            return resolved
+    return {}
 
 
 def _parse_int(value: Any) -> int | None:
@@ -336,6 +473,13 @@ def resolve_identity(sensor) -> dict[str, Any]:
     product = _catalog_product(sensor.name, sensor.endpoints)
     for key, value in product.items():
         offer(key, value, 90)
+    # Manufacturer-scoped catalog resolution is authoritative only when the
+    # catalog explicitly accepts the protocol field that supplied the model ID.
+    # Give that verified generation precedence over generic product-family labels.
+    catalog_model = _catalog_model(sensor)
+    for key in ("manufacturer", "model", "model_id"):
+        if catalog_model.get(key):
+            offer(key, catalog_model[key], 110)
     manufacturer = _catalog_manufacturer(sensor.endpoints)
     if manufacturer:
         offer("manufacturer", manufacturer, 75)
@@ -346,7 +490,10 @@ def resolve_identity(sensor) -> dict[str, Any]:
         offer("sw_version", candidates["firmware_version"][1], candidates["firmware_version"][0] + 1)
 
     identity = {key: value for key, (_score, value) in candidates.items()}
-    name = product.get("name")
+    for key in ("release", "paired_product_name", "paired_product_release", "model_id_source"):
+        if catalog_model.get(key):
+            identity[key] = catalog_model[key]
+    name = catalog_model.get("name") or product.get("name")
     if not name:
         advertised = _text(sensor.name)
         if advertised and advertised != "Fitness sensor" and not _looks_address(advertised) and not _numeric_only(advertised):

@@ -26,8 +26,8 @@ def test_fitness_cards_register_with_home_assistant_picker_metadata():
 
 
 def test_frontend_resource_revision_is_cache_busted():
-    dashboard_match = re.search(r'\\?v=([0-9.]+)', DASHBOARD)
-    js_match = re.search(r'FITNESS_DASHBOARD_VERSION = "([0-9.]+)"', JS)
+    dashboard_match = re.search(r'\\?v=((?:unreleased-)?[0-9.]+)', DASHBOARD)
+    js_match = re.search(r'FITNESS_DASHBOARD_VERSION = "((?:unreleased-)?[0-9.]+)"', JS)
     assert dashboard_match
     assert js_match
     assert dashboard_match.group(1) == js_match.group(1)

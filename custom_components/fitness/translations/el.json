@@ -23,8 +23,8 @@
         }
       },
       "required": {
-        "title": "Απαραίτητα στοιχεία προφίλ",
-        "description": "Σε κάθε πεδίο βάλε είτε αριθμητική τιμή είτε entity ID. Οι άμεσες τιμές χρησιμοποιούν τις μονάδες που αναγράφονται στο πεδίο. Για entities, το Fitness διαβάζει και μετατρέπει αυτόματα τη μονάδα μέτρησης.",
+        "title": "Στοιχεία προφίλ",
+        "description": "Το βάρος είναι απαραίτητο. Οι καρδιακοί παλμοί ηρεμίας είναι προαιρετικοί και μπορούν να προστεθούν αργότερα. Κάθε πεδίο δέχεται αριθμητική τιμή ή συμβατό entity του Home Assistant και οι μονάδες μετατρέπονται αυτόματα.",
         "data": {
           "weight": "Βάρος (kg ή entity)",
           "resting_hr": "Καρδιακοί παλμοί ηρεμίας (bpm ή entity)"
@@ -55,11 +55,11 @@
         }
       },
       "live_devices": {
-        "title": "Live workout sensors",
-        "description": "Select the physical sensors this Fitness profile may use. Native sensors come from the enabled Bluetooth and ANT+ adapter modules. Optional compatible Home Assistant live devices can also be used.",
+        "title": "Αισθητήρες ζωντανής προπόνησης",
+        "description": "Επίλεξε τους φυσικούς αισθητήρες που μπορεί να χρησιμοποιεί αυτό το προφίλ Fitness. Οι εγγενείς αισθητήρες προέρχονται από τις ενεργές μονάδες Bluetooth και ANT+. Μπορούν επίσης να επιλεγούν συμβατές ζωντανές συσκευές του Home Assistant.",
         "data": {
-          "live_sensor_ids": "Local fitness sensors",
-          "live_device_ids": "Other Home Assistant live devices"
+          "live_sensor_ids": "Τοπικοί αισθητήρες Fitness",
+          "live_device_ids": "Άλλες ζωντανές συσκευές Home Assistant"
         },
         "data_description": {
           "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
@@ -82,14 +82,14 @@
       },
       "ai": {
         "title": "Ερμηνεία με AI",
-        "description": "Οι επιστημονικοί υπολογισμοί παραμένουν ντετερμινιστικοί και το AI μόνο τους ερμηνεύει. Αν υπάρχει AI Task προεπιλέγεται· κενό πεδίο χρησιμοποιεί το preferred/default AI Task του Home Assistant.",
+        "description": "Το προεπιλεγμένο AI Task του Home Assistant επιλέγεται από προεπιλογή. Το Fitness ακολουθεί αυτόματα το τρέχον προεπιλεγμένο AI Task του συστήματος· επίλεξε συγκεκριμένο AI Task ή conversation agent μόνο αν θέλεις να το κλειδώσεις.",
         "data": {
           "ai_enabled": "Δημιουργία αξιολογήσεων με AI",
-          "ai_entity": "AI Task / LLM entity"
+          "ai_entity": "Πάροχος AI"
         },
         "data_description": {
           "ai_enabled": "Ενεργοποιεί ερμηνεία από AI των ντετερμινιστικών υπολογισμών. Το AI δεν ορίζει ούτε αλλάζει επιστημονικούς τύπους ή metadata αισθητήρων.",
-          "ai_entity": "AI Task ή conversation agent για coaching/αξιολόγηση. AI και TTS εκτελούνται σειριακά και δεν επικαλύπτονται."
+          "ai_entity": "Χρησιμοποίησε το προεπιλεγμένο AI Task του Home Assistant για να ακολουθείται αυτόματα η προτίμηση του συστήματος ή κλείδωσε ένα συγκεκριμένο AI Task / conversation agent. Αν ο επιλεγμένος πάροχος γίνει μη διαθέσιμος, το Fitness σε ενημερώνει και προσωρινά επιστρέφει στο προεπιλεγμένο AI Task του συστήματος."
         }
       },
       "feedback": {
@@ -133,6 +133,24 @@
         "data_description": {
           "fitness_profile_ids": "One physical sensor can be shared by multiple Fitness profiles."
         }
+      },
+      "tv_dashboard": {
+        "title": "Πίνακας Fitness TV",
+        "description": "Ρύθμισε τον προαιρετικό πίνακα Fitness TV πλήρους οθόνης. Το Fitness διαθέτει δικό του επίπεδο ήχου για αναπαραγωγή μουσικής και μείωση έντασης κατά το TTS.",
+        "data": {
+          "tv_dashboard_enabled": "Ενεργοποίηση πίνακα Fitness TV",
+          "tv_dashboard_media_player_id": "TV / συσκευή αναπαραγωγής Cast",
+          "tv_dashboard_ducking_percent": "Ένταση μουσικής κατά το TTS",
+          "tv_dashboard_ytdlp_enabled": "Ενεργοποίηση προσαρμογέα μουσικής yt-dlp (πειραματικό)",
+          "tv_dashboard_ignore_lights_when_cast_active": "Παράβλεψη φώτων προπόνησης όταν είναι ενεργό το TV Cast"
+        },
+        "data_description": {
+          "tv_dashboard_enabled": "Εμφανίζει αυτόματα τον πίνακα Fitness TV σε πλήρη οθόνη όταν ξεκινά προπόνηση. Η μουσική και το TTS παίζουν μέσα στον πίνακα ώστε να παραμένει ανοιχτή η προβολή Cast.",
+          "tv_dashboard_media_player_id": "Η συσκευή αναπαραγωγής Google Cast στην οποία θα εμφανίζεται ο πίνακας Fitness TV. Το Fitness δεν στέλνει απευθείας μουσική ή TTS σε αυτή τη συσκευή.",
+          "tv_dashboard_ducking_percent": "Ποσοστό της τρέχουσας έντασης μουσικής που διατηρείται όσο το Fitness εκφωνεί μια ανακοίνωση TTS. Μετά η αρχική ένταση επανέρχεται ομαλά.",
+          "tv_dashboard_ytdlp_enabled": "Το yt-dlp είναι προαιρετικός προσαρμογέας τρίτου μέρους και δεν συνδέεται ούτε υποστηρίζεται από το YouTube ή άλλες υπηρεσίες. Με την ενεργοποίησή του αναγνωρίζεις ότι είσαι αποκλειστικά υπεύθυνος για τη χρήση του, συμπεριλαμβανομένης της συμμόρφωσης με την ισχύουσα νομοθεσία, τους όρους υπηρεσίας, τους κανόνες πνευματικών δικαιωμάτων/αδειών και την εξασφάλιση όλων των απαραίτητων δικαιωμάτων ή αδειών. Το Fitness δεν παρέχει cookies λογαριασμού, δεν εξουσιοδοτεί παράκαμψη περιορισμών, μη εξουσιοδοτημένη λήψη ή αναδιανομή και παρέχει τον προσαρμογέα χωρίς εγγύηση. Αναλαμβάνεις αποκλειστικά την ευθύνη για τη συμπεριφορά σου και, στον μέγιστο βαθμό που επιτρέπεται από την ισχύουσα νομοθεσία, για τυχόν νομικές, συμβατικές, οικονομικές, σχετικές με λογαριασμούς, πνευματικά δικαιώματα ή άδειες συνέπειες, αξιώσεις, χρεώσεις, πρόστιμα ή κυρώσεις. Οι προγραμματιστές και συνεισφέροντες του Fitness δεν αναλαμβάνουν ευθύνη για παράνομη ή μη εξουσιοδοτημένη χρήση από χρήστη. Η παρούσα ειδοποίηση δεν αποτελεί νομική συμβουλή και δεν παρακάμπτει δικαιώματα ή ευθύνες που δεν μπορούν νόμιμα να αποκλειστούν.",
+          "tv_dashboard_ignore_lights_when_cast_active": "Όταν είναι ενεργός ένας δέκτης Fitness TV Cast, χρησιμοποίησε την τηλεόραση για την ανατροφοδότηση της προπόνησης και άφησε τα ρυθμισμένα φώτα προπόνησης ανέπαφα."
+        }
       }
     },
     "error": {
@@ -162,7 +180,8 @@
           "ai": "Ερμηνεία με AI",
           "feedback": "Καθοδήγηση, φώτα και ανακοινώσεις",
           "sleep_devices": "Συσκευές ύπνου",
-          "sensor_assignments": "Αναθέσεις αισθητήρων"
+          "sensor_assignments": "Αναθέσεις αισθητήρων",
+          "tv_dashboard": "Πίνακας Fitness TV"
         }
       },
       "profile": {
@@ -185,7 +204,7 @@
       },
       "fitness_inputs": {
         "title": "Στοιχεία και αρχικές τιμές φυσικής κατάστασης",
-        "description": "Κάθε πεδίο δέχεται αριθμητική τιμή ή entity ID. Οι άμεσες τιμές χρησιμοποιούν τις μονάδες του πεδίου και τα entities μετατρέπονται αυτόματα από τη δική τους μονάδα μέτρησης. Το βάρος και οι παλμοί ηρεμίας είναι απαραίτητα.",
+        "description": "Κάθε πεδίο δέχεται αριθμητική τιμή ή συμβατό entity. Μόνο το βάρος είναι απαραίτητο· οι παλμοί ηρεμίας και όλα τα υπόλοιπα φυσιολογικά στοιχεία είναι προαιρετικά και μπορούν να προστεθούν ή να αφαιρεθούν αργότερα.",
         "data": {
           "weight": "Βάρος (kg ή entity)",
           "resting_hr": "Καρδιακοί παλμοί ηρεμίας (bpm ή entity)",
@@ -208,11 +227,11 @@
         }
       },
       "live_devices": {
-        "title": "Live workout sensors",
-        "description": "Select the physical sensors this Fitness profile may use. Native sensors come from the enabled Bluetooth and ANT+ adapter modules. Optional compatible Home Assistant live devices can also be used.",
+        "title": "Αισθητήρες ζωντανής προπόνησης",
+        "description": "Επίλεξε τους φυσικούς αισθητήρες που μπορεί να χρησιμοποιεί αυτό το προφίλ Fitness. Οι εγγενείς αισθητήρες προέρχονται από τις ενεργές μονάδες Bluetooth και ANT+. Μπορούν επίσης να επιλεγούν συμβατές ζωντανές συσκευές του Home Assistant.",
         "data": {
-          "live_sensor_ids": "Local fitness sensors",
-          "live_device_ids": "Other Home Assistant live devices"
+          "live_sensor_ids": "Τοπικοί αισθητήρες Fitness",
+          "live_device_ids": "Άλλες ζωντανές συσκευές Home Assistant"
         },
         "data_description": {
           "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
@@ -235,14 +254,14 @@
       },
       "ai": {
         "title": "Ερμηνεία με AI",
-        "description": "Επίλεξε συγκεκριμένο AI Task / LLM ή άφησέ το κενό για το preferred/default AI Task.",
+        "description": "Το προεπιλεγμένο AI Task του Home Assistant επιλέγεται από προεπιλογή. Το Fitness ακολουθεί αυτόματα το τρέχον προεπιλεγμένο AI Task του συστήματος· επίλεξε συγκεκριμένο AI Task ή conversation agent μόνο αν θέλεις να το κλειδώσεις.",
         "data": {
           "ai_enabled": "Δημιουργία αξιολογήσεων με AI",
-          "ai_entity": "AI Task / LLM entity"
+          "ai_entity": "Πάροχος AI"
         },
         "data_description": {
           "ai_enabled": "Ενεργοποιεί ερμηνεία από AI των ντετερμινιστικών υπολογισμών. Το AI δεν ορίζει ούτε αλλάζει επιστημονικούς τύπους ή metadata αισθητήρων.",
-          "ai_entity": "AI Task ή conversation agent για coaching/αξιολόγηση. AI και TTS εκτελούνται σειριακά και δεν επικαλύπτονται."
+          "ai_entity": "Χρησιμοποίησε το προεπιλεγμένο AI Task του Home Assistant για να ακολουθείται αυτόματα η προτίμηση του συστήματος ή κλείδωσε ένα συγκεκριμένο AI Task / conversation agent. Αν ο επιλεγμένος πάροχος γίνει μη διαθέσιμος, το Fitness σε ενημερώνει και προσωρινά επιστρέφει στο προεπιλεγμένο AI Task του συστήματος."
         }
       },
       "feedback": {
@@ -296,6 +315,24 @@
         "data_description": {
           "fitness_profile_ids": "Ένας αισθητήρας μπορεί να ανατεθεί σε πολλά προφίλ για μελλοντική χρήση. Δεν μοιράζει όμως ταυτόχρονα μετρήσεις: κάθε φυσικός αισθητήρας τροφοδοτεί μόνο έναν κάτοχο προπόνησης."
         }
+      },
+      "tv_dashboard": {
+        "title": "Πίνακας Fitness TV",
+        "description": "Ρύθμισε τον προαιρετικό πίνακα Fitness TV πλήρους οθόνης. Το Fitness διαθέτει δικό του επίπεδο ήχου για αναπαραγωγή μουσικής και μείωση έντασης κατά το TTS.",
+        "data": {
+          "tv_dashboard_enabled": "Ενεργοποίηση πίνακα Fitness TV",
+          "tv_dashboard_media_player_id": "TV / συσκευή αναπαραγωγής Cast",
+          "tv_dashboard_ducking_percent": "Ένταση μουσικής κατά το TTS",
+          "tv_dashboard_ytdlp_enabled": "Ενεργοποίηση προσαρμογέα μουσικής yt-dlp (πειραματικό)",
+          "tv_dashboard_ignore_lights_when_cast_active": "Παράβλεψη φώτων προπόνησης όταν είναι ενεργό το TV Cast"
+        },
+        "data_description": {
+          "tv_dashboard_enabled": "Εμφανίζει αυτόματα τον πίνακα Fitness TV σε πλήρη οθόνη όταν ξεκινά προπόνηση. Η μουσική και το TTS παίζουν μέσα στον πίνακα ώστε να παραμένει ανοιχτή η προβολή Cast.",
+          "tv_dashboard_media_player_id": "Η συσκευή αναπαραγωγής Google Cast στην οποία θα εμφανίζεται ο πίνακας Fitness TV. Το Fitness δεν στέλνει απευθείας μουσική ή TTS σε αυτή τη συσκευή.",
+          "tv_dashboard_ducking_percent": "Ποσοστό της τρέχουσας έντασης μουσικής που διατηρείται όσο το Fitness εκφωνεί μια ανακοίνωση TTS. Μετά η αρχική ένταση επανέρχεται ομαλά.",
+          "tv_dashboard_ytdlp_enabled": "Το yt-dlp είναι προαιρετικός προσαρμογέας τρίτου μέρους και δεν συνδέεται ούτε υποστηρίζεται από το YouTube ή άλλες υπηρεσίες. Με την ενεργοποίησή του αναγνωρίζεις ότι είσαι αποκλειστικά υπεύθυνος για τη χρήση του, συμπεριλαμβανομένης της συμμόρφωσης με την ισχύουσα νομοθεσία, τους όρους υπηρεσίας, τους κανόνες πνευματικών δικαιωμάτων/αδειών και την εξασφάλιση όλων των απαραίτητων δικαιωμάτων ή αδειών. Το Fitness δεν παρέχει cookies λογαριασμού, δεν εξουσιοδοτεί παράκαμψη περιορισμών, μη εξουσιοδοτημένη λήψη ή αναδιανομή και παρέχει τον προσαρμογέα χωρίς εγγύηση. Αναλαμβάνεις αποκλειστικά την ευθύνη για τη συμπεριφορά σου και, στον μέγιστο βαθμό που επιτρέπεται από την ισχύουσα νομοθεσία, για τυχόν νομικές, συμβατικές, οικονομικές, σχετικές με λογαριασμούς, πνευματικά δικαιώματα ή άδειες συνέπειες, αξιώσεις, χρεώσεις, πρόστιμα ή κυρώσεις. Οι προγραμματιστές και συνεισφέροντες του Fitness δεν αναλαμβάνουν ευθύνη για παράνομη ή μη εξουσιοδοτημένη χρήση από χρήστη. Η παρούσα ειδοποίηση δεν αποτελεί νομική συμβουλή και δεν παρακάμπτει δικαιώματα ή ευθύνες που δεν μπορούν νόμιμα να αποκλειστούν.",
+          "tv_dashboard_ignore_lights_when_cast_active": "Όταν είναι ενεργός ένας δέκτης Fitness TV Cast, χρησιμοποίησε την τηλεόραση για την ανατροφοδότηση της προπόνησης και άφησε τα ρυθμισμένα φώτα προπόνησης ανέπαφα."
+        }
       }
     },
     "abort": {
@@ -321,6 +358,13 @@
           "source_integration": {
             "name": "Ενσωμάτωση πηγής"
           }
+        },
+        "state": {
+          "idle": "Αδράνεια",
+          "waiting_for_live_data": "Αναμονή ζωντανών δεδομένων",
+          "active": "Ενεργή",
+          "paused": "Σε παύση",
+          "recovery": "Αποκατάσταση"
         }
       },
       "session_duration": {
@@ -3128,7 +3172,7 @@
         "female": "Γυναίκα",
         "male": "Άνδρας",
         "other": "Άλλο",
-        "prefer_not_to_say": "Προτιμώ να μην απαντήσω"
+        "prefer_not_to_say": "Άλλο / Προτιμώ να μην απαντήσω"
       }
     },
     "birth_month": {
@@ -3172,6 +3216,84 @@
     },
     "bluetooth_adapter": {
       "name": "Bluetooth Adapter"
+    }
+  },
+  "issues": {
+    "ai_provider_unavailable": {
+      "title": "Ο επιλεγμένος πάροχος AI του Fitness δεν είναι διαθέσιμος",
+      "description": "Το Fitness έχει ρυθμιστεί να χρησιμοποιεί το `{entity_id}`, αλλά αυτός ο πάροχος δεν είναι διαθέσιμος αυτή τη στιγμή. Το Fitness χρησιμοποιεί προσωρινά το προεπιλεγμένο AI Task του Home Assistant και θα επιστρέψει αυτόματα στον επιλεγμένο πάροχο όταν γίνει ξανά διαθέσιμος. Μπορείς επίσης να αλλάξεις τον πάροχο AI στις επιλογές του Fitness."
+    }
+  },
+  "services": {
+    "cast_tv_dashboard": {
+      "name": "Εμφάνιση πίνακα Fitness TV",
+      "description": "Εμφανίζει αυτό το προφίλ Fitness στη ρυθμισμένη τηλεόραση Cast.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Προφίλ Fitness",
+          "description": "Το προφίλ Fitness που θα εμφανιστεί στην τηλεόραση."
+        },
+        "entity_id": {
+          "name": "Στόχος Cast",
+          "description": "Προαιρετικό Google Cast media player. Αν παραλειφθεί, χρησιμοποιείται η ρυθμισμένη TV του προφίλ."
+        }
+      }
+    },
+    "start_tv_workout": {
+      "name": "Έναρξη προπόνησης Fitness TV",
+      "description": "Προετοιμάζει την TV του προφίλ, επαναφέρει και αναπαράγει την τελευταία επιλεγμένη μουσική όταν υπάρχει και μετά ξεκινά τη συνεδρία προπόνησης Fitness.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Προφίλ Fitness",
+          "description": "Το προφίλ που θα ξεκινήσει στο Fitness TV."
+        },
+        "entity_id": {
+          "name": "Στόχος Cast",
+          "description": "Προαιρετικό Google Cast media player. Αν παραλειφθεί, χρησιμοποιείται η ρυθμισμένη TV του προφίλ."
+        }
+      }
+    },
+    "stop_tv_dashboard": {
+      "name": "Διακοπή μετάδοσης Fitness TV",
+      "description": "Σταματά τον δέκτη Home Assistant/Fitness Cast στην TV του προφίλ χωρίς να απενεργοποιεί την TV.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Προφίλ Fitness",
+          "description": "Προφίλ Fitness του οποίου η μετάδοση TV θα σταματήσει."
+        },
+        "entity_id": {
+          "name": "Στόχος Cast",
+          "description": "Προαιρετικό Google Cast media player. Αν παραλειφθεί, χρησιμοποιείται η ρυθμισμένη TV του προφίλ."
+        }
+      }
+    },
+    "test_tts": {
+      "name": "Δοκιμή Fitness TTS",
+      "description": "Αναπαράγει δοκιμαστική ανακοίνωση μέσω της ίδιας δρομολόγησης TTS ανά προφίλ που χρησιμοποιεί το Fitness.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Προφίλ Fitness",
+          "description": "Το προφίλ του οποίου θα δοκιμαστεί η δρομολόγηση TTS."
+        },
+        "message": {
+          "name": "Μήνυμα δοκιμής",
+          "description": "Προαιρετικό κείμενο ομιλίας. Αφήστε κενό για το μεταφρασμένο μήνυμα δοκιμής ducking."
+        }
+      }
+    },
+    "ai_tts": {
+      "name": "Προτροπή AI σε TTS Fitness",
+      "description": "Στέλνει μια προτροπή μέσω του ρυθμισμένου παρόχου AI αυτού του προφίλ και εκφωνεί το αποτέλεσμα μέσω της ίδιας διαδρομής TTS/TV του Fitness.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Προφίλ Fitness",
+          "description": "Το προφίλ του οποίου θα χρησιμοποιηθούν οι ρυθμίσεις AI, γλώσσας, TTS, TV και εφεδρικών εξόδων."
+        },
+        "prompt": {
+          "name": "Προτροπή AI",
+          "description": "Η προτροπή που θα σταλεί στον πάροχο AI."
+        }
+      }
     }
   }
 }

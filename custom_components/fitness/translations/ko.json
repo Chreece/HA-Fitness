@@ -23,8 +23,8 @@
         }
       },
       "required": {
-        "title": "Required profile inputs",
-        "description": "Enter one numeric value OR one Home Assistant entity ID in each field.",
+        "title": "프로필 입력",
+        "description": "체중은 필수입니다. 안정 시 심박수는 선택 사항이며 나중에 추가할 수 있습니다. 각 필드는 숫자 값 또는 호환되는 Home Assistant 엔티티를 사용할 수 있으며 단위는 자동으로 정규화됩니다.",
         "data": {
           "weight": "체중(kg 또는 엔티티)",
           "resting_hr": "안정시 심박수(bpm 또는 엔티티)"
@@ -55,11 +55,11 @@
         }
       },
       "live_devices": {
-        "title": "Live workout sensors",
-        "description": "Select the physical sensors this Fitness profile may use. Native sensors come from the enabled Bluetooth and ANT+ adapter modules. Optional compatible Home Assistant live devices can also be used.",
+        "title": "실시간 운동 센서",
+        "description": "이 Fitness 프로필에서 사용할 물리 센서를 선택하세요. 기본 센서는 활성화된 Bluetooth 및 ANT+ 어댑터 모듈에서 제공됩니다. 호환되는 Home Assistant 실시간 장치도 선택할 수 있습니다.",
         "data": {
-          "live_sensor_ids": "Local fitness sensors",
-          "live_device_ids": "Other Home Assistant live devices"
+          "live_sensor_ids": "로컬 Fitness 센서",
+          "live_device_ids": "기타 Home Assistant 실시간 장치"
         },
         "data_description": {
           "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
@@ -82,14 +82,14 @@
       },
       "ai": {
         "title": "AI 해석",
-        "description": "Fitness calculations stay deterministic. AI only interprets them. An existing AI Task is preselected; leaving it empty uses Home Assistant's preferred/default AI Task.",
+        "description": "기본적으로 Home Assistant의 기본 AI Task가 선택됩니다. Fitness는 현재 시스템 기본값을 자동으로 따릅니다. 특정 AI Task 또는 대화 에이전트에 고정하려는 경우에만 별도로 선택하세요.",
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
-          "ai_entity": "AI Task / LLM entity"
+          "ai_entity": "AI 제공자"
         },
         "data_description": {
           "ai_enabled": "결정론적 계산의 AI 해석을 활성화합니다. AI는 과학적 센서 공식이나 메타데이터를 정의하거나 변경하지 않습니다.",
-          "ai_entity": "코칭/평가용 AI Task 또는 대화 에이전트입니다. AI와 TTS는 직렬화되어 겹치지 않습니다."
+          "ai_entity": "Home Assistant 기본 AI Task를 사용하면 시스템 기본 설정을 자동으로 따릅니다. 특정 AI Task / 대화 에이전트에 고정할 수도 있습니다. 고정된 제공자를 사용할 수 없게 되면 Fitness가 알려 주고 일시적으로 시스템 기본값으로 대체합니다."
         }
       },
       "feedback": {
@@ -133,6 +133,24 @@
         "data_description": {
           "fitness_profile_ids": "One physical sensor can be shared by multiple Fitness profiles."
         }
+      },
+      "tv_dashboard": {
+        "title": "Fitness TV 대시보드",
+        "description": "선택형 전체 화면 Fitness TV 대시보드를 설정합니다. Fitness에는 음악 재생과 TTS 중 볼륨 낮추기를 위한 브라우저 오디오 계층이 내장되어 있습니다.",
+        "data": {
+          "tv_dashboard_enabled": "Fitness TV 대시보드 사용",
+          "tv_dashboard_media_player_id": "TV / Cast 미디어 플레이어",
+          "tv_dashboard_ducking_percent": "TTS 중 음악 볼륨",
+          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ignore_lights_when_cast_active": "TV Cast 활성 중 운동 조명 무시"
+        },
+        "data_description": {
+          "tv_dashboard_enabled": "운동이 시작되면 Fitness TV 대시보드를 자동으로 전체 화면에 표시합니다. 음악과 TTS가 대시보드 안에서 재생되므로 Cast 화면이 계속 유지됩니다.",
+          "tv_dashboard_media_player_id": "Fitness TV 대시보드를 표시할 Google Cast 미디어 플레이어입니다. Fitness는 대시보드 음악이나 TTS를 이 미디어 플레이어로 직접 보내지 않습니다.",
+          "tv_dashboard_ducking_percent": "Fitness가 TTS 안내를 재생하는 동안 유지할 현재 음악 볼륨의 백분율입니다. 안내가 끝나면 원래 볼륨으로 부드럽게 복원됩니다.",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ignore_lights_when_cast_active": "Fitness TV Cast 수신기가 활성화되어 있으면 운동 피드백은 TV를 사용하고 설정된 운동 조명은 변경하지 않습니다."
+        }
       }
     },
     "error": {
@@ -162,7 +180,8 @@
           "ai": "AI 해석",
           "feedback": "코칭, 조명 및 안내",
           "sleep_devices": "수면 기기",
-          "sensor_assignments": "센서 할당"
+          "sensor_assignments": "센서 할당",
+          "tv_dashboard": "Fitness TV 대시보드"
         }
       },
       "profile": {
@@ -185,7 +204,7 @@
       },
       "fitness_inputs": {
         "title": "피트니스 데이터 및 초기값",
-        "description": "Every field accepts one numeric value OR one Home Assistant entity ID. Weight and resting heart rate are required.",
+        "description": "각 필드는 숫자 값 또는 호환되는 엔티티를 사용할 수 있습니다. 체중만 필수이며 안정 시 심박수와 다른 생리학적 입력은 선택 사항으로 나중에 추가하거나 제거할 수 있습니다.",
         "data": {
           "weight": "체중(kg 또는 엔티티)",
           "resting_hr": "안정시 심박수(bpm 또는 엔티티)",
@@ -208,11 +227,11 @@
         }
       },
       "live_devices": {
-        "title": "Live workout sensors",
-        "description": "Select the physical sensors this Fitness profile may use. Native sensors come from the enabled Bluetooth and ANT+ adapter modules. Optional compatible Home Assistant live devices can also be used.",
+        "title": "실시간 운동 센서",
+        "description": "이 Fitness 프로필에서 사용할 물리 센서를 선택하세요. 기본 센서는 활성화된 Bluetooth 및 ANT+ 어댑터 모듈에서 제공됩니다. 호환되는 Home Assistant 실시간 장치도 선택할 수 있습니다.",
         "data": {
-          "live_sensor_ids": "Local fitness sensors",
-          "live_device_ids": "Other Home Assistant live devices"
+          "live_sensor_ids": "로컬 Fitness 센서",
+          "live_device_ids": "기타 Home Assistant 실시간 장치"
         },
         "data_description": {
           "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
@@ -235,14 +254,14 @@
       },
       "ai": {
         "title": "AI 해석",
-        "description": "Choose a specific AI Task / LLM or leave empty to use Home Assistant's preferred/default AI Task.",
+        "description": "기본적으로 Home Assistant의 기본 AI Task가 선택됩니다. Fitness는 현재 시스템 기본값을 자동으로 따릅니다. 특정 AI Task 또는 대화 에이전트에 고정하려는 경우에만 별도로 선택하세요.",
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
-          "ai_entity": "AI Task / LLM entity"
+          "ai_entity": "AI 제공자"
         },
         "data_description": {
           "ai_enabled": "결정론적 계산의 AI 해석을 활성화합니다. AI는 과학적 센서 공식이나 메타데이터를 정의하거나 변경하지 않습니다.",
-          "ai_entity": "코칭/평가용 AI Task 또는 대화 에이전트입니다. AI와 TTS는 직렬화되어 겹치지 않습니다."
+          "ai_entity": "Home Assistant 기본 AI Task를 사용하면 시스템 기본 설정을 자동으로 따릅니다. 특정 AI Task / 대화 에이전트에 고정할 수도 있습니다. 고정된 제공자를 사용할 수 없게 되면 Fitness가 알려 주고 일시적으로 시스템 기본값으로 대체합니다."
         }
       },
       "feedback": {
@@ -296,6 +315,24 @@
         "data_description": {
           "fitness_profile_ids": "향후 사용을 위해 하나의 센서를 여러 프로필에 할당할 수 있지만 측정값은 동시에 공유되지 않습니다. 실제 센서 하나는 한 번에 한 운동 소유자에게만 데이터를 제공합니다."
         }
+      },
+      "tv_dashboard": {
+        "title": "Fitness TV 대시보드",
+        "description": "선택형 전체 화면 Fitness TV 대시보드를 설정합니다. Fitness에는 음악 재생과 TTS 중 볼륨 낮추기를 위한 브라우저 오디오 계층이 내장되어 있습니다.",
+        "data": {
+          "tv_dashboard_enabled": "Fitness TV 대시보드 사용",
+          "tv_dashboard_media_player_id": "TV / Cast 미디어 플레이어",
+          "tv_dashboard_ducking_percent": "TTS 중 음악 볼륨",
+          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ignore_lights_when_cast_active": "TV Cast 활성 중 운동 조명 무시"
+        },
+        "data_description": {
+          "tv_dashboard_enabled": "운동이 시작되면 Fitness TV 대시보드를 자동으로 전체 화면에 표시합니다. 음악과 TTS가 대시보드 안에서 재생되므로 Cast 화면이 계속 유지됩니다.",
+          "tv_dashboard_media_player_id": "Fitness TV 대시보드를 표시할 Google Cast 미디어 플레이어입니다. Fitness는 대시보드 음악이나 TTS를 이 미디어 플레이어로 직접 보내지 않습니다.",
+          "tv_dashboard_ducking_percent": "Fitness가 TTS 안내를 재생하는 동안 유지할 현재 음악 볼륨의 백분율입니다. 안내가 끝나면 원래 볼륨으로 부드럽게 복원됩니다.",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ignore_lights_when_cast_active": "Fitness TV Cast 수신기가 활성화되어 있으면 운동 피드백은 TV를 사용하고 설정된 운동 조명은 변경하지 않습니다."
+        }
       }
     },
     "abort": {
@@ -321,6 +358,13 @@
           "source_integration": {
             "name": "소스 통합"
           }
+        },
+        "state": {
+          "idle": "대기",
+          "waiting_for_live_data": "실시간 데이터 대기 중",
+          "active": "진행 중",
+          "paused": "일시정지",
+          "recovery": "회복"
         }
       },
       "session_duration": {
@@ -3128,7 +3172,7 @@
         "female": "여성",
         "male": "남성",
         "other": "기타",
-        "prefer_not_to_say": "응답하지 않음"
+        "prefer_not_to_say": "기타 / 응답하지 않음"
       }
     },
     "birth_month": {
@@ -3172,6 +3216,84 @@
     },
     "bluetooth_adapter": {
       "name": "Bluetooth Adapter"
+    }
+  },
+  "issues": {
+    "ai_provider_unavailable": {
+      "title": "선택한 Fitness AI 제공자를 사용할 수 없습니다",
+      "description": "Fitness가 `{entity_id}`를 사용하도록 설정되어 있지만 현재 해당 제공자를 사용할 수 없습니다. Fitness는 일시적으로 Home Assistant의 기본 AI Task를 사용하며 선택한 제공자가 다시 사용 가능해지면 자동으로 돌아갑니다. Fitness 옵션에서 AI 제공자를 변경할 수도 있습니다."
+    }
+  },
+  "services": {
+    "cast_tv_dashboard": {
+      "name": "Fitness TV 대시보드 표시",
+      "description": "이 Fitness 프로필을 설정된 Cast TV에 표시합니다.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness 프로필",
+          "description": "TV에 표시할 Fitness 프로필입니다."
+        },
+        "entity_id": {
+          "name": "Cast 대상",
+          "description": "선택적 Google Cast 미디어 플레이어입니다. 생략하면 프로필에 설정된 TV를 사용합니다."
+        }
+      }
+    },
+    "start_tv_workout": {
+      "name": "Fitness TV 운동 시작",
+      "description": "프로필의 TV를 준비하고, 저장된 마지막 음악이 있으면 복원해 재생한 다음 Fitness 운동 세션을 시작합니다.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness 프로필",
+          "description": "Fitness TV에서 시작할 프로필입니다."
+        },
+        "entity_id": {
+          "name": "Cast 대상",
+          "description": "선택 사항인 Google Cast 미디어 플레이어입니다. 생략하면 프로필에 설정된 TV를 사용합니다."
+        }
+      }
+    },
+    "stop_tv_dashboard": {
+      "name": "Fitness TV 캐스트 중지",
+      "description": "TV 전원을 끄지 않고 이 프로필 TV의 Home Assistant/Fitness Cast 수신기를 중지합니다.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness 프로필",
+          "description": "TV Cast를 중지할 Fitness 프로필."
+        },
+        "entity_id": {
+          "name": "Cast 대상",
+          "description": "선택적 Google Cast 미디어 플레이어입니다. 생략하면 프로필에 설정된 TV를 사용합니다."
+        }
+      }
+    },
+    "test_tts": {
+      "name": "Fitness TTS 테스트",
+      "description": "Fitness와 동일한 프로필별 TTS 경로로 테스트 안내를 재생합니다.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness 프로필",
+          "description": "TTS 라우팅을 테스트할 프로필입니다."
+        },
+        "message": {
+          "name": "테스트 메시지",
+          "description": "선택적 음성 텍스트입니다. 비워 두면 현지화된 테스트 메시지를 사용합니다."
+        }
+      }
+    },
+    "ai_tts": {
+      "name": "AI 프롬프트를 Fitness TTS로 재생",
+      "description": "이 프로필에 설정된 AI 공급자에게 프롬프트를 보내고 Fitness와 동일한 프로필별 TTS/TV 경로로 결과를 말합니다.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness 프로필",
+          "description": "AI, 언어, TTS, TV 및 대체 설정을 사용할 프로필입니다."
+        },
+        "prompt": {
+          "name": "AI 프롬프트",
+          "description": "AI 공급자에게 보낼 프롬프트입니다."
+        }
+      }
     }
   }
 }

@@ -152,10 +152,23 @@ class LiveSensor:
     def available(self) -> bool:
         return any(x.available for x in self.endpoints.values())
 
+    def protocol_label(self) -> str:
+        """Return the user-facing transport label for this physical sensor."""
+        labels = {"antplus": "ANT+", "bluetooth": "BT"}
+        transports = [
+            labels.get(transport, str(transport).upper())
+            for transport in TRANSPORT_PRIORITY
+            if transport in self.endpoints
+        ]
+        return ", ".join(transports) or "Local"
+
+    def discovery_name(self) -> str:
+        """Return a compact discovery-card title including the observed protocol."""
+        return f"{self.name} ({self.protocol_label()})"
+
     def label(self) -> str:
         metrics = ", ".join(sorted(self.capabilities)) or "fitness sensor"
-        transports = "+".join(x.upper() for x in TRANSPORT_PRIORITY if x in self.endpoints)
-        return f"{self.name} — {transports or 'LOCAL'} · {metrics}"
+        return f"{self.discovery_name()} · {metrics}"
 
 
 class LiveRuntime:
@@ -312,6 +325,15 @@ class LiveRuntime:
                 stable_sensor_metadata = self._stable_sensor_metadata(sensor)
                 if stable_sensor_metadata != sensor.metadata:
                     sensor.metadata = stable_sensor_metadata
+                    sanitized_topology = True
+                # Re-resolve persisted names through the current data catalog on
+                # every startup. This provides a migration path when catalog rules
+                # are corrected/expanded and prevents an obsolete generated name
+                # from surviving forever simply because no topology field changed.
+                identity = resolve_identity(sensor)
+                resolved_name = str(identity.get("name") or "").strip()
+                if resolved_name and resolved_name != "Fitness sensor" and resolved_name != sensor.name:
+                    sensor.name = resolved_name
                     sanitized_topology = True
                 self.sensors[sensor.sensor_id] = sensor
             except Exception:
@@ -765,6 +787,18 @@ class LiveRuntime:
                             forget(int(device_number))
                         except (TypeError, ValueError):
                             pass
+                elif endpoint.transport == "bluetooth":
+                    provider = self.providers.get("bluetooth")
+                    forget = getattr(provider, "forget_sensor", None) if provider else None
+                    if forget is not None:
+                        try:
+                            forget(sensor_id, endpoint.endpoint_id)
+                        except Exception:
+                            _LOGGER.debug(
+                                "Unable to clear Bluetooth discovery state for %s",
+                                endpoint.endpoint_id,
+                                exc_info=True,
+                            )
                 self.endpoint_aliases.pop(endpoint.endpoint_id, None)
         self.sensor_values.pop(sensor_id, None)
         self.sensor_value_transport.pop(sensor_id, None)
@@ -1833,6 +1867,9 @@ class LiveRuntime:
         # wins over stale accepted metadata/profile selections.
         a_id = a.sensor_id
         b_id = b.sensor_id
+        a_was_accepted = self.sensor_is_accepted(a_id)
+        b_was_accepted = self.sensor_is_accepted(b_id)
+        provisional_merge = not a_was_accepted and not b_was_accepted
         requires_reassignment = (
             a_id in self._requires_reassignment
             or b_id in self._requires_reassignment
@@ -1937,17 +1974,25 @@ class LiveRuntime:
             self._sensor_materialization_pending.discard(secondary.sensor_id)
             self._sensor_materialization_pending.add(primary.sensor_id)
 
-        # Discovery state follows the canonical physical ID. An Add flow may
-        # already be open for the provisional ANT or BLE identity. Preserve that
-        # flow across the merge instead of cancelling it and creating a duplicate
-        # discovery for the canonical sensor.
-        secondary_started = secondary.sensor_id in self._discovery_started
-        self._discovery_started.discard(secondary.sensor_id)
-        if secondary_started or self._discovery_flow_active(secondary.sensor_id):
-            self._discovery_started.add(primary.sensor_id)
-        secondary_task = self._discovery_tasks.pop(secondary.sensor_id, None)
-        if secondary_task is not None and not secondary_task.done():
-            self._discovery_tasks.setdefault(primary.sensor_id, secondary_task)
+        # Discovery state follows the canonical physical ID. If both sides are
+        # still provisional, Home Assistant may already be showing two discovery
+        # cards because the fast semantic ANT flow can open before a later identity
+        # page proves the BT/ANT correlation. Once the physical sensors merge,
+        # remove those stale flows and reopen one canonical dual-transport flow so
+        # the UI collapses to a single ``ANT+, BT`` Add card. Accepted flows are
+        # never manipulated this way.
+        if provisional_merge:
+            self._collapse_provisional_discovery_flows_after_merge(
+                primary.sensor_id, {a_id, b_id}
+            )
+        else:
+            secondary_started = secondary.sensor_id in self._discovery_started
+            self._discovery_started.discard(secondary.sensor_id)
+            if secondary_started or self._discovery_flow_active(secondary.sensor_id):
+                self._discovery_started.add(primary.sensor_id)
+            secondary_task = self._discovery_tasks.pop(secondary.sensor_id, None)
+            if secondary_task is not None and not secondary_task.done():
+                self._discovery_tasks.setdefault(primary.sensor_id, secondary_task)
 
         # Unaccepted sensors have no registry objects, so scanning/removing the HA
         # registries and reloading the hub here is pure overhead. For an accepted
@@ -1957,6 +2002,91 @@ class LiveRuntime:
 
         self._schedule_save()
         return primary
+
+    def _collapse_provisional_discovery_flows_after_merge(
+        self, canonical_id: str, merged_ids: set[str]
+    ) -> None:
+        """Replace stale per-transport discovery flows with one canonical flow.
+
+        ANT discovery is intentionally fast and does not wait for optional identity
+        pages. A BT and ANT flow can therefore both be visible before a later strong
+        or catalog correlation proves they are one physical device. Home Assistant
+        does not automatically retitle/coalesce already-open flows when our internal
+        alias changes, so explicitly remove those provisional flows and let the
+        canonical sensor create one fresh dual-transport flow.
+        """
+        canonical_id = self.resolve_sensor_id(canonical_id)
+        merged_ids = set(merged_ids) | {canonical_id}
+
+        # Cancel async_init tasks which have not reached FlowManager yet.
+        for sensor_id in tuple(merged_ids):
+            task = self._discovery_tasks.pop(sensor_id, None)
+            if task is not None and not task.done():
+                task.cancel()
+            self._discovery_started.discard(sensor_id)
+
+        manager = self.hass.config_entries.flow
+        for flow in tuple(manager.async_progress(include_uninitialized=True)):
+            context = flow.get("context") or {}
+            unique_id = str(context.get("unique_id") or "")
+            if not unique_id.startswith("live_sensor:"):
+                continue
+            provisional = unique_id.split(":", 1)[1]
+            if provisional not in merged_ids and self.resolve_sensor_id(provisional) != canonical_id:
+                continue
+            flow_id = str(flow.get("flow_id") or "")
+            if not flow_id:
+                continue
+            try:
+                manager.async_abort(flow_id)
+            except Exception:  # Flow can finish between progress() and abort().
+                _LOGGER.debug(
+                    "Unable to abort stale Fitness discovery flow %s",
+                    flow_id,
+                    exc_info=True,
+                )
+
+        # Re-open asynchronously after the current radio callback returns. The
+        # scheduler performs all normal freshness/quarantine/profile checks and
+        # deduplicates with any concurrent request.
+        self.hass.loop.call_soon(self._schedule_sensor_discovery, canonical_id)
+
+    def _refresh_provisional_discovery_flow(self, sensor_id: str) -> None:
+        """Retitle one open provisional discovery flow after identity enrichment.
+
+        BLE Device Information and slow ANT identity pages can arrive after Home
+        Assistant already opened the discovery card. Flow title placeholders are
+        snapshotted when the flow is created, so abort/reopen the provisional flow
+        when a verified catalog/GATT name changes. Accepted sensors are never
+        touched here.
+        """
+        sensor_id = self.resolve_sensor_id(sensor_id)
+        if self.sensor_is_accepted(sensor_id):
+            return
+        manager = self.hass.config_entries.flow
+        found = False
+        for flow in tuple(manager.async_progress(include_uninitialized=True)):
+            if not self._discovery_flow_matches_sensor(flow, sensor_id):
+                continue
+            flow_id = str(flow.get("flow_id") or "")
+            if not flow_id:
+                continue
+            found = True
+            try:
+                manager.async_abort(flow_id)
+            except Exception:
+                _LOGGER.debug(
+                    "Unable to refresh Fitness discovery flow %s",
+                    flow_id,
+                    exc_info=True,
+                )
+        if not found:
+            return
+        task = self._discovery_tasks.pop(sensor_id, None)
+        if task is not None and not task.done():
+            task.cancel()
+        self._discovery_started.discard(sensor_id)
+        self.hass.loop.call_soon(self._schedule_sensor_discovery, sensor_id)
 
     def _schedule_merged_registry_cleanup(self, old_sensor_id: str) -> None:
         """Defer registry cleanup/reload caused by a physical-identity merge."""
@@ -2023,16 +2153,23 @@ class LiveRuntime:
     def _maybe_merge_correlated_dual_transport(self, sensor: LiveSensor) -> LiveSensor:
         """Apply one unambiguous data-driven cross-transport correlation rule.
 
-        Exact serial/product matching in ``_match_sensor`` always has priority.
-        Catalog correlation exists only for protocol combinations that cannot
-        expose a shared strong identifier. Both sides must already be accepted,
-        match complementary roles of the same rule, be recently observed, and be
-        globally unique for that rule. Ambiguous candidates remain separate.
+        Exact cross-transport IDs, serials and product identity in ``_match_sensor``
+        always have priority. Catalog correlation is the conservative fallback for
+        protocol combinations that cannot expose one shared strong identifier.
+
+        Correlation is allowed inside one acceptance cohort only:
+
+        * provisional + provisional may merge while still in Discovery, so one
+          physical device can collapse to a single ``ANT+, BT`` discovery flow;
+        * accepted + accepted may merge as before;
+        * accepted + provisional never merge heuristically.
+
+        Both roles must be recently observed and globally one-to-one for the same
+        catalog rule. Ambiguous candidates remain separate.
         """
         sensor_id = self.resolve_sensor_id(sensor.sensor_id)
         sensor = self.sensors.get(sensor_id, sensor)
-        if not self.sensor_is_accepted(sensor.sensor_id):
-            return sensor
+        cohort_accepted = self.sensor_is_accepted(sensor.sensor_id)
         match = catalog_transport_correlation(sensor)
         if not match:
             return sensor
@@ -2042,33 +2179,46 @@ class LiveRuntime:
         max_age = float(match["max_age_seconds"])
         matching: list[tuple[LiveSensor, dict[str, Any]]] = []
         for candidate in self.sensors.values():
-            if candidate.sensor_id == sensor.sensor_id or not self.sensor_is_accepted(candidate.sensor_id):
+            if candidate.sensor_id == sensor.sensor_id:
+                continue
+            if self.sensor_is_accepted(candidate.sensor_id) != cohort_accepted:
                 continue
             candidate_match = catalog_transport_correlation(candidate)
             if not candidate_match or candidate_match.get("rule_id") != rule_id:
                 continue
             if str(candidate_match.get("role")) == role:
                 continue
-            candidate_age = min(max_age, float(candidate_match.get("max_age_seconds", max_age)))
-            if not self._endpoints_recently_coobserved(sensor, candidate, candidate_age):
+            candidate_age = min(
+                max_age, float(candidate_match.get("max_age_seconds", max_age))
+            )
+            if not self._endpoints_recently_coobserved(
+                sensor, candidate, candidate_age
+            ):
                 continue
             matching.append((candidate, candidate_match))
 
-        # The fallback must be globally one-to-one. If two sensors can occupy
-        # either side of the same rule, physical identity is ambiguous and no
-        # automatic merge is permitted.
+        # The fallback must be globally one-to-one *inside the same acceptance
+        # cohort*. A provisional discovery is never allowed to steal an already
+        # accepted physical device merely because a catalog correlation matches.
         by_role: dict[str, list[LiveSensor]] = {}
         for item in self.sensors.values():
-            if not self.sensor_is_accepted(item.sensor_id):
+            if self.sensor_is_accepted(item.sensor_id) != cohort_accepted:
                 continue
             item_match = catalog_transport_correlation(item)
             if not item_match or item_match.get("rule_id") != rule_id:
                 continue
-            if not self._endpoints_recently_coobserved(sensor, item, min(max_age, float(item_match.get("max_age_seconds", max_age)))):
+            item_age = min(
+                max_age, float(item_match.get("max_age_seconds", max_age))
+            )
+            if not self._endpoints_recently_coobserved(sensor, item, item_age):
                 continue
             by_role.setdefault(str(item_match.get("role")), []).append(item)
 
-        if len(matching) != 1 or any(len(items) != 1 for items in by_role.values()) or len(by_role) != 2:
+        if (
+            len(matching) != 1
+            or any(len(items) != 1 for items in by_role.values())
+            or len(by_role) != 2
+        ):
             return sensor
 
         merged = self._merge_physical_sensors(sensor, matching[0][0])
@@ -2342,9 +2492,27 @@ class LiveRuntime:
             or sensor.capabilities != previous_caps
         )
 
-        if structural_change and self.sensor_is_accepted(sensor.sensor_id):
+        identity_name_changed = sensor.name != previous_name
+        pre_merge_sensor_id = sensor.sensor_id
+        if structural_change:
+            # Strong identity matching already happens in `_match_sensor`. Run the
+            # conservative catalog correlation here as well so two unaccepted
+            # transport observations can collapse into one physical discovery
+            # before either Add button is pressed. The helper keeps accepted and
+            # provisional cohorts strictly separate.
             sensor = self._maybe_merge_correlated_dual_transport(sensor)
             endpoint = sensor.endpoints.get(transport, endpoint)
+
+        # A GATT/catalog name can become known after HA already opened a generic
+        # discovery card. If no merge happened (merge has its own coalescing path),
+        # reopen that provisional flow so the new verified model name is visible
+        # before the user presses Add.
+        if (
+            identity_name_changed
+            and sensor.sensor_id == pre_merge_sensor_id
+            and not self.sensor_is_accepted(sensor.sensor_id)
+        ):
+            self._refresh_provisional_discovery_flow(sensor.sensor_id)
 
         # RSSI and last_seen are intentionally volatile. Passive advertisements can
         # arrive several times per second, so they must not cause storage writes,
@@ -3152,20 +3320,35 @@ class LiveRuntime:
         return [self.sensors[x] for x in self.selected_sensor_ids(entry) if x in self.sensors]
 
     def ant_data_fresh(self, sensor: LiveSensor, *, now: datetime | None = None) -> bool:
+        """Return whether ANT has produced a real live metric recently.
+
+        Identity/common pages keep an ANT endpoint present but are not evidence
+        that the live measurement stream is healthy.  GATT fallback during an
+        active session therefore keys off actual metric production, not endpoint
+        last_seen.
+        """
         endpoint = sensor.endpoints.get("antplus")
-        if (
-            endpoint is None
-            or endpoint.last_seen is None
-            or not self.adapter_enabled("antplus")
-            or not self.adapter_enabled("antplus")
-        ):
+        if endpoint is None or not self.adapter_enabled("antplus"):
+            return False
+        sensor_id = self.resolve_sensor_id(sensor.sensor_id)
+        metric_seen = self.sensor_metric_transport_seen.get(sensor_id, {})
+        candidate_metrics = set(endpoint.capabilities) & set(LIVE_METRICS)
+        if not candidate_metrics:
             return False
         now = now or datetime.now(timezone.utc)
-        try:
-            age = (now - endpoint.last_seen).total_seconds()
-        except Exception:
-            return False
-        return 0.0 <= age <= ANT_DATA_FRESH_SECONDS
+        for metric in candidate_metrics:
+            seen = metric_seen.get(metric, {}).get("antplus")
+            if seen is None:
+                continue
+            if seen.tzinfo is None:
+                seen = seen.replace(tzinfo=timezone.utc)
+            try:
+                age = (now - seen).total_seconds()
+            except Exception:
+                continue
+            if 0.0 <= age <= ANT_DATA_FRESH_SECONDS:
+                return True
+        return False
 
     def bluetooth_gatt_supported(self, sensor: LiveSensor) -> bool:
         """Return cached GATT capability without querying HA Bluetooth.
@@ -3180,7 +3363,6 @@ class LiveRuntime:
             and endpoint.address
             and self.adapter_enabled("bluetooth")
             and self.providers.get("bluetooth") is not None
-            and endpoint.metadata.get("connectable", False)
         )
 
     def bluetooth_gatt_capable(self, sensor: LiveSensor) -> bool:
@@ -3192,7 +3374,12 @@ class LiveRuntime:
         return bool(checker(self.resolve_sensor_id(sensor_id))) if checker is not None else False
 
     def choose_transport(self, sensor: LiveSensor) -> str | None:
-        """Prefer fresh ANT+; use Bluetooth GATT only when ANT+ is unavailable."""
+        """Choose the live-session transport; never use GATT as idle fallback.
+
+        ANT+ is preferred while it is actually producing live metrics. Bluetooth
+        GATT is selected only by live-session reconciliation when ANT metrics are
+        stale/missing (or when the sensor has no usable ANT path).
+        """
         ant_endpoint = sensor.endpoints.get("antplus")
         ant_provider = self.providers.get("antplus")
         ant_usable = bool(

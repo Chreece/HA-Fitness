@@ -26,12 +26,12 @@ The repository CI additionally runs the official HACS validator and Home Assista
 
 ## Versioning
 
-Fitness uses `YYYY.MM.release` with prerelease suffixes:
+Before the first public release, `manifest.json` stays at `0.0.0` and frontend cache revisions use `unreleased-N`. Public releases use `YYYY.MM.RR`; prereleases append `-betaXX`:
 
 ```text
-2026.8.0-beta.6
-2026.8.0
-2026.8.1
+2026.08.01-beta01
+2026.08.01
+2026.08.02
 ```
 
 

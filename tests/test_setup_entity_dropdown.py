@@ -20,3 +20,10 @@ def test_entity_dropdown_uses_runtime_capability_catalog():
 def test_manual_numeric_or_entity_validation_remains():
     assert "validate_number_or_entity(" in FLOW
     assert "is_entity_reference(value)" in FLOW
+
+
+def test_manual_compatible_entity_can_bypass_conservative_suggestion_names():
+    assert "profile_entity_supported" in FLOW
+    assert "def profile_entity_supported(" in CAP
+    assert "converted is not None" in CAP
+    assert "entity_id not in supported and not profile_entity_supported(" in FLOW

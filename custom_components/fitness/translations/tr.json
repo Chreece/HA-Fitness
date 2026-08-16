@@ -23,8 +23,8 @@
         }
       },
       "required": {
-        "title": "Required profile inputs",
-        "description": "Enter one numeric value OR one Home Assistant entity ID in each field.",
+        "title": "Profil girdileri",
+        "description": "Kilo zorunludur. Dinlenik nabız isteğe bağlıdır ve daha sonra eklenebilir. Her alan sayısal değer veya uyumlu bir Home Assistant varlığı kabul eder; birimler otomatik olarak normalize edilir.",
         "data": {
           "weight": "Kilo (kg veya varlık)",
           "resting_hr": "Dinlenik nabız (bpm veya varlık)"
@@ -55,11 +55,11 @@
         }
       },
       "live_devices": {
-        "title": "Live workout sensors",
-        "description": "Select the physical sensors this Fitness profile may use. Native sensors come from the enabled Bluetooth and ANT+ adapter modules. Optional compatible Home Assistant live devices can also be used.",
+        "title": "Canlı antrenman sensörleri",
+        "description": "Bu Fitness profilinin kullanabileceği fiziksel sensörleri seçin. Yerel sensörler etkin Bluetooth ve ANT+ adaptör modüllerinden gelir. Uyumlu Home Assistant canlı veri cihazları da seçilebilir.",
         "data": {
-          "live_sensor_ids": "Local fitness sensors",
-          "live_device_ids": "Other Home Assistant live devices"
+          "live_sensor_ids": "Yerel Fitness sensörleri",
+          "live_device_ids": "Diğer Home Assistant canlı veri cihazları"
         },
         "data_description": {
           "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
@@ -82,14 +82,14 @@
       },
       "ai": {
         "title": "Yapay zekâ yorumu",
-        "description": "Fitness calculations stay deterministic. AI only interprets them. An existing AI Task is preselected; leaving it empty uses Home Assistant's preferred/default AI Task.",
+        "description": "Varsayılan olarak Home Assistant'ın varsayılan AI Task'ı seçilir. Fitness mevcut sistem tercihini otomatik olarak izler; yalnızca sabitlemek istiyorsanız belirli bir AI Task veya konuşma aracısı seçin.",
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
-          "ai_entity": "AI Task / LLM entity"
+          "ai_entity": "AI sağlayıcısı"
         },
         "data_description": {
           "ai_enabled": "Deterministik hesapların AI yorumunu etkinleştirir. AI bilimsel sensör formüllerini veya metadatasını asla tanımlamaz ya da değiştirmez.",
-          "ai_entity": "Coaching/değerlendirme için AI Task veya konuşma aracısı. AI ve TTS seri çalışır ve çakışmaz."
+          "ai_entity": "Sistem tercihini otomatik izlemek için Home Assistant'ın varsayılan AI Task'ını kullanın veya belirli bir AI Task / konuşma aracısını sabitleyin. Sabitlenen sağlayıcı kullanılamaz hale gelirse Fitness sizi uyarır ve geçici olarak sistem varsayılanına döner."
         }
       },
       "feedback": {
@@ -133,6 +133,24 @@
         "data_description": {
           "fitness_profile_ids": "One physical sensor can be shared by multiple Fitness profiles."
         }
+      },
+      "tv_dashboard": {
+        "title": "Fitness TV paneli",
+        "description": "İsteğe bağlı tam ekran Fitness TV panelini yapılandırır. Fitness, müzik ve TTS sırasında ses azaltma için kendi tarayıcı ses katmanını içerir.",
+        "data": {
+          "tv_dashboard_enabled": "Fitness TV panelini etkinleştir",
+          "tv_dashboard_media_player_id": "TV / Cast medya oynatıcı",
+          "tv_dashboard_ducking_percent": "TTS sırasında müzik ses düzeyi",
+          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ignore_lights_when_cast_active": "TV Cast etkinken antrenman ışıklarını kullanma"
+        },
+        "data_description": {
+          "tv_dashboard_enabled": "Antrenman başladığında Fitness TV panelini otomatik olarak tam ekranda gösterir. Cast görünümünün açık kalması için müzik ve TTS panelin içinde oynatılır.",
+          "tv_dashboard_media_player_id": "Fitness TV panelini gösterecek Google Cast medya oynatıcısı. Fitness panel müziğini veya TTS sesini hiçbir zaman doğrudan bu medya oynatıcıya göndermez.",
+          "tv_dashboard_ducking_percent": "Fitness bir TTS duyurusu yaparken korunacak mevcut müzik ses düzeyi yüzdesi. Duyuru sonrasında özgün ses düzeyi yumuşak biçimde geri yüklenir.",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ignore_lights_when_cast_active": "Bir Fitness TV Cast alıcısı etkinken antrenman geri bildirimi için TV’yi kullanır ve yapılandırılmış antrenman ışıklarını değiştirmez."
+        }
       }
     },
     "error": {
@@ -162,7 +180,8 @@
           "ai": "Yapay zekâ yorumu",
           "feedback": "Koçluk, ışıklar ve duyurular",
           "sleep_devices": "Uyku cihazları",
-          "sensor_assignments": "Sensör atamaları"
+          "sensor_assignments": "Sensör atamaları",
+          "tv_dashboard": "Fitness TV paneli"
         }
       },
       "profile": {
@@ -185,7 +204,7 @@
       },
       "fitness_inputs": {
         "title": "Fitness verileri ve başlangıç değerleri",
-        "description": "Every field accepts one numeric value OR one Home Assistant entity ID. Weight and resting heart rate are required.",
+        "description": "Her alan sayısal değer veya uyumlu bir varlık kabul eder. Yalnızca kilo zorunludur; dinlenik nabız ve diğer fizyolojik girdiler isteğe bağlıdır ve daha sonra eklenip kaldırılabilir.",
         "data": {
           "weight": "Kilo (kg veya varlık)",
           "resting_hr": "Dinlenik nabız (bpm veya varlık)",
@@ -208,11 +227,11 @@
         }
       },
       "live_devices": {
-        "title": "Live workout sensors",
-        "description": "Select the physical sensors this Fitness profile may use. Native sensors come from the enabled Bluetooth and ANT+ adapter modules. Optional compatible Home Assistant live devices can also be used.",
+        "title": "Canlı antrenman sensörleri",
+        "description": "Bu Fitness profilinin kullanabileceği fiziksel sensörleri seçin. Yerel sensörler etkin Bluetooth ve ANT+ adaptör modüllerinden gelir. Uyumlu Home Assistant canlı veri cihazları da seçilebilir.",
         "data": {
-          "live_sensor_ids": "Local fitness sensors",
-          "live_device_ids": "Other Home Assistant live devices"
+          "live_sensor_ids": "Yerel Fitness sensörleri",
+          "live_device_ids": "Diğer Home Assistant canlı veri cihazları"
         },
         "data_description": {
           "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
@@ -235,14 +254,14 @@
       },
       "ai": {
         "title": "Yapay zekâ yorumu",
-        "description": "Choose a specific AI Task / LLM or leave empty to use Home Assistant's preferred/default AI Task.",
+        "description": "Varsayılan olarak Home Assistant'ın varsayılan AI Task'ı seçilir. Fitness mevcut sistem tercihini otomatik olarak izler; yalnızca sabitlemek istiyorsanız belirli bir AI Task veya konuşma aracısı seçin.",
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
-          "ai_entity": "AI Task / LLM entity"
+          "ai_entity": "AI sağlayıcısı"
         },
         "data_description": {
           "ai_enabled": "Deterministik hesapların AI yorumunu etkinleştirir. AI bilimsel sensör formüllerini veya metadatasını asla tanımlamaz ya da değiştirmez.",
-          "ai_entity": "Coaching/değerlendirme için AI Task veya konuşma aracısı. AI ve TTS seri çalışır ve çakışmaz."
+          "ai_entity": "Sistem tercihini otomatik izlemek için Home Assistant'ın varsayılan AI Task'ını kullanın veya belirli bir AI Task / konuşma aracısını sabitleyin. Sabitlenen sağlayıcı kullanılamaz hale gelirse Fitness sizi uyarır ve geçici olarak sistem varsayılanına döner."
         }
       },
       "feedback": {
@@ -296,6 +315,24 @@
         "data_description": {
           "fitness_profile_ids": "Bir sensör gelecekte kullanılmak üzere birden fazla profile atanabilir. Ölçümler aynı anda paylaşılmaz: bir fiziksel sensör yalnızca tek bir antrenman sahibine veri sağlar."
         }
+      },
+      "tv_dashboard": {
+        "title": "Fitness TV paneli",
+        "description": "İsteğe bağlı tam ekran Fitness TV panelini yapılandırır. Fitness, müzik ve TTS sırasında ses azaltma için kendi tarayıcı ses katmanını içerir.",
+        "data": {
+          "tv_dashboard_enabled": "Fitness TV panelini etkinleştir",
+          "tv_dashboard_media_player_id": "TV / Cast medya oynatıcı",
+          "tv_dashboard_ducking_percent": "TTS sırasında müzik ses düzeyi",
+          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ignore_lights_when_cast_active": "TV Cast etkinken antrenman ışıklarını kullanma"
+        },
+        "data_description": {
+          "tv_dashboard_enabled": "Antrenman başladığında Fitness TV panelini otomatik olarak tam ekranda gösterir. Cast görünümünün açık kalması için müzik ve TTS panelin içinde oynatılır.",
+          "tv_dashboard_media_player_id": "Fitness TV panelini gösterecek Google Cast medya oynatıcısı. Fitness panel müziğini veya TTS sesini hiçbir zaman doğrudan bu medya oynatıcıya göndermez.",
+          "tv_dashboard_ducking_percent": "Fitness bir TTS duyurusu yaparken korunacak mevcut müzik ses düzeyi yüzdesi. Duyuru sonrasında özgün ses düzeyi yumuşak biçimde geri yüklenir.",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ignore_lights_when_cast_active": "Bir Fitness TV Cast alıcısı etkinken antrenman geri bildirimi için TV’yi kullanır ve yapılandırılmış antrenman ışıklarını değiştirmez."
+        }
       }
     },
     "abort": {
@@ -321,6 +358,13 @@
           "source_integration": {
             "name": "Kaynak entegrasyon"
           }
+        },
+        "state": {
+          "idle": "Boşta",
+          "waiting_for_live_data": "Canlı veri bekleniyor",
+          "active": "Aktif",
+          "paused": "Duraklatıldı",
+          "recovery": "Toparlanma"
         }
       },
       "session_duration": {
@@ -3128,7 +3172,7 @@
         "female": "Kadın",
         "male": "Erkek",
         "other": "Diğer",
-        "prefer_not_to_say": "Belirtmek istemiyorum"
+        "prefer_not_to_say": "Diğer / Belirtmek istemiyorum"
       }
     },
     "birth_month": {
@@ -3172,6 +3216,84 @@
     },
     "bluetooth_adapter": {
       "name": "Bluetooth Adapter"
+    }
+  },
+  "issues": {
+    "ai_provider_unavailable": {
+      "title": "Seçilen Fitness AI sağlayıcısı kullanılamıyor",
+      "description": "Fitness `{entity_id}` kullanacak şekilde yapılandırılmış, ancak bu sağlayıcı şu anda kullanılamıyor. Fitness geçici olarak Home Assistant varsayılan AI Task'ını kullanır ve seçilen sağlayıcı yeniden kullanılabilir olduğunda otomatik olarak ona döner. AI sağlayıcısını Fitness seçeneklerinden de değiştirebilirsiniz."
+    }
+  },
+  "services": {
+    "cast_tv_dashboard": {
+      "name": "Fitness TV panelini göster",
+      "description": "Bu Fitness profilini yapılandırılmış Cast TV’de gösterir.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness profili",
+          "description": "TV’de gösterilecek Fitness profili."
+        },
+        "entity_id": {
+          "name": "Cast hedefi",
+          "description": "İsteğe bağlı Google Cast medya oynatıcı. Boş bırakılırsa profilin ayarlanmış TV’si kullanılır."
+        }
+      }
+    },
+    "start_tv_workout": {
+      "name": "Fitness TV antrenmanını başlat",
+      "description": "Profilin TV’sini hazırlar, varsa son seçilen müziği geri yükleyip çalar ve ardından Fitness antrenman oturumunu başlatır.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness profili",
+          "description": "Fitness TV’de başlatılacak profil."
+        },
+        "entity_id": {
+          "name": "Cast hedefi",
+          "description": "İsteğe bağlı Google Cast medya oynatıcı. Atlanırsa profilin yapılandırılmış TV’si kullanılır."
+        }
+      }
+    },
+    "stop_tv_dashboard": {
+      "name": "Fitness TV Cast yayınını durdur",
+      "description": "TV’yi kapatmadan profilin TV’sindeki Home Assistant/Fitness Cast alıcısını durdurur.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness profili",
+          "description": "TV Cast alıcısı durdurulacak Fitness profili."
+        },
+        "entity_id": {
+          "name": "Cast hedefi",
+          "description": "İsteğe bağlı Google Cast medya oynatıcı. Boş bırakılırsa profilin ayarlanmış TV’si kullanılır."
+        }
+      }
+    },
+    "test_tts": {
+      "name": "Fitness TTS test et",
+      "description": "Fitness ile aynı profil bazlı TTS yönlendirmesi üzerinden bir test duyurusu oynatır.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness profili",
+          "description": "TTS yönlendirmesi test edilecek profil."
+        },
+        "message": {
+          "name": "Test mesajı",
+          "description": "İsteğe bağlı konuşma metni. Yerelleştirilmiş test mesajı için boş bırakın."
+        }
+      }
+    },
+    "ai_tts": {
+      "name": "AI istemini Fitness TTS ile konuş",
+      "description": "İstemi bu profil için yapılandırılmış AI sağlayıcısına gönderir ve sonucu Fitness ile aynı profil bazlı TTS/TV yolu üzerinden seslendirir.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness profili",
+          "description": "AI, dil, TTS, TV ve yedek ayarları kullanılacak profil."
+        },
+        "prompt": {
+          "name": "AI istemi",
+          "description": "AI sağlayıcısına gönderilecek istem."
+        }
+      }
     }
   }
 }

@@ -54,7 +54,7 @@ def test_mid_workout_transfer_is_explicit_and_safe():
 
 def test_retention_is_inside_workout_section_not_top_level_menu():
     menu = CONFIG.split("async def async_step_init",1)[1].split("async def async_step_sensor_assignments",1)[0]
-    assert 'menu.extend(["workout_devices", "sleep_devices", "ai", "feedback"])' in menu
+    assert 'menu.extend(["workout_devices", "sleep_devices", "ai", "feedback", "tv_dashboard"])' in menu
     workout = CONFIG.split("async def async_step_workout_devices",1)[1].split("async def async_step_history",1)[0]
     assert "CONF_WORKOUT_RETENTION_DAYS" in workout
 

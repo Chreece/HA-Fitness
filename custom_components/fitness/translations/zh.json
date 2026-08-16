@@ -23,8 +23,8 @@
         }
       },
       "required": {
-        "title": "Required profile inputs",
-        "description": "Enter one numeric value OR one Home Assistant entity ID in each field.",
+        "title": "个人资料输入",
+        "description": "体重为必填项。静息心率为可选项，可稍后添加。每个字段都可填写数值或选择兼容的 Home Assistant 实体，单位会自动换算。",
         "data": {
           "weight": "体重（kg 或实体）",
           "resting_hr": "静息心率（bpm 或实体）"
@@ -55,11 +55,11 @@
         }
       },
       "live_devices": {
-        "title": "Live workout sensors",
-        "description": "Select the physical sensors this Fitness profile may use. Native sensors come from the enabled Bluetooth and ANT+ adapter modules. Optional compatible Home Assistant live devices can also be used.",
+        "title": "实时训练传感器",
+        "description": "选择此 Fitness 个人资料可使用的物理传感器。原生传感器来自已启用的 Bluetooth 和 ANT+ 适配器模块，也可选择兼容的 Home Assistant 实时设备。",
         "data": {
-          "live_sensor_ids": "Local fitness sensors",
-          "live_device_ids": "Other Home Assistant live devices"
+          "live_sensor_ids": "本地 Fitness 传感器",
+          "live_device_ids": "其他 Home Assistant 实时设备"
         },
         "data_description": {
           "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
@@ -82,14 +82,14 @@
       },
       "ai": {
         "title": "AI 解读",
-        "description": "Fitness calculations stay deterministic. AI only interprets them. An existing AI Task is preselected; leaving it empty uses Home Assistant's preferred/default AI Task.",
+        "description": "默认选择 Home Assistant 的默认 AI Task。Fitness 会自动跟随当前系统默认项；只有在需要固定某个提供方时才选择特定 AI Task 或对话代理。",
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
-          "ai_entity": "AI Task / LLM entity"
+          "ai_entity": "AI 提供方"
         },
         "data_description": {
           "ai_enabled": "启用 AI 对确定性 Fitness 计算结果的解读。AI 永远不会定义或修改科学传感器公式或元数据。",
-          "ai_entity": "用于训练指导/评估的 AI Task 或对话代理。AI 与 TTS 串行执行，不会重叠。"
+          "ai_entity": "使用 Home Assistant 默认 AI Task 可自动跟随系统偏好，也可以固定特定 AI Task / 对话代理。如果固定的提供方变为不可用，Fitness 会提醒你并临时回退到系统默认项。"
         }
       },
       "feedback": {
@@ -133,6 +133,24 @@
         "data_description": {
           "fitness_profile_ids": "One physical sensor can be shared by multiple Fitness profiles."
         }
+      },
+      "tv_dashboard": {
+        "title": "Fitness TV 仪表板",
+        "description": "配置可选的全屏 Fitness TV 仪表板。Fitness 内置浏览器音频层，可播放音乐并在 TTS 时自动降低音量。",
+        "data": {
+          "tv_dashboard_enabled": "启用 Fitness TV 仪表板",
+          "tv_dashboard_media_player_id": "电视 / Cast 媒体播放器",
+          "tv_dashboard_ducking_percent": "TTS 时的音乐音量",
+          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ignore_lights_when_cast_active": "TV Cast 活动时忽略训练灯光"
+        },
+        "data_description": {
+          "tv_dashboard_enabled": "训练开始时自动以全屏方式显示 Fitness TV 仪表板。音乐和 TTS 都在仪表板内部播放，因此 Cast 视图不会被替换。",
+          "tv_dashboard_media_player_id": "用于显示 Fitness TV 仪表板的 Google Cast 媒体播放器。Fitness 不会把仪表板音乐或 TTS 直接发送到该媒体播放器。",
+          "tv_dashboard_ducking_percent": "Fitness 播放 TTS 通知时保留的当前音乐音量百分比。语音结束后会平滑恢复原来的音乐音量。",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ignore_lights_when_cast_active": "当 Fitness TV Cast 接收器处于活动状态时，使用电视提供训练反馈，并保持已配置的训练灯光不变。"
+        }
       }
     },
     "error": {
@@ -162,7 +180,8 @@
           "ai": "AI 解读",
           "feedback": "指导、灯光与播报",
           "sleep_devices": "睡眠设备",
-          "sensor_assignments": "传感器分配"
+          "sensor_assignments": "传感器分配",
+          "tv_dashboard": "Fitness TV 仪表板"
         }
       },
       "profile": {
@@ -185,7 +204,7 @@
       },
       "fitness_inputs": {
         "title": "健身数据和初始值",
-        "description": "Every field accepts one numeric value OR one Home Assistant entity ID. Weight and resting heart rate are required.",
+        "description": "每个字段都可填写数值或选择兼容实体。只有体重是必填项；静息心率和其他生理输入均为可选项，可稍后添加或移除。",
         "data": {
           "weight": "体重（kg 或实体）",
           "resting_hr": "静息心率（bpm 或实体）",
@@ -208,11 +227,11 @@
         }
       },
       "live_devices": {
-        "title": "Live workout sensors",
-        "description": "Select the physical sensors this Fitness profile may use. Native sensors come from the enabled Bluetooth and ANT+ adapter modules. Optional compatible Home Assistant live devices can also be used.",
+        "title": "实时训练传感器",
+        "description": "选择此 Fitness 个人资料可使用的物理传感器。原生传感器来自已启用的 Bluetooth 和 ANT+ 适配器模块，也可选择兼容的 Home Assistant 实时设备。",
         "data": {
-          "live_sensor_ids": "Local fitness sensors",
-          "live_device_ids": "Other Home Assistant live devices"
+          "live_sensor_ids": "本地 Fitness 传感器",
+          "live_device_ids": "其他 Home Assistant 实时设备"
         },
         "data_description": {
           "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
@@ -235,14 +254,14 @@
       },
       "ai": {
         "title": "AI 解读",
-        "description": "Choose a specific AI Task / LLM or leave empty to use Home Assistant's preferred/default AI Task.",
+        "description": "默认选择 Home Assistant 的默认 AI Task。Fitness 会自动跟随当前系统默认项；只有在需要固定某个提供方时才选择特定 AI Task 或对话代理。",
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
-          "ai_entity": "AI Task / LLM entity"
+          "ai_entity": "AI 提供方"
         },
         "data_description": {
           "ai_enabled": "启用 AI 对确定性 Fitness 计算结果的解读。AI 永远不会定义或修改科学传感器公式或元数据。",
-          "ai_entity": "用于训练指导/评估的 AI Task 或对话代理。AI 与 TTS 串行执行，不会重叠。"
+          "ai_entity": "使用 Home Assistant 默认 AI Task 可自动跟随系统偏好，也可以固定特定 AI Task / 对话代理。如果固定的提供方变为不可用，Fitness 会提醒你并临时回退到系统默认项。"
         }
       },
       "feedback": {
@@ -296,6 +315,24 @@
         "data_description": {
           "fitness_profile_ids": "传感器可以分配给多个配置文件供以后使用，但测量值不会同时共享；一个实体传感器一次只向一个训练所有者提供数据。"
         }
+      },
+      "tv_dashboard": {
+        "title": "Fitness TV 仪表板",
+        "description": "配置可选的全屏 Fitness TV 仪表板。Fitness 内置浏览器音频层，可播放音乐并在 TTS 时自动降低音量。",
+        "data": {
+          "tv_dashboard_enabled": "启用 Fitness TV 仪表板",
+          "tv_dashboard_media_player_id": "电视 / Cast 媒体播放器",
+          "tv_dashboard_ducking_percent": "TTS 时的音乐音量",
+          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ignore_lights_when_cast_active": "TV Cast 活动时忽略训练灯光"
+        },
+        "data_description": {
+          "tv_dashboard_enabled": "训练开始时自动以全屏方式显示 Fitness TV 仪表板。音乐和 TTS 都在仪表板内部播放，因此 Cast 视图不会被替换。",
+          "tv_dashboard_media_player_id": "用于显示 Fitness TV 仪表板的 Google Cast 媒体播放器。Fitness 不会把仪表板音乐或 TTS 直接发送到该媒体播放器。",
+          "tv_dashboard_ducking_percent": "Fitness 播放 TTS 通知时保留的当前音乐音量百分比。语音结束后会平滑恢复原来的音乐音量。",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ignore_lights_when_cast_active": "当 Fitness TV Cast 接收器处于活动状态时，使用电视提供训练反馈，并保持已配置的训练灯光不变。"
+        }
       }
     },
     "abort": {
@@ -321,6 +358,13 @@
           "source_integration": {
             "name": "来源集成"
           }
+        },
+        "state": {
+          "idle": "空闲",
+          "waiting_for_live_data": "等待实时数据",
+          "active": "进行中",
+          "paused": "已暂停",
+          "recovery": "恢复"
         }
       },
       "session_duration": {
@@ -3128,7 +3172,7 @@
         "female": "女性",
         "male": "男性",
         "other": "其他",
-        "prefer_not_to_say": "不愿透露"
+        "prefer_not_to_say": "其他 / 不愿透露"
       }
     },
     "birth_month": {
@@ -3172,6 +3216,84 @@
     },
     "bluetooth_adapter": {
       "name": "Bluetooth Adapter"
+    }
+  },
+  "issues": {
+    "ai_provider_unavailable": {
+      "title": "所选 Fitness AI 提供方不可用",
+      "description": "Fitness 已配置为使用 `{entity_id}`，但该提供方当前不可用。Fitness 会临时使用 Home Assistant 的默认 AI Task，并在所选提供方恢复可用后自动切回。你也可以在 Fitness 选项中更改 AI 提供方。"
+    }
+  },
+  "services": {
+    "cast_tv_dashboard": {
+      "name": "显示 Fitness TV 仪表板",
+      "description": "在已配置的 Cast 电视上显示此 Fitness 个人资料。",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness 个人资料",
+          "description": "要在电视上显示的 Fitness 个人资料。"
+        },
+        "entity_id": {
+          "name": "Cast 目标",
+          "description": "可选 Google Cast 媒体播放器。省略时使用该资料配置的电视。"
+        }
+      }
+    },
+    "start_tv_workout": {
+      "name": "开始 Fitness TV 训练",
+      "description": "准备此个人资料的电视，若有上次选择的音乐则恢复并播放，然后开始 Fitness 训练会话。",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness 个人资料",
+          "description": "要在 Fitness TV 上开始的个人资料。"
+        },
+        "entity_id": {
+          "name": "Cast 目标",
+          "description": "可选的 Google Cast 媒体播放器。省略时使用该个人资料配置的电视。"
+        }
+      }
+    },
+    "stop_tv_dashboard": {
+      "name": "停止 Fitness TV 投屏",
+      "description": "停止此资料电视上的 Home Assistant/Fitness Cast 接收器，但不会关闭电视。",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness 资料",
+          "description": "要停止 TV 投屏的 Fitness 资料。"
+        },
+        "entity_id": {
+          "name": "Cast 目标",
+          "description": "可选 Google Cast 媒体播放器。省略时使用该资料配置的电视。"
+        }
+      }
+    },
+    "test_tts": {
+      "name": "测试 Fitness TTS",
+      "description": "通过 Fitness 使用的同一按配置文件 TTS 路由播放测试播报。",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness 配置文件",
+          "description": "要测试 TTS 路由的配置文件。"
+        },
+        "message": {
+          "name": "测试消息",
+          "description": "可选语音文本。留空则使用本地化测试消息。"
+        }
+      }
+    },
+    "ai_tts": {
+      "name": "AI 提示词转 Fitness TTS",
+      "description": "通过此配置文件设置的 AI 提供商发送提示词，然后使用 Fitness 相同的按配置文件 TTS/TV 路由朗读结果。",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness 配置文件",
+          "description": "使用其 AI、语言、TTS、TV 和备用设置的配置文件。"
+        },
+        "prompt": {
+          "name": "AI 提示词",
+          "description": "发送给 AI 提供商的提示词。"
+        }
+      }
     }
   }
 }

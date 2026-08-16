@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 6,
   "manufacturers": {
     "antplus": {
       "1": "Garmin",
@@ -111,6 +111,25 @@
           "require_serial": true
         }
       }
+    },
+    {
+      "id": "stryd_running_power_broadcast",
+      "max_age_seconds": 600,
+      "roles": {
+        "bluetooth": {
+          "name_prefixes": [
+            "Stryd"
+          ],
+          "manufacturer_data_id": 43690
+        },
+        "antplus": {
+          "manufacturer_id": 95,
+          "profiles_any": [
+            11,
+            124
+          ]
+        }
+      }
     }
   ],
   "cross_transport_identity_rules": [
@@ -185,5 +204,81 @@
         }
       }
     }
-  ]
+  ],
+  "antplus_model_catalog": {},
+  "model_catalog": {
+    "stryd": {
+      "manufacturer": "Stryd",
+      "manufacturer_match": {
+        "antplus_manufacturer_ids": [
+          95
+        ],
+        "bluetooth_manufacturer_data_ids": [
+          43690
+        ],
+        "gatt_manufacturer_names": [
+          "Stryd"
+        ]
+      },
+      "model_id_sources": [
+        {
+          "source": "bluetooth_gatt_model_number",
+          "valid_min": 1,
+          "valid_max": 255
+        },
+        {
+          "source": "antplus_model_no",
+          "valid_min": 1,
+          "valid_max": 255
+        },
+        {
+          "source": "resolved_model_id",
+          "valid_min": 1,
+          "valid_max": 255
+        }
+      ],
+      "models": [
+        {
+          "min": 1,
+          "max": 1,
+          "name": "Stryd (chest mounted)",
+          "model": "Stryd (chest mounted)",
+          "release": "2015"
+        },
+        {
+          "min": 2,
+          "max": 13,
+          "name": "Stryd (non-wind model)",
+          "model": "Stryd (non-wind model)",
+          "release": "2016"
+        },
+        {
+          "min": 14,
+          "max": 25,
+          "name": "Stryd (wind model)",
+          "model": "Stryd (wind model)",
+          "release": "2019"
+        },
+        {
+          "min": 26,
+          "max": 27,
+          "name": "Next Gen Stryd",
+          "model": "Next Gen Stryd",
+          "release": "Fall 2022",
+          "paired_product_name": "Stryd Duo",
+          "paired_product_release": "Fall 2023"
+        },
+        {
+          "min": 30,
+          "name": "Stryd 5.0",
+          "model": "Stryd 5.0",
+          "release": "Fall 2025",
+          "paired_product_name": "Stryd Duo 5.0",
+          "paired_product_release": "Fall 2025"
+        }
+      ],
+      "source_url": "https://help.stryd.com/en/articles/6879056-stryd-pod-technical-specifications-and-faq",
+      "source_checked": "2026-08-15"
+    }
+  }
 }

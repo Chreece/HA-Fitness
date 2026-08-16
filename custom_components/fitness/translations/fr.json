@@ -23,8 +23,8 @@
         }
       },
       "required": {
-        "title": "Required profile inputs",
-        "description": "Enter one numeric value OR one Home Assistant entity ID in each field.",
+        "title": "Données du profil",
+        "description": "Le poids est obligatoire. La fréquence cardiaque au repos est facultative et peut être ajoutée plus tard. Chaque champ accepte une valeur numérique ou une entité Home Assistant compatible; les unités sont normalisées automatiquement.",
         "data": {
           "weight": "Poids (kg ou entité)",
           "resting_hr": "Fréquence cardiaque au repos (bpm ou entité)"
@@ -55,11 +55,11 @@
         }
       },
       "live_devices": {
-        "title": "Live workout sensors",
-        "description": "Select the physical sensors this Fitness profile may use. Native sensors come from the enabled Bluetooth and ANT+ adapter modules. Optional compatible Home Assistant live devices can also be used.",
+        "title": "Capteurs d’entraînement en direct",
+        "description": "Sélectionnez les capteurs physiques que ce profil Fitness peut utiliser. Les capteurs natifs proviennent des modules Bluetooth et ANT+ activés. Les appareils Home Assistant compatibles avec le direct peuvent aussi être sélectionnés.",
         "data": {
-          "live_sensor_ids": "Local fitness sensors",
-          "live_device_ids": "Other Home Assistant live devices"
+          "live_sensor_ids": "Capteurs Fitness locaux",
+          "live_device_ids": "Autres appareils Home Assistant en direct"
         },
         "data_description": {
           "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
@@ -82,14 +82,14 @@
       },
       "ai": {
         "title": "Interprétation IA",
-        "description": "Fitness calculations stay deterministic. AI only interprets them. An existing AI Task is preselected; leaving it empty uses Home Assistant's preferred/default AI Task.",
+        "description": "La tâche IA par défaut de Home Assistant est sélectionnée par défaut. Fitness suit automatiquement la préférence système actuelle ; choisissez une tâche IA ou un agent de conversation précis uniquement si vous souhaitez le verrouiller.",
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
-          "ai_entity": "AI Task / LLM entity"
+          "ai_entity": "Fournisseur d’IA"
         },
         "data_description": {
           "ai_enabled": "Active l'interprétation AI des calculs déterministes. L'AI ne définit ni ne modifie les formules ou métadonnées scientifiques des capteurs.",
-          "ai_entity": "AI Task ou agent de conversation pour coaching/évaluation. AI et TTS sont sérialisés et ne se chevauchent pas."
+          "ai_entity": "Utilisez la tâche IA par défaut de Home Assistant pour suivre automatiquement la préférence système, ou verrouillez une tâche IA / un agent de conversation précis. Si le fournisseur choisi devient indisponible, Fitness vous avertit et utilise temporairement la valeur système par défaut."
         }
       },
       "feedback": {
@@ -133,6 +133,24 @@
         "data_description": {
           "fitness_profile_ids": "One physical sensor can be shared by multiple Fitness profiles."
         }
+      },
+      "tv_dashboard": {
+        "title": "Tableau de bord Fitness TV",
+        "description": "Configure le tableau de bord Fitness TV plein écran facultatif. Fitness intègre sa propre couche audio de navigateur pour la musique et l’atténuation TTS.",
+        "data": {
+          "tv_dashboard_enabled": "Activer le tableau de bord Fitness TV",
+          "tv_dashboard_media_player_id": "Téléviseur / lecteur Cast",
+          "tv_dashboard_ducking_percent": "Volume de la musique pendant le TTS",
+          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ignore_lights_when_cast_active": "Ignorer les lumières d’entraînement pendant le Cast TV"
+        },
+        "data_description": {
+          "tv_dashboard_enabled": "Affiche automatiquement le tableau de bord Fitness TV en plein écran au démarrage d’un entraînement. La musique et le TTS restent dans le tableau de bord afin que la vue Cast reste ouverte.",
+          "tv_dashboard_media_player_id": "Lecteur Google Cast qui doit afficher le tableau de bord Fitness TV. Fitness n’envoie jamais directement la musique du tableau de bord ou le TTS à ce lecteur.",
+          "tv_dashboard_ducking_percent": "Pourcentage du volume musical actuel conservé pendant une annonce TTS de Fitness. Le volume d’origine est ensuite rétabli progressivement.",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ignore_lights_when_cast_active": "Lorsqu’un récepteur Fitness TV Cast est actif, utilise le téléviseur pour le retour d’entraînement et laisse les lumières d’entraînement configurées inchangées."
+        }
       }
     },
     "error": {
@@ -162,7 +180,8 @@
           "ai": "Interprétation IA",
           "feedback": "Coaching, lumières et annonces",
           "sleep_devices": "Appareils de sommeil",
-          "sensor_assignments": "Affectations des capteurs"
+          "sensor_assignments": "Affectations des capteurs",
+          "tv_dashboard": "Tableau de bord Fitness TV"
         }
       },
       "profile": {
@@ -185,7 +204,7 @@
       },
       "fitness_inputs": {
         "title": "Données fitness et valeurs initiales",
-        "description": "Every field accepts one numeric value OR one Home Assistant entity ID. Weight and resting heart rate are required.",
+        "description": "Chaque champ accepte une valeur numérique ou une entité compatible. Seul le poids est obligatoire; la fréquence cardiaque au repos et les autres données physiologiques sont facultatives et peuvent être ajoutées ou supprimées plus tard.",
         "data": {
           "weight": "Poids (kg ou entité)",
           "resting_hr": "Fréquence cardiaque au repos (bpm ou entité)",
@@ -208,11 +227,11 @@
         }
       },
       "live_devices": {
-        "title": "Live workout sensors",
-        "description": "Select the physical sensors this Fitness profile may use. Native sensors come from the enabled Bluetooth and ANT+ adapter modules. Optional compatible Home Assistant live devices can also be used.",
+        "title": "Capteurs d’entraînement en direct",
+        "description": "Sélectionnez les capteurs physiques que ce profil Fitness peut utiliser. Les capteurs natifs proviennent des modules Bluetooth et ANT+ activés. Les appareils Home Assistant compatibles avec le direct peuvent aussi être sélectionnés.",
         "data": {
-          "live_sensor_ids": "Local fitness sensors",
-          "live_device_ids": "Other Home Assistant live devices"
+          "live_sensor_ids": "Capteurs Fitness locaux",
+          "live_device_ids": "Autres appareils Home Assistant en direct"
         },
         "data_description": {
           "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
@@ -235,14 +254,14 @@
       },
       "ai": {
         "title": "Interprétation IA",
-        "description": "Choose a specific AI Task / LLM or leave empty to use Home Assistant's preferred/default AI Task.",
+        "description": "La tâche IA par défaut de Home Assistant est sélectionnée par défaut. Fitness suit automatiquement la préférence système actuelle ; choisissez une tâche IA ou un agent de conversation précis uniquement si vous souhaitez le verrouiller.",
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
-          "ai_entity": "AI Task / LLM entity"
+          "ai_entity": "Fournisseur d’IA"
         },
         "data_description": {
           "ai_enabled": "Active l'interprétation AI des calculs déterministes. L'AI ne définit ni ne modifie les formules ou métadonnées scientifiques des capteurs.",
-          "ai_entity": "AI Task ou agent de conversation pour coaching/évaluation. AI et TTS sont sérialisés et ne se chevauchent pas."
+          "ai_entity": "Utilisez la tâche IA par défaut de Home Assistant pour suivre automatiquement la préférence système, ou verrouillez une tâche IA / un agent de conversation précis. Si le fournisseur choisi devient indisponible, Fitness vous avertit et utilise temporairement la valeur système par défaut."
         }
       },
       "feedback": {
@@ -296,6 +315,24 @@
         "data_description": {
           "fitness_profile_ids": "Un capteur peut être affecté à plusieurs profils pour une utilisation future. Les mesures ne sont toutefois jamais partagées simultanément : un capteur physique alimente un seul propriétaire d’entraînement."
         }
+      },
+      "tv_dashboard": {
+        "title": "Tableau de bord Fitness TV",
+        "description": "Configure le tableau de bord Fitness TV plein écran facultatif. Fitness intègre sa propre couche audio de navigateur pour la musique et l’atténuation TTS.",
+        "data": {
+          "tv_dashboard_enabled": "Activer le tableau de bord Fitness TV",
+          "tv_dashboard_media_player_id": "Téléviseur / lecteur Cast",
+          "tv_dashboard_ducking_percent": "Volume de la musique pendant le TTS",
+          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ignore_lights_when_cast_active": "Ignorer les lumières d’entraînement pendant le Cast TV"
+        },
+        "data_description": {
+          "tv_dashboard_enabled": "Affiche automatiquement le tableau de bord Fitness TV en plein écran au démarrage d’un entraînement. La musique et le TTS restent dans le tableau de bord afin que la vue Cast reste ouverte.",
+          "tv_dashboard_media_player_id": "Lecteur Google Cast qui doit afficher le tableau de bord Fitness TV. Fitness n’envoie jamais directement la musique du tableau de bord ou le TTS à ce lecteur.",
+          "tv_dashboard_ducking_percent": "Pourcentage du volume musical actuel conservé pendant une annonce TTS de Fitness. Le volume d’origine est ensuite rétabli progressivement.",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ignore_lights_when_cast_active": "Lorsqu’un récepteur Fitness TV Cast est actif, utilise le téléviseur pour le retour d’entraînement et laisse les lumières d’entraînement configurées inchangées."
+        }
       }
     },
     "abort": {
@@ -321,6 +358,13 @@
           "source_integration": {
             "name": "Intégration source"
           }
+        },
+        "state": {
+          "idle": "Inactif",
+          "waiting_for_live_data": "En attente de données en direct",
+          "active": "Actif",
+          "paused": "En pause",
+          "recovery": "Récupération"
         }
       },
       "session_duration": {
@@ -3128,7 +3172,7 @@
         "female": "Femme",
         "male": "Homme",
         "other": "Autre",
-        "prefer_not_to_say": "Je préfère ne pas répondre"
+        "prefer_not_to_say": "Autre / Je préfère ne pas répondre"
       }
     },
     "birth_month": {
@@ -3172,6 +3216,84 @@
     },
     "bluetooth_adapter": {
       "name": "Bluetooth Adapter"
+    }
+  },
+  "issues": {
+    "ai_provider_unavailable": {
+      "title": "Le fournisseur d’IA Fitness sélectionné est indisponible",
+      "description": "Fitness est configuré pour utiliser `{entity_id}`, mais ce fournisseur est actuellement indisponible. Fitness utilise temporairement la tâche IA par défaut de Home Assistant et reviendra automatiquement au fournisseur sélectionné lorsqu’il sera de nouveau disponible. Vous pouvez aussi modifier le fournisseur d’IA dans les options Fitness."
+    }
+  },
+  "services": {
+    "cast_tv_dashboard": {
+      "name": "Afficher le tableau de bord Fitness TV",
+      "description": "Affiche ce profil Fitness sur le téléviseur Cast configuré.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Profil Fitness",
+          "description": "Profil Fitness à afficher sur le téléviseur."
+        },
+        "entity_id": {
+          "name": "Cible Cast",
+          "description": "Lecteur multimédia Google Cast facultatif. S’il est omis, le téléviseur configuré du profil est utilisé."
+        }
+      }
+    },
+    "start_tv_workout": {
+      "name": "Démarrer l’entraînement Fitness TV",
+      "description": "Prépare la TV du profil, restaure et lit la dernière musique sélectionnée si disponible, puis démarre la séance Fitness.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Profil Fitness",
+          "description": "Profil à démarrer sur Fitness TV."
+        },
+        "entity_id": {
+          "name": "Cible Cast",
+          "description": "Lecteur Google Cast facultatif. S’il est omis, la TV configurée du profil est utilisée."
+        }
+      }
+    },
+    "stop_tv_dashboard": {
+      "name": "Arrêter le Cast Fitness TV",
+      "description": "Arrête le récepteur Cast Home Assistant/Fitness sur le téléviseur du profil sans éteindre le téléviseur.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Profil Fitness",
+          "description": "Profil Fitness dont le Cast TV doit être arrêté."
+        },
+        "entity_id": {
+          "name": "Cible Cast",
+          "description": "Lecteur multimédia Google Cast facultatif. S’il est omis, le téléviseur configuré du profil est utilisé."
+        }
+      }
+    },
+    "test_tts": {
+      "name": "Tester le TTS Fitness",
+      "description": "Lit une annonce de test via le même routage TTS par profil que Fitness.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Profil Fitness",
+          "description": "Profil dont le routage TTS doit être testé."
+        },
+        "message": {
+          "name": "Message de test",
+          "description": "Texte parlé facultatif. Laissez vide pour utiliser le message de test localisé."
+        }
+      }
+    },
+    "ai_tts": {
+      "name": "Prompt IA vers TTS Fitness",
+      "description": "Envoie un prompt au fournisseur IA configuré pour ce profil, puis lit le résultat via le même routage TTS/TV propre au profil que Fitness.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Profil Fitness",
+          "description": "Profil dont les réglages IA, langue, TTS, TV et de secours seront utilisés."
+        },
+        "prompt": {
+          "name": "Prompt IA",
+          "description": "Prompt à envoyer au fournisseur IA."
+        }
+      }
     }
   }
 }

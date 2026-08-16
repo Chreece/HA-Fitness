@@ -23,8 +23,8 @@
         }
       },
       "required": {
-        "title": "Required profile inputs",
-        "description": "Enter one numeric value OR one Home Assistant entity ID in each field.",
+        "title": "プロフィール入力",
+        "description": "体重は必須です。安静時心拍数は任意で、後から追加できます。各項目は数値または互換性のあるHome Assistantエンティティを指定でき、単位は自動的に正規化されます。",
         "data": {
           "weight": "体重（kg またはエンティティ）",
           "resting_hr": "安静時心拍数（bpm またはエンティティ）"
@@ -55,11 +55,11 @@
         }
       },
       "live_devices": {
-        "title": "Live workout sensors",
-        "description": "Select the physical sensors this Fitness profile may use. Native sensors come from the enabled Bluetooth and ANT+ adapter modules. Optional compatible Home Assistant live devices can also be used.",
+        "title": "ライブワークアウトセンサー",
+        "description": "このFitnessプロフィールで使用できる物理センサーを選択します。ネイティブセンサーは有効なBluetoothおよびANT+アダプターモジュールから取得されます。互換性のあるHome Assistantライブデバイスも選択できます。",
         "data": {
-          "live_sensor_ids": "Local fitness sensors",
-          "live_device_ids": "Other Home Assistant live devices"
+          "live_sensor_ids": "ローカルFitnessセンサー",
+          "live_device_ids": "その他のHome Assistantライブデバイス"
         },
         "data_description": {
           "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
@@ -82,14 +82,14 @@
       },
       "ai": {
         "title": "AI 解釈",
-        "description": "Fitness calculations stay deterministic. AI only interprets them. An existing AI Task is preselected; leaving it empty uses Home Assistant's preferred/default AI Task.",
+        "description": "Home Assistant のデフォルト AI Task が初期選択されます。Fitness は現在のシステム既定値を自動的に追従します。特定の AI Task または会話エージェントに固定したい場合のみ個別に選択してください。",
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
-          "ai_entity": "AI Task / LLM entity"
+          "ai_entity": "AI プロバイダー"
         },
         "data_description": {
           "ai_enabled": "決定論的計算結果の AI 解釈を有効にします。AI は科学的センサー式やメタデータを定義・変更しません。",
-          "ai_entity": "コーチング/評価用 AI Task または会話エージェント。AI と TTS は直列化され重複しません。"
+          "ai_entity": "Home Assistant のデフォルト AI Task を使うとシステム設定を自動追従できます。特定の AI Task / 会話エージェントに固定することもできます。固定したプロバイダーが利用できなくなった場合、Fitness は通知し、一時的にシステム既定値へフォールバックします。"
         }
       },
       "feedback": {
@@ -133,6 +133,24 @@
         "data_description": {
           "fitness_profile_ids": "One physical sensor can be shared by multiple Fitness profiles."
         }
+      },
+      "tv_dashboard": {
+        "title": "Fitness TV ダッシュボード",
+        "description": "オプションの全画面Fitness TVダッシュボードを設定します。Fitnessには音楽再生とTTS時の音量低下を行うブラウザー音声機能が内蔵されています。",
+        "data": {
+          "tv_dashboard_enabled": "Fitness TV ダッシュボードを有効化",
+          "tv_dashboard_media_player_id": "TV / Cast メディアプレーヤー",
+          "tv_dashboard_ducking_percent": "TTS中の音楽音量",
+          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ignore_lights_when_cast_active": "TV Cast中はワークアウト照明を使用しない"
+        },
+        "data_description": {
+          "tv_dashboard_enabled": "ワークアウト開始時にFitness TVダッシュボードを自動で全画面表示します。音楽とTTSはダッシュボード内で再生されるため、Cast画面はそのまま維持されます。",
+          "tv_dashboard_media_player_id": "Fitness TVダッシュボードを表示するGoogle Castメディアプレーヤーです。Fitnessはダッシュボードの音楽やTTSをこのプレーヤーへ直接送信しません。",
+          "tv_dashboard_ducking_percent": "FitnessがTTS案内を再生している間に維持する現在の音楽音量の割合です。案内終了後、元の音量へ滑らかに戻します。",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ignore_lights_when_cast_active": "Fitness TV Castレシーバーが動作中は、トレーニングのフィードバックにテレビを使用し、設定済みのワークアウト照明は変更しません。"
+        }
       }
     },
     "error": {
@@ -162,7 +180,8 @@
           "ai": "AI 解釈",
           "feedback": "コーチング、ライト、アナウンス",
           "sleep_devices": "睡眠デバイス",
-          "sensor_assignments": "センサー割り当て"
+          "sensor_assignments": "センサー割り当て",
+          "tv_dashboard": "Fitness TV ダッシュボード"
         }
       },
       "profile": {
@@ -185,7 +204,7 @@
       },
       "fitness_inputs": {
         "title": "フィットネスデータと初期値",
-        "description": "Every field accepts one numeric value OR one Home Assistant entity ID. Weight and resting heart rate are required.",
+        "description": "各項目は数値または互換性のあるエンティティを指定できます。必須なのは体重のみで、安静時心拍数やその他の生理学的入力は後から追加・削除できます。",
         "data": {
           "weight": "体重（kg またはエンティティ）",
           "resting_hr": "安静時心拍数（bpm またはエンティティ）",
@@ -208,11 +227,11 @@
         }
       },
       "live_devices": {
-        "title": "Live workout sensors",
-        "description": "Select the physical sensors this Fitness profile may use. Native sensors come from the enabled Bluetooth and ANT+ adapter modules. Optional compatible Home Assistant live devices can also be used.",
+        "title": "ライブワークアウトセンサー",
+        "description": "このFitnessプロフィールで使用できる物理センサーを選択します。ネイティブセンサーは有効なBluetoothおよびANT+アダプターモジュールから取得されます。互換性のあるHome Assistantライブデバイスも選択できます。",
         "data": {
-          "live_sensor_ids": "Local fitness sensors",
-          "live_device_ids": "Other Home Assistant live devices"
+          "live_sensor_ids": "ローカルFitnessセンサー",
+          "live_device_ids": "その他のHome Assistantライブデバイス"
         },
         "data_description": {
           "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
@@ -235,14 +254,14 @@
       },
       "ai": {
         "title": "AI 解釈",
-        "description": "Choose a specific AI Task / LLM or leave empty to use Home Assistant's preferred/default AI Task.",
+        "description": "Home Assistant のデフォルト AI Task が初期選択されます。Fitness は現在のシステム既定値を自動的に追従します。特定の AI Task または会話エージェントに固定したい場合のみ個別に選択してください。",
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
-          "ai_entity": "AI Task / LLM entity"
+          "ai_entity": "AI プロバイダー"
         },
         "data_description": {
           "ai_enabled": "決定論的計算結果の AI 解釈を有効にします。AI は科学的センサー式やメタデータを定義・変更しません。",
-          "ai_entity": "コーチング/評価用 AI Task または会話エージェント。AI と TTS は直列化され重複しません。"
+          "ai_entity": "Home Assistant のデフォルト AI Task を使うとシステム設定を自動追従できます。特定の AI Task / 会話エージェントに固定することもできます。固定したプロバイダーが利用できなくなった場合、Fitness は通知し、一時的にシステム既定値へフォールバックします。"
         }
       },
       "feedback": {
@@ -296,6 +315,24 @@
         "data_description": {
           "fitness_profile_ids": "将来の利用のため複数プロファイルへ割り当てできますが、測定値は同時共有されません。1つの物理センサーは一度に1人のトレーニング所有者だけへデータを提供します。"
         }
+      },
+      "tv_dashboard": {
+        "title": "Fitness TV ダッシュボード",
+        "description": "オプションの全画面Fitness TVダッシュボードを設定します。Fitnessには音楽再生とTTS時の音量低下を行うブラウザー音声機能が内蔵されています。",
+        "data": {
+          "tv_dashboard_enabled": "Fitness TV ダッシュボードを有効化",
+          "tv_dashboard_media_player_id": "TV / Cast メディアプレーヤー",
+          "tv_dashboard_ducking_percent": "TTS中の音楽音量",
+          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ignore_lights_when_cast_active": "TV Cast中はワークアウト照明を使用しない"
+        },
+        "data_description": {
+          "tv_dashboard_enabled": "ワークアウト開始時にFitness TVダッシュボードを自動で全画面表示します。音楽とTTSはダッシュボード内で再生されるため、Cast画面はそのまま維持されます。",
+          "tv_dashboard_media_player_id": "Fitness TVダッシュボードを表示するGoogle Castメディアプレーヤーです。Fitnessはダッシュボードの音楽やTTSをこのプレーヤーへ直接送信しません。",
+          "tv_dashboard_ducking_percent": "FitnessがTTS案内を再生している間に維持する現在の音楽音量の割合です。案内終了後、元の音量へ滑らかに戻します。",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ignore_lights_when_cast_active": "Fitness TV Castレシーバーが動作中は、トレーニングのフィードバックにテレビを使用し、設定済みのワークアウト照明は変更しません。"
+        }
       }
     },
     "abort": {
@@ -321,6 +358,13 @@
           "source_integration": {
             "name": "ソース統合"
           }
+        },
+        "state": {
+          "idle": "待機中",
+          "waiting_for_live_data": "ライブデータ待機中",
+          "active": "進行中",
+          "paused": "一時停止",
+          "recovery": "回復"
         }
       },
       "session_duration": {
@@ -3128,7 +3172,7 @@
         "female": "女性",
         "male": "男性",
         "other": "その他",
-        "prefer_not_to_say": "回答しない"
+        "prefer_not_to_say": "その他 / 回答しない"
       }
     },
     "birth_month": {
@@ -3172,6 +3216,84 @@
     },
     "bluetooth_adapter": {
       "name": "Bluetooth Adapter"
+    }
+  },
+  "issues": {
+    "ai_provider_unavailable": {
+      "title": "選択した Fitness AI プロバイダーを利用できません",
+      "description": "Fitness は `{entity_id}` を使用するよう設定されていますが、現在このプロバイダーを利用できません。Fitness は一時的に Home Assistant のデフォルト AI Task を使用し、選択したプロバイダーが再び利用可能になると自動的に戻ります。Fitness のオプションで AI プロバイダーを変更することもできます。"
+    }
+  },
+  "services": {
+    "cast_tv_dashboard": {
+      "name": "Fitness TVダッシュボードを表示",
+      "description": "設定済みのCastテレビにこのFitnessプロフィールを表示します。",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitnessプロフィール",
+          "description": "テレビに表示するFitnessプロフィール。"
+        },
+        "entity_id": {
+          "name": "Cast 対象",
+          "description": "任意の Google Cast メディアプレーヤー。省略するとプロフィールに設定されたテレビを使用します。"
+        }
+      }
+    },
+    "start_tv_workout": {
+      "name": "Fitness TV ワークアウトを開始",
+      "description": "プロフィールのTVを準備し、前回選択した音楽があれば復元して再生し、その後Fitnessワークアウトを開始します。",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitnessプロフィール",
+          "description": "Fitness TVで開始するプロフィール。"
+        },
+        "entity_id": {
+          "name": "Cast先",
+          "description": "任意のGoogle Castメディアプレーヤー。省略するとプロフィールに設定されたTVを使用します。"
+        }
+      }
+    },
+    "stop_tv_dashboard": {
+      "name": "Fitness TV キャストを停止",
+      "description": "テレビの電源を切らずに、このプロフィールのテレビ上の Home Assistant/Fitness Cast レシーバーを停止します。",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness プロフィール",
+          "description": "TV キャストを停止する Fitness プロフィール。"
+        },
+        "entity_id": {
+          "name": "Cast 対象",
+          "description": "任意の Google Cast メディアプレーヤー。省略するとプロフィールに設定されたテレビを使用します。"
+        }
+      }
+    },
+    "test_tts": {
+      "name": "Fitness TTS をテスト",
+      "description": "Fitness と同じプロフィール別 TTS ルートでテストアナウンスを再生します。",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness プロフィール",
+          "description": "TTS ルーティングをテストするプロフィール。"
+        },
+        "message": {
+          "name": "テストメッセージ",
+          "description": "任意の読み上げテキスト。空欄の場合はローカライズされたテストメッセージを使用します。"
+        }
+      }
+    },
+    "ai_tts": {
+      "name": "AIプロンプトをFitness TTSで読み上げ",
+      "description": "このプロフィールに設定されたAIプロバイダーへプロンプトを送り、Fitnessと同じプロフィール別TTS/TV経路で結果を読み上げます。",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitnessプロフィール",
+          "description": "AI、言語、TTS、TV、フォールバック設定を使用するプロフィール。"
+        },
+        "prompt": {
+          "name": "AIプロンプト",
+          "description": "AIプロバイダーに送信するプロンプト。"
+        }
+      }
     }
   }
 }

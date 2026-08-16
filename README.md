@@ -9,7 +9,7 @@
 
 **Bring workouts, live sensors, sleep and recovery together — then make them useful.**
 
-[Features](#what-fitness-does) · [Workout calendar](docs/WORKOUT_CALENDAR.md) · [FAQ](#questions--answers) · [Science & methods](docs/SCIENCE.md) · [Changelog](CHANGELOG.md)
+[Features](#what-fitness-does) · [Workout calendar](docs/WORKOUT_CALENDAR.md) · [Remote access](docs/REMOTE_ACCESS.md) · [FAQ](#questions--answers) · [Science & methods](docs/SCIENCE.md) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -69,6 +69,39 @@ Fitness does not replace the source integrations. It gives their compatible data
 Fitness includes modern **Community dashboards** and bundled cards for **Live workout, Workouts, Recovery & Sleep, and Evaluation**. The cards resolve normalized Fitness entities, so the frontend does not need to know which provider originally supplied a compatible value.
 
 The frontend resource is normally registered automatically. If you ever need the manual troubleshooting fallback, add `/fitness/frontend/fitness-dashboard.js` as a JavaScript module resource in Home Assistant. Workout-route views appear only when the current merged workout has valid matching GPS/route data.
+
+### Fitness TV dashboard
+
+Fitness can optionally create a hidden, full-screen **Fitness TV** dashboard and show the correct profile through Home Assistant Cast when a workout starts. Each Fitness profile keeps its own selected TV cards. The TV dashboard also includes music play/pause and a Home Assistant Media Source browser. Music and TTS are played inside the dashboard browser itself; during a Fitness announcement the music is smoothly ducked to the configured percentage and restored after speech finishes. This keeps the Lovelace dashboard loaded instead of deliberately replacing it with a separate Cast media receiver. **Browser Mod is not required**; the browser-audio bridge is bundled with Fitness.
+
+Enable it in the Fitness setup/options under **Fitness TV dashboard**, select the Cast TV, and choose the TTS ducking level. The hidden dashboard remains available at `/fitness-tv/main` for configuration/troubleshooting, while automatic casting uses a profile-specific full-screen view so multi-user installations open the correct Fitness profile.
+
+Fitness TV music is capability-based and each adapter lives in its own module under `custom_components/fitness/music/`. The active list contains only adapters that are actually installed/usable; unrelated Home Assistant Media Sources are never presented as music providers. Built-in **Radio Browser**, the optional **yt-dlp** adapter and **Music Assistant** (one aggregate adapter) can be enabled independently for each Fitness profile. yt-dlp is enabled only from **Music Providers**, where its legal acknowledgement is shown. **Search music** can target one, several, or all enabled adapters that genuinely support search; when Music Assistant is selected, its configured music-provider instances are exposed as nested search scopes so the user can search one, several, or all currently available MA sources. The result count is profile-configurable from 10–100 (default 50).
+
+### Fitness TV accounts and remote profiles
+
+Fitness TV has three access roles: a **local Fitness administrator**, **local users**, and **remote users**. Local/remote users are bound by the administrator to exactly one Fitness backend profile and the server enforces that boundary for dashboard data, workout actions, music, Cast, TTS and remote BLE/ANT+ gateway traffic. Users cannot enroll themselves or browse other Fitness accounts.
+
+Remote accounts use one logical subdomain per user. Configure wildcard DNS/TLS once (for example `*.fitness.example.com`), then Fitness creates/manages the slug and direct profile URL. Removing an account immediately revokes its Fitness access even though the wildcard DNS name may still resolve. See [Fitness TV accounts and remote access](docs/REMOTE_ACCESS.md) for the security model and setup details.
+
+Music/account settings are split deliberately: Fitness persists only profile-specific choices (enabled adapters, result count and adapter account/server selection metadata), while passwords, OAuth tokens and provider subscriptions stay with Home Assistant or Music Assistant. Music Assistant remains a **single Fitness adapter** even when it has Spotify, Apple Music, Tidal, Qobuz, Deezer, SoundCloud, YouTube Music or other Music Assistant sources configured. Its configured provider instances appear only as nested search scopes. Fitness suppresses a provider/account instance from the search selector when Music Assistant reports another playing queue using it, and also treats matching Home Assistant `media_player` integrations that are currently `playing` as externally busy. This is intentionally conservative: services that expose no account/session activity cannot be reliably detected until that provider offers such state. The Fitness **Add music provider** view offers setup shortcuts but those source accounts do not become duplicate adapter rows.
+
+For **Music Assistant**, provider setup is routed to the selected Music Assistant server itself rather than to Home Assistant's Music Assistant integration page. This matters especially for Home Assistant Container, where the HA integration only connects MA server instances. Fitness reads the configured MA server URL: the aggregate Music Assistant action opens `/#/music`, unconfigured music providers use `/#/settings/addprovider/<provider-domain>`, and a configured provider instance can use `/#/settings/editprovider/<instance-id>`. The provider catalogue is queried from the connected MA server rather than being treated as a fixed Fitness list. Search/playback does **not** open those web pages: supported MA search results play natively inside Fitness TV through an official Sendspin browser player. Fitness relays the Sendspin WebSocket through the authenticated Home Assistant origin so remote HTTPS Fitness TV clients can use the selected local MA server without mixed-content or direct-LAN reachability problems. On Home Assistant OS/Supervisor, the official MA integration may expose the server through authenticated ingress instead of a browser-reachable container URL, so Fitness uses the supported ingress path when necessary.
+
+Fitness intentionally does **not** wholesale vendor every implementation from Music Assistant's provider directory. Music Assistant server code is Apache-2.0, which permits reuse subject to that license, but that code license does not grant rights to third-party service APIs, trademarks, subscriptions, authentication methods, media catalogues or service terms. In addition, many MA providers depend on Music Assistant's own provider lifecycle, configuration/authentication flows and streaming pipeline. Native Fitness adapters are therefore added provider-by-provider only when the service/protocol is technically maintainable and its use is appropriate; otherwise the supported path is the single Music Assistant adapter.
+
+The **yt-dlp adapter** is disabled by default and requires an explicit legal acknowledgement. Its search result limit follows the per-profile Fitness TV setting, and only results selected from that adapter are resolved to proxied audio. Normal YouTube/YouTube Music URLs entered through **Play from link** use the normal YouTube player instead of yt-dlp; direct HTTP(S) audio and SoundCloud links are also supported there, while unsupported account-only links such as Spotify are intentionally rejected from the link field. Fitness declares the yt-dlp default Python extras plus a pinned Node.js runtime distributed as a Python requirement; an existing supported host Deno/Node/QuickJS/Bun runtime is preferred when available. Radio Browser countries are displayed in localized alphabetical order.
+
+### Remote Fitness TV clients, local Cast and sensor gateways
+
+Fitness TV can now act as a **remote sensor gateway** when the athlete is on a different network from Home Assistant. A remote laptop or supported mobile browser opens the normal authenticated Fitness TV profile over HTTPS, pairs sensors located beside that athlete, and sends their raw radio measurements back to HA-Fitness. Home Assistant remains the central owner of profile assignment, live workout capture, decoding and history.
+
+- **Bluetooth:** the browser uses Web Bluetooth for standard Heart Rate, Cycling Power, Cycling Speed/Cadence, Running Speed/Cadence and FTMS measurements. Previously authorized devices can be reconnected without selecting them from scratch.
+- **ANT+:** an experimental WebUSB gateway supports Dynastream/Garmin ANTUSB2 (`0FCF:1008`) and ANTUSB-m (`0FCF:1009`) sticks. The browser handles ANT serial framing/scanning and forwards extended ANT channel identity plus the raw eight-byte payload into Fitness's existing remote ANT+ worker and decoders.
+- **Local Google Cast:** the Cast menu distinguishes TVs visible to the Home Assistant server from **Local network TV**. Local Cast uses the browser's Google Cast Web Sender session, so a remote athlete can choose a Cast TV on their own Wi-Fi even while HA is elsewhere. The receiver reuses the currently logged-in HA browser session's refresh token and matching client ID (preserving that user's HA permissions) and requires an externally reachable HTTPS HA URL; Fitness never revokes that browser token when Cast stops.
+
+Browser Bluetooth/USB access is permission-gated and browser-dependent. The protocol is intentionally transport-neutral so future Android, iOS and Windows Fitness sender apps can use native BLE/ANT+ APIs while publishing the same gateway messages. See [`docs/REMOTE_GATEWAY_PROTOCOL.md`](docs/REMOTE_GATEWAY_PROTOCOL.md).
+
 
 ## Getting started
 
@@ -156,11 +189,11 @@ The complete methodology and bibliography — including session RPE, HR recovery
 
 ## Documentation
 
-**[Features & data flow](docs/FEATURES.md)** explains adapters, live workouts, merging, recovery, strength, dashboards and coaching. **[FAQ](docs/FAQ.md)** contains the longer Q&A. **[Science & methods](docs/SCIENCE.md)** contains the research basis, formulas and interpretation boundaries. **[Changelog](CHANGELOG.md)** contains release-by-release technical details.
+**[Features & data flow](docs/FEATURES.md)** explains adapters, live workouts, merging, recovery, strength, dashboards and coaching. **[FAQ](docs/FAQ.md)** contains the longer Q&A. **[Science & methods](docs/SCIENCE.md)** contains the research basis, formulas and interpretation boundaries. **[Changelog](CHANGELOG.md)** contains the unreleased development history and, after the first publication, release notes.
 
 ## License
 
-Fitness is released under the **[MIT License](LICENSE)**.
+Fitness is distributed under the **[MIT License](LICENSE)**.
 
 <div align="center">
 

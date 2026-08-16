@@ -21,7 +21,7 @@ body:
     id: fitness_version
     attributes:
       label: Fitness version
-      placeholder: "2026.8.0-beta.6"
+      placeholder: "Unreleased (commit SHA) or 2026.08.01-beta01"
     validations:
       required: true
 

@@ -1649,10 +1649,13 @@ class FitnessSensor(SensorEntity):
 
         if m in ("ai_general", "ai_workout"):
             full_text = self.manager.ai_general if m == "ai_general" else self.manager.ai_workout
+            ai_entity = self.manager.config.get("ai_entity") or "preferred_default"
+            if ai_entity == "__home_assistant_default__":
+                ai_entity = "preferred_default"
             attrs.update({
                 "text": full_text,
                 "generated_at": self.manager.ai_last_generated,
-                "ai_entity": self.manager.config.get("ai_entity") or "preferred_default",
+                "ai_entity": ai_entity,
                 "role": "interpretation_only",
             })
         return attrs

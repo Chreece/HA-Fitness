@@ -16,7 +16,8 @@ def test_gatt_support_check_never_resolves_ble_device_or_proxy():
         "def bluetooth_gatt_capable", 1
     )[0]
     assert "async_ble_device_from_address" not in support
-    assert 'endpoint.metadata.get("connectable", False)' in support
+    assert 'endpoint.metadata.get("connectable", False)' not in support
+    assert 'endpoint.address' in support
     assert "SensorGattConnectButton" not in BUTTON
     assert "SensorGattDisconnectButton" not in BUTTON
 
@@ -85,4 +86,4 @@ def test_recovery_has_numeric_hrv_vs_baseline_bar_only_when_baseline_exists():
 
 
 def test_frontend_revision_is_bumped_for_visible_changes():
-    assert 'const FITNESS_DASHBOARD_VERSION = "2026.8.11.14";' in FRONTEND
+    assert 'const FITNESS_DASHBOARD_VERSION = "unreleased-82";' in FRONTEND

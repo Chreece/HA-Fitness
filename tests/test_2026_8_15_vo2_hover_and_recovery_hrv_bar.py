@@ -6,18 +6,19 @@ BACKEND = (ROOT / "custom_components/fitness/dashboard.py").read_text()
 
 
 def test_dashboard_resource_version_bumped():
-    assert 'FITNESS_DASHBOARD_VERSION = "2026.8.11.14"' in FRONTEND
-    assert '?v=2026.8.11.14' in BACKEND
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-82"' in FRONTEND
+    assert '?v=unreleased-82' in BACKEND
 
 
 def test_vo2_progress_uses_absolute_current_marker_and_predicted_reference():
     assert 'const useAbsoluteVo2Scale = current != null && current > 0 && predictedAbsolute != null && predictedAbsolute > 0;' in FRONTEND
     assert '((current - progressMin) / progressSpan) * 100' in FRONTEND
-    assert '((predictedAbsolute - progressMin) / progressSpan) * 100' in FRONTEND
+    assert 'const predictedMarker = useAbsoluteVo2Scale' in FRONTEND
+    assert '? 50' in FRONTEND
     assert 'class="vo2-reference"' in FRONTEND
     assert 'class="vo2-marker"' in FRONTEND
-    assert 'title="Predicted ${predictedAbsolute' in FRONTEND
-    assert 'title="Current ${current' in FRONTEND
+    assert 'l.predicted_marker || "Predicted"' in FRONTEND
+    assert 'l.current_marker || "Current"' in FRONTEND
     assert 'background:#fff' in FRONTEND
     assert '.vo2-marker:after' in FRONTEND
 

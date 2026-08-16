@@ -1,5 +1,36 @@
 # Changelog
 
+## Unreleased
+
+- Added profile-persistent music search result-type filters for Tracks, Albums, Playlists, Artists, Radio, Podcasts and Audiobooks. Music Assistant collection results are now native playable queue targets, and result groups are interleaved so tracks cannot consume the entire Fitness search limit before album/playlist matches appear.
+### Internal development checkpoint: 2026.8.10
+
+HA-Fitness has **not had a public release yet**. Until the first release, the manifest stays at `0.0.0` and frontend cache revisions use `unreleased-N`. Public prereleases will use `YYYY.MM.RR-betaXX`; stable releases will use `YYYY.MM.RR`.
+
+- Reworked Fitness TV music-provider search around configured Music Assistant provider instances. The single Music Assistant adapter now exposes its configured music sources as selectable search scopes, supports one/many/all source selection, and hides provider/account instances that are already playing elsewhere when Music Assistant or Home Assistant exposes that active session.
+- Added native Music Assistant playback inside Fitness TV using the official Sendspin browser client through a short-lived same-origin Home Assistant WebSocket relay. Supported MA track/radio/podcast/audiobook results now play on the current Fitness TV audio owner and participate in the same play/pause state and TTS duck/restore path as other providers instead of opening the Music Assistant web UI.
+- Moved yt-dlp enablement out of general Fitness TV settings and into **Music Providers**. Enabling it requires the legal acknowledgement there; the backend option is retained only as the persisted compatibility setting.
+- Fixed Fitness TV search UX so the compact **Searching music…** indicator lives immediately below the search field and is visible only during a real search request. Provider/account rows that are unavailable because they are already active elsewhere are not offered as selectable search scopes.
+- Standardized Fitness TV modal behavior so headers remain sticky, action bars remain reachable and menu bodies scroll independently in both the profile dashboard and administrator setup surfaces. Frontend cache revision is now `unreleased-61`.
+
+- Added server-enforced Fitness TV account roles: a local Fitness administrator, one-profile local users and one-profile remote users. Users cannot self-enroll or enumerate other Fitness profiles; the same authorization boundary now protects dashboard data, workout controls, music, Cast/TTS and remote BLE/ANT+ gateway traffic. Remote accounts use administrator-managed per-user slugs under one wildcard DNS/TLS base domain, with exact-subdomain session validation and immediate Fitness revocation when the account is removed.
+- Fixed browser-local Cast authentication after the receiver reported **The supplied authentication is invalid**. Fitness now mirrors Home Assistant's browser Web Sender flow: it reuses the refresh token backing the currently authenticated HA WebSocket session together with that token's matching OAuth client ID, instead of minting a separate admin/system Cast credential. The Cast receiver therefore keeps the current HA user's permissions, and Fitness never revokes the user's browser refresh token when casting stops. Legacy temporary Fitness Cast tokens are cleaned up safely.
+- Fixed browser-local Cast media handoff: an authenticated local Cast session now becomes the Fitness TV audio owner even though it has no Home Assistant `media_player` entity. Music, TTS, play/pause/seek and future media commands route to the Cast receiver while the initiating laptop/phone becomes controller-only; stopping the Google Cast session releases that ownership and pauses the shared media state. The toolbar and Cast dialog Stop buttons now follow the real local Google Cast session/receiver state.
+- Added authenticated Fitness Remote Gateway protocol v1 for athletes training on another network: remote browser/native clients can publish raw standard BLE fitness characteristic frames or ANT+ extended channel packets into the existing HA-Fitness decoders while automatically assigning the resulting physical sensor to the selected Fitness profile.
+- Added browser Web Bluetooth pairing/reconnect for Heart Rate, Cycling Power, CSC, RSC and FTMS sensors plus experimental WebUSB ANT+ scanning for Dynastream ANTUSB2/ANTUSB-m sticks. Radio permissions stay local to the athlete's browser; future Android/iOS/Windows senders can reuse the same backend packet contract.
+- Added browser-local Google Cast to Fitness TV. A remote laptop/Android browser can choose a Cast display on its own local Wi-Fi independently of HA's server-side Cast discovery. The standard HA Cast receiver authenticates with the already logged-in browser user's HA session credentials and an externally reachable HTTPS HA URL.
+- Split the Cast picker into **Local network TV** and **Home Assistant network devices**, added a Remote Sensors toolbar/dialog, localized its primary UI in English/Greek/German, and bumped the frontend resource to `unreleased-59`.
+
+- Fixed Music Assistant provider setup routing for Home Assistant Container: Fitness now opens the selected Music Assistant server's own **Music Sources** page using the URL stored by the HA Music Assistant config entry. Existing MA provider instances deep-link to their exact edit page when the current MA frontend exposes one; unconfigured sources fall back to the Music Sources page because MA does not currently expose a URL route that preselects a new provider setup flow.
+- Hardened Fitness TV route-away playback: leaving a Fitness profile now snapshots the real position, publishes the shared session as paused, destroys the detached browser player, and re-resolves/resumes from the saved position when the user returns and presses Play. This applies to direct/HA/yt-dlp HTML audio and carries resume positions into YouTube and SoundCloud embeds where those APIs allow seeking.
+- Modernized Fitness TV surfaces with larger consistent corner radii, subtle borders/shadows, blurred modal backdrops, rounded menus/inputs/provider rows and shared rounded styling for mounted dashboard cards.
+- Split Fitness TV music into one maintainable Python module per adapter plus a small registry/facade. Active adapter lists now contain only installed/usable music adapters; generic Home Assistant sources such as Camera, Cloud, Drive or unrelated media integrations are no longer mistaken for music adapters.
+- Music Assistant is exposed as one aggregate Fitness adapter regardless of how many provider accounts/sources it contains. A separate Add music provider catalogue offers Music Assistant source setup shortcuts for Spotify, Apple Music, Tidal, Qobuz, Deezer, SoundCloud, YouTube Music, Bandcamp, Jellyfin, Plex, Subsonic and Audible without turning those MA sources into duplicate Fitness adapters. Native Home Assistant Spotify is a separate adapter only when an actual Spotify config entry is installed.
+- Fitness TV music preferences are profile-scoped: enabled adapters, adapter account/server choice metadata and configurable search result count (10–100, default 50) are persisted under the Fitness TV profile store. Third-party credentials/tokens remain owned by Home Assistant or Music Assistant.
+- Search music now shows only installed, enabled, searchable adapters, keeps a visible working state, and can search one/many/all selected adapters. Normal YouTube/YouTube Music links remain on the normal YouTube player; yt-dlp remains its own opt-in adapter. Seek verification/synchronization remains enforced for HTML audio, proxied yt-dlp audio, YouTube and SoundCloud.
+- Added a Fitness TV fullscreen control and hardened both music/provider and profile-settings dialogs so their bodies scroll inside the viewport while action controls remain reachable.
+- Strengthened the yt-dlp acknowledgement around user responsibility, applicable law/service terms/content rights, penalties/consequences and non-excludable legal rights/liabilities.
+
 - Added native HealthSync / Apple Health sleep and completed-workout adapters. Sleep uses the upstream Sleep last night stage attributes plus full onset/wake timestamps; dashboard routes remain source-owned and synthetic sleep score stays an inline fallback only when HealthSync has no score entity.
 - Added HealthSync recent-workout-slot parsing, Apple Health workout-type normalization (including functional/traditional strength and HIIT), runtime listener recognition for dynamically named workout slots, and permanent workout-history import through `healthsync.get_readings` bounded by the Fitness retention window and parsed off Home Assistant's event loop.
 
@@ -49,6 +80,15 @@
 - Moved Bluetooth adapter-level `Capture active` to per-physical-sensor ANT+/Bluetooth capture-state entities.
 - Training-load/evaluation UI now hides until real workout/load/adaptation evidence exists.
 - Average-HR-vs-baseline now shows explicit baseline/current/difference values and a full heat-band gauge around the personal baseline.
+
+### Internal development checkpoint: 2026.8.11
+
+- Expanded Fitness TV now-playing state with artwork, artist/title/details, elapsed/remaining time and seekable progress shared across dashboard clients; SoundCloud, yt-dlp YouTube, Home Assistant media and direct audio expose the richest metadata available from each source.
+- Fixed Fitness TV settings dialogs to use a bounded scrollable body with a sticky Save action.
+- Replaced the incompatible Deno PyPI requirement with a Home-Assistant-managed pinned Node.js wheel fallback for yt-dlp YouTube extraction; the Node.js distribution provides Alpine/musl and glibc wheels, while existing host Deno/Node/QuickJS/Bun runtimes remain supported.
+- Refined Fitness TV setup/navigation, compatible manual profile sensors, ambient fitness/intensity backgrounds, Cast wake-lock handling, and country-filtered Radio Browser browsing.
+- Added opt-in native yt-dlp YouTube search/playback for Fitness TV: server-side search returns up to 10 selectable results, resolved audio is proxied through Home Assistant without forwarding account cookies, and Spotify links now fail explicitly instead of reporting false playback.
+- Radio Browser country choices are now sorted alphabetically by their localized display names rather than ISO country code order.
 
 ### Runtime safety and shared-sensor refinements
 

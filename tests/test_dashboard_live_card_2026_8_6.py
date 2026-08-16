@@ -19,7 +19,10 @@ def test_live_workout_uses_normalized_fitness_entities_and_controls():
         "start_workout", "pause_workout", "resume_workout", "stop_workout",
     ):
         assert f'"{key}"' in JS
-    assert 'callService("button", "press"' in JS
+    assert 'type:"call_service"' in JS
+    assert 'domain:"button"' in JS
+    assert 'service:"press"' in JS
+    assert 'target:{entity_id:entityId}' in JS
 
 
 def test_sleep_recovery_metric_grid_wraps_instead_of_overflowing():

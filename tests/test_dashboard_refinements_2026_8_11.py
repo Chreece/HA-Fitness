@@ -10,7 +10,7 @@ def test_single_frontend_module_contract_is_preserved():
     assert '_RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"' in BACKEND
     front = re.search(r'FITNESS_DASHBOARD_VERSION = "([^"]+)"', FRONTEND).group(1)
     back = re.search(r'\?v=([^"}]+)', BACKEND).group(1)
-    assert front == back == "2026.8.11.14"
+    assert front == back == "unreleased-82"
 
 def test_sleep_total_excludes_awake_regression():
     assert "asleepStageTotal" in FRONTEND

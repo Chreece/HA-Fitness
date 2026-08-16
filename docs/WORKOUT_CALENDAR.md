@@ -1,6 +1,6 @@
 # Workout calendar and historical workout reconciliation
 
-Fitness 2026.8.11 adds a Home Assistant calendar for each Fitness profile. The calendar is a view of the same canonical workout history used by Fitness calculations; it is not a separate workout database.
+The unreleased Fitness development build adds a Home Assistant calendar for each Fitness profile. The calendar is a view of the same canonical workout history used by Fitness calculations; it is not a separate workout database.
 
 ## One physical workout, one event
 
@@ -69,7 +69,7 @@ No reverse-geocoding network request is performed. This keeps the integration lo
 
 Home Assistant's `CalendarEvent` schema exposes standard event fields (`start`, `end`, `summary`, `description`, `location`, UID/recurrence metadata). It does not provide arbitrary per-event attributes that the standard Calendar UI can render as translated workout fields.
 
-For that reason Fitness 2026.8.11 uses a compact calendar description containing only useful headline values when present, for example duration, distance, average heart rate, average power and calories.
+For that reason the unreleased Fitness development build uses a compact calendar description containing only useful headline values when present, for example duration, distance, average heart rate, average power and calories.
 
 The complete structured data remains in the canonical Fitness workout model, including provider measurements, Fitness-derived calculations, strength analysis, personal-baseline comparisons and provenance. This avoids duplicating a large metric dump inside every calendar event and keeps the canonical model available to Fitness dashboards and future workout-detail UI.
 

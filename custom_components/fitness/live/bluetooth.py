@@ -133,13 +133,11 @@ class BluetoothFitnessProvider:
         self._provisional_passive_last_decode: dict[str, float] = {}
         self._identity_probe_tasks: dict[str, asyncio.Task] = {}
         self._identity_probe_last_attempt: dict[str, float] = {}
-        # Standard BLE fitness measurements (Heart Rate, Cycling Power, CSC,
-        # RSC, FTMS) are GATT notifications, not advertisement payloads. Keep a
-        # lightweight connection for accepted BLE-only sensors so their physical
-        # raw entities remain useful even while no Fitness workout is active.
-        self._idle_connect_tasks: dict[str, asyncio.Task] = {}
-        self._idle_connect_last_attempt: dict[str, float] = {}
-        self._idle_connected_sensors: set[str] = set()
+        # Raw BLE fitness measurements require an active GATT subscription, but
+        # Fitness deliberately does not keep telemetry GATT open while idle.
+        # Accepted sensors get only a short Device Information probe. A persistent
+        # GATT subscription is owned by a live profile and is opened only when
+        # Bluetooth is that live session's selected/fallback transport.
 
     async def async_setup(self) -> None:
         """Register one HA Bluetooth discovery callback; no private scanner."""
@@ -384,150 +382,51 @@ class BluetoothFitnessProvider:
                     metadata=passive_meta,
                 )
 
-        # BLE fitness measurements live in notify characteristics. An accepted
-        # BLE-only sensor therefore needs a GATT subscription even while Fitness
-        # itself is idle. This scheduler is cheap and reconnects only when needed.
-        self._schedule_idle_connection(sensor.sensor_id)
+        # Do not subscribe to raw GATT telemetry while idle.  A short identity
+        # probe is allowed; live-session transport reconciliation owns any later
+        # persistent notification connection.
+        self._schedule_identity_probe(sensor.sensor_id)
 
     def sensor_acceptance_changed(self, sensor_id: str, accepted: bool) -> None:
-        """Start/stop raw BLE telemetry when a physical sensor is accepted."""
+        """Probe identity on acceptance; never keep idle telemetry GATT open."""
         if accepted:
-            self._schedule_idle_connection(sensor_id)
+            self._schedule_identity_probe(sensor_id)
         else:
-            self._schedule_idle_disconnect(sensor_id)
+            self._schedule_unowned_disconnect(sensor_id)
 
-    def _ant_covers_ble_metrics(self, sensor: LiveSensor) -> bool:
-        """Return whether an available ANT endpoint already covers BLE metrics."""
-        ble_endpoint = sensor.endpoints.get(self.transport)
-        ant_endpoint = sensor.endpoints.get("antplus")
-        if ble_endpoint is None or ant_endpoint is None or not ant_endpoint.available:
-            return False
-        wanted = set(ble_endpoint.capabilities)
-        if not wanted or not wanted.issubset(set(ant_endpoint.capabilities)):
-            return False
-        # Do not release a working BLE stream just because ANT advertises the
-        # same *capability*. Wait until ANT has actually produced every BLE raw
-        # metric recently. Endpoint presence/identity pages alone are not enough.
-        return all(
-            self.runtime.metric_transport_seen_recently(
-                sensor.sensor_id, metric, "antplus", max_age=10.0
-            )
-            for metric in wanted
-        )
+    def forget_sensor(self, sensor_id: str, endpoint_id: str | None = None) -> None:
+        """Clear per-device BLE state after a user deletes a physical sensor.
 
-    def _schedule_idle_connection(self, sensor_id: str) -> None:
-        """Ensure an accepted BLE-only sensor has a raw GATT subscription."""
-        sensor_id = self.runtime.resolve_sensor_id(sensor_id)
-        sensor = self.runtime.sensors.get(sensor_id)
-        endpoint = sensor.endpoints.get(self.transport) if sensor is not None else None
-        if (
-            sensor is None
-            or endpoint is None
-            or not endpoint.address
-            or not self.runtime.sensor_is_accepted(sensor_id)
-        ):
-            return
-        # Once ANT provides the same raw metrics, prefer the connectionless ANT
-        # path and release the idle BLE connection. Profile-owned GATT sessions
-        # remain untouched.
-        if self._ant_covers_ble_metrics(sensor):
-            if sensor_id in self._idle_connected_sensors:
-                self._schedule_idle_disconnect(sensor_id)
-            return
-        client = self._clients.get(sensor_id)
-        if client is not None and client.is_connected:
-            self._idle_connected_sensors.add(sensor_id)
-            return
-        task = self._idle_connect_tasks.get(sensor_id)
+        Runtime keeps a short anti-resurrection quarantine, but provider-local
+        advertisement fingerprints, identity signatures and reconnect throttles
+        must not survive the delete. Otherwise a restarted watch broadcast can
+        look like the same already-consumed BLE observation and rediscovery may be
+        delayed even though the physical sensor was explicitly removed from HA.
+        """
+        canonical = self.runtime.resolve_sensor_id(sensor_id)
+        if endpoint_id:
+            endpoint_id = str(endpoint_id)
+            self._last_discovery_fingerprint.pop(endpoint_id, None)
+            self._provisional_identity_signature.pop(endpoint_id, None)
+            self._provisional_passive_last_decode.pop(endpoint_id, None)
+            self._raw_diag_last_publish.pop(endpoint_id, None)
+            self._raw_diag_last_value.pop(endpoint_id, None)
+            self._stable_diag_last_value.pop(endpoint_id, None)
+
+        task = self._identity_probe_tasks.pop(canonical, None)
         if task is not None and not task.done():
-            return
-        now = self.hass.loop.time()
-        if now - self._idle_connect_last_attempt.get(sensor_id, -60.0) < 10.0:
-            return
-        self._idle_connect_last_attempt[sensor_id] = now
+            task.cancel()
+        self._identity_probe_last_attempt.pop(canonical, None)
+        self._schedule_unowned_disconnect(canonical)
 
-        async def _connect() -> None:
-            try:
-                await self._async_connect_idle(sensor_id)
-            finally:
-                self._idle_connect_tasks.pop(sensor_id, None)
-
-        self._idle_connect_tasks[sensor_id] = self.hass.async_create_background_task(
-            _connect(),
-            f"fitness BLE idle telemetry {sensor_id}",
-            eager_start=False,
-        )
-
-    async def _async_connect_idle(self, requested_sensor_id: str) -> None:
-        """Connect and subscribe one accepted BLE sensor outside workout mode."""
-        sensor_id = self.runtime.resolve_sensor_id(requested_sensor_id)
-        lock = self._connect_lock(sensor_id)
-        async with lock:
-            sensor_id = self.runtime.resolve_sensor_id(sensor_id)
-            sensor = self.runtime.sensors.get(sensor_id)
-            endpoint = sensor.endpoints.get(self.transport) if sensor is not None else None
-            if (
-                sensor is None
-                or endpoint is None
-                or not endpoint.address
-                or not self.runtime.sensor_is_accepted(sensor_id)
-                or self._ant_covers_ble_metrics(sensor)
-            ):
-                return
-            existing = self._clients.get(sensor_id)
-            if existing is not None and existing.is_connected:
-                self._idle_connected_sensors.add(sensor_id)
-                return
-            ble_device = bluetooth.async_ble_device_from_address(
-                self.hass, endpoint.address, connectable=True
-            )
-            if ble_device is None:
-                return
-            client = None
-            try:
-                client = await establish_connection(
-                    BleakClient,
-                    device=ble_device,
-                    name=sensor.name or endpoint.address,
-                    max_attempts=3,
-                )
-                self._clients[sensor_id] = client
-                self._idle_connected_sensors.add(sensor_id)
-                sensor = await self._async_enrich_identity(sensor, endpoint, client)
-                new_id = self.runtime.resolve_sensor_id(sensor.sensor_id)
-                if new_id != sensor_id:
-                    self._idle_connected_sensors.discard(sensor_id)
-                    self._idle_connected_sensors.add(new_id)
-                    sensor_id = new_id
-                await self._subscribe(sensor, client)
-                self.runtime._notify_values_throttled({
-                    (sensor_id, "gatt_connection", None)
-                })
-            except Exception as err:
-                self.last_error = f"{sensor.name}: {err}" if sensor is not None else str(err)
-                _LOGGER.debug(
-                    "Bluetooth idle telemetry connect failed for %s: %s",
-                    sensor_id, err,
-                )
-                self._idle_connected_sensors.discard(sensor_id)
-                if client is not None and self._clients.get(sensor_id) is client:
-                    self._clients.pop(sensor_id, None)
-                    try:
-                        await client.disconnect()
-                    except Exception:
-                        pass
-
-    def _schedule_idle_disconnect(self, sensor_id: str) -> None:
+    def _schedule_unowned_disconnect(self, sensor_id: str) -> None:
+        """Close a GATT client unless an active live profile currently owns it."""
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
 
         async def _disconnect() -> None:
             lock = self._connect_lock(sensor_id)
             async with lock:
                 canonical = self.runtime.resolve_sensor_id(sensor_id)
-                self._idle_connected_sensors.discard(sensor_id)
-                self._idle_connected_sensors.discard(canonical)
-                # A profile may currently own the same shared GATT connection.
-                # In that case only drop idle ownership and let the profile keep it.
                 if self._sensor_users.get(canonical):
                     return
                 client = self._clients.pop(canonical, None)
@@ -543,25 +442,28 @@ class BluetoothFitnessProvider:
 
         self.hass.async_create_background_task(
             _disconnect(),
-            f"fitness BLE idle disconnect {sensor_id}",
+            f"fitness BLE unowned disconnect {sensor_id}",
             eager_start=False,
         )
 
     def schedule_identity_probe_candidates(self, capabilities: set[str]) -> None:
-        """Probe accepted BLE-only sensors that could be the new ANT endpoint.
+        """Probe recently seen BLE-only sensors that could match a new ANT endpoint.
 
-        This is invoked only for structural ANT discovery/identity changes.  It
-        never merges by capability/name; the probe merely obtains stable DIS
-        identity so Runtime's exact serial matcher can make a safe decision.
+        Discovery-stage identity matters too: obtaining DIS model/serial before Add
+        lets Runtime name the card from the model catalog and gives exact serial
+        matching a chance to collapse BT + ANT into one provisional physical device.
+        The probe still only collects identity; it never merges by capability/name.
         """
         wanted = set(capabilities)
         for sensor in tuple(self.runtime.sensors.values()):
             sensor_id = self.runtime.resolve_sensor_id(sensor.sensor_id)
             current = self.runtime.sensors.get(sensor_id)
-            if current is None or not self.runtime.sensor_is_accepted(sensor_id):
+            if current is None:
                 continue
             endpoint = current.endpoints.get(self.transport)
             if endpoint is None or "antplus" in current.endpoints:
+                continue
+            if not self.runtime.sensor_recently_observed(sensor_id):
                 continue
             if wanted and not (current.capabilities & wanted):
                 continue
@@ -787,8 +689,9 @@ class BluetoothFitnessProvider:
             }
             # Bluetooth SIG Device Information PnP ID is a stable 7-byte tuple:
             # vendor-ID source, vendor ID, product ID and product version. Keep
-            # every field separately and use the product ID as HA model_id when
-            # the device did not provide a stronger model identifier.
+            # every field separately. The Bluetooth PnP product ID is *not* a
+            # consumer model/generation number and must never be promoted to HA
+            # model_id; vendor catalogs may interpret it explicitly if documented.
             if uuid == CHAR_PNP_ID and len(raw) >= 7:
                 vendor_source = raw[0]
                 vendor_id = int.from_bytes(raw[1:3], "little")
@@ -802,7 +705,6 @@ class BluetoothFitnessProvider:
                 }
                 details.update(pnp_values)
                 metadata.update(pnp_values)
-                metadata.setdefault("model_id", f"0x{product_id:04X}")
                 for pnp_key in pnp_values:
                     detail_meta[pnp_key] = {
                         "name": pnp_key.replace("bluetooth_", "Bluetooth ").replace("_", " ").title(),
@@ -875,7 +777,8 @@ class BluetoothFitnessProvider:
                 merged.sensor_id, details, transport="bluetooth_gatt",
                 metadata=detail_meta, priority=80,
             )
-        self.runtime.ensure_sensor_device(merged.sensor_id)
+        if self.runtime.sensor_is_accepted(merged.sensor_id):
+            self.runtime.ensure_sensor_device(merged.sensor_id)
         if merged.sensor_id != sensor.sensor_id and manage_client_state:
             old_id = sensor.sensor_id
             new_id = merged.sensor_id
@@ -886,9 +789,6 @@ class BluetoothFitnessProvider:
             users = self._sensor_users.pop(old_id, set())
             if users:
                 self._sensor_users.setdefault(new_id, set()).update(users)
-            if old_id in self._idle_connected_sensors:
-                self._idle_connected_sensors.discard(old_id)
-                self._idle_connected_sensors.add(new_id)
             state = self._revolution_state.pop(old_id, None)
             if state is not None:
                 self._revolution_state[new_id] = state
@@ -947,18 +847,6 @@ class BluetoothFitnessProvider:
             if users:
                 return
             self._sensor_users.pop(sensor_id, None)
-            sensor = self.runtime.sensors.get(sensor_id)
-            if (
-                sensor_id in self._idle_connected_sensors
-                and sensor is not None
-                and self.runtime.sensor_is_accepted(sensor_id)
-                and not self._ant_covers_ble_metrics(sensor)
-            ):
-                # Workout ownership ended, but this accepted BLE-only sensor still
-                # needs its raw physical entities. Keep the shared notification
-                # connection alive.
-                return
-            self._idle_connected_sensors.discard(sensor_id)
             self._revolution_state.pop(sensor_id, None)
             client = self._clients.pop(sensor_id, None)
             if client is not None:
@@ -1026,22 +914,16 @@ class BluetoothFitnessProvider:
                 task.cancel()
         self._identity_probe_tasks.clear()
         self._identity_probe_last_attempt.clear()
-        for task in tuple(self._idle_connect_tasks.values()):
-            if not task.done():
-                task.cancel()
-        self._idle_connect_tasks.clear()
-        self._idle_connect_last_attempt.clear()
         for profile_id in tuple(self._profile_clients):
             await self.async_disconnect_profile(profile_id, keep_heart_rate=False)
-        # Idle raw-telemetry connections are not necessarily owned by a profile.
-        # Explicitly close any remaining clients during integration shutdown.
+        # Defensive cleanup: any remaining client should be profile-owned, but
+        # explicitly close all clients during integration shutdown.
         for sensor_id, client in tuple(self._clients.items()):
             self._clients.pop(sensor_id, None)
             try:
                 await client.disconnect()
             except Exception:
                 pass
-        self._idle_connected_sensors.clear()
         self._connect_locks.clear()
         self.available = False
         self.hass.async_create_task(self.runtime.async_refresh_adapter_presence())

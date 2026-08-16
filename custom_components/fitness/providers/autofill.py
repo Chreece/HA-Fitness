@@ -68,13 +68,13 @@ def exact_profile_candidates(hass):
             result[CONF_THRESHOLD_POWER].append(entry.entity_id)
     return {k:sorted(set(v)) for k,v in result.items()}
 
-def exact_profile_defaults(hass):
+def exact_profile_defaults(hass, profile_entry_id: str | None = None):
     """Choose the best setup-safe physiological entity for each field."""
     from .capabilities import profile_entity_choices
 
     result = {}
     for field in PROFILE_QUANTITY:
-        choices = profile_entity_choices(hass, field)
+        choices = profile_entity_choices(hass, field, profile_entry_id)
         if choices:
             result[field] = choices[0]["value"]
     return result

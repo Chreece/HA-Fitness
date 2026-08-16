@@ -8,12 +8,16 @@ import asyncio
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.components.ai_task.const import (
+    DATA_PREFERENCES as AI_TASK_DATA_PREFERENCES,
+)
 from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from .const import (
     CONF_AI_ENABLED,
     CONF_AI_ENTITY,
+    AI_ENTITY_SYSTEM_DEFAULT,
     CONF_BIRTH_DAY,
     CONF_BIRTH_MONTH,
     CONF_BIRTH_YEAR,
@@ -22,6 +26,12 @@ from .const import (
     CONF_NOTIFY_ENTITY_IDS,
     CONF_TTS_ENTITY_ID,
     CONF_TTS_MEDIA_PLAYER_IDS,
+    CONF_TV_DASHBOARD_ENABLED,
+    CONF_TV_MEDIA_PLAYER_ID,
+    CONF_TV_DUCKING_PERCENT,
+    CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+    DEFAULT_TV_DUCKING_PERCENT,
+    DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
     CONF_DATE_OF_BIRTH,
     CONF_DETAILED_STRENGTH_ANALYSIS,
     CONF_HEIGHT,
@@ -52,6 +62,7 @@ from .providers.autofill import exact_profile_defaults
 from .providers.capabilities import (
     live_device_choices,
     profile_entity_choices,
+    profile_entity_supported,
     sleep_device_choices,
     workout_device_choices,
 )
@@ -101,20 +112,45 @@ _PROFILE_ENTITY_QUANTITY = {
 }
 
 
-def _compatible_profile_entities(hass, field: str) -> list[dict[str, str]]:
-    """Return only entities the runtime profile parser can safely consume."""
-    return profile_entity_choices(hass, field)
+def _compatible_profile_entities(
+    hass, field: str, profile_entry_id: str | None = None
+) -> list[dict[str, str]]:
+    """Return only unclaimed entities the runtime profile parser can consume."""
+    return profile_entity_choices(hass, field, profile_entry_id)
 
 
-def _number_or_entity_selector(hass, field: str):
+def _number_or_entity_selector(
+    hass, field: str, profile_entry_id: str | None = None
+):
     """Dropdown compatible entities while still permitting a manual number/ID."""
     return selector.SelectSelector(
         selector.SelectSelectorConfig(
-            options=_compatible_profile_entities(hass, field),
+            options=_compatible_profile_entities(hass, field, profile_entry_id),
             custom_value=True,
             mode=selector.SelectSelectorMode.DROPDOWN,
         )
     )
+
+
+def _normalize_sex(value):
+    """Collapse legacy non-binary/withheld choices to one unused backend value."""
+    return "prefer_not_to_say" if value == "other" else value
+
+
+def _sex_selector():
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=["female", "male", "prefer_not_to_say"],
+            translation_key="sex",
+        )
+    )
+
+
+def _optional_suggested(key, value=None):
+    """Show a current/recommended value without making it impossible to clear."""
+    if value in (None, "", []):
+        return vol.Optional(key)
+    return vol.Optional(key, description={"suggested_value": value})
 
 
 def _device_multi():
@@ -163,24 +199,70 @@ def _entity_single(domain):
     )
 
 
-def _ai_entity():
-    """Select an AI Task or conversation agent."""
+def _cast_media_player_single():
+    """Select a Google Cast media-player entity for the TV dashboard."""
     return selector.EntitySelector(
         selector.EntitySelectorConfig(
-            domain=["ai_task", "conversation"],
+            domain="media_player",
+            integration="cast",
             multiple=False,
         )
     )
 
 
-def _first_ai_task_entity(hass):
-    """Return the first available AI Task entity for a useful setup default."""
-    entities = sorted(
-        state.entity_id
-        for state in hass.states.async_all()
-        if state.entity_id.startswith("ai_task.")
+def _preferred_ai_task_entity(hass):
+    """Return Home Assistant's current preferred data-generation AI Task."""
+    preferences = hass.data.get(AI_TASK_DATA_PREFERENCES)
+    entity_id = getattr(preferences, "gen_data_entity_id", None)
+    return str(entity_id) if entity_id else None
+
+
+def _ai_entity_label(hass, entity_id: str) -> str:
+    """Return a readable provider label while keeping the entity ID visible."""
+    state = hass.states.get(entity_id)
+    if state is None:
+        return entity_id
+    name = str(getattr(state, "name", "") or entity_id)
+    return entity_id if name == entity_id else f"{name} ({entity_id})"
+
+
+def _ai_entity(hass, current: str | None = None):
+    """Select the HA default AI Task or pin Fitness to a specific provider."""
+    preferred = _preferred_ai_task_entity(hass)
+    default_label = "Home Assistant"
+    if preferred:
+        default_label += f" — {_ai_entity_label(hass, preferred)}"
+
+    options = [
+        {
+            "value": AI_ENTITY_SYSTEM_DEFAULT,
+            "label": default_label,
+        }
+    ]
+    seen = {AI_ENTITY_SYSTEM_DEFAULT}
+    for state in sorted(hass.states.async_all(), key=lambda item: item.entity_id):
+        if not state.entity_id.startswith(("ai_task.", "conversation.")):
+            continue
+        seen.add(state.entity_id)
+        options.append(
+            {
+                "value": state.entity_id,
+                "label": _ai_entity_label(hass, state.entity_id),
+            }
+        )
+
+    # Keep a previously selected provider editable even if it is currently
+    # unavailable or has been removed from the state machine. Runtime will
+    # surface a repair and temporarily fall back to the HA default AI Task.
+    if current and current not in seen:
+        options.append({"value": current, "label": current})
+
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=options,
+            mode=selector.SelectSelectorMode.DROPDOWN,
+        )
     )
-    return entities[0] if entities else None
 
 
 def _number(min_v, max_v):
@@ -194,7 +276,7 @@ def _number(min_v, max_v):
     )
 
 
-def _validate(hass, user_input, specs):
+def _validate(hass, user_input, specs, profile_entry_id: str | None = None):
     errors = {}
     for key, (minimum, maximum, required) in specs.items():
         value = user_input.get(key)
@@ -207,14 +289,20 @@ def _validate(hass, user_input, specs):
             errors[key] = "invalid_number_or_entity"
             continue
         if is_entity_reference(value):
-            supported = {item["value"] for item in profile_entity_choices(hass, key)}
-            if str(value).strip() not in supported:
+            entity_id = str(value).strip()
+            supported = {
+                item["value"]
+                for item in profile_entity_choices(hass, key, profile_entry_id)
+            }
+            if entity_id not in supported and not profile_entity_supported(
+                hass, key, entity_id, profile_entry_id
+            ):
                 errors[key] = "invalid_number_or_entity"
     return errors
 
 
 class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    VERSION = 12
+    VERSION = 13
 
     def __init__(self):
         self._data = {}
@@ -252,7 +340,7 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._discovery_sensor_id = sensor_id
         # Give the discovery card a useful title instead of the generic Fitness
         # integration title. With no flow_title defined, HA uses {name} directly.
-        self.context["title_placeholders"] = {"name": sensor.name}
+        self.context["title_placeholders"] = {"name": sensor.discovery_name()}
         await self.async_set_unique_id(f"live_sensor:{sensor_id}")
         return await self.async_step_assign_live_sensor()
 
@@ -268,6 +356,9 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="sensor_unavailable")
         if runtime.sensor_is_accepted(sensor_id):
             return self.async_abort(reason="live_sensor_assigned")
+        # The other radio can be discovered while this flow is already open. Keep
+        # the title truthful if a provisional BT/ANT+ sensor becomes dual-transport.
+        self.context["title_placeholders"] = {"name": sensor.discovery_name()}
 
         # Snapshot profile entries: accepting a sensor updates/reloads profile
         # config entries, which mutates runtime.profile_entries asynchronously.
@@ -399,17 +490,7 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     )
                 ),
                 vol.Required(CONF_BIRTH_YEAR, default=1980): _number(1900, date.today().year),
-                vol.Optional(CONF_SEX): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=[
-                            "female",
-                            "male",
-                            "other",
-                            "prefer_not_to_say",
-                        ],
-                        translation_key="sex",
-                    )
-                ),
+                vol.Optional(CONF_SEX): _sex_selector(),
             }
         )
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
@@ -422,7 +503,7 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 user_input,
                 {
                     CONF_WEIGHT: (20, 500, True),
-                    CONF_RESTING_HR: (20, 150, True),
+                    CONF_RESTING_HR: (20, 150, False),
                 },
             )
             if not errors:
@@ -434,7 +515,9 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_WEIGHT, default=self._profile_autofill().get(CONF_WEIGHT, "")): _number_or_entity_selector(self.hass, CONF_WEIGHT),
-                    vol.Required(CONF_RESTING_HR, default=self._profile_autofill().get(CONF_RESTING_HR, "")): _number_or_entity_selector(self.hass, CONF_RESTING_HR),
+                    _optional_suggested(
+                        CONF_RESTING_HR, self._profile_autofill().get(CONF_RESTING_HR)
+                    ): _number_or_entity_selector(self.hass, CONF_RESTING_HR),
                 }
             ),
             errors=errors,
@@ -461,16 +544,17 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
                 return await self._async_next_live_setup_step()
 
+        autofill = self._profile_autofill()
         return self.async_show_form(
             step_id="optional",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_HEIGHT): _number_or_entity_selector(self.hass, CONF_HEIGHT),
-                    vol.Optional(CONF_MAX_HR): _number_or_entity_selector(self.hass, CONF_MAX_HR),
-                    vol.Optional(CONF_VO2MAX, default=self._profile_autofill().get(CONF_VO2MAX, "")): _number_or_entity_selector(self.hass, CONF_VO2MAX),
-                    vol.Optional(CONF_THRESHOLD_HR, default=self._profile_autofill().get(CONF_THRESHOLD_HR, "")): _number_or_entity_selector(self.hass, CONF_THRESHOLD_HR),
-                    vol.Optional(CONF_THRESHOLD_PACE, default=self._profile_autofill().get(CONF_THRESHOLD_PACE, "")): _number_or_entity_selector(self.hass, CONF_THRESHOLD_PACE),
-                    vol.Optional(CONF_THRESHOLD_POWER, default=self._profile_autofill().get(CONF_THRESHOLD_POWER, "")): _number_or_entity_selector(self.hass, CONF_THRESHOLD_POWER),
+                    _optional_suggested(CONF_HEIGHT, autofill.get(CONF_HEIGHT)): _number_or_entity_selector(self.hass, CONF_HEIGHT),
+                    _optional_suggested(CONF_MAX_HR, autofill.get(CONF_MAX_HR)): _number_or_entity_selector(self.hass, CONF_MAX_HR),
+                    _optional_suggested(CONF_VO2MAX, autofill.get(CONF_VO2MAX)): _number_or_entity_selector(self.hass, CONF_VO2MAX),
+                    _optional_suggested(CONF_THRESHOLD_HR, autofill.get(CONF_THRESHOLD_HR)): _number_or_entity_selector(self.hass, CONF_THRESHOLD_HR),
+                    _optional_suggested(CONF_THRESHOLD_PACE, autofill.get(CONF_THRESHOLD_PACE)): _number_or_entity_selector(self.hass, CONF_THRESHOLD_PACE),
+                    _optional_suggested(CONF_THRESHOLD_POWER, autofill.get(CONF_THRESHOLD_POWER)): _number_or_entity_selector(self.hass, CONF_THRESHOLD_POWER),
                 }
             ),
             errors=errors,
@@ -517,14 +601,14 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="live_devices",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_LIVE_SENSOR_IDS, default=[]): selector.SelectSelector(
+                    vol.Optional(CONF_LIVE_SENSOR_IDS): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=choices,
                             multiple=True,
                             mode=selector.SelectSelectorMode.DROPDOWN,
                         )
                     ),
-                    vol.Optional(CONF_LIVE_DEVICE_IDS, default=[]): _supported_device_multi(
+                    vol.Optional(CONF_LIVE_DEVICE_IDS): _supported_device_multi(
                         live_device_choices(self.hass)
                     ),
                 }
@@ -544,11 +628,14 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
             return await self.async_step_sleep_devices()
 
+        workout_choices = workout_device_choices(self.hass)
         return self.async_show_form(
             step_id="workout_devices",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_WORKOUT_DEVICE_IDS, default=_choice_ids(workout_device_choices(self.hass))): _supported_device_multi(workout_device_choices(self.hass)),
+                    _optional_suggested(
+                        CONF_WORKOUT_DEVICE_IDS, _choice_ids(workout_choices)
+                    ): _supported_device_multi(workout_choices),
                     vol.Optional(CONF_DETAILED_STRENGTH_ANALYSIS, default=False): bool,
                     vol.Required(CONF_WORKOUT_RETENTION_DAYS, default=DEFAULT_WORKOUT_RETENTION_DAYS): selector.NumberSelector(
                         selector.NumberSelectorConfig(
@@ -596,10 +683,15 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if ids:
                 self._data[CONF_SLEEP_DEVICE_IDS] = ids
             return await self.async_step_ai()
+        sleep_choices = sleep_device_choices(self.hass)
         return self.async_show_form(
             step_id="sleep_devices",
             data_schema=vol.Schema(
-                {vol.Optional(CONF_SLEEP_DEVICE_IDS, default=_choice_ids(sleep_device_choices(self.hass))): _supported_device_multi(sleep_device_choices(self.hass))}
+                {
+                    _optional_suggested(
+                        CONF_SLEEP_DEVICE_IDS, _choice_ids(sleep_choices)
+                    ): _supported_device_multi(sleep_choices)
+                }
             ),
         )
 
@@ -610,24 +702,20 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
             return await self.async_step_feedback()
 
-        default_ai = _first_ai_task_entity(self.hass)
         ai_available = bool(
-            default_ai
-            or self.hass.services.has_service("ai_task", "generate_data")
+            self.hass.services.has_service("ai_task", "generate_data")
+            or any(
+                state.entity_id.startswith(("ai_task.", "conversation."))
+                for state in self.hass.states.async_all()
+            )
         )
 
         schema = {
             vol.Optional(CONF_AI_ENABLED, default=ai_available): bool,
+            _optional_suggested(
+                CONF_AI_ENTITY, AI_ENTITY_SYSTEM_DEFAULT
+            ): _ai_entity(self.hass),
         }
-        if default_ai:
-            schema[
-                vol.Optional(
-                    CONF_AI_ENTITY,
-                    default=default_ai,
-                )
-            ] = _ai_entity()
-        else:
-            schema[vol.Optional(CONF_AI_ENTITY)] = _ai_entity()
 
         return self.async_show_form(
             step_id="ai",
@@ -646,16 +734,7 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             )
 
-            name = self._data[CONF_PROFILE_NAME]
-            await self.async_set_unique_id(
-                f"fitness_{name.strip().lower().replace(' ', '_')}"
-            )
-            self._abort_if_unique_id_configured()
-
-            return self.async_create_entry(
-                title=name,
-                data=self._data,
-            )
+            return await self.async_step_tv_dashboard()
 
         default_tts = next(
             (
@@ -670,18 +749,9 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         schema = {
-            vol.Optional(
-                CONF_FEEDBACK_AREA_IDS,
-                default=[],
-            ): _area_multi(),
-            vol.Optional(
-                CONF_FEEDBACK_LIGHT_IDS,
-                default=[],
-            ): _entity_multi("light"),
-            vol.Optional(
-                CONF_NOTIFY_ENTITY_IDS,
-                default=[],
-            ): _entity_multi("notify"),
+            vol.Optional(CONF_FEEDBACK_AREA_IDS): _area_multi(),
+            vol.Optional(CONF_FEEDBACK_LIGHT_IDS): _entity_multi("light"),
+            vol.Optional(CONF_NOTIFY_ENTITY_IDS): _entity_multi("notify"),
         }
 
         schema[
@@ -707,23 +777,73 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if default_tts:
             schema[
-                vol.Optional(
-                    CONF_TTS_ENTITY_ID,
-                    default=default_tts,
+                _optional_suggested(
+                    CONF_TTS_ENTITY_ID, default_tts
                 )
             ] = _entity_single("tts")
         else:
             schema[vol.Optional(CONF_TTS_ENTITY_ID)] = _entity_single("tts")
 
         schema[
-            vol.Optional(
-                CONF_TTS_MEDIA_PLAYER_IDS,
-                default=[],
-            )
+            vol.Optional(CONF_TTS_MEDIA_PLAYER_IDS)
         ] = _entity_multi("media_player")
 
         return self.async_show_form(
             step_id="feedback",
+            data_schema=vol.Schema(schema),
+        )
+
+    async def async_step_tv_dashboard(self, user_input=None):
+        """Configure the optional full-screen Fitness TV dashboard."""
+        if user_input is not None:
+            self._data[CONF_TV_DASHBOARD_ENABLED] = bool(
+                user_input.get(CONF_TV_DASHBOARD_ENABLED, False)
+            )
+            self._data[CONF_TV_DUCKING_PERCENT] = int(
+                user_input.get(
+                    CONF_TV_DUCKING_PERCENT,
+                    DEFAULT_TV_DUCKING_PERCENT,
+                )
+            )
+            self._data[CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE] = bool(
+                user_input.get(
+                    CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+                    DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+                )
+            )
+            target = str(user_input.get(CONF_TV_MEDIA_PLAYER_ID) or "").strip()
+            if target:
+                self._data[CONF_TV_MEDIA_PLAYER_ID] = target
+
+            name = self._data[CONF_PROFILE_NAME]
+            await self.async_set_unique_id(
+                f"fitness_{name.strip().lower().replace(' ', '_')}"
+            )
+            self._abort_if_unique_id_configured()
+            return self.async_create_entry(title=name, data=self._data)
+
+        schema = {
+            vol.Optional(CONF_TV_DASHBOARD_ENABLED, default=False): bool,
+            vol.Optional(
+                CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+                default=DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+            ): bool,
+            vol.Optional(CONF_TV_MEDIA_PLAYER_ID): _cast_media_player_single(),
+            vol.Optional(
+                CONF_TV_DUCKING_PERCENT,
+                default=DEFAULT_TV_DUCKING_PERCENT,
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=0,
+                    max=100,
+                    step=5,
+                    unit_of_measurement="%",
+                    mode=selector.NumberSelectorMode.SLIDER,
+                )
+            ),
+        }
+        return self.async_show_form(
+            step_id="tv_dashboard",
             data_schema=vol.Schema(schema),
         )
 
@@ -763,7 +883,7 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
         menu = ["profile", "fitness_inputs"]
         if runtime.live_surface_available:
             menu.append("live_devices")
-        menu.extend(["workout_devices", "sleep_devices", "ai", "feedback"])
+        menu.extend(["workout_devices", "sleep_devices", "ai", "feedback", "tv_dashboard"])
         return self.async_show_menu(step_id="init", menu_options=menu)
 
     async def async_step_sensor_assignments(self, user_input=None):
@@ -886,9 +1006,8 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
             step_id="sensor_assignment",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(
-                        "fitness_profile_ids",
-                        default=current_profiles,
+                    _optional_suggested(
+                        "fitness_profile_ids", current_profiles
                     ): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=profiles,
@@ -925,7 +1044,7 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                         ),
                     }
                     if user_input.get(CONF_SEX):
-                        values[CONF_SEX] = user_input[CONF_SEX]
+                        values[CONF_SEX] = _normalize_sex(user_input[CONF_SEX])
                     else:
                         values[CONF_SEX] = None
                     return await self._save_merge(values)
@@ -960,20 +1079,9 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                     CONF_BIRTH_YEAR,
                     default=dob.year,
                 ): _number(1900, date.today().year),
-                vol.Optional(
-                    CONF_SEX,
-                    default=current.get(CONF_SEX),
-                ): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=[
-                            "female",
-                            "male",
-                            "other",
-                            "prefer_not_to_say",
-                        ],
-                        translation_key="sex",
-                    )
-                ),
+                _optional_suggested(
+                    CONF_SEX, _normalize_sex(current.get(CONF_SEX))
+                ): _sex_selector(),
             }
         )
 
@@ -994,7 +1102,7 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 user_input,
                 {
                     CONF_WEIGHT: (20, 500, True),
-                    CONF_RESTING_HR: (20, 150, True),
+                    CONF_RESTING_HR: (20, 150, False),
                     CONF_HEIGHT: (50, 260, False),
                     CONF_MAX_HR: (60, 260, False),
                     CONF_VO2MAX: (5, 100, False),
@@ -1002,6 +1110,7 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                     CONF_THRESHOLD_PACE: (1, 20, False),
                     CONF_THRESHOLD_POWER: (20, 2500, False),
                 },
+                self.config_entry.entry_id,
             )
 
             if not errors:
@@ -1020,48 +1129,62 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 }
                 return await self._save_merge(values)
 
-        exact_defaults = exact_profile_defaults(self.hass)
+        exact_defaults = exact_profile_defaults(
+            self.hass, self.config_entry.entry_id
+        )
 
-        def current_text(key):
+        def current_text(key, *, required=False):
             value = current.get(key)
             if value not in (None, ""):
                 return str(value)
-            return str(exact_defaults.get(key, ""))
+            if required:
+                return str(exact_defaults.get(key, ""))
+            return ""
 
         schema = vol.Schema(
             {
                 vol.Required(
                     CONF_WEIGHT,
-                    default=current_text(CONF_WEIGHT),
-                ): _number_or_entity_selector(self.hass, CONF_WEIGHT),
-                vol.Required(
+                    default=current_text(CONF_WEIGHT, required=True),
+                ): _number_or_entity_selector(
+                    self.hass, CONF_WEIGHT, self.config_entry.entry_id
+                ),
+                _optional_suggested(
                     CONF_RESTING_HR,
-                    default=current_text(CONF_RESTING_HR),
-                ): _number_or_entity_selector(self.hass, CONF_RESTING_HR),
-                vol.Optional(
-                    CONF_HEIGHT,
-                    default=current_text(CONF_HEIGHT),
-                ): _number_or_entity_selector(self.hass, CONF_HEIGHT),
-                vol.Optional(
-                    CONF_MAX_HR,
-                    default=current_text(CONF_MAX_HR),
-                ): _number_or_entity_selector(self.hass, CONF_MAX_HR),
-                vol.Optional(
-                    CONF_VO2MAX,
-                    default=current_text(CONF_VO2MAX),
-                ): _number_or_entity_selector(self.hass, CONF_VO2MAX),
-                vol.Optional(
-                    CONF_THRESHOLD_HR,
-                    default=current_text(CONF_THRESHOLD_HR),
-                ): _number_or_entity_selector(self.hass, CONF_THRESHOLD_HR),
-                vol.Optional(
-                    CONF_THRESHOLD_PACE,
-                    default=current_text(CONF_THRESHOLD_PACE),
-                ): _number_or_entity_selector(self.hass, CONF_THRESHOLD_PACE),
-                vol.Optional(
-                    CONF_THRESHOLD_POWER,
-                    default=current_text(CONF_THRESHOLD_POWER),
-                ): _number_or_entity_selector(self.hass, CONF_THRESHOLD_POWER),
+                    current_text(CONF_RESTING_HR),
+                ): _number_or_entity_selector(
+                    self.hass, CONF_RESTING_HR, self.config_entry.entry_id
+                ),
+                _optional_suggested(
+                    CONF_HEIGHT, current_text(CONF_HEIGHT)
+                ): _number_or_entity_selector(
+                    self.hass, CONF_HEIGHT, self.config_entry.entry_id
+                ),
+                _optional_suggested(
+                    CONF_MAX_HR, current_text(CONF_MAX_HR)
+                ): _number_or_entity_selector(
+                    self.hass, CONF_MAX_HR, self.config_entry.entry_id
+                ),
+                _optional_suggested(
+                    CONF_VO2MAX, current_text(CONF_VO2MAX)
+                ): _number_or_entity_selector(
+                    self.hass, CONF_VO2MAX, self.config_entry.entry_id
+                ),
+                _optional_suggested(
+                    CONF_THRESHOLD_HR, current_text(CONF_THRESHOLD_HR)
+                ): _number_or_entity_selector(
+                    self.hass, CONF_THRESHOLD_HR, self.config_entry.entry_id
+                ),
+                _optional_suggested(
+                    CONF_THRESHOLD_PACE, current_text(CONF_THRESHOLD_PACE)
+                ): _number_or_entity_selector(
+                    self.hass, CONF_THRESHOLD_PACE, self.config_entry.entry_id
+                ),
+                _optional_suggested(
+                    CONF_THRESHOLD_POWER, current_text(CONF_THRESHOLD_POWER)
+                ): _number_or_entity_selector(
+                    self.hass, CONF_THRESHOLD_POWER, self.config_entry.entry_id
+                ),
             }
         )
 
@@ -1098,7 +1221,9 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
             {"value": sensor_id, "label": label}
             for sensor_id, label in sorted(choice_map.items())
         ]
-        generic_choices = live_device_choices(self.hass)
+        generic_choices = live_device_choices(
+            self.hass, self.config_entry.entry_id
+        )
         if user_input is not None:
             await runtime.async_end_setup_discovery()
             return await self._save_merge(
@@ -1115,12 +1240,12 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
             step_id="live_devices",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_LIVE_SENSOR_IDS, default=selected_native): selector.SelectSelector(
+                    _optional_suggested(CONF_LIVE_SENSOR_IDS, selected_native): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=choices, multiple=True, mode=selector.SelectSelectorMode.DROPDOWN
                         )
                     ),
-                    vol.Optional(CONF_LIVE_DEVICE_IDS, default=selected_generic): _supported_device_multi(
+                    _optional_suggested(CONF_LIVE_DEVICE_IDS, selected_generic): _supported_device_multi(
                         generic_choices
                     ),
                 }
@@ -1148,17 +1273,21 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 }
             )
 
+        workout_choices = workout_device_choices(
+            self.hass, self.config_entry.entry_id
+        )
+        workout_choice_ids = set(_choice_ids(workout_choices))
+        selected_workout_devices = [
+            item for item in (current.get(CONF_WORKOUT_DEVICE_IDS) or [])
+            if item in workout_choice_ids
+        ]
         return self.async_show_form(
             step_id="workout_devices",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(
-                        CONF_WORKOUT_DEVICE_IDS,
-                        default=[
-                            item for item in (current.get(CONF_WORKOUT_DEVICE_IDS) or [])
-                            if item in set(_choice_ids(workout_device_choices(self.hass)))
-                        ],
-                    ): _supported_device_multi(workout_device_choices(self.hass)),
+                    _optional_suggested(
+                        CONF_WORKOUT_DEVICE_IDS, selected_workout_devices
+                    ): _supported_device_multi(workout_choices),
                     vol.Optional(
                         CONF_DETAILED_STRENGTH_ANALYSIS,
                         default=bool(current.get(CONF_DETAILED_STRENGTH_ANALYSIS, False)),
@@ -1221,10 +1350,22 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
             return await self._save_merge(
                 {CONF_SLEEP_DEVICE_IDS: list(user_input.get(CONF_SLEEP_DEVICE_IDS) or [])}
             )
+        sleep_choices = sleep_device_choices(
+            self.hass, self.config_entry.entry_id
+        )
+        sleep_choice_ids = set(_choice_ids(sleep_choices))
+        selected_sleep_devices = [
+            item for item in (current.get(CONF_SLEEP_DEVICE_IDS) or [])
+            if item in sleep_choice_ids
+        ]
         return self.async_show_form(
             step_id="sleep_devices",
             data_schema=vol.Schema(
-                {vol.Optional(CONF_SLEEP_DEVICE_IDS, default=[item for item in (current.get(CONF_SLEEP_DEVICE_IDS) or []) if item in set(_choice_ids(sleep_device_choices(self.hass)))]): _supported_device_multi(sleep_device_choices(self.hass))}
+                {
+                    _optional_suggested(
+                        CONF_SLEEP_DEVICE_IDS, selected_sleep_devices
+                    ): _supported_device_multi(sleep_choices)
+                }
             ),
         )
 
@@ -1243,9 +1384,17 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 }
             )
 
-        default_ai = (
-            current.get(CONF_AI_ENTITY)
-            or _first_ai_task_entity(self.hass)
+        configured_ai = (
+            (current.get(CONF_AI_ENTITY) or None)
+            if CONF_AI_ENTITY in current
+            else AI_ENTITY_SYSTEM_DEFAULT
+        )
+        ai_available = bool(
+            self.hass.services.has_service("ai_task", "generate_data")
+            or any(
+                state.entity_id.startswith(("ai_task.", "conversation."))
+                for state in self.hass.states.async_all()
+            )
         )
 
         schema = {
@@ -1254,21 +1403,14 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 default=bool(
                     current.get(
                         CONF_AI_ENABLED,
-                        bool(default_ai),
+                        ai_available,
                     )
                 ),
             ): bool,
+            _optional_suggested(
+                CONF_AI_ENTITY, configured_ai
+            ): _ai_entity(self.hass, configured_ai),
         }
-
-        if default_ai:
-            schema[
-                vol.Optional(
-                    CONF_AI_ENTITY,
-                    default=default_ai,
-                )
-            ] = _ai_entity()
-        else:
-            schema[vol.Optional(CONF_AI_ENTITY)] = _ai_entity()
 
         return self.async_show_form(
             step_id="ai",
@@ -1310,23 +1452,14 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
             )
 
         schema = {
-            vol.Optional(
-                CONF_FEEDBACK_AREA_IDS,
-                default=list(
-                    current.get(CONF_FEEDBACK_AREA_IDS) or []
-                ),
+            _optional_suggested(
+                CONF_FEEDBACK_AREA_IDS, list(current.get(CONF_FEEDBACK_AREA_IDS) or [])
             ): _area_multi(),
-            vol.Optional(
-                CONF_FEEDBACK_LIGHT_IDS,
-                default=list(
-                    current.get(CONF_FEEDBACK_LIGHT_IDS) or []
-                ),
+            _optional_suggested(
+                CONF_FEEDBACK_LIGHT_IDS, list(current.get(CONF_FEEDBACK_LIGHT_IDS) or [])
             ): _entity_multi("light"),
-            vol.Optional(
-                CONF_NOTIFY_ENTITY_IDS,
-                default=list(
-                    current.get(CONF_NOTIFY_ENTITY_IDS) or []
-                ),
+            _optional_suggested(
+                CONF_NOTIFY_ENTITY_IDS, list(current.get(CONF_NOTIFY_ENTITY_IDS) or [])
             ): _entity_multi("notify"),
         }
 
@@ -1361,9 +1494,12 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
             )
         )
 
-        current_tts = (
-            current.get(CONF_TTS_ENTITY_ID)
-            or next(
+        if CONF_TTS_ENTITY_ID in current:
+            # An explicit empty option means the user intentionally removed the
+            # previously suggested TTS provider.  Do not silently reselect one.
+            current_tts = current.get(CONF_TTS_ENTITY_ID) or None
+        else:
+            current_tts = next(
                 (
                     state.entity_id
                     for state in sorted(
@@ -1374,29 +1510,92 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 ),
                 None,
             )
-        )
 
         if current_tts:
             schema[
-                vol.Optional(
-                    CONF_TTS_ENTITY_ID,
-                    default=current_tts,
+                _optional_suggested(
+                    CONF_TTS_ENTITY_ID, current_tts
                 )
             ] = _entity_single("tts")
         else:
             schema[vol.Optional(CONF_TTS_ENTITY_ID)] = _entity_single("tts")
 
         schema[
-            vol.Optional(
-                CONF_TTS_MEDIA_PLAYER_IDS,
-                default=list(
-                    current.get(CONF_TTS_MEDIA_PLAYER_IDS) or []
-                ),
+            _optional_suggested(
+                CONF_TTS_MEDIA_PLAYER_IDS, list(current.get(CONF_TTS_MEDIA_PLAYER_IDS) or [])
             )
         ] = _entity_multi("media_player")
 
         return self.async_show_form(
             step_id="feedback",
+            data_schema=vol.Schema(schema),
+        )
+
+    async def async_step_tv_dashboard(self, user_input=None):
+        """Edit the optional full-screen Fitness TV dashboard."""
+        current = self._current()
+        if user_input is not None:
+            return await self._save_merge(
+                {
+                    CONF_TV_DASHBOARD_ENABLED: bool(
+                        user_input.get(CONF_TV_DASHBOARD_ENABLED, False)
+                    ),
+                    CONF_TV_MEDIA_PLAYER_ID: str(
+                        user_input.get(CONF_TV_MEDIA_PLAYER_ID) or ""
+                    ).strip(),
+                    CONF_TV_DUCKING_PERCENT: int(
+                        user_input.get(
+                            CONF_TV_DUCKING_PERCENT,
+                            DEFAULT_TV_DUCKING_PERCENT,
+                        )
+                    ),
+                    CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE: bool(
+                        user_input.get(
+                            CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+                            DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+                        )
+                    ),
+                }
+            )
+
+        schema = {
+            vol.Optional(
+                CONF_TV_DASHBOARD_ENABLED,
+                default=bool(current.get(CONF_TV_DASHBOARD_ENABLED, False)),
+            ): bool,
+            vol.Optional(
+                CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+                default=bool(
+                    current.get(
+                        CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+                        DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+                    )
+                ),
+            ): bool,
+            _optional_suggested(
+                CONF_TV_MEDIA_PLAYER_ID,
+                str(current.get(CONF_TV_MEDIA_PLAYER_ID) or ""),
+            ): _cast_media_player_single(),
+            vol.Optional(
+                CONF_TV_DUCKING_PERCENT,
+                default=int(
+                    current.get(
+                        CONF_TV_DUCKING_PERCENT,
+                        DEFAULT_TV_DUCKING_PERCENT,
+                    )
+                ),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=0,
+                    max=100,
+                    step=5,
+                    unit_of_measurement="%",
+                    mode=selector.NumberSelectorMode.SLIDER,
+                )
+            ),
+        }
+        return self.async_show_form(
+            step_id="tv_dashboard",
             data_schema=vol.Schema(schema),
         )
 

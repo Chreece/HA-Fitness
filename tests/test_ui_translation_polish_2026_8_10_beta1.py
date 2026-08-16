@@ -14,8 +14,8 @@ def test_rpe_scale_uses_effort_gradient_not_primary_color():
 
 def test_readiness_confidence_is_localized():
     assert "confidence from available evidence</span>" not in FRONTEND
-    assert "${_fitnessEscape(rtext.confidence)}" in FRONTEND
-    assert "${_fitnessEscape(rtext.vs28)}" in FRONTEND
+    assert 'l.certain_compact || "{percent}% certain"' in FRONTEND
+    assert "readinessCertainty" in FRONTEND
 
 
 def test_personal_context_empty_history_is_localized():

@@ -23,8 +23,8 @@
         }
       },
       "required": {
-        "title": "Required profile inputs",
-        "description": "Enter one numeric value OR one Home Assistant entity ID in each field.",
+        "title": "Дані профілю",
+        "description": "Вага є обов’язковою. Пульс у спокої необов’язковий і може бути доданий пізніше. Кожне поле приймає числове значення або сумісну сутність Home Assistant; одиниці автоматично нормалізуються.",
         "data": {
           "weight": "Вага (кг або сутність)",
           "resting_hr": "Пульс у спокої (bpm або сутність)"
@@ -55,11 +55,11 @@
         }
       },
       "live_devices": {
-        "title": "Live workout sensors",
-        "description": "Select the physical sensors this Fitness profile may use. Native sensors come from the enabled Bluetooth and ANT+ adapter modules. Optional compatible Home Assistant live devices can also be used.",
+        "title": "Датчики тренування наживо",
+        "description": "Виберіть фізичні датчики, які може використовувати цей профіль Fitness. Нативні датчики надходять з увімкнених модулів Bluetooth і ANT+. Також можна вибрати сумісні пристрої Home Assistant для даних наживо.",
         "data": {
-          "live_sensor_ids": "Local fitness sensors",
-          "live_device_ids": "Other Home Assistant live devices"
+          "live_sensor_ids": "Локальні датчики Fitness",
+          "live_device_ids": "Інші пристрої Home Assistant для даних наживо"
         },
         "data_description": {
           "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
@@ -82,14 +82,14 @@
       },
       "ai": {
         "title": "Інтерпретація ШІ",
-        "description": "Fitness calculations stay deterministic. AI only interprets them. An existing AI Task is preselected; leaving it empty uses Home Assistant's preferred/default AI Task.",
+        "description": "За замовчуванням вибрано системне AI Task Home Assistant. Fitness автоматично слідує поточному системному вибору; обирайте конкретне AI Task або розмовного агента лише якщо хочете закріпити його.",
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
-          "ai_entity": "AI Task / LLM entity"
+          "ai_entity": "Постачальник ШІ"
         },
         "data_description": {
           "ai_enabled": "Вмикає AI-інтерпретацію детермінованих розрахунків. AI ніколи не визначає й не змінює наукові формули або метадані сенсорів.",
-          "ai_entity": "AI Task або розмовний агент для коучингу/оцінки. AI і TTS серіалізовані та не перекриваються."
+          "ai_entity": "Використовуйте системне AI Task Home Assistant, щоб автоматично слідувати системному вибору, або закріпіть конкретне AI Task / розмовного агента. Якщо закріплений постачальник стане недоступним, Fitness повідомить вас і тимчасово використає системний варіант."
         }
       },
       "feedback": {
@@ -133,6 +133,24 @@
         "data_description": {
           "fitness_profile_ids": "One physical sensor can be shared by multiple Fitness profiles."
         }
+      },
+      "tv_dashboard": {
+        "title": "Панель Fitness TV",
+        "description": "Налаштуйте додаткову повноекранну панель Fitness TV. Fitness має власний браузерний аудіошар для музики та приглушення TTS.",
+        "data": {
+          "tv_dashboard_enabled": "Увімкнути панель Fitness TV",
+          "tv_dashboard_media_player_id": "ТВ / медіаплеєр Cast",
+          "tv_dashboard_ducking_percent": "Гучність музики під час TTS",
+          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ignore_lights_when_cast_active": "Не використовувати тренувальне освітлення під час активного TV Cast"
+        },
+        "data_description": {
+          "tv_dashboard_enabled": "Автоматично показує повноекранну панель Fitness TV на початку тренування. Музика й TTS відтворюються всередині панелі, тому представлення Cast залишається відкритим.",
+          "tv_dashboard_media_player_id": "Медіаплеєр Google Cast, на якому має відображатися панель Fitness TV. Fitness не надсилає музику панелі чи TTS безпосередньо на цей медіаплеєр.",
+          "tv_dashboard_ducking_percent": "Відсоток поточної гучності музики, що зберігається під час голосового повідомлення TTS. Після нього початкова гучність плавно відновлюється.",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ignore_lights_when_cast_active": "Коли приймач Fitness TV Cast активний, використовуйте телевізор для зворотного зв’язку тренування та не змінюйте налаштоване тренувальне освітлення."
+        }
       }
     },
     "error": {
@@ -162,7 +180,8 @@
           "ai": "Інтерпретація ШІ",
           "feedback": "Коучинг, світло та оголошення",
           "sleep_devices": "Пристрої сну",
-          "sensor_assignments": "Призначення датчиків"
+          "sensor_assignments": "Призначення датчиків",
+          "tv_dashboard": "Панель Fitness TV"
         }
       },
       "profile": {
@@ -185,7 +204,7 @@
       },
       "fitness_inputs": {
         "title": "Дані фітнесу та початкові значення",
-        "description": "Every field accepts one numeric value OR one Home Assistant entity ID. Weight and resting heart rate are required.",
+        "description": "Кожне поле приймає числове значення або сумісну сутність. Обов’язковою є лише вага; пульс у спокої та інші фізіологічні дані необов’язкові й можуть бути додані або видалені пізніше.",
         "data": {
           "weight": "Вага (кг або сутність)",
           "resting_hr": "Пульс у спокої (bpm або сутність)",
@@ -208,11 +227,11 @@
         }
       },
       "live_devices": {
-        "title": "Live workout sensors",
-        "description": "Select the physical sensors this Fitness profile may use. Native sensors come from the enabled Bluetooth and ANT+ adapter modules. Optional compatible Home Assistant live devices can also be used.",
+        "title": "Датчики тренування наживо",
+        "description": "Виберіть фізичні датчики, які може використовувати цей профіль Fitness. Нативні датчики надходять з увімкнених модулів Bluetooth і ANT+. Також можна вибрати сумісні пристрої Home Assistant для даних наживо.",
         "data": {
-          "live_sensor_ids": "Local fitness sensors",
-          "live_device_ids": "Other Home Assistant live devices"
+          "live_sensor_ids": "Локальні датчики Fitness",
+          "live_device_ids": "Інші пристрої Home Assistant для даних наживо"
         },
         "data_description": {
           "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
@@ -235,14 +254,14 @@
       },
       "ai": {
         "title": "Інтерпретація ШІ",
-        "description": "Choose a specific AI Task / LLM or leave empty to use Home Assistant's preferred/default AI Task.",
+        "description": "За замовчуванням вибрано системне AI Task Home Assistant. Fitness автоматично слідує поточному системному вибору; обирайте конкретне AI Task або розмовного агента лише якщо хочете закріпити його.",
         "data": {
           "ai_enabled": "Generate AI fitness assessments",
-          "ai_entity": "AI Task / LLM entity"
+          "ai_entity": "Постачальник ШІ"
         },
         "data_description": {
           "ai_enabled": "Вмикає AI-інтерпретацію детермінованих розрахунків. AI ніколи не визначає й не змінює наукові формули або метадані сенсорів.",
-          "ai_entity": "AI Task або розмовний агент для коучингу/оцінки. AI і TTS серіалізовані та не перекриваються."
+          "ai_entity": "Використовуйте системне AI Task Home Assistant, щоб автоматично слідувати системному вибору, або закріпіть конкретне AI Task / розмовного агента. Якщо закріплений постачальник стане недоступним, Fitness повідомить вас і тимчасово використає системний варіант."
         }
       },
       "feedback": {
@@ -296,6 +315,24 @@
         "data_description": {
           "fitness_profile_ids": "Датчик можна призначити кільком профілям для майбутнього використання. Вимірювання не передаються одночасно: один фізичний датчик обслуговує лише одного власника тренування."
         }
+      },
+      "tv_dashboard": {
+        "title": "Панель Fitness TV",
+        "description": "Налаштуйте додаткову повноекранну панель Fitness TV. Fitness має власний браузерний аудіошар для музики та приглушення TTS.",
+        "data": {
+          "tv_dashboard_enabled": "Увімкнути панель Fitness TV",
+          "tv_dashboard_media_player_id": "ТВ / медіаплеєр Cast",
+          "tv_dashboard_ducking_percent": "Гучність музики під час TTS",
+          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ignore_lights_when_cast_active": "Не використовувати тренувальне освітлення під час активного TV Cast"
+        },
+        "data_description": {
+          "tv_dashboard_enabled": "Автоматично показує повноекранну панель Fitness TV на початку тренування. Музика й TTS відтворюються всередині панелі, тому представлення Cast залишається відкритим.",
+          "tv_dashboard_media_player_id": "Медіаплеєр Google Cast, на якому має відображатися панель Fitness TV. Fitness не надсилає музику панелі чи TTS безпосередньо на цей медіаплеєр.",
+          "tv_dashboard_ducking_percent": "Відсоток поточної гучності музики, що зберігається під час голосового повідомлення TTS. Після нього початкова гучність плавно відновлюється.",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ignore_lights_when_cast_active": "Коли приймач Fitness TV Cast активний, використовуйте телевізор для зворотного зв’язку тренування та не змінюйте налаштоване тренувальне освітлення."
+        }
       }
     },
     "abort": {
@@ -321,6 +358,13 @@
           "source_integration": {
             "name": "Вихідна інтеграція"
           }
+        },
+        "state": {
+          "idle": "Бездіяльність",
+          "waiting_for_live_data": "Очікування даних наживо",
+          "active": "Активна",
+          "paused": "На паузі",
+          "recovery": "Відновлення"
         }
       },
       "session_duration": {
@@ -3128,7 +3172,7 @@
         "female": "Жінка",
         "male": "Чоловік",
         "other": "Інше",
-        "prefer_not_to_say": "Вважаю за краще не вказувати"
+        "prefer_not_to_say": "Інше / Вважаю за краще не вказувати"
       }
     },
     "birth_month": {
@@ -3172,6 +3216,84 @@
     },
     "bluetooth_adapter": {
       "name": "Bluetooth Adapter"
+    }
+  },
+  "issues": {
+    "ai_provider_unavailable": {
+      "title": "Вибраний постачальник ШІ Fitness недоступний",
+      "description": "Fitness налаштовано на використання `{entity_id}`, але цей постачальник зараз недоступний. Fitness тимчасово використовує системне AI Task Home Assistant і автоматично повернеться до вибраного постачальника, коли він знову стане доступним. Постачальника ШІ також можна змінити в параметрах Fitness."
+    }
+  },
+  "services": {
+    "cast_tv_dashboard": {
+      "name": "Показати панель Fitness TV",
+      "description": "Показує цей профіль Fitness на налаштованому телевізорі Cast.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Профіль Fitness",
+          "description": "Профіль Fitness для показу на телевізорі."
+        },
+        "entity_id": {
+          "name": "Ціль Cast",
+          "description": "Необов’язковий медіаплеєр Google Cast. Якщо не вказано, використовується налаштований ТВ профілю."
+        }
+      }
+    },
+    "start_tv_workout": {
+      "name": "Запустити тренування Fitness TV",
+      "description": "Готує TV профілю, відновлює та відтворює останню вибрану музику, якщо вона є, а потім запускає тренування Fitness.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Профіль Fitness",
+          "description": "Профіль для запуску на Fitness TV."
+        },
+        "entity_id": {
+          "name": "Ціль Cast",
+          "description": "Необов’язковий медіаплеєр Google Cast. Якщо не вказано, використовується налаштований TV профілю."
+        }
+      }
+    },
+    "stop_tv_dashboard": {
+      "name": "Зупинити Cast Fitness TV",
+      "description": "Зупиняє приймач Home Assistant/Fitness Cast на ТВ профілю, не вимикаючи телевізор.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Профіль Fitness",
+          "description": "Профіль Fitness, трансляцію TV якого потрібно зупинити."
+        },
+        "entity_id": {
+          "name": "Ціль Cast",
+          "description": "Необов’язковий медіаплеєр Google Cast. Якщо не вказано, використовується налаштований ТВ профілю."
+        }
+      }
+    },
+    "test_tts": {
+      "name": "Тест TTS Fitness",
+      "description": "Відтворює тестове оголошення через той самий профільний маршрут TTS, який використовує Fitness.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Профіль Fitness",
+          "description": "Профіль для перевірки маршрутизації TTS."
+        },
+        "message": {
+          "name": "Тестове повідомлення",
+          "description": "Необов’язковий текст. Залиште порожнім для локалізованого тестового повідомлення."
+        }
+      }
+    },
+    "ai_tts": {
+      "name": "AI-запит у TTS Fitness",
+      "description": "Надсилає запит через налаштованого для профілю AI-провайдера та озвучує результат тим самим профільним маршрутом TTS/TV, що й Fitness.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Профіль Fitness",
+          "description": "Профіль, чиї налаштування AI, мови, TTS, TV та резервного виводу буде використано."
+        },
+        "prompt": {
+          "name": "AI-запит",
+          "description": "Запит для AI-провайдера."
+        }
+      }
     }
   }
 }

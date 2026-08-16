@@ -32,7 +32,11 @@ def test_readme_has_science_and_health_boundaries():
     assert "[LICENSE](LICENSE)" in README
 
 
-def test_changelog_keeps_2026_8_10_and_documents_2026_8_11():
-    assert "## 2026.8.10 — Recovery, readiness & personal context" in CHANGELOG
-    assert "## 2026.8.11 — Unified workout calendar & historical reconciliation" in CHANGELOG
+def test_changelog_is_unreleased_until_first_public_release():
+    assert "## Unreleased" in CHANGELOG
+    assert "has **not had a public release yet**" in CHANGELOG
+    assert "`YYYY.MM.RR-betaXX`" in CHANGELOG
+    assert "`YYYY.MM.RR`" in CHANGELOG
+    assert "### Internal development checkpoint: 2026.8.10" in CHANGELOG
+    assert "### Internal development checkpoint: 2026.8.11" in CHANGELOG
     assert "[Science & methods](docs/SCIENCE.md)" in CHANGELOG

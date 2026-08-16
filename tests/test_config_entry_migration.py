@@ -10,9 +10,9 @@ FLOW = (
 
 
 def test_migration_handler_exists_for_config_flow_version():
-    assert "VERSION = 12" in FLOW
+    assert "VERSION = 13" in FLOW
     assert "async def async_migrate_entry(" in INIT
-    assert "version=12" in INIT
+    assert "version=13" in INIT
 
 
 def test_migration_adds_language_only_when_missing():
@@ -38,5 +38,5 @@ def test_migration_preserves_existing_options_and_data():
 
 
 def test_future_unknown_entry_version_is_rejected():
-    assert "if config_entry.version > 12:" in INIT
+    assert "if config_entry.version > 13:" in INIT
     assert "return False" in INIT

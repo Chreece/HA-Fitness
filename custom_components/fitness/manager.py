@@ -14,11 +14,12 @@ from zoneinfo import ZoneInfo
 
 from homeassistant.components.media_player import MediaPlayerEntityFeature
 from homeassistant.core import HomeAssistant, Event, callback
-from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, STATE_UNAVAILABLE
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
 
@@ -27,12 +28,19 @@ from .live import get_live_runtime
 from .const import (
     CONF_AI_ENABLED,
     CONF_AI_ENTITY,
+    AI_ENTITY_SYSTEM_DEFAULT,
     CONF_FEEDBACK_AREA_IDS,
     CONF_FEEDBACK_LIGHT_IDS,
     CONF_LANGUAGE,
     CONF_NOTIFY_ENTITY_IDS,
     CONF_TTS_ENTITY_ID,
     CONF_TTS_MEDIA_PLAYER_IDS,
+    CONF_TV_DASHBOARD_ENABLED,
+    CONF_TV_MEDIA_PLAYER_ID,
+    CONF_TV_DUCKING_PERCENT,
+    CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+    DEFAULT_TV_DUCKING_PERCENT,
+    DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
     CONF_DATE_OF_BIRTH,
     CONF_DETAILED_STRENGTH_ANALYSIS,
     CONF_WORKOUT_RETENTION_DAYS,
@@ -121,6 +129,7 @@ from .providers.sleep_adapters.registry import (
 )
 from .providers.sleep_adapters.sleep_as_android import record_from_event_history, records_from_event_history
 from .strength import analyze_strength
+from .tv_dashboard import get_tv_dashboard_hub
 from .providers.workouts import (
     Workout,
     FITNESS_CALCULATED_SOURCE,
@@ -136,6 +145,25 @@ from .providers.workouts import (
 
 
 _LOGGER = logging.getLogger(__name__)
+
+_TTS_TEST_MESSAGES = {
+    "en": "Fitness TTS test. The music should become quieter while I am speaking, then return to normal.",
+    "de": "Fitness-TTS-Test. Die Musik sollte leiser werden, während ich spreche, und danach wieder normal laut sein.",
+    "el": "Δοκιμή TTS του Fitness. Η μουσική πρέπει να χαμηλώσει όσο μιλάω και μετά να επιστρέψει στην κανονική ένταση.",
+    "es": "Prueba de TTS de Fitness. La música debería bajar mientras hablo y volver después a su volumen normal.",
+    "fr": "Test TTS Fitness. La musique doit baisser pendant que je parle, puis revenir à son volume normal.",
+    "it": "Test TTS Fitness. La musica dovrebbe abbassarsi mentre parlo e poi tornare al volume normale.",
+    "pt": "Teste de TTS do Fitness. A música deve baixar enquanto falo e depois voltar ao volume normal.",
+    "nl": "Fitness TTS-test. De muziek moet zachter worden terwijl ik spreek en daarna terugkeren naar het normale volume.",
+    "pl": "Test TTS Fitness. Muzyka powinna ściszyć się podczas komunikatu, a potem wrócić do normalnej głośności.",
+    "ru": "Тест TTS Fitness. Музыка должна стать тише, пока я говорю, а затем вернуться к обычной громкости.",
+    "uk": "Тест TTS Fitness. Музика має стати тихішою, поки я говорю, а потім повернутися до звичайної гучності.",
+    "tr": "Fitness TTS testi. Ben konuşurken müzik kısılmalı ve ardından normal ses seviyesine dönmelidir.",
+    "zh": "Fitness TTS 测试。说话时音乐应自动降低，结束后恢复正常音量。",
+    "ja": "Fitness TTS テストです。音声中は音楽が小さくなり、終了後に元の音量へ戻るはずです。",
+    "ko": "Fitness TTS 테스트입니다. 음성이 재생되는 동안 음악이 작아졌다가 끝나면 원래 음량으로 돌아가야 합니다.",
+}
+
 
 class FitnessManager:
     def __init__(self, hass: HomeAssistant, entry):
@@ -450,6 +478,15 @@ class FitnessManager:
                     self.hass, sorted(profile_only_ids), self._async_profile_source_change
                 )
             )
+
+        configured_ai = self._configured_ai_entity()
+        if self.config.get(CONF_AI_ENABLED) and configured_ai:
+            self.remove_listeners.append(
+                async_track_state_change_event(
+                    self.hass, [configured_ai], self._async_ai_provider_state_change
+                )
+            )
+        self._sync_ai_provider_issue()
 
         # Refresh the canonical completed-workout cache once after providers have
         # restored. Entity state reads from now on are cache-only.
@@ -921,6 +958,11 @@ class FitnessManager:
         self._invalidate_evaluation_cache()
         self._notify()
 
+    @callback
+    def _async_ai_provider_state_change(self, event: Event):
+        """Keep the pinned-provider repair in sync with entity availability."""
+        self._sync_ai_provider_issue()
+
     @staticmethod
     def _workout_has_real_information(
         workout: Workout | None,
@@ -1377,6 +1419,17 @@ class FitnessManager:
         media_players = list(
             self.config.get(CONF_TTS_MEDIA_PLAYER_IDS) or []
         )
+        tv_dashboard_enabled = bool(
+            self.config.get(CONF_TV_DASHBOARD_ENABLED, False)
+        )
+        tv_cast_media_player = str(
+            self.config.get(CONF_TV_MEDIA_PLAYER_ID) or ""
+        ).strip()
+        tv_dashboard_active = (
+            get_tv_dashboard_hub(self.hass).is_cast_active(self.entry.entry_id)
+            if tv_dashboard_enabled
+            else False
+        )
 
         usable_media_players = self._feedback_media_player_ids()
 
@@ -1394,7 +1447,10 @@ class FitnessManager:
             "workout_adapters": self.workout_adapter_diagnostics(),
             "feedback_enabled": bool(
                 resolved_lights
-                or (tts_available and usable_media_players)
+                or (
+                    tts_available
+                    and (usable_media_players or tv_dashboard_enabled)
+                )
             ),
             "session_active": self.session_active,
             "configured_feedback_areas": selected_areas,
@@ -1406,6 +1462,15 @@ class FitnessManager:
             "tts_available": tts_available,
             "tts_media_players": media_players,
             "usable_tts_media_players": usable_media_players,
+            "tv_dashboard_enabled": tv_dashboard_enabled,
+            "tv_dashboard_active": tv_dashboard_active,
+            "tv_cast_media_player": tv_cast_media_player or None,
+            "tv_ducking_percent": int(
+                self.config.get(
+                    CONF_TV_DUCKING_PERCENT,
+                    DEFAULT_TV_DUCKING_PERCENT,
+                )
+            ),
             "media_players_require_media_play": True,
             "last_feedback_intensity": self.last_feedback_intensity,
             "last_feedback_time": self.last_feedback_time,
@@ -1456,6 +1521,24 @@ class FitnessManager:
             ),
         }
 
+    def _tv_cast_suppresses_feedback_lights(self) -> bool:
+        """Return whether an active Fitness Cast receiver replaces light feedback."""
+        if not bool(
+            self.config.get(
+                CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+                DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+            )
+        ):
+            return False
+        try:
+            from .tv_dashboard import get_tv_dashboard_hub  # noqa: PLC0415
+
+            return get_tv_dashboard_hub(self.hass).is_any_cast_active(
+                self.entry.entry_id
+            )
+        except Exception:  # noqa: BLE001 - light feedback must remain fail-safe
+            return False
+
     def _feedback_light_ids(self) -> list[str]:
         """Resolve intensity lights from the selected Workout room.
 
@@ -1464,7 +1547,13 @@ class FitnessManager:
         - configured lights with NO area remain global and are also used
         - configured lights assigned to another area are replaced by the
           selected room's lights
+        - when the TV option is enabled and a confirmed Fitness Cast receiver
+          is alive, the TV replaces optical light feedback completely
         """
+        if self._tv_cast_suppresses_feedback_lights():
+            self.last_feedback_light_result = "suppressed_by_tv_cast"
+            return []
+
         configured_explicit = set(
             self.config.get(CONF_FEEDBACK_LIGHT_IDS) or []
         )
@@ -2479,6 +2568,17 @@ class FitnessManager:
             and entity_id.startswith("media_player.")
         }
 
+        # Never send TTS directly to the Cast media_player that owns the Fitness
+        # TV dashboard. media_player.play_media would launch a media receiver and
+        # replace the Home Assistant Cast app. TV TTS is rendered in-browser by
+        # Fitness instead, where it can duck the music without losing the view.
+        protected_tv_target = ""
+        if self.config.get(CONF_TV_DASHBOARD_ENABLED):
+            protected_tv_target = str(
+                self.config.get(CONF_TV_MEDIA_PLAYER_ID) or ""
+            ).strip()
+            configured.discard(protected_tv_target)
+
         candidates: set[str] = set()
         selected = self.selected_feedback_area_id
         needs_room_replacement = False
@@ -2507,6 +2607,8 @@ class FitnessManager:
         usable = []
 
         for entity_id in candidates:
+            if protected_tv_target and entity_id == protected_tv_target:
+                continue
             state = self.hass.states.get(entity_id)
             if (
                 state is None
@@ -2577,6 +2679,121 @@ class FitnessManager:
 
             await asyncio.sleep(0.1)
 
+    async def async_cast_tv_dashboard(self, media_player: str | None = None) -> bool:
+        """Cast the full-screen Fitness TV dashboard and verify the receiver."""
+        if not self.config.get(CONF_TV_DASHBOARD_ENABLED):
+            return False
+        from .dashboard import async_cast_tv_dashboard  # noqa: PLC0415
+
+        try:
+            cast_ok = await async_cast_tv_dashboard(
+                self.hass, self.entry, media_player_override=media_player,
+            )
+            if cast_ok:
+                # A successful TV handoff is a playback destination change, not
+                # a pause. Resume the persisted track/playlist selection and its
+                # saved position automatically on the fresh receiver.
+                from .tv_dashboard import get_tv_dashboard_hub  # noqa: PLC0415
+
+                await get_tv_dashboard_hub(self.hass).async_play_last_media(
+                    self.entry.entry_id, timeout=8.0
+                )
+            return cast_ok
+        except Exception:  # noqa: BLE001 - Cast failure must never break a workout
+            _LOGGER.exception(
+                "Unable to cast Fitness TV dashboard for profile %s",
+                self.entry.entry_id,
+            )
+            return False
+
+    async def async_start_tv_workout(self, media_player: str | None = None) -> dict[str, object]:
+        """Cast Fitness TV, restore the last music selection, then arm workout capture."""
+        cast_ok = await self.async_cast_tv_dashboard(media_player)
+        if not cast_ok:
+            return {
+                "cast": False,
+                "music_available": False,
+                "music_playing": False,
+                "music_error": False,
+                "workout_started": False,
+            }
+
+        from .tv_dashboard import get_tv_dashboard_hub  # noqa: PLC0415
+
+        music_state = get_tv_dashboard_hub(self.hass).media_state(self.entry.entry_id)
+        music = {
+            "available": bool(str(music_state.get("media_content_id") or "").strip()),
+            "playing": bool(music_state.get("playing")),
+            "error": bool(music_state.get("error")),
+        }
+        # Music is convenience, never a prerequisite for workout capture. A
+        # dead/unsupported station must not prevent the user from training.
+        if not (self.session_active or self.session_armed):
+            await self.async_start_session()
+        return {
+            "cast": True,
+            "music_available": bool(music.get("available")),
+            "music_playing": bool(music.get("playing")),
+            "music_error": bool(music.get("error")),
+            "workout_started": bool(self.session_active or self.session_armed),
+        }
+
+    async def async_stop_tv_dashboard(self, media_player: str | None = None) -> bool:
+        """Stop only the Home Assistant/Fitness Cast receiver on the TV."""
+        from .dashboard import async_stop_tv_dashboard  # noqa: PLC0415
+
+        try:
+            return await async_stop_tv_dashboard(
+                self.hass, self.entry, media_player_override=media_player,
+            )
+        except Exception:  # noqa: BLE001 - a Cast stop failure must stay isolated
+            _LOGGER.exception(
+                "Unable to stop Fitness TV Cast for profile %s",
+                self.entry.entry_id,
+            )
+            return False
+
+    async def async_test_tts(self, message: str | None = None) -> str | None:
+        """Play a test through the same profile-aware TTS route as Fitness."""
+        language = self._ai_language()
+        spoken = str(message or "").strip() or _TTS_TEST_MESSAGES.get(
+            language, _TTS_TEST_MESSAGES["en"]
+        )
+        self.last_feedback_message = spoken
+        await self._async_speak(spoken)
+        self._notify()
+        return self.last_feedback_tts_result
+
+    async def async_ai_tts(self, prompt: str) -> str | None:
+        """Generate profile-aware AI text and speak it through profile TTS routing."""
+        prompt = str(prompt or "").strip()
+        if not prompt:
+            return "no_prompt"
+        if not self.config.get(CONF_AI_ENABLED):
+            return "ai_disabled"
+
+        strings = self._prompt_strings()
+        guarded_prompt = (
+            f"Reply only in {strings['language']}. "
+            "Return only the text that should be spoken aloud; do not include markdown, headings, or meta commentary.\n\n"
+            + prompt
+        )
+        spoken = await self._call_ai_with_language_guard(
+            guarded_prompt,
+            f"Fitness spoken prompt {self.config.get(CONF_PROFILE_NAME)}",
+        )
+        if not spoken:
+            return "ai_failed"
+
+        spoken = " ".join(str(spoken).split()).strip()
+        if not spoken:
+            return "ai_failed"
+
+        self.last_feedback_message = spoken
+        await self._async_speak(spoken)
+        self._notify()
+        return self.last_feedback_tts_result
+
     async def _async_speak(self, message: str):
         """Speak one Fitness message at a time and wait for playback to end."""
         async with self._tts_playback_lock:
@@ -2600,17 +2817,54 @@ class FitnessManager:
                 self.last_feedback_tts_result = "tts_entity_unavailable"
                 return
 
+            language = self._tts_language_for_entity(tts_entity)
+            tv_enabled = bool(self.config.get(CONF_TV_DASHBOARD_ENABLED, False))
+            if tv_enabled:
+                hub = get_tv_dashboard_hub(self.hass)
+                # Any confirmed live Fitness Cast receiver (HA-server Cast or
+                # browser-local Cast) overrides this profile's configured
+                # announcement speakers. A normal laptop Fitness TV tab must
+                # never steal TTS just because it is open.
+                if hub.is_any_cast_active(self.entry.entry_id):
+                    self.last_feedback_tts_result = "tv_playing"
+                    self._notify()
+                    try:
+                        tv_success = await hub.async_speak(
+                            self.entry.entry_id,
+                            message=message,
+                            tts_entity=tts_entity,
+                            language=language,
+                            ducking_percent=int(
+                                self.config.get(
+                                    CONF_TV_DUCKING_PERCENT,
+                                    DEFAULT_TV_DUCKING_PERCENT,
+                                )
+                            ),
+                        )
+                    except Exception:  # noqa: BLE001 - fall back to non-TV targets
+                        _LOGGER.exception(
+                            "Fitness TV TTS failed for profile %s",
+                            self.entry.entry_id,
+                        )
+                        tv_success = False
+                    if tv_success:
+                        self.last_feedback_tts_result = "tv_success"
+                        self._notify()
+                        return
+
             media_players = self._feedback_media_player_ids()
 
             if not media_players:
-                self.last_feedback_tts_result = "no_usable_media_players"
+                self.last_feedback_tts_result = (
+                    "tv_dashboard_inactive" if tv_enabled
+                    else "no_usable_media_players"
+                )
                 return
 
             if not self.hass.services.has_service("tts", "speak"):
                 self.last_feedback_tts_result = "tts_service_missing"
                 return
 
-            language = self._tts_language_for_entity(tts_entity)
             success = 0
             failed = 0
             successful_players: list[str] = []
@@ -3000,7 +3254,7 @@ class FitnessManager:
         announcement_event: str = "live_available",
     ) -> None:
         """Convert armed capture into active timing on first valid live data."""
-        if not self.session_armed or self.session_active:
+        if not self.session_armed or self.session_active or self.session_paused:
             return
 
         self.session_armed = False
@@ -3088,6 +3342,7 @@ class FitnessManager:
             sensors=self._available_live_source_names(),
         )
         self._notify()
+        self._notify_live()
 
     def _capture_sample(self, *, force: bool = False) -> bool:
         """Capture at most one canonical active-workout sample per second.
@@ -3166,6 +3421,23 @@ class FitnessManager:
         self.last_feedback_tts_result = None
         self.last_feedback_message = None
 
+        # Publish the armed/waiting state before any potentially slow live
+        # transport preparation.  The UI and native button availability must
+        # change immediately when Start is pressed, even if a BLE/ANT+ source
+        # takes seconds to become ready.
+        self._queue_session_status_waiting_red()
+        self._notify()
+        self._notify_live()
+
+        if self.config.get(CONF_TV_DASHBOARD_ENABLED):
+            # Casting is UI work and must never delay workout capture. Do not
+            # restart a receiver that was already prepared by the one-touch
+            # Fitness TV workout flow.
+            from .tv_dashboard import get_tv_dashboard_hub  # noqa: PLC0415
+
+            if not get_tv_dashboard_hub(self.hass).is_cast_active(self.entry.entry_id):
+                self.hass.async_create_task(self.async_cast_tv_dashboard())
+
         self.capture_control = await get_live_runtime(self.hass).async_prepare_session(self.entry)
 
         # If usable data already exists after capture is enabled, timing can
@@ -3175,13 +3447,24 @@ class FitnessManager:
                 announcement_event="started_with_live",
             )
         else:
-            self._queue_session_status_waiting_red()
             self._queue_session_guidance("waiting_live")
             self._notify()
+            self._notify_live()
 
     async def async_pause_session(self):
-        """Pause Fitness consumption while leaving live source capture running."""
-        if not self.session_active or self.session_paused:
+        """Pause an active workout or an armed workout waiting for live data."""
+        if self.session_paused or not (self.session_active or self.session_armed):
+            return
+
+        # An armed session has not started timing yet. Keep it armed, but block
+        # first-live-data activation until Resume is pressed.
+        if self.session_armed and not self.session_active:
+            self.session_paused = True
+            if self._feedback_scene_active:
+                await self._async_restore_feedback_lights(clear_snapshot=True)
+            self._queue_session_guidance("paused")
+            self._notify()
+            self._notify_live()
             return
 
         # Capture the final active point before the exclusion window starts.
@@ -3231,8 +3514,19 @@ class FitnessManager:
         self._notify_live()
 
     async def async_resume_session(self):
-        """Resume workout calculations after a paused exclusion window."""
-        if not self.session_active or not self.session_paused:
+        """Resume an active pause or an armed session paused before live data."""
+        if not self.session_paused or not (self.session_active or self.session_armed):
+            return
+
+        if self.session_armed and not self.session_active:
+            self.session_paused = False
+            if self._has_valid_live_workout_data():
+                self._begin_session_from_live_data(announcement_event="started_with_live")
+            else:
+                self._queue_session_status_waiting_red()
+                self._queue_session_guidance("waiting_live")
+                self._notify()
+                self._notify_live()
             return
 
         now = datetime.now(timezone.utc)
@@ -3298,6 +3592,7 @@ class FitnessManager:
         """Stop workout timing; optionally keep capture for 120 s HR recovery."""
         if self.session_armed and not self.session_active:
             self.session_armed = False
+            self.session_paused = False
             self._session_intensity_max_hr = None
             self._session_intensity_resting_hr = None
             self._candidate_live_intensity = None
@@ -3312,6 +3607,7 @@ class FitnessManager:
 
             self._queue_session_guidance("stopped_without_live")
             self._notify()
+            self._notify_live()
             return
 
         if not self.session_active:
@@ -3356,6 +3652,7 @@ class FitnessManager:
             await self._save()
             self._notify_workout_history()
         self._notify()
+        self._notify_live()
 
         # HR recovery requires post-exercise HR samples. Keep ANT capture alive
         # for up to two minutes when HR was present at workout end.
@@ -3541,7 +3838,7 @@ class FitnessManager:
         )
 
     def session_status(self) -> str:
-        if self.session_active and self.session_paused:
+        if self.session_paused and (self.session_active or self.session_armed):
             return "paused"
         if self.session_active:
             return "active"
@@ -6558,6 +6855,128 @@ class FitnessManager:
             + self._bounded_ai_json(evaluation, max_bytes=9000)
         )
 
+    def _configured_ai_entity(self) -> str | None:
+        """Return a pinned AI provider, or None to follow Home Assistant."""
+        entity = str(self.config.get(CONF_AI_ENTITY) or "").strip()
+        if not entity or entity == AI_ENTITY_SYSTEM_DEFAULT:
+            return None
+        return entity
+
+    def _ai_provider_available(self, entity_id: str) -> bool:
+        """Return whether a pinned AI provider currently exists and is available."""
+        state = self.hass.states.get(entity_id)
+        return state is not None and state.state != STATE_UNAVAILABLE
+
+    @property
+    def _ai_provider_issue_id(self) -> str:
+        return f"ai_provider_unavailable_{self.entry.entry_id}"
+
+    def _report_ai_provider_unavailable(self, entity_id: str) -> None:
+        """Tell the user that Fitness temporarily fell back to the HA default."""
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            self._ai_provider_issue_id,
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="ai_provider_unavailable",
+            translation_placeholders={"entity_id": entity_id},
+        )
+
+    def _clear_ai_provider_issue(self) -> None:
+        ir.async_delete_issue(
+            self.hass,
+            DOMAIN,
+            self._ai_provider_issue_id,
+        )
+
+    def _sync_ai_provider_issue(self) -> None:
+        """Reflect the configured provider's availability in Repairs."""
+        if not self.config.get(CONF_AI_ENABLED):
+            self._clear_ai_provider_issue()
+            return
+        entity_id = self._configured_ai_entity()
+        if entity_id is None or self._ai_provider_available(entity_id):
+            self._clear_ai_provider_issue()
+            return
+        self._report_ai_provider_unavailable(entity_id)
+
+    async def _call_ai_task_service(
+        self,
+        prompt: str,
+        task_name: str,
+        entity_id: str | None = None,
+    ) -> str | None:
+        """Call AI Task; omitting entity_id follows Home Assistant preferences."""
+        if not self.hass.services.has_service("ai_task", "generate_data"):
+            return None
+
+        service_data = {
+            "task_name": task_name,
+            "instructions": prompt,
+        }
+        if entity_id:
+            service_data["entity_id"] = entity_id
+
+        try:
+            response = await self.hass.services.async_call(
+                "ai_task",
+                "generate_data",
+                service_data,
+                blocking=True,
+                return_response=True,
+            )
+            if isinstance(response, dict):
+                data = response.get("data")
+                if isinstance(data, str):
+                    return data.strip()
+                if data is not None:
+                    return json.dumps(
+                        data,
+                        ensure_ascii=False,
+                        default=str,
+                    )
+        except Exception as err:
+            _LOGGER.warning(
+                "Fitness AI Task generation failed for %s: %s",
+                task_name,
+                err,
+            )
+        return None
+
+    async def _call_conversation_service(
+        self,
+        prompt: str,
+        task_name: str,
+        entity_id: str,
+    ) -> str | None:
+        """Call an explicitly pinned conversation agent."""
+        if not self.hass.services.has_service("conversation", "process"):
+            return None
+        try:
+            response = await self.hass.services.async_call(
+                "conversation",
+                "process",
+                {"text": prompt, "agent_id": entity_id},
+                blocking=True,
+                return_response=True,
+            )
+            if isinstance(response, dict):
+                speech = (
+                    response.get("response", {})
+                    .get("speech", {})
+                    .get("plain", {})
+                    .get("speech")
+                )
+                return speech or None
+        except Exception as err:
+            _LOGGER.warning(
+                "Fitness conversation AI generation failed for %s: %s",
+                task_name,
+                err,
+            )
+        return None
+
     async def _call_ai(self, prompt: str, task_name: str) -> str | None:
         """Serialize AI and prevent overlap with audible Fitness TTS."""
         async with self._ai_lock:
@@ -6565,73 +6984,50 @@ class FitnessManager:
                 return await self._call_ai_unlocked(prompt, task_name)
 
     async def _call_ai_unlocked(self, prompt: str, task_name: str) -> str | None:
-        entity = str(self.config.get(CONF_AI_ENTITY) or "").strip() or None
+        configured_entity = self._configured_ai_entity()
 
-        # Preferred path: Home Assistant AI Task.
-        #
-        # ai_task.generate_data does NOT support an action target. A specific
-        # AI Task is supplied with entity_id in the action data. If entity_id
-        # is omitted Home Assistant uses the preferred/default AI Task entity.
-        if self.hass.services.has_service("ai_task", "generate_data"):
-            service_data = {
-                "task_name": task_name,
-                "instructions": prompt,
-            }
-            if entity and entity.startswith("ai_task."):
-                service_data["entity_id"] = entity
+        # Default mode deliberately omits entity_id. Home Assistant resolves its
+        # preferred data-generation AI Task at call time, so changing the system
+        # default automatically changes Fitness without editing this config entry.
+        if configured_entity is None:
+            self._clear_ai_provider_issue()
+            return await self._call_ai_task_service(prompt, task_name)
 
-            try:
-                response = await self.hass.services.async_call(
-                    "ai_task",
-                    "generate_data",
-                    service_data,
-                    blocking=True,
-                    return_response=True,
-                )
-                if isinstance(response, dict):
-                    data = response.get("data")
-                    if isinstance(data, str):
-                        return data.strip()
-                    if data is not None:
-                        return json.dumps(
-                            data,
-                            ensure_ascii=False,
-                            default=str,
-                        )
-            except Exception as err:
-                _LOGGER.warning(
-                    "Fitness AI Task generation failed for %s: %s",
-                    task_name,
-                    err,
-                )
+        # A pinned provider that disappears must not silently disable AI. Surface
+        # one Repairs warning and temporarily follow Home Assistant's default AI
+        # Task. The pinned choice remains stored and is used again when available.
+        if not self._ai_provider_available(configured_entity):
+            self._report_ai_provider_unavailable(configured_entity)
+            return await self._call_ai_task_service(prompt, task_name)
 
-        # Optional fallback for users who explicitly point Fitness at a
-        # conversation/LLM agent rather than an AI Task entity.
-        if entity and entity.startswith("conversation.") and self.hass.services.has_service(
-            "conversation", "process"
-        ):
-            try:
-                response = await self.hass.services.async_call(
-                    "conversation",
-                    "process",
-                    {"text": prompt, "agent_id": entity},
-                    blocking=True,
-                    return_response=True,
-                )
-                if isinstance(response, dict):
-                    speech = (
-                        response.get("response", {})
-                        .get("speech", {})
-                        .get("plain", {})
-                        .get("speech")
-                    )
-                    return speech or None
-            except Exception as err:
-                _LOGGER.warning(
-                    "Fitness conversation AI generation failed for %s: %s",
-                    task_name,
-                    err,
-                )
+        self._clear_ai_provider_issue()
+
+        if configured_entity.startswith("conversation."):
+            result = await self._call_conversation_service(
+                prompt,
+                task_name,
+                configured_entity,
+            )
+        elif configured_entity.startswith("ai_task."):
+            result = await self._call_ai_task_service(
+                prompt,
+                task_name,
+                configured_entity,
+            )
+        else:
+            # Defensive migration fallback for a stale/unsupported stored value.
+            self._report_ai_provider_unavailable(configured_entity)
+            return await self._call_ai_task_service(prompt, task_name)
+
+        if result is not None:
+            return result
+
+        # Handle a provider being removed or becoming unavailable between the
+        # preflight state check and the service call. Do not mask ordinary model
+        # errors by switching providers when the selected entity is still alive.
+        if not self._ai_provider_available(configured_entity):
+            self._report_ai_provider_unavailable(configured_entity)
+            return await self._call_ai_task_service(prompt, task_name)
 
         return None
 
