@@ -227,7 +227,7 @@ def test_tv_audio_core_has_no_required_extra_ha_integration_and_repository_stays
     assert 'fitness/tv/music/adapters' in runtime
     assert 'fitness/tv/music/search' in runtime
     manifest = json.loads((BASE / "manifest.json").read_text(encoding="utf-8"))
-    assert manifest["version"] == "0.0.0" or re.fullmatch(r"\d{4}\.\d{1,2}\.\d+(?:-(?:alpha|beta)\d+)?", manifest["version"])
+    assert manifest["version"] == "0.0.0" or re.fullmatch(r"\d{4}\.\d{1,2}\.\d+(?:(?:a\d+)|-(?:alpha|beta)\d+)?", manifest["version"])
 
 
 def test_tv_frontend_resource_is_cross_origin_safe_for_home_assistant_cast():

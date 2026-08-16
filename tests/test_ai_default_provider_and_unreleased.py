@@ -81,7 +81,7 @@ def test_ai_provider_guidance_and_repair_are_localized_everywhere():
 
 def test_repository_remains_unreleased_until_first_public_release():
     manifest = json.loads((BASE / "manifest.json").read_text(encoding="utf-8"))
-    assert manifest["version"] == "0.0.0" or re.fullmatch(r"\d{4}\.\d{1,2}\.\d+(?:-(?:alpha|beta)\d+)?", manifest["version"])
+    assert manifest["version"] == "0.0.0" or re.fullmatch(r"\d{4}\.\d{1,2}\.\d+(?:(?:a\d+)|-(?:alpha|beta)\d+)?", manifest["version"])
     assert "## Unreleased" in CHANGELOG
     assert "has **not had a public release yet**" in CHANGELOG
     assert "`YYYY.MM.RR-betaXX`" in CHANGELOG

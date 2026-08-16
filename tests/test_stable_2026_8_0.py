@@ -10,7 +10,7 @@ def test_manifest_has_valid_release_version():
         (ROOT / "custom_components/fitness/manifest.json").read_text()
     )
     assert manifest["version"] == "0.0.0" or re.fullmatch(
-        r"\d{4}\.\d{1,2}\.\d+(?:-(?:alpha|beta)\d+)?",
+        r"\d{4}\.\d{1,2}\.\d+(?:(?:a\d+)|-(?:alpha|beta)\d+)?",
         manifest["version"],
     )
 

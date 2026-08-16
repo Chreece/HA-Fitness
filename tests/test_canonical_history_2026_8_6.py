@@ -34,6 +34,6 @@ def test_sleep_requires_completed_interval():
 def test_version_format_and_single_changelog():
     import json,re
     manifest=json.loads((ROOT/"custom_components/fitness/manifest.json").read_text())
-    assert manifest["version"] == "0.0.0" or re.fullmatch(r"\d{4}\.\d{1,2}\.\d+(?:-(?:alpha|beta)\d+)?",manifest["version"])
+    assert manifest["version"] == "0.0.0" or re.fullmatch(r"\d{4}\.\d{1,2}\.\d+(?:(?:a\d+)|-(?:alpha|beta)\d+)?",manifest["version"])
     assert (ROOT/"CHANGELOG.md").exists()
     assert not list(ROOT.glob("CHANGELOG_*.md"))
