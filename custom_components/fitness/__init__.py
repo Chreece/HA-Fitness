@@ -1,3 +1,4 @@
+from .const import DOMAIN
 """Fitness integration."""
 
 from homeassistant.config_entries import ConfigEntry
@@ -5,6 +6,7 @@ from homeassistant.core import CoreState, HomeAssistant, ServiceCall, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.storage import Store
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+from homeassistant.helpers import config_validation as cv
 import importlib
 import voluptuous as vol
 
@@ -43,6 +45,10 @@ _DELETE_WORKOUTS_BEFORE_SCHEMA = vol.Schema(
     }
 )
 
+
+
+# This integration is configured exclusively through config entries.
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up integration-level Fitness actions."""
