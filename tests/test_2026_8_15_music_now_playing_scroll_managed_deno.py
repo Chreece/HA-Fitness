@@ -47,7 +47,7 @@ def test_settings_dialog_has_a_bounded_scroll_body_and_reachable_save_action():
     assert 'height:min(860px,calc(100dvh - 32px))' in FRONTEND
     assert '.configure-modal .profile-settings{min-height:0;overflow-y:auto' in FRONTEND
     assert 'scrollbar-gutter:stable' in FRONTEND
-    assert '.configure-modal .settings-actions{position:sticky;bottom:0' in FRONTEND
+    assert '.configure-modal>.settings-actions{flex:0 0 auto;position:relative;bottom:auto' in FRONTEND
 
 
 def test_home_assistant_manages_a_musl_compatible_node_fallback_for_ytdlp():

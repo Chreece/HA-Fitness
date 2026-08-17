@@ -13,10 +13,13 @@ from aiohttp import WSMsgType, web
 import voluptuous as vol
 
 from homeassistant.components import websocket_api
+from homeassistant.components.media_player import MediaPlayerEntityFeature
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.const import CAST_APP_ID_HOMEASSISTANT_LOVELACE
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.network import get_url
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 
@@ -46,6 +49,10 @@ from .music_adapters import (
     clamp_search_limit,
 )
 from .music.radio_browser import FITNESS_RADIO_PREFIX
+from .music.direct_url import FITNESS_URL_PREFIX
+from .music.yt_dlp import FITNESS_YTDLP_PREFIX
+from .music.youtube import FITNESS_YOUTUBE_PREFIX
+from .music.soundcloud import FITNESS_SOUNDCLOUD_PREFIX
 from .music.music_assistant import (
     FITNESS_MA_PREFIX,
     async_music_assistant_playlist,
@@ -75,6 +82,7 @@ TV_STORE_KEY = "fitness.tv_dashboard"
 TV_HUB_KEY = "_tv_dashboard_hub"
 DEFAULT_TV_SCALE_PERCENT = 70
 DEFAULT_TV_OLED_PROTECTION = False
+DEFAULT_AUDIO_OUTPUT_ID = "__fitness_browser__"
 CAST_CLIENT_STALE_SECONDS = 14.0
 CAST_STATE_GRACE_SECONDS = 5.0
 
@@ -466,6 +474,18 @@ class FitnessTVDashboardHub:
                 result["items"] = items
         return result
 
+    @staticmethod
+    def _sanitize_audio_output_id(value: Any) -> str:
+        output = str(value or DEFAULT_AUDIO_OUTPUT_ID).strip()
+        if output == DEFAULT_AUDIO_OUTPUT_ID or output.startswith("media_player."):
+            return output
+        return DEFAULT_AUDIO_OUTPUT_ID
+
+    async def async_audio_output_id(self, profile_entry_id: str) -> str:
+        """Return the persisted audio output for one Fitness profile."""
+        prefs = await self.async_preferences(profile_entry_id)
+        return self._sanitize_audio_output_id(prefs.get("audio_output_id"))
+
     async def async_preferences(self, profile_entry_id: str) -> dict[str, Any]:
         await self.async_load()
         profile = self._data["profiles"].get(profile_entry_id)
@@ -488,6 +508,8 @@ class FitnessTVDashboardHub:
             "oled_protection": bool(
                 profile.get("oled_protection", DEFAULT_TV_OLED_PROTECTION)
             ),
+            "animations_enabled": bool(profile.get("animations_enabled", True)),
+            "audio_output_id": self._sanitize_audio_output_id(profile.get("audio_output_id")),
             "music_adapters": self._sanitize_music_adapters(profile.get("music_adapters")),
             "music_adapters_configured": "music_adapters" in profile,
             "music_adapter_options": self._sanitize_music_adapter_options(profile.get("music_adapter_options")),
@@ -513,6 +535,8 @@ class FitnessTVDashboardHub:
         last_media: dict[str, Any] | None = None,
         tv_scale_percent: int | None = None,
         oled_protection: bool | None = None,
+        animations_enabled: bool | None = None,
+        audio_output_id: str | None = None,
         music_adapters: list[str] | None = None,
         music_adapter_options: dict[str, Any] | None = None,
         music_search_limit: int | None = None,
@@ -524,6 +548,7 @@ class FitnessTVDashboardHub:
         current = self._data["profiles"].get(profile_entry_id)
         if not isinstance(current, dict):
             current = {}
+        previous_audio_output = self._sanitize_audio_output_id(current.get("audio_output_id"))
         updated = dict(current)
         if cards is not None:
             updated["cards"] = self._sanitize_cards(cards)
@@ -539,6 +564,10 @@ class FitnessTVDashboardHub:
             updated["tv_scale_percent"] = max(10, min(150, int(tv_scale_percent)))
         if oled_protection is not None:
             updated["oled_protection"] = bool(oled_protection)
+        if animations_enabled is not None:
+            updated["animations_enabled"] = bool(animations_enabled)
+        if audio_output_id is not None:
+            updated["audio_output_id"] = self._sanitize_audio_output_id(audio_output_id)
         if music_adapters is not None:
             updated["music_adapters"] = self._sanitize_music_adapters(music_adapters)
         if music_adapter_options is not None:
@@ -553,6 +582,22 @@ class FitnessTVDashboardHub:
             updated["music_search_types"] = self._sanitize_music_search_types(music_search_types)
         self._data["profiles"][profile_entry_id] = updated
         await self._store.async_save(self._data)
+        next_audio_output = self._sanitize_audio_output_id(updated.get("audio_output_id"))
+        if (
+            audio_output_id is not None
+            and previous_audio_output.startswith("media_player.")
+            and previous_audio_output != next_audio_output
+            and self._audio_owner.get(profile_entry_id) == f"ha:{previous_audio_output}"
+            and self.hass.services.has_service("media_player", "media_stop")
+        ):
+            try:
+                await self.hass.services.async_call(
+                    "media_player", "media_stop", {},
+                    target={"entity_id": previous_audio_output}, blocking=True,
+                )
+            except Exception:
+                pass
+            self._audio_owner.pop(profile_entry_id, None)
         return await self.async_preferences(profile_entry_id)
 
     def heartbeat(self, profile_entry_id: str, client_id: str, *, is_cast_receiver: bool = False) -> None:
@@ -607,7 +652,7 @@ class FitnessTVDashboardHub:
                 if float(meta.get("last_seen", 0.0)) < cutoff:
                     clients.pop(client_id, None)
             owner = self._audio_owner.get(profile_id)
-            if owner and owner not in clients:
+            if owner and not str(owner).startswith("ha:") and owner not in clients:
                 self._audio_owner.pop(profile_id, None)
             ignored = self._ignored_cast_clients.get(profile_id)
             if ignored is not None:
@@ -1369,6 +1414,180 @@ class FitnessTVDashboardHub:
             "error": bool(current.get("error")),
         }
 
+    def _audio_output_platform(self, entity_id: str) -> str:
+        entry = er.async_get(self.hass).async_get(str(entity_id or ""))
+        return str(entry.platform or "") if entry is not None else ""
+
+    def _ha_output_busy_owner(
+        self, output: str, profile_entry_id: str
+    ) -> str | None:
+        """Return another profile actively owning one physical HA output."""
+        owner_token = f"ha:{output}"
+        output_state = self.hass.states.get(output)
+        output_playing = bool(output_state and output_state.state == "playing")
+        for other_profile, owner in tuple(self._audio_owner.items()):
+            if other_profile == profile_entry_id or owner != owner_token:
+                continue
+            other_playing = bool(
+                (self._media_state.get(other_profile) or {}).get("playing")
+            )
+            if output_playing and other_playing:
+                return other_profile
+            # Paused/ended/stale output ownership must not lock a shared speaker
+            # forever. The next profile to start playback becomes its owner.
+            self._audio_owner.pop(other_profile, None)
+        return None
+
+    @staticmethod
+    def _player_supports(state: Any, feature: MediaPlayerEntityFeature) -> bool:
+        if state is None:
+            return False
+        try:
+            return bool(int(state.attributes.get("supported_features", 0) or 0) & int(feature))
+        except (TypeError, ValueError):
+            return False
+
+    def _absolute_audio_url(self, value: str) -> str:
+        value = str(value or "").strip()
+        if not value or value.startswith(("http://", "https://")):
+            return value
+        if value.startswith("/"):
+            return get_url(self.hass, prefer_external=False).rstrip("/") + value
+        return value
+
+    async def _async_play_on_ha_output(
+        self, profile_entry_id: str, output: str, data: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Play one Fitness selection on a Home Assistant media_player output."""
+        state = self.hass.states.get(output)
+        if state is None or state.state in {"unavailable", "unknown"}:
+            return {"sent": False, "reason": "audio_output_unavailable"}
+        media_content_id = str(data.get("media_content_id") or "").strip()
+        if not media_content_id:
+            return {"sent": False, "reason": "no_media"}
+        if self._ha_output_busy_owner(output, profile_entry_id) is not None:
+            return {"sent": False, "reason": "audio_output_in_use"}
+
+        platform = self._audio_output_platform(output)
+        ma_managed = (
+            platform in {"music_assistant", "mass"}
+            or bool(state.attributes.get("mass_player_type"))
+        )
+        playable = media_content_id
+        ma_preferred_source = False
+
+        if media_content_id.startswith(FITNESS_MA_PREFIX):
+            playable = decode_music_assistant_media_id(media_content_id)
+            if not playable or not ma_managed:
+                return {"sent": False, "reason": "music_assistant_output_required"}
+            ma_preferred_source = True
+        elif media_content_id.startswith(
+            (FITNESS_RADIO_PREFIX, FITNESS_URL_PREFIX, FITNESS_YTDLP_PREFIX)
+        ):
+            resolved = await self.async_resolve_fitness_media(
+                media_content_id, ytdlp_enabled=True
+            )
+            if str(resolved.get("kind") or "") != "audio" or not resolved.get("url"):
+                return {"sent": False, "reason": "audio_output_source_unsupported"}
+            playable = self._absolute_audio_url(str(resolved.get("url") or ""))
+            ma_preferred_source = True
+        elif media_content_id.startswith(
+            (FITNESS_YOUTUBE_PREFIX, FITNESS_SOUNDCLOUD_PREFIX)
+        ):
+            # These adapters are browser-embed transports. Do not pretend that
+            # their page/widget identifier is a directly playable speaker URL.
+            return {"sent": False, "reason": "audio_output_source_unsupported"}
+        elif media_content_id.startswith(("http://", "https://")):
+            ma_preferred_source = True
+        elif not media_content_id.startswith("media-source://"):
+            # MA accepts provider/library URIs in addition to URLs. Prefer its
+            # richer queue/player routing for an MA-managed output, while HA
+            # media-source identifiers stay on the standard media_player path.
+            ma_preferred_source = True
+
+        try:
+            if not self._player_supports(state, MediaPlayerEntityFeature.PLAY_MEDIA):
+                return {"sent": False, "reason": "audio_output_cannot_play_media"}
+            play_payload: dict[str, Any] = {
+                "media_content_id": playable,
+                "media_content_type": "music",
+            }
+            if ma_managed and ma_preferred_source:
+                # Targeting the MA-created media_player already routes through
+                # Music Assistant. The standard HA action is more portable than
+                # depending on an MA-only custom action and still gives MA queue
+                # ownership for provider URIs/direct URLs.
+                play_payload["enqueue"] = "replace"
+            await self.hass.services.async_call(
+                "media_player",
+                "play_media",
+                play_payload,
+                target={"entity_id": output},
+                blocking=True,
+            )
+            position = self._media_seconds(data.get("position"))
+            if position > 0 and self.hass.services.has_service("media_player", "media_seek"):
+                try:
+                    await self.hass.services.async_call(
+                        "media_player",
+                        "media_seek",
+                        {"seek_position": position},
+                        target={"entity_id": output},
+                        blocking=True,
+                    )
+                except Exception:
+                    pass
+        except Exception as err:
+            return {"sent": False, "reason": "audio_output_play_failed", "details": str(err)}
+
+        self._audio_owner[profile_entry_id] = f"ha:{output}"
+        await self.async_broadcast_media_state(
+            profile_entry_id,
+            {
+                **data,
+                "media_content_id": media_content_id,
+                "playing": True,
+                "error": False,
+                "output_entity_id": output,
+            },
+        )
+        return {
+            "sent": True,
+            "playing": True,
+            "error": False,
+            "output_entity_id": output,
+        }
+
+    async def _async_control_ha_output(
+        self, profile_entry_id: str, output: str, command: str, data: dict[str, Any]
+    ) -> dict[str, Any]:
+        service = {"pause": "media_pause", "stop": "media_stop", "play": "media_play"}.get(command)
+        payload: dict[str, Any] = {}
+        if command == "play" and self._ha_output_busy_owner(output, profile_entry_id) is not None:
+            return {"sent": False, "reason": "audio_output_in_use"}
+        if command == "seek":
+            service = "media_seek"
+            payload["seek_position"] = self._media_seconds(data.get("position"))
+        if not service or not self.hass.services.has_service("media_player", service):
+            return {"sent": False, "reason": "audio_output_command_unsupported"}
+        try:
+            await self.hass.services.async_call(
+                "media_player", service, payload, target={"entity_id": output}, blocking=True
+            )
+        except Exception as err:
+            return {"sent": False, "reason": "audio_output_command_failed", "details": str(err)}
+        patch = {"output_entity_id": output}
+        if command in {"pause", "stop"}:
+            patch["playing"] = False
+            if self._audio_owner.get(profile_entry_id) == f"ha:{output}":
+                self._audio_owner.pop(profile_entry_id, None)
+        elif command == "play":
+            patch["playing"] = True
+        elif command == "seek":
+            patch["position"] = payload["seek_position"]
+        await self.async_broadcast_media_state(profile_entry_id, patch)
+        return {"sent": True, "output_entity_id": output}
+
     async def async_dispatch_media_command(
         self,
         profile_entry_id: str,
@@ -1379,6 +1598,39 @@ class FitnessTVDashboardHub:
     ) -> dict[str, Any]:
         self._prune()
         await self.async_reconcile_profile(profile_entry_id)
+        prefs = await self.async_preferences(profile_entry_id)
+        audio_output = self._sanitize_audio_output_id(prefs.get("audio_output_id"))
+        if audio_output.startswith("media_player."):
+            command_data = dict(data or {})
+            command_data.pop("await_result", None)
+            media_content_id = str(command_data.get("media_content_id") or "").strip()
+            if str(command) in {"select", "play"} and media_content_id:
+                await self.async_set_preferences(profile_entry_id, last_media={
+                    "media_content_id": media_content_id,
+                    "title": str(command_data.get("title") or media_content_id),
+                    "artist": str(command_data.get("artist") or ""),
+                    "album": str(command_data.get("album") or ""),
+                    "year": str(command_data.get("year") or ""),
+                    "thumbnail": str(command_data.get("thumbnail") or ""),
+                    "details": str(command_data.get("details") or ""),
+                    "provider": str(command_data.get("provider") or ""),
+                    "provider_name": str(command_data.get("provider_name") or ""),
+                    "provider_origin": str(command_data.get("provider_origin") or ""),
+                    "playlist_context": command_data.get("playlist_context") or {},
+                    "duration": self._media_seconds(command_data.get("duration")),
+                    "position": self._media_seconds(command_data.get("position")),
+                })
+            clients = self._clients.get(profile_entry_id) or {}
+            for other_id in clients:
+                self.hass.bus.async_fire(TV_MEDIA_EVENT, {
+                    "profile_entry_id": profile_entry_id, "client_id": other_id,
+                    "command": "stop", "data": {"reason": "ha_audio_output_selected"},
+                })
+            if str(command) == "select":
+                return await self._async_play_on_ha_output(profile_entry_id, audio_output, command_data)
+            if str(command) == "play" and media_content_id:
+                return await self._async_play_on_ha_output(profile_entry_id, audio_output, command_data)
+            return await self._async_control_ha_output(profile_entry_id, audio_output, str(command), command_data)
         cast_client = (
             self.active_cast_client(profile_entry_id)
             if self.is_any_cast_active(profile_entry_id)
@@ -1785,8 +2037,20 @@ class FitnessTVDashboardHub:
         # final pause callback. Persist the in-memory queue position first.
         if str(state.get("media_content_id") or "").strip():
             await self.async_set_preferences(profile_entry_id, last_media=state)
-        if str(state.get("media_content_id") or "").startswith(FITNESS_MA_PREFIX):
-            owner = str(self._audio_owner.get(profile_entry_id) or "").strip()
+        owner = str(self._audio_owner.get(profile_entry_id) or "").strip()
+        if owner.startswith("ha:"):
+            output = owner[3:]
+            if output.startswith("media_player.") and self.hass.services.has_service(
+                "media_player", "media_stop"
+            ):
+                try:
+                    await self.hass.services.async_call(
+                        "media_player", "media_stop", {},
+                        target={"entity_id": output}, blocking=True,
+                    )
+                except Exception:  # noqa: BLE001 - shutdown cleanup is best effort
+                    pass
+        elif str(state.get("media_content_id") or "").startswith(FITNESS_MA_PREFIX):
             if owner and owner not in players:
                 try:
                     prefs = await self.async_preferences(profile_entry_id)
@@ -2121,6 +2385,8 @@ async def websocket_tv_preferences(hass: HomeAssistant, connection, msg) -> None
         vol.Optional("last_media"): dict,
         vol.Optional("tv_scale_percent"): vol.All(vol.Coerce(int), vol.Range(min=10, max=150)),
         vol.Optional("oled_protection"): bool,
+        vol.Optional("animations_enabled"): bool,
+        vol.Optional("audio_output_id"): str,
         vol.Optional("music_adapters"): [str],
         vol.Optional("music_adapter_options"): dict,
         vol.Optional("music_search_limit"): vol.All(vol.Coerce(int), vol.Range(min=MIN_MUSIC_SEARCH_LIMIT, max=MAX_MUSIC_SEARCH_LIMIT)),
@@ -2146,6 +2412,8 @@ async def websocket_tv_preferences_save(hass: HomeAssistant, connection, msg) ->
         last_media=dict(msg["last_media"]) if "last_media" in msg else None,
         tv_scale_percent=msg.get("tv_scale_percent"),
         oled_protection=msg.get("oled_protection"),
+        animations_enabled=msg.get("animations_enabled"),
+        audio_output_id=msg.get("audio_output_id"),
         music_adapters=list(msg["music_adapters"]) if "music_adapters" in msg else None,
         music_adapter_options=dict(msg["music_adapter_options"]) if "music_adapter_options" in msg else None,
         music_search_limit=msg.get("music_search_limit"),
@@ -2153,12 +2421,13 @@ async def websocket_tv_preferences_save(hass: HomeAssistant, connection, msg) ->
         music_search_scopes=dict(msg["music_search_scopes"]) if "music_search_scopes" in msg else None,
         music_search_types=list(msg["music_search_types"]) if "music_search_types" in msg else None,
     )
-    if "tv_scale_percent" in msg or "oled_protection" in msg:
+    if "tv_scale_percent" in msg or "oled_protection" in msg or "animations_enabled" in msg:
         hub.broadcast_settings(
             profile_entry_id,
             {
                 "tv_scale_percent": result["tv_scale_percent"],
                 "oled_protection": result["oled_protection"],
+                "animations_enabled": result["animations_enabled"],
             },
         )
     connection.send_result(msg["id"], result)

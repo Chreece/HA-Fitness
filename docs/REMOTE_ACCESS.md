@@ -14,9 +14,32 @@ The Home Assistant owner is bootstrapped as the first Fitness administrator if n
 
 While a user is assigned the **Local user** role, Fitness also marks that underlying Home Assistant user `local_only`, so Home Assistant itself rejects remote login for that account. Fitness remembers the previous HA `local_only` value and restores it when the Fitness account is removed or the backend profile is deleted. A **Remote user** is made non-local-only while assigned so it can authenticate through its remote Fitness hostname.
 
-## Remote-user subdomains
+## What Fitness manages and what DNS still has to provide
 
-Fitness uses a wildcard DNS/TLS model so account creation and removal do not depend on a specific DNS vendor API.
+Fitness deliberately manages the **logical access layer**, not your DNS provider or public TLS keys. This keeps Cloudflare, Route53, DuckDNS, router and certificate credentials out of the integration.
+
+Fitness can manage from its UI:
+
+- the remote Fitness base domain, for example `fitness.example.com`;
+- the per-user slug, for example `alice`;
+- the Home Assistant user -> Fitness role/profile binding;
+- the exact remote URL generated for that user;
+- authorization and immediate revocation of that Fitness account.
+
+The network owner must provide these once outside Fitness:
+
+1. **Public HTTPS reachability for Home Assistant.** Use an existing Home Assistant HTTPS/reverse-proxy setup, VPN/tunnel product that exposes the required hostname, or another supported public endpoint.
+2. **Wildcard DNS.** Point `*.fitness.example.com` at the same public endpoint that reaches Home Assistant. A wildcard avoids creating/deleting a DNS record for every Fitness user.
+3. **TLS valid for the wildcard hostname.** The reverse proxy must present a certificate valid for `*.fitness.example.com` (and normally the base hostname as well). This may be an ACME/Let's Encrypt wildcard certificate or a certificate managed by the chosen proxy/tunnel service.
+4. **Preserve the incoming `Host` header.** Fitness uses the requested hostname to enforce each remote user's assigned slug, so the proxy must forward the original host instead of rewriting every request to one internal hostname.
+5. **Configure Home Assistant for the reverse proxy when one is used.** Home Assistant must trust only the actual proxy addresses and correctly accept forwarded client information. Do not configure an unrestricted trusted-proxy range.
+6. **Set Home Assistant's external HTTPS URL** to the normal externally reachable Home Assistant URL. Fitness's per-user subdomains are additional accepted entry points; they do not replace HA's normal external URL.
+
+Depending on the network, the owner may additionally need router port-forwarding, dynamic-DNS updating, CGNAT workarounds, or a tunnel/VPN provider. Fitness cannot infer or safely change those network-level settings by itself.
+
+Fitness could technically integrate with individual DNS/provider APIs in the future, but doing so would require provider-specific credentials and would reduce portability. The wildcard model means that is not required for normal operation.
+
+## Remote-user subdomains
 
 Example:
 
@@ -33,7 +56,7 @@ Configure the wildcard DNS record, TLS certificate and reverse proxy once. Fitne
 
 A remote Fitness session is accepted only when the Home Assistant WebSocket session was authenticated from the exact assigned hostname. Knowing another profile entry ID does not grant access: dashboard configuration, workout control, music, Cast, TTS acknowledgements, BLE gateway data and ANT+ gateway data all perform the same server-side profile authorization.
 
-Removing the Fitness account immediately removes its binding, so that HA user can no longer access any Fitness profile through Fitness TV. Because the DNS record is a wildcard, the hostname can still resolve at DNS level after removal; Fitness rejects it. This avoids requiring Cloudflare/Route53/etc. credentials inside Fitness.
+Removing the Fitness account immediately removes its binding, so that HA user can no longer access any Fitness profile through Fitness TV. Because the DNS record is a wildcard, the hostname can still resolve at DNS level after removal; Fitness rejects it. This avoids requiring DNS-provider credentials inside Fitness.
 
 ## Home Assistant identity boundary
 
@@ -47,11 +70,13 @@ A future dedicated Fitness remote portal can build on the same profile/access mo
 
 1. Create the backend Fitness profile in Home Assistant.
 2. Create or choose the Home Assistant user that will authenticate.
-3. Open **Fitness TV -> Fitness accounts** as the local Fitness administrator.
-4. Assign one of:
+3. Complete the one-time public HTTPS, wildcard DNS/TLS and reverse-proxy setup described above if remote users will be used.
+4. Open **Fitness TV -> Fitness accounts** as the local Fitness administrator.
+5. Set **Remote Fitness base domain** once.
+6. Assign one of:
    - **Local user** + one Fitness profile; or
    - **Remote user** + one Fitness profile + optional subdomain slug.
-5. For remote users, configure the wildcard base domain once and give the generated direct profile URL to the user.
-6. Remove the Fitness account binding to revoke Fitness access immediately. Deleting the backend Fitness profile also removes any binding to it.
+7. Give a remote user the exact URL generated by Fitness.
+8. Remove the Fitness account binding to revoke Fitness access immediately. Deleting the backend Fitness profile also removes any binding to it.
 
 Users never get an account-assignment control in their own Fitness TV UI.

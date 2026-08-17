@@ -111,6 +111,16 @@ class FitnessSensorWorkoutOwnerSelect(SelectEntity):
         return None
 
     @property
+    def extra_state_attributes(self):
+        """Expose the stable profile id so dashboards can enforce ownership."""
+        return {
+            "owner_entry_id": self.runtime.sensor_workout_owner(self.sensor_id),
+            "assigned_profile_entry_ids": sorted(
+                self.runtime.sensor_assigned_profile_ids(self.sensor_id)
+            ),
+        }
+
+    @property
     def available(self) -> bool:
         return self.runtime.sensor_owner_transfer_available(self.sensor_id)
 

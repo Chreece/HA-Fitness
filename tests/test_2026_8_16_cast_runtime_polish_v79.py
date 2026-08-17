@@ -28,9 +28,11 @@ def test_live_cast_receiver_heartbeat_is_authoritative_over_transient_cast_entit
     assert 'and not self._cast_receiver_heartbeat_alive(profile_entry_id)' in reconcile
 
 
-def test_local_browser_cast_routes_tts_to_cast_receiver_not_configured_speaker():
-    assert 'if hub.is_any_cast_active(self.entry.entry_id):' in MANAGER
-    assert 'browser-local Cast' in MANAGER
+def test_profile_playback_routes_tts_to_current_audio_owner_not_configured_speaker():
+    assert 'profile_media_playing = bool(' in MANAGER
+    assert 'hub.is_active(self.entry.entry_id)' in MANAGER
+    assert 'hub.media_state(self.entry.entry_id).get("playing")' in MANAGER
+    assert 'local Cast receiver' in MANAGER
 
 
 def test_stop_cast_uses_actual_active_session_not_profile_default():

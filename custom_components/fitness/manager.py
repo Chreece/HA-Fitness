@@ -1413,9 +1413,10 @@ class FitnessManager:
         selected_areas = list(
             self.config.get(CONF_FEEDBACK_AREA_IDS) or []
         )
-        tts_entity = str(
+        configured_tts_entity = str(
             self.config.get(CONF_TTS_ENTITY_ID) or ""
         ).strip()
+        tts_entity = self._active_tts_entity()
         media_players = list(
             self.config.get(CONF_TTS_MEDIA_PLAYER_IDS) or []
         )
@@ -1459,6 +1460,9 @@ class FitnessManager:
             "configured_feedback_lights": configured_lights,
             "resolved_feedback_lights": resolved_lights,
             "tts_entity": tts_entity or None,
+            "tts_configured_entity": configured_tts_entity or None,
+            "tts_auto_selected": bool(tts_entity and tts_entity != configured_tts_entity),
+            "tts_language": self._ai_language(),
             "tts_available": tts_available,
             "tts_media_players": media_players,
             "usable_tts_media_players": usable_media_players,
@@ -2502,6 +2506,59 @@ class FitnessManager:
         except asyncio.CancelledError:
             return
 
+    def _preferred_tts_entity(self, configured: str | None = None) -> str:
+        """Choose profile-language TTS, auto-selecting only local Piper/Wyoming."""
+        desired = self._ai_language().lower()
+        registry = er.async_get(self.hass)
+        configured = str(configured or "").strip()
+        local_ranked: list[tuple[int, str]] = []
+        configured_usable = False
+        for state in self.hass.states.async_all("tts"):
+            if state.state == "unavailable":
+                continue
+            entity_id = str(state.entity_id)
+            supported = state.attributes.get("supported_languages")
+            language_ok = True
+            if isinstance(supported, (list, tuple)) and supported:
+                language_ok = any(
+                    str(item).lower() == desired
+                    or str(item).lower().startswith(desired + "-")
+                    or str(item).lower().startswith(desired + "_")
+                    for item in supported
+                )
+            if not language_ok:
+                continue
+            if entity_id == configured:
+                configured_usable = True
+            reg = registry.async_get(entity_id)
+            platform = str(reg.platform or "") if reg is not None else ""
+            label = f"{entity_id} {state.attributes.get('friendly_name') or ''}".lower()
+            if "piper" in label:
+                local_ranked.append((500, entity_id))
+            elif platform == "wyoming":
+                local_ranked.append((400, entity_id))
+
+        # An explicit profile provider remains an override when it supports the
+        # selected profile language. Fitness only auto-selects local engines; it
+        # never silently switches an unconfigured profile to a cloud TTS service.
+        if configured_usable:
+            return configured
+        if local_ranked:
+            local_ranked.sort(key=lambda item: (-item[0], item[1]))
+            return local_ranked[0][1]
+        if configured and self.hass.states.get(configured) is not None:
+            # Some TTS entities do not advertise supported_languages. Preserve a
+            # manually selected provider rather than guessing that it is invalid.
+            return configured
+        return ""
+
+    def _active_tts_entity(self) -> str:
+        """Return this profile's effective TTS entity, respecting explicit opt-out."""
+        configured = str(self.config.get(CONF_TTS_ENTITY_ID) or "").strip()
+        if CONF_TTS_ENTITY_ID in self.config and not configured:
+            return ""
+        return self._preferred_tts_entity(configured)
+
     def _tts_language_for_entity(
         self,
         tts_entity: str,
@@ -2797,9 +2854,10 @@ class FitnessManager:
     async def _async_speak(self, message: str):
         """Speak one Fitness message at a time and wait for playback to end."""
         async with self._tts_playback_lock:
-            tts_entity = str(
+            configured_tts_entity = str(
                 self.config.get(CONF_TTS_ENTITY_ID) or ""
             ).strip()
+            tts_entity = self._active_tts_entity()
 
             if not message:
                 self.last_feedback_tts_result = "no_message"
@@ -2819,40 +2877,68 @@ class FitnessManager:
 
             language = self._tts_language_for_entity(tts_entity)
             tv_enabled = bool(self.config.get(CONF_TV_DASHBOARD_ENABLED, False))
-            if tv_enabled:
-                hub = get_tv_dashboard_hub(self.hass)
-                # Any confirmed live Fitness Cast receiver (HA-server Cast or
-                # browser-local Cast) overrides this profile's configured
-                # announcement speakers. A normal laptop Fitness TV tab must
-                # never steal TTS just because it is open.
-                if hub.is_any_cast_active(self.entry.entry_id):
-                    self.last_feedback_tts_result = "tv_playing"
+            hub = get_tv_dashboard_hub(self.hass)
+            profile_media_playing = bool(
+                hub
+                and hub.media_state(self.entry.entry_id).get("playing")
+            )
+            profile_audio_output = (
+                await hub.async_audio_output_id(self.entry.entry_id)
+                if hub is not None else "__fitness_browser__"
+            )
+            # Speech follows this profile's *currently playing* music output.
+            # If the selected HA speaker is idle, use the configured TTS targets
+            # instead, matching the browser/Cast behavior and never stealing a
+            # different user's output merely because it is selected in settings.
+            output_state = (
+                self.hass.states.get(profile_audio_output)
+                if profile_audio_output.startswith("media_player.")
+                else None
+            )
+            ha_output_playing = bool(output_state and output_state.state == "playing")
+            profile_media_playing = profile_media_playing and (
+                ha_output_playing
+                if profile_audio_output.startswith("media_player.")
+                else True
+            )
+            media_players = (
+                [profile_audio_output]
+                if profile_media_playing and profile_audio_output.startswith("media_player.")
+                else []
+            )
+            if profile_media_playing and hub is not None and not media_players and hub.is_active(self.entry.entry_id):
+                # TTS follows the audible Fitness music owner for this profile,
+                # whether that owner is a laptop/browser, local Cast receiver,
+                # or HA-server Cast receiver. Merely having a TV dashboard open
+                # does not steal announcements from the configured TTS speakers.
+                self.last_feedback_tts_result = "tv_playing"
+                self._notify()
+                try:
+                    tv_success = await hub.async_speak(
+                        self.entry.entry_id,
+                        message=message,
+                        tts_entity=tts_entity,
+                        language=language,
+                        ducking_percent=int(
+                            self.config.get(
+                                CONF_TV_DUCKING_PERCENT,
+                                DEFAULT_TV_DUCKING_PERCENT,
+                            )
+                        ),
+                    )
+                except Exception:  # noqa: BLE001 - fall back to configured targets
+                    _LOGGER.exception(
+                        "Fitness dashboard TTS failed for profile %s",
+                        self.entry.entry_id,
+                    )
+                    tv_success = False
+                if tv_success:
+                    self.last_feedback_tts_result = "tv_success"
                     self._notify()
-                    try:
-                        tv_success = await hub.async_speak(
-                            self.entry.entry_id,
-                            message=message,
-                            tts_entity=tts_entity,
-                            language=language,
-                            ducking_percent=int(
-                                self.config.get(
-                                    CONF_TV_DUCKING_PERCENT,
-                                    DEFAULT_TV_DUCKING_PERCENT,
-                                )
-                            ),
-                        )
-                    except Exception:  # noqa: BLE001 - fall back to non-TV targets
-                        _LOGGER.exception(
-                            "Fitness TV TTS failed for profile %s",
-                            self.entry.entry_id,
-                        )
-                        tv_success = False
-                    if tv_success:
-                        self.last_feedback_tts_result = "tv_success"
-                        self._notify()
-                        return
+                    return
 
-            media_players = self._feedback_media_player_ids()
+            if not media_players:
+                media_players = self._feedback_media_player_ids()
 
             if not media_players:
                 self.last_feedback_tts_result = (

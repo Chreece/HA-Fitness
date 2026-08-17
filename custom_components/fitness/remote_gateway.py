@@ -219,6 +219,40 @@ class RemoteGatewayRuntime:
             "assigned_profile_entry_id": entry.entry_id,
         }
 
+    def disconnect_ble_device(
+        self,
+        *,
+        profile_entry_id: str,
+        gateway_id: str,
+        device_id: str,
+    ) -> dict[str, Any]:
+        """Mark one browser BLE endpoint offline without deleting assignment."""
+        key = (profile_entry_id, gateway_id, device_id)
+        runtime = get_live_runtime(self.hass)
+        sensor_id = self._ble_sensor_ids.pop(key, None)
+        if not sensor_id:
+            sensor_id = runtime.endpoint_aliases.get(
+                f"bluetooth:web:{profile_entry_id}:{gateway_id}:{device_id}"
+            )
+        if sensor_id:
+            sensor_id = runtime.resolve_sensor_id(sensor_id)
+            sensor = runtime.sensors.get(sensor_id)
+            endpoint = sensor.endpoints.get("bluetooth") if sensor is not None else None
+            if endpoint is not None:
+                runtime.refresh_transport_endpoint(
+                    sensor_id,
+                    "bluetooth",
+                    last_seen=endpoint.last_seen,
+                    rssi=endpoint.rssi,
+                    source=endpoint.source,
+                    available=False,
+                )
+        self._last_seen.pop(key, None)
+        for state_key in tuple(self._ble_revolutions):
+            if state_key[:3] == key:
+                self._ble_revolutions.pop(state_key, None)
+        return {"disconnected": True, "sensor_id": sensor_id or ""}
+
     def async_publish_ble_frame(
         self,
         *,
@@ -405,6 +439,29 @@ async def websocket_remote_gateway_ble_device(hass: HomeAssistant, connection, m
         connection.send_error(msg["id"], str(err), str(err))
     except Exception as err:  # noqa: BLE001
         _LOGGER.exception("Remote BLE device registration failed")
+        connection.send_error(msg["id"], "ble_gateway_error", str(err))
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "fitness/remote_gateway/ble_disconnect",
+    vol.Required("profile_entry_id"): str,
+    vol.Required("gateway_id"): str,
+    vol.Required("device_id"): str,
+})
+@websocket_api.async_response
+async def websocket_remote_gateway_ble_disconnect(hass: HomeAssistant, connection, msg) -> None:
+    await _require_profile_access(hass, connection, str(msg["profile_entry_id"]))
+    try:
+        result = get_remote_gateway_runtime(hass).disconnect_ble_device(
+            profile_entry_id=str(msg["profile_entry_id"]),
+            gateway_id=_clean_gateway_id(msg["gateway_id"]),
+            device_id=_clean_device_id(msg["device_id"]),
+        )
+        connection.send_result(msg["id"], result)
+    except ValueError as err:
+        connection.send_error(msg["id"], str(err), str(err))
+    except Exception as err:  # noqa: BLE001
+        _LOGGER.exception("Remote BLE disconnect failed")
         connection.send_error(msg["id"], "ble_gateway_error", str(err))
 
 
@@ -645,6 +702,7 @@ def async_register_remote_gateway_websocket_commands(hass: HomeAssistant) -> Non
         websocket_remote_gateway_capabilities,
         websocket_remote_gateway_hello,
         websocket_remote_gateway_ble_device,
+        websocket_remote_gateway_ble_disconnect,
         websocket_remote_gateway_ble_frames,
         websocket_remote_gateway_ant_packets,
         websocket_remote_gateway_status,

@@ -39,10 +39,10 @@ def test_managed_lovelace_views_use_fresh_release_specific_card_types():
 
 
 def test_admin_account_profile_selector_is_in_fresh_setup_class_source():
-    assert 'class="access-profile-field"' in FRONTEND
+    assert 'class="access-profile-field ${role === "none" ? "hidden" : ""}"' in FRONTEND
     assert '<select data-access-profile>' in FRONTEND
-    assert 'profileField?.classList.remove("hidden")' in FRONTEND
-    assert 'if (profile) profile.disabled = false' in FRONTEND
+    assert 'profileField?.classList.toggle("hidden", withoutProfile)' in FRONTEND
+    assert 'if (profile) profile.disabled = withoutProfile' in FRONTEND
 
 
 def test_revision_71_is_unique_and_uncached():

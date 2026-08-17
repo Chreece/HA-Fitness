@@ -16,6 +16,7 @@ import voluptuous_serialize
 from homeassistant import data_entry_flow
 
 from homeassistant.components import frontend, websocket_api
+from homeassistant.components.media_player import MediaPlayerEntityFeature
 from homeassistant.components.lovelace import dashboard as lovelace_dashboard
 from homeassistant.components.lovelace.const import (
     CONF_ICON,
@@ -51,9 +52,12 @@ from .const import (
     DOMAIN,
 )
 from .feedback import INTENSITY_RGB
+from .live import get_live_runtime
 from .profile_data import (
     DATA_MAP_KIND_TO_KEY,
     LIVE_RAW_ROUTE_KEYS,
+    physical_metric_entity_id,
+    physical_workout_owner_entity_id,
     routes_from_attributes,
 )
 from .providers.workouts import (
@@ -1442,6 +1446,28 @@ _TV_DASHBOARD_MUSIC_TEXT: dict[str, dict[str, str]] = {
     "ko": {"music_sources":"음악 소스","music_favorites_hint":"이 Fitness 프로필에 저장된 음악입니다.","music_internet_radio":"인터넷 라디오","music_internet_radio_hint":"Fitness에 내장되어 있으며 추가 Home Assistant 통합이 필요하지 않습니다.","music_ha_sources":"Home Assistant 미디어","music_ha_sources_hint":"Home Assistant 미디어 소스에서 제공하는 오디오를 탐색합니다.","music_add_link":"음악 링크 추가","music_add_link_hint":"직접 스트림, Spotify, SoundCloud, YouTube 또는 YouTube Music URL/URI.","music_link":"음악 URL 또는 URI","music_title_optional":"제목(선택 사항)","music_link_supported":"직접 오디오 스트림과 Spotify, SoundCloud, YouTube 및 YouTube Music 링크를 지원합니다.","music_use_link":"이 음악 사용","music_invalid_link":"지원되는 음악 링크 또는 URI를 입력하세요.","music_radio_error":"인터넷 라디오를 불러올 수 없습니다."},
 }
 
+# Audio-output labels share the music language bundle so every profile receives
+# the English fallback, with native wording for the user's primary development
+# languages.
+_TV_DASHBOARD_MUSIC_TEXT["en"].update({
+    "audio_output": "Music & TTS output",
+    "audio_output_hint": "Choose the Fitness browser/Cast receiver or a compatible Home Assistant media player. Music Assistant-managed players use Music Assistant preferentially.",
+    "audio_output_browser": "Fitness browser / Cast TV",
+    "unavailable": "Unavailable",
+})
+_TV_DASHBOARD_MUSIC_TEXT["el"].update({
+    "audio_output": "Έξοδος μουσικής & TTS",
+    "audio_output_hint": "Επίλεξε το πρόγραμμα περιήγησης/δέκτη Cast του Fitness ή ένα συμβατό media player του Home Assistant. Για συσκευές που διαχειρίζεται το Music Assistant προτιμάται το Music Assistant.",
+    "audio_output_browser": "Πρόγραμμα περιήγησης Fitness / Cast TV",
+    "unavailable": "Μη διαθέσιμο",
+})
+_TV_DASHBOARD_MUSIC_TEXT["de"].update({
+    "audio_output": "Musik- & TTS-Ausgabe",
+    "audio_output_hint": "Wähle den Fitness-Browser/Cast-Empfänger oder einen kompatiblen Home-Assistant-Mediaplayer. Bei Music-Assistant-verwalteten Playern wird Music Assistant bevorzugt.",
+    "audio_output_browser": "Fitness-Browser / Cast-TV",
+    "unavailable": "Nicht verfügbar",
+})
+
 _TV_DASHBOARD_INTERACTION_TEXT: dict[str, dict[str, str]] = {
     "en": {"settings_main_menu":"Settings menu","close":"Close","loading":"Loading…","next":"Next","working":"Working…"},
     "el": {"settings_main_menu":"Κύριο μενού","close":"Κλείσιμο","loading":"Φόρτωση…","next":"Επόμενο","working":"Επεξεργασία…"},
@@ -2338,6 +2364,48 @@ def _with_sleep_fallback_values(routes: dict[str, dict[str, Any]], record) -> di
     return result
 
 
+def _fitness_audio_outputs(hass: HomeAssistant, registry: er.EntityRegistry) -> list[dict[str, Any]]:
+    """Return every live HA media player that can accept Fitness audio."""
+    outputs: list[dict[str, Any]] = []
+    play_media = int(MediaPlayerEntityFeature.PLAY_MEDIA)
+    for state in hass.states.async_all("media_player"):
+        registry_entry = registry.async_get(state.entity_id)
+        if registry_entry is not None and registry_entry.disabled_by is not None:
+            continue
+        try:
+            supported = int(state.attributes.get("supported_features", 0) or 0)
+        except (TypeError, ValueError):
+            supported = 0
+        platform = str(registry_entry.platform or "") if registry_entry is not None else ""
+        ma_managed = (
+            platform in {"music_assistant", "mass"}
+            or bool(state.attributes.get("mass_player_type"))
+        )
+        if not (supported & play_media) and not ma_managed:
+            continue
+        name = (
+            state.attributes.get("friendly_name")
+            or (registry_entry.name if registry_entry is not None else None)
+            or state.entity_id
+        )
+        outputs.append({
+            "entity_id": state.entity_id,
+            "name": str(name),
+            "platform": platform,
+            "music_assistant": ma_managed,
+            "state": state.state,
+            "device_class": str(state.attributes.get("device_class") or ""),
+        })
+    return sorted(
+        outputs,
+        key=lambda item: (
+            not bool(item["music_assistant"]),
+            str(item["name"]).casefold(),
+            item["entity_id"],
+        ),
+    )
+
+
 def _tv_cast_targets(hass: HomeAssistant, registry: er.EntityRegistry) -> list[dict[str, Any]]:
     """Return enabled Google Cast media players for the TV dashboard picker."""
     targets: list[dict[str, Any]] = []
@@ -2644,10 +2712,12 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                                 "oled_protection", DEFAULT_TV_OLED_PROTECTION
                             )
                         ),
+                        "animations_enabled": bool(tv_preferences.get("animations_enabled", True)),
                         "music_search_limit": int(
                             tv_preferences.get("music_search_limit", 50)
                         ),
                         "last_media": dict(tv_preferences.get("last_media") or {}),
+                        "audio_output_id": str(tv_preferences.get("audio_output_id") or "__fitness_browser__"),
                     },
                     "route_candidates": {},
                     "runtime_available": False,
@@ -2718,6 +2788,31 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
             if source:
                 entities[key] = source
 
+        runtime = get_live_runtime(hass)
+        live_sensor_metrics: list[dict[str, str]] = []
+        seen_live_sensor_entities = {
+            str(value) for value in entities.values() if isinstance(value, str)
+        }
+        for sensor in runtime.sensors_for_profile(entry):
+            sensor_id = runtime.resolve_sensor_id(sensor.sensor_id)
+            owner_entity_id = physical_workout_owner_entity_id(hass, sensor_id)
+            metric_names = set(sensor.capabilities or ()) | set(
+                runtime.sensor_values.get(sensor_id, {})
+            )
+            for metric in sorted(metric_names):
+                metric_entity_id = physical_metric_entity_id(hass, sensor_id, metric)
+                if not metric_entity_id or metric_entity_id in seen_live_sensor_entities:
+                    continue
+                seen_live_sensor_entities.add(metric_entity_id)
+                live_sensor_metrics.append(
+                    {
+                        "entity_id": metric_entity_id,
+                        "owner_entity_id": owner_entity_id or "",
+                        "sensor_id": sensor_id,
+                        "metric": str(metric),
+                    }
+                )
+
         tv_preferences = await get_tv_dashboard_hub(hass).async_preferences(entry.entry_id)
 
         profiles.append(
@@ -2738,6 +2833,7 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                 },
                 "entities": entities,
                 "data_entities": data_entities,
+                "live_sensor_metrics": live_sensor_metrics,
                 "live_entity_keys": [
                     key for key in entities
                     if key in {
@@ -2790,8 +2886,10 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                     "oled_protection": bool(
                         tv_preferences.get("oled_protection", DEFAULT_TV_OLED_PROTECTION)
                     ),
+                    "animations_enabled": bool(tv_preferences.get("animations_enabled", True)),
                     "music_search_limit": int(tv_preferences.get("music_search_limit", 50)),
                     "last_media": dict(tv_preferences.get("last_media") or {}),
+                    "audio_output_id": str(tv_preferences.get("audio_output_id") or "__fitness_browser__"),
                 },
                 "route_candidates": _route_candidates(hass, manager),
             }
@@ -2803,6 +2901,7 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
             "profiles": profiles,
             "access": access,
             "cast_targets": _tv_cast_targets(hass, registry) if access.get("is_admin") else [],
+            "audio_outputs": _fitness_audio_outputs(hass, registry),
             "intensity_colors": {
                 key: list(rgb)
                 for key, rgb in INTENSITY_RGB.items()

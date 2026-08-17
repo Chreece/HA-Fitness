@@ -119,8 +119,8 @@ def test_fitness_admin_can_keep_an_own_profile_and_ha_user_link_is_current():
     assert 'role == ROLE_ADMIN' in ACCESS
     assert 'requested_profile_id' in ACCESS
     assert 'row["profile_entry_id"] = requested_profile_id' in ACCESS
-    assert 'profileField?.classList.remove("hidden");' in JS
-    assert 'if (profile) profile.disabled = false;' in JS
-    assert '.access-profile-field{display:block!important' in JS
+    assert 'profileField?.classList.toggle("hidden", withoutProfile);' in JS
+    assert 'if (profile) profile.disabled = withoutProfile;' in JS
+    assert '.access-role-field,.access-profile-field{display:block;min-width:0;align-self:stretch}' in JS
     assert 'href="/config/person"' in JS
     assert 'runtime_available": False' in DASH

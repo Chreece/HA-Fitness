@@ -53,7 +53,7 @@ def test_unauthorized_and_view_only_pages_have_explicit_ui_and_no_control_tools(
 
 
 def test_access_admin_can_assign_owner_and_additional_view_only_profiles():
-    assert 'class="access-profile-field"' in JS
+    assert 'class="access-profile-field ${role === "none" ? "hidden" : ""}"' in JS
     assert 'data-access-profile' in JS
     assert 'data-access-view-profile' in JS
     assert 'view_profile_entry_ids:Array.from(row.querySelectorAll("[data-access-view-profile]:checked"))' in JS

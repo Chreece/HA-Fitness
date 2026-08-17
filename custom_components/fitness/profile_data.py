@@ -134,6 +134,27 @@ def _physical_metric_entity_id(hass, sensor_id: str, metric: str) -> str | None:
     )
 
 
+def physical_metric_entity_id(hass, sensor_id: str, metric: str) -> str | None:
+    """Resolve one materialized physical-sensor metric entity."""
+    return _physical_metric_entity_id(hass, sensor_id, metric)
+
+
+def physical_workout_owner_entity_id(hass, sensor_id: str) -> str | None:
+    """Resolve an enabled ownership entity for one shared physical sensor."""
+    owner_select = _registry_entity_id(
+        hass,
+        unique_id=f"fitness_{sensor_id}_workout_owner_select",
+        domains=("select",),
+    )
+    if owner_select:
+        return owner_select
+    return _registry_entity_id(
+        hass,
+        unique_id=f"fitness_{sensor_id}_workout_owner",
+        domains=("sensor",),
+    )
+
+
 def _fitness_owned_routes(hass, entry, kind: str, descriptions) -> dict[str, dict[str, Any]]:
     """Return routes for entities genuinely owned by a profile device."""
     routes: dict[str, dict[str, Any]] = {}
@@ -175,6 +196,13 @@ def _live_raw_routes(hass, manager, entry) -> dict[str, dict[str, Any]]:
         sensor_id = active_sources.get(metric)
         if sensor_id is not None:
             sensor_id = runtime.resolve_sensor_id(sensor_id)
+            # A physical sensor is exclusive while an overlapping Fitness
+            # workout owns it. Never leak that live telemetry into another
+            # profile's dashboard, even if a stale route/source still points at
+            # the shared sensor.
+            owner = runtime.sensor_workout_owner(sensor_id)
+            if owner not in (None, entry.entry_id):
+                sensor_id = None
 
         if sensor_id is None:
             # While idle there is no profile measurement owner.  Select only from
@@ -184,6 +212,8 @@ def _live_raw_routes(hass, manager, entry) -> dict[str, dict[str, Any]]:
             candidates = []
             for sensor in sensors:
                 sid = runtime.resolve_sensor_id(sensor.sensor_id)
+                if runtime.sensor_workout_owner(sid) not in (None, entry.entry_id):
+                    continue
                 has_value = metric in runtime.sensor_values.get(sid, {})
                 has_capability = metric in set(sensor.capabilities or ())
                 available = bool(sensor.available)

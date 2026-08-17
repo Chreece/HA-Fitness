@@ -46,9 +46,9 @@ def test_dashboard_config_reconciles_managed_fitness_tv_views_before_open():
 
 
 def test_admin_profile_can_be_assigned_directly_to_an_ha_admin_user():
-    assert 'class="access-profile-field"' in FRONTEND
-    assert 'profileField?.classList.remove("hidden")' in FRONTEND
-    assert '.access-profile-field{display:block!important' in FRONTEND
+    assert 'class="access-profile-field ${role === "none" ? "hidden" : ""}"' in FRONTEND
+    assert 'profileField?.classList.toggle("hidden", withoutProfile)' in FRONTEND
+    assert '.access-role-field,.access-profile-field{display:block;min-width:0;align-self:stretch}' in FRONTEND
     assert 'data-profile-owner' in FRONTEND
     assert 'data-assign-profile' in FRONTEND
     assert 'const assignedRole = selectedUser.is_admin' in FRONTEND

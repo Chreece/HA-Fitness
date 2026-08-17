@@ -6,12 +6,12 @@ DASHBOARD = (ROOT / "custom_components/fitness/dashboard.py").read_text(encoding
 ACCESS = (ROOT / "custom_components/fitness/access_control.py").read_text(encoding="utf-8")
 
 
-def test_every_ha_account_row_always_shows_a_fitness_profile_selector():
-    assert 'class="access-profile-field"' in FRONTEND
-    assert '.access-profile-field{display:block!important' in FRONTEND
-    assert 'profileField?.classList.remove("hidden")' in FRONTEND
-    assert 'profileField?.classList.toggle("hidden"' not in FRONTEND
-    assert 'if (profile) profile.disabled = false' in FRONTEND
+def test_ha_account_profile_selector_is_hidden_only_for_no_fitness_account():
+    assert 'class="access-profile-field ${role === "none" ? "hidden" : ""}"' in FRONTEND
+    assert 'const withoutProfile = current === "none";' in FRONTEND
+    assert 'profileField?.classList.toggle("hidden", withoutProfile);' in FRONTEND
+    assert 'viewField?.classList.toggle("hidden", withoutProfile);' in FRONTEND
+    assert 'if (profile) profile.disabled = withoutProfile;' in FRONTEND
 
 
 def test_fitness_admin_can_keep_an_own_profile_binding():

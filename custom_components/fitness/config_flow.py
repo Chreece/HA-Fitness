@@ -13,6 +13,7 @@ from homeassistant.components.ai_task.const import (
 )
 from homeassistant.core import callback
 from homeassistant.helpers import selector
+from homeassistant.helpers import entity_registry as er
 
 from .const import (
     CONF_AI_ENABLED,
@@ -300,6 +301,37 @@ def _validate(hass, user_input, specs, profile_entry_id: str | None = None):
                 errors[key] = "invalid_number_or_entity"
     return errors
 
+
+
+
+def _preferred_profile_tts_entity(hass, language: str | None) -> str | None:
+    """Auto-select local Piper/Wyoming TTS for the Fitness profile language."""
+    desired = str(language or "en").lower().split("-", 1)[0].split("_", 1)[0]
+    registry = er.async_get(hass)
+    ranked: list[tuple[int, str]] = []
+    for state in hass.states.async_all("tts"):
+        if state.state == "unavailable":
+            continue
+        supported = state.attributes.get("supported_languages")
+        if isinstance(supported, (list, tuple)) and supported:
+            if not any(
+                str(item).lower() == desired
+                or str(item).lower().startswith(desired + "-")
+                or str(item).lower().startswith(desired + "_")
+                for item in supported
+            ):
+                continue
+        entry = registry.async_get(state.entity_id)
+        platform = str(entry.platform or "") if entry is not None else ""
+        label = f"{state.entity_id} {state.attributes.get('friendly_name') or ''}".lower()
+        if "piper" in label:
+            ranked.append((500, state.entity_id))
+        elif platform == "wyoming":
+            ranked.append((400, state.entity_id))
+    if not ranked:
+        return None
+    ranked.sort(key=lambda item: (-item[0], item[1]))
+    return ranked[0][1]
 
 class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 13
@@ -736,16 +768,8 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             return await self.async_step_tv_dashboard()
 
-        default_tts = next(
-            (
-                state.entity_id
-                for state in sorted(
-                    self.hass.states.async_all(),
-                    key=lambda state: state.entity_id,
-                )
-                if state.entity_id.startswith("tts.")
-            ),
-            None,
+        default_tts = _preferred_profile_tts_entity(
+            self.hass, self._data.get(CONF_LANGUAGE) or "en"
         )
 
         schema = {
@@ -1499,16 +1523,8 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
             # previously suggested TTS provider.  Do not silently reselect one.
             current_tts = current.get(CONF_TTS_ENTITY_ID) or None
         else:
-            current_tts = next(
-                (
-                    state.entity_id
-                    for state in sorted(
-                        self.hass.states.async_all(),
-                        key=lambda state: state.entity_id,
-                    )
-                    if state.entity_id.startswith("tts.")
-                ),
-                None,
+            current_tts = _preferred_profile_tts_entity(
+                self.hass, current.get(CONF_LANGUAGE) or "en"
             )
 
         if current_tts:

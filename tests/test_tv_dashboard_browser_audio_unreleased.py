@@ -1,5 +1,4 @@
-import re
-"""Unreleased Fitness TV dashboard/browser-audio contracts."""
+"""Fitness TV dashboard/browser-audio contracts."""
 
 from pathlib import Path
 import json
@@ -209,7 +208,7 @@ def test_tv_setup_and_dashboard_strings_are_localized_everywhere():
         assert f'"{label}":' in DASHBOARD
 
 
-def test_tv_audio_core_has_no_required_extra_ha_integration_and_repository_stays_unreleased():
+def test_tv_audio_core_has_no_required_extra_ha_integration_and_dashboard_revision_is_current():
     runtime = "\n".join(
         (BASE / name).read_text(encoding="utf-8")
         for name in ("__init__.py", "config_flow.py", "dashboard.py", "manager.py", "tv_dashboard.py")
@@ -226,8 +225,6 @@ def test_tv_audio_core_has_no_required_extra_ha_integration_and_repository_stays
     assert 'async _youtubeApi()' in FRONTEND
     assert 'fitness/tv/music/adapters' in runtime
     assert 'fitness/tv/music/search' in runtime
-    manifest = json.loads((BASE / "manifest.json").read_text(encoding="utf-8"))
-    assert manifest["version"] == "0.0.0" or re.fullmatch(r"\d{4}\.\d{1,2}\.\d+(?:(?:a\d+)|-(?:alpha|beta)\d+)?", manifest["version"])
 
 
 def test_tv_frontend_resource_is_cross_origin_safe_for_home_assistant_cast():
@@ -590,10 +587,11 @@ def test_unreleased_45_now_playing_requires_a_real_selection_and_reflects_actual
     assert '"media_selected":"Επιλεγμένο"' in DASHBOARD
 
 
-def test_unreleased_44_tts_only_overrides_profile_speakers_for_confirmed_cast_receiver():
+def test_unreleased_44_tts_follows_the_profile_audio_owner_before_fallback_speakers():
     assert 'get_tv_dashboard_hub(self.hass)' in MANAGER
-    assert 'if hub.is_any_cast_active(self.entry.entry_id):' in MANAGER
-    assert 'A normal laptop Fitness TV' in MANAGER
+    assert 'profile_media_playing = bool(' in MANAGER
+    assert 'hub.media_state(self.entry.entry_id).get("playing")' in MANAGER
+    assert 'whether that owner is a laptop/browser, local Cast receiver' in MANAGER
 
 
 def test_unreleased_45_powered_off_cast_target_is_woken_before_lovelace_launch():

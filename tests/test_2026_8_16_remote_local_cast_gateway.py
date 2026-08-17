@@ -14,6 +14,7 @@ def test_remote_gateway_is_registered_with_tv_websocket_api():
         "fitness/remote_gateway/capabilities",
         "fitness/remote_gateway/hello",
         "fitness/remote_gateway/ble_device",
+        "fitness/remote_gateway/ble_disconnect",
         "fitness/remote_gateway/ble_frames",
         "fitness/remote_gateway/ant_packets",
         "fitness/remote_gateway/status",
@@ -46,9 +47,10 @@ def test_remote_ant_reuses_existing_remote_packet_worker_and_auto_assigns_profil
     assert 'runtime.endpoint_aliases.get(f"antplus:{device_id}")' in REMOTE
 
 
-def test_browser_gateway_supports_web_bluetooth_permission_and_reconnect():
+def test_browser_gateway_supports_filtered_web_bluetooth_permission_and_reconnect():
     assert "navigator.bluetooth.requestDevice" in JS
-    assert "acceptAllDevices:true" in JS
+    assert 'filters:[...FITNESS_REMOTE_BLE_SERVICES].map((service) => ({services:[service]}))' in JS
+    assert "acceptAllDevices:true" not in JS
     assert "navigator.bluetooth.getDevices" in JS
     assert 'type:"fitness/remote_gateway/ble_device"' in JS
     assert 'type:"fitness/remote_gateway/ble_frames"' in JS
