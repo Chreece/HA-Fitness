@@ -51,7 +51,8 @@ def test_passive_ble_values_use_vendor_registry_and_are_separate_from_gatt():
     assert "STRYD_MANUFACTURER_ID" not in BT
     assert "43690" not in BT
     assert "decode_bluetooth_advertisement" in BT
-    assert 'values["battery"]' in BT  # standard SIG Battery Service remains generic
+    assert "_parse_battery" in BT  # standard SIG Battery Service remains generic
+    assert "CHAR_BATTERY_LEVEL" in BT
     assert "publish_passive" in BT
     assert "class PhysicalPassiveSensor" in SENSOR
     assert '"passive": True' in SENSOR

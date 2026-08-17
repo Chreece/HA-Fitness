@@ -1,6 +1,9 @@
 from .const import DOMAIN
 """Fitness integration."""
 
+import asyncio
+import logging
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import CoreState, HomeAssistant, ServiceCall, callback
 from homeassistant.exceptions import HomeAssistantError
@@ -31,6 +34,8 @@ from .const import (
 )
 from .manager import FitnessManager
 from .dashboard import async_setup_dashboard
+
+_LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = ["sensor", "button", "select", "number", "calendar", "binary_sensor", "switch"]
 HUB_PLATFORMS = ["sensor", "button", "binary_sensor", "switch", "event", "select"]
@@ -345,9 +350,15 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         try:
             hub = hass.data.get(DOMAIN, {}).get("_tv_dashboard_hub")
             if hub is not None:
-                await hub.async_release_profile_music(
-                    entry.entry_id, reason="config_entry_unload"
-                )
+                async with asyncio.timeout(20.0):
+                    await hub.async_release_profile_music(
+                        entry.entry_id, reason="config_entry_unload"
+                    )
+        except TimeoutError:
+            _LOGGER.warning(
+                "Timed out releasing Fitness music for profile %s",
+                entry.entry_id,
+            )
         except Exception:
             # Shutdown cleanup is best effort and must never prevent unloading HA.
             pass
@@ -355,14 +366,40 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unloaded:
         runtime = hass.data.get(DOMAIN, {}).get("_live_runtime")
         if is_hub:
+            remote_gateway = hass.data.get(DOMAIN, {}).get(
+                "_remote_gateway_runtime"
+            )
+            if remote_gateway is not None:
+                try:
+                    async with asyncio.timeout(8.0):
+                        await remote_gateway.async_shutdown()
+                except TimeoutError:
+                    _LOGGER.warning("Timed out stopping Fitness remote gateway")
             if runtime:
-                await runtime.async_unregister_hub(entry.entry_id)
+                try:
+                    async with asyncio.timeout(30.0):
+                        await runtime.async_unregister_hub(entry.entry_id)
+                except TimeoutError:
+                    _LOGGER.warning("Timed out unloading Fitness live sensor hub")
             return True
         manager = hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
         if manager:
-            await manager.async_shutdown()
+            try:
+                async with asyncio.timeout(30.0):
+                    await manager.async_shutdown()
+            except TimeoutError:
+                _LOGGER.warning(
+                    "Timed out unloading Fitness profile %s", entry.entry_id
+                )
         if runtime:
-            await runtime.async_unregister_profile(entry.entry_id)
+            try:
+                async with asyncio.timeout(20.0):
+                    await runtime.async_unregister_profile(entry.entry_id)
+            except TimeoutError:
+                _LOGGER.warning(
+                    "Timed out releasing live sensors for Fitness profile %s",
+                    entry.entry_id,
+                )
     return unloaded
 
 
@@ -385,7 +422,14 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
         # Defensive cleanup if HA invokes removal while runtime still knows the
         # profile. Sensor assignments live in the removed config entry, so no
         # shared physical sensor or other user's data is deleted.
-        await runtime.async_unregister_profile(entry.entry_id)
+        try:
+            async with asyncio.timeout(20.0):
+                await runtime.async_unregister_profile(entry.entry_id)
+        except TimeoutError:
+            _LOGGER.warning(
+                "Timed out removing live state for Fitness profile %s",
+                entry.entry_id,
+            )
 
 
 async def async_remove_config_entry_device(hass, config_entry, device_entry) -> bool:

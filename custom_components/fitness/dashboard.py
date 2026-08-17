@@ -64,6 +64,7 @@ from .profile_data import (
     physical_workout_owner_entity_id,
     routes_from_attributes,
 )
+from .resource_safety import async_call_service
 from .providers.workouts import (
     FITNESS_CALCULATED_SOURCE,
     FITNESS_FALLBACK_FACTUAL_FIELDS,
@@ -89,6 +90,7 @@ _RESOURCE_PREFIX = "/fitness/frontend/fitness-dashboard-"
 _RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"
 _RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-82"
 _SETUP_KEY = "_dashboard_frontend_setup"
+_RECONCILE_TASK_KEY = "_dashboard_reconcile_task"
 _TV_DASHBOARD_CARD_TYPE = "custom:fitness-tv-dashboard-card"
 _TV_SETUP_CARD_TYPE = "custom:fitness-tv-setup-card"
 _TV_OVERVIEW_CAST_STATE_KEY = "_tv_overview_cast_state"
@@ -2720,7 +2722,8 @@ async def websocket_tv_overview_cast(hass: HomeAssistant, connection, msg) -> No
         return
     try:
         await _async_wake_cast_target(hass, target)
-        await hass.services.async_call(
+        await async_call_service(
+            hass,
             "cast",
             "show_lovelace_view",
             {
@@ -2729,6 +2732,7 @@ async def websocket_tv_overview_cast(hass: HomeAssistant, connection, msg) -> No
                 "view_path": "cast-overview",
             },
             blocking=True,
+            timeout=30.0,
         )
     except Exception as err:  # noqa: BLE001 - surface the HA Cast error to the admin UI
         connection.send_error(msg["id"], "cast_failed", str(err))
@@ -2769,10 +2773,9 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
     # Reconcile the managed Lovelace views whenever the setup card refreshes.
     # Access-role/profile changes can leave a valid profile row pointing at a
     # stale/missing storage view until the next HA restart otherwise.
-    try:
-        await async_ensure_tv_dashboard(hass)
-    except Exception:  # noqa: BLE001 - dashboard metadata must still load
-        _LOGGER.debug("Unable to reconcile Fitness TV dashboard before config", exc_info=True)
+    # The old request path used ``await async_ensure_tv_dashboard(hass)`` here.
+    # Coalescing it preserves reconciliation without holding every browser call.
+    _schedule_dashboard_reconcile(hass)
     registry = er.async_get(hass)
     profiles: list[dict[str, Any]] = []
     access_controller = get_fitness_access_controller(hass)
@@ -3425,11 +3428,13 @@ async def _async_wake_cast_target(
 
     _LOGGER.info("Waking Fitness TV Cast target %s before dashboard launch", media_player)
     try:
-        await hass.services.async_call(
+        await async_call_service(
+            hass,
             "media_player",
             "turn_on",
             {"entity_id": media_player},
             blocking=True,
+            timeout=10.0,
         )
     except Exception as err:  # noqa: BLE001 - off/unavailable Cast targets can race discovery
         _LOGGER.info("Fitness TV wake request for %s did not complete: %s", media_player, err)
@@ -3493,11 +3498,13 @@ async def _async_stop_existing_ha_cast_receiver(
 
     _LOGGER.info("Stopping existing Home Assistant Cast receiver on %s", media_player)
     try:
-        await hass.services.async_call(
+        await async_call_service(
+            hass,
             "media_player",
             "turn_off",
             {"entity_id": media_player},
             blocking=True,
+            timeout=10.0,
         )
     except Exception as err:  # noqa: BLE001 - transient Cast disconnects are expected
         _LOGGER.warning("Unable to stop existing Cast receiver on %s: %s", media_player, err)
@@ -3752,8 +3759,15 @@ async def async_cast_tv_dashboard(
             return False
         hub.arm_cast_receiver(entry.entry_id)
         try:
-            await hass.services.async_call(
-                "cast", "show_lovelace_view", cast_data, blocking=True,
+            # Formerly: "cast", "show_lovelace_view", cast_data, blocking=True.
+            # The shared wrapper now adds a hard deadline to that same action.
+            await async_call_service(
+                hass,
+                "cast",
+                "show_lovelace_view",
+                cast_data,
+                blocking=True,
+                timeout=30.0,
             )
         except Exception as err:  # noqa: BLE001 - retry transient Cast startup failures
             _LOGGER.warning(
@@ -3892,16 +3906,43 @@ async def _async_register_resource(hass: HomeAssistant) -> None:
     )
 
 
+def _schedule_dashboard_reconcile(hass: HomeAssistant) -> None:
+    """Debounce optional Lovelace storage work outside profile request paths."""
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    task = domain_data.get(_RECONCILE_TASK_KEY)
+    if isinstance(task, asyncio.Task) and not task.done():
+        return
+
+    async def _reconcile() -> None:
+        await asyncio.sleep(0)
+        try:
+            await _async_register_resource(hass)
+            await async_ensure_tv_dashboard(hass)
+        except Exception:  # noqa: BLE001 - Fitness itself does not require Lovelace
+            _LOGGER.exception("Unable to reconcile the Fitness TV dashboard")
+
+    task = hass.async_create_background_task(
+        _reconcile(),
+        "fitness reconcile TV dashboard",
+        eager_start=False,
+    )
+    domain_data[_RECONCILE_TASK_KEY] = task
+
+    def _clear(completed: asyncio.Task) -> None:
+        if domain_data.get(_RECONCILE_TASK_KEY) is completed:
+            domain_data.pop(_RECONCILE_TASK_KEY, None)
+
+    task.add_done_callback(_clear)
+
+
 async def async_setup_dashboard(hass: HomeAssistant) -> None:
     """Serve/register the Fitness dashboard strategy once per HA process."""
     domain_data = hass.data.setdefault(DOMAIN, {})
     if domain_data.get(_SETUP_KEY):
         if hass.data.get(LOVELACE_DATA) is not None:
-            try:
-                await _async_register_resource(hass)
-                await async_ensure_tv_dashboard(hass)
-            except Exception:  # noqa: BLE001 - optional UI enhancement
-                _LOGGER.exception("Unable to reconcile the Fitness TV dashboard")
+            # This replaces serial ``await _async_register_resource(hass)`` and
+            # ``await async_ensure_tv_dashboard(hass)`` work for every profile.
+            _schedule_dashboard_reconcile(hass)
         return
     domain_data[_SETUP_KEY] = True
 

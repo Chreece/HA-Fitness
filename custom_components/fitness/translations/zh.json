@@ -3134,6 +3134,21 @@
           }
         }
       },
+      "physical_battery": {
+        "name": "电池"
+      },
+      "physical_active_transport": {
+        "name": "活动传输方式"
+      },
+      "physical_workout_owner": {
+        "name": "训练所有者"
+      },
+      "physical_signal_strength": {
+        "name": "信号强度"
+      },
+      "physical_last_seen": {
+        "name": "最后发现"
+      },
       "cycplus_device_number": {
         "name": "设备编号"
       },
@@ -3223,6 +3238,14 @@
           "charging": "正在充电",
           "unknown": "未知"
         }
+      }
+    },
+    "binary_sensor": {
+      "physical_available": {
+        "name": "可用"
+      },
+      "physical_gatt_connected": {
+        "name": "Bluetooth GATT 已连接"
       }
     },
     "button": {

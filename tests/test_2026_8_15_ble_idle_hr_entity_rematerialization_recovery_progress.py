@@ -16,7 +16,9 @@ def test_accepted_ble_sensor_only_probes_identity_while_idle():
 
 
 def test_profile_disconnect_closes_unowned_gatt_and_shutdown_closes_all_clients():
-    assert "if users:\n                return" in BT
+    assert "if users:" in BT
+    assert "await self._async_disconnect_client(" in BT
+    assert "async with asyncio.timeout(BLE_DISCONNECT_TIMEOUT" in BT
     assert "client = self._clients.pop(sensor_id, None)" in BT
     assert "explicitly close all clients during integration shutdown" in BT
 

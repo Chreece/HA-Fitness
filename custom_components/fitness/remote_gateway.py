@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 from collections import defaultdict
 from datetime import datetime, timezone
+from itertools import islice
 import logging
 import time
 from typing import Any
@@ -28,6 +29,7 @@ from .live.antplus_core.const import (
     REMOTE_PACKET_EVENT,
 )
 from .live.bluetooth import (
+    CHAR_BATTERY_LEVEL,
     CHAR_CSC,
     CHAR_CYCLING_POWER,
     CHAR_FTMS_INDOOR_BIKE,
@@ -36,6 +38,8 @@ from .live.bluetooth import (
     CHAR_RSC,
     SERVICE_CAPABILITIES,
     _RevolutionState,
+    _battery_metadata,
+    _parse_battery,
     _parse_csc,
     _parse_cycling_power,
     _parse_ftms_indoor_bike,
@@ -43,6 +47,7 @@ from .live.bluetooth import (
     _parse_hr,
     _parse_rsc,
 )
+from .live.cycplus_m1 import cycplus_m1_name_identity
 from .live.runtime import get_live_runtime
 
 _LOGGER = logging.getLogger(__name__)
@@ -55,10 +60,15 @@ REMOTE_GATEWAY_KEY = "_remote_gateway_runtime"
 LEGACY_LOCAL_CAST_USER_NAMES = {"Fitness TV Cast", "Home Assistant Cast"}
 LOCAL_CAST_APP_ID = "A078F6B0"
 LOCAL_CAST_NAMESPACE = "urn:x-cast:com.nabucasa.hast"
+REMOTE_BLE_DEVICE_LIMIT = 256
+REMOTE_BLE_STALE_SECONDS = 300.0
+REMOTE_ASSIGNMENT_GATEWAY_LIMIT = 16
+REMOTE_ASSIGNMENT_DEVICE_LIMIT = 512
 
 # Characteristic -> stable capability set / decoder name. The backend decodes raw
 # standard Bluetooth SIG measurements so browser and native senders stay tiny.
 BLE_CHARACTERISTICS: dict[str, tuple[set[str], str]] = {
+    CHAR_BATTERY_LEVEL: (set(), "battery"),
     CHAR_HR: ({"heart_rate"}, "hr"),
     CHAR_CYCLING_POWER: ({"power", "cadence"}, "cycling_power"),
     CHAR_CSC: ({"cadence"}, "csc"),
@@ -150,6 +160,80 @@ class RemoteGatewayRuntime:
         self._ble_revolutions: dict[tuple[str, str, str, str], _RevolutionState] = defaultdict(_RevolutionState)
         self._ble_sensor_ids: dict[tuple[str, str, str], str] = {}
         self._last_seen: dict[tuple[str, str, str], float] = {}
+        self._last_prune = 0.0
+        self._ant_assignment_pending: dict[tuple[str, str], set[int]] = {}
+        self._ant_assignment_tasks: dict[tuple[str, str], asyncio.Task] = {}
+
+    def _prune_ble_state(self, *, force: bool = False) -> None:
+        """Bound state retained for vanished browser Bluetooth devices."""
+        now = time.monotonic()
+        if not force and now - self._last_prune < 30.0:
+            return
+        self._last_prune = now
+        stale = {
+            key
+            for key, seen in self._last_seen.items()
+            if now - seen > REMOTE_BLE_STALE_SECONDS
+        }
+        if len(self._last_seen) - len(stale) > REMOTE_BLE_DEVICE_LIMIT:
+            remaining = sorted(
+                (
+                    (seen, key)
+                    for key, seen in self._last_seen.items()
+                    if key not in stale
+                ),
+                reverse=True,
+            )
+            stale.update(key for _seen, key in remaining[REMOTE_BLE_DEVICE_LIMIT:])
+        for key in stale:
+            self._last_seen.pop(key, None)
+            self._ble_sensor_ids.pop(key, None)
+        if stale:
+            for state_key in tuple(self._ble_revolutions):
+                if state_key[:3] in stale:
+                    self._ble_revolutions.pop(state_key, None)
+
+    def schedule_ant_assignments(
+        self,
+        profile_entry_id: str,
+        gateway_id: str,
+        device_ids: set[int],
+    ) -> None:
+        """Union packet-batch IDs into one assignment worker per gateway."""
+        if not device_ids:
+            return
+        key = (str(profile_entry_id), str(gateway_id))
+        pending = self._ant_assignment_pending.setdefault(key, set())
+        for device_id in sorted(device_ids):
+            if len(pending) >= REMOTE_ASSIGNMENT_DEVICE_LIMIT:
+                break
+            pending.add(int(device_id))
+        task = self._ant_assignment_tasks.get(key)
+        if task is not None and not task.done():
+            return
+        if len(self._ant_assignment_tasks) >= REMOTE_ASSIGNMENT_GATEWAY_LIMIT:
+            self._ant_assignment_pending.pop(key, None)
+            _LOGGER.warning("Ignoring excess remote ANT+ assignment gateway %s", gateway_id)
+            return
+
+        async def _runner() -> None:
+            try:
+                while pending := self._ant_assignment_pending.get(key):
+                    batch = set(pending)
+                    pending.clear()
+                    await _async_assign_remote_ant_devices(
+                        self.hass, profile_entry_id, batch
+                    )
+                    await asyncio.sleep(0)
+            finally:
+                self._ant_assignment_pending.pop(key, None)
+                self._ant_assignment_tasks.pop(key, None)
+
+        self._ant_assignment_tasks[key] = self.hass.async_create_background_task(
+            _runner(),
+            f"fitness remote ANT+ profile assignment {gateway_id}",
+            eager_start=False,
+        )
 
     async def async_ensure_transport(self, transport: str) -> None:
         runtime = get_live_runtime(self.hass)
@@ -159,6 +243,25 @@ class RemoteGatewayRuntime:
         # are immediately usable. This does not require local radio hardware.
         if not runtime.adapter_enabled(transport):
             await runtime.async_configure_transport(transport, enabled=True)
+
+    async def async_shutdown(self) -> None:
+        """Cancel remote assignment work before the live hub is torn down."""
+        tasks = {
+            task for task in self._ant_assignment_tasks.values() if not task.done()
+        }
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            try:
+                async with asyncio.timeout(5.0):
+                    await asyncio.gather(*tasks, return_exceptions=True)
+            except TimeoutError:
+                _LOGGER.warning("Timed out stopping remote Fitness gateway workers")
+        self._ant_assignment_tasks.clear()
+        self._ant_assignment_pending.clear()
+        self._ble_revolutions.clear()
+        self._ble_sensor_ids.clear()
+        self._last_seen.clear()
 
     async def async_register_ble_device(
         self,
@@ -171,6 +274,7 @@ class RemoteGatewayRuntime:
         characteristic_uuids: list[str],
         identity: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        self._prune_ble_state()
         entry = _profile_entry(self.hass, profile_entry_id)
         if entry is None:
             raise ValueError("profile_not_found")
@@ -178,8 +282,13 @@ class RemoteGatewayRuntime:
         runtime = get_live_runtime(self.hass)
         runtime.set_adapter_presence("bluetooth", True)
 
-        services = {_normalize_uuid(item) for item in service_uuids}
-        chars = {_normalize_uuid(item) for item in characteristic_uuids}
+        services = {
+            _normalize_uuid(item)[:128] for item in islice(service_uuids, 64)
+        }
+        chars = {
+            _normalize_uuid(item)[:128]
+            for item in islice(characteristic_uuids, 64)
+        }
         capabilities: set[str] = set()
         for service, caps in SERVICE_CAPABILITIES.items():
             if service in services:
@@ -192,15 +301,30 @@ class RemoteGatewayRuntime:
             raise ValueError("unsupported_ble_sensor")
 
         endpoint_id = f"bluetooth:web:{profile_entry_id}:{gateway_id}:{device_id}"
-        identity = {str(k): str(v).strip() for k, v in dict(identity or {}).items() if str(v).strip()}
+        device_name = str(name or "Remote Bluetooth fitness sensor")[:160]
+        raw_identity = identity if isinstance(identity, dict) else {}
+        identity = {}
+        for key, value in islice(raw_identity.items(), 64):
+            clean_value = str(value).strip()[:512]
+            if clean_value:
+                identity[str(key)[:128]] = clean_value
+        # The browser cannot reveal a Bluetooth address. For an M1 its local-name
+        # suffix is the exact route bridge shared with HA's verified archive
+        # advertisement. Compute it server-side so a client cannot invent an
+        # arbitrary physical identity token.
+        identity.update(cycplus_m1_name_identity(device_name) or {})
         existing = runtime.find_sensor_for_remote_ble_identity(
-            name=str(name or "Remote Bluetooth fitness sensor")[:160],
+            name=device_name,
             capabilities=capabilities,
             identity=identity,
+            endpoint_id=endpoint_id,
         )
         if existing is not None:
             sensor = existing
             runtime.endpoint_aliases[endpoint_id] = sensor.sensor_id
+            runtime.enrich_sensor_capabilities(
+                sensor.sensor_id, capabilities, transport="bluetooth"
+            )
             sensor.metadata.setdefault("remote_gateways", {})[gateway_id] = {
                 "device_id": device_id,
                 "profile_entry_id": profile_entry_id,
@@ -208,14 +332,14 @@ class RemoteGatewayRuntime:
             }
         else:
             sensor = runtime.register_transport_sensor(
-            transport="bluetooth",
-            endpoint_id=endpoint_id,
-            name=str(name or "Remote Bluetooth fitness sensor")[:160],
-            capabilities=capabilities,
-            address=f"web:{device_id}",
-            source=f"remote:{gateway_id}",
-            last_seen=datetime.now(timezone.utc),
-            available=True,
+                transport="bluetooth",
+                endpoint_id=endpoint_id,
+                name=device_name,
+                capabilities=capabilities,
+                address=f"web:{device_id}",
+                source=f"remote:{gateway_id}",
+                last_seen=datetime.now(timezone.utc),
+                available=True,
                 metadata={
                     "remote_gateway": gateway_id,
                     "remote_device_id": device_id,
@@ -244,6 +368,7 @@ class RemoteGatewayRuntime:
         device_id: str,
     ) -> dict[str, Any]:
         """Mark one browser BLE endpoint offline without deleting assignment."""
+        self._prune_ble_state()
         key = (profile_entry_id, gateway_id, device_id)
         runtime = get_live_runtime(self.hass)
         browser_endpoint_id = (
@@ -294,6 +419,7 @@ class RemoteGatewayRuntime:
         characteristic_uuid: str,
         payload: bytes,
     ) -> dict[str, Any]:
+        self._prune_ble_state()
         runtime = get_live_runtime(self.hass)
         sensor_id = self._ble_sensor_ids.get((profile_entry_id, gateway_id, device_id))
         if not sensor_id:
@@ -321,7 +447,16 @@ class RemoteGatewayRuntime:
             values = _parse_ftms_treadmill(payload)
         else:
             values = {}
-        if values:
+        if decoder == "battery":
+            values = _parse_battery(payload)
+            if values:
+                runtime.publish_passive(
+                    sensor_id,
+                    values,
+                    transport="bluetooth",
+                    metadata={"battery": _battery_metadata()},
+                )
+        elif values:
             runtime.publish(sensor_id, values, transport="bluetooth")
         self._last_seen[(profile_entry_id, gateway_id, device_id)] = time.monotonic()
         return {"accepted": True, "values": values}
@@ -416,7 +551,10 @@ async def websocket_remote_gateway_hello(hass: HomeAssistant, connection, msg) -
     await _require_profile_access(hass, connection, entry.entry_id)
     try:
         gateway_id = _clean_gateway_id(msg["gateway_id"])
-        transports = {str(item).lower() for item in msg.get("transports") or []}
+        transports = {
+            str(item).lower()[:32]
+            for item in islice(msg.get("transports") or [], 16)
+        }
         remote = get_remote_gateway_runtime(hass)
         for transport in transports & {"bluetooth", "antplus"}:
             await remote.async_ensure_transport(transport)
@@ -428,7 +566,10 @@ async def websocket_remote_gateway_hello(hass: HomeAssistant, connection, msg) -
                 "control_protocol": 0,
                 "adapters": [{
                     "adapter_id": f"webusb:{gateway_id}",
-                    "name": f"Remote WebUSB ANT+ ({msg.get('client_name') or 'browser'})",
+                    "name": (
+                        f"Remote WebUSB ANT+ "
+                        f"({str(msg.get('client_name') or 'browser')[:160]})"
+                    ),
                     "available": True,
                     "vendor_id": "0FCF",
                     "product_id": "1008/1009",
@@ -572,10 +713,10 @@ async def websocket_remote_gateway_ant_packets(hass: HomeAssistant, connection, 
         # sensor registration. Browser/native gateways only transport RF packets.
         hass.bus.async_fire(REMOTE_PACKET_EVENT, {"gateway_id": gateway_id, "packets": sanitized})
         device_ids = {int(item["device_id"]) for item in sanitized}
-        hass.async_create_background_task(
-            _async_assign_remote_ant_devices(hass, str(msg["profile_entry_id"]), device_ids),
-            f"fitness remote ANT+ profile assignment {gateway_id}",
-            eager_start=False,
+        get_remote_gateway_runtime(hass).schedule_ant_assignments(
+            str(msg["profile_entry_id"]),
+            gateway_id,
+            device_ids,
         )
         connection.send_result(msg["id"], {"accepted_packets": len(sanitized)})
     except (KeyError, TypeError, ValueError) as err:

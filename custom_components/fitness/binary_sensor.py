@@ -152,7 +152,7 @@ class AdapterProblem(_AdapterBase):
 
 
 class LiveSensorAvailable(_RuntimeEntity):
-    _attr_name = "Available"
+    _attr_translation_key = "physical_available"
     _attr_icon = "mdi:heart-pulse"
 
     def __init__(self, runtime, sensor_id: str):
@@ -195,7 +195,7 @@ class LiveSensorAvailable(_RuntimeEntity):
 
 class BluetoothGattConnected(BinarySensorEntity):
     _attr_has_entity_name = True
-    _attr_name = "Bluetooth GATT connected"
+    _attr_translation_key = "physical_gatt_connected"
     _attr_icon = "mdi:bluetooth-connect"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 

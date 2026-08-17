@@ -183,6 +183,11 @@ const markdownAI = (entity, title) => entity ? {
 
 const section = (cards) => ({ type: "grid", cards: cards.filter(Boolean) });
 
+const FITNESS_ROUTE_MAX_INPUT_CHARS = 250000;
+const FITNESS_ROUTE_MAX_EXTRACTED_POINTS = 20000;
+const FITNESS_ROUTE_MAX_RENDER_POINTS = 5000;
+const FITNESS_ROUTE_MAX_DEPTH = 8;
+
 class FitnessRouteCard extends HTMLElement {
   setConfig(config) {
     if (!config) throw new Error("fitness-route-card requires a configuration");
@@ -236,8 +241,19 @@ class FitnessRouteCard extends HTMLElement {
     const attribute = this._resolved?.attribute || this.config.attribute || "polyline";
     const state = entityId ? this._hass.states[entityId] : null;
     const value = state?.attributes?.[attribute];
-    let encoded = "";
-    try { encoded = JSON.stringify(value); } catch (_err) { encoded = String(value ?? ""); }
+    // Never run JSON.stringify(value) on provider-controlled route payloads.
+    if (state !== this._routeStateReference) {
+      this._routeStateReference = state;
+      this._routeStateRevision = (this._routeStateRevision || 0) + 1;
+    }
+    let encoded = `${this._routeStateRevision || 0}|${state?.state || ""}|${typeof value}`;
+    if (typeof value === "string") {
+      encoded += `|${value.length}|${value.slice(0, 64)}|${value.slice(-64)}`;
+    } else if (Array.isArray(value)) {
+      encoded += `|${value.length}|${String(value[0] ?? "").slice(0, 64)}|${String(value[value.length - 1] ?? "").slice(0, 64)}`;
+    } else if (value && typeof value === "object") {
+      encoded += `|${Object.keys(value).sort().slice(0, 32).join(",")}`;
+    }
 
     const summary = _fitnessWorkoutSourceSignature(this._profile, this._hass);
 
@@ -280,9 +296,10 @@ class FitnessRouteCard extends HTMLElement {
   getCardSize() { return 6; }
 
   _decodeEncodedPolyline(str) {
+    str = String(str || "").slice(0, FITNESS_ROUTE_MAX_INPUT_CHARS);
     const coords = [];
     let index = 0, lat = 0, lon = 0;
-    while (index < str.length) {
+    while (index < str.length && coords.length < FITNESS_ROUTE_MAX_EXTRACTED_POINTS) {
       let b, shift = 0, result = 0;
       do { b = str.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20 && index <= str.length);
       lat += (result & 1) ? ~(result >> 1) : (result >> 1);
@@ -294,12 +311,12 @@ class FitnessRouteCard extends HTMLElement {
     return coords;
   }
 
-  _extractPoints(value) {
-    if (!value) return [];
+  _extractPoints(value, depth = 0) {
+    if (!value || depth > FITNESS_ROUTE_MAX_DEPTH) return [];
     if (typeof value === "string") {
-      const trimmed = value.trim();
+      const trimmed = value.trim().slice(0, FITNESS_ROUTE_MAX_INPUT_CHARS);
       if (!trimmed) return [];
-      try { return this._extractPoints(JSON.parse(trimmed)); } catch (_err) {}
+      try { return this._extractPoints(JSON.parse(trimmed), depth + 1); } catch (_err) {}
       if (/^[A-Za-z0-9_?@`~\\\[\]{}|^]+$/.test(trimmed) || trimmed.length > 20) {
         try { return this._decodeEncodedPolyline(trimmed); } catch (_err) {}
       }
@@ -308,6 +325,7 @@ class FitnessRouteCard extends HTMLElement {
     if (Array.isArray(value)) {
       const out = [];
       for (const item of value) {
+        if (out.length >= FITNESS_ROUTE_MAX_EXTRACTED_POINTS) break;
         if (Array.isArray(item) && item.length >= 2) {
           const a = Number(item[0]), b = Number(item[1]);
           if (Number.isFinite(a) && Number.isFinite(b)) {
@@ -318,7 +336,7 @@ class FitnessRouteCard extends HTMLElement {
           const lat = Number(item.lat ?? item.latitude ?? item.y);
           const lon = Number(item.lon ?? item.lng ?? item.longitude ?? item.x);
           if (Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) out.push([lat, lon]);
-          else out.push(...this._extractPoints(item));
+          else out.push(...this._extractPoints(item, depth + 1).slice(0, FITNESS_ROUTE_MAX_EXTRACTED_POINTS - out.length));
         }
       }
       return out;
@@ -326,12 +344,22 @@ class FitnessRouteCard extends HTMLElement {
     if (value && typeof value === "object") {
       for (const key of ["polyline", "route", "coordinates", "track", "points", "gps_points", "geometry"]) {
         if (key in value) {
-          const points = this._extractPoints(value[key]);
+          const points = this._extractPoints(value[key], depth + 1);
           if (points.length) return points;
         }
       }
     }
     return [];
+  }
+
+  _renderPoints(points) {
+    if (points.length <= FITNESS_ROUTE_MAX_RENDER_POINTS) return points;
+    const result = [];
+    const last = points.length - 1;
+    for (let index = 0; index < FITNESS_ROUTE_MAX_RENDER_POINTS; index++) {
+      result.push(points[Math.round(index * last / (FITNESS_ROUTE_MAX_RENDER_POINTS - 1))]);
+    }
+    return result;
   }
 
   _mercator(lat, lon, zoom) {
@@ -623,10 +651,13 @@ class FitnessRouteCard extends HTMLElement {
     const attribute = this._resolved?.attribute || this.config.attribute || "polyline";
     const state = entityId ? this._hass.states[entityId] : null;
     const value = state?.attributes?.[attribute];
-    const points = this._extractPoints(value);
+    const points = this._renderPoints(this._extractPoints(value));
     const labels = this._profile?.labels || {};
     const title = this.config.title || labels.route || (entityId ? entityName(this._hass, entityId) : "");
-    const height = Number(this.config.height || 340);
+    const configuredHeight = Number(this.config.height || 340);
+    const height = Number.isFinite(configuredHeight)
+      ? Math.max(180, Math.min(1200, configuredHeight))
+      : 340;
     if (points.length < 2) {
       this.shadowRoot.innerHTML = "";
       this.hidden = true;
@@ -638,7 +669,7 @@ class FitnessRouteCard extends HTMLElement {
     const slot = this.closest?.(".tv-card-slot");
     if (slot) slot.hidden = false;
 
-    const width = Math.max(this.clientWidth || 600, 300);
+    const width = Math.max(300, Math.min(8192, this.clientWidth || 600));
     this._lastRenderedWidth = Math.round(width);
     const fit = this._fit(points, width, height);
     const centerX = (fit.minX + fit.maxX) / 2;
@@ -3476,7 +3507,17 @@ const FITNESS_REMOTE_BLE_SERVICES = Object.freeze([
   "00001814-0000-1000-8000-00805f9b34fb",
   "00001826-0000-1000-8000-00805f9b34fb",
 ]);
+const FITNESS_REMOTE_BLE_BATTERY_SERVICE = "0000180f-0000-1000-8000-00805f9b34fb";
+const FITNESS_REMOTE_BLE_BATTERY_CHARACTERISTIC = "00002a19-0000-1000-8000-00805f9b34fb";
 const FITNESS_REMOTE_BLE_DEVICE_INFO_SERVICE = "0000180a-0000-1000-8000-00805f9b34fb";
+const FITNESS_REMOTE_BLE_CONNECT_SERVICES = Object.freeze([
+  ...FITNESS_REMOTE_BLE_SERVICES,
+  FITNESS_REMOTE_BLE_BATTERY_SERVICE,
+]);
+const FITNESS_REMOTE_BLE_OPTIONAL_SERVICES = Object.freeze([
+  ...FITNESS_REMOTE_BLE_CONNECT_SERVICES,
+  FITNESS_REMOTE_BLE_DEVICE_INFO_SERVICE,
+]);
 const FITNESS_REMOTE_BLE_IDENTITY_CHARACTERISTICS = Object.freeze({
   "00002a24-0000-1000-8000-00805f9b34fb":"model",
   "00002a25-0000-1000-8000-00805f9b34fb":"serial_number",
@@ -3486,6 +3527,7 @@ const FITNESS_REMOTE_BLE_IDENTITY_CHARACTERISTICS = Object.freeze({
   "00002a29-0000-1000-8000-00805f9b34fb":"manufacturer",
 });
 const FITNESS_REMOTE_BLE_CHARACTERISTICS = Object.freeze([
+  FITNESS_REMOTE_BLE_BATTERY_CHARACTERISTIC,
   "00002a37-0000-1000-8000-00805f9b34fb",
   "00002a63-0000-1000-8000-00805f9b34fb",
   "00002a5b-0000-1000-8000-00805f9b34fb",
@@ -8475,7 +8517,7 @@ class FitnessTvDashboardCard extends HTMLElement {
         // natively. The filters are ORed by Web Bluetooth, so HR, cycling
         // power/CSC, RSC and FTMS devices remain independently selectable.
         filters:[...FITNESS_REMOTE_BLE_SERVICES].map((service) => ({services:[service]})),
-        optionalServices:[...FITNESS_REMOTE_BLE_SERVICES, FITNESS_REMOTE_BLE_DEVICE_INFO_SERVICE],
+        optionalServices:[...FITNESS_REMOTE_BLE_OPTIONAL_SERVICES],
       });
       await this._connectRemoteBleDevice(device);
       const ids = this._remoteStoredBleIds();
@@ -8543,28 +8585,46 @@ class FitnessTvDashboardCard extends HTMLElement {
     const serviceUuids = [];
     const characteristics = [];
     const listeners = [];
-    for (const serviceUuid of FITNESS_REMOTE_BLE_SERVICES) {
+    const initialFrames = [];
+    let liveCharacteristicCount = 0;
+    for (const serviceUuid of FITNESS_REMOTE_BLE_CONNECT_SERVICES) {
       let service;
       try { service = await server.getPrimaryService(serviceUuid); } catch (_err) { continue; }
       serviceUuids.push(service.uuid || serviceUuid);
       for (const charUuid of FITNESS_REMOTE_BLE_CHARACTERISTICS) {
         let characteristic;
         try { characteristic = await service.getCharacteristic(charUuid); } catch (_err) { continue; }
-        if (!characteristic?.properties?.notify && !characteristic?.properties?.indicate) continue;
-        await characteristic.startNotifications();
         const normalizedUuid = String(characteristic.uuid || charUuid).toLowerCase();
-        const listener = (event) => {
-          const view = event.target?.value;
-          if (!view) return;
-          const payload = Array.from(new Uint8Array(view.buffer, view.byteOffset, view.byteLength));
-          this._queueRemoteBleFrame(device.id, normalizedUuid, payload);
-        };
-        characteristic.addEventListener("characteristicvaluechanged", listener);
-        listeners.push({characteristic, listener});
-        characteristics.push(normalizedUuid);
+        const isBattery = normalizedUuid === FITNESS_REMOTE_BLE_BATTERY_CHARACTERISTIC;
+        let usable = false;
+        if (isBattery && characteristic?.properties?.read) {
+          try {
+            const view = await characteristic.readValue();
+            initialFrames.push({
+              characteristicUuid:normalizedUuid,
+              payload:Array.from(new Uint8Array(view.buffer, view.byteOffset, view.byteLength)),
+            });
+            usable = true;
+          } catch (_err) {}
+        }
+        if (characteristic?.properties?.notify || characteristic?.properties?.indicate) {
+          await characteristic.startNotifications();
+          const listener = (event) => {
+            const view = event.target?.value;
+            if (!view) return;
+            const payload = Array.from(new Uint8Array(view.buffer, view.byteOffset, view.byteLength));
+            this._queueRemoteBleFrame(device.id, normalizedUuid, payload);
+          };
+          characteristic.addEventListener("characteristicvaluechanged", listener);
+          listeners.push({characteristic, listener});
+          usable = true;
+        }
+        if (!usable) continue;
+        if (!characteristics.includes(normalizedUuid)) characteristics.push(normalizedUuid);
+        if (!isBattery) liveCharacteristicCount += 1;
       }
     }
-    if (!characteristics.length) {
+    if (!liveCharacteristicCount) {
       try { device.gatt.disconnect(); } catch (_err) {}
       throw new Error(this._labels().remote_ble_unsupported);
     }
@@ -8591,6 +8651,9 @@ class FitnessTvDashboardCard extends HTMLElement {
       characteristic_uuids:characteristics,
       identity,
     });
+    for (const frame of initialFrames) {
+      this._queueRemoteBleFrame(device.id, frame.characteristicUuid, frame.payload);
+    }
     const record = {device, listeners, characteristics, profileEntryId:this._profile.entry_id};
     this._remoteBleDevices.set(device.id, record);
     if (!record.disconnectListener) {

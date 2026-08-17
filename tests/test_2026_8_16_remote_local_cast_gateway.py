@@ -32,6 +32,7 @@ def test_remote_ble_forwards_raw_standard_measurements_to_existing_decoders():
         "_parse_rsc",
         "_parse_ftms_indoor_bike",
         "_parse_ftms_treadmill",
+        "_parse_battery",
     ):
         assert parser in REMOTE
     assert 'endpoint_id = f"bluetooth:web:{profile_entry_id}:{gateway_id}:{device_id}"' in REMOTE
@@ -56,6 +57,8 @@ def test_browser_gateway_supports_filtered_web_bluetooth_permission_and_reconnec
     assert 'type:"fitness/remote_gateway/ble_frames"' in JS
     assert "FITNESS_REMOTE_BLE_SERVICES" in JS
     assert "FITNESS_REMOTE_BLE_CHARACTERISTICS" in JS
+    assert "FITNESS_REMOTE_BLE_OPTIONAL_SERVICES" in JS
+    assert "initialFrames" in JS
     assert 'id="remote-sensors"' in JS
 
 

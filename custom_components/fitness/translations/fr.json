@@ -3134,6 +3134,21 @@
           }
         }
       },
+      "physical_battery": {
+        "name": "Batterie"
+      },
+      "physical_active_transport": {
+        "name": "Transport actif"
+      },
+      "physical_workout_owner": {
+        "name": "Propriétaire de l’entraînement"
+      },
+      "physical_signal_strength": {
+        "name": "Puissance du signal"
+      },
+      "physical_last_seen": {
+        "name": "Dernière détection"
+      },
       "cycplus_device_number": {
         "name": "Numéro de l’appareil"
       },
@@ -3223,6 +3238,14 @@
           "charging": "En charge",
           "unknown": "Inconnue"
         }
+      }
+    },
+    "binary_sensor": {
+      "physical_available": {
+        "name": "Disponible"
+      },
+      "physical_gatt_connected": {
+        "name": "Bluetooth GATT connecté"
       }
     },
     "button": {

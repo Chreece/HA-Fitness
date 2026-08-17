@@ -9,7 +9,7 @@ from collections.abc import Callable
 from typing import Any
 from uuid import uuid4
 
-from aiohttp import WSMsgType, web
+from aiohttp import ClientTimeout, WSMsgType, web
 import voluptuous as vol
 
 from homeassistant.components import websocket_api
@@ -25,6 +25,7 @@ from homeassistant.helpers.storage import Store
 
 from .access_control import get_fitness_access_controller
 from .live import get_live_runtime
+from .resource_safety import async_call_service
 
 from .const import (
     CONF_TV_DASHBOARD_ENABLED,
@@ -94,6 +95,13 @@ MUSIC_PROXY_TTL_SECONDS = 30 * 60
 MUSIC_PROXY_VIEW_KEY = "_tv_music_proxy_view_registered"
 MA_SENDSPIN_PROXY_TTL_SECONDS = 30 * 60.0
 MA_SENDSPIN_PROXY_VIEW_KEY = "_tv_ma_sendspin_proxy_view_registered"
+MUSIC_PROXY_CONNECT_SECONDS = 15.0
+MUSIC_PROXY_READ_SECONDS = 90.0
+SENDSPIN_MAX_MESSAGE_BYTES = 2 * 1024 * 1024
+TV_CLIENTS_PER_PROFILE_LIMIT = 64
+TV_PROXY_TOKEN_LIMIT = 256
+TV_MA_PLAYERS_PER_PROFILE_LIMIT = 64
+TV_ANNOUNCEMENT_LIMIT = 64
 
 # These IDs are intentionally stable. They are stored per Fitness profile and
 # are therefore independent of card titles or the user's dashboard language.
@@ -134,6 +142,7 @@ class FitnessTVDashboardHub:
         )
         self._loaded = False
         self._data: dict[str, Any] = {"profiles": {}}
+        self._store_lock = asyncio.Lock()
         # profile -> client -> metadata about active dashboards
         self._clients: dict[str, dict[str, dict[str, Any]]] = {}
         # announcement -> (expected client, completion future)
@@ -190,15 +199,23 @@ class FitnessTVDashboardHub:
         if self._loaded:
             return
         saved = await self._store.async_load()
+        rewrite_loaded_profiles = False
         if isinstance(saved, dict):
             profiles = saved.get("profiles")
             if isinstance(profiles, dict):
-                self._data = {"profiles": profiles}
+                rewrite_loaded_profiles = True
+                clean_profiles: dict[str, dict[str, Any]] = {}
+                for raw_profile_id, raw_profile in profiles.items():
+                    profile_id = str(raw_profile_id or "").strip()[:128]
+                    if not profile_id or not isinstance(raw_profile, dict):
+                        continue
+                    clean_profiles[profile_id] = self._sanitize_profile(raw_profile)
+                    if len(clean_profiles) >= 256:
+                        break
+                self._data = {"profiles": clean_profiles}
                 # Restore only the last selected media, never a stale playing
                 # flag. A fresh browser/Cast receiver must explicitly start it.
-                for profile_entry_id, raw_profile in profiles.items():
-                    if not isinstance(raw_profile, dict):
-                        continue
+                for profile_entry_id, raw_profile in clean_profiles.items():
                     last_media = self._sanitize_last_media(raw_profile.get("last_media"))
                     if last_media:
                         self._media_state[str(profile_entry_id)] = {
@@ -207,6 +224,15 @@ class FitnessTVDashboardHub:
                             "error": False,
                         }
         self._loaded = True
+        if rewrite_loaded_profiles:
+            # Always rewrite the now-small snapshot. Comparing it recursively to
+            # a potentially enormous legacy object would itself block MainThread.
+            await self._async_save_data()
+
+    async def _async_save_data(self) -> None:
+        """Serialize TV preference writes so rapid controls cannot overlap."""
+        async with self._store_lock:
+            await self._store.async_save(self._data)
 
     @staticmethod
     def _sanitize_cards(cards: Any) -> list[str]:
@@ -225,18 +251,22 @@ class FitnessTVDashboardHub:
         for raw in favorites if isinstance(favorites, (list, tuple)) else ():
             if not isinstance(raw, dict):
                 continue
-            media_content_id = str(raw.get("media_content_id") or "").strip()
+            media_content_id = str(raw.get("media_content_id") or "").strip()[:4096]
             if not media_content_id or media_content_id in seen:
                 continue
             seen.add(media_content_id)
             item = {
                 "media_content_id": media_content_id,
-                "title": str(raw.get("title") or media_content_id).strip(),
+                "title": str(raw.get("title") or media_content_id).strip()[:512],
             }
-            for key in ("artist", "album", "thumbnail", "details", "provider", "provider_name", "provider_origin"):
+            for key, limit in (
+                ("artist", 512), ("album", 512), ("thumbnail", 4096),
+                ("details", 512), ("provider", 240), ("provider_name", 240),
+                ("provider_origin", 512),
+            ):
                 value = str(raw.get(key) or "").strip()
                 if value:
-                    item[key] = value
+                    item[key] = value[:limit]
             year = str(raw.get("year") or "").strip()
             if year:
                 item["year"] = year[:16]
@@ -401,17 +431,21 @@ class FitnessTVDashboardHub:
     def _sanitize_last_media(last_media: Any) -> dict[str, Any]:
         if not isinstance(last_media, dict):
             return {}
-        media_content_id = str(last_media.get("media_content_id") or "").strip()
+        media_content_id = str(last_media.get("media_content_id") or "").strip()[:4096]
         if not media_content_id:
             return {}
         result: dict[str, Any] = {
             "media_content_id": media_content_id,
-            "title": str(last_media.get("title") or media_content_id).strip(),
+            "title": str(last_media.get("title") or media_content_id).strip()[:512],
         }
-        for key in ("artist", "album", "thumbnail", "details", "provider", "provider_name", "provider_origin"):
+        for key, limit in (
+            ("artist", 512), ("album", 512), ("thumbnail", 4096),
+            ("details", 512), ("provider", 240), ("provider_name", 240),
+            ("provider_origin", 512),
+        ):
             value = str(last_media.get(key) or "").strip()
             if value:
-                result[key] = value
+                result[key] = value[:limit]
         year = str(last_media.get("year") or "").strip()
         if year:
             result["year"] = year[:16]
@@ -433,6 +467,48 @@ class FitnessTVDashboardHub:
         )
         if playlist_context:
             result["playlist_context"] = playlist_context
+        return result
+
+    @classmethod
+    def _sanitize_profile(cls, raw: Any) -> dict[str, Any]:
+        """Discard unknown or unbounded fields from one persisted TV profile."""
+        if not isinstance(raw, dict):
+            return {}
+        result: dict[str, Any] = {}
+        sanitizers = {
+            "cards": cls._sanitize_cards,
+            "favorites": cls._sanitize_favorites,
+            "user_playlists": cls._sanitize_user_playlists,
+            "last_media": cls._sanitize_last_media,
+            "audio_output_id": cls._sanitize_audio_output_id,
+            "music_adapters": cls._sanitize_music_adapters,
+            "music_adapter_options": cls._sanitize_music_adapter_options,
+            "music_search_adapters": cls._sanitize_music_adapters,
+            "music_search_scopes": cls._sanitize_music_search_scopes,
+            "music_search_types": cls._sanitize_music_search_types,
+        }
+        for key, sanitizer in sanitizers.items():
+            if key in raw:
+                result[key] = sanitizer(raw.get(key))
+        for key in (
+            "oled_protection",
+            "animations_enabled",
+            "light_feedback_enabled",
+            "tts_announcements_enabled",
+        ):
+            if key in raw:
+                result[key] = bool(raw.get(key))
+        if "tv_scale_percent" in raw:
+            try:
+                result["tv_scale_percent"] = max(
+                    10, min(150, int(raw.get("tv_scale_percent")))
+                )
+            except (TypeError, ValueError):
+                pass
+        if "music_search_limit" in raw:
+            result["music_search_limit"] = clamp_search_limit(
+                raw.get("music_search_limit")
+            )
         return result
 
     @classmethod
@@ -600,7 +676,7 @@ class FitnessTVDashboardHub:
         if music_search_types is not None:
             updated["music_search_types"] = self._sanitize_music_search_types(music_search_types)
         self._data["profiles"][profile_entry_id] = updated
-        await self._store.async_save(self._data)
+        await self._async_save_data()
         next_audio_output = self._sanitize_audio_output_id(updated.get("audio_output_id"))
         if (
             audio_output_id is not None
@@ -610,9 +686,11 @@ class FitnessTVDashboardHub:
             and self.hass.services.has_service("media_player", "media_stop")
         ):
             try:
-                await self.hass.services.async_call(
+                await async_call_service(
+                    self.hass,
                     "media_player", "media_stop", {},
                     target={"entity_id": previous_audio_output}, blocking=True,
+                    timeout=15.0,
                 )
             except Exception:
                 pass
@@ -645,14 +723,24 @@ class FitnessTVDashboardHub:
             except Exception:
                 pass
         self._audio_owner.pop(profile_entry_id, None)
-        await self._store.async_save(self._data)
+        await self._async_save_data()
 
     def heartbeat(self, profile_entry_id: str, client_id: str, *, is_cast_receiver: bool = False) -> None:
+        profile_entry_id = str(profile_entry_id or "")[:128]
+        client_id = str(client_id or "")[:240]
+        if not profile_entry_id or not client_id:
+            return
         now = time.monotonic()
-        self._clients.setdefault(profile_entry_id, {})[client_id] = {
+        clients = self._clients.setdefault(profile_entry_id, {})
+        clients[client_id] = {
             "last_seen": now,
             "is_cast_receiver": bool(is_cast_receiver),
         }
+        if len(clients) > TV_CLIENTS_PER_PROFILE_LIMIT:
+            for stale_id, _metadata in sorted(
+                clients.items(), key=lambda item: float(item[1].get("last_seen") or 0)
+            )[: len(clients) - TV_CLIENTS_PER_PROFILE_LIMIT]:
+                clients.pop(stale_id, None)
         self._prune(now)
 
         # A newly-created receiver after expect_cast() is the only Cast client
@@ -1565,22 +1653,26 @@ class FitnessTVDashboardHub:
                 # depending on an MA-only custom action and still gives MA queue
                 # ownership for provider URIs/direct URLs.
                 play_payload["enqueue"] = "replace"
-            await self.hass.services.async_call(
+            await async_call_service(
+                self.hass,
                 "media_player",
                 "play_media",
                 play_payload,
                 target={"entity_id": output},
                 blocking=True,
+                timeout=30.0,
             )
             position = self._media_seconds(data.get("position"))
             if position > 0 and self.hass.services.has_service("media_player", "media_seek"):
                 try:
-                    await self.hass.services.async_call(
+                    await async_call_service(
+                        self.hass,
                         "media_player",
                         "media_seek",
                         {"seek_position": position},
                         target={"entity_id": output},
                         blocking=True,
+                        timeout=15.0,
                     )
                 except Exception:
                     pass
@@ -1618,8 +1710,14 @@ class FitnessTVDashboardHub:
         if not service or not self.hass.services.has_service("media_player", service):
             return {"sent": False, "reason": "audio_output_command_unsupported"}
         try:
-            await self.hass.services.async_call(
-                "media_player", service, payload, target={"entity_id": output}, blocking=True
+            await async_call_service(
+                self.hass,
+                "media_player",
+                service,
+                payload,
+                target={"entity_id": output},
+                blocking=True,
+                timeout=20.0,
             )
         except Exception as err:
             return {"sent": False, "reason": "audio_output_command_failed", "details": str(err)}
@@ -1998,14 +2096,20 @@ class FitnessTVDashboardHub:
             for token, item in self._music_proxy_targets.items()
             if item[1] > now
         }
+        while len(self._music_proxy_targets) >= TV_PROXY_TOKEN_LIMIT:
+            self._music_proxy_targets.pop(next(iter(self._music_proxy_targets)))
         token = uuid4().hex
-        safe_headers = {
-            str(key): str(value)
-            for key, value in (headers or {}).items()
-            if str(key).lower() not in {"cookie", "authorization", "host", "content-length"}
-        }
+        safe_headers: dict[str, str] = {}
+        for key, value in (headers or {}).items():
+            name = str(key).strip()[:128]
+            if name and name.lower() not in {
+                "cookie", "authorization", "host", "content-length"
+            }:
+                safe_headers[name] = str(value)[:4096]
+            if len(safe_headers) >= 32:
+                break
         self._music_proxy_targets[token] = (
-            str(target),
+            str(target)[:8192],
             now + MUSIC_PROXY_TTL_SECONDS,
             safe_headers,
         )
@@ -2034,10 +2138,12 @@ class FitnessTVDashboardHub:
             for token, item in self._ma_sendspin_targets.items()
             if item[3] > now
         }
+        while len(self._ma_sendspin_targets) >= TV_PROXY_TOKEN_LIMIT:
+            self._ma_sendspin_targets.pop(next(iter(self._ma_sendspin_targets)))
         token = uuid4().hex + uuid4().hex
-        profile_entry_id = str(profile_entry_id)
-        ma_entry_id = str(ma_entry_id)
-        client_id = str(client_id)
+        profile_entry_id = str(profile_entry_id)[:128]
+        ma_entry_id = str(ma_entry_id)[:128]
+        client_id = str(client_id)[:240]
         self._ma_sendspin_targets[token] = (
             profile_entry_id,
             ma_entry_id,
@@ -2045,7 +2151,10 @@ class FitnessTVDashboardHub:
             now + MA_SENDSPIN_PROXY_TTL_SECONDS,
         )
         if client_id:
-            self._ma_players.setdefault(profile_entry_id, {})[client_id] = ma_entry_id
+            players = self._ma_players.setdefault(profile_entry_id, {})
+            players[client_id] = ma_entry_id
+            while len(players) > TV_MA_PLAYERS_PER_PROFILE_LIMIT:
+                players.pop(next(iter(players)))
         return f"/fitness/music/ma/sendspin/{token}"
 
     def ma_sendspin_target(self, token: str) -> tuple[str, str, str] | None:
@@ -2066,7 +2175,10 @@ class FitnessTVDashboardHub:
         ma_entry_id = str(ma_entry_id or "").strip()
         player_id = str(player_id or "").strip()
         if profile_entry_id and ma_entry_id and player_id:
-            self._ma_players.setdefault(profile_entry_id, {})[player_id] = ma_entry_id
+            players = self._ma_players.setdefault(profile_entry_id, {})
+            players[player_id[:240]] = ma_entry_id[:128]
+            while len(players) > TV_MA_PLAYERS_PER_PROFILE_LIMIT:
+                players.pop(next(iter(players)))
 
     async def async_release_profile_music(
         self, profile_entry_id: str, *, reason: str = "profile_unload"
@@ -2091,9 +2203,11 @@ class FitnessTVDashboardHub:
                 "media_player", "media_stop"
             ):
                 try:
-                    await self.hass.services.async_call(
+                    await async_call_service(
+                        self.hass,
                         "media_player", "media_stop", {},
                         target={"entity_id": output}, blocking=True,
+                        timeout=15.0,
                     )
                 except Exception:  # noqa: BLE001 - shutdown cleanup is best effort
                     pass
@@ -2113,7 +2227,8 @@ class FitnessTVDashboardHub:
             if entry is None:
                 continue
             try:
-                await async_stop_music_assistant_player(entry, player_id)
+                async with asyncio.timeout(10.0):
+                    await async_stop_music_assistant_player(entry, player_id)
             except Exception:  # noqa: BLE001 - never block HA/profile unload
                 pass
         self._audio_owner.pop(profile_entry_id, None)
@@ -2156,6 +2271,8 @@ class FitnessTVDashboardHub:
             cache=False,
         )
         announcement_id = uuid4().hex
+        if len(self._announcements) >= TV_ANNOUNCEMENT_LIMIT:
+            return False
         future: asyncio.Future[bool] = asyncio.get_running_loop().create_future()
         self._announcements[announcement_id] = (client_id, future)
 
@@ -2229,7 +2346,17 @@ class FitnessMusicProxyView(HomeAssistantView):
             headers["Range"] = range_header
         session = async_get_clientsession(hub.hass)
         try:
-            upstream = await session.get(target, headers=headers, allow_redirects=True)
+            upstream = await session.get(
+                target,
+                headers=headers,
+                allow_redirects=True,
+                timeout=ClientTimeout(
+                    total=None,
+                    connect=MUSIC_PROXY_CONNECT_SECONDS,
+                    sock_connect=MUSIC_PROXY_CONNECT_SECONDS,
+                    sock_read=MUSIC_PROXY_READ_SECONDS,
+                ),
+            )
         except Exception as err:  # noqa: BLE001 - remote stream errors map to 502
             raise web.HTTPBadGateway(text="Unable to open remote audio stream") from err
         if upstream.status >= 400:
@@ -2301,15 +2428,18 @@ class FitnessMASendspinProxyView(HomeAssistantView):
         if not upstream_url:
             raise web.HTTPBadGateway(text="Music Assistant Sendspin server URL is unavailable")
 
-        client_ws = web.WebSocketResponse(heartbeat=25, max_msg_size=0)
+        client_ws = web.WebSocketResponse(
+            heartbeat=25, max_msg_size=SENDSPIN_MAX_MESSAGE_BYTES
+        )
         await client_ws.prepare(request)
         session = async_get_clientsession(hass)
         try:
-            upstream_ws = await session.ws_connect(
-                upstream_url,
-                heartbeat=25,
-                max_msg_size=0,
-            )
+            async with asyncio.timeout(MUSIC_PROXY_CONNECT_SECONDS):
+                upstream_ws = await session.ws_connect(
+                    upstream_url,
+                    heartbeat=25,
+                    max_msg_size=SENDSPIN_MAX_MESSAGE_BYTES,
+                )
             if ma_token:
                 await upstream_ws.send_json(
                     {"type": "auth", "token": ma_token, "client_id": client_id}
@@ -2990,7 +3120,8 @@ async def websocket_tv_music_ma_sendspin(hass: HomeAssistant, connection, msg) -
         and str(state.get("media_content_id") or "").startswith(FITNESS_MA_PREFIX)
     ):
         try:
-            await async_stop_music_assistant_player(entry, client_id)
+            async with asyncio.timeout(10.0):
+                await async_stop_music_assistant_player(entry, client_id)
         except Exception:  # noqa: BLE001 - stale cleanup must not block relay creation
             pass
     relay_url = hub.issue_ma_sendspin_proxy(

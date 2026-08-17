@@ -3134,6 +3134,21 @@
           }
         }
       },
+      "physical_battery": {
+        "name": "배터리"
+      },
+      "physical_active_transport": {
+        "name": "활성 전송 방식"
+      },
+      "physical_workout_owner": {
+        "name": "운동 소유자"
+      },
+      "physical_signal_strength": {
+        "name": "신호 강도"
+      },
+      "physical_last_seen": {
+        "name": "마지막 감지"
+      },
       "cycplus_device_number": {
         "name": "기기 번호"
       },
@@ -3223,6 +3238,14 @@
           "charging": "충전 중",
           "unknown": "알 수 없음"
         }
+      }
+    },
+    "binary_sensor": {
+      "physical_available": {
+        "name": "사용 가능"
+      },
+      "physical_gatt_connected": {
+        "name": "Bluetooth GATT 연결됨"
       }
     },
     "button": {

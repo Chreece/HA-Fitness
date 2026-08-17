@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import hashlib
 import io
+from itertools import islice
 import json
 import logging
 import math
@@ -53,10 +54,36 @@ _M1_NAME = re.compile(
 _FIT_FILENAME = re.compile(r"(?<!\d)(\d{14}\.fit)(?![A-Za-z0-9])", re.IGNORECASE)
 
 SYNC_INTERVAL = timedelta(minutes=15)
-MAX_TRANSFER_BYTES = 64 * 1024 * 1024
+MAX_TRANSFER_BYTES = 16 * 1024 * 1024
+MAX_FILES_PER_SYNC = 3
+MAX_BYTES_PER_SYNC = 24 * 1024 * 1024
+BATCH_CONTINUE_DELAY = 60.0
+BLE_CLEANUP_TIMEOUT = 5.0
+SHUTDOWN_TIMEOUT = 12.0
+MAX_FIT_RECORDS = 100_000
+MAX_FIT_METADATA_FRAMES = 2_048
 PROTOCOL_TIMEOUT = 12.0
 BLOCK_TIMEOUT = 20.0
 FILE_RETRY_FRONT_LIMIT = 3
+PROTOCOL_NOTIFICATION_QUEUE_LIMIT = 128
+
+_FIT_RECORD_FIELDS = frozenset({
+    "timestamp",
+    "position_lat",
+    "position_long",
+    "enhanced_speed",
+    "speed",
+    "heart_rate",
+    "power",
+    "cadence",
+})
+_FIT_RETAINED_FRAMES = frozenset({
+    "session",
+    "record",
+    "lap",
+    "file_id",
+    "device_info",
+})
 
 ERROR_CODE_BY_STAGE = {
     "connection": "connection_failed",
@@ -67,22 +94,45 @@ ERROR_CODE_BY_STAGE = {
 }
 
 
+def cycplus_m1_name_identity(name: str | None) -> dict[str, str] | None:
+    """Return the route identity encoded in an M1 Bluetooth local name.
+
+    Web Bluetooth intentionally cannot expose a device's real address.  The M1
+    local name carries the same per-device hexadecimal number on its browser and
+    Home Assistant routes, so that exact value is the safe bridge between them.
+    A name match alone is never enough to enable the archive protocol; the local
+    Home Assistant advertisement still has to expose the verified vendor service.
+    """
+    match = _M1_NAME.fullmatch(str(name or "").strip())
+    if match is None:
+        return None
+    result = {"cycplus_model_id": "M1"}
+    if match.group(1):
+        number = match.group(1).upper()
+        result.update(
+            cycplus_device_number=number,
+            fitness_physical_identity=f"cycplus:m1:{number.lower()}",
+        )
+    return result
+
+
 def cycplus_m1_identity(
     name: str | None, service_uuids: Iterable[str]
 ) -> dict[str, str] | None:
     """Return verified M1 advertisement identity, including its visible number."""
     services = {str(value).lower() for value in service_uuids}
-    match = _M1_NAME.fullmatch(str(name or "").strip())
-    if match is None or CYCPLUS_M1_SERVICE_UUID not in services:
+    name_identity = cycplus_m1_name_identity(name)
+    if name_identity is None or CYCPLUS_M1_SERVICE_UUID not in services:
         return None
     result = {
         "manufacturer": "CYCPLUS",
         "model": "CYCPLUS M1 GPS Bike Computer",
         "model_id": "M1",
         "cycplus_protocol": "m1_ble_fit_archive_v1",
+        **name_identity,
     }
-    if match.group(1):
-        result["device_number"] = match.group(1).upper()
+    if name_identity.get("cycplus_device_number"):
+        result["device_number"] = name_identity["cycplus_device_number"]
     return result
 
 
@@ -172,22 +222,46 @@ def _valid_fit_container(data: bytes) -> bool:
     return _fit_container(data) is not None
 
 
-def _json_safe(value: Any) -> Any:
+def _json_safe(
+    value: Any, *, _depth: int = 0, _budget: list[int] | None = None
+) -> Any:
+    if _budget is None:
+        _budget = [4096]
+    if _budget[0] <= 0:
+        return "<fitness-payload-budget-exhausted>"
+    _budget[0] -= 1
     if isinstance(value, datetime):
         return value.isoformat()
     if isinstance(value, bytes):
-        return value.hex()
+        return value[:512].hex()
     if isinstance(value, (str, int, float, bool)) or value is None:
-        return value
+        return value[:2048] if isinstance(value, str) else value
+    if _depth >= 6:
+        return f"<fitness-depth-limit:{type(value).__name__}>"
     if isinstance(value, (list, tuple)):
-        return [_json_safe(item) for item in value[:100]]
+        return [
+            _json_safe(item, _depth=_depth + 1, _budget=_budget)
+            for item in value[:100]
+            if _budget[0] > 0
+        ]
     if isinstance(value, dict):
-        return {str(key): _json_safe(item) for key, item in list(value.items())[:100]}
+        return {
+            str(key)[:256]: _json_safe(
+                item, _depth=_depth + 1, _budget=_budget
+            )
+            for key, item in islice(value.items(), 100)
+            if _budget[0] > 0
+        }
     return str(value)[:500]
 
 
 def decode_fit_messages(data: bytes) -> list[tuple[str, dict[str, Any]]]:
-    """Decode one complete FIT container into a dependency-neutral snapshot."""
+    """Decode a bounded, dependency-neutral FIT workout snapshot.
+
+    Record frames are the overwhelming majority of a FIT file. Retain only the
+    fields used by Fitness calculations and reject implausibly large streams so
+    a corrupt device file cannot expand into gigabytes of Python dictionaries.
+    """
     container = _fit_container(data)
     if container is None:
         raise ValueError("invalid FIT container framing")
@@ -195,16 +269,31 @@ def decode_fit_messages(data: bytes) -> list[tuple[str, dict[str, Any]]]:
     import fitdecode  # Imported only in the executor-backed decode path.
 
     messages: list[tuple[str, dict[str, Any]]] = []
+    record_count = 0
+    metadata_count = 0
     with fitdecode.FitReader(
         io.BytesIO(container), check_crc=fitdecode.CrcCheck.RAISE
     ) as reader:
         for frame in reader:
             if frame.frame_type != fitdecode.FIT_FRAME_DATA:
                 continue
+            frame_name = str(frame.name)
+            if frame_name not in _FIT_RETAINED_FRAMES:
+                continue
+            if frame_name == "record":
+                record_count += 1
+                if record_count > MAX_FIT_RECORDS:
+                    raise ValueError("FIT file exceeds the safe record limit")
+            else:
+                metadata_count += 1
+                if metadata_count > MAX_FIT_METADATA_FRAMES:
+                    raise ValueError("FIT file exceeds the safe metadata limit")
             fields: dict[str, Any] = {}
             for field in frame.fields:
                 name = str(field.name)
-                value = field.value
+                if frame_name == "record" and name not in _FIT_RECORD_FIELDS:
+                    continue
+                value = _json_safe(field.value)
                 if value is None:
                     continue
                 if name in fields:
@@ -214,7 +303,7 @@ def decode_fit_messages(data: bytes) -> list[tuple[str, dict[str, Any]]]:
                     )
                 else:
                     fields[name] = value
-            messages.append((str(frame.name), fields))
+            messages.append((frame_name, fields))
     return messages
 
 
@@ -539,8 +628,12 @@ class CycplusM1Protocol:
     def __init__(self, client, progress: Callable[[int], None] | None = None) -> None:
         self.client = client
         self.progress = progress
-        self._command_queue: asyncio.Queue[bytes] = asyncio.Queue()
-        self._any_queue: asyncio.Queue[tuple[str, bytes]] = asyncio.Queue()
+        self._command_queue: asyncio.Queue[bytes] = asyncio.Queue(
+            maxsize=PROTOCOL_NOTIFICATION_QUEUE_LIMIT
+        )
+        self._any_queue: asyncio.Queue[tuple[str, bytes]] = asyncio.Queue(
+            maxsize=PROTOCOL_NOTIFICATION_QUEUE_LIMIT
+        )
         self._block_ready = asyncio.Event()
         self._collecting = False
         self._first_packet = False
@@ -550,10 +643,20 @@ class CycplusM1Protocol:
         self._overflow = False
         self._last_progress_size = 0
 
+    @staticmethod
+    def _put_latest(queue: asyncio.Queue, value: Any) -> None:
+        """Keep notification queues bounded while preserving newest responses."""
+        if queue.full():
+            try:
+                queue.get_nowait()
+            except asyncio.QueueEmpty:
+                pass
+        queue.put_nowait(value)
+
     def _on_command(self, _sender, data: bytearray) -> None:
         payload = bytes(data)
-        self._command_queue.put_nowait(payload)
-        self._any_queue.put_nowait(("command", payload))
+        self._put_latest(self._command_queue, payload)
+        self._put_latest(self._any_queue, ("command", payload))
 
     def _on_data(self, _sender, data: bytearray) -> None:
         payload = bytes(data)
@@ -561,7 +664,7 @@ class CycplusM1Protocol:
         # the bounded transfer buffer only; duplicating every packet into the
         # handshake queue would retain the whole file twice until finalization.
         if not self._collecting:
-            self._any_queue.put_nowait(("data", payload))
+            self._put_latest(self._any_queue, ("data", payload))
         if payload == _END_MARKER:
             self._ended = True
             self._block_ready.set()
@@ -595,7 +698,8 @@ class CycplusM1Protocol:
                 return
 
     async def _write(self, uuid: str, payload: bytes) -> None:
-        await self.client.write_gatt_char(uuid, payload, response=False)
+        async with asyncio.timeout(PROTOCOL_TIMEOUT):
+            await self.client.write_gatt_char(uuid, payload, response=False)
 
     async def _write_wait_any(self, uuid: str, payload: bytes) -> bytes:
         self._drain(self._any_queue)
@@ -616,13 +720,22 @@ class CycplusM1Protocol:
                     return response
 
     async def async_start(self) -> None:
-        await self.client.start_notify(CYCPLUS_M1_COMMAND_UUID, self._on_command)
-        await self.client.start_notify(CYCPLUS_M1_TX_UUID, self._on_data)
+        async with asyncio.timeout(PROTOCOL_TIMEOUT):
+            await self.client.start_notify(
+                CYCPLUS_M1_COMMAND_UUID, self._on_command
+            )
+        async with asyncio.timeout(PROTOCOL_TIMEOUT):
+            await self.client.start_notify(CYCPLUS_M1_TX_UUID, self._on_data)
 
     async def async_stop(self) -> None:
         for uuid in (CYCPLUS_M1_COMMAND_UUID, CYCPLUS_M1_TX_UUID):
             try:
-                await self.client.stop_notify(uuid)
+                async with asyncio.timeout(BLE_CLEANUP_TIMEOUT):
+                    await self.client.stop_notify(uuid)
+            except TimeoutError:
+                _LOGGER.warning(
+                    "Timed out stopping CYCPLUS M1 notification %s", uuid
+                )
             except Exception:
                 pass
 
@@ -798,6 +911,17 @@ class CycplusM1Coordinator:
         self._initialized = False
         self._stopping = False
         self._progress_publish: dict[str, tuple[int, float]] = {}
+        self._save_lock = asyncio.Lock()
+        self._background_tasks: set[asyncio.Task] = set()
+
+    def _start_background_task(self, coroutine, name: str) -> asyncio.Task:
+        """Own short persistence tasks so provider shutdown can await them."""
+        task = self.hass.async_create_background_task(
+            coroutine, name, eager_start=False
+        )
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+        return task
 
     async def async_setup(self) -> None:
         stored = await self._store.async_load() or {}
@@ -805,6 +929,26 @@ class CycplusM1Coordinator:
         if isinstance(devices, dict):
             self._state = {"devices": devices}
         self._initialized = True
+        if int(stored.get("workout_compaction_version") or 0) < 1:
+            for state in self._state.get("devices", {}).values():
+                files = state.get("files") if isinstance(state, dict) else None
+                if not isinstance(files, dict):
+                    continue
+                for record in files.values():
+                    workouts = record.get("workouts") if isinstance(record, dict) else None
+                    if not isinstance(workouts, list):
+                        continue
+                    compacted = []
+                    for item in workouts:
+                        if not isinstance(item, dict):
+                            continue
+                        try:
+                            compacted.append(Workout(**item).as_persistent_dict())
+                        except TypeError:
+                            continue
+                    record["workouts"] = compacted
+            self._state["workout_compaction_version"] = 1
+            await self._save()
 
     def _device(self, sensor_id: str) -> dict[str, Any]:
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
@@ -857,7 +1001,8 @@ class CycplusM1Coordinator:
 
     async def _save(self) -> None:
         if self._initialized:
-            await self._store.async_save(self._state)
+            async with self._save_lock:
+                await self._store.async_save(self._state)
 
     def advertise(self, sensor_id: str, identity: dict[str, str]) -> None:
         """Publish static identity and schedule sync only after user acceptance."""
@@ -879,12 +1024,29 @@ class CycplusM1Coordinator:
         if accepted:
             self.schedule(sensor_id, delay=1.0, force=True)
             return
-        task = self._tasks.pop(self.runtime.resolve_sensor_id(sensor_id), None)
-        self._queued_after_task.pop(self.runtime.resolve_sensor_id(sensor_id), None)
+        sensor_id = self.runtime.resolve_sensor_id(sensor_id)
+        task = self._tasks.pop(sensor_id, None)
+        self._queued_after_task.pop(sensor_id, None)
         if task is not None and not task.done():
             task.cancel()
 
     def assignment_changed(self, sensor_id: str) -> None:
+        sensor_id = self.runtime.resolve_sensor_id(sensor_id)
+        if not self.runtime.sensor_assigned_profile_ids(sensor_id):
+            task = self._tasks.pop(sensor_id, None)
+            self._queued_after_task.pop(sensor_id, None)
+            if task is not None and not task.done():
+                task.cancel()
+            state = self._device(sensor_id)
+            state.update(
+                sync_state="idle", pending_file=None, pending_file_count=0
+            )
+            self._publish(sensor_id)
+            self._start_background_task(
+                self._save(),
+                f"fitness pause unassigned CYCPLUS M1 sync {sensor_id}",
+            )
+            return
         if self.runtime.sensor_is_accepted(sensor_id):
             self.schedule(sensor_id, delay=0.5, force=True)
 
@@ -895,7 +1057,7 @@ class CycplusM1Coordinator:
         if task is not None and not task.done():
             task.cancel()
         if self._state.setdefault("devices", {}).pop(sensor_id, None) is not None:
-            self.hass.async_create_background_task(
+            self._start_background_task(
                 self._save(), f"fitness forget CYCPLUS M1 sync state {sensor_id}"
             )
 
@@ -1012,36 +1174,50 @@ class CycplusM1Coordinator:
         state["downloaded_bytes"] = size
         self._publish(sensor_id)
 
-    async def _import_cached_to_profiles(
-        self, sensor_id: str, record: dict[str, Any], profile_ids: list[str]
+    async def _import_records_to_profiles(
+        self,
+        sensor_id: str,
+        records: list[dict[str, Any]],
+        profile_ids: list[str],
     ) -> None:
-        imported = set(str(value) for value in record.get("imported_profiles") or [])
-        payload = record.get("workouts")
-        if not isinstance(payload, list):
-            return
-        workouts = []
-        for item in payload:
-            if not isinstance(item, dict):
-                continue
-            try:
-                workouts.append(Workout(**item))
-            except TypeError:
-                continue
-        if not workouts:
-            return
+        """Import one whole sync batch with at most one profile-store rewrite."""
         for profile_id in profile_ids:
-            if profile_id in imported:
-                continue
             manager = self.hass.data.get(DOMAIN, {}).get(profile_id)
             if manager is None:
                 continue
-            # Manager enrichment is profile-specific and mutates the Workout
-            # snapshot. Give each profile an independent copy so one person's
-            # longitudinal context can never leak into another profile.
-            profile_workouts = [Workout(**workout.as_dict()) for workout in workouts]
+            pending_records: list[dict[str, Any]] = []
+            profile_workouts: list[Workout] = []
+            for record in records:
+                imported = {
+                    str(value) for value in record.get("imported_profiles") or []
+                }
+                if profile_id in imported:
+                    continue
+                payload = record.get("workouts")
+                if not isinstance(payload, list):
+                    continue
+                record_workouts: list[Workout] = []
+                for item in payload:
+                    if not isinstance(item, dict):
+                        continue
+                    try:
+                        record_workouts.append(Workout(**item))
+                    except TypeError:
+                        continue
+                if not record_workouts:
+                    continue
+                pending_records.append(record)
+                profile_workouts.extend(record_workouts)
+            if not profile_workouts:
+                continue
+            # Manager enrichment is profile-specific and mutates the snapshots.
             await manager.async_import_device_workouts(profile_workouts)
-            imported.add(profile_id)
-        record["imported_profiles"] = sorted(imported)
+            for record in pending_records:
+                imported = {
+                    str(value) for value in record.get("imported_profiles") or []
+                }
+                imported.add(profile_id)
+                record["imported_profiles"] = sorted(imported)
 
     def _apply_fit_device_attributes(
         self, sensor_id: str, attributes: dict[str, Any]
@@ -1058,13 +1234,23 @@ class CycplusM1Coordinator:
             "model": "CYCPLUS M1 GPS Bike Computer",
             "model_id": "M1",
         })
-        serial = attributes.get("fit_serial_number")
-        if serial not in (None, "", 0, "0"):
-            metadata["serial_number"] = str(serial)
-        if attributes.get("fit_hardware_version") not in (None, ""):
-            metadata["hardware_revision"] = str(attributes["fit_hardware_version"])
-        if attributes.get("fit_software_version") not in (None, ""):
-            metadata["software_revision"] = str(attributes["fit_software_version"])
+        # FIT ``device_info`` values describe the recording source inside a
+        # workout container.  They are useful diagnostics but do not share the
+        # identity namespace of Bluetooth Device Information.  Promoting them to
+        # HA DeviceInfo used to replace the GATT serial/revisions and split one
+        # physical M1 into separate browser and local-archive devices.
+        for metadata_key, fit_key in (
+            ("serial_number", "fit_serial_number"),
+            ("hardware_revision", "fit_hardware_version"),
+            ("software_revision", "fit_software_version"),
+        ):
+            fit_value = attributes.get(fit_key)
+            if fit_value in (None, "", 0, "0"):
+                continue
+            for target in (metadata, sensor.metadata):
+                current = target.get(metadata_key)
+                if current not in (None, "") and str(current) == str(fit_value):
+                    target.pop(metadata_key, None)
         merged = self.runtime.register_transport_sensor(
             transport="bluetooth",
             endpoint_id=endpoint.endpoint_id,
@@ -1180,13 +1366,6 @@ class CycplusM1Coordinator:
                     ):
                         file_failures.pop(stale_name, None)
 
-                # A newly assigned profile can consume already decoded workouts
-                # without making the slow BLE device send those files again.
-                for record in tuple(files.values()):
-                    if isinstance(record, dict):
-                        stage = "import"
-                        await self._import_cached_to_profiles(sensor_id, record, profile_ids)
-
                 pending = state.get("pending_file")
                 queue = [name for name in filenames if name not in files]
                 queue.sort(
@@ -1203,8 +1382,28 @@ class CycplusM1Coordinator:
                     queue.remove(pending)
                     queue.insert(0, pending)
                 state["pending_file_count"] = len(queue)
-                await self._save()
                 self._publish(sensor_id)
+
+                # One synchronization cycle is intentionally small. Cached
+                # records awaiting a newly assigned profile share the same batch
+                # budget as downloads, preventing a 183-file archive from causing
+                # hundreds of complete profile-history rewrites in one session.
+                records_to_import = [
+                    record
+                    for record in files.values()
+                    if isinstance(record, dict)
+                    and any(
+                        profile_id
+                        not in {
+                            str(value)
+                            for value in record.get("imported_profiles") or []
+                        }
+                        for profile_id in profile_ids
+                    )
+                ][:MAX_FILES_PER_SYNC]
+                download_slots = max(
+                    0, MAX_FILES_PER_SYNC - len(records_to_import)
+                )
 
                 identity = cycplus_m1_identity(
                     endpoint.metadata.get("advertised_name") or sensor.name,
@@ -1212,16 +1411,19 @@ class CycplusM1Coordinator:
                 ) or {}
                 advertised_number = identity.get("device_number")
 
-                for filename in queue:
+                batch_bytes = 0
+                for filename in queue[:download_slots]:
+                    if not self.runtime.sensor_assigned_profile_ids(sensor_id):
+                        return
                     state.update(
                         pending_file=filename,
                         downloaded_bytes=0,
                         pending_file_count=len([item for item in queue if item not in files]),
                     )
-                    await self._save()
                     self._publish(sensor_id)
                     stage = "transfer"
                     payload = await protocol.async_read_file(filename)
+                    payload_size = len(payload)
                     stage = "validation"
                     result = await self.hass.async_add_executor_job(
                         partial(
@@ -1240,12 +1442,16 @@ class CycplusM1Coordinator:
                     files = state.setdefault("files", {})
                     record = {
                         "sha256": result.sha256,
-                        "size": len(payload),
+                        "size": payload_size,
                         "completed_at": datetime.now(timezone.utc).isoformat(),
-                        "workouts": [workout.as_dict() for workout in result.workouts],
+                        "workouts": [
+                            workout.as_persistent_dict()
+                            for workout in result.workouts
+                        ],
                         "imported_profiles": [],
                     }
                     files[filename] = record
+                    records_to_import.append(record)
                     file_failures.pop(filename, None)
                     state["device_attributes"] = result.device_attributes
                     starts = [
@@ -1257,26 +1463,59 @@ class CycplusM1Coordinator:
                         latest = max(starts).isoformat()
                         if not state.get("latest_workout") or latest > state["latest_workout"]:
                             state["latest_workout"] = latest
-                    stage = "import"
-                    await self._import_cached_to_profiles(sensor_id, record, profile_ids)
                     state["pending_file"] = None
-                    state["downloaded_bytes"] = len(payload)
+                    state["downloaded_bytes"] = payload_size
                     state["pending_file_count"] = len(
                         [item for item in filenames if item not in files]
                     )
+                    # Persist each completed file boundary. A crash may repeat at
+                    # most the active file, never the entire bounded batch.
                     await self._save()
                     self._publish(sensor_id)
+                    batch_bytes += payload_size
+                    del payload, result
+                    if batch_bytes >= MAX_BYTES_PER_SYNC:
+                        break
+
+                stage = "import"
+                await self._import_records_to_profiles(
+                    sensor_id, records_to_import, profile_ids
+                )
+
+                remaining_downloads = [
+                    item for item in filenames if item not in files
+                ]
+                pending_cached_import = any(
+                    isinstance(record, dict)
+                    and any(
+                        profile_id
+                        not in {
+                            str(value)
+                            for value in record.get("imported_profiles") or []
+                        }
+                        for profile_id in profile_ids
+                    )
+                    for record in files.values()
+                )
+                more_work = bool(remaining_downloads or pending_cached_import)
 
                 state.update(
-                    sync_state="ready",
-                    last_successful_sync=datetime.now(timezone.utc).isoformat(),
+                    sync_state="waiting" if more_work else "ready",
                     last_error_code="none",
                     retry_count=0,
                     pending_file=None,
-                    pending_file_count=0,
+                    pending_file_count=len(remaining_downloads),
                 )
+                if not more_work:
+                    state["last_successful_sync"] = datetime.now(
+                        timezone.utc
+                    ).isoformat()
                 await self._save()
                 self._publish(sensor_id)
+                if more_work:
+                    self._schedule_after_current(
+                        sensor_id, BATCH_CONTINUE_DELAY
+                    )
         except asyncio.CancelledError:
             raise
         except Exception as err:
@@ -1310,21 +1549,27 @@ class CycplusM1Coordinator:
             if protocol is not None:
                 await protocol.async_stop()
             if client is not None:
-                try:
-                    await client.disconnect()
-                except Exception:
-                    pass
+                await self.provider._async_disconnect_client(
+                    client, reason="CYCPLUS M1 sync cleanup"
+                )
             self.runtime._notify_values_throttled({
                 (self.runtime.resolve_sensor_id(sensor_id), "gatt_connection", None)
             })
 
     async def async_shutdown(self) -> None:
         self._stopping = True
-        tasks = list(self._tasks.values())
+        tasks = list({*self._tasks.values(), *self._background_tasks})
         self._tasks.clear()
+        self._background_tasks.clear()
         self._queued_after_task.clear()
         for task in tasks:
             if not task.done():
                 task.cancel()
         if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+            try:
+                async with asyncio.timeout(SHUTDOWN_TIMEOUT):
+                    await asyncio.gather(*tasks, return_exceptions=True)
+            except TimeoutError:
+                _LOGGER.warning(
+                    "Timed out waiting for CYCPLUS M1 synchronization shutdown"
+                )

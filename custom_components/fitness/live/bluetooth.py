@@ -47,6 +47,7 @@ CHAR_FTMS_ROWER = BASE.format("2ad1")
 CHAR_FTMS_INDOOR_BIKE = BASE.format("2ad2")
 CHAR_FTMS_CONTROL_POINT = BASE.format("2ad9")
 CHAR_FTMS_FEATURE = BASE.format("2acc")
+CHAR_BATTERY_LEVEL = BASE.format("2a19")
 
 # Bluetooth Device Information Service (DIS) characteristics.
 CHAR_SYSTEM_ID = BASE.format("2a23")
@@ -73,10 +74,47 @@ SERVICE_CAPABILITIES = {
     CYCPLUS_M1_SERVICE_UUID: {CAPABILITY_WORKOUT_HISTORY},
 }
 
+CHARACTERISTIC_CAPABILITIES = {
+    CHAR_HR: {METRIC_HEART_RATE},
+    CHAR_CYCLING_POWER: {METRIC_POWER, METRIC_CADENCE},
+    CHAR_CSC: {METRIC_CADENCE},
+    CHAR_RSC: {METRIC_SPEED, METRIC_CADENCE, METRIC_DISTANCE},
+    CHAR_FTMS_INDOOR_BIKE: {
+        METRIC_SPEED,
+        METRIC_CADENCE,
+        METRIC_POWER,
+        METRIC_DISTANCE,
+        METRIC_HEART_RATE,
+    },
+    CHAR_FTMS_TREADMILL: {METRIC_SPEED},
+}
+
 BATTERY_SERVICE = BASE.format("180f")
 RAW_DIAGNOSTIC_MIN_INTERVAL = 10.0
 PASSIVE_DECODE_MIN_INTERVAL = 5.0
 DISCOVERY_DEDUPE_WINDOW = 0.5
+BLE_DISCONNECT_TIMEOUT = 5.0
+
+
+def _battery_metadata() -> dict[str, object]:
+    """Return one translated metadata contract for every BLE battery source."""
+    return {
+        "translation_key": "physical_battery",
+        "unit": "%",
+        "device_class": "battery",
+        "state_class": "measurement",
+        "icon": "mdi:battery",
+        "passive": True,
+        "decoder": "bluetooth_sig_battery_level",
+    }
+
+
+def _parse_battery(data: bytes) -> dict[str, float]:
+    """Decode the Bluetooth SIG Battery Level characteristic."""
+    if not data:
+        return {}
+    value = int(data[0])
+    return {"battery": float(value)} if 0 <= value <= 100 else {}
 
 
 def _passive_advertisement_values(info) -> tuple[dict[str, float], dict[str, dict]]:
@@ -88,18 +126,10 @@ def _passive_advertisement_values(info) -> tuple[dict[str, float], dict[str, dic
     service_data = getattr(info, "service_data", {}) or {}
     for key, payload in service_data.items():
         if str(key).lower() == BATTERY_SERVICE and payload:
-            battery = int(bytes(payload)[0])
-            if 0 <= battery <= 100:
-                values["battery"] = float(battery)
-                metadata["battery"] = {
-                    "name": "Battery",
-                    "unit": "%",
-                    "device_class": "battery",
-                    "state_class": "measurement",
-                    "icon": "mdi:battery",
-                    "passive": True,
-                    "decoder": "bluetooth_sig_battery_service",
-                }
+            battery_values = _parse_battery(bytes(payload))
+            if battery_values:
+                values.update(battery_values)
+                metadata["battery"] = _battery_metadata()
 
     vendor_values, vendor_metadata = decode_bluetooth_advertisement(info)
     values.update(vendor_values)
@@ -455,20 +485,26 @@ class BluetoothFitnessProvider:
 
         async def _disconnect() -> None:
             lock = self._connect_lock(sensor_id)
-            async with lock:
-                canonical = self.runtime.resolve_sensor_id(sensor_id)
-                if self._sensor_users.get(canonical):
-                    return
-                client = self._clients.pop(canonical, None)
-                self._revolution_state.pop(canonical, None)
-                if client is not None:
-                    try:
-                        await client.disconnect()
-                    except Exception:
-                        pass
-                self.runtime._notify_values_throttled({
-                    (canonical, "gatt_connection", None)
-                })
+            try:
+                async with asyncio.timeout(BLE_DISCONNECT_TIMEOUT * 2):
+                    async with lock:
+                        canonical = self.runtime.resolve_sensor_id(sensor_id)
+                        if self._sensor_users.get(canonical):
+                            return
+                        client = self._clients.pop(canonical, None)
+                        self._revolution_state.pop(canonical, None)
+                        if client is not None:
+                            await self._async_disconnect_client(
+                                client, reason="unowned sensor cleanup"
+                            )
+                        self.runtime._notify_values_throttled({
+                            (canonical, "gatt_connection", None)
+                        })
+            except TimeoutError:
+                _LOGGER.warning(
+                    "Timed out waiting to clean up unowned Bluetooth sensor %s",
+                    sensor_id,
+                )
 
         self.hass.async_create_background_task(
             _disconnect(),
@@ -574,10 +610,9 @@ class BluetoothFitnessProvider:
                 )
             finally:
                 if client is not None:
-                    try:
-                        await client.disconnect()
-                    except Exception:
-                        pass
+                    await self._async_disconnect_client(
+                        client, reason="identity probe cleanup"
+                    )
 
     def sensor_connected(self, sensor_id: str) -> bool:
         client = self._clients.get(str(sensor_id))
@@ -590,6 +625,18 @@ class BluetoothFitnessProvider:
     def _connect_lock(self, sensor_id: str) -> asyncio.Lock:
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
         return self._connect_locks.setdefault(sensor_id, asyncio.Lock())
+
+    async def _async_disconnect_client(self, client, *, reason: str) -> None:
+        """Disconnect one BLE client without ever blocking HA shutdown forever."""
+        try:
+            async with asyncio.timeout(BLE_DISCONNECT_TIMEOUT):
+                await client.disconnect()
+        except TimeoutError:
+            _LOGGER.warning("Timed out during Bluetooth disconnect: %s", reason)
+        except Exception:
+            _LOGGER.debug(
+                "Bluetooth disconnect failed during %s", reason, exc_info=True
+            )
 
     async def establish_connection(self, ble_device, name: str, *, max_attempts: int):
         """Use the same Home Assistant/proxy-aware connector for archive sync."""
@@ -673,10 +720,9 @@ class BluetoothFitnessProvider:
                             self._sensor_users.pop(current_id, None)
                     if client is not None and self._clients.get(current_id) is client:
                         self._clients.pop(current_id, None)
-                        try:
-                            await client.disconnect()
-                        except Exception:
-                            pass
+                        await self._async_disconnect_client(
+                            client, reason="failed live connection cleanup"
+                        )
 
     async def _async_enrich_identity(
         self, sensor: LiveSensor, endpoint, client: BleakClient, *,
@@ -686,6 +732,7 @@ class BluetoothFitnessProvider:
         metadata = dict(endpoint.metadata)
         details: dict[str, object] = {}
         detail_meta: dict[str, dict] = {}
+        battery_values: dict[str, float] = {}
         identity_fields_found = False
         char_map = (
             (CHAR_MANUFACTURER_NAME, "manufacturer", "Manufacturer"),
@@ -751,6 +798,18 @@ class BluetoothFitnessProvider:
                         "entity_category": "diagnostic",
                     }
 
+        # Battery Service normally exposes its value through readable/notify
+        # characteristic 0x2A19, not advertisement service data. Reading it on
+        # every short identity/archive connection prevents a valid battery entity
+        # from remaining unavailable when the peripheral does not advertise the
+        # level inline.
+        try:
+            battery_values = _parse_battery(
+                bytes(await client.read_gatt_char(CHAR_BATTERY_LEVEL))
+            )
+        except Exception:
+            battery_values = {}
+
         # Only mark identity enrichment complete if Device Information actually
         # yielded identity facts. Some HR peripherals accept a GATT connection
         # but expose only Heart Rate/Battery; marking those complete would prevent
@@ -791,6 +850,17 @@ class BluetoothFitnessProvider:
                 "icon": "mdi:format-list-checks", "enabled_default": False,
                 "entity_category": "diagnostic",
             }
+
+        # Advertisements frequently list only one primary service because their
+        # payload is small. The connected GATT database is authoritative for the
+        # live entities Fitness can actually decode, so enrich capabilities from
+        # every discovered measurement characteristic rather than freezing the
+        # first advertised service forever.
+        gatt_capabilities = set(endpoint.capabilities)
+        for characteristic_uuid in characteristic_uuids:
+            gatt_capabilities.update(
+                CHARACTERISTIC_CAPABILITIES.get(characteristic_uuid, set())
+            )
         control_props = set(characteristic_properties.get(CHAR_FTMS_CONTROL_POINT, []))
         control_writable = bool(control_props & {"write", "write-without-response"})
         control_reports = bool(control_props & {"indicate", "notify"})
@@ -806,11 +876,18 @@ class BluetoothFitnessProvider:
         refined_name = metadata.get("model") or sensor.name
         merged = self.runtime.register_transport_sensor(
             transport=self.transport, endpoint_id=endpoint.endpoint_id,
-            name=str(refined_name), capabilities=set(endpoint.capabilities),
+            name=str(refined_name), capabilities=gatt_capabilities,
             address=endpoint.address, source=endpoint.source,
             last_seen=datetime.now(timezone.utc), rssi=endpoint.rssi,
             available=True, metadata=metadata,
         )
+        if battery_values:
+            self.runtime.publish_passive(
+                merged.sensor_id,
+                battery_values,
+                transport=self.transport,
+                metadata={"battery": _battery_metadata()},
+            )
         if details:
             self.runtime.publish_details(
                 merged.sensor_id, details, transport="bluetooth_gatt",
@@ -837,7 +914,7 @@ class BluetoothFitnessProvider:
         return merged
 
     async def _subscribe(self, sensor: LiveSensor, client: BleakClient) -> None:
-        def notify(parser):
+        def notify(parser, *, passive: bool = False):
             def _callback(_char, data):
                 try:
                     values = parser(bytes(data))
@@ -849,12 +926,22 @@ class BluetoothFitnessProvider:
                     )
                     return
                 if values:
-                    self.runtime.publish(sensor.sensor_id, values, transport=self.transport)
+                    if passive:
+                        self.runtime.publish_passive(
+                            sensor.sensor_id,
+                            values,
+                            transport=self.transport,
+                            metadata={"battery": _battery_metadata()},
+                        )
+                    else:
+                        self.runtime.publish(
+                            sensor.sensor_id, values, transport=self.transport
+                        )
             return _callback
 
-        async def start(uuid: str, parser) -> None:
+        async def start(uuid: str, parser, *, passive: bool = False) -> None:
             try:
-                await client.start_notify(uuid, notify(parser))
+                await client.start_notify(uuid, notify(parser, passive=passive))
             except Exception:
                 # A service may advertise a family while omitting a particular
                 # optional characteristic. That is normal, not an adapter fault.
@@ -872,30 +959,39 @@ class BluetoothFitnessProvider:
         # These parsers intentionally consume only the common instantaneous
         # fields whose byte layout is unambiguous across the FTMS profile.
         await start(CHAR_FTMS_TREADMILL, _parse_ftms_treadmill)
+        await start(CHAR_BATTERY_LEVEL, _parse_battery, passive=True)
 
     async def async_disconnect_sensor(self, profile_id: str, sensor_id: str) -> None:
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
         lock = self._connect_lock(sensor_id)
-        async with lock:
-            # A connect/enrichment that completed while we waited may have merged
-            # the sensor ID, so resolve it again under the same serialization point.
-            sensor_id = self.runtime.resolve_sensor_id(sensor_id)
-            self._profile_clients.get(profile_id, set()).discard(sensor_id)
-            users = self._sensor_users.setdefault(sensor_id, set())
-            users.discard(profile_id)
-            if users:
-                return
-            self._sensor_users.pop(sensor_id, None)
-            self._revolution_state.pop(sensor_id, None)
-            client = self._clients.pop(sensor_id, None)
-            if client is not None:
-                try:
-                    await client.disconnect()
-                except Exception:
-                    pass
-            self.runtime._notify_values_throttled({
-                (sensor_id, "gatt_connection", None)
-            })
+        try:
+            async with asyncio.timeout(BLE_DISCONNECT_TIMEOUT * 2):
+                async with lock:
+                    # A connect/enrichment that completed while we waited may have
+                    # merged the sensor ID, so resolve it again under the same
+                    # serialization point.
+                    sensor_id = self.runtime.resolve_sensor_id(sensor_id)
+                    self._profile_clients.get(profile_id, set()).discard(sensor_id)
+                    users = self._sensor_users.setdefault(sensor_id, set())
+                    users.discard(profile_id)
+                    if users:
+                        return
+                    self._sensor_users.pop(sensor_id, None)
+                    self._revolution_state.pop(sensor_id, None)
+                    client = self._clients.pop(sensor_id, None)
+                    if client is not None:
+                        await self._async_disconnect_client(
+                            client, reason="profile sensor disconnect"
+                        )
+                    self.runtime._notify_values_throttled({
+                        (sensor_id, "gatt_connection", None)
+                    })
+        except TimeoutError:
+            _LOGGER.warning(
+                "Timed out waiting to disconnect Bluetooth sensor %s for profile %s",
+                sensor_id,
+                profile_id,
+            )
 
     async def async_disconnect_profile(
         self, profile_id: str, *, keep_heart_rate: bool = False
@@ -960,10 +1056,9 @@ class BluetoothFitnessProvider:
         # explicitly close all clients during integration shutdown.
         for sensor_id, client in tuple(self._clients.items()):
             self._clients.pop(sensor_id, None)
-            try:
-                await client.disconnect()
-            except Exception:
-                pass
+            await self._async_disconnect_client(
+                client, reason="integration shutdown"
+            )
         self._connect_locks.clear()
         self.available = False
         self.hass.async_create_task(self.runtime.async_refresh_adapter_presence())

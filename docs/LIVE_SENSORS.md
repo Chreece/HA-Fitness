@@ -75,7 +75,19 @@ CRC, and imports every completed session through Fitness's canonical workout mer
 The protocol exposes no byte-offset seek command. Fitness therefore resumes safely
 at a **file boundary**: completed files remain checkpointed, while an interrupted or
 invalid active file is downloaded again from its beginning after automatic
-reconnection. Retry delay is bounded and increases after repeated failures.
+reconnection. Retry delay is bounded and increases after repeated failures. Large
+initial archives are processed in batches of at most three files. Fitness closes
+the Bluetooth connection between batches, waits before continuing automatically,
+and writes each profile history only once per batch so an old device with hundreds
+of workouts cannot monopolize Home Assistant's memory, storage or event loop.
+
+FIT transfers, decoded record counts and persisted auxiliary provider payloads
+have explicit safety limits. Normalized workout facts remain intact; oversized raw
+routes/provenance are downsampled or compacted. Existing installations perform one
+automatic compaction of legacy workout-history payloads before accepting new device
+imports. Removing the M1 from all profiles cancels the active synchronization, and
+Bluetooth cleanup has a timeout so a stuck BlueZ/GATT operation cannot block a Home
+Assistant restart indefinitely.
 
 Already decoded workout summaries are kept in the private checkpoint store. If the
 same M1 is later assigned to another Fitness profile, that profile can import the
@@ -89,6 +101,21 @@ Optional diagnostics expose downloaded bytes, free/total storage, FIT serial,
 manufacturer/product, hardware/software version and battery voltage/status. Stable
 identity fields also enrich the Home Assistant device registry. **Sync workouts
 now** requests an immediate retry; normal synchronization is automatic.
+
+The M1's browser live-measurement route and Home Assistant archive route use
+different Bluetooth identifiers and may report different GATT and FIT serial
+namespaces. Fitness correlates only the exact hexadecimal number encoded in the
+M1 local name, keeps the local/proxy route for automatic reconnection, and treats
+the FIT serial and revisions as diagnostics rather than physical DeviceInfo. This
+also migrates a previously split browser/archive pair back to one HA device.
+
+Battery percentage is read from the standard Battery Level characteristic when
+the M1 connects; it does not depend on the device placing the percentage in its
+advertisement. Live metric entities are derived from the connected GATT
+characteristics and from successfully decoded samples. Cadence, power, speed or
+distance therefore appear when the device actually exposes those measurements;
+Fitness does not create unsupported placeholder measurements merely because they
+may exist inside completed FIT workouts.
 
 ## Information entities
 

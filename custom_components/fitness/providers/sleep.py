@@ -3,7 +3,10 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timezone
+from itertools import islice
 from typing import Any
+
+from .workouts import _PersistenceBudget, _compact_persistent_value
 
 
 @dataclass(slots=True)
@@ -41,6 +44,38 @@ class SleepRecord:
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+    def as_persistent_dict(self) -> dict[str, Any]:
+        """Serialize a bounded sleep snapshot suitable for HA storage."""
+        result: dict[str, Any] = {
+            item.name: getattr(self, item.name)
+            for item in fields(self)
+            if item.name
+            not in {
+                "provider_values",
+                "sources",
+                "provider_domains",
+                "field_sources",
+            }
+        }
+        budget = _PersistenceBudget()
+        result["provider_values"] = _compact_persistent_value(
+            self.provider_values or {}, budget
+        )
+        result["sources"] = [
+            str(value)[:512] for value in (self.sources or [])[:64]
+        ]
+        result["provider_domains"] = [
+            str(value)[:128] for value in (self.provider_domains or [])[:32]
+        ]
+        result["field_sources"] = {
+            str(key)[:128]: str(value)[:256]
+            for key, value in islice((self.field_sources or {}).items(), 128)
+        }
+        for key, value in tuple(result.items()):
+            if isinstance(value, str):
+                result[key] = value[:4096]
+        return result
 
 
 def _dt(value: str | None) -> datetime | None:

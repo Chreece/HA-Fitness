@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, fields
 from datetime import datetime, timedelta, timezone
+from itertools import islice
 from typing import Any
 import math
 import re
@@ -15,6 +16,75 @@ from ..const import CONF_WORKOUT_DEVICE_IDS
 
 
 _INVALID = (None, "", "unknown", "unavailable", "none", "null")
+
+# Provider payloads are supporting provenance, not an unbounded data lake. A
+# malformed entity attribute or a route with hundreds of thousands of points can
+# otherwise make one persisted Fitness profile several gigabytes large. Keep the
+# normalized Workout fields lossless and place a strict, deterministic budget on
+# auxiliary provider/extra values written to ``.storage``.
+PERSISTENCE_MAX_DEPTH = 6
+PERSISTENCE_MAX_DICT_ITEMS = 96
+PERSISTENCE_MAX_LIST_ITEMS = 256
+PERSISTENCE_MAX_NODES = 4096
+PERSISTENCE_MAX_STRING = 2048
+
+
+@dataclass(slots=True)
+class _PersistenceBudget:
+    remaining_nodes: int = PERSISTENCE_MAX_NODES
+
+
+def _sample_indexes(length: int, limit: int) -> list[int]:
+    """Return ordered indexes retaining both ends of an oversized series."""
+    if length <= limit:
+        return list(range(length))
+    if limit <= 1:
+        return [0]
+    return sorted(
+        {round(index * (length - 1) / (limit - 1)) for index in range(limit)}
+    )
+
+
+def _compact_persistent_value(
+    value: Any,
+    budget: _PersistenceBudget,
+    *,
+    depth: int = 0,
+) -> Any:
+    """Return a JSON-safe, size-bounded provider payload snapshot."""
+    if budget.remaining_nodes <= 0:
+        return "<fitness-payload-budget-exhausted>"
+    budget.remaining_nodes -= 1
+
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, bytes):
+        return value[:512].hex()
+    if isinstance(value, str):
+        return value[:PERSISTENCE_MAX_STRING]
+    if isinstance(value, (int, float, bool)) or value is None:
+        return value
+    if depth >= PERSISTENCE_MAX_DEPTH:
+        return f"<fitness-depth-limit:{type(value).__name__}>"
+    if isinstance(value, (list, tuple)):
+        indexes = _sample_indexes(len(value), PERSISTENCE_MAX_LIST_ITEMS)
+        return [
+            _compact_persistent_value(value[index], budget, depth=depth + 1)
+            for index in indexes
+            if budget.remaining_nodes > 0
+        ]
+    if isinstance(value, dict):
+        result: dict[str, Any] = {}
+        for key, nested in islice(
+            value.items(), PERSISTENCE_MAX_DICT_ITEMS
+        ):
+            if budget.remaining_nodes <= 0:
+                break
+            result[str(key)[:256]] = _compact_persistent_value(
+                nested, budget, depth=depth + 1
+            )
+        return result
+    return str(value)[:PERSISTENCE_MAX_STRING]
 
 # Keys which are useful enough to normalize into first-class Workout fields.
 _FIELD_KEYS: dict[str, tuple[str, ...]] = {
@@ -337,6 +407,46 @@ class Workout:
                 result[item.name] = list(value)
             else:
                 result[item.name] = value
+        return result
+
+    def as_persistent_dict(self) -> dict:
+        """Serialize a bounded snapshot suitable for Home Assistant storage."""
+        # Do not first shallow-copy untrusted provider containers. A legacy
+        # payload may itself contain hundreds of thousands of dictionary keys;
+        # walk it only through the bounded compactor below.
+        result: dict[str, Any] = {
+            item.name: getattr(self, item.name)
+            for item in fields(self)
+            if item.name
+            not in {
+                "provider_values",
+                "extra",
+                "sources",
+                "provider_domains",
+                "field_sources",
+            }
+        }
+        budget = _PersistenceBudget()
+        result["provider_values"] = _compact_persistent_value(
+            self.provider_values or {}, budget
+        )
+        result["extra"] = _compact_persistent_value(self.extra or {}, budget)
+        result["sources"] = [
+            str(value)[:512] for value in (self.sources or [])[:64]
+        ]
+        result["provider_domains"] = [
+            str(value)[:128] for value in (self.provider_domains or [])[:32]
+        ]
+        result["field_sources"] = {
+            str(key)[:128]: str(value)[:256]
+            for key, value in islice(
+                (self.field_sources or {}).items(), 128
+            )
+        }
+        result["source"] = str(self.source or "")[:2048]
+        for key, value in tuple(result.items()):
+            if isinstance(value, str):
+                result[key] = value[:4096]
         return result
 
 

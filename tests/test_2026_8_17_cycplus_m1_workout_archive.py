@@ -63,7 +63,15 @@ def test_discovery_requires_both_m1_name_and_vendor_service():
         "model": "CYCPLUS M1 GPS Bike Computer",
         "model_id": "M1",
         "cycplus_protocol": "m1_ble_fit_archive_v1",
+        "cycplus_model_id": "M1",
+        "cycplus_device_number": "98C6",
+        "fitness_physical_identity": "cycplus:m1:98c6",
         "device_number": "98C6",
+    }
+    assert cycplus.cycplus_m1_name_identity("M1_98C6") == {
+        "cycplus_model_id": "M1",
+        "cycplus_device_number": "98C6",
+        "fitness_physical_identity": "cycplus:m1:98c6",
     }
     assert cycplus.cycplus_m1_identity("M1_98C6", []) is None
     assert cycplus.cycplus_m1_identity(
@@ -285,7 +293,19 @@ def test_all_bundled_languages_cover_every_new_entity_and_enum_state():
     for path in paths:
         catalog = json.loads(path.read_text(encoding="utf-8"))
         sensors = catalog["entity"]["sensor"]
+        binary_sensors = catalog["entity"]["binary_sensor"]
         assert expected_sensors <= set(sensors), path.name
+        assert {
+            "physical_battery",
+            "physical_active_transport",
+            "physical_workout_owner",
+            "physical_signal_strength",
+            "physical_last_seen",
+        } <= set(sensors), path.name
+        assert {
+            "physical_available",
+            "physical_gatt_connected",
+        } <= set(binary_sensors), path.name
         assert set(sensors["cycplus_sync_state"]["state"]) == expected_states
         assert set(sensors["cycplus_fit_battery_status"]["state"]) == expected_battery_states
         assert set(sensors["cycplus_last_error"]["state"]) == expected_errors
@@ -315,7 +335,14 @@ def test_archive_lifecycle_has_auto_retry_checkpoint_and_profile_boundaries():
     assert 'state.setdefault("file_failures", {})' in source
     assert 'last_error_code=ERROR_CODE_BY_STAGE.get(stage, "unknown")' in source
     assert '"cycplus_last_error": state.get("last_error_code") or "none"' in source
-    assert "profile_workouts = [Workout(**workout.as_dict())" in source
+    assert "MAX_FILES_PER_SYNC = 3" in source
+    assert "MAX_BYTES_PER_SYNC" in source
+    assert "queue[:download_slots]" in source
+    assert "_import_records_to_profiles" in source
+    assert "workout.as_persistent_dict()" in source
+    assert "asyncio.timeout(SHUTDOWN_TIMEOUT)" in source
+    assert "history_compaction_version" in manager
+    assert "as_persistent_dict() for item in merged" in manager
     assert "async_import_device_workouts" in manager
     assert "CAPABILITY_WORKOUT_HISTORY not in sensor.capabilities" in source
     assert "cycplus_m1_identity(info.name, uuids)" in bluetooth

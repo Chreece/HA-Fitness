@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+from itertools import islice
 import logging
 import re
 from dataclasses import dataclass, field
@@ -65,7 +66,52 @@ LEGACY_ADAPTERS_SUBENTRY_UNIQUE_ID = "fitness_adapters"
 ADAPTER_DEVICE_MODEL_VERSION = 1
 ANT_DATA_FRESH_SECONDS = 3.0
 TRANSPORT_HANDOVER_INTERVAL_SECONDS = 1.0
+RUNTIME_OPERATION_TIMEOUT = 15.0
+MAX_PERSISTED_LIVE_SENSORS = 2_048
+MAX_RUNTIME_LIVE_SENSORS = 4_096
+MAX_TOPOLOGY_METADATA_NODES = 512
 _LOGGER = logging.getLogger(__name__)
+
+
+def _bounded_metadata(
+    value: Any,
+    *,
+    depth: int = 0,
+    budget: list[int] | None = None,
+) -> Any:
+    """Return a JSON-safe, bounded copy of provider-controlled topology data."""
+    if budget is None:
+        budget = [MAX_TOPOLOGY_METADATA_NODES]
+    if budget[0] <= 0:
+        return None
+    budget[0] -= 1
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    if isinstance(value, str):
+        return value[:4096]
+    if isinstance(value, bytes):
+        return value[:512].hex()
+    if depth >= 6:
+        return None
+    if isinstance(value, dict):
+        result: dict[str, Any] = {}
+        for raw_key, raw_value in value.items():
+            if len(result) >= 128 or budget[0] <= 0:
+                break
+            key = str(raw_key)[:128]
+            if key:
+                result[key] = _bounded_metadata(
+                    raw_value, depth=depth + 1, budget=budget
+                )
+        return result
+    if isinstance(value, (list, tuple, set, frozenset)):
+        result = []
+        for item in islice(value, 128):
+            if budget[0] <= 0:
+                break
+            result.append(_bounded_metadata(item, depth=depth + 1, budget=budget))
+        return result
+    return str(value)[:4096]
 
 
 
@@ -84,6 +130,25 @@ def _serial(metadata: dict[str, Any]) -> str | None:
         if value not in (None, "", 0, "0"):
             return _clean(value)
     return None
+
+
+def _physical_identity(metadata: dict[str, Any]) -> str | None:
+    """Return an exact server-derived identity shared by alternate routes."""
+    value = str(metadata.get("fitness_physical_identity") or "").strip().lower()
+    if not value or not re.fullmatch(r"[a-z0-9][a-z0-9:._-]{2,127}", value):
+        return None
+    return value
+
+
+def _browser_ble_endpoint(endpoint: "TransportEndpoint") -> bool:
+    """Return whether an endpoint is an opaque Web Bluetooth route."""
+    return bool(
+        endpoint.transport == "bluetooth"
+        and (
+            endpoint.metadata.get("browser_remote")
+            or endpoint.endpoint_id.startswith("bluetooth:web:")
+        )
+    )
 
 
 
@@ -248,6 +313,12 @@ class LiveRuntime:
         self._sensor_materialization_pending: set[str] = set()
         self._save_pending = False
         self._save_handle = None
+        self._save_lock = asyncio.Lock()
+        self._save_task: asyncio.Task | None = None
+        self._hub_start_task: asyncio.Task | None = None
+        self._shutting_down = False
+        self._control_tasks: dict[str, asyncio.Task] = {}
+        self._assignment_refresh_pending: set[str] = set()
         self._hub_reload_pending = False
         # Lightweight radio presence tracking. This layer deliberately does not
         # import/load the Fitness Bluetooth or ANT+ provider modules.
@@ -279,6 +350,26 @@ class LiveRuntime:
         self._rediscovery_quarantine_until: dict[str, float] = {}
         self._stall_watchdog = None
 
+    def _start_control_task(
+        self, key: str, coroutine, name: str
+    ) -> asyncio.Task | None:
+        """Start one deduplicated, shutdown-owned control-plane task."""
+        existing = self._control_tasks.get(key)
+        if self._shutting_down or (existing is not None and not existing.done()):
+            coroutine.close()
+            return existing
+        task = self.hass.async_create_background_task(
+            coroutine, name, eager_start=False
+        )
+        self._control_tasks[key] = task
+
+        def _clear(completed: asyncio.Task) -> None:
+            if self._control_tasks.get(key) is completed:
+                self._control_tasks.pop(key, None)
+
+        task.add_done_callback(_clear)
+        return task
+
     async def async_initialize(self) -> None:
         if self._initialized:
             return
@@ -306,16 +397,38 @@ class LiveRuntime:
 
         # Restore physical identity aliases so one sensor stays one HA device
         # even when ANT+/BLE advertisements arrive in a different order.
-        for item in stored.get("physical_sensors") or []:
+        stored_sensors = stored.get("physical_sensors") or []
+        if not isinstance(stored_sensors, (list, tuple)):
+            stored_sensors = []
+            sanitized_topology = True
+        elif len(stored_sensors) > MAX_PERSISTED_LIVE_SENSORS:
+            sanitized_topology = True
+        for item in stored_sensors[:MAX_PERSISTED_LIVE_SENSORS]:
             try:
+                raw_sensor_metadata = _bounded_metadata(item.get("metadata") or {})
                 sensor = LiveSensor(
-                    sensor_id=str(item["sensor_id"]),
-                    name=str(item.get("name") or "Fitness sensor"),
-                    capabilities=set(item.get("capabilities") or []),
-                    metadata=dict(item.get("metadata") or {}),
+                    sensor_id=str(item["sensor_id"])[:256],
+                    name=str(item.get("name") or "Fitness sensor")[:256],
+                    capabilities={
+                        str(value)[:128]
+                        for value in islice(item.get("capabilities") or [], 64)
+                    },
+                    metadata=(
+                        raw_sensor_metadata
+                        if isinstance(raw_sensor_metadata, dict)
+                        else {}
+                    ),
                 )
-                for transport, raw in dict(item.get("endpoints") or {}).items():
-                    raw_metadata = dict(raw.get("metadata") or {})
+                raw_endpoints = item.get("endpoints") or {}
+                if not isinstance(raw_endpoints, dict):
+                    raw_endpoints = {}
+                    sanitized_topology = True
+                for transport in TRANSPORTS:
+                    raw = raw_endpoints.get(transport)
+                    if not isinstance(raw, dict):
+                        continue
+                    raw_metadata = _bounded_metadata(raw.get("metadata") or {})
+                    raw_metadata = raw_metadata if isinstance(raw_metadata, dict) else {}
                     stable_metadata = self._stable_endpoint_metadata(
                         transport, raw_metadata, None
                     )
@@ -323,10 +436,17 @@ class LiveRuntime:
                         sanitized_topology = True
                     endpoint = TransportEndpoint(
                         transport=transport,
-                        endpoint_id=str(raw["endpoint_id"]),
-                        address=raw.get("address"),
-                        capabilities=set(raw.get("capabilities") or []),
-                        source=raw.get("source"),
+                        endpoint_id=str(raw["endpoint_id"])[:512],
+                        address=str(raw.get("address"))[:512]
+                        if raw.get("address") is not None
+                        else None,
+                        capabilities={
+                            str(value)[:128]
+                            for value in islice(raw.get("capabilities") or [], 64)
+                        },
+                        source=str(raw.get("source"))[:512]
+                        if raw.get("source") is not None
+                        else None,
                         rssi=None,
                         available=False,
                         metadata=stable_metadata,
@@ -371,11 +491,19 @@ class LiveRuntime:
             metadata["transport_details"] = transport_details
         elif "transport_details" in metadata:
             metadata.pop("transport_details", None)
-        return metadata
+        bounded = _bounded_metadata(metadata)
+        return bounded if isinstance(bounded, dict) else {}
 
     def _serialize_sensors(self) -> list[dict[str, Any]]:
         result = []
-        for sensor in self.sensors.values():
+        sensors = sorted(
+            self.sensors.values(),
+            key=lambda sensor: (
+                not self.sensor_is_accepted(sensor.sensor_id),
+                sensor.sensor_id,
+            ),
+        )[:MAX_PERSISTED_LIVE_SENSORS]
+        for sensor in sensors:
             result.append(
                 {
                     "sensor_id": sensor.sensor_id,
@@ -399,19 +527,31 @@ class LiveRuntime:
         return result
 
     async def _async_save_adapter_config(self) -> None:
-        await self._store.async_save(
-            {
-                "configured": {name: True for name in TRANSPORTS},
-                "enabled": dict(self._enabled),
-                "adapter_device_model": ADAPTER_DEVICE_MODEL_VERSION,
-                "physical_sensors": self._serialize_sensors(),
-                "requires_reassignment": sorted(self._requires_reassignment),
-            }
-        )
+        async with self._save_lock:
+            await self._store.async_save(
+                {
+                    "configured": {name: True for name in TRANSPORTS},
+                    "enabled": dict(self._enabled),
+                    "adapter_device_model": ADAPTER_DEVICE_MODEL_VERSION,
+                    "physical_sensors": self._serialize_sensors(),
+                    "requires_reassignment": sorted(self._requires_reassignment)[
+                        :MAX_PERSISTED_LIVE_SENSORS
+                    ],
+                }
+            )
+
+    async def _async_flush_scheduled_saves(self) -> None:
+        """Drain topology changes through one store writer."""
+        while self._save_pending and not self._shutting_down:
+            self._save_pending = False
+            await self._async_save_adapter_config()
+            await asyncio.sleep(0)
 
     def _schedule_save(self) -> None:
         """Persist topology only after structural radio activity goes quiet."""
         self._save_pending = True
+        if self._shutting_down:
+            return
         if self._save_handle is not None:
             self._save_handle.cancel()
 
@@ -419,9 +559,10 @@ class LiveRuntime:
             self._save_handle = None
             if not self._save_pending:
                 return
-            self._save_pending = False
-            self.hass.async_create_background_task(
-                self._async_save_adapter_config(),
+            if self._save_task is not None and not self._save_task.done():
+                return
+            self._save_task = self.hass.async_create_background_task(
+                self._async_flush_scheduled_saves(),
                 "fitness persist live sensor topology",
                 eager_start=False,
             )
@@ -515,6 +656,8 @@ class LiveRuntime:
 
     async def async_refresh_adapter_presence(self) -> None:
         """Refresh cheap adapter presence without loading Fitness transport modules."""
+        if self._shutting_down:
+            return
         bt_provider = self.providers.get("bluetooth")
         bt = (
             bool(getattr(bt_provider, "available", False))
@@ -594,11 +737,21 @@ class LiveRuntime:
 
         @callback
         def _remote_alive(event) -> None:
-            gateway = str(event.data.get("gateway_id", "unknown")).strip() or "unknown"
+            gateway = (
+                str(event.data.get("gateway_id", "unknown")).strip()[:128]
+                or "unknown"
+            )
             self._remote_ant_last_seen[gateway] = time.monotonic()
+            if len(self._remote_ant_last_seen) > 256:
+                oldest = min(
+                    self._remote_ant_last_seen,
+                    key=self._remote_ant_last_seen.get,
+                )
+                self._remote_ant_last_seen.pop(oldest, None)
             self.set_adapter_presence("antplus", True)
             if self.hub_entry is None and self.hass.state is CoreState.running:
-                self.hass.async_create_background_task(
+                self._start_control_task(
+                    "ensure_hub",
                     self.async_ensure_hub_for_presence(),
                     "fitness ensure Sensors & Adapters hub",
                 )
@@ -911,10 +1064,12 @@ class LiveRuntime:
             # device-delete path; Home Assistant already removed this device and its
             # entities as part of the user's delete request.
 
-        self.hass.async_create_background_task(
+        # Still an async_create_background_task with eager_start=False through
+        # the owned/deduplicated helper; deletion never waits for cleanup.
+        self._start_control_task(
+            f"delete_sensor:{sensor_id}",
             _cleanup(),
             f"fitness cleanup deleted live sensor {sensor_id}",
-            eager_start=False,
         )
 
     def forget_sensor(self, sensor_id: str) -> None:
@@ -976,6 +1131,7 @@ class LiveRuntime:
         return None
 
     async def async_register_hub(self, entry) -> None:
+        self._shutting_down = False
         await self.async_initialize()
         if self._stall_watchdog is None:
             from .stall_watchdog import FitnessEventLoopWatchdog
@@ -1006,7 +1162,11 @@ class LiveRuntime:
         # Radio/proxy discovery must never delay Home Assistant startup.  The
         # adapter entities can be created immediately from persisted config;
         # provider hardware initialization happens as a background job.
-        self.hass.async_create_task(self._async_start_hub_modules())
+        self._hub_start_task = self.hass.async_create_background_task(
+            self._async_start_hub_modules(),
+            "fitness start live transport modules",
+            eager_start=False,
+        )
 
     def _cleanup_legacy_profile_infrastructure(self) -> None:
         """Remove prototype adapter/sensor registry objects owned by person entries."""
@@ -1096,9 +1256,7 @@ class LiveRuntime:
 
     async def async_unregister_hub(self, entry_id: str) -> None:
         if self.hub_entry is not None and self.hub_entry.entry_id == entry_id:
-            if self._stall_watchdog is not None:
-                self._stall_watchdog.stop()
-                self._stall_watchdog = None
+            await self.async_shutdown()
             self.hub_entry = None
             self.sensors_subentry_id = None
             self.antplus_subentry_id = None
@@ -1529,19 +1687,37 @@ class LiveRuntime:
             from .bluetooth import BluetoothFitnessProvider
             provider = BluetoothFitnessProvider(self)
             self.providers["bluetooth"] = provider
-            await provider.async_setup()
+            try:
+                async with asyncio.timeout(RUNTIME_OPERATION_TIMEOUT):
+                    await provider.async_setup()
+            except Exception:
+                self.providers.pop("bluetooth", None)
+                raise
         if wanted["antplus"]:
             provider = self.providers.get("antplus")
             if provider is None:
                 from .antplus import AntPlusFitnessProvider
                 provider = AntPlusFitnessProvider(self)
                 self.providers["antplus"] = provider
-                await provider.async_setup()
+                try:
+                    async with asyncio.timeout(RUNTIME_OPERATION_TIMEOUT):
+                        await provider.async_setup()
+                except Exception:
+                    self.providers.pop("antplus", None)
+                    raise
             if self.hub_entry is not None:
-                await provider.async_bind_hub(self.hub_entry)
+                async with asyncio.timeout(RUNTIME_OPERATION_TIMEOUT):
+                    await provider.async_bind_hub(self.hub_entry)
         for name in tuple(self.providers):
             if not wanted.get(name, False):
-                await self.providers.pop(name).async_shutdown()
+                # This replaces the former unbounded
+                # ``await self.providers.pop(name).async_shutdown()`` call.
+                provider = self.providers.pop(name)
+                try:
+                    async with asyncio.timeout(RUNTIME_OPERATION_TIMEOUT):
+                        await provider.async_shutdown()
+                except TimeoutError:
+                    _LOGGER.warning("Timed out stopping Fitness %s provider", name)
                 self._transport_claims.pop(name, None)
 
     async def async_begin_setup_discovery(self) -> None:
@@ -1868,10 +2044,10 @@ class LiveRuntime:
             if winner is not None:
                 self._schedule_sensor_claim_reconcile(primary_id)
 
-        self.hass.async_create_background_task(
+        self._start_control_task(
+            f"merge_profiles:{secondary_id}",
             _reconcile_affected_profiles(),
             f"fitness reconcile merged workout sensor {secondary_id}",
-            eager_start=False,
         )
 
     def _merge_physical_sensors(self, a: LiveSensor, b: LiveSensor) -> LiveSensor:
@@ -1898,8 +2074,20 @@ class LiveRuntime:
         # cleanup during the merge transaction.
         secondary_had_accepted_device = secondary.sensor_id in self._sensor_device_ids
         for transport, endpoint in secondary.endpoints.items():
-            if transport not in primary.endpoints:
+            existing_endpoint = primary.endpoints.get(transport)
+            # Web Bluetooth exposes an opaque per-browser route. When the same
+            # exact physical identity is also visible to Home Assistant, retain
+            # the local/proxy endpoint because it is the only route that can
+            # reconnect autonomously and access vendor archive services. The web
+            # endpoint remains an alias and can continue forwarding live frames.
+            if (
+                existing_endpoint is None
+                or _browser_ble_endpoint(existing_endpoint)
+                and not _browser_ble_endpoint(endpoint)
+            ):
                 primary.endpoints[transport] = endpoint
+            if existing_endpoint is not None:
+                self.endpoint_aliases[existing_endpoint.endpoint_id] = primary.sensor_id
             self.endpoint_aliases[endpoint.endpoint_id] = primary.sensor_id
         self.endpoint_aliases[secondary.sensor_id] = primary.sensor_id
         primary.capabilities.update(secondary.capabilities)
@@ -2113,10 +2301,10 @@ class LiveRuntime:
             self._cleanup_merged_registry_sensor(old_sensor_id)
             self._notify_structure_throttled()
 
-        self.hass.async_create_background_task(
+        self._start_control_task(
+            f"merge_registry:{old_sensor_id}",
             _cleanup(),
             f"fitness cleanup merged live sensor {old_sensor_id}",
-            eager_start=False,
         )
 
     def _cleanup_merged_registry_sensor(self, old_sensor_id: str) -> None:
@@ -2242,16 +2430,85 @@ class LiveRuntime:
         return merged
 
     def find_sensor_for_remote_ble_identity(
-        self, *, name: str, capabilities: set[str], identity: dict[str, Any]
+        self,
+        *,
+        name: str,
+        capabilities: set[str],
+        identity: dict[str, Any],
+        endpoint_id: str | None = None,
     ) -> LiveSensor | None:
         """Find one already-known physical sensor for a browser BLE route.
 
         Web Bluetooth hides the real Bluetooth address and exposes a per-origin
-        opaque device id, so a browser route can only be merged safely from
-        Device Information Service identity. A unique serial is strongest; a
-        unique catalog product identity is the conservative fallback.
+        opaque device id. A server-derived exact route identity is strongest,
+        followed by Device Information serial and then a unique catalog product
+        identity. Name equality by itself is never sufficient.
         """
         from .device_identity import catalog_product_id
+
+        previous_route = None
+        if endpoint_id and (previous_id := self.endpoint_aliases.get(endpoint_id)):
+            previous_route = self.sensors.get(self.resolve_sensor_id(previous_id))
+
+        physical_identity = _physical_identity(identity)
+        if physical_identity:
+            matches = [
+                sensor
+                for sensor in self.sensors.values()
+                if any(
+                    _physical_identity(endpoint.metadata) == physical_identity
+                    for endpoint in sensor.endpoints.values()
+                )
+            ]
+            # An upgrade may restore both the old browser-only record and the
+            # local archive record. Collapse every exact match now; merge logic
+            # preserves the autonomous local endpoint and removes the discarded
+            # HA device/entity registry surface asynchronously.
+            if matches:
+                local_matches = [
+                    sensor
+                    for sensor in matches
+                    if any(
+                        endpoint.transport == "bluetooth"
+                        and not _browser_ble_endpoint(endpoint)
+                        for endpoint in sensor.endpoints.values()
+                    )
+                ]
+                if len(local_matches) > 1:
+                    # The advertised number is intentionally short. A collision
+                    # between two directly observed units must remain ambiguous.
+                    return None
+                if len(local_matches) == 1:
+                    canonical = local_matches[0]
+                elif len(matches) == 1:
+                    canonical = matches[0]
+                else:
+                    return None
+
+                # Versions before the route-identity bridge did not persist the
+                # M1 local-name suffix on a browser endpoint. The Web Bluetooth
+                # endpoint id is nevertheless stable for that browser origin.
+                # Once the current, server-derived name proves an exact match to
+                # the local M1, fold that legacy owner into the same record too.
+                duplicates = list(matches)
+                if previous_route is not None:
+                    duplicates.append(previous_route)
+                seen_duplicate_ids: set[str] = set()
+                for duplicate in tuple(duplicates):
+                    if duplicate.sensor_id in seen_duplicate_ids:
+                        continue
+                    seen_duplicate_ids.add(duplicate.sensor_id)
+                    if (
+                        duplicate.sensor_id != canonical.sensor_id
+                        and duplicate.sensor_id in self.sensors
+                    ):
+                        canonical = self._merge_physical_sensors(
+                            canonical, duplicate
+                        )
+                canonical.metadata["merge_evidence"] = (
+                    "exact_physical_route_identity"
+                )
+                return canonical
 
         serial = _serial(identity)
         if serial:
@@ -2284,6 +2541,38 @@ class LiveRuntime:
         current = None
         if endpoint.endpoint_id in self.endpoint_aliases:
             current = self.sensors.get(self.resolve_sensor_id(self.endpoint_aliases[endpoint.endpoint_id]))
+
+        physical_identity = _physical_identity(endpoint.metadata)
+        if physical_identity:
+            candidates = []
+            for sensor in self.sensors.values():
+                if sensor is current:
+                    continue
+                matching_endpoints = [
+                    item
+                    for item in sensor.endpoints.values()
+                    if _physical_identity(item.metadata) == physical_identity
+                ]
+                if not matching_endpoints:
+                    continue
+                # A same-transport merge is valid only for a local/browser pair.
+                # Never collapse two directly observed units merely because a
+                # short vendor number happens to collide.
+                if endpoint.transport in sensor.endpoints and not any(
+                    _browser_ble_endpoint(endpoint)
+                    != _browser_ble_endpoint(item)
+                    for item in matching_endpoints
+                ):
+                    continue
+                candidates.append(sensor)
+            if len(candidates) == 1:
+                matched = candidates[0]
+                matched.metadata["merge_evidence"] = "exact_physical_route_identity"
+                return (
+                    self._merge_physical_sensors(current, matched)
+                    if current is not None
+                    else matched
+                )
 
         cross_ids = catalog_cross_transport_ids(
             name, endpoint.transport, endpoint.metadata, endpoint.capabilities
@@ -2355,7 +2644,8 @@ class LiveRuntime:
             if k not in {"manufacturer_data", "service_data", "rssi", "last_seen", "source"}
         }
         if transport != "bluetooth":
-            return clean
+            bounded = _bounded_metadata(clean)
+            return bounded if isinstance(bounded, dict) else {}
         old = dict(existing.metadata) if existing is not None else {}
         for key in ("service_uuids", "manufacturer_data_ids"):
             merged = set(old.get(key) or []) | set(clean.get(key) or [])
@@ -2366,7 +2656,8 @@ class LiveRuntime:
         old_name = str(old.get("advertised_name") or "").strip()
         if old_name and not re.fullmatch(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}", old_name):
             clean["advertised_name"] = old_name
-        return clean
+        bounded = _bounded_metadata(clean)
+        return bounded if isinstance(bounded, dict) else {}
 
     def refresh_transport_endpoint(
         self,
@@ -2398,6 +2689,29 @@ class LiveRuntime:
                 self._notify_values_throttled(dirty)
         if available and self._global_workout_epoch_active():
             self._schedule_sensor_claim_reconcile(sensor_id)
+        return True
+
+    def enrich_sensor_capabilities(
+        self,
+        sensor_id: str,
+        capabilities: set[str],
+        *,
+        transport: str | None = None,
+    ) -> bool:
+        """Add newly verified capabilities without replacing a physical route."""
+        sensor_id = self.resolve_sensor_id(sensor_id)
+        sensor = self.sensors.get(sensor_id)
+        if sensor is None:
+            return False
+        additions = {str(value) for value in capabilities if str(value)} - sensor.capabilities
+        if not additions:
+            return False
+        sensor.capabilities.update(additions)
+        if transport and (endpoint := sensor.endpoints.get(transport)) is not None:
+            endpoint.capabilities.update(additions)
+        self._schedule_save()
+        if self.sensor_is_accepted(sensor_id):
+            self._notify_structure_throttled()
         return True
 
     def register_transport_sensor(
@@ -2481,6 +2795,8 @@ class LiveRuntime:
         is_new = sensor is None
         old_caps: set[str] = set()
         if sensor is None:
+            if len(self.sensors) >= MAX_RUNTIME_LIVE_SENSORS:
+                raise RuntimeError("live_sensor_limit")
             sensor = LiveSensor(
                 sensor_id=self._new_physical_id(endpoint_id),
                 name=_normalize_name(name),
@@ -3059,10 +3375,10 @@ class LiveRuntime:
             if entry is not None and entry.state.value == "loaded":
                 await self.hass.config_entries.async_reload(entry_id)
 
-        self.hass.async_create_background_task(
+        self._start_control_task(
+            "hub_reload",
             _reload(),
             "fitness reload live sensor hub",
-            eager_start=False,
         )
 
     def _manager_for_profile(self, entry_id: str):
@@ -3225,10 +3541,10 @@ class LiveRuntime:
             finally:
                 self._sensor_claim_reconcile_pending.discard(sensor_id)
 
-        self.hass.async_create_background_task(
+        self._start_control_task(
+            f"claim_sensor:{sensor_id}",
             _reconcile(),
             f"fitness claim live sensor {sensor_id}",
-            eager_start=False,
         )
 
     def _profile_can_receive_transferred_sensor(self, entry_id: str, sensor_id: str) -> bool:
@@ -3300,32 +3616,37 @@ class LiveRuntime:
         changes which physical sensors may feed a profile, so reconcile transport
         ownership in the background and notify the live surface in place.
         """
-        entry_ids = tuple(dict.fromkeys(str(entry_id) for entry_id in entry_ids if entry_id))
-        if not entry_ids:
+        self._assignment_refresh_pending.update(
+            str(entry_id) for entry_id in entry_ids if entry_id
+        )
+        if not self._assignment_refresh_pending:
             return
 
         async def _refresh() -> None:
             await asyncio.sleep(0)
-            self._refresh_live_provider_gates()
-            for entry_id in entry_ids:
-                entry = self.profile_entries.get(entry_id)
-                if entry is not None:
-                    try:
-                        await self._reconcile_profile_transports(entry)
-                    except Exception:
-                        _LOGGER.debug(
-                            "Unable to reconcile Fitness sensor assignment for profile %s",
-                            entry_id,
-                            exc_info=True,
-                        )
-                manager = self.hass.data.get(DOMAIN, {}).get(entry_id)
-                if manager is not None:
-                    manager._notify_live()
+            while self._assignment_refresh_pending:
+                pending = sorted(self._assignment_refresh_pending)
+                self._assignment_refresh_pending.clear()
+                self._refresh_live_provider_gates()
+                for entry_id in pending:
+                    entry = self.profile_entries.get(entry_id)
+                    if entry is not None:
+                        try:
+                            await self._reconcile_profile_transports(entry)
+                        except Exception:
+                            _LOGGER.debug(
+                                "Unable to reconcile Fitness sensor assignment for profile %s",
+                                entry_id,
+                                exc_info=True,
+                            )
+                    manager = self.hass.data.get(DOMAIN, {}).get(entry_id)
+                    if manager is not None:
+                        manager._notify_live()
 
-        self.hass.async_create_background_task(
+        self._start_control_task(
+            "assignment_refresh",
             _refresh(),
             "fitness refresh physical sensor assignments",
-            eager_start=False,
         )
 
     def notify_sensor_assignment_changed(self, sensor_id: str) -> None:
@@ -3716,6 +4037,22 @@ class LiveRuntime:
         transport = transport or sensor.transport
         transport_enabled = self.adapter_enabled(transport)
 
+        # A compact advertisement may expose only one service UUID even though
+        # the connected GATT database reports more measurement characteristics.
+        # The first successfully decoded value is definitive capability evidence;
+        # materialize its physical entity immediately instead of silently dropping
+        # cadence/power/speed because Heart Rate happened to be advertised first.
+        if transport_enabled:
+            observed_capabilities = {
+                str(key)
+                for key, value in values.items()
+                if key in LIVE_METRICS and value is not None
+            }
+            if observed_capabilities:
+                self.enrich_sensor_capabilities(
+                    sensor_id, observed_capabilities, transport=transport
+                )
+
         previous_available = sensor.available
         endpoint = sensor.endpoints.get(transport)
         seen = datetime.now(timezone.utc)
@@ -3844,20 +4181,87 @@ class LiveRuntime:
         }
 
     async def async_shutdown(self) -> None:
+        """Bound teardown of radio providers, monitors and pending storage."""
+        self._shutting_down = True
+        if self._stall_watchdog is not None:
+            self._stall_watchdog.stop()
+            self._stall_watchdog = None
+
+        # Cancel every task owned by this hub before its providers disappear.
+        tasks = {
+            task
+            for task in (
+                self._presence_task,
+                self._hub_start_task,
+                self._save_task,
+                *self._discovery_tasks.values(),
+                *self._profile_handover_tasks.values(),
+                *self._control_tasks.values(),
+            )
+            if task is not None and not task.done()
+        }
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            try:
+                async with asyncio.timeout(RUNTIME_OPERATION_TIMEOUT):
+                    await asyncio.gather(*tasks, return_exceptions=True)
+            except TimeoutError:
+                _LOGGER.warning("Timed out stopping Fitness live background tasks")
+
+        self._presence_task = None
+        self._hub_start_task = None
+        self._save_task = None
+        self._discovery_tasks.clear()
+        self._profile_handover_tasks.clear()
+        self._control_tasks.clear()
+        self._assignment_refresh_pending.clear()
+        self._hub_reload_pending = False
+        for unsubscribe in self._presence_unsubs:
+            try:
+                unsubscribe()
+            except Exception:  # noqa: BLE001 - unload cleanup must continue
+                _LOGGER.debug("Fitness presence listener cleanup failed", exc_info=True)
+        self._presence_unsubs.clear()
+        self._presence_started = False
+        if self._device_registry_unsub is not None:
+            try:
+                self._device_registry_unsub()
+            except Exception:  # noqa: BLE001
+                _LOGGER.debug("Fitness device listener cleanup failed", exc_info=True)
+            self._device_registry_unsub = None
+
         # A transport merge/topology enrichment is deliberately debounced during
         # normal radio activity, but shutdown must never throw that pending state
-        # away.  Flush it before providers are torn down so a successful BLE/ANT
-        # merge survives an immediate Home Assistant restart.
+        # away. Flush one bounded snapshot after cancelling the scheduled writer.
         pending_topology_save = bool(self._save_pending)
         if self._save_handle is not None:
             self._save_handle.cancel()
             self._save_handle = None
         if pending_topology_save:
             self._save_pending = False
-            await self._async_save_adapter_config()
+            try:
+                async with asyncio.timeout(RUNTIME_OPERATION_TIMEOUT):
+                    await self._async_save_adapter_config()
+            except TimeoutError:
+                _LOGGER.warning("Timed out saving Fitness live sensor topology")
 
-        for provider in list(self.providers.values()):
-            await provider.async_shutdown()
+        async def _stop_provider(name: str, provider: Any) -> None:
+            try:
+                async with asyncio.timeout(RUNTIME_OPERATION_TIMEOUT):
+                    await provider.async_shutdown()
+            except TimeoutError:
+                _LOGGER.warning("Timed out stopping Fitness %s provider", name)
+            except Exception:  # noqa: BLE001 - one provider must not block the rest
+                _LOGGER.exception("Unable to stop Fitness %s provider", name)
+
+        if self.providers:
+            await asyncio.gather(
+                *(
+                    _stop_provider(name, provider)
+                    for name, provider in tuple(self.providers.items())
+                )
+            )
         self.providers.clear()
         self._transport_claims.clear()
         self._profile_claims.clear()
@@ -3867,13 +4271,14 @@ class LiveRuntime:
         self._profile_session_order.clear()
         self._sensor_claim_reconcile_pending.clear()
         self._sensor_claim_reconcile_last_attempt.clear()
-        for task in self._profile_handover_tasks.values():
-            task.cancel()
-        self._profile_handover_tasks.clear()
         for handle in self._profile_live_notify_handles.values():
             handle.cancel()
         self._profile_live_notify_handles.clear()
         self._profile_last_live_notify_monotonic.clear()
+        for handle in self._sensor_device_refresh_handles.values():
+            handle.cancel()
+        self._sensor_device_refresh_handles.clear()
+        self._sensor_materialization_pending.clear()
         if self._value_notify_handle is not None:
             self._value_notify_handle.cancel()
             self._value_notify_handle = None

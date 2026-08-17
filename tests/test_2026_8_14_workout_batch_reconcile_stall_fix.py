@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import sys
 import types
 
@@ -43,6 +44,32 @@ def test_workout_serialization_does_not_recursive_deepcopy_provider_payloads():
     stored = workout.as_dict()
     assert stored["provider_values"]["provider"]["nested"]["marker"] is marker
     assert stored["extra"]["nested"]["marker"] is marker
+
+
+def test_persistent_workout_payload_is_bounded_and_route_is_downsampled():
+    route = [
+        {"latitude": 50.0 + index / 100_000, "longitude": 8.0}
+        for index in range(20_000)
+    ]
+    nested = value = {}
+    for _index in range(20):
+        child = {}
+        value["child"] = child
+        value = child
+    workout = workouts.Workout(
+        source="provider",
+        start="2026-08-14T10:00:00+00:00",
+        provider_values={"provider": {"route": route, "nested": nested}},
+        extra={"huge_text": "x" * 100_000},
+    )
+
+    stored = workout.as_persistent_dict()
+    compact_route = stored["provider_values"]["provider"]["route"]
+    assert len(compact_route) <= workouts.PERSISTENCE_MAX_LIST_ITEMS
+    assert compact_route[0] == route[0]
+    assert compact_route[-1] == route[-1]
+    assert len(stored["extra"]["huge_text"]) == workouts.PERSISTENCE_MAX_STRING
+    assert len(json.dumps(stored)) < 200_000
 
 
 def test_bulk_reconciliation_merges_once_in_executor_not_once_per_candidate():

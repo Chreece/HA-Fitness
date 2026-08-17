@@ -107,11 +107,16 @@ async def async_search_music(
     async def _run(adapter: MusicAdapter):
         try:
             scopes = list((search_scopes or {}).get(adapter.info.adapter_id) or [])
-            return adapter, await adapter.async_search(
-                query, limit=limit, scopes=scopes, media_types=selected_media_types
-            ), None
+            async with asyncio.timeout(30.0):
+                children = await adapter.async_search(
+                    query,
+                    limit=limit,
+                    scopes=scopes,
+                    media_types=selected_media_types,
+                )
+            return adapter, children, None
         except Exception as err:  # noqa: BLE001 - isolate provider failures
-            return adapter, [], str(err)
+            return adapter, [], str(err) or type(err).__name__
 
     completed = await asyncio.gather(*(_run(adapter) for adapter in searchable))
     groups: list[dict[str, Any]] = []

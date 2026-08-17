@@ -17,12 +17,12 @@ from ..const import (
 )
 
 METRIC_META = {
-    METRIC_HEART_RATE: ("Heart rate", "bpm", "mdi:heart-pulse"),
-    METRIC_POWER: ("Power", "W", "mdi:flash"),
-    METRIC_CADENCE: ("Cadence", "1/min", "mdi:rotate-right"),
-    METRIC_SPEED: ("Speed", "km/h", "mdi:speedometer"),
-    METRIC_DISTANCE: ("Distance", "km", "mdi:map-marker-distance"),
-    METRIC_ALTITUDE: ("Altitude", "m", "mdi:elevation-rise"),
+    METRIC_HEART_RATE: ("current_heart_rate", "bpm", "mdi:heart-pulse"),
+    METRIC_POWER: ("current_power", "W", "mdi:flash"),
+    METRIC_CADENCE: ("current_cadence", "1/min", "mdi:rotate-right"),
+    METRIC_SPEED: ("current_speed", "km/h", "mdi:speedometer"),
+    METRIC_DISTANCE: ("current_distance", "km", "mdi:map-marker-distance"),
+    METRIC_ALTITUDE: ("current_altitude", "m", "mdi:elevation-rise"),
 }
 
 
@@ -54,8 +54,8 @@ class PhysicalMetricSensor(_PhysicalSensorEntity):
     def __init__(self, runtime, sensor_id: str, metric: str) -> None:
         super().__init__(runtime, sensor_id)
         self.metric = metric
-        name, unit, icon = METRIC_META[metric]
-        self._attr_name = name
+        translation_key, unit, icon = METRIC_META[metric]
+        self._attr_translation_key = translation_key
         self._attr_native_unit_of_measurement = unit
         self._attr_icon = icon
         self._attr_unique_id = f"fitness_{sensor_id}_{metric}"
@@ -99,7 +99,11 @@ class PhysicalPassiveSensor(_PhysicalSensorEntity):
         super().__init__(runtime, sensor_id)
         self.key = key
         meta = runtime.sensor_passive_meta.get(sensor_id, {}).get(key, {})
-        self._attr_name = str(meta.get("name") or key.replace("_", " ").title())
+        translation_key = str(meta.get("translation_key") or "").strip()
+        if translation_key:
+            self._attr_translation_key = translation_key
+        else:
+            self._attr_name = str(meta.get("name") or key.replace("_", " ").title())
         self._attr_unique_id = f"fitness_{sensor_id}_passive_{key}"
         unit = meta.get("unit")
         if unit:
@@ -200,7 +204,7 @@ class PhysicalDetailSensor(_PhysicalSensorEntity):
 
 
 class PhysicalActiveTransportSensor(_PhysicalSensorEntity):
-    _attr_name = "Active transport"
+    _attr_translation_key = "physical_active_transport"
     _attr_icon = "mdi:transit-connection-variant"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
@@ -249,7 +253,7 @@ class PhysicalActiveTransportSensor(_PhysicalSensorEntity):
 class PhysicalWorkoutOwnerSensor(_PhysicalSensorEntity):
     """Diagnostic view of the exclusive workout lock for this physical sensor."""
 
-    _attr_name = "Workout owner"
+    _attr_translation_key = "physical_workout_owner"
     _attr_icon = "mdi:account-lock-outline"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_entity_registry_enabled_default = False
@@ -287,7 +291,7 @@ class PhysicalWorkoutOwnerSensor(_PhysicalSensorEntity):
 class PhysicalSignalStrengthSensor(_PhysicalSensorEntity):
     """Merged radio signal diagnostic sampled on the low-rate Last-seen clock."""
 
-    _attr_name = "Signal strength"
+    _attr_translation_key = "physical_signal_strength"
     _attr_icon = "mdi:signal"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_device_class = SensorDeviceClass.SIGNAL_STRENGTH
@@ -328,7 +332,7 @@ class PhysicalSignalStrengthSensor(_PhysicalSensorEntity):
 
 
 class PhysicalLastSeenSensor(_PhysicalSensorEntity):
-    _attr_name = "Last seen"
+    _attr_translation_key = "physical_last_seen"
     _attr_icon = "mdi:clock-outline"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_device_class = SensorDeviceClass.TIMESTAMP

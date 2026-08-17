@@ -13,6 +13,7 @@ from ..const import (
     CONF_WORKOUT_RETENTION_DAYS,
     DEFAULT_WORKOUT_RETENTION_DAYS,
 )
+from ..resource_safety import async_call_service
 from .workouts import Workout, _activity_dicts, _dt, _extract_record, merged_workouts
 
 
@@ -194,12 +195,14 @@ async def async_provider_history_workouts(hass: HomeAssistant, config: dict) -> 
     if hass.services.has_service("hevy", "get_workout_history"):
         for config_entry_id in _selected_provider_config_entries(hass, config, "hevy"):
             try:
-                response = await hass.services.async_call(
+                response = await async_call_service(
+                    hass,
                     "hevy",
                     "get_workout_history",
                     {"config_entry_id": config_entry_id, "days": 90},
                     blocking=True,
                     return_response=True,
+                    timeout=60.0,
                 )
             except Exception:
                 continue
@@ -229,12 +232,14 @@ async def async_provider_history_workouts(hass: HomeAssistant, config: dict) -> 
             if history_start is not None:
                 service_data["start"] = history_start
             try:
-                response = await hass.services.async_call(
+                response = await async_call_service(
+                    hass,
                     "healthsync",
                     "get_readings",
                     service_data,
                     blocking=True,
                     return_response=True,
+                    timeout=60.0,
                 )
             except Exception:
                 continue

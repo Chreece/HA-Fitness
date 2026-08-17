@@ -3134,6 +3134,21 @@
           }
         }
       },
+      "physical_battery": {
+        "name": "Batterij"
+      },
+      "physical_active_transport": {
+        "name": "Actief transport"
+      },
+      "physical_workout_owner": {
+        "name": "Workouteigenaar"
+      },
+      "physical_signal_strength": {
+        "name": "Signaalsterkte"
+      },
+      "physical_last_seen": {
+        "name": "Laatst gezien"
+      },
       "cycplus_device_number": {
         "name": "Apparaatnummer"
       },
@@ -3223,6 +3238,14 @@
           "charging": "Bezig met opladen",
           "unknown": "Onbekend"
         }
+      }
+    },
+    "binary_sensor": {
+      "physical_available": {
+        "name": "Beschikbaar"
+      },
+      "physical_gatt_connected": {
+        "name": "Bluetooth GATT verbonden"
       }
     },
     "button": {

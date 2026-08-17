@@ -3134,6 +3134,21 @@
           }
         }
       },
+      "physical_battery": {
+        "name": "Pil"
+      },
+      "physical_active_transport": {
+        "name": "Etkin aktarım"
+      },
+      "physical_workout_owner": {
+        "name": "Antrenman sahibi"
+      },
+      "physical_signal_strength": {
+        "name": "Sinyal gücü"
+      },
+      "physical_last_seen": {
+        "name": "Son görülme"
+      },
       "cycplus_device_number": {
         "name": "Cihaz numarası"
       },
@@ -3223,6 +3238,14 @@
           "charging": "Şarj oluyor",
           "unknown": "Bilinmiyor"
         }
+      }
+    },
+    "binary_sensor": {
+      "physical_available": {
+        "name": "Kullanılabilir"
+      },
+      "physical_gatt_connected": {
+        "name": "Bluetooth GATT bağlı"
       }
     },
     "button": {

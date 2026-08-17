@@ -130,6 +130,7 @@ from .providers.sleep_adapters.registry import (
 from .providers.sleep_adapters.sleep_as_android import record_from_event_history, records_from_event_history
 from .strength import analyze_strength
 from .tv_dashboard import get_tv_dashboard_hub
+from .resource_safety import async_call_service
 from .providers.workouts import (
     Workout,
     FITNESS_CALCULATED_SOURCE,
@@ -145,6 +146,48 @@ from .providers.workouts import (
 
 
 _LOGGER = logging.getLogger(__name__)
+
+HISTORY_COMPACTION_VERSION = 1
+SLEEP_COMPACTION_VERSION = 1
+MAX_LIVE_SESSION_SAMPLES = 21_600
+MANAGER_SHUTDOWN_TIMEOUT = 15.0
+
+
+def _compact_history_for_storage(raw_history: list[Any]) -> list[dict[str, Any]]:
+    """Bound legacy provider payloads before the profile store is rewritten."""
+    allowed = set(Workout.__dataclass_fields__)
+    compacted: list[dict[str, Any]] = []
+    for item in raw_history:
+        if not isinstance(item, dict):
+            continue
+        values = {key: item[key] for key in allowed if key in item}
+        values.setdefault("source", "fitness_history")
+        try:
+            workout = Workout(**values)
+        except (TypeError, ValueError):
+            continue
+        compacted.append(workout.as_persistent_dict())
+    return compacted
+
+
+def _compact_sleep_history_for_storage(
+    raw_history: list[Any],
+) -> list[dict[str, Any]]:
+    """Bound legacy sleep-provider payloads before rewriting profile storage."""
+    allowed = set(SleepRecord.__dataclass_fields__)
+    compacted: list[dict[str, Any]] = []
+    for item in raw_history[-120:]:
+        if not isinstance(item, dict):
+            continue
+        values = {key: item[key] for key in allowed if key in item}
+        values.setdefault("source", "fitness_sleep_history")
+        values.setdefault("provider_domain", "fitness_history")
+        try:
+            record = SleepRecord(**values)
+        except (TypeError, ValueError):
+            continue
+        compacted.append(record.as_persistent_dict())
+    return compacted
 
 _TTS_TEST_MESSAGES = {
     "en": "Fitness TTS test. The music should become quieter while I am speaking, then return to normal.",
@@ -194,6 +237,15 @@ class FitnessManager:
             STORE_VERSION,
             f"{STORE_KEY_PREFIX}.{entry.entry_id}",
         )
+        # One profile can receive materialization, sleep, workout and settings
+        # mutations close together. Coalesce their writes so several complete
+        # history serializations can never overlap.
+        self._save_lock = asyncio.Lock()
+        self._save_revision = 0
+        self._saved_revision = 0
+        self._scheduled_save_task: asyncio.Task | None = None
+        self._background_tasks: set[asyncio.Task] = set()
+        self._shutting_down = False
         self.history: list[dict] = []
         # User-deleted canonical workouts are retained as compact tombstones so
         # provider/history reconciliation cannot resurrect them on the next sync.
@@ -211,6 +263,8 @@ class FitnessManager:
         self._pause_distance_raw: float | None = None
         self._session_distance_excluded = 0.0
         self.samples: list[dict[str, Any]] = []
+        self._sample_stride = 1
+        self._captured_sample_count = 0
         self.capture_control = "idle"
         self.session_rpe: int | None = None
 
@@ -342,10 +396,98 @@ class FitnessManager:
     def config(self):
         return {**self.entry.data, **self.entry.options}
 
+    def _start_background_task(self, coro, name: str) -> asyncio.Task:
+        """Create one owned task which is always cancelled during profile unload."""
+        task = self.hass.async_create_task(coro, name)
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+        return task
+
+    def _store_payload(self) -> dict[str, Any]:
+        """Build one bounded, detached snapshot for profile persistence."""
+        self._prune_workout_history()
+        return {
+            "history": list(self.history),
+            "history_compaction_version": HISTORY_COMPACTION_VERSION,
+            "sleep_compaction_version": SLEEP_COMPACTION_VERSION,
+            "deleted_workouts": list(self.deleted_workouts[-1000:]),
+            "deleted_workouts_before": self.deleted_workouts_before,
+            "ai_general": self.ai_general,
+            "ai_workout": self.ai_workout,
+            "ai_general_verdict": self.ai_general_verdict,
+            "ai_workout_verdict": self.ai_workout_verdict,
+            "ai_last_generated": self.ai_last_generated,
+            "long_term_statistics": dict(self.long_term_statistics),
+            "long_term_statistics_updated": self.long_term_statistics_updated,
+            "metric_history": dict(self.metric_history),
+            "history_validation": dict(self.history_validation),
+            "sleep_history": list(self.sleep_history[-120:]),
+            "materialized_sensor_keys": sorted(self.materialized_sensor_keys),
+            "last_announced_workout_signature": (
+                self._last_announced_workout_signature
+            ),
+            "selected_feedback_area_id": self.selected_feedback_area_id,
+        }
+
+    async def _async_flush_save(self, target_revision: int) -> None:
+        """Serialize profile writes and skip snapshots already persisted."""
+        async with self._save_lock:
+            if self._saved_revision >= target_revision:
+                return
+            snapshot_revision = self._save_revision
+            await self.store.async_save(self._store_payload())
+            self._saved_revision = max(self._saved_revision, snapshot_revision)
+
+    def _schedule_save(self) -> None:
+        """Coalesce bursty profile mutations into one owned store writer."""
+        self._save_revision += 1
+        if self._shutting_down:
+            return
+        if self._scheduled_save_task and not self._scheduled_save_task.done():
+            return
+
+        async def _runner() -> None:
+            await asyncio.sleep(0)
+            while self._saved_revision < self._save_revision:
+                await self._async_flush_save(self._save_revision)
+                await asyncio.sleep(0)
+
+        task = self._start_background_task(
+            _runner(), "fitness coalesced profile save"
+        )
+        self._scheduled_save_task = task
+
+        def _clear(completed: asyncio.Task) -> None:
+            if self._scheduled_save_task is completed:
+                self._scheduled_save_task = None
+
+        task.add_done_callback(_clear)
+
     async def async_setup(self):
         """Restore persisted state without doing provider discovery during HA bootstrap."""
         stored = await self.store.async_load() or {}
-        self.history = list(stored.get("history") or [])
+        raw_history = list(stored.pop("history", None) or [])
+        history_compaction_version = int(
+            stored.get("history_compaction_version") or 0
+        )
+        raw_sleep_history = list(stored.pop("sleep_history", None) or [])
+        sleep_compaction_version = int(
+            stored.get("sleep_compaction_version") or 0
+        )
+        if history_compaction_version < HISTORY_COMPACTION_VERSION:
+            _LOGGER.warning(
+                "Compacting legacy Fitness workout payloads for profile %s (%s records)",
+                self.entry.entry_id,
+                len(raw_history),
+            )
+        self.history = await self.hass.async_add_executor_job(
+            _compact_history_for_storage, raw_history
+        )
+        del raw_history
+        self.sleep_history = await self.hass.async_add_executor_job(
+            _compact_sleep_history_for_storage, raw_sleep_history
+        )
+        del raw_sleep_history
         self.deleted_workouts = list(stored.get("deleted_workouts") or [])
         self.deleted_workouts_before = stored.get("deleted_workouts_before")
         self.ai_general = stored.get("ai_general")
@@ -355,7 +497,6 @@ class FitnessManager:
         self.ai_last_generated = stored.get("ai_last_generated")
         self.long_term_statistics = dict(stored.get("long_term_statistics") or {})
         self.long_term_statistics_updated = stored.get("long_term_statistics_updated")
-        self.sleep_history = list(stored.get("sleep_history") or [])
         self.metric_history = {
             str(k): list(v)
             for k, v in dict(stored.get("metric_history") or {}).items()
@@ -367,6 +508,13 @@ class FitnessManager:
         self.selected_feedback_area_id = stored.get("selected_feedback_area_id")
 
         self._prune_workout_history()
+        if (
+            history_compaction_version < HISTORY_COMPACTION_VERSION
+            or sleep_compaction_version < SLEEP_COMPACTION_VERSION
+        ):
+            # One bounded rewrite replaces potentially enormous legacy provider
+            # payloads before any device import can trigger another profile save.
+            await self._save()
 
         # Restore only Fitness-owned persisted history here.  Provider/registry
         # discovery is deliberately deferred until Home Assistant has announced
@@ -384,7 +532,13 @@ class FitnessManager:
         self._last_external_signature = self._last_announced_workout_signature or None
 
         if self.hass.is_running:
-            self.hass.async_create_task(self._async_post_start_setup())
+            task = self.hass.async_create_background_task(
+                self._async_post_start_setup(),
+                "fitness post-start setup",
+                eager_start=False,
+            )
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
         else:
             started_unsub = None
 
@@ -400,10 +554,13 @@ class FitnessManager:
                     except ValueError:
                         pass
                     started_unsub = None
-                self.hass.async_create_background_task(
+                task = self.hass.async_create_background_task(
                     self._async_post_start_setup(),
                     "fitness post-start setup",
+                    eager_start=False,
                 )
+                self._background_tasks.add(task)
+                task.add_done_callback(self._background_tasks.discard)
 
             started_unsub = self.hass.bus.async_listen_once(
                 EVENT_HOMEASSISTANT_STARTED,
@@ -501,7 +658,14 @@ class FitnessManager:
         self._external_workout_baseline_task = self.hass.async_create_task(
             self._async_arm_external_workout_announcements()
         )
-        self.hass.async_create_task(self._async_delayed_long_term_refresh())
+        self._background_tasks.add(self._external_workout_baseline_task)
+        self._external_workout_baseline_task.add_done_callback(
+            self._background_tasks.discard
+        )
+        self._start_background_task(
+            self._async_delayed_long_term_refresh(),
+            "fitness delayed long-term refresh",
+        )
         self._schedule_sleep_as_android_history_refresh(delay=5.0, retries=0)
         # Rolling sleep windows change at the profile's local date boundary even
         # when no provider emits a new state. Refresh shortly after midnight so
@@ -516,7 +680,10 @@ class FitnessManager:
             )
         )
         if self.config.get(CONF_AI_ENABLED) and not self.ai_general:
-            self.hass.async_create_task(self.async_generate_ai(general=True, workout=False))
+            self._start_background_task(
+                self.async_generate_ai(general=True, workout=False),
+                "fitness startup AI generation",
+            )
 
         self.post_start_ready = True
         self._invalidate_evaluation_cache()
@@ -525,49 +692,69 @@ class FitnessManager:
         self._notify_workout_history()
 
     async def async_shutdown(self):
+        """Stop every owned task without allowing unload to hang indefinitely."""
+        self._shutting_down = True
         for remove in self.remove_listeners:
-            remove()
+            try:
+                remove()
+            except Exception:  # noqa: BLE001 - one bad unsubscribe must not block unload
+                _LOGGER.debug("Fitness listener cleanup failed", exc_info=True)
         self.remove_listeners.clear()
 
-        if self._live_feedback_task and not self._live_feedback_task.done():
-            self._live_feedback_task.cancel()
-
-        if (
-            self._periodic_live_announcement_task
-            and not self._periodic_live_announcement_task.done()
-        ):
-            self._periodic_live_announcement_task.cancel()
-
-        if (
-            self._live_calculation_task
-            and not self._live_calculation_task.done()
-        ):
-            self._live_calculation_task.cancel()
-
-        if self._recovery_task and not self._recovery_task.done():
-            self._recovery_task.cancel()
-        if self._sleep_history_refresh_task and not self._sleep_history_refresh_task.done():
-            self._sleep_history_refresh_task.cancel()
-
-        if (
-            self._external_workout_debounce_task
-            and not self._external_workout_debounce_task.done()
-        ):
-            self._external_workout_debounce_task.cancel()
         if (
             self._external_workout_baseline_task
             and not self._external_workout_baseline_task.done()
         ):
             self._external_workout_baseline_task.cancel()
 
-        if (
-            self._session_status_light_task
-            and not self._session_status_light_task.done()
-        ):
-            self._session_status_light_task.cancel()
+        tasks = {
+            task
+            for task in (
+                self._live_feedback_task,
+                self._periodic_live_announcement_task,
+                self._live_calculation_task,
+                self._recovery_task,
+                self._sleep_history_refresh_task,
+                self._external_workout_debounce_task,
+                self._external_workout_baseline_task,
+                self._session_status_light_task,
+                *self._background_tasks,
+            )
+            if task is not None and not task.done()
+        }
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            try:
+                async with asyncio.timeout(MANAGER_SHUTDOWN_TIMEOUT):
+                    await asyncio.gather(*tasks, return_exceptions=True)
+            except TimeoutError:
+                _LOGGER.warning(
+                    "Timed out waiting for Fitness profile %s background tasks",
+                    self.entry.entry_id,
+                )
 
         if self._feedback_scene_active:
-            await self._async_restore_feedback_lights()
+            try:
+                async with asyncio.timeout(MANAGER_SHUTDOWN_TIMEOUT):
+                    await self._async_restore_feedback_lights()
+            except TimeoutError:
+                _LOGGER.warning(
+                    "Timed out restoring Fitness feedback lights for profile %s",
+                    self.entry.entry_id,
+                )
+            except Exception:  # noqa: BLE001 - unload must remain reliable
+                _LOGGER.exception("Unable to restore Fitness feedback lights")
+
+        if self._saved_revision < self._save_revision:
+            try:
+                async with asyncio.timeout(MANAGER_SHUTDOWN_TIMEOUT):
+                    await self._async_flush_save(self._save_revision)
+            except TimeoutError:
+                _LOGGER.warning(
+                    "Timed out saving Fitness profile %s during unload",
+                    self.entry.entry_id,
+                )
 
     def add_listener(self, listener):
         self.listeners.append(listener)
@@ -604,7 +791,7 @@ class FitnessManager:
         self.materialized_sensor_keys.add(key)
 
         if persist:
-            self.hass.async_create_task(self._save())
+            self._schedule_save()
 
         return True
 
@@ -619,7 +806,7 @@ class FitnessManager:
             return False
         self.materialized_sensor_keys.discard(key)
         if persist:
-            self.hass.async_create_task(self._save())
+            self._schedule_save()
         return True
 
     def remember_materialized_sensors(
@@ -636,7 +823,7 @@ class FitnessManager:
         self.materialized_sensor_keys.update(added)
 
         if persist:
-            self.hass.async_create_task(self._save())
+            self._schedule_save()
 
         return True
 
@@ -724,7 +911,7 @@ class FitnessManager:
         if record is None or not (record.start or record.end or record.duration_s):
             return False
 
-        before = json.dumps(self.sleep_history, sort_keys=True, default=str)
+        before = list(self.sleep_history)
         records = self._sleep_records_from_history()
         records.append(record)
         merged = merged_sleeps(records)
@@ -733,11 +920,10 @@ class FitnessManager:
             or datetime.min.replace(tzinfo=timezone.utc)
         )
         # Keep enough history for 90-day trends plus modest gaps.
-        self.sleep_history = [item.as_dict() for item in merged[-120:]]
-        after = json.dumps(self.sleep_history, sort_keys=True, default=str)
-        changed = before != after
+        self.sleep_history = [item.as_persistent_dict() for item in merged[-120:]]
+        changed = before != self.sleep_history
         if changed and persist:
-            self.hass.async_create_task(self._save())
+            self._schedule_save()
         return changed
 
     def latest_sleep(self):
@@ -751,8 +937,9 @@ class FitnessManager:
             return
         if self._sleep_history_refresh_task and not self._sleep_history_refresh_task.done():
             self._sleep_history_refresh_task.cancel()
-        self._sleep_history_refresh_task = self.hass.async_create_task(
-            self._async_refresh_sleep_as_android_history(delay=delay, retries=retries)
+        self._sleep_history_refresh_task = self._start_background_task(
+            self._async_refresh_sleep_as_android_history(delay=delay, retries=retries),
+            "fitness sleep history refresh",
         )
 
     async def _async_refresh_sleep_as_android_history(
@@ -817,7 +1004,7 @@ class FitnessManager:
         self._latest_sleep_cache = newest_sleep(records)
         changed = self._remember_sleep_record(self._latest_sleep_cache, persist=False) or changed
         if changed:
-            self.hass.async_create_task(self._save())
+            self._schedule_save()
         self._notify_sleep()
         self._notify()
 
@@ -893,33 +1080,9 @@ class FitnessManager:
             self._notify()
 
     async def _save(self):
-        self._prune_workout_history()
-        await self.store.async_save(
-            {
-                "history": self.history,
-                "deleted_workouts": self.deleted_workouts[-1000:],
-                "deleted_workouts_before": self.deleted_workouts_before,
-                "ai_general": self.ai_general,
-                "ai_workout": self.ai_workout,
-                "ai_general_verdict": self.ai_general_verdict,
-                "ai_workout_verdict": self.ai_workout_verdict,
-                "ai_last_generated": self.ai_last_generated,
-                "long_term_statistics": self.long_term_statistics,
-                "long_term_statistics_updated": self.long_term_statistics_updated,
-                "metric_history": self.metric_history,
-                "history_validation": self.history_validation,
-                "sleep_history": self.sleep_history[-120:],
-                "materialized_sensor_keys": sorted(
-                    self.materialized_sensor_keys
-                ),
-                "last_announced_workout_signature": (
-                    self._last_announced_workout_signature
-                ),
-                "selected_feedback_area_id": (
-                    self.selected_feedback_area_id
-                ),
-            }
-        )
+        """Persist immediately while retaining the serialized writer contract."""
+        self._save_revision += 1
+        await self._async_flush_save(self._save_revision)
 
     def _notify_live_throttled(self) -> None:
         """Publish live entity changes at most twice per second."""
@@ -955,8 +1118,9 @@ class FitnessManager:
                     or self._periodic_live_announcement_task.done()
                 ):
                     self._periodic_live_announcement_task = (
-                        self.hass.async_create_task(
-                            self._async_periodic_live_announcements()
+                        self._start_background_task(
+                            self._async_periodic_live_announcements(),
+                            "fitness periodic live announcement",
                         )
                     )
 
@@ -1723,12 +1887,14 @@ class FitnessManager:
 
             try:
                 if saved.get("state") == "off":
-                    await self.hass.services.async_call(
+                    await async_call_service(
+                        self.hass,
                         "light",
                         "turn_off",
                         {"transition": 0},
                         target={"entity_id": entity_id},
                         blocking=True,
+                        timeout=10.0,
                     )
                     success += 1
                     continue
@@ -1787,12 +1953,14 @@ class FitnessManager:
                     service_data["effect"] = effect
 
                 service_data["transition"] = 0
-                await self.hass.services.async_call(
+                await async_call_service(
+                    self.hass,
                     "light",
                     "turn_on",
                     service_data,
                     target={"entity_id": entity_id},
                     blocking=True,
+                    timeout=10.0,
                 )
                 success += 1
 
@@ -1842,7 +2010,8 @@ class FitnessManager:
                 continue
 
             try:
-                await self.hass.services.async_call(
+                await async_call_service(
+                    self.hass,
                     "light",
                     "turn_on",
                     {
@@ -1852,6 +2021,7 @@ class FitnessManager:
                     },
                     target={"entity_id": entity_id},
                     blocking=True,
+                    timeout=10.0,
                 )
                 success += 1
             except Exception:
@@ -2085,11 +2255,12 @@ class FitnessManager:
         **context,
     ) -> None:
         """Queue guidance without blocking capture/recovery timers."""
-        self.hass.async_create_task(
+        self._start_background_task(
             self._async_announce_session_guidance(
                 event,
                 **context,
-            )
+            ),
+            "fitness session guidance",
         )
 
     def _recent_live_trend(
@@ -3009,7 +3180,7 @@ class FitnessManager:
                 if language:
                     data["language"] = language
 
-                try:
+                async def _call_tts_service() -> None:
                     await self.hass.services.async_call(
                         "tts",
                         "speak",
@@ -3017,6 +3188,10 @@ class FitnessManager:
                         target={"entity_id": tts_entity},
                         blocking=True,
                     )
+
+                try:
+                    async with asyncio.timeout(30.0):
+                        await _call_tts_service()
                     success += 1
                     successful_players.append(media_player)
                 except Exception:
@@ -3070,7 +3245,8 @@ class FitnessManager:
                 continue
 
             try:
-                await self.hass.services.async_call(
+                await async_call_service(
+                    self.hass,
                     "notify",
                     "send_message",
                     {
@@ -3079,6 +3255,7 @@ class FitnessManager:
                     },
                     target={"entity_id": entity_id},
                     blocking=False,
+                    timeout=10.0,
                 )
             except Exception:
                 continue
@@ -3395,6 +3572,8 @@ class FitnessManager:
         self._pause_distance_raw = None
         self._session_distance_excluded = 0.0
         self.samples = []
+        self._sample_stride = 1
+        self._captured_sample_count = 0
 
         # Re-rank all live candidates at the beginning of each workout.
         # During the workout selection becomes sticky: only failure causes a
@@ -3508,6 +3687,19 @@ class FitnessManager:
             if self.session_started is not None
             else now.timestamp()
         )
+        self._last_sample_monotonic = loop_now
+        self._captured_sample_count += 1
+        if (
+            not force
+            and self._captured_sample_count % self._sample_stride != 0
+        ):
+            return False
+        if len(self.samples) >= MAX_LIVE_SESSION_SAMPLES:
+            # Keep the entire workout timeline but halve its resolution. Repeating
+            # this operation makes memory use constant even for multi-day sessions.
+            self.samples = self.samples[::2]
+            self._sample_stride *= 2
+
         self.samples.append(
             {
                 "timestamp": now.isoformat(),
@@ -3516,7 +3708,6 @@ class FitnessManager:
                 **values,
             }
         )
-        self._last_sample_monotonic = loop_now
         return True
 
     async def async_start_session(self):
@@ -3538,6 +3729,8 @@ class FitnessManager:
         self._pause_distance_raw = None
         self._session_distance_excluded = 0.0
         self.samples = []
+        self._sample_stride = 1
+        self._captured_sample_count = 0
         self.session_rpe = None
 
         self._last_live_intensity = None
@@ -3563,7 +3756,9 @@ class FitnessManager:
             from .tv_dashboard import get_tv_dashboard_hub  # noqa: PLC0415
 
             if not get_tv_dashboard_hub(self.hass).is_cast_active(self.entry.entry_id):
-                self.hass.async_create_task(self.async_cast_tv_dashboard())
+                task = self.hass.async_create_task(self.async_cast_tv_dashboard())
+                self._background_tasks.add(task)
+                task.add_done_callback(self._background_tasks.discard)
 
         self.capture_control = await get_live_runtime(self.hass).async_prepare_session(self.entry)
 
@@ -3833,8 +4028,9 @@ class FitnessManager:
                 await self._async_handle_new_workout(latest)
 
         if not self.recovery_active:
-            self.hass.async_create_task(
-                self._async_refresh_long_term_statistics()
+            self._start_background_task(
+                self._async_refresh_long_term_statistics(),
+                "fitness long-term statistics refresh",
             )
 
     async def _async_collect_heart_rate_recovery(self) -> None:
@@ -3942,8 +4138,9 @@ class FitnessManager:
                 await self._save()
                 await self._async_handle_new_workout(latest)
 
-            self.hass.async_create_task(
-                self._async_refresh_long_term_statistics()
+            self._start_background_task(
+                self._async_refresh_long_term_statistics(),
+                "fitness post-recovery statistics refresh",
             )
 
     def session_duration(self, *, now: datetime | None = None) -> float:
@@ -4429,7 +4626,7 @@ class FitnessManager:
                 updated.session_rpe=float(value)
                 updated=self._apply_beta2_workout_metrics(updated)
                 updated=self._apply_personal_workout_context(updated)
-                self.history[idx]=updated.as_dict()
+                self.history[idx]=updated.as_persistent_dict()
                 changed=True
                 break
         if not changed:
@@ -4942,7 +5139,7 @@ class FitnessManager:
             key=lambda item: _dt(item.start)
             or datetime.min.replace(tzinfo=timezone.utc)
         )
-        canonical_history = [item.as_dict() for item in merged]
+        canonical_history = [item.as_persistent_dict() for item in merged]
         return merged, canonical_history, canonical_history != history
 
     def _eligible_completed_workouts(
@@ -5202,12 +5399,14 @@ class FitnessManager:
         # rows into Fitness storage. Recorder never directly produces a result.
         if entity_to_metric and self.hass.services.has_service("recorder", "get_statistics"):
             try:
-                response = await self.hass.services.async_call(
+                response = await async_call_service(
+                    self.hass,
                     "recorder", "get_statistics",
                     {"statistic_ids": sorted(entity_to_metric),
                      "start_time": (now - timedelta(days=90)).isoformat(),
                      "period": "day", "types": ["mean", "min", "max", "state"]},
                     blocking=True, return_response=True,
+                    timeout=45.0,
                 )
             except Exception:
                 response = None
@@ -7083,12 +7282,14 @@ class FitnessManager:
             service_data["entity_id"] = entity_id
 
         try:
-            response = await self.hass.services.async_call(
+            response = await async_call_service(
+                self.hass,
                 "ai_task",
                 "generate_data",
                 service_data,
                 blocking=True,
                 return_response=True,
+                timeout=120.0,
             )
             if isinstance(response, dict):
                 data = response.get("data")
@@ -7118,12 +7319,14 @@ class FitnessManager:
         if not self.hass.services.has_service("conversation", "process"):
             return None
         try:
-            response = await self.hass.services.async_call(
+            response = await async_call_service(
+                self.hass,
                 "conversation",
                 "process",
                 {"text": prompt, "agent_id": entity_id},
                 blocking=True,
                 return_response=True,
+                timeout=120.0,
             )
             if isinstance(response, dict):
                 speech = (

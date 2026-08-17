@@ -3134,6 +3134,21 @@
           }
         }
       },
+      "physical_battery": {
+        "name": "Батарея"
+      },
+      "physical_active_transport": {
+        "name": "Активный транспорт"
+      },
+      "physical_workout_owner": {
+        "name": "Владелец тренировки"
+      },
+      "physical_signal_strength": {
+        "name": "Уровень сигнала"
+      },
+      "physical_last_seen": {
+        "name": "Последнее обнаружение"
+      },
       "cycplus_device_number": {
         "name": "Номер устройства"
       },
@@ -3223,6 +3238,14 @@
           "charging": "Заряжается",
           "unknown": "Неизвестно"
         }
+      }
+    },
+    "binary_sensor": {
+      "physical_available": {
+        "name": "Доступно"
+      },
+      "physical_gatt_connected": {
+        "name": "Bluetooth GATT подключён"
       }
     },
     "button": {

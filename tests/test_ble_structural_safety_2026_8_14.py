@@ -228,7 +228,8 @@ def test_shared_gatt_connect_disconnect_is_serialized_per_sensor():
         "async def async_disconnect_profile", 1
     )[0]
     assert "async with lock:" in disconnect
-    assert "await client.disconnect()" in disconnect
+    assert "await self._async_disconnect_client(" in disconnect
+    assert "async with asyncio.timeout(BLE_DISCONNECT_TIMEOUT * 2)" in disconnect
 
 
 def test_failed_gatt_connect_cleans_partial_owner_and_client_state():
@@ -240,7 +241,8 @@ def test_failed_gatt_connect_cleans_partial_owner_and_client_state():
     )[0]
     assert "users.discard(profile_id)" in connect
     assert "self._clients.pop(current_id, None)" in connect
-    assert "await client.disconnect()" in connect
+    assert "await self._async_disconnect_client(" in connect
+    assert 'reason="failed live connection cleanup"' in connect
 
 
 def test_normal_advertisement_does_not_even_resolve_device_registry_identity():

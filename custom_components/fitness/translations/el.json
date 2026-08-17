@@ -3134,6 +3134,21 @@
           }
         }
       },
+      "physical_battery": {
+        "name": "Μπαταρία"
+      },
+      "physical_active_transport": {
+        "name": "Ενεργή μεταφορά"
+      },
+      "physical_workout_owner": {
+        "name": "Κάτοχος προπόνησης"
+      },
+      "physical_signal_strength": {
+        "name": "Ισχύς σήματος"
+      },
+      "physical_last_seen": {
+        "name": "Τελευταία εμφάνιση"
+      },
       "cycplus_device_number": {
         "name": "Αριθμός συσκευής"
       },
@@ -3223,6 +3238,14 @@
           "charging": "Φορτίζεται",
           "unknown": "Άγνωστη"
         }
+      }
+    },
+    "binary_sensor": {
+      "physical_available": {
+        "name": "Διαθέσιμο"
+      },
+      "physical_gatt_connected": {
+        "name": "Σύνδεση Bluetooth GATT"
       }
     },
     "button": {

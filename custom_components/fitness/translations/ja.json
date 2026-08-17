@@ -3134,6 +3134,21 @@
           }
         }
       },
+      "physical_battery": {
+        "name": "バッテリー"
+      },
+      "physical_active_transport": {
+        "name": "使用中のトランスポート"
+      },
+      "physical_workout_owner": {
+        "name": "ワークアウトの所有者"
+      },
+      "physical_signal_strength": {
+        "name": "信号強度"
+      },
+      "physical_last_seen": {
+        "name": "最終検出"
+      },
       "cycplus_device_number": {
         "name": "デバイス番号"
       },
@@ -3223,6 +3238,14 @@
           "charging": "充電中",
           "unknown": "不明"
         }
+      }
+    },
+    "binary_sensor": {
+      "physical_available": {
+        "name": "利用可能"
+      },
+      "physical_gatt_connected": {
+        "name": "Bluetooth GATT 接続済み"
       }
     },
     "button": {

@@ -35,7 +35,8 @@ def test_ble_identity_probe_is_not_a_persistent_gatt_subscription():
     probe = BT.split("async def _async_probe_identity", 1)[1].split(
         "def sensor_connected", 1
     )[0]
-    assert "await client.disconnect()" in probe
+    assert "await self._async_disconnect_client(" in probe
+    assert 'reason="identity probe cleanup"' in probe
     assert "await self._subscribe" not in probe
 
 
