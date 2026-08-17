@@ -9,12 +9,12 @@ container, and retries only the unfinished file.
 from __future__ import annotations
 
 import asyncio
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import hashlib
 import io
 from itertools import islice
-import json
 import logging
 import math
 import re
@@ -62,6 +62,12 @@ BLE_CLEANUP_TIMEOUT = 5.0
 SHUTDOWN_TIMEOUT = 12.0
 MAX_FIT_RECORDS = 100_000
 MAX_FIT_METADATA_FRAMES = 2_048
+MAX_FIT_SESSIONS = 64
+MAX_CATALOGUE_BYTES = 2 * 1024 * 1024
+MAX_CATALOGUE_FILES = 4_096
+MAX_STORED_DEVICES = 64
+MAX_STORED_FILES_PER_DEVICE = 4_096
+MAX_STORED_FILES_TOTAL = 8_192
 PROTOCOL_TIMEOUT = 12.0
 BLOCK_TIMEOUT = 20.0
 FILE_RETRY_FRONT_LIMIT = 3
@@ -156,26 +162,13 @@ def _xor_checksum(payload: bytes) -> int:
 
 def extract_fit_filenames(payload: bytes) -> list[str]:
     """Extract every timestamped FIT filename from text or JSON catalogues."""
+    if len(payload) > MAX_CATALOGUE_BYTES:
+        raise ValueError("CYCPLUS catalogue exceeds the safe size limit")
     text = bytes(payload).rstrip(b"\x00").decode("utf-8", errors="ignore")
-    candidates: list[str] = []
-    try:
-        document = json.loads(text)
-    except (json.JSONDecodeError, TypeError, ValueError):
-        document = None
-
-    def _walk(value: Any) -> None:
-        if isinstance(value, str):
-            candidates.extend(match.group(1) for match in _FIT_FILENAME.finditer(value))
-        elif isinstance(value, dict):
-            for nested in value.values():
-                _walk(nested)
-        elif isinstance(value, (list, tuple)):
-            for nested in value:
-                _walk(nested)
-
-    if document is not None:
-        _walk(document)
-    candidates.extend(match.group(1) for match in _FIT_FILENAME.finditer(text))
+    # A single bounded regex pass finds filenames in both JSON and plain-text
+    # catalogues. Building a full JSON object first amplified a catalogue into a
+    # much larger recursive Python tree and then scanned the same text twice.
+    candidates = [match.group(1) for match in _FIT_FILENAME.finditer(text)]
     # File names are normally numeric and lower-case, but preserve the exact
     # spelling advertised by the device in case a firmware uses a case-sensitive
     # archive. De-duplicate case-insensitively so a JSON field plus embedded text
@@ -183,6 +176,8 @@ def extract_fit_filenames(payload: bytes) -> list[str]:
     unique: dict[str, str] = {}
     for value in candidates:
         unique.setdefault(value.lower(), value)
+        if len(unique) >= MAX_CATALOGUE_FILES:
+            break
     return sorted(unique.values(), key=str.lower)
 
 
@@ -338,13 +333,24 @@ def _degrees(value: Any) -> float | None:
 
 
 def _mean(values: Iterable[Any]) -> float | None:
-    numbers = [number for value in values if (number := _number(value)) is not None]
-    return sum(numbers) / len(numbers) if numbers else None
+    total = 0.0
+    count = 0
+    for value in values:
+        number = _number(value)
+        if number is None:
+            continue
+        total += number
+        count += 1
+    return total / count if count else None
 
 
 def _maximum(values: Iterable[Any]) -> float | None:
-    numbers = [number for value in values if (number := _number(value)) is not None]
-    return max(numbers) if numbers else None
+    result: float | None = None
+    for value in values:
+        number = _number(value)
+        if number is not None and (result is None or number > result):
+            result = number
+    return result
 
 
 def _battery_status(value: Any) -> str | None:
@@ -379,11 +385,24 @@ def _battery_status(value: Any) -> str | None:
 
 
 def _session_records(
-    records: list[dict[str, Any]], start: str | None, end: str | None
+    records: list[dict[str, Any]],
+    start: str | None,
+    end: str | None,
+    *,
+    timed_records: list[tuple[datetime, dict[str, Any]]] | None = None,
+    record_times: list[datetime] | None = None,
 ) -> list[dict[str, Any]]:
     start_dt, end_dt = _dt(start), _dt(end)
     if start_dt is None and end_dt is None:
         return records
+    if timed_records is not None and record_times is not None:
+        lower = bisect_left(record_times, start_dt) if start_dt is not None else 0
+        upper = (
+            bisect_right(record_times, end_dt)
+            if end_dt is not None
+            else len(timed_records)
+        )
+        return [record for _timestamp, record in timed_records[lower:upper]]
     selected = []
     for record in records:
         timestamp = _dt(record.get("timestamp"))
@@ -455,9 +474,19 @@ def workouts_from_fit_messages(
 ) -> FitImportResult:
     """Normalize all sessions in one M1 FIT file into canonical workouts."""
     sessions = [values for name, values in messages if name == "session"]
+    if len(sessions) > MAX_FIT_SESSIONS:
+        raise ValueError("FIT file exceeds the safe session limit")
     records = [values for name, values in messages if name == "record"]
-    laps = [values for name, values in messages if name == "lap"]
     file_ids = [values for name, values in messages if name == "file_id"]
+    timed_records = sorted(
+        (
+            (timestamp, record)
+            for record in records
+            if (timestamp := _dt(record.get("timestamp"))) is not None
+        ),
+        key=lambda item: item[0],
+    )
+    record_times = [timestamp for timestamp, _record in timed_records]
 
     if not sessions and records:
         sessions = [{
@@ -488,7 +517,13 @@ def workouts_from_fit_messages(
         if end is None and start is not None and duration is not None:
             end = (_dt(start) + timedelta(seconds=duration)).isoformat()
 
-        relevant = _session_records(records, start, end)
+        relevant = _session_records(
+            records,
+            start,
+            end,
+            timed_records=timed_records,
+            record_times=record_times,
+        )
         first_position = next(
             (
                 record
@@ -642,6 +677,8 @@ class CycplusM1Protocol:
         self._ended = False
         self._overflow = False
         self._last_progress_size = 0
+        self._transfer_limit = MAX_TRANSFER_BYTES
+        self._next_transfer_limit = MAX_TRANSFER_BYTES
 
     @staticmethod
     def _put_latest(queue: asyncio.Queue, value: Any) -> None:
@@ -676,7 +713,7 @@ class CycplusM1Protocol:
             self._first_packet = False
         self._buffer.extend(payload)
         self._packet_count += 1
-        if len(self._buffer) > MAX_TRANSFER_BYTES:
+        if len(self._buffer) > self._transfer_limit:
             self._overflow = True
             self._block_ready.set()
             return
@@ -754,7 +791,9 @@ class CycplusM1Protocol:
             lambda value: bool(value),
         )
 
-    async def async_read_file(self, filename: str) -> bytes:
+    async def async_read_file(
+        self, filename: str, *, maximum_bytes: int = MAX_TRANSFER_BYTES
+    ) -> bytes:
         if not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", filename):
             raise ValueError("unsafe CYCPLUS filename")
         await self._request_read_permission()
@@ -776,6 +815,14 @@ class CycplusM1Protocol:
         self._ended = False
         self._overflow = False
         self._last_progress_size = 0
+        self._transfer_limit = max(
+            1,
+            min(
+                int(maximum_bytes),
+                int(getattr(self, "_next_transfer_limit", MAX_TRANSFER_BYTES)),
+                MAX_TRANSFER_BYTES,
+            ),
+        )
         self._collecting = True
         self._block_ready.clear()
         await self._write(CYCPLUS_M1_RX_UUID, _COPY)
@@ -812,6 +859,7 @@ class CycplusM1Protocol:
         empty: tuple[str, bytes, list[str]] | None = None
         for filename in ("filelist.txt", "workouts.json"):
             try:
+                self._next_transfer_limit = MAX_CATALOGUE_BYTES
                 payload = await self.async_read_file(filename)
                 files = extract_fit_filenames(payload)
                 if files:
@@ -822,6 +870,8 @@ class CycplusM1Protocol:
                 raise
             except Exception as err:
                 errors.append(f"{filename}: {err}")
+            finally:
+                self._next_transfer_limit = MAX_TRANSFER_BYTES
         if empty is not None:
             return empty
         raise RuntimeError("; ".join(errors) or "workout catalogue unavailable")
@@ -912,6 +962,10 @@ class CycplusM1Coordinator:
         self._stopping = False
         self._progress_publish: dict[str, tuple[int, float]] = {}
         self._save_lock = asyncio.Lock()
+        # One archive connection/decode at a time prevents several accepted M1s
+        # from saturating Bluetooth, the executor and profile persistence after
+        # a restart or mass reassignment.
+        self._sync_semaphore = asyncio.Semaphore(1)
         self._background_tasks: set[asyncio.Task] = set()
 
     def _start_background_task(self, coroutine, name: str) -> asyncio.Task:
@@ -927,7 +981,51 @@ class CycplusM1Coordinator:
         stored = await self._store.async_load() or {}
         devices = stored.get("devices")
         if isinstance(devices, dict):
-            self._state = {"devices": devices}
+            clean_devices: dict[str, dict[str, Any]] = {}
+            remaining_files = MAX_STORED_FILES_TOTAL
+            scalar_keys = {
+                "sync_state", "last_sync", "last_successful_sync",
+                "device_workout_count", "pending_file_count", "pending_file",
+                "downloaded_bytes", "retry_count", "disk_free_kb",
+                "disk_total_kb", "last_error_code", "latest_workout",
+                "catalog_filename", "device_attributes",
+            }
+            for raw_sensor_id, raw_state in islice(
+                devices.items(), MAX_STORED_DEVICES
+            ):
+                sensor_id = str(raw_sensor_id or "").strip()[:256]
+                if not sensor_id or not isinstance(raw_state, dict):
+                    continue
+                state = {
+                    key: _json_safe(raw_state.get(key), _budget=[512])
+                    for key in scalar_keys
+                    if raw_state.get(key) is not None
+                }
+                clean_files: dict[str, dict[str, Any]] = {}
+                raw_files = raw_state.get("files")
+                if isinstance(raw_files, dict) and remaining_files > 0:
+                    file_limit = min(MAX_STORED_FILES_PER_DEVICE, remaining_files)
+                    for raw_name, raw_record in islice(raw_files.items(), file_limit):
+                        name = str(raw_name or "").strip()[:64]
+                        if not _FIT_FILENAME.fullmatch(name) or not isinstance(raw_record, dict):
+                            continue
+                        clean = _json_safe(raw_record, _budget=[1_024])
+                        if isinstance(clean, dict):
+                            clean_files[name] = clean
+                    remaining_files -= len(clean_files)
+                state["files"] = clean_files
+                raw_failures = raw_state.get("file_failures")
+                if isinstance(raw_failures, dict):
+                    state["file_failures"] = {
+                        str(name)[:64]: _json_safe(value, _budget=[64])
+                        for name, value in islice(
+                            raw_failures.items(), MAX_STORED_FILES_PER_DEVICE
+                        )
+                        if _FIT_FILENAME.fullmatch(str(name or "").strip())
+                        and isinstance(value, dict)
+                    }
+                clean_devices[sensor_id] = state
+            self._state = {"devices": clean_devices}
         self._initialized = True
         if int(stored.get("workout_compaction_version") or 0) < 1:
             for state in self._state.get("devices", {}).values():
@@ -948,13 +1046,26 @@ class CycplusM1Coordinator:
                             continue
                     record["workouts"] = compacted
             self._state["workout_compaction_version"] = 1
-            await self._save()
+        # Rewrite a bounded snapshot even when the old compaction marker exists;
+        # this removes oversized/corrupt legacy state before normal scheduling.
+        self._state["workout_compaction_version"] = 1
+        await self._save()
 
     def _device(self, sensor_id: str) -> dict[str, Any]:
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
         devices = self._state.setdefault("devices", {})
         state = devices.get(sensor_id)
         if not isinstance(state, dict):
+            if len(devices) >= MAX_STORED_DEVICES:
+                inactive = next(
+                    (
+                        key for key in devices
+                        if key not in self._tasks
+                        or self._tasks[key].done()
+                    ),
+                    next(iter(devices)),
+                )
+                devices.pop(inactive, None)
             state = devices[sensor_id] = {"files": {}, "retry_count": 0}
         # Release candidates before this version stored raw exception text. It
         # remains neither useful nor appropriate as localized entity state.
@@ -977,7 +1088,11 @@ class CycplusM1Coordinator:
                     current.get("files") if isinstance(current.get("files"), dict) else {}
                 )
                 merged = {**current, **old}
-                merged["files"] = {**current_files, **old_files}
+                merged["files"] = dict(
+                    list({**current_files, **old_files}.items())[
+                        -MAX_STORED_FILES_PER_DEVICE:
+                    ]
+                )
                 latest = max(
                     str(old.get("latest_workout") or ""),
                     str(current.get("latest_workout") or ""),
@@ -1266,6 +1381,13 @@ class CycplusM1Coordinator:
         return self._migrate_sensor_state(previous_id, merged.sensor_id)
 
     async def _async_sync(self, requested_sensor_id: str, *, force: bool = False) -> None:
+        """Serialize device archive work across all CYCPLUS displays."""
+        async with self._sync_semaphore:
+            await self._async_sync_serialized(requested_sensor_id, force=force)
+
+    async def _async_sync_serialized(
+        self, requested_sensor_id: str, *, force: bool = False
+    ) -> None:
         sensor_id = self.runtime.resolve_sensor_id(requested_sensor_id)
         sensor = self.runtime.sensors.get(sensor_id)
         endpoint = sensor.endpoints.get("bluetooth") if sensor is not None else None

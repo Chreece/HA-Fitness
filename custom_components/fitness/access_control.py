@@ -19,6 +19,7 @@ its wildcard hostname useless without needing to mutate public DNS.
 """
 from __future__ import annotations
 
+import asyncio
 from ipaddress import ip_address
 import re
 import unicodedata
@@ -114,6 +115,8 @@ class FitnessAccessController:
             atomic_writes=True,
         )
         self._loaded = False
+        self._load_lock = asyncio.Lock()
+        self._mutation_lock = asyncio.Lock()
         self._data: dict[str, Any] = {
             "remote_base_domain": "",
             "accounts": {},
@@ -122,15 +125,55 @@ class FitnessAccessController:
     async def async_load(self) -> None:
         if self._loaded:
             return
-        saved = await self._store.async_load()
-        if isinstance(saved, dict):
-            accounts = saved.get("accounts")
-            self._data = {
-                "remote_base_domain": _normalize_domain(saved.get("remote_base_domain")),
-                "accounts": accounts if isinstance(accounts, dict) else {},
-            }
-        self._loaded = True
-        await self._async_bootstrap_owner()
+        async with self._load_lock:
+            if self._loaded:
+                return
+            saved = await self._store.async_load()
+            if isinstance(saved, dict):
+                accounts = saved.get("accounts")
+                clean_accounts: dict[str, dict[str, Any]] = {}
+                if isinstance(accounts, dict):
+                    for raw_user_id, raw_account in accounts.items():
+                        user_id = str(raw_user_id or "").strip()[:128]
+                        if not user_id or not isinstance(raw_account, dict):
+                            continue
+                        role = str(raw_account.get("role") or "").strip().lower()
+                        if role not in ROLES:
+                            continue
+                        clean: dict[str, Any] = {
+                            "role": role,
+                            "ha_user_id": user_id,
+                            "enabled": bool(raw_account.get("enabled", True)),
+                        }
+                        profile_id = str(
+                            raw_account.get("profile_entry_id") or ""
+                        ).strip()[:128]
+                        if profile_id:
+                            clean["profile_entry_id"] = profile_id
+                        views = sorted(self._view_profile_ids(raw_account))[:256]
+                        if views:
+                            clean["view_profile_entry_ids"] = views
+                        language = raw_account.get("language")
+                        if language:
+                            clean["language"] = _normalize_language(language)
+                        slug = _normalize_slug(raw_account.get("remote_slug"))
+                        if role == ROLE_REMOTE and slug:
+                            clean["remote_slug"] = slug
+                        if "previous_local_only" in raw_account:
+                            clean["previous_local_only"] = bool(
+                                raw_account.get("previous_local_only")
+                            )
+                        clean_accounts[user_id] = clean
+                        if len(clean_accounts) >= 1_024:
+                            break
+                self._data = {
+                    "remote_base_domain": _normalize_domain(
+                        saved.get("remote_base_domain")
+                    ),
+                    "accounts": clean_accounts,
+                }
+            self._loaded = True
+            await self._async_bootstrap_owner()
 
     async def _async_bootstrap_owner(self) -> None:
         accounts = self._data["accounts"]
@@ -445,6 +488,11 @@ class FitnessAccessController:
         }
 
     async def async_set_remote_base_domain(self, connection, domain: str) -> dict[str, Any]:
+        """Serialize access-policy changes so concurrent admins cannot lose writes."""
+        async with self._mutation_lock:
+            return await self._async_set_remote_base_domain(connection, domain)
+
+    async def _async_set_remote_base_domain(self, connection, domain: str) -> dict[str, Any]:
         await self.async_require_admin(connection)
         normalized = _normalize_domain(domain)
         if domain and not normalized:
@@ -485,6 +533,29 @@ class FitnessAccessController:
         raise ValueError("remote_slug_in_use")
 
     async def async_bind_account(
+        self,
+        connection,
+        *,
+        user_id: str,
+        role: str,
+        profile_entry_id: str | None = None,
+        remote_slug: str | None = None,
+        view_profile_entry_ids: list[str] | None = None,
+        language: str | None = None,
+    ) -> dict[str, Any]:
+        """Atomically validate and persist one account/profile binding."""
+        async with self._mutation_lock:
+            return await self._async_bind_account(
+                connection,
+                user_id=user_id,
+                role=role,
+                profile_entry_id=profile_entry_id,
+                remote_slug=remote_slug,
+                view_profile_entry_ids=view_profile_entry_ids,
+                language=language,
+            )
+
+    async def _async_bind_account(
         self,
         connection,
         *,
@@ -619,6 +690,11 @@ class FitnessAccessController:
         return await self.async_admin_snapshot(connection)
 
     async def async_remove_account(self, connection, user_id: str) -> dict[str, Any]:
+        """Remove one binding without racing another access-policy update."""
+        async with self._mutation_lock:
+            return await self._async_remove_account(connection, user_id)
+
+    async def _async_remove_account(self, connection, user_id: str) -> dict[str, Any]:
         await self.async_require_admin(connection)
         user_id = str(user_id)
         account = self._account(user_id)
@@ -633,6 +709,11 @@ class FitnessAccessController:
         return await self.async_admin_snapshot(connection)
 
     async def async_remove_profile(self, connection, profile_entry_id: str) -> dict[str, Any]:
+        """Remove a profile and its access records as one serialized operation."""
+        async with self._mutation_lock:
+            return await self._async_remove_profile(connection, profile_entry_id)
+
+    async def _async_remove_profile(self, connection, profile_entry_id: str) -> dict[str, Any]:
         await self.async_require_admin(connection)
         entry = self.hass.config_entries.async_get_entry(str(profile_entry_id))
         if entry is None or entry.domain != DOMAIN or entry.data.get("entry_type") == "live_hub":
@@ -696,7 +777,7 @@ async def websocket_fitness_access_admin(hass: HomeAssistant, connection, msg) -
 
 @websocket_api.websocket_command({
     vol.Required("type"): "fitness/access/settings/save",
-    vol.Optional("remote_base_domain", default=""): str,
+    vol.Optional("remote_base_domain", default=""): vol.All(str, vol.Length(max=253)),
 })
 @websocket_api.async_response
 async def websocket_fitness_access_settings_save(hass: HomeAssistant, connection, msg) -> None:
@@ -713,11 +794,13 @@ async def websocket_fitness_access_settings_save(hass: HomeAssistant, connection
 
 @websocket_api.websocket_command({
     vol.Required("type"): "fitness/access/account/save",
-    vol.Required("user_id"): str,
+    vol.Required("user_id"): vol.All(str, vol.Length(max=128)),
     vol.Required("role"): vol.In(sorted(ROLES)),
-    vol.Optional("profile_entry_id"): str,
-    vol.Optional("remote_slug"): str,
-    vol.Optional("view_profile_entry_ids"): [str],
+    vol.Optional("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+    vol.Optional("remote_slug"): vol.All(str, vol.Length(max=63)),
+    vol.Optional("view_profile_entry_ids"): vol.All(
+        [vol.All(str, vol.Length(max=128))], vol.Length(max=256)
+    ),
     vol.Optional("language"): vol.In(sorted(SUPPORTED_LANGUAGES)),
 })
 @websocket_api.async_response
@@ -749,7 +832,7 @@ async def websocket_fitness_access_account_save(hass: HomeAssistant, connection,
 
 @websocket_api.websocket_command({
     vol.Required("type"): "fitness/access/account/delete",
-    vol.Required("user_id"): str,
+    vol.Required("user_id"): vol.All(str, vol.Length(max=128)),
 })
 @websocket_api.async_response
 async def websocket_fitness_access_account_delete(hass: HomeAssistant, connection, msg) -> None:
@@ -764,7 +847,7 @@ async def websocket_fitness_access_account_delete(hass: HomeAssistant, connectio
 
 @websocket_api.websocket_command({
     vol.Required("type"): "fitness/access/profile/delete",
-    vol.Required("profile_entry_id"): str,
+    vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
 })
 @websocket_api.async_response
 async def websocket_fitness_access_profile_delete(hass: HomeAssistant, connection, msg) -> None:

@@ -31,9 +31,28 @@ const _fitnessEnsureFrontendVersion = (serverVersion) => {
   return true;
 };
 
+const _fitnessSafeExternalUrl = (target) => {
+  const raw = String(target || "").trim();
+  try {
+    const url = new URL(raw);
+    if (!["http:","https:"].includes(url.protocol) || url.username || url.password) return "";
+    return url.href;
+  } catch (_err) { return ""; }
+};
+
+const _fitnessSafeInternalTarget = (target) => {
+  const raw = String(target || "").trim();
+  if (!raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\")) return "";
+  try {
+    const url = new URL(raw, location.origin);
+    if (url.origin !== location.origin) return "";
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch (_err) { return ""; }
+};
+
 const _fitnessOpenExternal = (target) => {
-  const url = String(target || "").trim();
-  if (!/^https?:\/\//i.test(url)) return false;
+  const url = _fitnessSafeExternalUrl(target);
+  if (!url) return false;
   // Using window.open(..., "noopener") can legally return null even when a
   // browser did open the new tab, which caused Fitness to also navigate its own
   // tab as a false popup-blocker fallback. A real anchor has deterministic
@@ -1611,6 +1630,8 @@ class FitnessAutoProfileCard extends HTMLElement {
     }
     _fitnessBindMoreInfo(this);
     this._resolvedKey = null;
+    this._fitnessEntityIds = null;
+    this._fitnessStateSignature = "";
   }
   static getConfigElement() { return document.createElement("fitness-profile-card-editor"); }
   static getStubConfig() { return {}; }
@@ -1623,7 +1644,34 @@ class FitnessAutoProfileCard extends HTMLElement {
       this._resolveProfile();
       return;
     }
+    const signature = this._stateSignature(hass);
+    if (signature === this._fitnessStateSignature) return;
+    this._fitnessStateSignature = signature;
     this._render();
+  }
+
+  _stateSignature(hass) {
+    if (!this._profile) return "unresolved";
+    if (!this._fitnessEntityIds) {
+      const ids = new Set();
+      const stack = [{value:this._profile,depth:0}];
+      let budget = 4096;
+      while (stack.length && budget-- > 0) {
+        const {value,depth} = stack.pop();
+        if (typeof value === "string") {
+          if (/^[a-z_][a-z0-9_]*\.[a-z0-9_]+$/i.test(value)) ids.add(value);
+        } else if (depth < 6 && Array.isArray(value)) {
+          for (const item of value) stack.push({value:item,depth:depth+1});
+        } else if (depth < 6 && value && typeof value === "object") {
+          for (const item of Object.values(value)) stack.push({value:item,depth:depth+1});
+        }
+      }
+      this._fitnessEntityIds = [...ids].sort();
+    }
+    return this._fitnessEntityIds.map((id) => {
+      const state = hass?.states?.[id];
+      return `${id}:${state?.state || ""}:${state?.last_updated || ""}`;
+    }).join("|");
   }
 
   async _resolveProfile() {
@@ -1638,6 +1686,8 @@ class FitnessAutoProfileCard extends HTMLElement {
         const ui = String(this._profile?.language || this._hass?.language || "en").toLowerCase().split("-")[0];
         this._profile = {...this._profile, labels: this._profile.labels_by_language[ui] || this._profile.labels_by_language.en || this._profile.labels};
       }
+      this._fitnessEntityIds = null;
+      this._fitnessStateSignature = this._stateSignature(this._hass);
     } catch (_err) {
       this._profile = null;
     } finally {
@@ -6926,6 +6976,9 @@ class FitnessTvDashboardCard extends HTMLElement {
       vigorous:{speed:4.5,lift:3.2,energy:.36,breath:1.010,flow:1.12},
       near_maximal:{speed:3.35,lift:3.8,energy:.46,breath:1.012,flow:1.24},
     }[tone?.intensity] || {speed:7.4,lift:2.1,energy:.22,breath:1.006,flow:.90};
+    const signature = `${r},${g},${b}:${tone?.live ? 1 : 0}:${tone?.intensity || "light"}:${tone?.state || "idle"}:${this._animationsEnabled ? 1 : 0}:${this._motionEnabled() ? 1 : 0}`;
+    if (signature === this._ambientSignature) return;
+    this._ambientSignature = signature;
     this.style.setProperty("--fitness-tv-ambient-rgb", `${r},${g},${b}`);
     this.style.setProperty("--fitness-tv-ambient-alpha", String(alpha));
     this.style.setProperty("--fitness-tv-ambient-core-alpha", String(alpha * 0.82));
@@ -7152,11 +7205,13 @@ class FitnessTvDashboardCard extends HTMLElement {
     const target = String(path || "").trim();
     if (!target) return;
     if (_fitnessOpenExternal(target)) return;
+    const internalTarget = _fitnessSafeInternalTarget(target);
+    if (!internalTarget) return;
     try {
-      history.pushState(null, "", target);
+      history.pushState(null, "", internalTarget);
       window.dispatchEvent(new Event("location-changed"));
     } catch (_err) {
-      window.location.href = target;
+      window.location.assign(internalTarget);
     }
   }
 
@@ -7325,6 +7380,7 @@ class FitnessTvDashboardCard extends HTMLElement {
   _mountSelectedCards() {
     const grid = this.shadowRoot?.getElementById("grid");
     if (!grid || !this._profile) return;
+    this._ambientSignature = "";
     this._cardResizeObserver?.disconnect?.();
     this._cardResizeObserver = null;
     grid.replaceChildren();
@@ -11048,7 +11104,11 @@ class FitnessBackendFlow extends HTMLElement {
     }
 
     if (type === "external") {
-      this._shell(`<div class="flow-message"><ha-icon icon="mdi:open-in-new"></ha-icon><a href="${_fitnessEscape(step.url || "#")}" target="_blank" rel="noopener">${_fitnessEscape(this._uiLabels?.continue_setup)}</a></div>`, {title, description});
+      const externalUrl = _fitnessSafeExternalUrl(step.url);
+      const action = externalUrl
+        ? `<a href="${_fitnessEscape(externalUrl)}" target="_blank" rel="noopener noreferrer">${_fitnessEscape(this._uiLabels?.continue_setup)}</a>`
+        : `<span>${_fitnessEscape(this._uiLabels?.flow_error_unknown)}</span>`;
+      this._shell(`<div class="flow-message"><ha-icon icon="mdi:open-in-new"></ha-icon>${action}</div>`, {title, description});
       return;
     }
 
@@ -11116,11 +11176,13 @@ class FitnessTvSetupCard extends HTMLElement {
     const target = String(path || "").trim();
     if (!target) return;
     if (_fitnessOpenExternal(target)) return;
+    const internalTarget = _fitnessSafeInternalTarget(target);
+    if (!internalTarget) return;
     try {
-      history.pushState(null, "", target);
+      history.pushState(null, "", internalTarget);
       window.dispatchEvent(new Event("location-changed"));
     } catch (_err) {
-      window.location.href = target;
+      window.location.assign(internalTarget);
     }
   }
 

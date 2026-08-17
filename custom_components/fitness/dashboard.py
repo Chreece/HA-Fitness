@@ -64,7 +64,7 @@ from .profile_data import (
     physical_workout_owner_entity_id,
     routes_from_attributes,
 )
-from .resource_safety import async_call_service
+from .resource_safety import async_call_service, bounded_websocket_payload
 from .providers.workouts import (
     FITNESS_CALCULATED_SOURCE,
     FITNESS_FALLBACK_FACTUAL_FIELDS,
@@ -112,6 +112,8 @@ class FitnessDashboardResourceView(HomeAssistantView):
 
     def __init__(self, frontend_file: Path) -> None:
         self._frontend_file = frontend_file
+        self._frontend_body: bytes | None = None
+        self._read_lock = asyncio.Lock()
 
     @staticmethod
     def _headers() -> dict[str, str]:
@@ -126,7 +128,11 @@ class FitnessDashboardResourceView(HomeAssistantView):
             "Serving Fitness dashboard frontend resource to origin=%s",
             request.headers.get("Origin", "same-origin"),
         )
-        body = await asyncio.to_thread(self._frontend_file.read_bytes)
+        if self._frontend_body is None:
+            async with self._read_lock:
+                if self._frontend_body is None:
+                    self._frontend_body = await asyncio.to_thread(self._frontend_file.read_bytes)
+        body = self._frontend_body
         return web.Response(
             body=body,
             content_type="application/javascript",
@@ -2522,13 +2528,15 @@ def _tv_cast_targets(hass: HomeAssistant, registry: er.EntityRegistry) -> list[d
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "fitness/dashboard/flow_translations",
-        vol.Optional("language", default="en"): str,
+        vol.Optional("language", default="en"): vol.All(str, vol.Length(max=16)),
     }
 )
 @websocket_api.async_response
 async def websocket_dashboard_flow_translations(hass: HomeAssistant, connection, msg) -> None:
     """Return the integration's config/options-flow translations for the UI language."""
     language = str(msg.get("language") or "en").lower().split("-", 1)[0]
+    if language not in SUPPORTED_DASHBOARD_LANGUAGES:
+        language = "en"
     translations_dir = Path(__file__).parent / "translations"
     source = translations_dir / f"{language}.json"
     if not source.is_file():
@@ -2612,7 +2620,7 @@ def _fitness_options_flow_matches_profile(
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "fitness/dashboard/options_flow/start",
-        vol.Required("profile_entry_id"): str,
+        vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
     }
 )
 @websocket_api.async_response
@@ -2634,9 +2642,12 @@ async def websocket_dashboard_options_flow_start(
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "fitness/dashboard/options_flow/step",
-        vol.Required("profile_entry_id"): str,
-        vol.Required("flow_id"): str,
-        vol.Optional("user_input"): dict,
+        vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+        vol.Required("flow_id"): vol.All(str, vol.Length(max=128)),
+        vol.Optional("user_input"): vol.All(
+            dict,
+            bounded_websocket_payload(max_nodes=2_048, max_depth=8, max_string_length=8_192),
+        ),
     }
 )
 @websocket_api.async_response
@@ -2669,8 +2680,8 @@ async def websocket_dashboard_options_flow_step(
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "fitness/dashboard/options_flow/cancel",
-        vol.Required("profile_entry_id"): str,
-        vol.Required("flow_id"): str,
+        vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+        vol.Required("flow_id"): vol.All(str, vol.Length(max=128)),
     }
 )
 @websocket_api.async_response
@@ -2734,8 +2745,9 @@ async def websocket_tv_overview_cast(hass: HomeAssistant, connection, msg) -> No
             blocking=True,
             timeout=30.0,
         )
-    except Exception as err:  # noqa: BLE001 - surface the HA Cast error to the admin UI
-        connection.send_error(msg["id"], "cast_failed", str(err))
+    except Exception as err:  # noqa: BLE001 - keep provider details in server logs
+        _LOGGER.warning("Unable to start Fitness overview Cast", exc_info=err)
+        connection.send_error(msg["id"], "cast_failed", "Unable to start Fitness Cast")
         return
     state = _tv_overview_cast_state(hass)
     state.update({"active": True, "target": target})

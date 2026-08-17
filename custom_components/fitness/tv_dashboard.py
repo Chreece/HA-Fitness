@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+from ipaddress import ip_address
 import json
+import logging
+import re
+import socket
 import time
 from collections.abc import Callable
 from typing import Any
+from urllib.parse import urljoin, urlparse
 from uuid import uuid4
 
 from aiohttp import ClientTimeout, WSMsgType, web
@@ -25,7 +30,7 @@ from homeassistant.helpers.storage import Store
 
 from .access_control import get_fitness_access_controller
 from .live import get_live_runtime
-from .resource_safety import async_call_service
+from .resource_safety import async_call_service, bounded_payload, bounded_websocket_payload
 
 from .const import (
     CONF_TV_DASHBOARD_ENABLED,
@@ -102,6 +107,83 @@ TV_CLIENTS_PER_PROFILE_LIMIT = 64
 TV_PROXY_TOKEN_LIMIT = 256
 TV_MA_PLAYERS_PER_PROFILE_LIMIT = 64
 TV_ANNOUNCEMENT_LIMIT = 64
+TV_PROXY_CONCURRENCY_LIMIT = 16
+TV_SENDSPIN_CONCURRENCY_LIMIT = 16
+TV_MUSIC_SEARCH_CONCURRENCY_LIMIT = 4
+TV_MUSIC_QUERY_LIMIT = 256
+TV_PROXY_REDIRECT_LIMIT = 5
+_FITNESS_MA_PLAYER_RE = re.compile(r"^fitness-tv-[A-Za-z0-9_-]{8,220}$")
+_SAFE_PROXY_REQUEST_HEADERS = {
+    "accept",
+    "accept-language",
+    "origin",
+    "referer",
+    "user-agent",
+}
+_RANGE_RE = re.compile(r"^bytes=(?:\d+-\d*|-\d+)$")
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def _public_http_target(value: Any) -> tuple[str, str, int | None]:
+    """Return a normalized public-HTTP target tuple or raise ValueError."""
+    raw = str(value or "").strip()
+    if len(raw) > 8_192:
+        raise ValueError("invalid_proxy_target")
+    try:
+        parsed = urlparse(raw)
+        port = parsed.port
+    except ValueError as err:
+        raise ValueError("invalid_proxy_target") from err
+    host = str(parsed.hostname or "").lower().rstrip(".")
+    if (
+        parsed.scheme.lower() not in {"http", "https"}
+        or not host
+        or parsed.username is not None
+        or parsed.password is not None
+        or host == "localhost"
+        or host.endswith((".localhost", ".local", ".internal", ".home.arpa"))
+    ):
+        raise ValueError("invalid_proxy_target")
+    try:
+        address = ip_address(host)
+    except ValueError:
+        pass
+    else:
+        if not address.is_global:
+            raise ValueError("private_proxy_target")
+    return raw, host, port
+
+
+async def _async_validate_public_http_target(hass: HomeAssistant, value: Any) -> str:
+    """Reject local/special destinations before opening an upstream stream."""
+    raw, host, port = _public_http_target(value)
+    try:
+        ip_address(host)
+        return raw
+    except ValueError:
+        pass
+
+    def _resolve() -> list[tuple[Any, ...]]:
+        return socket.getaddrinfo(
+            host,
+            port,
+            type=socket.SOCK_STREAM,
+        )
+
+    try:
+        async with asyncio.timeout(5.0):
+            rows = await hass.async_add_executor_job(_resolve)
+    except (OSError, TimeoutError) as err:
+        raise ValueError("proxy_target_unavailable") from err
+    addresses = {
+        str(row[4][0]).split("%", 1)[0]
+        for row in rows
+        if len(row) > 4 and row[4]
+    }
+    if not addresses or any(not ip_address(item).is_global for item in addresses):
+        raise ValueError("private_proxy_target")
+    return raw
 
 # These IDs are intentionally stable. They are stored per Fitness profile and
 # are therefore independent of card titles or the user's dashboard language.
@@ -142,6 +224,7 @@ class FitnessTVDashboardHub:
         )
         self._loaded = False
         self._data: dict[str, Any] = {"profiles": {}}
+        self._load_lock = asyncio.Lock()
         self._store_lock = asyncio.Lock()
         # profile -> client -> metadata about active dashboards
         self._clients: dict[str, dict[str, dict[str, Any]]] = {}
@@ -191,6 +274,10 @@ class FitnessTVDashboardHub:
         # lets profile/HA unload stop account-backed queues (Spotify etc.) before
         # their Sendspin browser disappears and leaves the provider falsely busy.
         self._ma_players: dict[str, dict[str, str]] = {}
+        self._active_proxy_streams = 0
+        self._active_sendspin_streams = 0
+        self._active_music_searches: set[str] = set()
+        self._active_music_resolutions: set[str] = set()
         # Radio Browser country codes change very rarely, so cache them for the
         # lifetime of this hub instead of downloading them on every search.
         self._radio_country_codes: list[dict[str, str]] | None = None
@@ -198,36 +285,39 @@ class FitnessTVDashboardHub:
     async def async_load(self) -> None:
         if self._loaded:
             return
-        saved = await self._store.async_load()
-        rewrite_loaded_profiles = False
-        if isinstance(saved, dict):
-            profiles = saved.get("profiles")
-            if isinstance(profiles, dict):
-                rewrite_loaded_profiles = True
-                clean_profiles: dict[str, dict[str, Any]] = {}
-                for raw_profile_id, raw_profile in profiles.items():
-                    profile_id = str(raw_profile_id or "").strip()[:128]
-                    if not profile_id or not isinstance(raw_profile, dict):
-                        continue
-                    clean_profiles[profile_id] = self._sanitize_profile(raw_profile)
-                    if len(clean_profiles) >= 256:
-                        break
-                self._data = {"profiles": clean_profiles}
-                # Restore only the last selected media, never a stale playing
-                # flag. A fresh browser/Cast receiver must explicitly start it.
-                for profile_entry_id, raw_profile in clean_profiles.items():
-                    last_media = self._sanitize_last_media(raw_profile.get("last_media"))
-                    if last_media:
-                        self._media_state[str(profile_entry_id)] = {
-                            **last_media,
-                            "playing": False,
-                            "error": False,
-                        }
-        self._loaded = True
-        if rewrite_loaded_profiles:
-            # Always rewrite the now-small snapshot. Comparing it recursively to
-            # a potentially enormous legacy object would itself block MainThread.
-            await self._async_save_data()
+        async with self._load_lock:
+            if self._loaded:
+                return
+            saved = await self._store.async_load()
+            rewrite_loaded_profiles = False
+            if isinstance(saved, dict):
+                profiles = saved.get("profiles")
+                if isinstance(profiles, dict):
+                    rewrite_loaded_profiles = True
+                    clean_profiles: dict[str, dict[str, Any]] = {}
+                    for raw_profile_id, raw_profile in profiles.items():
+                        profile_id = str(raw_profile_id or "").strip()[:128]
+                        if not profile_id or not isinstance(raw_profile, dict):
+                            continue
+                        clean_profiles[profile_id] = self._sanitize_profile(raw_profile)
+                        if len(clean_profiles) >= 256:
+                            break
+                    self._data = {"profiles": clean_profiles}
+                    # Restore only the last selected media, never a stale playing
+                    # flag. A fresh browser/Cast receiver must explicitly start it.
+                    for profile_entry_id, raw_profile in clean_profiles.items():
+                        last_media = self._sanitize_last_media(raw_profile.get("last_media"))
+                        if last_media:
+                            self._media_state[str(profile_entry_id)] = {
+                                **last_media,
+                                "playing": False,
+                                "error": False,
+                            }
+            self._loaded = True
+            if rewrite_loaded_profiles:
+                # Always rewrite the now-small snapshot. Comparing it recursively to
+                # a potentially enormous legacy object would itself block MainThread.
+                await self._async_save_data()
 
     async def _async_save_data(self) -> None:
         """Serialize TV preference writes so rapid controls cannot overlap."""
@@ -1676,8 +1766,8 @@ class FitnessTVDashboardHub:
                     )
                 except Exception:
                     pass
-        except Exception as err:
-            return {"sent": False, "reason": "audio_output_play_failed", "details": str(err)}
+        except Exception:
+            return {"sent": False, "reason": "audio_output_play_failed"}
 
         self._audio_owner[profile_entry_id] = f"ha:{output}"
         await self.async_broadcast_media_state(
@@ -1719,8 +1809,8 @@ class FitnessTVDashboardHub:
                 blocking=True,
                 timeout=20.0,
             )
-        except Exception as err:
-            return {"sent": False, "reason": "audio_output_command_failed", "details": str(err)}
+        except Exception:
+            return {"sent": False, "reason": "audio_output_command_failed"}
         patch = {"output_entity_id": output}
         if command in {"pause", "stop"}:
             patch["playing"] = False
@@ -2102,9 +2192,7 @@ class FitnessTVDashboardHub:
         safe_headers: dict[str, str] = {}
         for key, value in (headers or {}).items():
             name = str(key).strip()[:128]
-            if name and name.lower() not in {
-                "cookie", "authorization", "host", "content-length"
-            }:
+            if name and name.lower() in _SAFE_PROXY_REQUEST_HEADERS:
                 safe_headers[name] = str(value)[:4096]
             if len(safe_headers) >= 32:
                 break
@@ -2179,6 +2267,60 @@ class FitnessTVDashboardHub:
             players[player_id[:240]] = ma_entry_id[:128]
             while len(players) > TV_MA_PLAYERS_PER_PROFILE_LIMIT:
                 players.pop(next(iter(players)))
+
+    def owns_ma_player(
+        self, profile_entry_id: str, ma_entry_id: str, player_id: str
+    ) -> bool:
+        """Return whether this exact profile issued the MA browser player."""
+        return (
+            bool(player_id)
+            and self._ma_players.get(str(profile_entry_id), {}).get(str(player_id))
+            == str(ma_entry_id)
+        )
+
+    def begin_proxy_stream(self) -> bool:
+        if self._active_proxy_streams >= TV_PROXY_CONCURRENCY_LIMIT:
+            return False
+        self._active_proxy_streams += 1
+        return True
+
+    def end_proxy_stream(self) -> None:
+        self._active_proxy_streams = max(0, self._active_proxy_streams - 1)
+
+    def begin_sendspin_stream(self) -> bool:
+        if self._active_sendspin_streams >= TV_SENDSPIN_CONCURRENCY_LIMIT:
+            return False
+        self._active_sendspin_streams += 1
+        return True
+
+    def end_sendspin_stream(self) -> None:
+        self._active_sendspin_streams = max(0, self._active_sendspin_streams - 1)
+
+    def begin_music_search(self, profile_entry_id: str) -> bool:
+        profile_entry_id = str(profile_entry_id)
+        if (
+            profile_entry_id in self._active_music_searches
+            or len(self._active_music_searches) >= TV_MUSIC_SEARCH_CONCURRENCY_LIMIT
+        ):
+            return False
+        self._active_music_searches.add(profile_entry_id)
+        return True
+
+    def end_music_search(self, profile_entry_id: str) -> None:
+        self._active_music_searches.discard(str(profile_entry_id))
+
+    def begin_music_resolution(self, profile_entry_id: str) -> bool:
+        profile_entry_id = str(profile_entry_id)
+        if (
+            profile_entry_id in self._active_music_resolutions
+            or len(self._active_music_resolutions) >= TV_MUSIC_SEARCH_CONCURRENCY_LIMIT
+        ):
+            return False
+        self._active_music_resolutions.add(profile_entry_id)
+        return True
+
+    def end_music_resolution(self, profile_entry_id: str) -> None:
+        self._active_music_resolutions.discard(str(profile_entry_id))
 
     async def async_release_profile_music(
         self, profile_entry_id: str, *, reason: str = "profile_unload"
@@ -2335,61 +2477,87 @@ class FitnessMusicProxyView(HomeAssistantView):
         proxy_target = hub.music_proxy_target(token)
         if not proxy_target:
             raise web.HTTPNotFound()
-        target, target_headers = proxy_target
-
-        headers = {
-            "User-Agent": "HA-Fitness/0.0.0",
-            "Accept-Encoding": "identity",
-            **target_headers,
-        }
-        if range_header := request.headers.get("Range"):
-            headers["Range"] = range_header
-        session = async_get_clientsession(hub.hass)
-        try:
-            upstream = await session.get(
-                target,
-                headers=headers,
-                allow_redirects=True,
-                timeout=ClientTimeout(
-                    total=None,
-                    connect=MUSIC_PROXY_CONNECT_SECONDS,
-                    sock_connect=MUSIC_PROXY_CONNECT_SECONDS,
-                    sock_read=MUSIC_PROXY_READ_SECONDS,
-                ),
+        if not hub.begin_proxy_stream():
+            raise web.HTTPTooManyRequests(
+                text="Too many active Fitness audio streams",
+                headers={"Retry-After": "5"},
             )
-        except Exception as err:  # noqa: BLE001 - remote stream errors map to 502
-            raise web.HTTPBadGateway(text="Unable to open remote audio stream") from err
-        if upstream.status >= 400:
-            upstream.release()
-            raise web.HTTPBadGateway(text=f"Remote audio returned HTTP {upstream.status}")
+        target, target_headers = proxy_target
+        try:
+            headers = {
+                "User-Agent": "HA-Fitness/0.0.0",
+                "Accept-Encoding": "identity",
+                **target_headers,
+            }
+            if range_header := request.headers.get("Range"):
+                if not _RANGE_RE.fullmatch(range_header.strip()):
+                    raise web.HTTPBadRequest(text="Invalid byte range")
+                headers["Range"] = range_header.strip()
+            session = async_get_clientsession(hub.hass)
+            upstream = None
+            try:
+                for _redirect in range(TV_PROXY_REDIRECT_LIMIT + 1):
+                    target = await _async_validate_public_http_target(hub.hass, target)
+                    upstream = await session.get(
+                        target,
+                        headers=headers,
+                        allow_redirects=False,
+                        timeout=ClientTimeout(
+                            total=None,
+                            connect=MUSIC_PROXY_CONNECT_SECONDS,
+                            sock_connect=MUSIC_PROXY_CONNECT_SECONDS,
+                            sock_read=MUSIC_PROXY_READ_SECONDS,
+                        ),
+                    )
+                    if upstream.status not in {301, 302, 303, 307, 308}:
+                        break
+                    location = str(upstream.headers.get("Location") or "").strip()
+                    upstream.release()
+                    upstream = None
+                    if not location or _redirect >= TV_PROXY_REDIRECT_LIMIT:
+                        raise ValueError("proxy_redirect_limit")
+                    target = urljoin(target, location)
+            except web.HTTPException:
+                raise
+            except Exception as err:  # noqa: BLE001 - remote stream errors map to 502
+                if upstream is not None:
+                    upstream.release()
+                raise web.HTTPBadGateway(text="Unable to open remote audio stream") from err
+            if upstream is None or upstream.status not in {200, 206}:
+                status = upstream.status if upstream is not None else 502
+                if upstream is not None:
+                    upstream.release()
+                raise web.HTTPBadGateway(text=f"Remote audio returned HTTP {status}")
 
-        response_headers = {"Cache-Control": "no-store"}
-        for name in (
-            "Content-Type",
-            "Content-Length",
-            "Content-Range",
-            "Accept-Ranges",
-            "icy-name",
-            "icy-description",
-            "icy-br",
-        ):
-            value = upstream.headers.get(name)
-            if value:
-                response_headers[name] = value
-        response = web.StreamResponse(status=upstream.status, headers=response_headers)
-        await response.prepare(request)
-        try:
-            async for chunk in upstream.content.iter_chunked(64 * 1024):
-                await response.write(chunk)
-        except (ConnectionResetError, asyncio.CancelledError):
-            pass
+            response_headers = {"Cache-Control": "no-store"}
+            for name in (
+                "Content-Type",
+                "Content-Length",
+                "Content-Range",
+                "Accept-Ranges",
+                "icy-name",
+                "icy-description",
+                "icy-br",
+            ):
+                value = upstream.headers.get(name)
+                if value:
+                    response_headers[name] = value
+            response = web.StreamResponse(status=upstream.status, headers=response_headers)
+            await response.prepare(request)
+            try:
+                async for chunk in upstream.content.iter_chunked(64 * 1024):
+                    await response.write(chunk)
+            except (ConnectionResetError, asyncio.CancelledError):
+                pass
+            finally:
+                upstream.release()
+            try:
+                await response.write_eof()
+            except ConnectionResetError:
+                pass
+            return response
         finally:
-            upstream.release()
-        try:
-            await response.write_eof()
-        except ConnectionResetError:
-            pass
-        return response
+            hub.end_proxy_stream()
 
 
 class FitnessMASendspinProxyView(HomeAssistantView):
@@ -2401,6 +2569,19 @@ class FitnessMASendspinProxyView(HomeAssistantView):
     cors_allowed = True
 
     async def get(self, request: web.Request, token: str) -> web.StreamResponse:
+        """Bound public relay concurrency before opening either WebSocket."""
+        hub = get_tv_dashboard_hub(request.app["hass"])
+        if not hub.begin_sendspin_stream():
+            raise web.HTTPTooManyRequests(
+                text="Too many active Fitness music relays",
+                headers={"Retry-After": "5"},
+            )
+        try:
+            return await self._get_limited(request, token)
+        finally:
+            hub.end_sendspin_stream()
+
+    async def _get_limited(self, request: web.Request, token: str) -> web.StreamResponse:
         """Authenticate to MA's browser proxy, then bridge Sendspin frames."""
         hass: HomeAssistant = request.app["hass"]
         hub = get_tv_dashboard_hub(hass)
@@ -2537,7 +2718,7 @@ async def _require_profile_control(
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "fitness/tv/preferences",
-        vol.Required("profile_entry_id"): str,
+        vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
     }
 )
 @websocket_api.async_response
@@ -2555,28 +2736,50 @@ async def websocket_tv_preferences(hass: HomeAssistant, connection, msg) -> None
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "fitness/tv/preferences/save",
-        vol.Required("profile_entry_id"): str,
-        vol.Optional("cards"): [str],
-        vol.Optional("favorites"): [dict],
+        vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+        vol.Optional("cards"): vol.All([str], vol.Length(max=len(TV_CARD_IDS))),
+        vol.Optional("favorites"): vol.All(
+            [dict], vol.Length(max=100),
+            bounded_websocket_payload(max_nodes=2_048, max_depth=5, max_string_length=4_096),
+        ),
         vol.Optional("user_playlists"): [dict],
-        vol.Optional("last_media"): dict,
+        vol.Optional("last_media"): vol.All(
+            dict,
+            bounded_websocket_payload(max_nodes=256, max_depth=5, max_string_length=4_096),
+        ),
         vol.Optional("tv_scale_percent"): vol.All(vol.Coerce(int), vol.Range(min=10, max=150)),
         vol.Optional("oled_protection"): bool,
         vol.Optional("animations_enabled"): bool,
         vol.Optional("light_feedback_enabled"): bool,
         vol.Optional("tts_announcements_enabled"): bool,
         vol.Optional("audio_output_id"): str,
-        vol.Optional("music_adapters"): [str],
-        vol.Optional("music_adapter_options"): dict,
+        vol.Optional("music_adapters"): vol.All([str], vol.Length(max=32)),
+        vol.Optional("music_adapter_options"): vol.All(
+            dict,
+            bounded_websocket_payload(max_nodes=512, max_depth=5, max_string_length=2_048),
+        ),
         vol.Optional("music_search_limit"): vol.All(vol.Coerce(int), vol.Range(min=MIN_MUSIC_SEARCH_LIMIT, max=MAX_MUSIC_SEARCH_LIMIT)),
-        vol.Optional("music_search_adapters"): [str],
-        vol.Optional("music_search_scopes"): dict,
+        vol.Optional("music_search_adapters"): vol.All([str], vol.Length(max=32)),
+        vol.Optional("music_search_scopes"): vol.All(
+            dict,
+            bounded_websocket_payload(max_nodes=512, max_depth=4, max_string_length=256),
+        ),
         vol.Optional("music_search_types"): [str],
     }
 )
 @websocket_api.async_response
 async def websocket_tv_preferences_save(hass: HomeAssistant, connection, msg) -> None:
     """Persist TV-only preferences for one Fitness profile."""
+    try:
+        bounded_payload(
+            msg,
+            max_nodes=8_192,
+            max_depth=8,
+            max_string_length=8_192,
+        )
+    except vol.Invalid:
+        connection.send_error(msg["id"], "invalid_payload", "Fitness preferences are too large")
+        return
     profile_entry_id = str(msg["profile_entry_id"])
     if not _profile_loaded(hass, profile_entry_id):
         connection.send_error(msg["id"], "profile_not_found", "Fitness profile not loaded")
@@ -2619,9 +2822,9 @@ async def websocket_tv_preferences_save(hass: HomeAssistant, connection, msg) ->
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "fitness/tv/profile/configure",
-        vol.Required("profile_entry_id"): str,
+        vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
         vol.Required("enabled"): bool,
-        vol.Optional("cast_media_player_id", default=""): str,
+        vol.Optional("cast_media_player_id", default=""): vol.All(str, vol.Length(max=255)),
         vol.Optional("ducking_percent", default=DEFAULT_TV_DUCKING_PERCENT): vol.All(
             vol.Coerce(int), vol.Range(min=0, max=100)
         ),
@@ -2705,8 +2908,8 @@ async def websocket_tv_profile_configure(hass: HomeAssistant, connection, msg) -
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "fitness/tv/heartbeat",
-        vol.Required("profile_entry_id"): str,
-        vol.Required("client_id"): str,
+        vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+        vol.Required("client_id"): vol.All(str, vol.Length(max=240)),
         vol.Optional("is_cast_receiver", default=False): bool,
     }
 )
@@ -2750,8 +2953,8 @@ async def websocket_tv_heartbeat(hass: HomeAssistant, connection, msg) -> None:
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "fitness/tv/cast/rearm",
-        vol.Required("profile_entry_id"): str,
-        vol.Required("entity_id"): str,
+        vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+        vol.Required("entity_id"): vol.All(str, vol.Length(max=255)),
     }
 )
 @websocket_api.async_response
@@ -2777,9 +2980,9 @@ async def websocket_tv_cast_rearm(hass: HomeAssistant, connection, msg) -> None:
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "fitness/tv/local_cast_handoff",
-        vol.Required("profile_entry_id"): str,
-        vol.Required("source_client_id"): str,
-        vol.Optional("reason", default="local_cast_started"): str,
+        vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+        vol.Required("source_client_id"): vol.All(str, vol.Length(max=240)),
+        vol.Optional("reason", default="local_cast_started"): vol.All(str, vol.Length(max=64)),
     }
 )
 @websocket_api.async_response
@@ -2798,8 +3001,8 @@ async def websocket_tv_local_cast_handoff(hass: HomeAssistant, connection, msg) 
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "fitness/tv/local_cast_stopped",
-        vol.Required("profile_entry_id"): str,
-        vol.Optional("reason", default="local_cast_stopped"): str,
+        vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+        vol.Optional("reason", default="local_cast_stopped"): vol.All(str, vol.Length(max=64)),
     }
 )
 @websocket_api.async_response
@@ -2821,9 +3024,9 @@ async def websocket_tv_local_cast_stopped(hass: HomeAssistant, connection, msg) 
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "fitness/tv/ack",
-        vol.Required("announcement_id"): str,
-        vol.Required("profile_entry_id"): str,
-        vol.Required("client_id"): str,
+        vol.Required("announcement_id"): vol.All(str, vol.Length(max=128)),
+        vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+        vol.Required("client_id"): vol.All(str, vol.Length(max=240)),
         vol.Required("success"): bool,
     }
 )
@@ -2848,7 +3051,10 @@ async def websocket_tv_ack(hass: HomeAssistant, connection, msg) -> None:
         vol.Required("profile_entry_id"): str,
         vol.Required("command"): str,
         vol.Optional("source_client_id"): str,
-        vol.Optional("data", default={}): dict,
+        vol.Optional("data", default={}): vol.All(
+            dict,
+            bounded_websocket_payload(max_nodes=256, max_depth=4, max_string_length=4_096),
+        ),
     }
 )
 @websocket_api.async_response
@@ -2877,7 +3083,13 @@ async def websocket_tv_media_command(hass: HomeAssistant, connection, msg) -> No
         vol.Required("type"): "fitness/tv/media_state",
         vol.Required("profile_entry_id"): str,
         vol.Optional("source_client_id"): str,
-        vol.Optional("state", default=None): vol.Any(None, dict),
+        vol.Optional("state", default=None): vol.Any(
+            None,
+            vol.All(
+                dict,
+                bounded_websocket_payload(max_nodes=512, max_depth=5, max_string_length=4_096),
+            ),
+        ),
     }
 )
 @websocket_api.async_response
@@ -2924,7 +3136,7 @@ async def websocket_tv_media_state(hass: HomeAssistant, connection, msg) -> None
     {
         vol.Required("type"): "fitness/tv/music/adapters",
         vol.Required("profile_entry_id"): str,
-        vol.Optional("ma_player_id", default=""): str,
+        vol.Optional("ma_player_id", default=""): vol.All(str, vol.Length(max=240)),
     }
 )
 @websocket_api.async_response
@@ -2939,12 +3151,15 @@ async def websocket_tv_music_adapters(hass: HomeAssistant, connection, msg) -> N
     prefs = await hub.async_preferences(profile_entry_id)
     configured = bool(prefs.get("music_adapters_configured"))
     selected = set(prefs.get("music_adapters") or [])
+    current_player_id = _authorized_ma_player_id(
+        hass, hub, profile_entry_id, prefs, msg.get("ma_player_id")
+    )
     adapters = await async_music_adapters(
         hass,
         hub,
         ytdlp_enabled=_profile_ytdlp_enabled(hass, profile_entry_id),
         adapter_options=prefs.get("music_adapter_options") or {},
-        current_player_id=str(msg.get("ma_player_id") or ""),
+        current_player_id=current_player_id,
     )
     rows = []
     for adapter in adapters:
@@ -2982,11 +3197,14 @@ async def websocket_tv_music_adapters(hass: HomeAssistant, connection, msg) -> N
     {
         vol.Required("type"): "fitness/tv/music/search",
         vol.Required("profile_entry_id"): str,
-        vol.Required("query"): str,
+        vol.Required("query"): vol.All(str, vol.Length(max=TV_MUSIC_QUERY_LIMIT)),
         vol.Optional("adapters", default=["all"]): [str],
-        vol.Optional("scopes", default={}): dict,
+        vol.Optional("scopes", default={}): vol.All(
+            dict,
+            bounded_websocket_payload(max_nodes=512, max_depth=4, max_string_length=256),
+        ),
         vol.Optional("media_types"): [str],
-        vol.Optional("ma_player_id", default=""): str,
+        vol.Optional("ma_player_id", default=""): vol.All(str, vol.Length(max=240)),
     }
 )
 @websocket_api.async_response
@@ -2998,12 +3216,20 @@ async def websocket_tv_music_search(hass: HomeAssistant, connection, msg) -> Non
         return
     hub = get_tv_dashboard_hub(hass)
     await _require_profile_control(hass, connection, profile_entry_id, hub=hub)
-    requested_adapters = list(msg.get("adapters") or ["all"])
+    requested_adapters = list(msg.get("adapters") or ["all"])[:32]
     prefs = await hub.async_preferences(profile_entry_id)
     if "all" in requested_adapters:
         if prefs.get("music_adapters_configured"):
             requested_adapters = list(prefs.get("music_adapters") or [])
+    if not hub.begin_music_search(profile_entry_id):
+        connection.send_error(
+            msg["id"], "music_search_busy", "A music search is already running"
+        )
+        return
     try:
+        current_player_id = _authorized_ma_player_id(
+            hass, hub, profile_entry_id, prefs, msg.get("ma_player_id")
+        )
         result = await async_search_music(
             hass,
             hub,
@@ -3017,12 +3243,15 @@ async def websocket_tv_music_search(hass: HomeAssistant, connection, msg) -> Non
                 for key, value in dict(msg.get("scopes") or {}).items()
                 if isinstance(value, list)
             },
-            media_types=list(msg["media_types"]) if "media_types" in msg else None,
-            current_player_id=str(msg.get("ma_player_id") or ""),
+            media_types=list(msg["media_types"])[:16] if "media_types" in msg else None,
+            current_player_id=current_player_id,
         )
     except Exception as err:  # noqa: BLE001 - provider errors become WS errors
-        connection.send_error(msg["id"], "music_search_error", str(err))
+        _LOGGER.warning("Fitness music search failed", exc_info=err)
+        connection.send_error(msg["id"], "music_search_error", "Music search failed")
         return
+    finally:
+        hub.end_music_search(profile_entry_id)
     connection.send_result(msg["id"], result)
 
 
@@ -3082,6 +3311,47 @@ def _selected_music_assistant_entry(
     return select_music_assistant_entry(entries, selected_account_id)
 
 
+def _authorized_ma_player_id(
+    hass: HomeAssistant,
+    hub: FitnessTVDashboardHub,
+    profile_entry_id: str,
+    prefs: dict[str, Any],
+    value: Any,
+) -> str:
+    """Return a player only when it was issued for this profile/MA account."""
+    player_id = str(value or "").strip()
+    if not player_id:
+        return ""
+    entry = _selected_music_assistant_entry(
+        hass, prefs.get("music_adapter_options") or {}
+    )
+    if entry is None or not hub.owns_ma_player(
+        profile_entry_id, str(entry.entry_id), player_id
+    ):
+        return ""
+    return player_id
+
+
+def _require_owned_ma_player(
+    connection,
+    msg: dict[str, Any],
+    hub: FitnessTVDashboardHub,
+    profile_entry_id: str,
+    entry: Any,
+    value: Any,
+) -> str | None:
+    """Reject cross-profile or arbitrary Music Assistant queue identifiers."""
+    player_id = str(value or "").strip()
+    if not player_id or not hub.owns_ma_player(
+        profile_entry_id, str(entry.entry_id), player_id
+    ):
+        connection.send_error(
+            msg["id"], "invalid_player", "Music Assistant player is not owned by this profile"
+        )
+        return None
+    return player_id
+
+
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "fitness/tv/music/ma/sendspin",
@@ -3109,7 +3379,12 @@ async def websocket_tv_music_ma_sendspin(hass: HomeAssistant, connection, msg) -
     # Be defensive around cached/older frontend calls: search metadata must not
     # fail merely because a client id was omitted. Return the authoritative id
     # so the browser uses the same value for Sendspin hello and MA queue_id.
-    client_id = str(msg.get("client_id") or "").strip() or f"fitness-tv-{uuid4().hex}"
+    client_id = str(msg.get("client_id") or "").strip()
+    if len(client_id) > 240:
+        client_id = ""
+    if not _FITNESS_MA_PLAYER_RE.fullmatch(client_id):
+        client_id = ""
+    client_id = client_id or f"fitness-tv-{uuid4().hex}"
     # After an HA restart MA can still retain the old Fitness queue even though
     # this new hub has no live audio owner yet. Stop only that orphaned queue
     # before reissuing its Sendspin relay; never interrupt the current live owner.
@@ -3134,10 +3409,10 @@ async def websocket_tv_music_ma_sendspin(hass: HomeAssistant, connection, msg) -
     {
         vol.Required("type"): "fitness/tv/music/ma/play",
         vol.Required("profile_entry_id"): str,
-        vol.Required("player_id"): str,
-        vol.Optional("media_content_id", default=""): str,
+        vol.Required("player_id"): vol.All(str, vol.Length(max=240)),
+        vol.Optional("media_content_id", default=""): vol.All(str, vol.Length(max=4_096)),
         vol.Optional("media_content_ids", default=[]): [str],
-        vol.Optional("provider_instance", default=""): str,
+        vol.Optional("provider_instance", default=""): vol.All(str, vol.Length(max=240)),
     }
 )
 @websocket_api.async_response
@@ -3157,10 +3432,14 @@ async def websocket_tv_music_ma_play(hass: HomeAssistant, connection, msg) -> No
             msg["id"], "music_assistant_unavailable", "Music Assistant server is unavailable"
         )
         return
-    player_id = str(msg.get("player_id") or "").strip()
+    player_id = _require_owned_ma_player(
+        connection, msg, hub, profile_entry_id, entry, msg.get("player_id")
+    )
+    if player_id is None:
+        return
     media_content_ids = [
         str(item or "").strip()
-        for item in list(msg.get("media_content_ids") or [])
+        for item in list(msg.get("media_content_ids") or [])[:100]
         if str(item or "").strip()
     ]
     single_media_id = str(msg.get("media_content_id") or "").strip()
@@ -3172,7 +3451,6 @@ async def websocket_tv_music_ma_play(hass: HomeAssistant, connection, msg) -> No
         connection.send_error(msg["id"], "invalid_media", "Invalid Music Assistant media id")
         return
     provider_instance = str(msg.get("provider_instance") or "").strip()
-    hub.remember_ma_player(profile_entry_id, str(entry.entry_id), player_id)
     provider_domains = {
         media_uri.split("://", 1)[0]
         for media_uri in media_uris
@@ -3204,7 +3482,8 @@ async def websocket_tv_music_ma_play(hass: HomeAssistant, connection, msg) -> No
         else:
             await async_play_music_assistant_uri(entry, player_id, media_uris[0])
     except Exception as err:  # noqa: BLE001 - MA errors become explicit WS errors
-        connection.send_error(msg["id"], "music_assistant_play_error", str(err))
+        _LOGGER.warning("Fitness Music Assistant playback failed", exc_info=err)
+        connection.send_error(msg["id"], "music_assistant_play_error", "Music Assistant playback failed")
         return
     connection.send_result(msg["id"], {"playing": True, "player_id": player_id})
 
@@ -3213,7 +3492,7 @@ async def websocket_tv_music_ma_play(hass: HomeAssistant, connection, msg) -> No
     {
         vol.Required("type"): "fitness/tv/music/ma/state",
         vol.Required("profile_entry_id"): str,
-        vol.Required("player_id"): str,
+        vol.Required("player_id"): vol.All(str, vol.Length(max=240)),
     }
 )
 @websocket_api.async_response
@@ -3233,9 +3512,10 @@ async def websocket_tv_music_ma_state(hass: HomeAssistant, connection, msg) -> N
             msg["id"], "music_assistant_unavailable", "Music Assistant server is unavailable"
         )
         return
-    player_id = str(msg.get("player_id") or "").strip()
-    if not player_id:
-        connection.send_error(msg["id"], "invalid_player", "Music Assistant player id is missing")
+    player_id = _require_owned_ma_player(
+        connection, msg, hub, profile_entry_id, entry, msg.get("player_id")
+    )
+    if player_id is None:
         return
     connection.send_result(msg["id"], music_assistant_queue_state(entry, player_id))
 
@@ -3244,7 +3524,7 @@ async def websocket_tv_music_ma_state(hass: HomeAssistant, connection, msg) -> N
     {
         vol.Required("type"): "fitness/tv/music/ma/seek",
         vol.Required("profile_entry_id"): str,
-        vol.Required("player_id"): str,
+        vol.Required("player_id"): vol.All(str, vol.Length(max=240)),
         vol.Required("position"): vol.Coerce(float),
     }
 )
@@ -3265,14 +3545,16 @@ async def websocket_tv_music_ma_seek(hass: HomeAssistant, connection, msg) -> No
             msg["id"], "music_assistant_unavailable", "Music Assistant server is unavailable"
         )
         return
-    player_id = str(msg.get("player_id") or "").strip()
-    if not player_id:
-        connection.send_error(msg["id"], "invalid_player", "Music Assistant player id is missing")
+    player_id = _require_owned_ma_player(
+        connection, msg, hub, profile_entry_id, entry, msg.get("player_id")
+    )
+    if player_id is None:
         return
     try:
         result = await async_seek_music_assistant(entry, player_id, msg.get("position", 0))
     except Exception as err:  # noqa: BLE001 - MA errors become explicit WS errors
-        connection.send_error(msg["id"], "music_assistant_seek_error", str(err))
+        _LOGGER.warning("Fitness Music Assistant seek failed", exc_info=err)
+        connection.send_error(msg["id"], "music_assistant_seek_error", "Music Assistant seek failed")
         return
     connection.send_result(msg["id"], result)
 
@@ -3281,7 +3563,7 @@ async def websocket_tv_music_ma_seek(hass: HomeAssistant, connection, msg) -> No
     {
         vol.Required("type"): "fitness/tv/music/ma/queue",
         vol.Required("profile_entry_id"): str,
-        vol.Required("player_id"): str,
+        vol.Required("player_id"): vol.All(str, vol.Length(max=240)),
         vol.Required("action"): vol.In(["next", "previous", "shuffle", "repeat"]),
         vol.Optional("enabled"): bool,
         vol.Optional("repeat_mode", default="off"): vol.In(["off", "one", "all"]),
@@ -3300,16 +3582,22 @@ async def websocket_tv_music_ma_queue(hass: HomeAssistant, connection, msg) -> N
     if entry is None:
         connection.send_error(msg["id"], "music_assistant_unavailable", "Music Assistant server is unavailable")
         return
+    player_id = _require_owned_ma_player(
+        connection, msg, hub, profile_entry_id, entry, msg.get("player_id")
+    )
+    if player_id is None:
+        return
     try:
         result = await async_music_assistant_queue_command(
             entry,
-            str(msg.get("player_id") or ""),
+            player_id,
             str(msg.get("action") or ""),
             enabled=msg.get("enabled"),
             repeat_mode=str(msg.get("repeat_mode") or "off"),
         )
     except Exception as err:  # noqa: BLE001
-        connection.send_error(msg["id"], "music_assistant_queue_error", str(err))
+        _LOGGER.warning("Fitness Music Assistant queue command failed", exc_info=err)
+        connection.send_error(msg["id"], "music_assistant_queue_error", "Music Assistant queue command failed")
         return
     connection.send_result(msg["id"], result)
 
@@ -3318,8 +3606,8 @@ async def websocket_tv_music_ma_queue(hass: HomeAssistant, connection, msg) -> N
     {
         vol.Required("type"): "fitness/tv/music/ma/playlist",
         vol.Required("profile_entry_id"): str,
-        vol.Required("media_content_id"): str,
-        vol.Optional("provider_instance", default=""): str,
+        vol.Required("media_content_id"): vol.All(str, vol.Length(max=4_096)),
+        vol.Optional("provider_instance", default=""): vol.All(str, vol.Length(max=240)),
     }
 )
 @websocket_api.async_response
@@ -3341,7 +3629,8 @@ async def websocket_tv_music_ma_playlist(hass: HomeAssistant, connection, msg) -
             entry, media_uri, provider_instance=str(msg.get("provider_instance") or "")
         )
     except Exception as err:  # noqa: BLE001
-        connection.send_error(msg["id"], "music_assistant_playlist_error", str(err))
+        _LOGGER.warning("Fitness Music Assistant playlist read failed", exc_info=err)
+        connection.send_error(msg["id"], "music_assistant_playlist_error", "Music Assistant playlist is unavailable")
         return
     connection.send_result(msg["id"], result)
 
@@ -3350,8 +3639,8 @@ async def websocket_tv_music_ma_playlist(hass: HomeAssistant, connection, msg) -
     {
         vol.Required("type"): "fitness/tv/music/ma/playlist/remove",
         vol.Required("profile_entry_id"): str,
-        vol.Required("library_id"): str,
-        vol.Required("positions"): [vol.Coerce(int)],
+        vol.Required("library_id"): vol.All(str, vol.Length(max=240)),
+        vol.Required("positions"): vol.All([vol.Coerce(int)], vol.Length(max=1_000)),
     }
 )
 @websocket_api.async_response
@@ -3372,7 +3661,8 @@ async def websocket_tv_music_ma_playlist_remove(hass: HomeAssistant, connection,
             entry, str(msg.get("library_id") or ""), list(msg.get("positions") or [])
         )
     except Exception as err:  # noqa: BLE001
-        connection.send_error(msg["id"], "music_assistant_playlist_edit_error", str(err))
+        _LOGGER.warning("Fitness Music Assistant playlist edit failed", exc_info=err)
+        connection.send_error(msg["id"], "music_assistant_playlist_edit_error", "Music Assistant playlist update failed")
         return
     connection.send_result(msg["id"], {"ok": True})
 
@@ -3382,8 +3672,8 @@ async def websocket_tv_music_ma_playlist_remove(hass: HomeAssistant, connection,
         vol.Required("type"): "fitness/tv/music/browse",
         vol.Required("profile_entry_id"): str,
         vol.Required("provider"): str,
-        vol.Optional("query", default=""): str,
-        vol.Optional("country_code", default=""): str,
+        vol.Optional("query", default=""): vol.All(str, vol.Length(max=TV_MUSIC_QUERY_LIMIT)),
+        vol.Optional("country_code", default=""): vol.All(str, vol.Length(max=8)),
     }
 )
 @websocket_api.async_response
@@ -3402,7 +3692,8 @@ async def websocket_tv_music_browse(hass: HomeAssistant, connection, msg) -> Non
             ytdlp_enabled=_profile_ytdlp_enabled(hass, profile_entry_id),
         )
     except Exception as err:  # noqa: BLE001 - provider/network errors become WS errors
-        connection.send_error(msg["id"], "music_provider_error", str(err))
+        _LOGGER.warning("Fitness music provider browse failed", exc_info=err)
+        connection.send_error(msg["id"], "music_provider_error", "Music provider is unavailable")
         return
     connection.send_result(msg["id"], result)
 
@@ -3411,7 +3702,7 @@ async def websocket_tv_music_browse(hass: HomeAssistant, connection, msg) -> Non
     {
         vol.Required("type"): "fitness/tv/music/resolve",
         vol.Required("profile_entry_id"): str,
-        vol.Required("media_content_id"): str,
+        vol.Required("media_content_id"): vol.All(str, vol.Length(max=8_192)),
     }
 )
 @websocket_api.async_response
@@ -3422,14 +3713,22 @@ async def websocket_tv_music_resolve(hass: HomeAssistant, connection, msg) -> No
         connection.send_error(msg["id"], "profile_not_found", "Fitness profile not loaded")
         return
     hub = await _require_profile_control(hass, connection, profile_entry_id)
+    if not hub.begin_music_resolution(profile_entry_id):
+        connection.send_error(
+            msg["id"], "music_resolve_busy", "A media item is already being prepared"
+        )
+        return
     try:
         result = await hub.async_resolve_fitness_media(
             str(msg.get("media_content_id") or ""),
             ytdlp_enabled=_profile_ytdlp_enabled(hass, profile_entry_id),
         )
     except Exception as err:  # noqa: BLE001 - invalid/remote media becomes WS error
-        connection.send_error(msg["id"], "music_resolve_error", str(err))
+        _LOGGER.warning("Fitness music resolution failed", exc_info=err)
+        connection.send_error(msg["id"], "music_resolve_error", "Unable to prepare this media item")
         return
+    finally:
+        hub.end_music_resolution(profile_entry_id)
     connection.send_result(msg["id"], result)
 
 

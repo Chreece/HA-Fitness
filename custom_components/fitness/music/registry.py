@@ -74,7 +74,7 @@ async def async_search_music(
     current_player_id: str = "",
 ) -> dict[str, Any]:
     """Search selected installed adapters concurrently."""
-    query = str(query or "").strip()
+    query = str(query or "").strip()[:256]
     limit = clamp_search_limit(limit)
     if not query:
         return {"query":"", "children":[], "groups":[], "errors":{}, "limit":limit}
@@ -106,7 +106,12 @@ async def async_search_music(
 
     async def _run(adapter: MusicAdapter):
         try:
-            scopes = list((search_scopes or {}).get(adapter.info.adapter_id) or [])
+            scopes = [
+                str(item)[:256]
+                for item in list(
+                    (search_scopes or {}).get(adapter.info.adapter_id) or []
+                )[:32]
+            ]
             async with asyncio.timeout(30.0):
                 children = await adapter.async_search(
                     query,
@@ -116,7 +121,9 @@ async def async_search_music(
                 )
             return adapter, children, None
         except Exception as err:  # noqa: BLE001 - isolate provider failures
-            return adapter, [], str(err) or type(err).__name__
+            # Provider exceptions can contain credentials, full upstream URLs,
+            # or large response snippets. Keep those out of the browser payload.
+            return adapter, [], type(err).__name__
 
     completed = await asyncio.gather(*(_run(adapter) for adapter in searchable))
     groups: list[dict[str, Any]] = []

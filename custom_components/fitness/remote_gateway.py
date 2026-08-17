@@ -49,6 +49,7 @@ from .live.bluetooth import (
 )
 from .live.cycplus_m1 import cycplus_m1_name_identity
 from .live.runtime import get_live_runtime
+from .resource_safety import bounded_payload, bounded_websocket_payload
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -64,6 +65,14 @@ REMOTE_BLE_DEVICE_LIMIT = 256
 REMOTE_BLE_STALE_SECONDS = 300.0
 REMOTE_ASSIGNMENT_GATEWAY_LIMIT = 16
 REMOTE_ASSIGNMENT_DEVICE_LIMIT = 512
+REMOTE_BLE_IDENTITY_FIELDS = {
+    "manufacturer",
+    "model",
+    "serial_number",
+    "firmware_version",
+    "hw_version",
+    "sw_version",
+}
 
 # Characteristic -> stable capability set / decoder name. The backend decodes raw
 # standard Bluetooth SIG measurements so browser and native senders stay tiny.
@@ -304,10 +313,13 @@ class RemoteGatewayRuntime:
         device_name = str(name or "Remote Bluetooth fitness sensor")[:160]
         raw_identity = identity if isinstance(identity, dict) else {}
         identity = {}
-        for key, value in islice(raw_identity.items(), 64):
-            clean_value = str(value).strip()[:512]
+        for key, value in islice(raw_identity.items(), len(REMOTE_BLE_IDENTITY_FIELDS)):
+            clean_key = str(key).strip().lower()
+            if clean_key not in REMOTE_BLE_IDENTITY_FIELDS:
+                continue
+            clean_value = str(value).strip()[:160]
             if clean_value:
-                identity[str(key)[:128]] = clean_value
+                identity[clean_key] = clean_value
         # The browser cannot reveal a Bluetooth address. For an M1 its local-name
         # suffix is the exact route bridge shared with HA's verified archive
         # advertisement. Compute it server-side so a client cannot invent an
@@ -502,17 +514,51 @@ def get_remote_gateway_runtime(hass: HomeAssistant) -> RemoteGatewayRuntime:
     return runtime
 
 
-def _external_hass_url(hass: HomeAssistant, browser_origin: str) -> str:
+def _https_origin(value: Any) -> str:
+    """Return a canonical HTTPS origin, rejecting credentials and URL tails."""
+    raw = str(value or "").strip().rstrip("/")
+    try:
+        parsed = urlparse(raw)
+        port = parsed.port
+    except ValueError:
+        return ""
+    if (
+        parsed.scheme.lower() != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.path not in {"", "/"}
+        or parsed.params
+        or parsed.query
+        or parsed.fragment
+    ):
+        return ""
+    host = parsed.hostname.lower().rstrip(".")
+    authority = f"[{host}]" if ":" in host else host
+    if port is not None and port != 443:
+        authority = f"{authority}:{port}"
+    return f"https://{authority}"
+
+
+def _external_hass_url(
+    hass: HomeAssistant,
+    browser_origin: str,
+    refresh_client_id: str,
+) -> str:
+    """Resolve a Cast URL without ever forwarding auth to an arbitrary origin."""
     browser_origin = str(browser_origin or "").strip().rstrip("/")
     try:
-        configured = str(get_url(hass, require_ssl=True, prefer_external=True)).rstrip("/")
-        if configured.startswith("https://"):
+        configured = _https_origin(
+            get_url(hass, require_ssl=True, prefer_external=True)
+        )
+        if configured:
             return configured
     except NoURLAvailableError:
         pass
-    parsed = urlparse(browser_origin)
-    if parsed.scheme == "https" and parsed.netloc:
-        return browser_origin
+    browser = _https_origin(browser_origin)
+    client = _https_origin(refresh_client_id)
+    if browser and client and browser == client:
+        return browser
     raise ValueError("external_https_required")
 
 
@@ -536,11 +582,11 @@ async def websocket_remote_gateway_capabilities(hass: HomeAssistant, connection,
 
 @websocket_api.websocket_command({
     vol.Required("type"): "fitness/remote_gateway/hello",
-    vol.Required("profile_entry_id"): str,
-    vol.Required("gateway_id"): str,
-    vol.Optional("client_name", default="Fitness remote client"): str,
-    vol.Optional("platform", default="browser"): str,
-    vol.Optional("transports", default=[]): [str],
+    vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+    vol.Required("gateway_id"): vol.All(str, vol.Length(max=128)),
+    vol.Optional("client_name", default="Fitness remote client"): vol.All(str, vol.Length(max=160)),
+    vol.Optional("platform", default="browser"): vol.All(str, vol.Length(max=32)),
+    vol.Optional("transports", default=[]): vol.All([str], vol.Length(max=16)),
 })
 @websocket_api.async_response
 async def websocket_remote_gateway_hello(hass: HomeAssistant, connection, msg) -> None:
@@ -588,18 +634,24 @@ async def websocket_remote_gateway_hello(hass: HomeAssistant, connection, msg) -
 
 @websocket_api.websocket_command({
     vol.Required("type"): "fitness/remote_gateway/ble_device",
-    vol.Required("profile_entry_id"): str,
-    vol.Required("gateway_id"): str,
-    vol.Required("device_id"): str,
-    vol.Optional("name", default="Remote Bluetooth fitness sensor"): str,
-    vol.Optional("service_uuids", default=[]): [str],
-    vol.Optional("characteristic_uuids", default=[]): [str],
+    vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+    vol.Required("gateway_id"): vol.All(str, vol.Length(max=128)),
+    vol.Required("device_id"): vol.All(str, vol.Length(max=256)),
+    vol.Optional("name", default="Remote Bluetooth fitness sensor"): vol.All(str, vol.Length(max=160)),
+    vol.Optional("service_uuids", default=[]): vol.All([str], vol.Length(max=64)),
+    vol.Optional("characteristic_uuids", default=[]): vol.All([str], vol.Length(max=64)),
     vol.Optional("identity", default={}): {str: str},
 })
 @websocket_api.async_response
 async def websocket_remote_gateway_ble_device(hass: HomeAssistant, connection, msg) -> None:
     await _require_profile_access(hass, connection, str(msg["profile_entry_id"]))
     try:
+        bounded_payload(
+            msg.get("identity") or {},
+            max_nodes=32,
+            max_depth=2,
+            max_string_length=160,
+        )
         result = await get_remote_gateway_runtime(hass).async_register_ble_device(
             profile_entry_id=str(msg["profile_entry_id"]),
             gateway_id=_clean_gateway_id(msg["gateway_id"]),
@@ -614,14 +666,14 @@ async def websocket_remote_gateway_ble_device(hass: HomeAssistant, connection, m
         connection.send_error(msg["id"], str(err), str(err))
     except Exception as err:  # noqa: BLE001
         _LOGGER.exception("Remote BLE device registration failed")
-        connection.send_error(msg["id"], "ble_gateway_error", str(err))
+        connection.send_error(msg["id"], "ble_gateway_error", "Unable to register Bluetooth sensor")
 
 
 @websocket_api.websocket_command({
     vol.Required("type"): "fitness/remote_gateway/ble_disconnect",
-    vol.Required("profile_entry_id"): str,
-    vol.Required("gateway_id"): str,
-    vol.Required("device_id"): str,
+    vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+    vol.Required("gateway_id"): vol.All(str, vol.Length(max=128)),
+    vol.Required("device_id"): vol.All(str, vol.Length(max=256)),
 })
 @websocket_api.async_response
 async def websocket_remote_gateway_ble_disconnect(hass: HomeAssistant, connection, msg) -> None:
@@ -642,10 +694,13 @@ async def websocket_remote_gateway_ble_disconnect(hass: HomeAssistant, connectio
 
 @websocket_api.websocket_command({
     vol.Required("type"): "fitness/remote_gateway/ble_frames",
-    vol.Required("profile_entry_id"): str,
-    vol.Required("gateway_id"): str,
-    vol.Required("device_id"): str,
-    vol.Required("frames"): [dict],
+    vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+    vol.Required("gateway_id"): vol.All(str, vol.Length(max=128)),
+    vol.Required("device_id"): vol.All(str, vol.Length(max=256)),
+    vol.Required("frames"): vol.All(
+        [dict], vol.Length(max=64),
+        bounded_websocket_payload(max_nodes=512, max_depth=4, max_string_length=1_024),
+    ),
 })
 @websocket_api.async_response
 async def websocket_remote_gateway_ble_frames(hass: HomeAssistant, connection, msg) -> None:
@@ -680,9 +735,12 @@ async def websocket_remote_gateway_ble_frames(hass: HomeAssistant, connection, m
 
 @websocket_api.websocket_command({
     vol.Required("type"): "fitness/remote_gateway/ant_packets",
-    vol.Required("profile_entry_id"): str,
-    vol.Required("gateway_id"): str,
-    vol.Required("packets"): [dict],
+    vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+    vol.Required("gateway_id"): vol.All(str, vol.Length(max=128)),
+    vol.Required("packets"): vol.All(
+        [dict], vol.Length(max=256),
+        bounded_websocket_payload(max_nodes=2_048, max_depth=4, max_string_length=1_024),
+    ),
 })
 @websocket_api.async_response
 async def websocket_remote_gateway_ant_packets(hass: HomeAssistant, connection, msg) -> None:
@@ -702,7 +760,10 @@ async def websocket_remote_gateway_ant_packets(hass: HomeAssistant, connection, 
                 "device_type": int(packet["device_type"]),
                 "transmission_type": int(packet["transmission_type"]),
                 "payload": list(_byte_payload(packet.get("payload"), exact=8)),
-                "adapter_id": str(packet.get("adapter_id") or f"webusb:{gateway_id}"),
+                # Adapter identity belongs to this authenticated gateway. Never
+                # accept a client-selected adapter id that could alias a local
+                # dongle or another user's gateway.
+                "adapter_id": f"webusb:{gateway_id}",
             }
             if not 0 <= item["device_id"] <= 0xFFFF:
                 raise ValueError("invalid_ant_device_id")
@@ -725,10 +786,10 @@ async def websocket_remote_gateway_ant_packets(hass: HomeAssistant, connection, 
 
 @websocket_api.websocket_command({
     vol.Required("type"): "fitness/remote_gateway/status",
-    vol.Required("profile_entry_id"): str,
-    vol.Required("gateway_id"): str,
+    vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+    vol.Required("gateway_id"): vol.All(str, vol.Length(max=128)),
     vol.Optional("antplus_connected", default=False): bool,
-    vol.Optional("antplus_product_id"): str,
+    vol.Optional("antplus_product_id"): vol.All(str, vol.Length(max=32)),
 })
 @websocket_api.async_response
 async def websocket_remote_gateway_status(hass: HomeAssistant, connection, msg) -> None:
@@ -744,7 +805,7 @@ async def websocket_remote_gateway_status(hass: HomeAssistant, connection, msg) 
                 "name": "Remote WebUSB ANT+",
                 "available": connected,
                 "vendor_id": "0FCF",
-                "product_id": str(msg.get("antplus_product_id") or "1008/1009"),
+                "product_id": str(msg.get("antplus_product_id") or "1008/1009")[:32],
                 "transport": "webusb",
             }] if connected else []),
         })
@@ -783,9 +844,9 @@ def _current_browser_refresh_token(hass: HomeAssistant, connection):
 
 @websocket_api.websocket_command({
     vol.Required("type"): "fitness/tv/local_cast_credentials",
-    vol.Optional("profile_entry_id", default=""): str,
+    vol.Optional("profile_entry_id", default=""): vol.All(str, vol.Length(max=128)),
     vol.Optional("overview", default=False): bool,
-    vol.Optional("browser_origin", default=""): str,
+    vol.Optional("browser_origin", default=""): vol.All(str, vol.Length(max=2_048)),
 })
 @websocket_api.async_response
 async def websocket_tv_local_cast_credentials(hass: HomeAssistant, connection, msg) -> None:
@@ -804,7 +865,6 @@ async def websocket_tv_local_cast_credentials(hass: HomeAssistant, connection, m
         connection.send_error(msg["id"], "auth_required", "Authenticated Home Assistant user required")
         return
     try:
-        hass_url = _external_hass_url(hass, str(msg.get("browser_origin") or ""))
         refresh = _current_browser_refresh_token(hass, connection)
         if refresh is None:
             connection.send_error(
@@ -813,6 +873,11 @@ async def websocket_tv_local_cast_credentials(hass: HomeAssistant, connection, m
                 "Local Cast needs a normal authenticated Home Assistant browser session. Reload Home Assistant and sign in again.",
             )
             return
+        hass_url = _external_hass_url(
+            hass,
+            str(msg.get("browser_origin") or ""),
+            str(refresh.client_id or ""),
+        )
 
         # This is intentionally the *current browser user's* refresh token and
         # its matching client id. Home Assistant frontend's Web Sender uses these
@@ -834,12 +899,12 @@ async def websocket_tv_local_cast_credentials(hass: HomeAssistant, connection, m
         connection.send_error(msg["id"], str(err), "Local Cast requires an externally reachable HTTPS Home Assistant URL")
     except Exception as err:  # noqa: BLE001
         _LOGGER.exception("Unable to prepare browser-local Fitness Cast")
-        connection.send_error(msg["id"], "local_cast_error", str(err))
+        connection.send_error(msg["id"], "local_cast_error", "Unable to prepare local Cast")
 
 
 @websocket_api.websocket_command({
     vol.Required("type"): "fitness/tv/local_cast_release",
-    vol.Required("token_id"): str,
+    vol.Required("token_id"): vol.All(str, vol.Length(max=128)),
 })
 @websocket_api.async_response
 async def websocket_tv_local_cast_release(hass: HomeAssistant, connection, msg) -> None:
