@@ -12,15 +12,13 @@ const _fitnessBrandIconUrl = (hass) => {
   return FITNESS_BRAND_ICON_PATH;
 };
 
-const FITNESS_ACCESS_COPY = Object.freeze({
-  en:{denied:"Access denied",denied_hint:"Your Home Assistant account does not have permission to access this Fitness TV page.",view_only:"View only",view_only_hint:"You can view this Fitness profile, but you cannot control it or change its settings.",own:"Own profile"},
-  el:{denied:"Δεν επιτρέπεται η πρόσβαση",denied_hint:"Ο λογαριασμός Home Assistant δεν έχει δικαίωμα πρόσβασης σε αυτή τη σελίδα Fitness TV.",view_only:"Μόνο προβολή",view_only_hint:"Μπορείτε να δείτε αυτό το προφίλ Fitness, αλλά δεν μπορείτε να το ελέγξετε ή να αλλάξετε τις ρυθμίσεις του.",own:"Δικό μου προφίλ"},
-  de:{denied:"Zugriff verweigert",denied_hint:"Dieses Home-Assistant-Konto darf diese Fitness-TV-Seite nicht öffnen.",view_only:"Nur ansehen",view_only_hint:"Du kannst dieses Fitness-Profil ansehen, aber nicht steuern oder seine Einstellungen ändern.",own:"Eigenes Profil"},
+const _fitnessAccessCopy = (labels = {}) => ({
+  denied:labels.access_denied,
+  denied_hint:labels.access_denied_hint,
+  view_only:labels.view_only,
+  view_only_hint:labels.view_only_hint,
+  own:labels.own_profile,
 });
-const _fitnessAccessCopy = (hass) => {
-  const language = String(hass?.language || "en").toLowerCase().split("-")[0];
-  return FITNESS_ACCESS_COPY[language] || FITNESS_ACCESS_COPY.en;
-};
 
 const _fitnessEnsureFrontendVersion = (serverVersion) => {
   const expected = String(serverVersion || "");
@@ -105,7 +103,27 @@ const PICKER_DESCRIPTIONS = {
   ja: "ワークアウト、睡眠、回復、フィットネスの進歩を1つの適応型ダッシュボードにまとめます。",
   ko: "운동, 수면, 회복 및 체력 향상을 하나의 적응형 대시보드에서 확인합니다.",
 };
+const PICKER_ENGLISH_LIVE_CARD = {name: "Fitness live workout"};
+const PICKER_CARD_NAMES = {
+  en:{live:PICKER_ENGLISH_LIVE_CARD.name,workout:"Fitness workout",sleep:"Fitness sleep & recovery",evaluation:"Fitness evaluation"},
+  el:{live:"Fitness ζωντανή προπόνηση",workout:"Fitness προπόνηση",sleep:"Fitness ύπνος & αποκατάσταση",evaluation:"Fitness αξιολόγηση"},
+  de:{live:"Fitness Live-Training",workout:"Fitness Training",sleep:"Fitness Schlaf & Erholung",evaluation:"Fitness Auswertung"},
+  fr:{live:"Fitness – entraînement en direct",workout:"Fitness – entraînement",sleep:"Fitness – sommeil et récupération",evaluation:"Fitness – évaluation"},
+  es:{live:"Fitness: entrenamiento en vivo",workout:"Fitness: entrenamiento",sleep:"Fitness: sueño y recuperación",evaluation:"Fitness: evaluación"},
+  it:{live:"Fitness: allenamento live",workout:"Fitness: allenamento",sleep:"Fitness: sonno e recupero",evaluation:"Fitness: valutazione"},
+  pt:{live:"Fitness: treino em direto",workout:"Fitness: treino",sleep:"Fitness: sono e recuperação",evaluation:"Fitness: avaliação"},
+  nl:{live:"Fitness live training",workout:"Fitness training",sleep:"Fitness slaap & herstel",evaluation:"Fitness evaluatie"},
+  pl:{live:"Fitness – trening na żywo",workout:"Fitness – trening",sleep:"Fitness – sen i regeneracja",evaluation:"Fitness – ocena"},
+  ru:{live:"Fitness: тренировка в реальном времени",workout:"Fitness: тренировка",sleep:"Fitness: сон и восстановление",evaluation:"Fitness: оценка"},
+  uk:{live:"Fitness: тренування наживо",workout:"Fitness: тренування",sleep:"Fitness: сон і відновлення",evaluation:"Fitness: оцінка"},
+  tr:{live:"Fitness canlı antrenman",workout:"Fitness antrenman",sleep:"Fitness uyku ve toparlanma",evaluation:"Fitness değerlendirme"},
+  zh:{live:"Fitness 实时训练",workout:"Fitness 训练",sleep:"Fitness 睡眠与恢复",evaluation:"Fitness 评估"},
+  ja:{live:"Fitness ライブワークアウト",workout:"Fitness ワークアウト",sleep:"Fitness 睡眠と回復",evaluation:"Fitness 評価"},
+  ko:{live:"Fitness 실시간 운동",workout:"Fitness 운동",sleep:"Fitness 수면 및 회복",evaluation:"Fitness 평가"},
+};
 const PICKER_LANG = (document.documentElement.lang || navigator.language || "en").toLowerCase().split(/[-_]/)[0];
+const PICKER_CARD_COPY = PICKER_CARD_NAMES[PICKER_LANG] || PICKER_CARD_NAMES.en;
+const PICKER_DESCRIPTION = PICKER_DESCRIPTIONS[PICKER_LANG] || PICKER_DESCRIPTIONS.en;
 
 const entityName = (hass, entityId) => {
   if (!entityId) return "";
@@ -170,6 +188,7 @@ class FitnessRouteCard extends HTMLElement {
     if (!config) throw new Error("fitness-route-card requires a configuration");
     this.config = config;
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    this.hidden = true;
     _fitnessBindMoreInfo(this);
     if (this._zoomDelta === undefined) this._zoomDelta = 0;
     if (this._panX === undefined) this._panX = 0;
@@ -360,11 +379,11 @@ class FitnessRouteCard extends HTMLElement {
       const metric = _fitnessWorkoutSourceMetric(this._profile, this._hass, key, _fitnessWorkoutMetricDecimals(key));
       if (!metric || metric.value === null || metric.value === undefined || metric.value === "") continue;
       if (running && key === "last_workout_average_speed") {
-        if (runPace) items.push({name:this._profile?.labels?.pace || "Pace", value:runPace, entityId:metric.entityId});
+        if (runPace) items.push({name:this._profile?.labels?.pace, value:runPace, entityId:metric.entityId});
         continue;
       }
       items.push({
-        name: key === "last_workout" ? (_fitnessWorkoutSourceLabel(this._profile, this._hass, key, metric) || "Workout") : _fitnessWorkoutSourceLabel(this._profile, this._hass, key, metric),
+        name: key === "last_workout" ? (_fitnessWorkoutSourceLabel(this._profile, this._hass, key, metric) || this._profile?.labels?.workout) : _fitnessWorkoutSourceLabel(this._profile, this._hass, key, metric),
         value: metric.display,
         entityId: metric.entityId,
       });
@@ -606,12 +625,18 @@ class FitnessRouteCard extends HTMLElement {
     const value = state?.attributes?.[attribute];
     const points = this._extractPoints(value);
     const labels = this._profile?.labels || {};
-    const title = this.config.title || labels.route || (entityId ? entityName(this._hass, entityId) : "Workout route");
+    const title = this.config.title || labels.route || (entityId ? entityName(this._hass, entityId) : "");
     const height = Number(this.config.height || 340);
     if (points.length < 2) {
       this.shadowRoot.innerHTML = "";
+      this.hidden = true;
+      const slot = this.closest?.(".tv-card-slot");
+      if (slot) slot.hidden = true;
       return;
     }
+    this.hidden = false;
+    const slot = this.closest?.(".tv-card-slot");
+    if (slot) slot.hidden = false;
 
     const width = Math.max(this.clientWidth || 600, 300);
     this._lastRenderedWidth = Math.round(width);
@@ -637,7 +662,7 @@ class FitnessRouteCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <ha-card>
         <div class="header entity-link" data-more-info="${this._escape(entityId || "")}"><div class="title">${this._escape(title)}</div><div class="meta">${points.length} GPS</div></div>
-        <div class="map" style="height:${height}px" title="Drag to move · pinch or wheel to zoom · double tap to fit route">
+        <div class="map" style="height:${height}px" title="${this._escape(labels.map_interaction_hint)}">
           <div class="map-scene">
             ${tiles.join("")}
             <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
@@ -889,22 +914,22 @@ class FitnessComparisonCard extends HTMLElement {
           return `<div class="row hr-baseline entity-link" style="--baseline-tone:${baselineTone}" data-more-info="${this._escape(metric.entity)}">
             <div class="line"><span>${this._escape(metric.name || entityName(this._hass, metric.entity))}</span><strong class="delta">Δ ${signed(value)}</strong></div>
             <div class="baseline-readout three">
-              <span>${this._escape(labels.baseline || "Baseline")} <b>${absolute(baseline)}</b></span>
-              <span>${this._escape(labels.current || "Current")} <b class="hot">${absolute(current)}</b></span>
-              <span>${this._escape(labels.difference || "Difference")} <b class="hot">${signed(value)}</b></span>
+              <span>${this._escape(labels.baseline)} <b>${absolute(baseline)}</b></span>
+              <span>${this._escape(labels.current)} <b class="hot">${absolute(current)}</b></span>
+              <span>${this._escape(labels.difference)} <b class="hot">${signed(value)}</b></span>
             </div>
             <div class="axis heat-axis">
               <i class="baseline-marker"></i>
               <em class="baseline-number">${absolute(baseline)}</em>
               <i class="current-marker" style="left:${currentMarker}%"></i>
             </div>
-            <div class="axis-values"><span>${absolute(baseline-max)}</span><b>${_fitnessEscape(labels.baseline || "Baseline")}: ${absolute(baseline)}</b><span>${absolute(baseline+max)}</span></div>
+            <div class="axis-values"><span>${absolute(baseline-max)}</span><b>${_fitnessEscape(labels.baseline)}: ${absolute(baseline)}</b><span>${absolute(baseline+max)}</span></div>
           </div>`;
         }
       }
       return `<div class="row entity-link" style="--baseline-tone:${baselineTone}" data-more-info="${this._escape(metric.entity)}"><div class="line"><span>${this._escape(metric.name || entityName(this._hass, metric.entity))}</span><strong>${signed(value)}</strong></div><div class="axis"><div class="zero"></div><div class="bar" style="left:${left}%;width:${pct}%"></div><i class="current-marker" style="left:${marker}%"></i></div><div class="axis-values"><span>${signed(-max)}</span><b>${signed(value)}</b><span>${signed(max)}</span></div></div>`;
     }).filter(Boolean).join("");
-    const title = this.config.title || labels.workout_comparison || "Compared with your baseline";
+    const title = this.config.title || labels.workout_comparison;
     if (!rows) {
       this.shadowRoot.innerHTML = "";
       return;
@@ -1002,11 +1027,11 @@ class FitnessSleepStageCard extends HTMLElement {
           metric,
         };
       };
-      awakeRouteItem = routeItem("last_sleep_awake", labels.awake || "Awake");
+      awakeRouteItem = routeItem("last_sleep_awake", labels.awake);
       stageItems = [
-        routeItem("last_sleep_light", labels.light_sleep || "Light sleep"),
-        routeItem("last_sleep_deep", labels.deep_sleep || "Deep sleep"),
-        routeItem("last_sleep_rem", labels.rem_sleep || "REM sleep"),
+        routeItem("last_sleep_light", labels.light_sleep),
+        routeItem("last_sleep_deep", labels.deep_sleep),
+        routeItem("last_sleep_rem", labels.rem_sleep),
       ].filter(Boolean);
       durationMetric = _fitnessSleepSourceMetric(this._profile, this._hass, "last_sleep_duration");
       durationMinutes = durationMetric?.canonicalValue ?? null;
@@ -1025,7 +1050,7 @@ class FitnessSleepStageCard extends HTMLElement {
     }
     const effectiveTotalMinutes = asleepStageTotal > 0 ? asleepStageTotal : (durationMinutes || 0);
     const displayTotal = this._formatMinutes(effectiveTotalMinutes, "min");
-    const title = this.config.title || labels.latest_sleep || "Latest sleep";
+    const title = this.config.title || labels.latest_sleep;
     let cursor = 0;
     const stops = values.map((item) => {
       const start = cursor; cursor += item.value / total * 100;
@@ -1042,13 +1067,13 @@ class FitnessSleepStageCard extends HTMLElement {
     const deficitState = deficitId ? this._hass.states[deficitId] : null;
     const summaries = [];
     if (scoreMetric?.canonicalValue != null) {
-      const label = scoreMetric.route?.source_type === "fitness_calculated" ? (labels.fitness_sleep_score || "Fitness sleep score") : (labels.sleep_score || "Sleep score");
+      const label = scoreMetric.route?.source_type === "fitness_calculated" ? (labels.fitness_sleep_score) : (labels.sleep_score);
       summaries.push(`<div class="sleep-summary-metric entity-link" data-more-info="${this._escape(scoreMetric.moreInfoEntityId || "")}"><span>${this._escape(label)}</span><strong>${Math.max(0,Math.min(100,scoreMetric.canonicalValue)).toFixed(0)}%</strong></div>`);
     }
-    if (hrvMetric?.canonicalValue != null) summaries.push(`<div class="sleep-summary-metric entity-link" data-more-info="${this._escape(hrvMetric.moreInfoEntityId || "")}"><span>${this._escape(labels.sleep_hrv || "Sleep HRV")}</span><strong>${hrvMetric.canonicalValue.toFixed(1)} ms</strong></div>`);
-    if (deficitState && !["unknown","unavailable"].includes(String(deficitState.state).toLowerCase())) summaries.push(`<div class="sleep-summary-metric entity-link" data-more-info="${this._escape(deficitId)}"><span>${this._escape(labels.sleep_deficit || "7-day sleep deficit")}</span><strong>${this._escape(_fitnessSleepDuration(deficitState))}</strong></div>`);
+    if (hrvMetric?.canonicalValue != null) summaries.push(`<div class="sleep-summary-metric entity-link" data-more-info="${this._escape(hrvMetric.moreInfoEntityId || "")}"><span>${this._escape(labels.sleep_hrv)}</span><strong>${hrvMetric.canonicalValue.toFixed(1)} ms</strong></div>`);
+    if (deficitState && !["unknown","unavailable"].includes(String(deficitState.state).toLowerCase())) summaries.push(`<div class="sleep-summary-metric entity-link" data-more-info="${this._escape(deficitId)}"><span>${this._escape(labels.sleep_deficit)}</span><strong>${this._escape(_fitnessSleepDuration(deficitState))}</strong></div>`);
     const summaryMetrics = summaries.join("");
-    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="body"><div class="sleep-overview"><div class="donut entity-link" data-more-info="${this._escape(durationMetric?.moreInfoEntityId || this._profile?.data_entities?.recovery || "")}" style="background:conic-gradient(${stops})"><div class="hole"><strong>${displayTotal}</strong></div></div>${summaryMetrics ? `<div class="sleep-summary">${summaryMetrics}</div>` : ""}</div><div class="legend">${legend}</div>${awakeRow ? `<div class="awake-wrap">${awakeRow}</div>` : ""}</div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 6px}.body{display:flex;flex-direction:column;align-items:center;gap:14px;padding:10px 16px 18px;min-width:0}.sleep-overview{width:100%;display:grid;grid-template-columns:minmax(124px,auto) minmax(0,1fr);gap:14px;align-items:center}.donut{width:124px;height:124px;border-radius:50%;display:grid;place-items:center;justify-self:center}.hole{width:76px;height:76px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color));display:flex;flex-direction:column;align-items:center;justify-content:center}.hole strong{font-size:18px;text-align:center;line-height:1.15;padding:4px}.legend{width:100%;min-width:0}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.legend-row{display:grid;grid-template-columns:10px minmax(0,1fr) minmax(72px,max-content) 38px;column-gap:10px;align-items:center;min-width:0;padding:7px 0;font-size:12px}.dot{width:9px;height:9px;border-radius:50%}.label{color:var(--secondary-text-color);min-width:0;white-space:normal;overflow-wrap:normal;word-break:normal;hyphens:auto}.legend-row strong{text-align:right;white-space:nowrap}.pct{text-align:right;white-space:nowrap;color:var(--secondary-text-color)}.awake-wrap{width:100%;padding-top:2px}.awake-row{display:grid;grid-template-columns:20px minmax(0,1fr) max-content;gap:8px;align-items:center;padding:8px 10px;border-radius:11px;background:var(--card-background-color);font-size:11px}.awake-row ha-icon{--mdc-icon-size:16px;color:var(--secondary-text-color)}.awake-row span{color:var(--secondary-text-color)}.sleep-summary{display:grid;grid-template-columns:1fr;gap:8px;min-width:0}.sleep-summary-metric{min-width:0;padding:10px 11px;border-radius:12px;background:var(--secondary-background-color)}.sleep-summary-metric span{display:block;font-size:9px;color:var(--secondary-text-color)}.sleep-summary-metric strong{display:block;margin-top:3px;font-size:14px}@media(max-width:430px){.sleep-overview{grid-template-columns:1fr}.sleep-summary{grid-template-columns:repeat(3,minmax(0,1fr));width:100%}.sleep-summary-metric{padding:8px}.sleep-summary-metric strong{font-size:12px}}</style>`;
+    this.shadowRoot.innerHTML = `<ha-card><div class="title">${this._escape(title)}</div><div class="body"><div class="sleep-overview"><div class="donut entity-link" data-more-info="${this._escape(durationMetric?.moreInfoEntityId || this._profile?.data_entities?.recovery || "")}" style="background:conic-gradient(${stops})"><div class="hole"><strong>${displayTotal}</strong></div></div>${summaryMetrics ? `<div class="sleep-summary">${summaryMetrics}</div>` : ""}</div><div class="legend">${legend}</div>${awakeRow ? `<div class="awake-wrap">${awakeRow}</div>` : ""}</div></ha-card><style>.title{font-size:18px;font-weight:600;padding:16px 16px 6px}.body{display:flex;flex-direction:column;align-items:center;gap:14px;padding:10px 16px 18px;min-width:0}.sleep-overview{width:100%;display:grid;grid-template-columns:minmax(124px,auto) minmax(0,1fr);gap:14px;align-items:center}.donut{width:124px;height:124px;border-radius:50%;display:grid;place-items:center;justify-self:center}.hole{width:76px;height:76px;border-radius:50%;background:var(--ha-card-background,var(--card-background-color));display:flex;flex-direction:column;align-items:center;justify-content:center}.hole strong{font-size:18px;text-align:center;line-height:1.15;padding:4px}.legend{width:100%;min-width:0}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.legend-row{display:grid;grid-template-columns:10px minmax(0,1fr) minmax(72px,max-content) 38px;column-gap:10px;align-items:center;min-width:0;padding:7px 0;font-size:12px}.dot{width:9px;height:9px;border-radius:50%}.label{color:var(--secondary-text-color);min-width:0;white-space:normal;overflow-wrap:normal;word-break:normal;hyphens:auto}.legend-row strong{text-align:right;white-space:nowrap}.pct{text-align:right;white-space:nowrap;color:var(--secondary-text-color)}.awake-wrap{width:100%;padding-top:2px}.awake-row{display:grid;grid-template-columns:20px minmax(0,1fr) max-content;gap:8px;align-items:center;padding:8px 10px;border-radius:11px;background:var(--card-background-color);font-size:11px}.awake-row ha-icon{--mdc-icon-size:16px;color:var(--secondary-text-color)}.awake-row span{color:var(--secondary-text-color)}.sleep-summary{display:grid;grid-template-columns:1fr;gap:8px;min-width:0}.sleep-summary-metric{min-width:0;padding:10px 11px;border-radius:12px;background:var(--secondary-background-color)}.sleep-summary-metric span{display:block;font-size:9px;color:var(--secondary-text-color)}.sleep-summary-metric strong{display:block;margin-top:3px;font-size:14px} :host([fitness-motion]) .donut{animation:fitness-sleep-orbit 8.4s ease-in-out infinite;will-change:transform,filter}:host([fitness-motion]) .donut .hole{animation:fitness-sleep-counterfloat 8.4s ease-in-out infinite}@keyframes fitness-sleep-orbit{0%,100%{transform:rotate(-1.5deg) scale(1);filter:brightness(.98)}35%{transform:rotate(3deg) scale(1.025);filter:brightness(1.07)}68%{transform:rotate(-2deg) scale(.995);filter:brightness(1.02)}}@keyframes fitness-sleep-counterfloat{0%,100%{transform:translateY(1px)}50%{transform:translateY(-2px)}}@media(prefers-reduced-motion:reduce){:host([fitness-motion]) .donut,:host([fitness-motion]) .donut .hole{animation:none!important}}@media(max-width:430px){.sleep-overview{grid-template-columns:1fr}.sleep-summary{grid-template-columns:repeat(3,minmax(0,1fr));width:100%}.sleep-summary-metric{padding:8px}.sleep-summary-metric strong{font-size:12px}}</style>`;
   }
 
   _escape(value) { return String(value ?? "").replace(/[&<>"']/g, (ch) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch])); }
@@ -1075,6 +1100,25 @@ const _fitnessAttr = (state, ...keys) => {
 const _fitnessEscape = (value) => String(value ?? "").replace(
   /[&<>"']/g,
   (ch) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]),
+);
+const _fitnessFormatLabel = (value, replacements = {}) => String(value ?? "").replace(
+  /\{([A-Za-z0-9_]+)\}/g,
+  (match, key) => Object.prototype.hasOwnProperty.call(replacements, key)
+    ? String(replacements[key])
+    : match,
+);
+const _fitnessMusicAdapterHint = (labels, adapter = {}) => (
+  labels?.[String(adapter.setup_hint_key || "")] || ""
+);
+const _fitnessMusicProviderName = (labels, provider = {}) => {
+  const providerName = String(provider.provider_name || provider.name || provider.id || "");
+  return provider.kind === "provider_source"
+    ? _fitnessFormatLabel(labels?.music_provider_via_ma, {provider:providerName})
+    : providerName;
+};
+const _fitnessMusicProviderDescription = (labels, provider = {}) => _fitnessFormatLabel(
+  labels?.[String(provider.description_key || "")],
+  {provider:String(provider.provider_name || provider.name || provider.id || "")},
 );
 
 const _fitnessOpenMoreInfo = (host, entityId) => {
@@ -1299,7 +1343,7 @@ const _fitnessWorkoutSourceLabel = (profile, hass, key, metric) => {
       .replace(/\b\w/g, (ch) => ch.toUpperCase());
   }
   if (metric.entityId && !["inline","fallback"].includes(metric.route?.transform)) return entityName(hass, metric.entityId);
-  return profile?.labels?.workout || "Workout";
+  return profile?.labels?.workout;
 };
 
 const _fitnessWorkoutMetricTile = (profile, key, label, value, entityId) => `
@@ -1529,6 +1573,11 @@ class FitnessAutoProfileCard extends HTMLElement {
   setConfig(config) {
     this.config = config || {};
     if (!this.shadowRoot) this.attachShadow({mode:"open"});
+    this.hidden = true;
+    if (!this._fitnessContentObserver && globalThis.MutationObserver) {
+      this._fitnessContentObserver = new MutationObserver(() => this._syncInformationVisibility());
+      this._fitnessContentObserver.observe(this.shadowRoot, {childList:true,subtree:true});
+    }
     _fitnessBindMoreInfo(this);
     this._resolvedKey = null;
   }
@@ -1566,6 +1615,14 @@ class FitnessAutoProfileCard extends HTMLElement {
     }
   }
 
+  _syncInformationVisibility() {
+    const hasInformation = Boolean(this.shadowRoot?.querySelector("ha-card"));
+    this.toggleAttribute("fitness-has-information", hasInformation);
+    this.hidden = !hasInformation;
+    const slot = this.closest?.(".tv-card-slot");
+    if (slot) slot.hidden = !hasInformation;
+  }
+
   getCardSize() { return 4; }
   getGridOptions() { return {columns: 12, min_columns: 6}; }
 }
@@ -1581,16 +1638,17 @@ class FitnessTodayCard extends FitnessAutoProfileCard {
       const state = this._hass.states[id];
       if (state && !["unknown","unavailable"].includes(state.state)) itemsList.push(`<div class="today-item entity-link" data-more-info="${_fitnessEscape(id)}"><span>${_fitnessEscape(entityName(this._hass,id))}</span><strong>${_fitnessDisplay(state,1)}</strong></div>`);
     }
-    for (const [key,label,decimals] of [["last_sleep_score",l.sleep_score||"Sleep score",0],["last_sleep_duration",l.latest_sleep||"Sleep duration",0],["last_sleep_hrv",l.sleep_hrv||"Sleep HRV",1]]) {
+    for (const [key,label,decimals] of [["last_sleep_score",l.sleep_score,0],["last_sleep_duration",l.latest_sleep,0],["last_sleep_hrv",l.sleep_hrv,1]]) {
       const metric = _fitnessSleepSourceMetric(this._profile,this._hass,key,decimals);
       if (metric?.canonicalValue == null) continue;
       const value = key === "last_sleep_duration" ? _fitnessSleepDuration({state:String(metric.canonicalValue),attributes:{unit_of_measurement:"min"}}) : `${metric.canonicalValue.toFixed(decimals)}${metric.route?.unit ? ` ${metric.route.unit}` : ""}`;
       itemsList.push(`<div class="today-item entity-link" data-more-info="${_fitnessEscape(metric.moreInfoEntityId||"")}"><span>${_fitnessEscape(label)}</span><strong>${_fitnessEscape(value)}</strong></div>`);
     }
     const vo2 = _fitnessEvaluationSourceMetric(this._profile,this._hass,"vo2max",1);
-    if (vo2?.canonicalValue != null) itemsList.push(`<div class="today-item entity-link" data-more-info="${_fitnessEscape(vo2.moreInfoEntityId||"")}"><span>${_fitnessEscape(l.current_vo2max||"Current VO₂max")}</span><strong>${vo2.canonicalValue.toFixed(1)} mL/kg/min</strong></div>`);
+    if (vo2?.canonicalValue != null) itemsList.push(`<div class="today-item entity-link" data-more-info="${_fitnessEscape(vo2.moreInfoEntityId||"")}"><span>${_fitnessEscape(l.current_vo2max)}</span><strong>${vo2.canonicalValue.toFixed(1)} mL/kg/min</strong></div>`);
     const items = itemsList.join("");
-    this.shadowRoot.innerHTML = `<ha-card><div class="today-head"><div><strong>${_fitnessEscape(this.config.title || l.overview || "Today")}</strong><span>${_fitnessEscape(this._profile?.profile_name || "")}</span></div><ha-icon icon="mdi:heart-pulse"></ha-icon></div><div class="today-grid">${items || `<small>${_fitnessEscape(l.no_current_data || "No current Fitness data is available yet.")}</small>`}</div></ha-card><style>
+    if (!items) { this.shadowRoot.innerHTML = ""; return; }
+    this.shadowRoot.innerHTML = `<ha-card><div class="today-head"><div><strong>${_fitnessEscape(this.config.title || l.overview)}</strong><span>${_fitnessEscape(this._profile?.profile_name || "")}</span></div><ha-icon icon="mdi:heart-pulse"></ha-icon></div><div class="today-grid">${items}</div></ha-card><style>
       ha-card{padding:18px}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.today-head{display:flex;justify-content:space-between;align-items:center}.today-head strong{font-size:20px}.today-head span{display:block;color:var(--secondary-text-color);font-size:12px;margin-top:3px}.today-head ha-icon{color:var(--primary-color);--mdc-icon-size:30px}.today-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:16px}.today-item{padding:11px 12px;border-radius:13px;background:var(--secondary-background-color)}.today-item span{display:block;font-size:10px;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.today-item strong{display:block;margin-top:4px;font-size:15px}@media(max-width:420px){.today-grid{grid-template-columns:1fr}}</style>`;
   }
 }
@@ -1637,7 +1695,7 @@ class FitnessWorkoutHighlightsCard extends FitnessAutoProfileCard {
       if (running && key === "last_workout_average_speed") {
         if (!runPace) continue;
         display = runPace;
-        displayLabel = l.pace || "Pace";
+        displayLabel = l.pace;
       }
       candidates.push({
         key, priority: _fitnessWorkoutPriority(sport, key),
@@ -1677,11 +1735,11 @@ class FitnessWorkoutHighlightsCard extends FitnessAutoProfileCard {
     const hrRange = 20;
     const hrPosition = hrReady ? Math.max(1, Math.min(99, 50 + (hrDelta / hrRange) * 50)) : 50;
     const hrBar = hrReady ? `<div class="workout-hr-baseline entity-link" style="--hr-tone:${hrTone}" data-more-info="${_fitnessEscape(hrBaselineId)}">
-      <div class="baseline-head"><span>HR ${_fitnessEscape(l.baseline || "Baseline")}</span><strong>${hrDelta >= 0 ? "+" : ""}${hrDelta.toFixed(1)} bpm</strong></div>
+      <div class="baseline-head"><span>HR ${_fitnessEscape(l.baseline)}</span><strong>${hrDelta >= 0 ? "+" : ""}${hrDelta.toFixed(1)} bpm</strong></div>
       <div class="baseline-values three">
-        <span>${_fitnessEscape(l.baseline || "Baseline")}<b>${hrBaseline.toFixed(1)} bpm</b></span>
-        <span>${_fitnessEscape(l.current || "Current")}<b>${hrCurrent.toFixed(1)} bpm</b></span>
-        <span>${_fitnessEscape(l.difference || "Difference")}<b style="color:var(--hr-tone)">${hrDelta >= 0 ? "+" : ""}${hrDelta.toFixed(1)} bpm</b></span>
+        <span>${_fitnessEscape(l.baseline)}<b>${hrBaseline.toFixed(1)} bpm</b></span>
+        <span>${_fitnessEscape(l.current)}<b>${hrCurrent.toFixed(1)} bpm</b></span>
+        <span>${_fitnessEscape(l.difference)}<b style="color:var(--hr-tone)">${hrDelta >= 0 ? "+" : ""}${hrDelta.toFixed(1)} bpm</b></span>
       </div>
       <div class="baseline-axis heat-axis"><i class="baseline-marker"></i><i class="current-marker" style="left:${hrPosition}%"></i></div>
       <div class="baseline-scale"><span>${(hrBaseline-hrRange).toFixed(0)}</span><b>${hrBaseline.toFixed(1)} bpm · n=${comparableCount.toFixed(0)}</b><span>${(hrBaseline+hrRange).toFixed(0)}</span></div>
@@ -1745,9 +1803,9 @@ class FitnessStrengthDetailsCard extends FitnessAutoProfileCard {
       const trend = change == null ? "" : `${change > 0 ? "↗" : change < 0 ? "↘" : "→"} ${change > 0 ? "+" : ""}${change.toFixed(1)}%`;
       const volume = _fitnessNumber(ex?.volume_kg);
       return `<div class="strength-row">
-        <div class="strength-main"><strong>${_fitnessEscape(ex?.name || ex?.id || l.exercise || "Exercise")}</strong><span>${_fitnessEscape(bestText)}</span></div>
+        <div class="strength-main"><strong>${_fitnessEscape(ex?.name || ex?.id || l.exercise)}</strong><span>${_fitnessEscape(bestText)}</span></div>
         <div class="strength-stat"><span>e1RM</span><strong>${e1rm == null ? "—" : `${e1rm.toFixed(1)} kg`}</strong></div>
-        <div class="strength-stat"><span>${_fitnessEscape(l.volume || "Volume")}</span><strong>${volume == null ? "—" : `${volume.toFixed(0)} kg`}</strong></div>
+        <div class="strength-stat"><span>${_fitnessEscape(l.volume)}</span><strong>${volume == null ? "—" : `${volume.toFixed(0)} kg`}</strong></div>
         <div class="strength-trend ${change > 0 ? "up" : change < 0 ? "down" : ""}">${_fitnessEscape(trend)}</div>
       </div>`;
     }).join("");
@@ -1755,10 +1813,10 @@ class FitnessStrengthDetailsCard extends FitnessAutoProfileCard {
     const totalReps = _fitnessNumber(details?.total_reps);
     const totalVolume = _fitnessNumber(details?.volume_kg);
     this.shadowRoot.innerHTML = `<ha-card>
-      <div class="strength-head entity-link" data-more-info="${_fitnessEscape(source?.entity_id || e.last_workout_strength_sets || e.last_workout_estimated_1rm || e.last_workout_strength_progression || "")}"><div><strong>${_fitnessEscape(l.strength_progression || "Strength progression")}</strong><span>${exercises.length} ${_fitnessEscape(l.exercises || "exercises")}${totalSets != null ? ` · ${totalSets.toFixed(0)} ${_fitnessEscape(l.sets || "sets")}` : ""}${totalReps != null ? ` · ${totalReps.toFixed(0)} ${_fitnessEscape(l.reps || "reps")}` : ""}</span></div><ha-icon icon="mdi:dumbbell"></ha-icon></div>
-      ${totalVolume != null ? `<div class="volume-hero entity-link" data-more-info="${_fitnessEscape(source?.entity_id || e.last_workout_strength_sets || "")}"><span>${_fitnessEscape(l.total_volume || "Total volume")}</span><strong>${totalVolume.toFixed(0)} kg</strong></div>` : ""}
+      <div class="strength-head entity-link" data-more-info="${_fitnessEscape(source?.entity_id || e.last_workout_strength_sets || e.last_workout_estimated_1rm || e.last_workout_strength_progression || "")}"><div><strong>${_fitnessEscape(l.strength_progression)}</strong><span>${exercises.length} ${_fitnessEscape(l.exercises)}${totalSets != null ? ` · ${totalSets.toFixed(0)} ${_fitnessEscape(l.sets)}` : ""}${totalReps != null ? ` · ${totalReps.toFixed(0)} ${_fitnessEscape(l.reps)}` : ""}</span></div><ha-icon icon="mdi:dumbbell"></ha-icon></div>
+      ${totalVolume != null ? `<div class="volume-hero entity-link" data-more-info="${_fitnessEscape(source?.entity_id || e.last_workout_strength_sets || "")}"><span>${_fitnessEscape(l.total_volume)}</span><strong>${totalVolume.toFixed(0)} kg</strong></div>` : ""}
       <div class="strength-list entity-link" data-more-info="${_fitnessEscape(source?.entity_id || e.last_workout_strength_sets || e.last_workout_estimated_1rm || e.last_workout_strength_progression || "")}">${rows}</div>
-      <small class="method">${_fitnessEscape(l.estimated_1rm_method || "Estimated 1RM uses the Epley formula from valid 1–12 rep sets; it is not a measured 1RM.")}</small>
+      <small class="method">${_fitnessEscape(l.estimated_1rm_method)}</small>
     </ha-card><style>
       ha-card{padding:18px}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.strength-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.strength-head strong{display:block;font-size:18px}.strength-head span{display:block;margin-top:3px;color:var(--secondary-text-color);font-size:11px}.strength-head ha-icon{color:var(--primary-color);--mdc-icon-size:28px}.volume-hero{display:flex;justify-content:space-between;align-items:end;margin:14px 0;padding:12px 14px;border-radius:13px;background:color-mix(in srgb,var(--primary-color) 10%,var(--secondary-background-color))}.volume-hero span{color:var(--secondary-text-color);font-size:11px}.volume-hero strong{font-size:20px}.strength-list{display:grid;gap:7px;margin-top:12px}.strength-row{display:grid;grid-template-columns:minmax(125px,1.6fr) minmax(72px,.7fr) minmax(72px,.7fr) minmax(58px,.55fr);gap:8px;align-items:center;padding:10px 11px;border-radius:12px;background:var(--secondary-background-color)}.strength-main{min-width:0}.strength-main strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.strength-main span,.strength-stat span{display:block;color:var(--secondary-text-color);font-size:10px;margin-top:2px}.strength-stat strong{display:block;font-size:12px;margin-top:2px}.strength-trend{text-align:right;font-weight:700;color:var(--secondary-text-color)}.strength-trend.up{color:var(--success-color,#43a047)}.strength-trend.down{color:var(--error-color,#db4437)}.method{display:block;margin-top:11px;color:var(--secondary-text-color);font-size:10px;line-height:1.4}@media(max-width:520px){.strength-row{grid-template-columns:minmax(120px,1fr) 1fr}.strength-trend{text-align:left}.strength-stat:nth-of-type(3){display:none}}
     </style>`;
@@ -1786,7 +1844,7 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
     const predictedAbsolute = predictedAttr != null && predictedAttr > 0
       ? predictedAttr
       : (current != null && current > 0 && pctPred != null && pctPred > 0 ? current / (pctPred / 100) : null);
-    const status = slope == null ? "" : slope > 0.35 ? (l.improving || "Improving") : slope < -0.35 ? (l.declining || "Declining") : (l.stable || "Stable");
+    const status = slope == null ? "" : slope > 0.35 ? (l.improving) : slope < -0.35 ? (l.declining) : (l.stable);
     const arrow = slope == null ? "→" : slope > 0.35 ? "↗" : slope < -0.35 ? "↘" : "→";
     const delta28 = current != null && mean28 ? ((current - mean28) / mean28 * 100) : null;
     const useAbsoluteVo2Scale = current != null && current > 0 && predictedAbsolute != null && predictedAbsolute > 0;
@@ -1812,7 +1870,7 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
       ? 50
       : Math.max(0, Math.min(100, ((100 - progressMin) / progressSpan) * 100));
     const progressLeftLabel = useAbsoluteVo2Scale ? `${progressMin.toFixed(1)}` : `${progressMin}%`;
-    const progressMidLabel = useAbsoluteVo2Scale ? `${predictedAbsolute.toFixed(1)} ${l.predicted || "Predicted"}` : (pctPred == null ? "—" : `${pctPred.toFixed(1)}%`);
+    const progressMidLabel = useAbsoluteVo2Scale ? `${predictedAbsolute.toFixed(1)} ${l.predicted}` : (pctPred == null ? "—" : `${pctPred.toFixed(1)}%`);
     const progressRightLabel = useAbsoluteVo2Scale ? `${progressMax.toFixed(1)}` : `${progressMax}%`;
     const vo2Tone = _fitnessVo2Tone(pctPred);
     const rawSeries = Array.isArray(_fitnessAttr(trend, "daily_series")) ? _fitnessAttr(trend, "daily_series") : [];
@@ -1830,9 +1888,9 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
     if ([current, mean28, mean90, slope, pctPred].every(value => value == null) && !series.length) { this.shadowRoot.innerHTML = ""; return; }
 
     const metricCards = [
-      this._metric(l.mean_28d || "28-day mean", mean28, "mL/kg/min", false, e.cardiorespiratory_fitness_trend),
-      this._metric(l.mean_90d || "90-day mean", mean90, "mL/kg/min", false, e.cardiorespiratory_fitness_trend),
-      this._metric(l.predicted_percent || "% of predicted", pctPred, "%", false, e.vo2max_percent_predicted),
+      this._metric(l.mean_28d, mean28, "mL/kg/min", false, e.cardiorespiratory_fitness_trend),
+      this._metric(l.mean_90d, mean90, "mL/kg/min", false, e.cardiorespiratory_fitness_trend),
+      this._metric(l.predicted_percent, pctPred, "%", false, e.vo2max_percent_predicted),
       this._metric("Δ 28d", delta28, "%", true, e.cardiorespiratory_fitness_trend),
     ].filter(Boolean).join("");
 
@@ -1888,8 +1946,8 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
       const predictedInViewport = predictedAbsolute != null && predictedAbsolute >= lo && predictedAbsolute <= hi;
       const predictedY = predictedInViewport ? y(predictedAbsolute) : null;
       const predictedRangeHint = predictedAbsolute == null ? ""
-        : predictedAbsolute < lo ? ` (${l.below_zoom || "below zoom"})`
-        : predictedAbsolute > hi ? ` (${l.above_zoom || "above zoom"})` : "";
+        : predictedAbsolute < lo ? ` (${l.below_zoom})`
+        : predictedAbsolute > hi ? ` (${l.above_zoom})` : "";
       this._vo2HistoryPoints = series.map((x,i) => ({
         x:xPos(x.t), y:y(x.v), v:x.v, d:x.d, t:x.t,
         trend:regIntercept + regSlope*xs[i],
@@ -1907,17 +1965,17 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
         : 1 / Math.max(1, this._vo2HistoryYExpand || 1);
       history = `<div class="history">
         <div class="history-head">
-          <span>${_fitnessEscape(l.history || "History")}</span>
-          <div class="history-head-tools"><small>${series.length} ${_fitnessEscape(l.measurements || "measurements")}</small>
-            <button class="history-zoom-out" type="button" title="${_fitnessEscape(l.zoom_out || "Zoom out")}" aria-label="${_fitnessEscape(l.zoom_out || "Zoom out")}">−</button>
-            <button class="history-zoom-reset" type="button" title="${_fitnessEscape(l.reset_zoom || "Reset zoom")}" aria-label="${_fitnessEscape(l.reset_zoom || "Reset zoom")}">${historyDisplayZoom.toFixed(historyDisplayZoom < 1 || historyDisplayZoom % 1 ? 1 : 0)}×</button>
-            <button class="history-zoom-in" type="button" title="${_fitnessEscape(l.zoom_in || "Zoom in")}" aria-label="${_fitnessEscape(l.zoom_in || "Zoom in")}">+</button>
+          <span>${_fitnessEscape(l.history)}</span>
+          <div class="history-head-tools"><small>${series.length} ${_fitnessEscape(l.measurements)}</small>
+            <button class="history-zoom-out" type="button" title="${_fitnessEscape(l.zoom_out)}" aria-label="${_fitnessEscape(l.zoom_out)}">−</button>
+            <button class="history-zoom-reset" type="button" title="${_fitnessEscape(l.reset_zoom)}" aria-label="${_fitnessEscape(l.reset_zoom)}">${historyDisplayZoom.toFixed(historyDisplayZoom < 1 || historyDisplayZoom % 1 ? 1 : 0)}×</button>
+            <button class="history-zoom-in" type="button" title="${_fitnessEscape(l.zoom_in)}" aria-label="${_fitnessEscape(l.zoom_in)}">+</button>
           </div>
         </div>
         <div class="history-scroll">
           <div class="history-canvas" style="width:${Math.max(100, this._vo2HistoryZoom * 100)}%">
             <div class="history-plot">
-              <svg class="vo2-history-svg entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || "")}" viewBox="0 0 100 38" preserveAspectRatio="none" aria-label="${_fitnessEscape(l.history || "History")}">
+              <svg class="vo2-history-svg entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || "")}" viewBox="0 0 100 38" preserveAspectRatio="none" aria-label="${_fitnessEscape(l.history)}">
                 ${predictedY == null ? "" : `<line class="predicted-line" x1="0" y1="${predictedY.toFixed(2)}" x2="100" y2="${predictedY.toFixed(2)}"></line>`}
                 <polyline class="actual-line" points="${actualPts}"></polyline>
                 <polyline class="trend-line" points="${trendPts}"></polyline>
@@ -1928,25 +1986,25 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
               </svg>
               <div class="history-tooltip" hidden></div>
             </div>
-            <div class="history-x-axis" aria-label="${_fitnessEscape(l.date_axis || "Date")}">${ticks}</div>
+            <div class="history-x-axis" aria-label="${_fitnessEscape(l.date_axis)}">${ticks}</div>
           </div>
         </div>
-        <div class="history-pan-hint">${_fitnessEscape(l.pan_hint || "Scroll or drag to move · use the buttons or Ctrl/⌘ + wheel to zoom")}</div>
+        <div class="history-pan-hint">${_fitnessEscape(l.pan_hint)}</div>
         <div class="history-legend">
-          <span class="entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || "")}"><i class="actual-dot"></i>${_fitnessEscape(l.actual || "Actual")}</span>
-          <span class="entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || "")}"><i class="trend-dot"></i>${_fitnessEscape(l.trend || "Trend")}</span>
-          ${predictedAbsolute == null ? "" : `<span class="entity-link" data-more-info="${_fitnessEscape(e.vo2max_percent_predicted || "")}"><i class="predicted-dot"></i>${_fitnessEscape(l.predicted || "Predicted")} ${predictedAbsolute.toFixed(1)}${_fitnessEscape(predictedRangeHint)}</span>`}
+          <span class="entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || "")}"><i class="actual-dot"></i>${_fitnessEscape(l.actual)}</span>
+          <span class="entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || "")}"><i class="trend-dot"></i>${_fitnessEscape(l.trend)}</span>
+          ${predictedAbsolute == null ? "" : `<span class="entity-link" data-more-info="${_fitnessEscape(e.vo2max_percent_predicted || "")}"><i class="predicted-dot"></i>${_fitnessEscape(l.predicted)} ${predictedAbsolute.toFixed(1)}${_fitnessEscape(predictedRangeHint)}</span>`}
         </div>
         <div class="history-values"><span>${series[0].v.toFixed(1)}</span><b>${current == null ? series[n-1].v.toFixed(1) : current.toFixed(1)} mL/kg/min</b></div>
       </div>`;
     }
 
     this.shadowRoot.innerHTML = `<ha-card style="--vo2-tone:${vo2Tone}">
-      <div class="head"><div><div class="title">${_fitnessEscape(this.config.title || l.progress_snapshot || "Fitness progress")}</div><div class="sub">${_fitnessEscape(status)}</div></div><div class="trend entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || "")}">${arrow}${slope == null ? "" : ` ${slope > 0 ? "+" : ""}${slope.toFixed(2)}%`}</div></div>
-      <div class="hero entity-link" data-more-info="${_fitnessEscape(currentSource?.moreInfoEntityId || e.cardiorespiratory_fitness_trend || "")}"><strong>${current == null ? "—" : current.toFixed(1)}</strong><span>mL/kg/min</span><small>${_fitnessEscape(l.current_vo2max || "Current VO₂max")}</small></div>
+      <div class="head"><div><div class="title">${_fitnessEscape(this.config.title || l.progress_snapshot)}</div><div class="sub">${_fitnessEscape(status)}</div></div><div class="trend entity-link" data-more-info="${_fitnessEscape(e.cardiorespiratory_fitness_trend || "")}">${arrow}${slope == null ? "" : ` ${slope > 0 ? "+" : ""}${slope.toFixed(2)}%`}</div></div>
+      <div class="hero entity-link" data-more-info="${_fitnessEscape(currentSource?.moreInfoEntityId || e.cardiorespiratory_fitness_trend || "")}"><strong>${current == null ? "—" : current.toFixed(1)}</strong><span>mL/kg/min</span><small>${_fitnessEscape(l.current_vo2max)}</small></div>
       <div class="progress entity-link" data-more-info="${_fitnessEscape(e.vo2max_percent_predicted || "")}">
-        ${predictedAbsolute == null && !useAbsoluteVo2Scale ? `<i class="vo2-reference" style="left:${predictedMarker}%" title="100% ${_fitnessEscape(l.predicted_marker || "Predicted")}"></i>` : `<i class="vo2-reference" style="left:${predictedMarker}%" title="${_fitnessEscape(l.predicted_marker || "Predicted")} ${predictedAbsolute == null ? "100%" : `${predictedAbsolute.toFixed(1)} mL/kg/min`}"></i>`}
-        ${currentMarker == null ? "" : `<i class="vo2-marker" style="left:${currentMarker}%" title="${_fitnessEscape(l.current_marker || "Current")} ${current == null ? `${pctPred.toFixed(1)}%` : `${current.toFixed(1)} mL/kg/min`}"></i>`}
+        ${predictedAbsolute == null && !useAbsoluteVo2Scale ? `<i class="vo2-reference" style="left:${predictedMarker}%" title="100% ${_fitnessEscape(l.predicted_marker)}"></i>` : `<i class="vo2-reference" style="left:${predictedMarker}%" title="${_fitnessEscape(l.predicted_marker)} ${predictedAbsolute == null ? "100%" : `${predictedAbsolute.toFixed(1)} mL/kg/min`}"></i>`}
+        ${currentMarker == null ? "" : `<i class="vo2-marker" style="left:${currentMarker}%" title="${_fitnessEscape(l.current_marker)} ${current == null ? `${pctPred.toFixed(1)}%` : `${current.toFixed(1)} mL/kg/min`}"></i>`}
       </div>
       <div class="progress-values entity-link" data-more-info="${_fitnessEscape(e.vo2max_percent_predicted || "")}"><span>${progressLeftLabel}</span><b>${progressMidLabel}</b><span>${progressRightLabel}</span></div>
       ${history}
@@ -1979,8 +2037,8 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
       const date = new Intl.DateTimeFormat(language, {year:"numeric",month:"short",day:"numeric"}).format(new Date(point.t));
       const bits = [`<strong>${point.v.toFixed(1)} mL/kg/min</strong>`, `<span>${_fitnessEscape(date)}</span>`];
       const labels = this._vo2HistoryLabels || {};
-      if (point.trend != null) bits.push(`<small>${_fitnessEscape(labels.trend || "Trend")} ${point.trend.toFixed(1)}</small>`);
-      if (this._vo2HistoryPredicted != null) bits.push(`<small>${_fitnessEscape(labels.predicted || "Predicted")} ${this._vo2HistoryPredicted.toFixed(1)}</small>`);
+      if (point.trend != null) bits.push(`<small>${_fitnessEscape(labels.trend)} ${point.trend.toFixed(1)}</small>`);
+      if (this._vo2HistoryPredicted != null) bits.push(`<small>${_fitnessEscape(labels.predicted)} ${this._vo2HistoryPredicted.toFixed(1)}</small>`);
       tooltip.innerHTML = bits.join("");
       tooltip.hidden = false;
       const tooltipWidth = 154;
@@ -2126,11 +2184,11 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
     const recoverySignals = _fitnessAttr(recoveryTime, "recovery_signals") || {};
     const limitingFactor = String(_fitnessAttr(recoveryTime, "limiting_factor") || "");
     const limiterLabels = {
-      muscular_recovery: l.limiter_muscular_recovery || "Muscular recovery",
-      autonomic_recovery: l.limiter_autonomic_recovery || "Autonomic recovery",
-      sleep_recovery: l.limiter_sleep_recovery || "Sleep recovery",
-      overall_readiness: l.limiter_overall_readiness || "Overall readiness",
-      workout_dose: l.limiter_workout_dose || "Workout demand",
+      muscular_recovery: l.limiter_muscular_recovery,
+      autonomic_recovery: l.limiter_autonomic_recovery,
+      sleep_recovery: l.limiter_sleep_recovery,
+      overall_readiness: l.limiter_overall_readiness,
+      workout_dose: l.limiter_workout_dose,
     };
     const limitingFactorText = limiterLabels[limitingFactor] || limitingFactor.replaceAll("_", " ");
 
@@ -2181,13 +2239,13 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
         <ha-icon icon="${icon}"></ha-icon>
         <span title="${_fitnessEscape(label)}">${_fitnessEscape(label)}</span>
         <strong>${value.toFixed(0)}</strong>
-        <div><i style="width:${Math.max(0, Math.min(100, value))}%"></i></div>
+        <div><i data-fitness-bar style="width:${Math.max(0, Math.min(100, value))}%"></i></div>
       </div>`;
     }).filter(Boolean).join("");
 
     const scoreBar = ({kind, label, value, tone, detail = "", entityId = e.readiness || ""}) => value == null ? "" : `<div class="recovery-score recovery-score-${kind} entity-link" data-more-info="${_fitnessEscape(entityId)}" style="--score-tone:${tone}">
       <div class="recovery-score-head"><span>${_fitnessEscape(label)}</span><strong>${Math.max(0, Math.min(100, value)).toFixed(0)} <small>/ 100</small></strong></div>
-      <div class="recovery-score-track"><i style="width:${Math.max(0, Math.min(100, value))}%"></i></div>
+      <div class="recovery-score-track"><i data-fitness-bar style="width:${Math.max(0, Math.min(100, value))}%"></i></div>
       ${detail ? `<div class="recovery-score-detail">${detail}</div>` : ""}
     </div>`;
     const compactText = (template, values = {}) => {
@@ -2198,7 +2256,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
       return result;
     };
     const readinessCertainty = confidence == null ? "" : compactText(
-      l.certain_compact || "{percent}% certain",
+      l.certain_compact,
       {percent:confidence.toFixed(0)},
     );
     const readinessDetail = [
@@ -2218,34 +2276,34 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
       const hours = Math.floor(totalMinutes / 60);
       const minutes = totalMinutes % 60;
       return [
-        hours ? `${hours}${unitGap}${l.hours_short || "h"}` : "",
-        minutes ? `${minutes}${unitGap}${l.minutes_short || "min"}` : "",
+        hours ? `${hours}${unitGap}${l.hours_short}` : "",
+        minutes ? `${minutes}${unitGap}${l.minutes_short}` : "",
       ].filter(Boolean).join(" ");
     })();
     const recoveryComplete = fullyRecovered || (recoveryProgress != null && Math.round(recoveryPct) >= 100);
     const recoveryCertainty = recoveryConfidence == null ? "" : compactText(
-      l.certain_compact || "{percent}% certain",
+      l.certain_compact,
       {percent:recoveryConfidence.toFixed(0)},
     );
     const recoveryProgressDetail = recoveryComplete
       ? [
-          `<b>${_fitnessEscape(l.recovery_done_short || "Done")}</b>`,
+          `<b>${_fitnessEscape(l.recovery_done_short)}</b>`,
           recoveryCertainty ? _fitnessEscape(recoveryCertainty) : "",
         ].filter(Boolean).join(" · ")
       : [
           readyAtRaw && readyAtText !== "—" ? _fitnessEscape(compactText(
-            l.ready_at_compact || "Ready at: {time}",
+            l.ready_at_compact,
             {time:readyAtText},
           )) : "",
           recoveryRemainingText ? _fitnessEscape(compactText(
-            l.remaining_compact || "{time} remaining",
+            l.remaining_compact,
             {time:recoveryRemainingText},
           )) : "",
           recoveryCertainty ? _fitnessEscape(recoveryCertainty) : "",
         ].filter(Boolean).join(", ");
     const recoveryProgressBar = scoreBar({
       kind:"progress",
-      label:l.recovery_progress_label || "Recovery progress",
+      label:l.recovery_progress_label,
       value:recoveryProgress,
       tone:recoveryTone,
       detail:recoveryProgressDetail,
@@ -2287,11 +2345,11 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
     const hrvPosition = hrvBaselineReady ? Math.max(1, Math.min(99, 50 + (hrvVs / 20) * 50)) : 50;
     const hrvTone = _fitnessSymmetricHeatTone(hrvVs, 3, 7, 12);
     const hrvBaselineBar = hrvBaselineReady ? `<div class="hrv-baseline entity-link" style="--hrv-tone:${hrvTone}" data-more-info="${_fitnessEscape(e.autonomic_recovery_trend || hrvSource?.moreInfoEntityId || "")}">
-      <div class="hrv-head"><span>HRV ${_fitnessEscape(l.baseline || "Baseline")}</span><strong>${hrvVs >= 0 ? "+" : ""}${hrvVs.toFixed(1)}%</strong></div>
+      <div class="hrv-head"><span>HRV ${_fitnessEscape(l.baseline)}</span><strong>${hrvVs >= 0 ? "+" : ""}${hrvVs.toFixed(1)}%</strong></div>
       <div class="hrv-values three">
-        <span>${_fitnessEscape(l.baseline || "Baseline")} <b>${hrvBaseline.toFixed(1)} ms</b></span>
-        <span class="entity-link" data-more-info="${_fitnessEscape(hrvSource?.moreInfoEntityId || "")}">${_fitnessEscape(l.current || "Current")} <b>${hrvLatest.toFixed(1)} ms</b></span>
-        <span>${_fitnessEscape(l.difference || "Difference")} <b style="color:var(--hrv-tone)">${hrvVs >= 0 ? "+" : ""}${hrvVs.toFixed(1)}%</b></span>
+        <span>${_fitnessEscape(l.baseline)} <b>${hrvBaseline.toFixed(1)} ms</b></span>
+        <span class="entity-link" data-more-info="${_fitnessEscape(hrvSource?.moreInfoEntityId || "")}">${_fitnessEscape(l.current)} <b>${hrvLatest.toFixed(1)} ms</b></span>
+        <span>${_fitnessEscape(l.difference)} <b style="color:var(--hrv-tone)">${hrvVs >= 0 ? "+" : ""}${hrvVs.toFixed(1)}%</b></span>
       </div>
       <div class="hrv-axis"><i class="hrv-baseline-marker"></i><i class="hrv-current-marker" style="left:${hrvPosition}%"></i></div>
       <div class="hrv-axis-values"><span>-20%</span><b>${hrvBaseline.toFixed(1)} ms · n=${hrvBaselineNights.toFixed(0)}</b><span>+20%</span></div>
@@ -2311,10 +2369,10 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
     }
 
     this.shadowRoot.innerHTML = `<ha-card style="--readiness:${readinessTone};--recovery:${recoveryTone}">
-      <div class="title">${_fitnessEscape(this.config.title || l.recovery_snapshot || "Recovery snapshot")}</div>
+      <div class="title">${_fitnessEscape(this.config.title || l.recovery_snapshot)}</div>
 
       <section class="recovery-readiness-panel">
-        <div class="section-label">${_fitnessEscape(l.recovery_readiness || "Recovery & readiness")}</div>
+        <div class="section-label">${_fitnessEscape(l.recovery_readiness)}</div>
         ${!recoveryTime ? readinessStack : ""}
 
         ${recoveryTime ? `<div class="next-workout entity-link" data-more-info="${_fitnessEscape(e.estimated_recovery_time || "")}">
@@ -2324,16 +2382,16 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
 
         <div class="recovery-grid">
           <div class="entity-link" data-more-info="${_fitnessEscape(e.estimated_recovery_time || "")}">
-            <span>${_fitnessEscape(l.broader_recovery_window || "Broader physiological recovery window")}</span>
+            <span>${_fitnessEscape(l.broader_recovery_window)}</span>
             <strong>${recoveryLow == null || recoveryHigh == null
               ? "—"
-              : `~${Math.round(recoveryLow)}–${Math.round(recoveryHigh)} ${_fitnessEscape(l.hours_short || "h")}`}</strong>
+              : `~${Math.round(recoveryLow)}–${Math.round(recoveryHigh)} ${_fitnessEscape(l.hours_short)}`}</strong>
           </div>
-          ${limitingFactor ? `<div class="entity-link" data-more-info="${_fitnessEscape(e.estimated_recovery_time || "")}"><span>${_fitnessEscape(l.recovery_limiting_factor || "Main recovery limiter")}</span><strong>${_fitnessEscape(limitingFactorText)}</strong></div>` : ""}
+          ${limitingFactor ? `<div class="entity-link" data-more-info="${_fitnessEscape(e.estimated_recovery_time || "")}"><span>${_fitnessEscape(l.recovery_limiting_factor)}</span><strong>${_fitnessEscape(limitingFactorText)}</strong></div>` : ""}
         </div>
 
-        ${signalRows ? `<div class="signal-head">${_fitnessEscape(l.recovery_signals_label || "Recovery signals")}</div><div class="signals">${signalRows}</div>` : ""}
-        <div class="physio-note">${_fitnessEscape(l.physio_note || "Available physiological markers may recover at different rates.")}</div>
+        ${signalRows ? `<div class="signal-head">${_fitnessEscape(l.recovery_signals_label)}</div><div class="signals">${signalRows}</div>` : ""}
+        <div class="physio-note">${_fitnessEscape(l.physio_note)}</div>
         </div>` : ""}
       </section>
 
@@ -2418,6 +2476,14 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
       .metric span{display:block;color:var(--secondary-text-color);font-size:10px;line-height:1.3;margin-bottom:4px;overflow-wrap:anywhere}
       .metric strong{display:block;font-size:13px;line-height:1.35;overflow-wrap:anywhere}
 
+      :host([fitness-motion]) .recovery-score-readiness .recovery-score-track i{transform-origin:left center;animation:fitness-readiness-breathe 3.8s cubic-bezier(.4,0,.2,1) infinite;will-change:filter,transform}
+      :host([fitness-motion]) .recovery-score-progress .recovery-score-track{position:relative;overflow:hidden}
+      :host([fitness-motion]) .recovery-score-progress .recovery-score-track i{position:relative;animation:fitness-recovery-flow 5.2s ease-in-out infinite;will-change:filter,transform}
+      :host([fitness-motion]) .recovery-score-progress .recovery-score-track i::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 0%,rgba(255,255,255,.48) 48%,transparent 72%);transform:translateX(-140%);animation:fitness-recovery-sheen 3.1s ease-in-out infinite}
+      @keyframes fitness-readiness-breathe{0%,100%{transform:scaleY(.82);filter:brightness(.96)}45%{transform:scaleY(1.32);filter:brightness(1.22)}62%{transform:scaleY(1.04);filter:brightness(1.08)}}
+      @keyframes fitness-recovery-flow{0%,100%{transform:translateX(0) scaleY(.9);filter:saturate(.92)}50%{transform:translateX(1.5px) scaleY(1.22);filter:saturate(1.2) brightness(1.12)}}
+      @keyframes fitness-recovery-sheen{0%,18%{transform:translateX(-140%);opacity:0}45%{opacity:.85}72%,100%{transform:translateX(180%);opacity:0}}
+      @media(prefers-reduced-motion:reduce){:host([fitness-motion]) .recovery-score-track i,:host([fitness-motion]) .recovery-score-track i::after{animation:none!important}}
       @media(max-width:520px){
         .readiness-panel{grid-template-columns:88px minmax(0,1fr);gap:12px;padding:14px}
         .readiness-ring{width:82px;height:82px}
@@ -2478,6 +2544,16 @@ class FitnessTrainingAdaptationCard extends FitnessAutoProfileCard {
     const rhr = _fitnessNumber(_fitnessAttr(state, "resting_hr_vs_28d_bpm"));
     const readiness = _fitnessNumber(_fitnessAttr(state, "readiness_score"));
     const evidence = _fitnessNumber(_fitnessAttr(state, "evidence_count"));
+    const stateUnavailable = ["unknown", "unavailable", "none", "null", ""].includes(String(state.state || "").toLowerCase());
+    const hasAdaptationInformation = !stateUnavailable && (
+      status !== "insufficient_data"
+      || [ratio, vo2, hrv, rhr, readiness].some((value) => value != null)
+      || (evidence != null && evidence > 0)
+    );
+    if (!hasAdaptationInformation) {
+      this.shadowRoot.innerHTML = "";
+      return;
+    }
 
     const recoveryBits = [];
     if (hrv != null) recoveryBits.push(`HRV ${hrv >= 0 ? "+" : ""}${hrv.toFixed(1)}%`);
@@ -2488,17 +2564,17 @@ class FitnessTrainingAdaptationCard extends FitnessAutoProfileCard {
       <div class="hero entity-link" data-more-info="${_fitnessEscape(entityId || "")}">
         <div class="icon"><ha-icon icon="${icon}"></ha-icon></div>
         <div class="copy">
-          <small>${_fitnessEscape(l.training_adaptation_card || "Training adaptation")}</small>
+          <small>${_fitnessEscape(l.training_adaptation_card)}</small>
           <strong>${_fitnessEscape(state.state)}</strong>
-          <span>${_fitnessEscape(l.training_adaptation_subtitle || "How recent training is affecting you")}</span>
+          <span>${_fitnessEscape(l.training_adaptation_subtitle)}</span>
         </div>
       </div>
       <div class="metrics entity-link" data-more-info="${_fitnessEscape(entityId || "")}">
-        <div><span>${_fitnessEscape(l.adaptation_load_ratio || "Recent / baseline load")}</span><strong>${ratio == null ? "—" : `${ratio.toFixed(2)}×`}</strong></div>
-        <div><span>${_fitnessEscape(l.adaptation_fitness_trend || "Fitness trend")}</span><strong>${vo2 == null ? "—" : `${vo2 >= 0 ? "+" : ""}${vo2.toFixed(1)}% / 30d`}</strong></div>
-        <div><span>${_fitnessEscape(l.adaptation_recovery_signal || "Recovery signal")}</span><strong>${_fitnessEscape(recoveryBits.length ? recoveryBits.join(" · ") : "—")}</strong></div>
+        <div><span>${_fitnessEscape(l.adaptation_load_ratio)}</span><strong>${ratio == null ? "—" : `${ratio.toFixed(2)}×`}</strong></div>
+        <div><span>${_fitnessEscape(l.adaptation_fitness_trend)}</span><strong>${vo2 == null ? "—" : `${vo2 >= 0 ? "+" : ""}${vo2.toFixed(1)}% / 30d`}</strong></div>
+        <div><span>${_fitnessEscape(l.adaptation_recovery_signal)}</span><strong>${_fitnessEscape(recoveryBits.length ? recoveryBits.join(" · ") : "—")}</strong></div>
       </div>
-      ${evidence != null ? `<div class="evidence">${evidence.toFixed(0)} evidence signal${evidence === 1 ? "" : "s"}</div>` : ""}
+      ${evidence != null ? `<div class="evidence">${_fitnessEscape(l.adaptation_evidence)}: ${evidence.toFixed(0)}</div>` : ""}
     </ha-card><style>
       ha-card{padding:18px;overflow:hidden;border-left:4px solid var(--adapt)}
       .entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}
@@ -2547,12 +2623,12 @@ class FitnessTrainingLoadCard extends FitnessAutoProfileCard {
     }
 
     const zoneText = {
-      building: l.baseline_building || "Building personal baseline",
-      low: l.load_low || "Low",
-      balanced: l.load_balanced || "Balanced",
-      elevated: l.load_elevated || "Elevated",
-      high: l.load_high || "High",
-      excessive: l.load_excessive || "Excessive",
+      building: l.baseline_building,
+      low: l.load_low,
+      balanced: l.load_balanced,
+      elevated: l.load_elevated,
+      high: l.load_high,
+      excessive: l.load_excessive,
     }[zone];
 
     const position = !baselineReliable || ratio == null
@@ -2593,10 +2669,10 @@ class FitnessTrainingLoadCard extends FitnessAutoProfileCard {
     const entityId = e.training_load || "";
     const loadMetrics = [
       ["TRIMP 7d", recent, value => value.toFixed(1)],
-      [l.baseline_load || "28-day weekly baseline", baseline, value => value.toFixed(1)],
-      [l.workouts_7d || "Workouts / 7 days", workouts7, value => value.toFixed(0)],
-      [l.active_days_7d || "Active days / 7 days", days7, value => value.toFixed(0)],
-      [l.training_minutes_7d || "Training / 7 days", mins7, value => `${Math.round(value)} min`],
+      [l.baseline_load, baseline, value => value.toFixed(1)],
+      [l.workouts_7d, workouts7, value => value.toFixed(0)],
+      [l.active_days_7d, days7, value => value.toFixed(0)],
+      [l.training_minutes_7d, mins7, value => `${Math.round(value)} min`],
     ].filter(([, value]) => value != null).map(([label, value, formatter]) =>
       `<div><span>${_fitnessEscape(label)}</span><strong>${formatter(value)}</strong></div>`
     ).join("");
@@ -2604,17 +2680,17 @@ class FitnessTrainingLoadCard extends FitnessAutoProfileCard {
     this.shadowRoot.innerHTML = `<ha-card>
       <div class="header">
         <div>
-          <h3>${_fitnessEscape(l.training_load_snapshot || "Training load")}</h3>
+          <h3>${_fitnessEscape(l.training_load_snapshot)}</h3>
           ${hasAdaptationData ? `<div class="adapt-summary entity-link" style="--adapt:${adaptationTone}" data-more-info="${_fitnessEscape(e.training_adaptation_status || "")}">
-            <div class="adapt-title"><span>${_fitnessEscape(l.training_adaptation_card || "Training adaptation")}</span><strong>${_fitnessEscape(adaptationLabel)}</strong></div>
+            <div class="adapt-title"><span>${_fitnessEscape(l.training_adaptation_card)}</span><strong>${_fitnessEscape(adaptationLabel)}</strong></div>
             ${adaptationStatus === "insufficient_data"
-              ? `<p>${_fitnessEscape(l.adaptation_building || "Building enough history for a reliable adaptation assessment")}</p>`
+              ? `<p>${_fitnessEscape(l.adaptation_building)}</p>`
               : `<div class="adapt-evidence">
-                  <span>${_fitnessEscape(l.adaptation_baseline || "Load balance")} <b>${baselineReliable && ratio != null ? `${ratio.toFixed(2)}×` : "—"}</b></span>
-                  <span>${_fitnessEscape(l.adaptation_fitness || "Fitness trend")} <b>${adaptationVo2 == null ? "—" : `${adaptationVo2 >= 0 ? "+" : ""}${adaptationVo2.toFixed(1)}%`}</b></span>
-                  <span>${_fitnessEscape(l.adaptation_recovery || "Recovery")} <b>${adaptationReadiness == null ? "—" : `${adaptationReadiness.toFixed(0)}/100`}</b></span>
+                  <span>${_fitnessEscape(l.adaptation_baseline)} <b>${baselineReliable && ratio != null ? `${ratio.toFixed(2)}×` : "—"}</b></span>
+                  <span>${_fitnessEscape(l.adaptation_fitness)} <b>${adaptationVo2 == null ? "—" : `${adaptationVo2 >= 0 ? "+" : ""}${adaptationVo2.toFixed(1)}%`}</b></span>
+                  <span>${_fitnessEscape(l.adaptation_recovery)} <b>${adaptationReadiness == null ? "—" : `${adaptationReadiness.toFixed(0)}/100`}</b></span>
                 </div>`}
-            ${adaptationEvidence == null ? "" : `<small>${_fitnessEscape(l.adaptation_evidence || "Evidence")}: ${adaptationEvidence.toFixed(0)}</small>`}
+            ${adaptationEvidence == null ? "" : `<small>${_fitnessEscape(l.adaptation_evidence)}: ${adaptationEvidence.toFixed(0)}</small>`}
           </div>` : ""}
         </div>
         ${ratio != null ? `<div class="ratio ${zone}">${ratio.toFixed(2)}×</div>` : ""}
@@ -2622,7 +2698,7 @@ class FitnessTrainingLoadCard extends FitnessAutoProfileCard {
 
       ${baselineReliable && ratio != null ? `<div class="load-scale entity-link" data-more-info="${_fitnessEscape(entityId)}"><div class="scale"></div><i style="left:${position}%"></i></div><div class="load-scale-values"><span>0×</span><b>${ratio.toFixed(2)}×</b><span>2.40×</span></div>` : ""}
 
-      ${ratio != null ? `<div class="status-row"><div><span>${_fitnessEscape(l.load_ratio || "Load vs baseline")}</span><strong class="${zone}">${_fitnessEscape(zoneText)}</strong></div>${!baselineReliable ? `<p>${_fitnessEscape(l.baseline_building_hint || "More comparable workouts are needed before load balance can be judged reliably.")}</p>` : ""}</div>` : ""}
+      ${ratio != null ? `<div class="status-row"><div><span>${_fitnessEscape(l.load_ratio)}</span><strong class="${zone}">${_fitnessEscape(zoneText)}</strong></div>${!baselineReliable ? `<p>${_fitnessEscape(l.baseline_building_hint)}</p>` : ""}</div>` : ""}
 
       ${loadMetrics ? `<div class="metrics entity-link" data-more-info="${_fitnessEscape(entityId)}">${loadMetrics}</div>` : ""}
     </ha-card><style>
@@ -2783,6 +2859,7 @@ class FitnessCompositeCard extends FitnessAutoProfileCard {
         --ha-card-border-width:0px;
         --ha-card-box-shadow:none
       }
+      .modal-actions,.settings-actions{display:flex!important;align-items:center;gap:8px;flex-wrap:nowrap!important;min-width:0}.modal-actions>button,.settings-actions>button{flex:1 1 0;min-width:0;max-width:100%}.modal-actions>button span,.settings-actions>button span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       @media(prefers-reduced-motion:reduce){.heart-orb,.heart-orb::after,.run-orb i{animation:none!important}}
       @media(max-width:420px){
         ha-card{padding:7px}
@@ -2854,6 +2931,11 @@ class FitnessLiveWorkoutCard extends FitnessAutoProfileCard {
       ..._fitnessProfileDataEntities(this._profile, this._hass, "live"),
     };
     const l = this._profile.labels || {};
+    const sessionEntityId = e.session_status;
+    const rawSessionState = sessionEntityId ? String(this._hass.states?.[sessionEntityId]?.state || "") : "";
+    const sessionState = ["waiting_for_live_data", "active", "paused", "recovery"].includes(rawSessionState)
+      ? rawSessionState
+      : "idle";
     const controlKeys = ["start_workout","pause_workout","resume_workout","stop_workout"];
     const liveKeys = this._profile.live_entity_keys || [];
     const metricKeys = liveKeys.length
@@ -2906,17 +2988,21 @@ class FitnessLiveWorkoutCard extends FitnessAutoProfileCard {
       }"></ha-icon><span>${_fitnessEscape(entityName(this._hass,id))}</span></button>`;
     }).filter(Boolean).join("");
 
-    this.shadowRoot.innerHTML = `<ha-card>
-      <div class="live-head"><ha-icon icon="mdi:run-fast"></ha-icon><div><strong>${_fitnessEscape(this.config.title || l.live || l.current || "Live workout")}</strong><span>${_fitnessEscape(this._profile.profile_name || "")}</span></div></div>
+    this.shadowRoot.innerHTML = `<ha-card data-session-state="${sessionState}">
+      <div class="live-head"><ha-icon icon="mdi:run-fast"></ha-icon><div><strong>${_fitnessEscape(this.config.title || l.live || l.current)}</strong><span>${_fitnessEscape(this._profile.profile_name || "")}</span></div></div>
       ${motion}
-      <div class="live-grid">${allMetrics || `<div class="live-empty">${_fitnessEscape(l.no_live_data || "No live workout data is available yet.")}</div>`}</div>
+      <div class="live-grid">${allMetrics || `<div class="live-empty">${_fitnessEscape(l.no_live_data)}</div>`}</div>
       ${controls ? `<div class="live-controls">${controls}</div>` : ""}
     </ha-card><style>
       ha-card{
         --fitness-card-accent:var(--success-color,#43a047);
         padding:10px;overflow:hidden;box-shadow:none;border:0;border-radius:20px;
-        background:var(--secondary-background-color)
+        background:var(--secondary-background-color);transition:background .32s ease,color .22s ease
       }
+      ha-card[data-session-state="waiting_for_live_data"]{--fitness-card-accent:#42a5f5;background:linear-gradient(135deg,color-mix(in srgb,#42a5f5 17%,var(--secondary-background-color)),var(--secondary-background-color))}
+      ha-card[data-session-state="active"]{background:linear-gradient(135deg,color-mix(in srgb,var(--fitness-card-accent) 24%,var(--secondary-background-color)),var(--secondary-background-color))}
+      ha-card[data-session-state="paused"]{--fitness-card-accent:#ff9800;background:linear-gradient(135deg,color-mix(in srgb,#ff9800 19%,var(--secondary-background-color)),var(--secondary-background-color))}
+      ha-card[data-session-state="recovery"]{--fitness-card-accent:#26a69a;background:linear-gradient(135deg,color-mix(in srgb,#26a69a 19%,var(--secondary-background-color)),var(--secondary-background-color))}
       .live-grid,.live-controls{padding:0;background:transparent}
       .live-motion{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px;margin:0 0 6px}
       .live-motion-card{display:grid;grid-template-columns:38px minmax(0,1fr);align-items:center;gap:8px;padding:7px 9px;border-radius:12px;background:color-mix(in srgb,var(--fitness-card-accent) 7%,var(--card-background-color));border:1px solid color-mix(in srgb,var(--fitness-card-accent) 18%,var(--divider-color));overflow:hidden}
@@ -2945,7 +3031,7 @@ class FitnessLiveWorkoutCard extends FitnessAutoProfileCard {
         display:flex;align-items:center;justify-content:center;gap:6px;font:inherit;cursor:pointer;min-width:0
       }
       .live-control ha-icon{color:var(--fitness-card-accent);--mdc-icon-size:18px}
-      .live-control span{min-width:0;font-size:11px;font-weight:600;line-height:1.2;overflow-wrap:anywhere}
+      .live-control span{display:block;min-width:0;max-width:100%;font-size:clamp(10px,2.8vw,11px);font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;word-break:normal;overflow-wrap:normal}
       .live-control:active{transform:scale(.98)}.live-control.pending{opacity:.65}.live-control.pressed{box-shadow:0 0 0 2px color-mix(in srgb,var(--fitness-card-accent) 55%,transparent)}.live-control.failed{border-color:var(--error-color,#db4437);color:var(--error-color,#db4437)}
       @media(max-width:420px){
         ha-card{padding:7px}
@@ -3024,9 +3110,9 @@ class FitnessWorkoutRpeCard extends FitnessAutoProfileCard {
     ].filter(Boolean).join("");
 
     this.shadowRoot.innerHTML = `<ha-card>
-      <div class="head entity-link" data-more-info="${_fitnessEscape(rpeId)}"><div class="icon"><ha-icon icon="mdi:gauge"></ha-icon></div><div class="title"><strong>${_fitnessEscape(l.rpe_title || "Perceived effort")}</strong><span>${_fitnessEscape(l.rpe_hint || "How hard did this workout feel? Choose a whole number from 1 to 10.")}</span></div><div class="score"><strong>${rpeValue == null ? "—" : Math.round(rpeValue)}</strong><span>/ 10</span></div></div>
+      <div class="head entity-link" data-more-info="${_fitnessEscape(rpeId)}"><div class="icon"><ha-icon icon="mdi:gauge"></ha-icon></div><div class="title"><strong>${_fitnessEscape(l.rpe_title)}</strong><span>${_fitnessEscape(l.rpe_hint)}</span></div><div class="score"><strong>${rpeValue == null ? "—" : Math.round(rpeValue)}</strong><span>/ 10</span></div></div>
       <div class="rpe-scale">${choices}</div>
-      <div class="foot"><span>${_fitnessEscape(l.rpe_saved || "Saved to this workout. Changing it recalculates RPE-based load and comparisons.")}</span>${meta ? `<div class="meta">${meta}</div>` : ""}</div>
+      <div class="foot"><span>${_fitnessEscape(l.rpe_saved)}</span>${meta ? `<div class="meta">${meta}</div>` : ""}</div>
     </ha-card><style>
       ha-card{padding:14px 16px;overflow:hidden}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}ha-card{background:linear-gradient(135deg,color-mix(in srgb,var(--primary-color) 7%,var(--ha-card-background,var(--card-background-color))),var(--ha-card-background,var(--card-background-color)) 58%)}
       .head{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:10px;align-items:center;min-width:0}.icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--primary-color) 14%,transparent);color:var(--primary-color)}.icon ha-icon{--mdc-icon-size:22px}.title{min-width:0}.title strong{display:block;font-size:15px;line-height:1.25}.title span{display:block;margin-top:3px;color:var(--secondary-text-color);font-size:11px;line-height:1.35;overflow-wrap:break-word}.score{display:flex;align-items:baseline;gap:3px;white-space:nowrap}.score strong{font-size:25px;line-height:1}.score span{font-size:11px;color:var(--secondary-text-color)}
@@ -3080,6 +3166,27 @@ class FitnessWorkoutCard extends FitnessCompositeCard {
   _render() {
     if (!this.shadowRoot || !this._hass || !this._profile) return;
     const l = this._profile.labels || {};
+    const meaningful = (value) => {
+      if (value === null || value === undefined) return false;
+      const text = String(value).trim();
+      if (!text || ["unknown","unavailable","none","null","nan"].includes(text.toLowerCase())) return false;
+      const number = Number(text);
+      return Number.isFinite(number) ? Math.abs(number) > 1e-9 : true;
+    };
+    const sourceRoutes = this._profile?.workout_source_metrics || {};
+    const hasWorkout = Boolean(this._profile?.latest_workout?.available) || Object.values(sourceRoutes).some((route) => {
+      if (!route || typeof route !== "object") return false;
+      if (meaningful(route.value ?? route.configured_value)) return true;
+      const state = route.entity_id ? this._hass.states?.[route.entity_id] : null;
+      return meaningful(state?.state);
+    });
+    if (!hasWorkout) {
+      this.shadowRoot.innerHTML = "";
+      this._compositeChildren = [];
+      this._compositeBuilt = true;
+      this._compositeSignatureValue = this._compositeSignature();
+      return;
+    }
     const hasRoute = (this._profile.route_candidates || []).length > 0;
     const children = [this._mount("fitness-workout-highlights-card")];
     if (hasRoute) {
@@ -3095,7 +3202,7 @@ class FitnessWorkoutCard extends FitnessCompositeCard {
     if (e.last_workout_strength_sets && this._hass.states[e.last_workout_strength_sets]?.attributes?.strength_analysis) {
       children.push(this._mount("fitness-strength-details-card"));
     }
-    this._shell(this.config.title || l.latest_workout || "Latest workout", "mdi:run", children, "var(--primary-color)");
+    this._shell(this.config.title || l.latest_workout, "mdi:run", children, "var(--primary-color)");
   }
 }
 
@@ -3133,7 +3240,7 @@ class FitnessSleepRecoveryCard extends FitnessCompositeCard {
       this._compositeSignatureValue = this._compositeSignature();
       return;
     }
-    this._shell(this.config.title || l.recovery || "Recovery & sleep", "mdi:heart-pulse", children, "var(--warning-color,#f9a825)");
+    this._shell(this.config.title || l.recovery, "mdi:heart-pulse", children, "var(--warning-color,#f9a825)");
   }
 }
 
@@ -3192,7 +3299,7 @@ class FitnessEvaluationCard extends FitnessCompositeCard {
       this._compositeSignatureValue = this._compositeSignature();
       return;
     }
-    this._shell(this.config.title || l.evaluation || "Evaluation", "mdi:chart-line", children, "var(--primary-color)");
+    this._shell(this.config.title || l.evaluation, "mdi:chart-line", children, "var(--primary-color)");
   }
 }
 
@@ -3206,19 +3313,20 @@ class FitnessDashboardStrategy extends HTMLElement {
     const requested = config?.profile_entry_id;
     const profiles = (data?.profiles || []).filter((profile) => !requested || profile.entry_id === requested);
     if (!profiles.length) {
-      return { title: config?.title || "Fitness", views: [{ title: "Fitness", path: "fitness", cards: [{ type: "markdown", content: "# Fitness\n\nNo configured Fitness profile is currently available." }] }] };
+      const labels = data?.labels || {};
+      return { title: config?.title || "Fitness", views: [{ title: "Fitness", path: "fitness", cards: [{ type: "markdown", content: `# Fitness\n\n${labels.no_fitness_profiles}` }] }] };
     }
     const multi = profiles.length > 1;
     const views = [];
     for (const profile of profiles) {
       views.push(...this._profileViews(hass, profile, multi));
     }
-    return { title: config?.title || profiles[0].labels.dashboard || "Fitness", views };
+    return { title: config?.title || profiles[0].labels.dashboard, views };
   }
 
   static _profileViews(hass, profile, multi) {
     const e = profile.entities || {};
-    const ui = String(labelProfile?.language || hass?.language || "en").toLowerCase().split("-")[0];
+    const ui = String(profile?.language || hass?.language || "en").toLowerCase().split("-")[0];
     const l = profile.labels_by_language?.[ui]
       || profile.labels_by_language?.en
       || profile.labels
@@ -3248,7 +3356,7 @@ class FitnessDashboardStrategy extends HTMLElement {
 
     return [
       {
-        title: `${prefix}${l.overview || "Overview"}`,
+        title: `${prefix}${l.overview}`,
         path: `${slug}-overview`,
         icon: "mdi:view-dashboard-outline",
         type: "sections",
@@ -3256,7 +3364,7 @@ class FitnessDashboardStrategy extends HTMLElement {
         sections: summarySections,
       },
       {
-        title: `${prefix}${l.live || l.current || "Live workout"}`,
+        title: `${prefix}${l.live || l.current}`,
         path: `${slug}-live`,
         icon: "mdi:run-fast",
         type: "sections",
@@ -3293,6 +3401,7 @@ const FITNESS_TV_SETTINGS_EVENT = "fitness_tv_settings";
 const FITNESS_TV_PROFILE_STORAGE = "fitness.tv.profile";
 const FITNESS_TV_PROFILE_TAB_STORAGE = "fitness.tv.profile.tab";
 const FITNESS_TV_CAST_APP_ID = "A078F6B0";
+const FITNESS_TV_OVERVIEW_LOCAL_CAST_TAB_STORAGE = "fitness-tv-overview-local-cast";
 const FITNESS_MUSIC_PREFIXES = Object.freeze({
   radio:"fitness-radio://",
   url:"fitness-url://",
@@ -3303,13 +3412,13 @@ const FITNESS_MUSIC_PREFIXES = Object.freeze({
   music_assistant:"fitness-ma://",
 });
 const FITNESS_MUSIC_SEARCH_TYPES = Object.freeze([
-  {id:"track",label:"music_type_tracks",fallback:"Tracks",icon:"mdi:music-note"},
-  {id:"album",label:"music_type_albums",fallback:"Albums",icon:"mdi:album"},
-  {id:"playlist",label:"music_type_playlists",fallback:"Playlists",icon:"mdi:playlist-music"},
-  {id:"artist",label:"music_type_artists",fallback:"Artists",icon:"mdi:account-music"},
-  {id:"radio",label:"music_type_radio",fallback:"Radio",icon:"mdi:radio"},
-  {id:"podcast",label:"music_type_podcasts",fallback:"Podcasts",icon:"mdi:podcast"},
-  {id:"audiobook",label:"music_type_audiobooks",fallback:"Audiobooks",icon:"mdi:book-music"},
+  {id:"track",label:"music_type_tracks",icon:"mdi:music-note"},
+  {id:"album",label:"music_type_albums",icon:"mdi:album"},
+  {id:"playlist",label:"music_type_playlists",icon:"mdi:playlist-music"},
+  {id:"artist",label:"music_type_artists",icon:"mdi:account-music"},
+  {id:"radio",label:"music_type_radio",icon:"mdi:radio"},
+  {id:"podcast",label:"music_type_podcasts",icon:"mdi:podcast"},
+  {id:"audiobook",label:"music_type_audiobooks",icon:"mdi:book-music"},
 ]);
 const FITNESS_SENDSPIN_MODULE_URL = "https://cdn.jsdelivr.net/npm/@sendspin/sendspin-js@3.2.0/+esm";
 const FITNESS_TV_CAST_RECEIVER = (() => {
@@ -3331,6 +3440,8 @@ const FITNESS_TV_TEXT_ENTRY_BACK_SUPPRESS_MS = 900;
 const FITNESS_TV_NATIVE_CONTROL_BACK_SUPPRESS_MS = 900;
 const FITNESS_TV_NAV_HISTORY_SUPPRESS_MS = 550;
 const FITNESS_TV_REMOTE_MEDIA_DEDUPE_MS = 180;
+const FITNESS_TV_FOCUS_TOOLTIP_DELAY_MS = 1600;
+const FITNESS_TV_FOCUS_TOOLTIP_VISIBLE_MS = 2600;
 // Cast receivers run on several TV/runtime families. Modern engines normally
 // expose standard KeyboardEvent.key names, while Android TV, Samsung/Tizen,
 // LG/webOS and older CE-HTML runtimes can expose only legacy numeric codes.
@@ -3365,6 +3476,15 @@ const FITNESS_REMOTE_BLE_SERVICES = Object.freeze([
   "00001814-0000-1000-8000-00805f9b34fb",
   "00001826-0000-1000-8000-00805f9b34fb",
 ]);
+const FITNESS_REMOTE_BLE_DEVICE_INFO_SERVICE = "0000180a-0000-1000-8000-00805f9b34fb";
+const FITNESS_REMOTE_BLE_IDENTITY_CHARACTERISTICS = Object.freeze({
+  "00002a24-0000-1000-8000-00805f9b34fb":"model",
+  "00002a25-0000-1000-8000-00805f9b34fb":"serial_number",
+  "00002a26-0000-1000-8000-00805f9b34fb":"firmware_version",
+  "00002a27-0000-1000-8000-00805f9b34fb":"hw_version",
+  "00002a28-0000-1000-8000-00805f9b34fb":"sw_version",
+  "00002a29-0000-1000-8000-00805f9b34fb":"manufacturer",
+});
 const FITNESS_REMOTE_BLE_CHARACTERISTICS = Object.freeze([
   "00002a37-0000-1000-8000-00805f9b34fb",
   "00002a63-0000-1000-8000-00805f9b34fb",
@@ -3472,6 +3592,11 @@ class FitnessTvDashboardCard extends HTMLElement {
       this._castRemoteMode = "outer";
       this._castRemoteSection = null;
       this._castRemoteLastInnerFocus = new WeakMap();
+      this._castRemoteFocusTrail = [];
+      this._castRemoteSectionTrail = [];
+      this._castFocusTooltipElement = null;
+      this._castFocusTooltipTimer = null;
+      this._castFocusTooltipDismissTimer = null;
       this._castRemoteBackLastEventAt = 0;
       this._castRemoteLastPhysicalBackAt = 0;
       this._castRemoteLastNonBackInputAt = 0;
@@ -3499,6 +3624,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       // zero-second events can overwrite persisted progress before seek runs.
       this._pendingHtmlAudioResumePosition = 0;
       this._animationsEnabled = true;
+      this._conditionalCardVisibilityKey = "";
     }
   }
 
@@ -3508,7 +3634,13 @@ class FitnessTvDashboardCard extends HTMLElement {
       this._load();
       return;
     }
-    for (const card of this._mountedCards || []) card.hass = hass;
+    const visibilityKey = this._conditionalCardVisibilitySignature(hass);
+    if (this._profile && visibilityKey !== this._conditionalCardVisibilityKey) {
+      this._conditionalCardVisibilityKey = visibilityKey;
+      this._mountSelectedCards();
+    } else {
+      for (const card of this._mountedCards || []) card.hass = hass;
+    }
     this._applyAmbientBackground();
     this._reconcileScreenWakeLock();
     if (this._activeCastTarget) {
@@ -3527,12 +3659,16 @@ class FitnessTvDashboardCard extends HTMLElement {
       if (!this._boundCastKeyup) this._boundCastKeyup = (event) => this._handleCastKeyup(event);
       if (!this._boundCastPopstate) this._boundCastPopstate = (event) => this._handleCastPopstate(event);
       if (!this._boundCastPointerClick) this._boundCastPointerClick = (event) => this._handleCastPointerClick(event);
+      if (!this._boundCastPointerOver) this._boundCastPointerOver = (event) => this._handleCastPointerHover(event, true);
+      if (!this._boundCastPointerOut) this._boundCastPointerOut = (event) => this._handleCastPointerHover(event, false);
       if (!this._boundCastTextInput) this._boundCastTextInput = (event) => this._handleCastTextInput(event);
       if (!this._boundCastFocusOut) this._boundCastFocusOut = (event) => this._handleCastFocusOut(event);
       window.addEventListener("keydown", this._boundCastKeydown, true);
       window.addEventListener("keyup", this._boundCastKeyup, true);
       window.addEventListener("popstate", this._boundCastPopstate, true);
       window.addEventListener("click", this._boundCastPointerClick, true);
+      window.addEventListener("pointerover", this._boundCastPointerOver, true);
+      window.addEventListener("pointerout", this._boundCastPointerOut, true);
       window.addEventListener("input", this._boundCastTextInput, true);
       window.addEventListener("focusout", this._boundCastFocusOut, true);
       this._castRemoteExitAllowedAfter = Math.max(
@@ -3563,6 +3699,8 @@ class FitnessTvDashboardCard extends HTMLElement {
     if (this._boundCastKeyup) window.removeEventListener("keyup", this._boundCastKeyup, true);
     if (this._boundCastPopstate) window.removeEventListener("popstate", this._boundCastPopstate, true);
     if (this._boundCastPointerClick) window.removeEventListener("click", this._boundCastPointerClick, true);
+    if (this._boundCastPointerOver) window.removeEventListener("pointerover", this._boundCastPointerOver, true);
+    if (this._boundCastPointerOut) window.removeEventListener("pointerout", this._boundCastPointerOut, true);
     if (this._boundCastTextInput) window.removeEventListener("input", this._boundCastTextInput, true);
     if (this._boundCastFocusOut) window.removeEventListener("focusout", this._boundCastFocusOut, true);
     if (this._boundWakeVisibility) document.removeEventListener("visibilitychange", this._boundWakeVisibility);
@@ -3570,6 +3708,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     this._unbindBrowserMediaSessionAdapter();
     this._endCastRemoteTextEntry("disconnect");
     this._clearCastExitConfirmation();
+    this._hideCastFocusTooltip();
     this._clearCastRemoteFocus();
     this._clearCastRemoteSectionMarks();
     this._releaseScreenWakeLock();
@@ -3630,10 +3769,14 @@ class FitnessTvDashboardCard extends HTMLElement {
     }
   }
 
-  _sessionOpen() {
+  _sessionState() {
     const entityId = this._profile?.entities?.session_status;
     const state = entityId ? String(this._hass?.states?.[entityId]?.state || "") : "";
-    return ["waiting_for_live_data", "active", "paused", "recovery"].includes(state);
+    return ["waiting_for_live_data", "active", "paused", "recovery"].includes(state) ? state : "idle";
+  }
+
+  _sessionOpen() {
+    return this._sessionState() !== "idle";
   }
 
   _musicPlaying() {
@@ -3697,7 +3840,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     const l = this._labels();
     const notice = this.shadowRoot?.getElementById("cast-exit-confirm");
     if (notice) {
-      notice.textContent = String(l.cast_exit_confirm || "Press Back once more to exit Cast");
+      notice.textContent = String(l.cast_exit_confirm);
       notice.hidden = false;
     }
     this._castRemoteExitArmedUntil = performance.now() + FITNESS_TV_BACK_CONFIRM_MS;
@@ -3925,6 +4068,147 @@ class FitnessTvDashboardCard extends HTMLElement {
     }
   }
 
+  _castSelectableFromEvent(event) {
+    const path = typeof event?.composedPath === "function" ? event.composedPath() : [];
+    return path.find((item) => item?.matches?.(
+      "button,select,input,textarea,a[href],[role='button'],[tabindex]:not([tabindex='-1']),.entity-link[data-more-info]"
+    )) || null;
+  }
+
+  _castFocusTooltipText(element) {
+    if (!element || element.disabled) return "";
+    // A tooltip is fallback copy for icon-only/unlabelled controls. Never
+    // duplicate text that is already readable on the Cast screen.
+    if (this._castElementHasVisibleText(element)) return "";
+    const labels = this._labels();
+    if (element.matches?.(".entity-link[data-more-info]")) {
+      const name = String(
+        element.querySelector?.("span,strong,.title,.label")?.textContent
+        || element.getAttribute?.("aria-label")
+        || element.getAttribute?.("title")
+        || ""
+      ).trim();
+      return name ? _fitnessFormatLabel(labels.cast_entity_details_hint, {name}) : "";
+    }
+    if (element.matches?.("input[type='range']")) {
+      return String(labels.cast_progress_navigation_hint).trim();
+    }
+    const labelElement = element.querySelector?.("span");
+    return String(
+      labelElement?.textContent
+      || element.getAttribute?.("aria-label")
+      || element.getAttribute?.("title")
+      || ""
+    ).trim();
+  }
+
+  _castElementHasVisibleText(element) {
+    if (!element) return false;
+    const tag = String(element.tagName || "").toUpperCase();
+    if (tag === "SELECT") {
+      return Boolean(String(
+        element.selectedOptions?.[0]?.textContent
+        || element.options?.[Number(element.selectedIndex || 0)]?.textContent
+        || element.value
+        || ""
+      ).trim());
+    }
+    if (["INPUT", "TEXTAREA"].includes(tag)) {
+      const type = String(element.type || "").toLowerCase();
+      if (!["button", "submit", "reset", "checkbox", "radio", "range", "color", "file"].includes(type)) {
+        return Boolean(String(element.value || element.placeholder || "").trim());
+      }
+    }
+    const textParents = [];
+    const collectTextParents = (node) => {
+      for (const child of node?.childNodes || []) {
+        if (Number(child.nodeType) === 3 && String(child.textContent || "").trim()) textParents.push(node);
+        else if (Number(child.nodeType) === 1 && !["SCRIPT", "STYLE"].includes(String(child.tagName || "").toUpperCase())) collectTextParents(child);
+      }
+    };
+    collectTextParents(element);
+    return [...new Set(textParents)].some((candidate) => {
+      if (candidate.closest?.('[aria-hidden="true"]')) return false;
+      const style = globalThis.getComputedStyle?.(candidate);
+      if (style?.display === "none" || style?.visibility === "hidden" || Number(style?.opacity ?? 1) <= 0) return false;
+      const rect = candidate.getBoundingClientRect?.();
+      return !rect || (rect.width > 1 && rect.height > 1);
+    });
+  }
+
+  _positionCastFocusTooltip(tooltip, element) {
+    const target = element?.getBoundingClientRect?.();
+    if (!tooltip || !target) return;
+    tooltip.style.visibility = "hidden";
+    tooltip.hidden = false;
+    const viewportWidth = Math.max(1, Number(globalThis.innerWidth || document.documentElement?.clientWidth || 1));
+    const viewportHeight = Math.max(1, Number(globalThis.innerHeight || document.documentElement?.clientHeight || 1));
+    const bubbleWidth = Math.max(1, Number(tooltip.offsetWidth || tooltip.getBoundingClientRect?.().width || 1));
+    const bubbleHeight = Math.max(1, Number(tooltip.offsetHeight || tooltip.getBoundingClientRect?.().height || 1));
+    const targetCenter = target.left + target.width / 2;
+    const left = Math.max(8, Math.min(viewportWidth - bubbleWidth - 8, targetCenter - bubbleWidth / 2));
+    const belowTop = target.bottom + 10;
+    const belowFits = belowTop + bubbleHeight <= viewportHeight - 8;
+    const top = belowFits ? belowTop : Math.max(8, target.top - bubbleHeight - 10);
+    const arrowLeft = Math.max(14, Math.min(bubbleWidth - 14, targetCenter - left));
+    tooltip.style.left = `${Math.round(left)}px`;
+    tooltip.style.top = `${Math.round(top)}px`;
+    tooltip.style.setProperty("--cast-tooltip-arrow-left", `${Math.round(arrowLeft)}px`);
+    tooltip.dataset.placement = belowFits ? "below" : "above";
+    tooltip.style.visibility = "visible";
+  }
+
+  _hideCastFocusTooltip() {
+    if (this._castFocusTooltipTimer) clearTimeout(this._castFocusTooltipTimer);
+    if (this._castFocusTooltipDismissTimer) clearTimeout(this._castFocusTooltipDismissTimer);
+    this._castFocusTooltipTimer = null;
+    this._castFocusTooltipDismissTimer = null;
+    this._castFocusTooltipElement = null;
+    const tooltip = this.shadowRoot?.getElementById("cast-focus-tooltip");
+    if (tooltip) {
+      tooltip.hidden = true;
+      tooltip.textContent = "";
+      tooltip.style.removeProperty("left");
+      tooltip.style.removeProperty("top");
+      tooltip.style.removeProperty("visibility");
+      tooltip.style.removeProperty("--cast-tooltip-arrow-left");
+      delete tooltip.dataset.placement;
+    }
+  }
+
+  _scheduleCastFocusTooltip(element) {
+    if (!FITNESS_TV_CAST_RECEIVER || !element) return;
+    if (this._castFocusTooltipElement === element && (this._castFocusTooltipTimer || this._castFocusTooltipDismissTimer)) return;
+    this._hideCastFocusTooltip();
+    const message = this._castFocusTooltipText(element);
+    if (!message) return;
+    this._castFocusTooltipElement = element;
+    this._castFocusTooltipTimer = setTimeout(() => {
+      this._castFocusTooltipTimer = null;
+      if (this._castFocusTooltipElement !== element || !this._visibleCastRemoteElement(element)) return;
+      const tooltip = this.shadowRoot?.getElementById("cast-focus-tooltip");
+      if (!tooltip) return;
+      tooltip.textContent = message;
+      this._positionCastFocusTooltip(tooltip, element);
+      this._castFocusTooltipDismissTimer = setTimeout(() => {
+        if (this._castFocusTooltipElement === element) this._hideCastFocusTooltip();
+      }, FITNESS_TV_FOCUS_TOOLTIP_VISIBLE_MS);
+    }, FITNESS_TV_FOCUS_TOOLTIP_DELAY_MS);
+  }
+
+  _handleCastPointerHover(event, entering) {
+    if (!FITNESS_TV_CAST_RECEIVER || event?.pointerType === "touch") return;
+    const element = this._castSelectableFromEvent(event);
+    if (entering) {
+      if (element) this._scheduleCastFocusTooltip(element);
+      return;
+    }
+    if (!element || this._castFocusTooltipElement !== element) return;
+    const related = event?.relatedTarget;
+    if (related && (related === element || element.contains?.(related))) return;
+    this._hideCastFocusTooltip();
+  }
+
   _scheduleCastFrameworkRemoteAdapter() {
     if (!FITNESS_TV_CAST_RECEIVER) return;
     this._unbindCastFrameworkRemoteAdapter();
@@ -4080,14 +4364,70 @@ class FitnessTvDashboardCard extends HTMLElement {
   }
 
   _castRemoteSectionName(section) {
-    if (!section) return "none";
-    if (section.classList?.contains("tv-toolbar")) return "Top bar";
+    const labels = this._labels();
+    if (!section) return "";
+    if (section.classList?.contains("tv-toolbar")) return String(labels.cast_top_bar);
     const cardId = String(section.dataset?.cardId || "").trim();
-    if (!cardId) return "Card";
+    if (!cardId) return String(labels.cast_card);
     const item = FITNESS_TV_CARD_CATALOG.find((entry) => entry.id === cardId);
     const labelKey = String(item?.label || "");
-    const labels = this._labels();
-    return String(labels?.[labelKey] || item?.fallback || cardId.replaceAll("_", " "));
+    return String(labels[labelKey]);
+  }
+
+  _castRemoteSectionIdentity(section) {
+    if (!section) return "";
+    if (section.classList?.contains("tv-toolbar")) return "toolbar";
+    const cardId = String(section.dataset?.cardId || "");
+    return cardId ? `card:${cardId}` : "";
+  }
+
+  _castRemoteFocusSnapshot() {
+    if (!FITNESS_TV_CAST_RECEIVER || !this._castRemoteSection) return null;
+    return {
+      mode:this._castRemoteMode,
+      section:this._castRemoteSectionIdentity(this._castRemoteSection),
+      focus:this._castRemoteFocusIdentity(this._castRemoteFocusElement || this._deepActiveElement()),
+      previous:(this._castRemoteFocusTrail || [])
+        .filter((item) => item?.section === this._castRemoteSection)
+        .map((item) => String(item?.identity || this._castRemoteFocusIdentity(item?.element)))
+        .filter(Boolean),
+    };
+  }
+
+  _restoreCastRemoteFocusSnapshot(snapshot) {
+    if (!snapshot || !FITNESS_TV_CAST_RECEIVER) {
+      this._ensureCastRemoteOuterFocus();
+      return;
+    }
+    const sections = this._castRemoteSections();
+    const section = sections.find((item) => this._castRemoteSectionIdentity(item) === snapshot.section) || sections[0];
+    if (!section) return;
+    this._castRemoteSection = section;
+    if (snapshot.mode !== "inner") {
+      this._castRemoteMode = "outer";
+      this._clearCastRemoteFocus();
+      this._markCastRemoteSection(section, false);
+      return;
+    }
+    const controls = this._castRemoteInnerElements(section);
+    if (!controls.length) {
+      this._castRemoteMode = "outer";
+      this._markCastRemoteSection(section, false);
+      return;
+    }
+    const identities = [snapshot.focus, ...(snapshot.previous || []).slice().reverse()].filter(Boolean);
+    let target = null;
+    for (const identity of identities) {
+      target = controls.find((item) => this._castRemoteFocusIdentity(item) === identity) || null;
+      if (target) break;
+    }
+    target ||= controls[0];
+    this._castRemoteMode = "inner";
+    this._castRemoteFocusTrail = [];
+    this._markCastRemoteSection(section, true);
+    target.focus?.({preventScroll:true});
+    this._castRemoteLastInnerFocus.set(section, target);
+    this._markCastRemoteFocus(target, false, false);
   }
 
   _castFocusableElements() {
@@ -4098,6 +4438,10 @@ class FitnessTvDashboardCard extends HTMLElement {
     const found = [];
     const scan = (node) => {
       if (!node?.querySelectorAll) return;
+      for (const entity of node.querySelectorAll(".entity-link[data-more-info]")) {
+        if (!entity.hasAttribute("tabindex")) entity.tabIndex = 0;
+        if (!entity.hasAttribute("role")) entity.setAttribute("role", "button");
+      }
       for (const element of node.querySelectorAll("button:not([disabled]),select:not([disabled]),input:not([disabled]),textarea:not([disabled]),a[href],[role='button'],[tabindex]:not([tabindex='-1'])")) {
         if (this._visibleCastRemoteElement(element) && !element.closest?.(".layout-tools")) found.push(element);
       }
@@ -4141,11 +4485,33 @@ class FitnessTvDashboardCard extends HTMLElement {
       for (const [property, value] of Object.entries(saved)) element.style[property] = value;
     }
     this._castRemoteFocusElement = null;
+    this._hideCastFocusTooltip();
   }
 
-  _markCastRemoteFocus(element, pressed = false) {
+  _castRemoteFocusIdentity(element) {
+    if (!element) return "";
+    const data = element.dataset || {};
+    return [
+      String(element.id || ""),
+      String(data.entity || data.moreInfo || data.cardId || data.action || ""),
+      String(element.getAttribute?.("aria-label") || element.getAttribute?.("title") || ""),
+      String(element.tagName || ""),
+    ].join("|");
+  }
+
+  _markCastRemoteFocus(element, pressed = false, record = true) {
     if (!element?.style) return;
     if (this._castRemoteFocusElement !== element) {
+      const previous = this._castRemoteFocusElement;
+      if (record && previous && this._visibleCastRemoteElement(previous)) {
+        this._castRemoteFocusTrail ||= [];
+        this._castRemoteFocusTrail.push({
+          section:this._castRemoteSection,
+          element:previous,
+          identity:this._castRemoteFocusIdentity(previous),
+        });
+        if (this._castRemoteFocusTrail.length > 40) this._castRemoteFocusTrail.shift();
+      }
       this._clearCastRemoteFocus();
       this._castRemoteFocusStyles ||= new WeakMap();
       this._castRemoteFocusStyles.set(element, {
@@ -4169,13 +4535,13 @@ class FitnessTvDashboardCard extends HTMLElement {
     element.style.outlineOffset = "4px";
     element.style.borderColor = "color-mix(in srgb,var(--primary-color,#03a9f4) 90%,white 10%)";
     element.style.boxShadow = pressed
-      ? "inset 0 0 0 1px rgba(255,255,255,.32), 0 0 0 2px rgba(0,0,0,.38), 0 0 0 5px color-mix(in srgb,var(--primary-color,#03a9f4) 48%,transparent), 0 0 14px 5px color-mix(in srgb,var(--primary-color,#03a9f4) 34%,transparent), 0 8px 20px rgba(0,0,0,.32)"
-      : "inset 0 0 0 1px rgba(255,255,255,.30), 0 0 0 2px rgba(0,0,0,.42), 0 0 0 6px color-mix(in srgb,var(--primary-color,#03a9f4) 52%,transparent), 0 0 22px 8px color-mix(in srgb,var(--primary-color,#03a9f4) 42%,transparent), 0 16px 36px rgba(0,0,0,.40)";
-    element.style.transition = "transform .17s cubic-bezier(.18,.9,.2,1.08), box-shadow .17s ease, outline-color .14s ease, border-color .14s ease, background-color .14s ease, filter .14s ease";
+      ? "0 0 0 3px color-mix(in srgb,var(--primary-color,#03a9f4) 40%,transparent),0 5px 12px rgba(0,0,0,.25)"
+      : "0 0 0 4px color-mix(in srgb,var(--primary-color,#03a9f4) 46%,transparent),0 7px 16px rgba(0,0,0,.28)";
+    element.style.transition = "transform .10s ease-out, box-shadow .10s ease-out, outline-color .10s ease-out, border-color .10s ease-out, background-color .10s ease-out";
     element.style.transformOrigin = "center center";
     element.style.zIndex = "90";
-    element.style.filter = pressed ? "brightness(1.15) saturate(1.08)" : "brightness(1.15) saturate(1.09)";
-    element.style.transform = pressed ? "scale(1.02)" : "scale(1.065)";
+    element.style.filter = "none";
+    element.style.transform = pressed ? "translate3d(0,0,0) scale(.985)" : "translate3d(0,-1px,0) scale(1.018)";
     if (isRange) {
       element.style.accentColor = "var(--primary-color,#03a9f4)";
     } else if (isField) {
@@ -4184,16 +4550,39 @@ class FitnessTvDashboardCard extends HTMLElement {
       element.style.backgroundColor = "color-mix(in srgb,var(--primary-color,#03a9f4) 24%,var(--secondary-background-color))";
     }
     element.scrollIntoView?.({block:"nearest",inline:"nearest"});
+    this._scheduleCastFocusTooltip(element);
     if (pressed) {
       if (this._castRemotePressTimer) clearTimeout(this._castRemotePressTimer);
       this._castRemotePressTimer = setTimeout(() => {
         if (this._castRemoteFocusElement === element) {
-          element.style.transform = "scale(1.065)";
-          element.style.filter = "brightness(1.15) saturate(1.09)";
-          element.style.boxShadow = "inset 0 0 0 1px rgba(255,255,255,.30), 0 0 0 2px rgba(0,0,0,.42), 0 0 0 6px color-mix(in srgb,var(--primary-color,#03a9f4) 52%,transparent), 0 0 22px 8px color-mix(in srgb,var(--primary-color,#03a9f4) 42%,transparent), 0 16px 36px rgba(0,0,0,.40)";
+          element.style.transform = "translate3d(0,-1px,0) scale(1.018)";
+          element.style.filter = "none";
+          element.style.boxShadow = "0 0 0 4px color-mix(in srgb,var(--primary-color,#03a9f4) 46%,transparent),0 7px 16px rgba(0,0,0,.28)";
         }
-      }, 130);
+      }, 90);
     }
+  }
+
+  _restoreCastRemotePreviousFocus() {
+    const controls = this._castRemoteInnerElements(this._castRemoteSection);
+    while (this._castRemoteFocusTrail?.length) {
+      const previous = this._castRemoteFocusTrail.pop();
+      if (previous?.section !== this._castRemoteSection) continue;
+      let element = previous?.element;
+      if (!controls.includes(element) || element?.disabled || !this._visibleCastRemoteElement(element)) {
+        const identity = String(previous?.identity || "");
+        element = identity
+          ? controls.find((candidate) => this._castRemoteFocusIdentity(candidate) === identity)
+          : null;
+      }
+      if (!element || element.disabled || !this._visibleCastRemoteElement(element)) continue;
+      this._endCastRemoteTextEntry("restore-focus");
+      element.focus?.({preventScroll:true});
+      this._castRemoteLastInnerFocus.set(this._castRemoteSection, element);
+      this._markCastRemoteFocus(element, false, false);
+      return true;
+    }
+    return false;
   }
 
   _ensureCastRemoteOuterFocus() {
@@ -4217,6 +4606,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     }
     this._castRemoteMode = "inner";
     this._castRemoteSection = section;
+    this._castRemoteFocusTrail = [];
     this._markCastRemoteSection(section, true);
     let target = this._castRemoteLastInnerFocus.get(section);
     if (!controls.includes(target)) target = controls[0];
@@ -4235,6 +4625,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     const modalRoot = this.shadowRoot?.getElementById("modal-root");
     if (modalRoot?.children?.length) modalRoot.replaceChildren();
     this._castRemoteMode = "outer";
+    this._castRemoteFocusTrail = [];
     this._clearCastRemoteFocus();
     const sections = this._castRemoteSections();
     if (!sections.includes(section)) this._castRemoteSection = sections[0] || null;
@@ -4303,6 +4694,11 @@ class FitnessTvDashboardCard extends HTMLElement {
       if (!sections.length) return true;
       const current = sections.includes(this._castRemoteSection) ? this._castRemoteSection : sections[0];
       const next = this._moveCastRemoteSpatial(sections, current, key, {outer:true});
+      if (next && next !== current) {
+        this._castRemoteSectionTrail ||= [];
+        this._castRemoteSectionTrail.push(current);
+        if (this._castRemoteSectionTrail.length > 24) this._castRemoteSectionTrail.shift();
+      }
       this._castRemoteSection = next || current;
       this._markCastRemoteSection(this._castRemoteSection, false);
       this._recordCastRemoteDiagnostic("nav", `${key} · ${this._castRemoteSectionName(this._castRemoteSection)}`);
@@ -4324,10 +4720,18 @@ class FitnessTvDashboardCard extends HTMLElement {
       this._markCastRemoteFocus(active, true);
       return true;
     }
+    if (tag === "INPUT" && type === "range" && ["ArrowUp","ArrowDown"].includes(key)) {
+      if (!this._restoreCastRemotePreviousFocus()) this._leaveCastRemoteSection("range-exit");
+      return true;
+    }
     if (tag === "SELECT" && ["ArrowUp","ArrowDown"].includes(key)) {
       const delta = key === "ArrowUp" ? -1 : 1;
       const max = Math.max(0, Number(active.options?.length || 1) - 1);
-      active.selectedIndex = Math.max(0, Math.min(max, Number(active.selectedIndex || 0) + delta));
+      let nextIndex = Number(active.selectedIndex || 0);
+      do {
+        nextIndex = Math.max(0, Math.min(max, nextIndex + delta));
+      } while (active.options?.[nextIndex]?.disabled && nextIndex > 0 && nextIndex < max);
+      if (!active.options?.[nextIndex]?.disabled) active.selectedIndex = nextIndex;
       active.dispatchEvent?.(new Event("change", {bubbles:true,composed:true}));
       this._markCastRemoteFocus(active, true);
       return true;
@@ -4369,8 +4773,10 @@ class FitnessTvDashboardCard extends HTMLElement {
       const refreshed = this._castRemoteInnerElements();
       const focused = this._deepActiveElement();
       if (refreshed.length && !refreshed.includes(focused)) {
-        refreshed[0].focus?.({preventScroll:true});
-        this._markCastRemoteFocus(refreshed[0]);
+        if (!this._restoreCastRemotePreviousFocus()) {
+          refreshed[0].focus?.({preventScroll:true});
+          this._markCastRemoteFocus(refreshed[0], false, false);
+        }
       }
     }, 60);
     return true;
@@ -4440,6 +4846,9 @@ class FitnessTvDashboardCard extends HTMLElement {
 
     if (this._castRemoteMode === "inner") {
       this._clearCastExitConfirmation();
+      // Back always exits the entered section in one step. Focus history is
+      // reserved for range navigation and recovery after a control disables;
+      // walking it here makes Back appear to dismiss tooltip text instead.
       this._leaveCastRemoteSection(source);
       if (physicalBack) {
         this._castRemoteLastPhysicalBackAt = now;
@@ -4450,6 +4859,15 @@ class FitnessTvDashboardCard extends HTMLElement {
     }
 
     this._ensureCastRemoteOuterFocus();
+    while (this._castRemoteSectionTrail?.length) {
+      const previousSection = this._castRemoteSectionTrail.pop();
+      if (!this._castRemoteSections().includes(previousSection) || !this._visibleCastRemoteElement(previousSection)) continue;
+      this._castRemoteSection = previousSection;
+      this._markCastRemoteSection(previousSection, false);
+      this._ensureCastBackGuard();
+      this._recordCastRemoteDiagnostic("back", `restore ${this._castRemoteSectionName(previousSection)}`);
+      return true;
+    }
     // Browser history is only a containment/fallback mechanism. Cast runtimes
     // can emit popstate while booting or replacing their receiver route, so a
     // history event must never arm or complete the destructive double-Back
@@ -4669,11 +5087,13 @@ class FitnessTvDashboardCard extends HTMLElement {
   }
 
   _labels(profile = this._profile || this._fallbackProfile) {
-    if (!profile) return {};
     const language = String(profile?.language || this._access?.language || this._hass?.language || "en").toLowerCase().split("-")[0];
-    return profile.labels_by_language?.[language]
-      || profile.labels_by_language?.en
-      || profile.labels
+    return profile?.labels_by_language?.[language]
+      || profile?.labels_by_language?.en
+      || profile?.labels
+      || this._rootLabelsByLanguage?.[language]
+      || this._rootLabelsByLanguage?.en
+      || this._rootLabels
       || {};
   }
 
@@ -4685,6 +5105,8 @@ class FitnessTvDashboardCard extends HTMLElement {
       if (_fitnessEnsureFrontendVersion(data?.frontend_version)) return;
       this._allProfiles = data?.profiles || [];
       this._access = data?.access || {role:"none",is_admin:false,session_allowed:false};
+      this._rootLabels = data?.labels || {};
+      this._rootLabelsByLanguage = data?.labels_by_language || {};
       this._castTargets = Array.isArray(data?.cast_targets) ? data.cast_targets : [];
       this._intensityColors = data?.intensity_colors || {};
       this._fallbackProfile = this._allProfiles[0] || null;
@@ -4736,7 +5158,8 @@ class FitnessTvDashboardCard extends HTMLElement {
         }).catch(() => {});
       }
     } catch (err) {
-      this._loadError = String(err?.message || err || "Unknown error");
+      console.error("[Fitness TV] dashboard load failed", err);
+      this._loadError = this._labels().flow_error_unknown;
       this._loaded = true;
       this._render();
     } finally {
@@ -4830,7 +5253,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     const metadata = this._normalizedMediaMetadata(item);
     return {
       media_content_id:String(item.media_content_id || ""),
-      title:String(item.title || item.media_content_id || "Media"),
+      title:String(item.title || item.media_content_id || this._labels().media_browser),
       artist:String(metadata.artist || item.artist || ""),
       album:String(metadata.album || item.album || ""),
       thumbnail:String(metadata.thumbnail || item.thumbnail || ""),
@@ -4889,9 +5312,9 @@ class FitnessTvDashboardCard extends HTMLElement {
       const playlist = this._userPlaylist(raw.id);
       if (playlist) context = {kind:"user",id:playlist.id,title:playlist.name,items:playlist.items || [],thumbnail:playlist.thumbnail || ""};
     } else if (["provider","youtube_playlist"].includes(kind) && raw.item?.media_content_id) {
-      context = {kind,title:String(raw.title || raw.item.title || "Playlist"),item:this._playlistItemSnapshot(raw.item)};
+      context = {kind,title:String(raw.title || raw.item.title || this._labels().music_playlist),item:this._playlistItemSnapshot(raw.item)};
     } else if (kind === "selection" && Array.isArray(raw.items) && raw.items.length) {
-      context = {kind:"selection",title:String(raw.title || "Selected results"),items:raw.items.map((item) => this._playlistItemSnapshot(item)).filter((item) => item.media_content_id)};
+      context = {kind:"selection",title:String(raw.title || this._labels().music_selected_items),items:raw.items.map((item) => this._playlistItemSnapshot(item)).filter((item) => item.media_content_id)};
     }
     if (!context) { this._activePlaylistContext = null; return null; }
     const index = Math.max(0, Number(raw.index || 0) || 0);
@@ -4913,7 +5336,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     if (!this._profile || !this._hass || !this._canControlProfile) return;
     this._userPlaylists = (playlists || []).slice(0, 50).map((playlist) => ({
       id:String(playlist.id || this._newUserPlaylistId()),
-      name:String(playlist.name || "Playlist").trim() || "Playlist",
+      name:String(playlist.name || this._labels().music_playlist).trim(),
       thumbnail:String(playlist.thumbnail || playlist.items?.find?.((item) => item?.thumbnail)?.thumbnail || ""),
       items:(playlist.items || []).slice(0, 500).map((item) => this._playlistItemSnapshot(item)).filter((item) => item.media_content_id),
     }));
@@ -5802,7 +6225,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       album,
       year,
       thumbnail,
-      details:current.details || "Track",
+      details:current.details || this._labels().music_type_tracks,
       provider_origin:current.provider_origin || "Music Assistant",
       position:this._embeddedPosition,
       duration:this._embeddedDuration,
@@ -5835,7 +6258,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     this._maAudioElement.preload = "auto";
     const player = new SendspinPlayer({
       playerId,
-      clientName:`Fitness TV - ${String(this._profile?.profile_name || "Profile")}`,
+      clientName:`Fitness TV - ${String(this._profile?.profile_name || this._labels().tv_profile)}`,
       correctionMode:"quality-local",
       codecs:["pcm"],
       requiredLeadTimeMs:250,
@@ -6185,7 +6608,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     const mime = String(resolved?.mime_type || "").toLowerCase();
     const audioLike = !mime || mime.startsWith("audio/") || mime.includes("mpegurl") || mime.includes("playlist") || mime === "application/octet-stream";
     const mediaUrl = this._resolvedMediaUrl(resolved?.url);
-    if (!mediaUrl || !audioLike) throw (lastError || new Error(l.music_only || "Select an audio item to play music."));
+    if (!mediaUrl || !audioLike) throw (lastError || new Error(l.music_only));
     this._hardStopMusic();
     this._musicMetadata = this._normalizedMediaMetadata(metadata);
     const resumePosition = this._mediaSeconds(this._musicMetadata.position);
@@ -6194,7 +6617,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     this._musicAudio.volume = 1;
     this._musicAudio.currentTime = 0;
     this._currentMediaContentId = mediaContentId;
-    this._musicTitle = title || l.now_playing || "Music";
+    this._musicTitle = title || l.now_playing;
     try {
       await this._musicAudio.play();
       if (resumePosition > 0) {
@@ -6297,10 +6720,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       console.error("[Fitness TV] media command failed", err);
       const failedMediaContentId = String(data.media_content_id || this._currentMediaContentId || this._sharedMediaState?.media_content_id || "");
       const failedTitle = String(data.title || this._musicTitle || this._sharedMediaState?.title || "");
-      const failure = String(err?.message || err || "").trim();
-      const details = this._embeddedProvider === "music_assistant" && failure
-        ? `Music Assistant · ${failure}`
-        : String(this._musicMetadata?.details || data.details || "");
+      const details = this._labels().media_error;
       await this._syncMediaState({
         media_content_id:failedMediaContentId,
         title:failedTitle,
@@ -6428,15 +6848,17 @@ class FitnessTvDashboardCard extends HTMLElement {
     const fallbackRgb = Array.isArray(colors.light) ? colors.light
       : Array.isArray(colors.moderate) ? colors.moderate
       : [3,169,244];
-    const sessionEntity = this._profile?.entities?.session_status;
-    const sessionState = sessionEntity ? String(this._hass?.states?.[sessionEntity]?.state || "") : "";
+    const sessionState = this._sessionState();
     if (sessionState === "active") {
       const intensityEntity = this._profile?.entities?.heart_rate_intensity;
       const intensity = intensityEntity ? String(this._hass?.states?.[intensityEntity]?.state || "") : "";
       const key = ["very_light","light","moderate","vigorous","near_maximal"].includes(intensity) ? intensity : "moderate";
       const liveRgb = colors[key];
-      return {rgb:Array.isArray(liveRgb) && liveRgb.length >= 3 ? liveRgb : fallbackRgb, live:true, intensity:key};
+      return {rgb:Array.isArray(liveRgb) && liveRgb.length >= 3 ? liveRgb : fallbackRgb, live:true, intensity:key, state:sessionState};
     }
+    if (sessionState === "waiting_for_live_data") return {rgb:[66,165,245],live:true,intensity:"light",state:sessionState};
+    if (sessionState === "paused") return {rgb:[255,152,0],live:true,intensity:"moderate",state:sessionState};
+    if (sessionState === "recovery") return {rgb:[38,166,154],live:true,intensity:"very_light",state:sessionState};
 
     const fitnessEntity = this._profile?.entities?.vo2max_percent_predicted;
     const fitness = fitnessEntity ? Number(this._hass?.states?.[fitnessEntity]?.state) : NaN;
@@ -6448,7 +6870,7 @@ class FitnessTvDashboardCard extends HTMLElement {
         : "near_maximal")
       : "light";
     const rgb = colors[key];
-    return {rgb:Array.isArray(rgb) && rgb.length >= 3 ? rgb : fallbackRgb, live:false, intensity:key, fallback:!Number.isFinite(fitness)};
+    return {rgb:Array.isArray(rgb) && rgb.length >= 3 ? rgb : fallbackRgb, live:false, intensity:key, state:"idle", fallback:!Number.isFinite(fitness)};
   }
 
   _applyAmbientBackground() {
@@ -6466,7 +6888,11 @@ class FitnessTvDashboardCard extends HTMLElement {
     this.style.setProperty("--fitness-tv-ambient-alpha", String(alpha));
     this.style.setProperty("--fitness-tv-ambient-core-alpha", String(alpha * 0.82));
     this.style.setProperty("--fitness-tv-ambient-soft-alpha", String(alpha * 0.38));
-    this.style.setProperty("--fitness-motion-speed", `${tone?.live ? motion.speed : 10.5}s`);
+    const stateSpeed = tone?.state === "waiting_for_live_data" ? 8.4
+      : tone?.state === "paused" ? 9.2
+      : tone?.state === "recovery" ? 7.8
+      : motion.speed;
+    this.style.setProperty("--fitness-motion-speed", `${tone?.live ? stateSpeed : 10.5}s`);
     this.style.setProperty("--fitness-motion-lift", `${tone?.live ? motion.lift : 1.05}px`);
     this.style.setProperty("--fitness-energy-alpha", String(tone?.live ? motion.energy : .14));
     this.style.setProperty("--fitness-card-breath-scale", String(tone?.live ? motion.breath : 1.0055));
@@ -6477,17 +6903,20 @@ class FitnessTvDashboardCard extends HTMLElement {
     );
     this.toggleAttribute("fitness-live-ambient", Boolean(tone?.live));
     this.setAttribute("fitness-workout-zone", String(tone?.intensity || "light"));
+    this.setAttribute("fitness-session-state", String(tone?.state || "idle"));
     this.shadowRoot?.querySelectorAll(".tv-card-slot>.tv-mounted-card").forEach((card, index) => {
       card.toggleAttribute("fitness-animations", Boolean(this._animationsEnabled));
       card.toggleAttribute("fitness-live-workout", Boolean(tone?.live));
       card.setAttribute("fitness-workout-zone", String(tone?.intensity || "light"));
+      card.setAttribute("fitness-session-state", String(tone?.state || "idle"));
       if (this._motionEnabled()) this._ensureCardLivingMotion(card, index);
     });
   }
 
   _render() {
     if (!this.shadowRoot) return;
-    const accessCopy = _fitnessAccessCopy(this._hass);
+    const castFocusSnapshot = this._castRemoteFocusSnapshot();
+    const accessCopy = _fitnessAccessCopy(this._labels());
     if (this._loadError) {
       this.shadowRoot.innerHTML = `<ha-card><div class="fatal">${_fitnessEscape(this._loadError)}</div></ha-card>${this._style()}`;
       return;
@@ -6501,52 +6930,53 @@ class FitnessTvDashboardCard extends HTMLElement {
       const noRights = !this._access?.is_admin && !(this._allProfiles || []).length;
       this.shadowRoot.innerHTML = noRights
         ? `<ha-card class="tv-shell"><div class="access-denied"><ha-icon icon="mdi:shield-lock-outline"></ha-icon><div><strong>${_fitnessEscape(accessCopy.denied)}</strong><span>${_fitnessEscape(accessCopy.denied_hint)}</span></div></div></ha-card>${this._style()}`
-        : `<ha-card><div class="fatal">${_fitnessEscape(l.tv_no_profiles || "No Fitness profile has the TV dashboard enabled.")}</div></ha-card>${this._style()}`;
+        : `<ha-card><div class="fatal">${_fitnessEscape(l.tv_no_profiles)}</div></ha-card>${this._style()}`;
       return;
     }
     const l = this._labels();
     const fixedProfile = Boolean(this.config?.profile_entry_id);
     const canControl = Boolean(this._access?.is_admin || this._profile?.access?.can_control);
-    const canNavigateProfiles = Boolean(this._access?.is_admin || this._profiles.length > 1);
+    const canNavigateProfiles = Boolean(this._access?.is_admin || (this._profiles || []).length > 1);
     this._canControlProfile = canControl;
     const profileOptions = this._profiles.map((profile) => `<option value="${_fitnessEscape(profile.entry_id)}" ${profile.entry_id === this._profile.entry_id ? "selected" : ""}>${_fitnessEscape(profile.profile_name)}${profile.access?.can_control ? "" : ` · ${_fitnessEscape(accessCopy.view_only)}`}</option>`).join("");
     const accessBadge = canControl ? "" : `<span class="view-only-badge"><ha-icon icon="mdi:eye-outline"></ha-icon>${_fitnessEscape(accessCopy.view_only)}</span>`;
     const profileIdentity = fixedProfile
       ? `<div class="tv-profile-identity" title="${_fitnessEscape(this._profile.profile_name)}"><ha-icon icon="mdi:account-circle-outline"></ha-icon><span>${_fitnessEscape(this._profile.profile_name)}</span>${accessBadge}</div>`
-      : `<label class="profile-control"><span>${_fitnessEscape(l.tv_profile || "Profile")}</span><select id="profile">${profileOptions}</select></label>`;
-    const profileActions = FITNESS_TV_CAST_RECEIVER
+      : `<label class="profile-control"><span>${_fitnessEscape(l.tv_profile)}</span><select id="profile">${profileOptions}</select></label>`;
+    const profileNavTool = !FITNESS_TV_CAST_RECEIVER && fixedProfile && canNavigateProfiles
+      ? `<button class="tool profile-tool" id="profiles" title="${_fitnessEscape(l.tv_profiles)}"><ha-icon icon="mdi:account-multiple-outline"></ha-icon><span>${_fitnessEscape(l.tv_profiles)}</span></button>`
+      : "";
+    const profileActions = profileNavTool + (FITNESS_TV_CAST_RECEIVER
       ? (canControl ? [
-          `<button class="tool backend-tool" id="backend-config" title="${_fitnessEscape(l.configure_account || l.backend_settings || "Fitness settings")}"><ha-icon icon="mdi:account-cog-outline"></ha-icon><span>${_fitnessEscape(l.configure_account || l.backend_settings || "Fitness settings")}</span></button>`,
-          `<button class="tool configure-tool" id="configure" title="${_fitnessEscape(l.configure_tv || l.reconfigure || "Configure Fitness TV")}"><ha-icon icon="mdi:television-cog"></ha-icon><span>${_fitnessEscape(l.configure_tv || l.reconfigure || "Configure Fitness TV")}</span></button>`,
-          `<button class="tool cast-profile-toggle ${this._profile?.tv_dashboard?.light_feedback_enabled !== false ? "active" : ""}" id="light-feedback-toggle" aria-pressed="${this._profile?.tv_dashboard?.light_feedback_enabled !== false ? "true" : "false"}" title="${_fitnessEscape(this._profile?.tv_dashboard?.light_feedback_enabled !== false ? (l.light_feedback_on || "Light feedback on") : (l.light_feedback_off || "Light feedback off"))}"><ha-icon icon="${this._profile?.tv_dashboard?.light_feedback_enabled !== false ? "mdi:lightbulb-on-outline" : "mdi:lightbulb-off-outline"}"></ha-icon><span>${_fitnessEscape(this._profile?.tv_dashboard?.light_feedback_enabled !== false ? (l.light_feedback_on || "Light feedback on") : (l.light_feedback_off || "Light feedback off"))}</span></button>`,
-          `<button class="tool cast-profile-toggle ${this._profile?.tv_dashboard?.tts_announcements_enabled !== false ? "active" : ""}" id="tts-announcements-toggle" aria-pressed="${this._profile?.tv_dashboard?.tts_announcements_enabled !== false ? "true" : "false"}" title="${_fitnessEscape(this._profile?.tv_dashboard?.tts_announcements_enabled !== false ? (l.tts_announcements_on || "TTS announcements on") : (l.tts_announcements_off || "TTS announcements off"))}"><ha-icon icon="${this._profile?.tv_dashboard?.tts_announcements_enabled !== false ? "mdi:account-voice" : "mdi:account-voice-off"}"></ha-icon><span>${_fitnessEscape(this._profile?.tv_dashboard?.tts_announcements_enabled !== false ? (l.tts_announcements_on || "TTS announcements on") : (l.tts_announcements_off || "TTS announcements off"))}</span></button>`,
-          `<button class="tool cast-receiver-action" id="stop-cast" title="${_fitnessEscape(l.cast_stop || "Stop Cast")}"><ha-icon icon="mdi:cast-off"></ha-icon><span>${_fitnessEscape(l.cast_stop || "Stop Cast")}</span></button>`,
+          `<button class="tool backend-tool" id="backend-config" title="${_fitnessEscape(l.configure_account || l.backend_settings)}"><ha-icon icon="mdi:account-cog-outline"></ha-icon><span>${_fitnessEscape(l.configure_account || l.backend_settings)}</span></button>`,
+          `<button class="tool configure-tool" id="configure" title="${_fitnessEscape(l.configure_tv || l.reconfigure)}"><ha-icon icon="mdi:cog-outline"></ha-icon><span>${_fitnessEscape(l.configure_tv || l.reconfigure)}</span></button>`,
+          `<button class="tool cast-profile-toggle ${this._profile?.tv_dashboard?.light_feedback_enabled !== false ? "active" : ""}" id="light-feedback-toggle" aria-pressed="${this._profile?.tv_dashboard?.light_feedback_enabled !== false ? "true" : "false"}" title="${_fitnessEscape(this._profile?.tv_dashboard?.light_feedback_enabled !== false ? (l.light_feedback_on) : (l.light_feedback_off))}"><ha-icon icon="${this._profile?.tv_dashboard?.light_feedback_enabled !== false ? "mdi:lightbulb-on-outline" : "mdi:lightbulb-off-outline"}"></ha-icon><span>${_fitnessEscape(this._profile?.tv_dashboard?.light_feedback_enabled !== false ? (l.light_feedback_on) : (l.light_feedback_off))}</span></button>`,
+          `<button class="tool cast-profile-toggle ${this._profile?.tv_dashboard?.tts_announcements_enabled !== false ? "active" : ""}" id="tts-announcements-toggle" aria-pressed="${this._profile?.tv_dashboard?.tts_announcements_enabled !== false ? "true" : "false"}" title="${_fitnessEscape(this._profile?.tv_dashboard?.tts_announcements_enabled !== false ? (l.tts_announcements_on) : (l.tts_announcements_off))}"><ha-icon icon="${this._profile?.tv_dashboard?.tts_announcements_enabled !== false ? "mdi:account-voice" : "mdi:account-voice-off"}"></ha-icon><span>${_fitnessEscape(this._profile?.tv_dashboard?.tts_announcements_enabled !== false ? (l.tts_announcements_on) : (l.tts_announcements_off))}</span></button>`,
         ].join("") : "")
-      : [
-          fixedProfile && canNavigateProfiles ? `<button class="tool profile-tool" id="profiles" title="${_fitnessEscape(l.tv_profiles || "Profiles")}"><ha-icon icon="mdi:account-multiple-outline"></ha-icon><span>${_fitnessEscape(l.tv_profiles || "Profiles")}</span></button>` : "",
-          canControl ? `<button class="tool backend-tool" id="backend-config" title="${_fitnessEscape(l.backend_settings || "Fitness settings")}"><ha-icon icon="mdi:account-cog-outline"></ha-icon><span>${_fitnessEscape(l.backend_settings || "Fitness settings")}</span></button>` : "",
-          canControl ? `<button class="tool configure-tool" id="configure" title="${_fitnessEscape(l.reconfigure || "Configure")}"><ha-icon icon="mdi:cog-outline"></ha-icon><span>${_fitnessEscape(l.reconfigure || "Configure")}</span></button>` : "",
-          canControl ? `<button class="tool" id="cards" title="${_fitnessEscape(l.add_cards || "Add cards")}"><ha-icon icon="mdi:view-grid-plus-outline"></ha-icon><span>${_fitnessEscape(l.add_cards || "Add cards")}</span></button>` : "",
-          canControl ? `<button class="tool arrange-tool" id="arrange" title="${_fitnessEscape(l.arrange_cards || "Arrange")}" aria-pressed="${this._layoutEditing ? "true" : "false"}"><ha-icon icon="mdi:drag"></ha-icon><span>${_fitnessEscape(l.arrange_cards || "Arrange")}</span></button>` : "",
-          canControl ? `<button class="tool" id="remote-sensors" title="${_fitnessEscape(l.remote_sensors || "Remote sensors")}"><ha-icon icon="mdi:access-point"></ha-icon><span>${_fitnessEscape(l.remote_sensors || "Remote sensors")}</span></button>` : "",
-          `<button class="tool" id="fullscreen" title="${_fitnessEscape(l.fullscreen || "Fullscreen")}"><ha-icon icon="mdi:fullscreen"></ha-icon><span>${_fitnessEscape(l.fullscreen || "Fullscreen")}</span></button>`,
-          canControl ? `<button class="tool" id="cast" title="${_fitnessEscape(l.cast_dashboard || "Cast")}"><ha-icon icon="mdi:cast"></ha-icon><span>${_fitnessEscape(l.cast_dashboard || "Cast")}</span></button>` : "",
-          canControl ? `<button class="tool" id="stop-cast" title="${_fitnessEscape(l.cast_stop || "Stop Cast")}" hidden><ha-icon icon="mdi:cast-off"></ha-icon><span>${_fitnessEscape(l.cast_stop || "Stop Cast")}</span></button>` : "",
-        ].join("");
-    const musicTools = canControl ? `<button class="icon-tool playlist-control" id="playlist-prev" title="${_fitnessEscape(l.previous || "Previous")}" hidden><ha-icon icon="mdi:skip-previous"></ha-icon></button>
-            <button class="icon-tool" id="play" title="${_fitnessEscape(l.play || "Play")}"><ha-icon icon="mdi:play"></ha-icon></button>
-            <button class="icon-tool" id="pause" title="${_fitnessEscape(l.pause || "Pause")}"><ha-icon icon="mdi:pause"></ha-icon></button>
-            <button class="icon-tool playlist-control" id="playlist-next" title="${_fitnessEscape(l.next || "Next")}" hidden><ha-icon icon="mdi:skip-next"></ha-icon></button>
-            <button class="tool media-tool" id="browse" title="${_fitnessEscape(l.media_browser || "Media browser")}"><ha-icon icon="mdi:folder-music-outline"></ha-icon><span>${_fitnessEscape(l.media_browser || "Media browser")}</span></button>
-            <button class="icon-tool playlist-control" id="playlist-shuffle" title="${_fitnessEscape(l.shuffle || "Shuffle")}" hidden><ha-icon icon="mdi:shuffle"></ha-icon></button>
-            <button class="icon-tool playlist-control" id="playlist-repeat" title="${_fitnessEscape(l.repeat || "Repeat")}" hidden><ha-icon icon="mdi:repeat"></ha-icon></button>
-            <button class="icon-tool playlist-control" id="playlist-open" title="${_fitnessEscape(l.music_open_playlist || "Open playlist")}" hidden><ha-icon icon="mdi:playlist-edit"></ha-icon></button>` : "";
+      : (canControl ? [
+          `<button class="tool backend-tool" id="backend-config" title="${_fitnessEscape(l.backend_settings)}"><ha-icon icon="mdi:account-cog-outline"></ha-icon><span>${_fitnessEscape(l.backend_settings)}</span></button>`,
+          `<button class="tool configure-tool" id="configure" title="${_fitnessEscape(l.reconfigure)}"><ha-icon icon="mdi:cog-outline"></ha-icon><span>${_fitnessEscape(l.reconfigure)}</span></button>`,
+          `<button class="tool" id="cards" title="${_fitnessEscape(l.add_cards)}"><ha-icon icon="mdi:view-grid-plus-outline"></ha-icon><span>${_fitnessEscape(l.add_cards)}</span></button>`,
+          `<button class="tool arrange-tool" id="arrange" title="${_fitnessEscape(l.arrange_cards)}" aria-pressed="${this._layoutEditing ? "true" : "false"}"><ha-icon icon="mdi:drag"></ha-icon><span>${_fitnessEscape(l.arrange_cards)}</span></button>`,
+          `<button class="tool" id="remote-sensors" title="${_fitnessEscape(l.remote_sensors)}"><ha-icon icon="mdi:access-point"></ha-icon><span>${_fitnessEscape(l.remote_sensors)}</span></button>`,
+          `<button class="tool" id="fullscreen" title="${_fitnessEscape(l.fullscreen)}"><ha-icon icon="mdi:fullscreen"></ha-icon><span>${_fitnessEscape(l.fullscreen)}</span></button>`,
+          `<button class="tool" id="cast" title="${_fitnessEscape(l.cast_dashboard)}"><ha-icon icon="mdi:cast"></ha-icon><span>${_fitnessEscape(l.cast_dashboard)}</span></button>`,
+          `<button class="tool" id="stop-cast" title="${_fitnessEscape(l.cast_stop)}" hidden><ha-icon icon="mdi:cast-off"></ha-icon><span>${_fitnessEscape(l.cast_stop)}</span></button>`,
+        ].join("") : ""));
+    const musicTools = canControl ? `<button class="icon-tool playlist-control" id="playlist-prev" title="${_fitnessEscape(l.previous)}" hidden><ha-icon icon="mdi:skip-previous"></ha-icon></button>
+            <button class="icon-tool" id="play" title="${_fitnessEscape(l.play)}"><ha-icon icon="mdi:play"></ha-icon></button>
+            <button class="icon-tool" id="pause" title="${_fitnessEscape(l.pause)}"><ha-icon icon="mdi:pause"></ha-icon></button>
+            <button class="icon-tool playlist-control" id="playlist-next" title="${_fitnessEscape(l.next)}" hidden><ha-icon icon="mdi:skip-next"></ha-icon></button>
+            <button class="tool media-tool" id="browse" title="${_fitnessEscape(l.media_browser)}"><ha-icon icon="mdi:folder-music-outline"></ha-icon><span>${_fitnessEscape(l.media_browser)}</span></button>
+            <button class="icon-tool playlist-control" id="playlist-shuffle" title="${_fitnessEscape(l.shuffle)}" hidden><ha-icon icon="mdi:shuffle"></ha-icon></button>
+            <button class="icon-tool playlist-control" id="playlist-repeat" title="${_fitnessEscape(l.repeat)}" hidden><ha-icon icon="mdi:repeat"></ha-icon></button>
+            <button class="icon-tool playlist-control" id="playlist-open" title="${_fitnessEscape(l.music_open_playlist)}" hidden><ha-icon icon="mdi:playlist-edit"></ha-icon></button>` : "";
     this.shadowRoot.innerHTML = `
       <ha-card class="tv-shell ${canControl ? "" : "view-only-shell"}">
         <div class="fitness-ambient-layer" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
         <div class="tv-oled-stage">
         <div class="tv-toolbar ${fixedProfile ? "fixed-profile" : ""}">
-          <div class="tv-brand"><img class="fitness-brand-icon" src="${_fitnessEscape(_fitnessBrandIconUrl(this._hass))}" alt=""><strong>${_fitnessEscape(l.tv_dashboard || "Fitness TV")}</strong></div>
+          <div class="tv-brand"><img class="fitness-brand-icon" src="${_fitnessEscape(_fitnessBrandIconUrl(this._hass))}" alt=""><strong>${_fitnessEscape(l.tv_dashboard)}</strong></div>
           ${profileIdentity}
           <div class="tv-actions">${profileActions}</div>
           <div class="music-controls ${canControl ? "" : "read-only-media"}">
@@ -6554,25 +6984,36 @@ class FitnessTvDashboardCard extends HTMLElement {
             <div class="media-now">
               <div class="media-art"><img id="media-thumb" alt="" hidden><ha-icon id="media-thumb-fallback" icon="mdi:album"></ha-icon></div>
               <div class="media-now-main">
-                <div class="media-copy"><small id="media-status"></small><div class="media-scroll-line"><strong id="media-title">${_fitnessEscape(this._musicTitle || l.nothing_playing || "No music selected")}</strong></div><div class="media-scroll-line"><span id="media-artist"></span></div></div>
+                <div class="media-copy"><small id="media-status"></small><div class="media-scroll-line"><strong id="media-title">${_fitnessEscape(this._musicTitle || l.nothing_playing)}</strong></div><div class="media-scroll-line"><span id="media-artist"></span></div></div>
                 <div class="media-progress-wrap">
-                  <input id="media-progress" type="range" min="0" max="1" step="0.25" value="0" ${canControl ? "" : "disabled"} aria-label="${_fitnessEscape(l.music_progress || "Music progress")}">
+                  <input id="media-progress" type="range" min="0" max="1" step="0.25" value="0" ${canControl ? "" : "disabled"} aria-label="${_fitnessEscape(l.music_progress)}">
                   <div class="media-time-row"><span id="media-current">0:00</span><span id="media-remaining">—</span></div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-        ${canControl ? "" : `<div class="view-only-notice"><ha-icon icon="mdi:eye-outline"></ha-icon><span>${_fitnessEscape(accessCopy.view_only)} — ${_fitnessEscape(accessCopy.denied_hint.replace("does not have permission to access this Fitness TV page.", "can view this Fitness profile but cannot change it."))}</span></div>`}
+        ${canControl ? "" : `<div class="view-only-notice"><ha-icon icon="mdi:eye-outline"></ha-icon><span>${_fitnessEscape(accessCopy.view_only)} — ${_fitnessEscape(accessCopy.view_only_hint)}</span></div>`}
         <div class="tv-grid" id="grid"></div>
         </div>
         <div id="modal-root"></div>
         <div id="cast-exit-confirm" class="cast-exit-confirm" role="status" aria-live="assertive" hidden></div>
+        <div id="cast-focus-tooltip" class="cast-focus-tooltip" role="tooltip" aria-live="polite" hidden></div>
         <div id="fitness-embed-host" class="fitness-embed-host" aria-hidden="true"></div>
       </ha-card>
       ${this._style()}`;
+    if (FITNESS_TV_CAST_RECEIVER) {
+      this.shadowRoot.querySelectorAll(".tv-toolbar button[title]").forEach((button) => {
+        const label = String(button.title || "").trim();
+        if (!button.getAttribute("aria-label")) button.setAttribute("aria-label", label);
+        button.removeAttribute("title");
+      });
+    }
     this.shadowRoot.getElementById("profile")?.addEventListener("change", (ev) => this._changeProfile(ev.target.value));
-    this.shadowRoot.getElementById("profiles")?.addEventListener("click", () => this._navigateTv("/fitness-tv/main"));
+    this.shadowRoot.getElementById("profiles")?.addEventListener("click", () => {
+      if (this._access?.is_admin) this._navigateTv("/fitness-tv/main");
+      else this._openVisibleProfilesPicker();
+    });
     this.shadowRoot.getElementById("backend-config")?.addEventListener("click", () => this._openBackendFlow("options", this._profile.entry_id, this._profile.profile_name));
     this.shadowRoot.getElementById("configure")?.addEventListener("click", () => this._openProfileConfigure());
     this.shadowRoot.getElementById("light-feedback-toggle")?.addEventListener("click", () => void this._toggleProfileTvPreference("light_feedback_enabled"));
@@ -6589,7 +7030,6 @@ class FitnessTvDashboardCard extends HTMLElement {
       this._openCastPicker();
     });
     this.shadowRoot.getElementById("stop-cast")?.addEventListener("click", () => {
-      if (FITNESS_TV_CAST_RECEIVER) { void this._quitCastFromRemote("toolbar stop"); return; }
       if (this._localCastActive || this._localCastServerActive || this._localCastSessionActive()) { void this._stopLocalCast(); return; }
       const activeTarget = String(this._activeCastTarget || "");
       if (activeTarget) this._stopCastDashboard(activeTarget);
@@ -6632,7 +7072,9 @@ class FitnessTvDashboardCard extends HTMLElement {
     this.shadowRoot.querySelector(".tv-shell")?.addEventListener("pointerdown", () => this._markOledInteraction(), {passive:true});
     this.shadowRoot.querySelector(".tv-shell")?.addEventListener("keydown", () => this._markOledInteraction());
     this._mountSelectedCards();
-    if (FITNESS_TV_CAST_RECEIVER) setTimeout(() => this._ensureCastRemoteOuterFocus(), 0);
+    if (FITNESS_TV_CAST_RECEIVER) {
+      setTimeout(() => this._restoreCastRemoteFocusSnapshot(castFocusSnapshot), 0);
+    }
     this._setLayoutEditing(canControl && this._layoutEditing);
     this._applyTvDisplayPreferences();
     this._updateMediaControls();
@@ -6657,7 +7099,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     if (!button) return;
     const l = this._labels();
     const active = Boolean(document.fullscreenElement);
-    const label = active ? (l.exit_fullscreen || "Exit fullscreen") : (l.fullscreen || "Fullscreen");
+    const label = active ? (l.exit_fullscreen) : (l.fullscreen);
     button.title = label;
     button.querySelector("ha-icon")?.setAttribute("icon", active ? "mdi:fullscreen-exit" : "mdi:fullscreen");
     const span = button.querySelector("span");
@@ -6785,7 +7227,57 @@ class FitnessTvDashboardCard extends HTMLElement {
       ev.stopPropagation();
       this._moveCard(cardId, 1);
     });
-    wrapper.querySelector(".layout-tools")?.setAttribute("aria-label", l.arrange_cards || "Arrange");
+    wrapper.querySelector(".layout-tools")?.setAttribute("aria-label", l.arrange_cards);
+  }
+
+  _profileHasLastWorkoutData(hass = this._hass) {
+    if (this._profile?.latest_workout?.available) return true;
+    const meaningful = (value) => {
+      if (value === null || value === undefined) return false;
+      const text = String(value).trim();
+      if (!text || ["unknown", "unavailable", "none", "null", "nan"].includes(text.toLowerCase())) return false;
+      const number = Number(text);
+      // Numeric source metrics at zero do not represent a populated previous
+      // workout. Non-numeric values (sport/name/date) still count as content.
+      return Number.isFinite(number) ? Math.abs(number) > 1e-9 : true;
+    };
+    const routes = this._profile?.workout_source_metrics || {};
+    for (const route of Object.values(routes)) {
+      if (!route || typeof route !== "object") continue;
+      if (meaningful(route.value ?? route.configured_value)) return true;
+      const entityId = String(route.entity_id || "");
+      const state = entityId ? hass?.states?.[entityId] : null;
+      if (state && meaningful(state.state)) return true;
+    }
+    return false;
+  }
+
+  _profileOwnsLiveSensor(hass = this._hass) {
+    // Assignment, rather than current workout ownership or metric-entity
+    // materialization, controls whether the Live Workout card is available.
+    // The metric fallback keeps this frontend compatible with an older backend
+    // during a rolling Home Assistant/browser cache refresh.
+    const assigned = this._profile?.assigned_live_sensor_ids || [];
+    return Boolean(String(this._profile?.entry_id || ""))
+      && (this._profile?.has_assigned_live_sensor === true
+        || assigned.length > 0
+        || (this._profile?.live_sensor_metrics || []).some((item) => Boolean(item?.sensor_id || item?.entity_id)));
+  }
+
+  _conditionalCardVisibilitySignature(hass = this._hass) {
+    if (!this._profile) return "";
+    const owners = (this._profile.live_sensor_metrics || []).map((item) => {
+      const owner = item?.owner_entity_id ? hass?.states?.[item.owner_entity_id] : null;
+      return `${item?.sensor_id || item?.entity_id || ""}:${owner?.attributes?.owner_entry_id || ""}:${owner?.last_updated || ""}`;
+    }).join("|");
+    const assigned = (this._profile.assigned_live_sensor_ids || []).join(",");
+    return `${this._profileHasLastWorkoutData(hass) ? 1 : 0}:${this._profileOwnsLiveSensor(hass) ? 1 : 0}:${assigned}:${owners}`;
+  }
+
+  _shouldMountTvCard(cardId, hass = this._hass) {
+    if (cardId === "workout") return this._profileHasLastWorkoutData(hass);
+    if (cardId === "live_workout") return this._profileOwnsLiveSensor(hass);
+    return true;
   }
 
   _mountSelectedCards() {
@@ -6796,7 +7288,8 @@ class FitnessTvDashboardCard extends HTMLElement {
     grid.replaceChildren();
     this._mountedCards = [];
     const catalog = new Map(FITNESS_TV_CARD_CATALOG.map((item) => [item.id, item]));
-    const selectedIds = (this._selectedCards || []).filter((id, index, all) => catalog.has(id) && all.indexOf(id) === index);
+    const selectedIds = (this._selectedCards || []).filter((id, index, all) => catalog.has(id) && all.indexOf(id) === index && this._shouldMountTvCard(id));
+    this._conditionalCardVisibilityKey = this._conditionalCardVisibilitySignature(this._hass);
     const l = this._labels();
     if (globalThis.ResizeObserver) {
       this._cardResizeObserver = new ResizeObserver((entries) => {
@@ -6815,24 +7308,21 @@ class FitnessTvDashboardCard extends HTMLElement {
       wrapper.className = `tv-card-slot${this._canControlProfile ? "" : " read-only-card"}`;
       wrapper.style.setProperty("--fitness-card-delay", `${-(this._mountedCards.length % 7) * 0.73}s`);
       if (!this._canControlProfile) {
-        wrapper.addEventListener("click", (event) => {
-          const interactive = event.composedPath?.().some((node) =>
-            node?.matches?.("button,input,select,textarea,[role=button],[contenteditable=true]")
-          );
-          if (!interactive) return;
-          event.preventDefault();
-          event.stopImmediatePropagation();
-        }, true);
-        wrapper.addEventListener("change", (event) => {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-        }, true);
+        // Explicitly granted additional profiles are display-only. Suppress all
+        // card interaction (including more-info/entity links and custom-card
+        // controls), not merely form controls.
+        for (const eventName of ["click", "dblclick", "change", "input", "submit", "contextmenu", "pointerdown", "pointerup", "touchstart", "keydown"]) {
+          wrapper.addEventListener(eventName, (event) => {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }, true);
+        }
       }
       wrapper.dataset.cardId = item.id;
       wrapper.draggable = this._layoutEditing;
       const tools = document.createElement("div");
       tools.className = "layout-tools";
-      tools.innerHTML = `<ha-icon class="drag-grip" icon="mdi:drag"></ha-icon><button type="button" data-move="-1" title="${_fitnessEscape(l.move_earlier || "Move earlier")}" aria-label="${_fitnessEscape(l.move_earlier || "Move earlier")}"><ha-icon icon="mdi:arrow-left"></ha-icon></button><button type="button" data-move="1" title="${_fitnessEscape(l.move_later || "Move later")}" aria-label="${_fitnessEscape(l.move_later || "Move later")}"><ha-icon icon="mdi:arrow-right"></ha-icon></button>`;
+      tools.innerHTML = `<ha-icon class="drag-grip" icon="mdi:drag"></ha-icon><button type="button" data-move="-1" title="${_fitnessEscape(l.move_earlier)}" aria-label="${_fitnessEscape(l.move_earlier)}"><ha-icon icon="mdi:arrow-left"></ha-icon></button><button type="button" data-move="1" title="${_fitnessEscape(l.move_later)}" aria-label="${_fitnessEscape(l.move_later)}"><ha-icon icon="mdi:arrow-right"></ha-icon></button>`;
       const card = document.createElement(item.element);
       card.classList.add("tv-mounted-card");
       try {
@@ -6845,6 +7335,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       wrapper.appendChild(card);
       grid.appendChild(wrapper);
       requestAnimationFrame(() => this._syncCardGridSpan(card, wrapper));
+      setTimeout(() => this._syncCardGridSpan(card, wrapper), 140);
       this._cardResizeObserver?.observe(card);
       this._wireCardReorder(wrapper, item.id);
       this._mountedCards.push(card);
@@ -6957,6 +7448,30 @@ class FitnessTvDashboardCard extends HTMLElement {
   _animateChartReveal(root, delay = 0) {
     if (!root || !this._motionEnabled()) return;
     const transient = (animation) => { this._finishTransientMotion(animation); return animation; };
+    if (FITNESS_TV_CAST_RECEIVER) {
+      const lineSelector = "svg polyline:not(.cursor-line),svg path.actual-line,svg path.trend-line,svg .actual-line,svg .trend-line";
+      Array.from(root.querySelectorAll?.(lineSelector) || []).slice(0, 2).forEach((line, index) => {
+        transient(line.animate([
+          {opacity:.35,transform:"translate3d(-2px,0,0)"},
+          {opacity:1,transform:"translate3d(0,0,0)"},
+        ], {duration:220,delay:delay + index * 28,easing:"ease-out",fill:"both"}));
+      });
+      const barSelector = ".axis .bar,.bar-chart .bar,[class*='bar-value'],[data-fitness-bar],.load-fill,.progress-fill,.score-fill,.zone-fill,.recovery-score-track i,.component i";
+      Array.from(root.querySelectorAll?.(barSelector) || []).slice(0, 6).forEach((bar, index) => {
+        bar.style.transformOrigin = "left center";
+        transient(bar.animate([
+          {transform:"scaleX(.72)",opacity:.55},
+          {transform:"scaleX(1)",opacity:1},
+        ], {duration:240,delay:delay + 35 + index * 24,easing:"ease-out",fill:"both"}));
+      });
+      Array.from(root.querySelectorAll?.(".donut,.pie,.pie-chart,[class*='donut'],[data-fitness-pie]") || []).slice(0, 2).forEach((pie, index) => {
+        transient(pie.animate([
+          {transform:"scale(.88)",opacity:.45},
+          {transform:"scale(1)",opacity:1},
+        ], {duration:260,delay:delay + 45 + index * 35,easing:"ease-out",fill:"both"}));
+      });
+      return;
+    }
     const lineSelector = [
       "svg polyline:not(.cursor-line)",
       "svg path.actual-line", "svg path.trend-line",
@@ -7054,6 +7569,21 @@ class FitnessTvDashboardCard extends HTMLElement {
     card.__fitnessMotionAttempt = 0;
     for (const root of roots) this._installCardMotionSkin(card, root);
     const baseDelay = mode === "entry" ? index * 38 : 0;
+    if (FITNESS_TV_CAST_RECEIVER) {
+      const title = this._cardMotionElements(card, ".title,.card-title,.composite-head,.live-head,.head,h2,h3")[0];
+      if (title) this._finishTransientMotion(title.animate([
+        {opacity:.55,transform:"translate3d(-4px,2px,0)"},
+        {opacity:1,transform:"translate3d(0,0,0)"},
+      ], {duration:180,delay:baseDelay,easing:"ease-out",fill:"both"}));
+      roots.forEach((root, rootIndex) => this._animateChartReveal(root, baseDelay + 15 + rootIndex * 12));
+      const reveal = this._cardMotionElements(card, ".entity-link,.live-metric,.sleep-summary-metric,.metric,.summary-item,.strength-row,.signal,.legend-row,.value,.hero-metric,.score,.hero,.current").slice(0, 8);
+      reveal.forEach((element, elementIndex) => this._finishTransientMotion(element.animate([
+        {opacity:.65,transform:"translate3d(0,4px,0)"},
+        {opacity:1,transform:"translate3d(0,0,0)"},
+      ], {duration:180,delay:baseDelay + 30 + elementIndex * 18,easing:"ease-out",fill:"both"})));
+      this._ensureCardLivingMotion(card, index);
+      return;
+    }
     const title = this._cardMotionElements(card, ".title,.card-title,.composite-head,.live-head,.head,h2,h3")[0];
     if (title) {
       const titleAnimation = title.animate([
@@ -7088,6 +7618,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     if (!root?.querySelector) return;
     root.host?.toggleAttribute?.("fitness-motion", true);
     root.host?.toggleAttribute?.("fitness-motion-live", this.hasAttribute("fitness-live-ambient"));
+    root.host?.toggleAttribute?.("fitness-cast-motion", FITNESS_TV_CAST_RECEIVER);
     if (root.querySelector("style[data-fitness-motion-skin]")) return;
     const style = document.createElement("style");
     style.dataset.fitnessMotionSkin = "1";
@@ -7144,6 +7675,10 @@ class FitnessTvDashboardCard extends HTMLElement {
       @media(prefers-reduced-motion:reduce){
         :host([fitness-motion]) *{animation:none!important}
       }
+      :host([fitness-cast-motion]) .axis::after,
+      :host([fitness-cast-motion]) .progress::after,
+      :host([fitness-cast-motion]) .baseline-scale::after,
+      :host([fitness-cast-motion]) .load-scale::after{display:none!important;animation:none!important}
     `;
     root.appendChild(style);
   }
@@ -7188,13 +7723,17 @@ class FitnessTvDashboardCard extends HTMLElement {
 
   _animateCardStateRefresh(card) {
     if (!this._motionEnabled()) return;
-    const values = this._cardMotionElements(card, ".live-metric strong,.metric strong,.score strong,.hero strong,.value strong,.current strong").slice(0, 10);
+    const values = this._cardMotionElements(card, ".live-metric strong,.metric strong,.score strong,.hero strong,.value strong,.current strong").slice(0, FITNESS_TV_CAST_RECEIVER ? 4 : 10);
     values.forEach((value, index) => {
-      const animation = value.animate([
+      const frames = FITNESS_TV_CAST_RECEIVER ? [
+        {transform:"translateY(1px) scale(.98)",opacity:.7},
+        {transform:"translateY(0) scale(1)",opacity:1},
+      ] : [
         {transform:"translateY(2px) scale(.94)", opacity:.58, filter:"brightness(.94)"},
         {transform:"translateY(-1px) scale(1.055)", opacity:1, filter:"brightness(1.16)", offset:.68},
         {transform:"translateY(0) scale(1)", opacity:1, filter:"brightness(1)"},
-      ], {duration:320, delay:index * 24, easing:"cubic-bezier(.16,1,.3,1)"});
+      ];
+      const animation = value.animate(frames, {duration:FITNESS_TV_CAST_RECEIVER ? 150 : 320, delay:index * 24, easing:"ease-out"});
       this._finishTransientMotion(animation);
     });
   }
@@ -7215,7 +7754,7 @@ class FitnessTvDashboardCard extends HTMLElement {
         card.__fitnessLivingMode = "";
         this._ensureCardLivingMotion(card, index);
         this._animateCardStateRefresh(card);
-      }, 72);
+      }, FITNESS_TV_CAST_RECEIVER ? 180 : 72);
     };
     for (const root of this._cardMotionRoots(card)) {
       const observer = new MutationObserver((mutations) => {
@@ -7234,8 +7773,83 @@ class FitnessTvDashboardCard extends HTMLElement {
     }
   }
 
+  _ensureCastCardLivingMotion(card, index = 0) {
+    const roots = this._cardMotionRoots(card);
+    if (!roots.length) return;
+    const state = String(this.getAttribute("fitness-session-state") || "idle");
+    const profile = {
+      active:{duration:1450,lift:2.2,scale:1.035,low:.82},
+      waiting_for_live_data:{duration:2300,lift:1.5,scale:1.022,low:.74},
+      paused:{duration:3200,lift:.7,scale:1.012,low:.84},
+      recovery:{duration:2700,lift:1.2,scale:1.025,low:.80},
+      idle:{duration:3600,lift:.8,scale:1.014,low:.86},
+    }[state] || {duration:3600,lift:.8,scale:1.014,low:.86};
+    const mode = `cast:${state}`;
+    const activeAnimations = (card.__fitnessLivingAnimations || []).some((animation) => animation?.playState === "running");
+    if (card.__fitnessLivingMotion && card.__fitnessLivingMode === mode && activeAnimations) return;
+    for (const animation of card.__fitnessLivingAnimations || []) { try { animation?.cancel?.(); } catch (_err) {} }
+    card.__fitnessLivingAnimations = [];
+    card.__fitnessLivingMotion = true;
+    card.__fitnessLivingMode = mode;
+    card.toggleAttribute("fitness-motion", true);
+    card.toggleAttribute("fitness-motion-live", state !== "idle");
+    card.setAttribute("fitness-motion-state", state);
+    for (const root of roots) this._installCardMotionSkin(card, root);
+
+    const animate = (element, frames, duration = profile.duration, delay = 0) => {
+      if (!element?.animate) return;
+      this._trackCardAnimation(card, element.animate(frames, {
+        duration,delay,iterations:Infinity,easing:"ease-in-out",
+      }));
+    };
+    const icons = this._cardMotionElements(card, ".title ha-icon,.card-title ha-icon,.composite-icon ha-icon,.live-head>ha-icon,.icon ha-icon,.entity-link ha-icon,.summary-item ha-icon,ha-icon").slice(0, 4);
+    icons.forEach((icon, iconIndex) => {
+      const name = String(icon.getAttribute?.("icon") || "").toLowerCase();
+      const frames = /heart|pulse|cardio/.test(name)
+        ? [{transform:"scale(1)",opacity:.9},{transform:`scale(${state === "active" ? 1.09 : 1.045})`,opacity:1,offset:.22},{transform:"scale(1)",opacity:.9}]
+        : /run|walk|bike|swim|rowing|motion/.test(name)
+          ? [{transform:"translate3d(-1px,0,0) rotate(-1deg)",opacity:.9},{transform:`translate3d(${profile.lift}px,-${profile.lift}px,0) rotate(2deg)`,opacity:1,offset:.5},{transform:"translate3d(-1px,0,0) rotate(-1deg)",opacity:.9}]
+          : /sleep|bed|moon|recovery/.test(name)
+            ? [{transform:"translate3d(0,1px,0) scale(1)",opacity:.82},{transform:`translate3d(0,-${profile.lift}px,0) scale(${profile.scale})`,opacity:1,offset:.5},{transform:"translate3d(0,1px,0) scale(1)",opacity:.82}]
+            : [{transform:"translate3d(0,0,0) scale(1)",opacity:.88},{transform:`translate3d(0,-${profile.lift}px,0) scale(${profile.scale})`,opacity:1,offset:.5},{transform:"translate3d(0,0,0) scale(1)",opacity:.88}];
+      animate(icon, frames, profile.duration + iconIndex * 140, -(index * 110 + iconIndex * 260));
+    });
+
+    const values = this._cardMotionElements(card, ".live-metric strong,.metric strong,.sleep-summary-metric strong,.summary-item strong,.strength-row strong,.signal strong,.legend-row strong,.score strong,.hero strong,.current strong,.value strong,[data-fitness-value]").slice(0, 6);
+    values.forEach((value, valueIndex) => animate(value, [
+      {transform:"translate3d(0,0,0) scale(1)",opacity:profile.low},
+      {transform:`translate3d(0,-${profile.lift * .55}px,0) scale(${1 + (profile.scale - 1) * .62})`,opacity:1,offset:.5},
+      {transform:"translate3d(0,0,0) scale(1)",opacity:profile.low},
+    ], profile.duration + 420 + valueIndex * 110, -(valueIndex * 290 + index * 90)));
+
+    const fills = this._cardMotionElements(card, ".bar,.load-fill,.progress-fill,.score-fill,.zone-fill,[data-fitness-bar],.recovery-score-track i,.component i").slice(0, 6);
+    fills.forEach((fill, fillIndex) => {
+      fill.style.transformOrigin = "left center";
+      animate(fill, [
+        {transform:"scaleX(.985)",opacity:.86},
+        {transform:`scaleX(${state === "active" ? 1.018 : 1.008})`,opacity:1,offset:.5},
+        {transform:"scaleX(.985)",opacity:.86},
+      ], profile.duration + 520 + fillIndex * 120, -(fillIndex * 310));
+    });
+
+    this._cardMotionElements(card, ".donut,.pie,.pie-chart,[class*='donut'],[data-fitness-pie]").slice(0, 2).forEach((pie, pieIndex) => animate(pie, [
+      {transform:"scale(.992) rotate(-.4deg)",opacity:.88},
+      {transform:`scale(${profile.scale}) rotate(.4deg)`,opacity:1,offset:.5},
+      {transform:"scale(.992) rotate(-.4deg)",opacity:.88},
+    ], profile.duration + 650 + pieIndex * 180, -(pieIndex * 420 + index * 120)));
+
+    this._cardMotionElements(card, "svg .actual-line,svg .trend-line,svg polyline:not(.cursor-line)").slice(0, 2).forEach((line, lineIndex) => animate(line, [
+      {opacity:.72},{opacity:1,offset:.5},{opacity:.72},
+    ], profile.duration + 780 + lineIndex * 160, -(lineIndex * 370)));
+    this._armCardMotionObservers(card, index);
+  }
+
   _ensureCardLivingMotion(card, index = 0) {
     if (!this._motionEnabled()) return;
+    if (FITNESS_TV_CAST_RECEIVER) {
+      this._ensureCastCardLivingMotion(card, index);
+      return;
+    }
     const roots = this._cardMotionRoots(card);
     if (!roots.length) return;
     const live = this.hasAttribute("fitness-live-ambient");
@@ -7451,6 +8065,14 @@ class FitnessTvDashboardCard extends HTMLElement {
 
   _animateRemoteSectionInterior(section, active = false) {
     if (!section || !this._motionEnabled()) return;
+    if (FITNESS_TV_CAST_RECEIVER) {
+      const animation = section.animate([
+        {opacity:.88,transform:"translate3d(0,1px,0)"},
+        {opacity:1,transform:"translate3d(0,0,0)"},
+      ], {duration:active ? 105 : 125,easing:"ease-out"});
+      this._finishTransientMotion(animation);
+      return;
+    }
     const card = section.querySelector?.(".tv-mounted-card");
     if (card) {
       this._animateCardContents(card, 0, active ? "remote-active" : "remote-select");
@@ -7509,6 +8131,20 @@ class FitnessTvDashboardCard extends HTMLElement {
     }
   }
 
+  _openVisibleProfilesPicker() {
+    const profiles = (this._profiles || []).filter((profile) => profile?.access?.can_view !== false);
+    if (!profiles.length) return;
+    const l = this._labels();
+    const accessCopy = _fitnessAccessCopy(this._labels());
+    const rows = profiles.map((profile) => `<button class="media-row visible-profile-row" data-visible-profile="${_fitnessEscape(profile.entry_id)}"><ha-icon icon="${profile.access?.can_control ? "mdi:account-circle" : "mdi:eye-outline"}"></ha-icon><span><strong>${_fitnessEscape(profile.profile_name)}</strong><small>${_fitnessEscape(profile.access?.can_control ? accessCopy.own : accessCopy.view_only)}</small></span><ha-icon icon="mdi:chevron-right"></ha-icon></button>`).join("");
+    this._showModal(`<div class="modal-card picker-modal"><div class="modal-head"><strong class="modal-title-with-icon"><ha-icon icon="mdi:account-multiple-outline"></ha-icon>${_fitnessEscape(l.tv_profiles)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="picker-list">${rows}</div></div>`);
+    const root = this.shadowRoot?.getElementById("tv-modal");
+    root?.querySelectorAll(".visible-profile-row").forEach((button) => button.addEventListener("click", () => {
+      const entryId = String(button.dataset.visibleProfile || "");
+      if (entryId) this._navigateTv(`/fitness-tv/profile-${entryId}`);
+    }));
+  }
+
   async _openProfileConfigure() {
     if (!this._profile || !this._canControlProfile) return;
     const l = this._labels();
@@ -7525,15 +8161,19 @@ class FitnessTvDashboardCard extends HTMLElement {
     const preferred = String(current.cast_media_player_id || "");
     const targets = Array.isArray(this._castTargets) ? this._castTargets : [];
     const targetOptions = [
-      `<option value="">${_fitnessEscape(l.no_default_tv || "No default TV")}</option>`,
-      ...targets.map((target) => `<option value="${_fitnessEscape(target.entity_id)}" ${target.entity_id === preferred ? "selected" : ""}>${_fitnessEscape(target.name || target.entity_id)}</option>`),
+      `<option value="">${_fitnessEscape(l.no_default_tv)}</option>`,
+      ...targets.map((target) => {
+        const unavailable = target?.available === false;
+        const suffix = unavailable ? ` (${l.cast_unavailable})` : "";
+        return `<option value="${_fitnessEscape(target.entity_id)}" ${target.entity_id === preferred ? "selected" : ""} ${unavailable ? "disabled" : ""}>${_fitnessEscape(target.name || target.entity_id)}${_fitnessEscape(suffix)}</option>`;
+      }),
     ].join("");
     const audioOutputId = String(this._audioOutputId || current.audio_output_id || "__fitness_browser__");
     const audioOutputs = (Array.isArray(this._audioOutputs) ? this._audioOutputs : []).filter((output) => String(output?.entity_id || "") !== preferred);
     const audioOutputOptions = [
-      `<option value="__fitness_browser__" ${audioOutputId === "__fitness_browser__" || audioOutputId === preferred ? "selected" : ""}>${_fitnessEscape(l.audio_output_browser || "Fitness browser / Cast TV")}</option>`,
+      `<option value="__fitness_browser__" ${audioOutputId === "__fitness_browser__" || audioOutputId === preferred ? "selected" : ""}>${_fitnessEscape(l.audio_output_browser)}</option>`,
       ...audioOutputs.map((output) => {
-        const stateSuffix = ["unavailable","unknown"].includes(String(output?.state || "")) ? ` · ${l.unavailable || "Unavailable"}` : "";
+        const stateSuffix = ["unavailable","unknown"].includes(String(output?.state || "")) ? ` · ${l.unavailable}` : "";
         const maSuffix = output.music_assistant ? " · Music Assistant" : "";
         return `<option value="${_fitnessEscape(output.entity_id)}" ${output.entity_id === audioOutputId ? "selected" : ""}>${_fitnessEscape(output.name || output.entity_id)}${_fitnessEscape(maSuffix + stateSuffix)}</option>`;
       }),
@@ -7543,32 +8183,32 @@ class FitnessTvDashboardCard extends HTMLElement {
     const oled = Boolean(this._oledProtection ?? current.oled_protection);
     const animations = Boolean(this._animationsEnabled ?? current.animations_enabled ?? true);
     const ignoreLightsWhenCastActive = Boolean(current.ignore_lights_when_cast_active ?? true);
-    const adapterRows = (this._musicAdapters || []).filter((adapter) => adapter?.available !== false && adapter?.id !== "yt_dlp").map((adapter) => {
+    const adapterRows = (this._musicAdapters || []).filter((adapter) => adapter?.available !== false).map((adapter) => {
       const checked = Boolean(adapter.selected);
-      const hint = adapter.setup_hint || "";
+      const hint = _fitnessMusicAdapterHint(l, adapter);
       const accounts = Array.isArray(adapter.account_options) ? adapter.account_options : [];
       const savedAccount = String(this._musicAdapterOptions?.[adapter.id]?.account_id || adapter.selected_account_id || "");
-      const accountMarkup = accounts.length ? `<select class="adapter-account" data-config-music-account="${_fitnessEscape(adapter.id)}" title="${_fitnessEscape(l.music_account || "Account")}">${accounts.map((account) => `<option value="${_fitnessEscape(account.id)}" ${String(account.id) === savedAccount ? "selected" : ""}>${_fitnessEscape(account.name || account.id)}</option>`).join("")}</select>` : "";
-      const setupMarkup = adapter.setup_path ? `<button type="button" class="adapter-setup" data-adapter-setup="${_fitnessEscape(adapter.setup_path)}">${_fitnessEscape(l.music_configure_provider || "Configure provider")}</button>` : "";
-      return `<div class="music-adapter-row"><input type="checkbox" data-config-music-adapter="${_fitnessEscape(adapter.id)}" ${checked ? "checked" : ""}><ha-icon icon="${String(adapter.icon || "mdi:music-note").startsWith("mdi:") ? _fitnessEscape(adapter.icon) : "mdi:music-note"}"></ha-icon><span><strong>${_fitnessEscape(adapter.name || adapter.id)}</strong>${hint ? `<small>${_fitnessEscape(hint)}</small>` : ""}</span><div class="adapter-actions">${accountMarkup}${setupMarkup}</div></div>`;
+      const accountMarkup = accounts.length ? `<select class="adapter-account" data-config-music-account="${_fitnessEscape(adapter.id)}" title="${_fitnessEscape(l.music_account)}">${accounts.map((account) => `<option value="${_fitnessEscape(account.id)}" ${String(account.id) === savedAccount ? "selected" : ""}>${_fitnessEscape(account.name || account.id)}</option>`).join("")}</select>` : "";
+      const setupMarkup = adapter.setup_path ? `<button type="button" class="adapter-setup" data-adapter-setup="${_fitnessEscape(adapter.setup_path)}"><span>${_fitnessEscape(l.music_configure_provider)}</span></button>` : "";
+      return `<div class="music-adapter-row"><input type="checkbox" data-config-music-adapter="${_fitnessEscape(adapter.id)}" ${checked ? "checked" : ""}><ha-icon icon="${String(adapter.icon || "mdi:music-note").startsWith("mdi:") ? _fitnessEscape(adapter.icon) : "mdi:music-note"}"></ha-icon><span><strong>${_fitnessEscape(adapter.name || adapter.id)}</strong>${hint ? `<small>${_fitnessEscape(hint)}</small>` : ""}</span><div class="adapter-actions">${accountMarkup}${setupMarkup}<button type="button" class="adapter-setup adapter-remove" data-remove-music-adapter="${_fitnessEscape(adapter.id)}" title="${_fitnessEscape(l.remove)}"><ha-icon icon="mdi:minus-circle-outline"></ha-icon><span>${_fitnessEscape(l.remove)}</span></button></div></div>`;
     }).join("");
     const searchLimit = Math.max(10, Math.min(100, Number(this._musicSearchLimit || 50)));
     this._showModal(`
       <div class="modal-card configure-modal">
-        <div class="modal-head"><strong>${_fitnessEscape(l.reconfigure_profile || "Configure profile")}: ${_fitnessEscape(this._profile.profile_name)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
+        <div class="modal-head"><strong>${_fitnessEscape(l.reconfigure_profile)}: ${_fitnessEscape(this._profile.profile_name)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
         <div class="profile-settings">
-          ${isAdmin ? `<label class="setting-toggle"><span><strong class="setting-title"><ha-icon icon="mdi:monitor-dashboard"></ha-icon>${_fitnessEscape(l.enable_tv_view || "Enable Fitness TV view")}</strong><small>${_fitnessEscape(l.enable_tv_view_hint || "Show a dedicated TV page for this profile.")}</small></span><input id="cfg-enabled" type="checkbox" ${current.enabled ? "checked" : ""}></label>` : ""}
-          <div class="setting-adapters"><div class="setting-adapters-head"><span><strong>${_fitnessEscape(l.music_adapters || "Music adapters")}</strong><small>${_fitnessEscape(l.music_adapters_hint || "Only installed and usable adapters are shown. Account-backed providers keep their credentials in Home Assistant or Music Assistant; Fitness stores this profile's adapter choices only.")}</small></span><button type="button" class="adapter-setup" id="cfg-add-provider"><ha-icon icon="mdi:plus"></ha-icon>${_fitnessEscape(l.music_add_provider || "Add music provider")}</button></div><div class="music-adapter-list">${adapterRows || `<div class="browser-empty">${_fitnessEscape(l.music_no_adapters || "No installed music adapters found.")}</div>`}</div></div>
-          <label class="setting-range"><span><strong>${_fitnessEscape(l.music_search_result_count || "Search results per adapter")}</strong><small>${_fitnessEscape(l.music_search_result_count_hint || "Maximum results returned by each selected music adapter.")}</small></span><input id="cfg-search-limit" type="range" min="10" max="100" step="10" value="${searchLimit}"><output id="cfg-search-limit-value">${searchLimit}</output></label>
-          ${isAdmin ? `<label class="setting-field"><span>${_fitnessEscape(l.default_tv || "Default Cast TV")}</span><select id="cfg-target">${targetOptions}</select></label>` : ""}
-          <label class="setting-field audio-output-field"><span><strong>${_fitnessEscape(l.audio_output || "Music & TTS output")}</strong><small>${_fitnessEscape(l.audio_output_hint || "Use this browser/Cast receiver or any compatible Home Assistant media player. Music Assistant players are preferred when available.")}</small></span><select id="cfg-audio-output">${audioOutputOptions}</select></label>
-          <label class="setting-range"><span><strong>${_fitnessEscape(l.tts_ducking || "TTS music ducking")}</strong><small>${_fitnessEscape(l.tts_ducking_hint || "Music volume while Fitness speaks.")}</small></span><input id="cfg-duck" type="range" min="0" max="100" step="5" value="${duck}"><output id="cfg-duck-value">${duck}%</output></label>
-          <label class="setting-range"><span><strong>${_fitnessEscape(l.tv_scale || "TV card scale")}</strong><small>${_fitnessEscape(l.tv_scale_hint || "Smaller values fit more information on the TV.")}</small></span><input id="cfg-scale" type="range" min="10" max="150" step="5" value="${scale}"><output id="cfg-scale-value">${scale}%</output></label>
-          <label class="setting-toggle"><span><strong>${_fitnessEscape(l.ignore_lights_when_cast_active || "Ignore workout lights while TV Cast is active")}</strong><small>${_fitnessEscape(l.ignore_lights_when_cast_active_hint || "When Fitness TV is alive, use the TV for workout feedback and leave your room lights untouched.")}</small></span><input id="cfg-ignore-lights" type="checkbox" ${ignoreLightsWhenCastActive ? "checked" : ""}></label>
-          <label class="setting-toggle"><span><strong>${_fitnessEscape(l.dashboard_animations || "Living dashboard animations")}</strong><small>${_fitnessEscape(l.dashboard_animations_hint || "Animate values, charts, icons and data surfaces. During live workouts the motion becomes more energetic and follows your intensity zone.")}</small></span><input id="cfg-animations" type="checkbox" ${animations ? "checked" : ""}></label>
-          <label class="setting-toggle"><span><strong>${_fitnessEscape(l.oled_protection || "OLED protection")}</strong><small>${_fitnessEscape(l.oled_protection_hint || "Periodically shifts the dashboard and dims the static toolbar when idle.")}</small></span><input id="cfg-oled" type="checkbox" ${oled ? "checked" : ""}></label>
+          ${isAdmin ? `<label class="setting-toggle"><span><strong class="setting-title"><ha-icon icon="mdi:monitor-dashboard"></ha-icon>${_fitnessEscape(l.enable_tv_view)}</strong><small>${_fitnessEscape(l.enable_tv_view_hint)}</small></span><input id="cfg-enabled" type="checkbox" ${current.enabled ? "checked" : ""}></label>` : ""}
+          <div class="setting-adapters"><div class="setting-adapters-head"><span><strong>${_fitnessEscape(l.music_adapters)}</strong><small>${_fitnessEscape(l.music_adapters_hint)}</small></span><button type="button" class="adapter-setup" id="cfg-add-provider"><ha-icon icon="mdi:plus"></ha-icon><span>${_fitnessEscape(l.music_add_provider)}</span></button></div><div class="music-adapter-list">${adapterRows || `<div class="browser-empty">${_fitnessEscape(l.music_no_adapters)}</div>`}</div></div>
+          <label class="setting-range"><span><strong>${_fitnessEscape(l.music_search_result_count)}</strong><small>${_fitnessEscape(l.music_search_result_count_hint)}</small></span><input id="cfg-search-limit" type="range" min="10" max="100" step="10" value="${searchLimit}"><output id="cfg-search-limit-value">${searchLimit}</output></label>
+          ${isAdmin ? `<label class="setting-field"><span>${_fitnessEscape(l.default_tv)}</span><select id="cfg-target">${targetOptions}</select></label>` : ""}
+          <label class="setting-field audio-output-field"><span><strong>${_fitnessEscape(l.audio_output)}</strong><small>${_fitnessEscape(l.audio_output_hint)}</small></span><select id="cfg-audio-output">${audioOutputOptions}</select></label>
+          <label class="setting-range"><span><strong>${_fitnessEscape(l.tts_ducking)}</strong><small>${_fitnessEscape(l.tts_ducking_hint)}</small></span><input id="cfg-duck" type="range" min="0" max="100" step="5" value="${duck}"><output id="cfg-duck-value">${duck}%</output></label>
+          <label class="setting-range"><span><strong>${_fitnessEscape(l.tv_scale)}</strong><small>${_fitnessEscape(l.tv_scale_hint)}</small></span><input id="cfg-scale" type="range" min="10" max="150" step="5" value="${scale}"><output id="cfg-scale-value">${scale}%</output></label>
+          <label class="setting-toggle"><span><strong>${_fitnessEscape(l.ignore_lights_when_cast_active)}</strong><small>${_fitnessEscape(l.ignore_lights_when_cast_active_hint)}</small></span><input id="cfg-ignore-lights" type="checkbox" ${ignoreLightsWhenCastActive ? "checked" : ""}></label>
+          <label class="setting-toggle"><span><strong>${_fitnessEscape(l.dashboard_animations)}</strong><small>${_fitnessEscape(l.dashboard_animations_hint)}</small></span><input id="cfg-animations" type="checkbox" ${animations ? "checked" : ""}></label>
+          <label class="setting-toggle"><span><strong>${_fitnessEscape(l.oled_protection)}</strong><small>${_fitnessEscape(l.oled_protection_hint)}</small></span><input id="cfg-oled" type="checkbox" ${oled ? "checked" : ""}></label>
         </div>
-        <div class="settings-actions"><button class="tool" id="cfg-save"><ha-icon icon="mdi:content-save-outline"></ha-icon><span>${_fitnessEscape(l.save || "Save")}</span></button><span class="settings-status" id="cfg-status"></span></div>
+        <div class="settings-actions"><button class="tool" id="cfg-save"><ha-icon icon="mdi:content-save-outline"></ha-icon><span>${_fitnessEscape(l.save)}</span></button><span class="settings-status" id="cfg-status"></span></div>
       </div>`);
     const root = this.shadowRoot?.getElementById("modal-root");
     const duckInput = root?.querySelector("#cfg-duck");
@@ -7583,6 +8223,14 @@ class FitnessTvDashboardCard extends HTMLElement {
     searchLimitInput?.addEventListener("input", () => { const out = root.querySelector("#cfg-search-limit-value"); if (out) out.textContent = searchLimitInput.value; });
     root?.querySelectorAll("[data-adapter-setup]").forEach((button) => button.addEventListener("click", () => this._navigateTv(String(button.dataset.adapterSetup || "/config/integrations"))));
     root?.querySelector("#cfg-add-provider")?.addEventListener("click", () => this._openMusicProviderCatalog());
+    root?.querySelectorAll("[data-remove-music-adapter]").forEach((button) => button.addEventListener("click", () => {
+      const adapterId = String(button.dataset.removeMusicAdapter || "");
+      const row = button.closest(".music-adapter-row");
+      const checkbox = row?.querySelector("input[data-config-music-adapter]");
+      if (checkbox) checkbox.checked = false;
+      row?.classList.add("profile-adapter-removed");
+      button.disabled = true;
+    }));
     root?.querySelector("#cfg-save")?.addEventListener("click", () => this._saveProfileConfigure(root));
   }
 
@@ -7593,11 +8241,11 @@ class FitnessTvDashboardCard extends HTMLElement {
       const isYtdlp = provider.id === "yt_dlp" || provider.kind === "fitness_optional_adapter";
       const icon = String(provider.icon || "mdi:music-note").startsWith("mdi:") ? String(provider.icon || "mdi:music-note") : "mdi:music-note";
       const action = isYtdlp
-        ? `<button type="button" class="adapter-setup" data-ytdlp-toggle="${provider.enabled ? "disable" : "enable"}">${_fitnessEscape(provider.enabled ? (l.disable || "Disable") : (l.music_enable_provider || "Enable provider"))}</button>`
-        : `<button type="button" class="adapter-setup" data-provider-path="${_fitnessEscape(provider.setup_path || "/config/integrations")}">${_fitnessEscape(provider.installed ? (l.music_configure_provider || "Configure provider") : (l.music_install_provider || "Install provider"))}</button>`;
-      return `<div class="provider-catalog-row ${isYtdlp ? "provider-catalog-ytdlp" : ""}"><ha-icon icon="${_fitnessEscape(icon)}"></ha-icon><span><strong>${_fitnessEscape(provider.name || provider.id)}</strong><small>${_fitnessEscape(provider.description || "")}</small></span>${action}</div>`;
+        ? `<button type="button" class="adapter-setup" data-ytdlp-toggle="${provider.enabled ? "disable" : "enable"}"><span>${_fitnessEscape(provider.enabled ? (l.disable) : (l.music_enable_provider))}</span></button>`
+        : `<button type="button" class="adapter-setup" data-provider-path="${_fitnessEscape(provider.setup_path || "/config/integrations")}"><span>${_fitnessEscape(provider.installed ? (l.music_configure_provider) : (l.music_install_provider))}</span></button>`;
+      return `<div class="provider-catalog-row ${isYtdlp ? "provider-catalog-ytdlp" : ""}"><ha-icon icon="${_fitnessEscape(icon)}"></ha-icon><span><strong>${_fitnessEscape(_fitnessMusicProviderName(l, provider))}</strong><small>${_fitnessEscape(_fitnessMusicProviderDescription(l, provider))}</small></span>${action}</div>`;
     }).join("");
-    this._showModal(`<div class="modal-card provider-catalog-modal"><div class="modal-head"><strong>${_fitnessEscape(l.music_add_provider || "Music Providers")}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="provider-catalog-list">${rows || `<div class="browser-empty">${_fitnessEscape(l.music_no_provider_catalog || "No provider setup options are available.")}</div>`}</div></div>`);
+    this._showModal(`<div class="modal-card provider-catalog-modal"><div class="modal-head"><strong>${_fitnessEscape(l.music_add_provider)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="provider-catalog-list">${rows || `<div class="browser-empty">${_fitnessEscape(l.music_no_provider_catalog)}</div>`}</div></div>`);
     const root = this.shadowRoot?.getElementById("modal-root");
     root?.querySelectorAll("[data-provider-path]").forEach((button) => button.addEventListener("click", () => this._navigateTv(String(button.dataset.providerPath || "/config/integrations"))));
     root?.querySelectorAll("[data-ytdlp-toggle]").forEach((button) => button.addEventListener("click", () => {
@@ -7609,8 +8257,8 @@ class FitnessTvDashboardCard extends HTMLElement {
 
   _openYtdlpAcknowledgement() {
     const l = this._labels();
-    const disclaimer = l.ytdlp_disclaimer || 'yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user’s unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.';
-    this._showModal(`<div class="modal-card ytdlp-legal-modal"><div class="modal-head"><div class="browser-title"><button class="icon-tool ytdlp-back"><ha-icon icon="mdi:arrow-left"></ha-icon></button><strong>${_fitnessEscape(l.ytdlp_enabled || "Enable yt-dlp")}</strong></div><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="modal-scroll-body ytdlp-legal-body"><div class="browser-warning"><ha-icon icon="mdi:shield-alert-outline"></ha-icon><span>${_fitnessEscape(disclaimer)}</span></div><label class="setting-toggle ytdlp-accept"><span><strong>${_fitnessEscape(l.ytdlp_accept || "I understand and accept this acknowledgement")}</strong><small>${_fitnessEscape(l.ytdlp_accept_hint || "Enable yt-dlp only if you accept responsibility for your use.")}</small></span><input type="checkbox" id="ytdlp-accept"></label></div><div class="modal-actions"><button class="primary-tool ytdlp-enable" disabled><ha-icon icon="mdi:check"></ha-icon>${_fitnessEscape(l.music_enable_provider || "Enable provider")}</button></div></div>`);
+    const disclaimer = l.ytdlp_disclaimer;
+    this._showModal(`<div class="modal-card ytdlp-legal-modal"><div class="modal-head"><div class="browser-title"><button class="icon-tool ytdlp-back"><ha-icon icon="mdi:arrow-left"></ha-icon></button><strong>${_fitnessEscape(l.ytdlp_enabled)}</strong></div><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="modal-scroll-body ytdlp-legal-body"><div class="browser-warning"><ha-icon icon="mdi:shield-alert-outline"></ha-icon><span>${_fitnessEscape(disclaimer)}</span></div><label class="setting-toggle ytdlp-accept"><span><strong>${_fitnessEscape(l.ytdlp_accept)}</strong><small>${_fitnessEscape(l.ytdlp_accept_hint)}</small></span><input type="checkbox" id="ytdlp-accept"></label></div><div class="modal-actions"><button class="primary-tool ytdlp-enable" disabled><ha-icon icon="mdi:check"></ha-icon><span>${_fitnessEscape(l.music_enable_provider)}</span></button></div></div>`);
     const root = this.shadowRoot?.getElementById("modal-root");
     const accept = root?.querySelector("#ytdlp-accept");
     const enable = root?.querySelector(".ytdlp-enable");
@@ -7633,9 +8281,10 @@ class FitnessTvDashboardCard extends HTMLElement {
       await this._loadMusicAdapters();
       this._openMusicProviderCatalog();
     } catch (err) {
+      console.error("[Fitness TV] yt-dlp setting update failed", err);
       const root = this.shadowRoot?.getElementById("modal-root");
       const status = root?.querySelector(".browser-warning") || root?.querySelector(".provider-catalog-list");
-      if (status) status.setAttribute("data-error", String(err?.message || err || l.save_failed || "Unable to update yt-dlp."));
+      if (status) status.setAttribute("data-error", l.save_failed);
     }
   }
 
@@ -7648,22 +8297,28 @@ class FitnessTvDashboardCard extends HTMLElement {
     const castTarget = root.querySelector("#cfg-target") ? String(root.querySelector("#cfg-target")?.value || "") : String(this._profile?.tv_dashboard?.cast_media_player_id || "");
     const previousAudioOutput = String(this._audioOutputId || this._profile?.tv_dashboard?.audio_output_id || "__fitness_browser__");
     const audioOutputId = String(root.querySelector("#cfg-audio-output")?.value || "__fitness_browser__");
-    const ytdlpEnabled = Boolean(this._ytdlpEnabled ?? this._profile?.tv_dashboard?.ytdlp_enabled);
     const ducking = Number(root.querySelector("#cfg-duck")?.value || 25);
     const scale = Number(root.querySelector("#cfg-scale")?.value || 70);
     const oled = Boolean(root.querySelector("#cfg-oled")?.checked);
     const animations = Boolean(root.querySelector("#cfg-animations")?.checked);
     const ignoreLightsWhenCastActive = Boolean(root.querySelector("#cfg-ignore-lights")?.checked);
     const musicAdapters = [...root.querySelectorAll('input[data-config-music-adapter]:checked')].map((input) => String(input.dataset.configMusicAdapter || "")).filter(Boolean);
-    if (ytdlpEnabled && !musicAdapters.includes("yt_dlp")) musicAdapters.push("yt_dlp");
     const musicSearchLimit = Math.max(10, Math.min(100, Number(root.querySelector("#cfg-search-limit")?.value || 50)));
     const musicAdapterOptions = {...(this._musicAdapterOptions || {})};
+    const removedMusicAdapters = new Set(
+      [...root.querySelectorAll(".music-adapter-row.profile-adapter-removed [data-remove-music-adapter]")]
+        .map((control) => String(control.dataset.removeMusicAdapter || ""))
+        .filter(Boolean),
+    );
+    for (const adapterId of removedMusicAdapters) delete musicAdapterOptions[adapterId];
     root.querySelectorAll("select[data-config-music-account]").forEach((select) => {
       const adapterId = String(select.dataset.configMusicAccount || "");
-      if (adapterId) musicAdapterOptions[adapterId] = {...(musicAdapterOptions[adapterId] || {}), account_id:String(select.value || "")};
+      if (adapterId && !removedMusicAdapters.has(adapterId)) {
+        musicAdapterOptions[adapterId] = {...(musicAdapterOptions[adapterId] || {}), account_id:String(select.value || "")};
+      }
     });
     if (button) button.disabled = true;
-    if (status) status.textContent = l.saving || "Saving…";
+    if (status) status.textContent = l.saving;
     try {
       const result = await this._hass.callWS({
         type:"fitness/tv/profile/configure",
@@ -7702,14 +8357,14 @@ class FitnessTvDashboardCard extends HTMLElement {
       this._tvScalePercent = Number(result?.tv_scale_percent ?? scale);
       this._oledProtection = Boolean(result?.oled_protection ?? oled);
       this._applyTvDisplayPreferences();
-      if (status) status.textContent = l.saved || "Saved";
+      if (status) status.textContent = l.saved;
       if (!enabled) {
         setTimeout(() => this._navigateTv("/fitness-tv/main"), 500);
       } else {
         setTimeout(() => this.shadowRoot?.getElementById("modal-root")?.replaceChildren(), 450);
       }
     } catch (_err) {
-      if (status) status.textContent = l.save_failed || "Unable to save settings.";
+      if (status) status.textContent = l.save_failed;
       if (button) button.disabled = false;
     }
   }
@@ -7762,27 +8417,27 @@ class FitnessTvDashboardCard extends HTMLElement {
     const antSupported = Boolean(globalThis.isSecureContext && navigator.usb?.requestDevice);
     this._showModal(`
       <div class="modal-card remote-gateway-modal">
-        <div class="modal-head"><strong class="modal-title-with-icon"><ha-icon icon="mdi:access-point"></ha-icon>${_fitnessEscape(l.remote_gateway_title || "Remote sensor gateway")}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
+        <div class="modal-head"><strong class="modal-title-with-icon"><ha-icon icon="mdi:access-point"></ha-icon>${_fitnessEscape(l.remote_gateway_title)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
         <div class="remote-gateway-body">
-          <div class="remote-gateway-intro"><ha-icon icon="mdi:shield-lock-outline"></ha-icon><div><strong>${_fitnessEscape(l.remote_gateway_browser || "This browser becomes the sensor gateway")}</strong><small>${_fitnessEscape(l.remote_gateway_hint || "Pair nearby fitness sensors here. Raw BLE/ANT+ measurements are sent through your authenticated Home Assistant connection and assigned to this Fitness profile.")}</small></div></div>
+          <div class="remote-gateway-intro"><ha-icon icon="mdi:shield-lock-outline"></ha-icon><div><strong>${_fitnessEscape(l.remote_gateway_browser)}</strong><small>${_fitnessEscape(l.remote_gateway_hint)}</small></div></div>
           <section class="remote-radio-card">
-            <div class="remote-radio-head"><ha-icon icon="mdi:bluetooth"></ha-icon><div><strong>${_fitnessEscape(l.remote_ble || "Bluetooth fitness sensors")}</strong><small>${_fitnessEscape(l.remote_ble_hint || "Heart rate, cycling power, cadence, running speed/cadence and FTMS equipment.")}</small></div><span class="remote-state" id="remote-ble-state"></span></div>
+            <div class="remote-radio-head"><ha-icon icon="mdi:bluetooth"></ha-icon><div><strong>${_fitnessEscape(l.remote_ble)}</strong><small>${_fitnessEscape(l.remote_ble_hint)}</small></div><span class="remote-state" id="remote-ble-state"></span></div>
             <div class="remote-actions">
-              <button class="tool" id="remote-ble-connect" ${bleSupported ? "" : "disabled"}><ha-icon icon="mdi:bluetooth-connect"></ha-icon><span>${_fitnessEscape(l.remote_ble_connect || "Connect Bluetooth sensor")}</span></button>
-              <button class="tool" id="remote-ble-reconnect" ${bleSupported ? "" : "disabled"}><ha-icon icon="mdi:refresh"></ha-icon><span>${_fitnessEscape(l.remote_ble_reconnect || "Reconnect allowed sensors")}</span></button>
+              <button class="tool" id="remote-ble-connect" ${bleSupported ? "" : "disabled"}><ha-icon icon="mdi:bluetooth-connect"></ha-icon><span>${_fitnessEscape(l.remote_ble_connect)}</span></button>
+              <button class="tool" id="remote-ble-reconnect" ${bleSupported ? "" : "disabled"}><ha-icon icon="mdi:refresh"></ha-icon><span>${_fitnessEscape(l.remote_ble_reconnect)}</span></button>
             </div>
-            ${bleSupported ? "" : `<div class="remote-warning">${_fitnessEscape(l.remote_ble_unavailable || "Web Bluetooth is not available in this browser. Use a compatible browser over HTTPS, or a future Fitness native sender app.")}</div>`}
+            ${bleSupported ? "" : `<div class="remote-warning">${_fitnessEscape(l.remote_ble_unavailable)}</div>`}
             <div class="remote-device-list" id="remote-ble-devices"></div>
           </section>
           <section class="remote-radio-card">
-            <div class="remote-radio-head"><ha-icon icon="mdi:usb-port"></ha-icon><div><strong>${_fitnessEscape(l.remote_ant || "ANT+ USB gateway")}</strong><small>${_fitnessEscape(l.remote_ant_experimental || "Experimental browser WebUSB support for Dynastream ANTUSB2 / ANTUSB-m sticks.")}</small></div><span class="remote-state" id="remote-ant-state"></span></div>
+            <div class="remote-radio-head"><ha-icon icon="mdi:usb-port"></ha-icon><div><strong>${_fitnessEscape(l.remote_ant)}</strong><small>${_fitnessEscape(l.remote_ant_experimental)}</small></div><span class="remote-state" id="remote-ant-state"></span></div>
             <div class="remote-actions">
-              <button class="tool" id="remote-ant-connect" ${antSupported ? "" : "disabled"}><ha-icon icon="mdi:usb"></ha-icon><span>${_fitnessEscape(l.remote_ant_connect || "Connect ANT+ USB")}</span></button>
-              <button class="tool" id="remote-ant-disconnect" ${this._remoteAntDevice ? "" : "disabled"}><ha-icon icon="mdi:usb-off"></ha-icon><span>${_fitnessEscape(l.remote_ant_disconnect || "Disconnect ANT+")}</span></button>
+              <button class="tool" id="remote-ant-connect" ${antSupported ? "" : "disabled"}><ha-icon icon="mdi:usb"></ha-icon><span>${_fitnessEscape(l.remote_ant_connect)}</span></button>
+              <button class="tool" id="remote-ant-disconnect" ${this._remoteAntDevice ? "" : "disabled"}><ha-icon icon="mdi:usb-off"></ha-icon><span>${_fitnessEscape(l.remote_ant_disconnect)}</span></button>
             </div>
-            ${antSupported ? "" : `<div class="remote-warning">${_fitnessEscape(l.remote_ant_unavailable || "WebUSB is not available in this browser. ANT+ will also be supported by the future native Fitness sender apps.")}</div>`}
+            ${antSupported ? "" : `<div class="remote-warning">${_fitnessEscape(l.remote_ant_unavailable)}</div>`}
           </section>
-          <div class="remote-protocol"><ha-icon icon="mdi:lan-connect"></ha-icon><span>${_fitnessEscape((l.remote_gateway_protocol || "Gateway protocol v{version}").replace("{version}", "1"))}</span></div>
+          <div class="remote-protocol"><ha-icon icon="mdi:lan-connect"></ha-icon><span>${_fitnessEscape(_fitnessFormatLabel(l.remote_gateway_protocol, {version:"1"}))}</span></div>
         </div>
       </div>`);
     const root = this.shadowRoot?.getElementById("modal-root");
@@ -7800,10 +8455,10 @@ class FitnessTvDashboardCard extends HTMLElement {
     const antState = root?.querySelector("#remote-ant-state");
     const list = root?.querySelector("#remote-ble-devices");
     const connectedBle = [...(this._remoteBleDevices?.values?.() || [])].filter((item) => item?.device?.gatt?.connected);
-    if (bleState) bleState.textContent = message || (connectedBle.length ? `${connectedBle.length} ${l.remote_connected || "connected"}` : (l.remote_idle || "Idle"));
-    if (antState) antState.textContent = this._remoteAntDevice?.opened ? (l.remote_ant_scanning || "Scanning") : (l.remote_idle || "Idle");
+    if (bleState) bleState.textContent = message || (connectedBle.length ? `${connectedBle.length} ${l.remote_connected}` : (l.remote_idle));
+    if (antState) antState.textContent = this._remoteAntDevice?.opened ? (l.remote_ant_scanning) : (l.remote_idle);
     if (list) {
-      list.innerHTML = connectedBle.map((item) => `<div class="remote-device"><ha-icon icon="mdi:heart-pulse"></ha-icon><span><strong>${_fitnessEscape(item.device.name || item.device.id)}</strong><small>${_fitnessEscape((item.characteristics || []).length + " notification channel(s)")}</small></span><ha-icon icon="mdi:check-circle" class="ok"></ha-icon><button class="icon-tool remote-ble-disconnect" data-remote-ble-disconnect="${_fitnessEscape(item.device.id)}" title="${_fitnessEscape(l.remote_ble_disconnect || "Disconnect sensor")}"><ha-icon icon="mdi:bluetooth-off"></ha-icon></button></div>`).join("") || `<div class="remote-empty">${_fitnessEscape(l.remote_no_sensors || "No remote Bluetooth sensors connected.")}</div>`;
+      list.innerHTML = connectedBle.map((item) => `<div class="remote-device"><ha-icon icon="mdi:heart-pulse"></ha-icon><span><strong>${_fitnessEscape(item.device.name || item.device.id)}</strong><small>${_fitnessEscape(_fitnessFormatLabel(l.notification_channels, {count:(item.characteristics || []).length}))}</small></span><ha-icon icon="mdi:check-circle" class="ok"></ha-icon><button class="icon-tool remote-ble-disconnect" data-remote-ble-disconnect="${_fitnessEscape(item.device.id)}" title="${_fitnessEscape(l.remote_ble_disconnect)}"><ha-icon icon="mdi:bluetooth-off"></ha-icon></button></div>`).join("") || `<div class="remote-empty">${_fitnessEscape(l.remote_no_sensors)}</div>`;
       list.querySelectorAll("[data-remote-ble-disconnect]").forEach((button) => button.addEventListener("click", () => void this._disconnectRemoteBleDevice(String(button.dataset.remoteBleDisconnect || ""))));
     }
     const antDisconnect = root?.querySelector("#remote-ant-disconnect");
@@ -7814,20 +8469,23 @@ class FitnessTvDashboardCard extends HTMLElement {
     const l = this._labels();
     if (!this._remoteBleSupport()) return;
     try {
-      this._renderRemoteGatewayStatus(l.remote_pairing || "Choose a Bluetooth fitness sensor…");
+      this._renderRemoteGatewayStatus(l.remote_pairing);
       const device = await navigator.bluetooth.requestDevice({
         // Only advertise standard fitness sensors that Fitness can decode
         // natively. The filters are ORed by Web Bluetooth, so HR, cycling
         // power/CSC, RSC and FTMS devices remain independently selectable.
         filters:[...FITNESS_REMOTE_BLE_SERVICES].map((service) => ({services:[service]})),
-        optionalServices:[...FITNESS_REMOTE_BLE_SERVICES],
+        optionalServices:[...FITNESS_REMOTE_BLE_SERVICES, FITNESS_REMOTE_BLE_DEVICE_INFO_SERVICE],
       });
       await this._connectRemoteBleDevice(device);
       const ids = this._remoteStoredBleIds();
       if (!ids.includes(device.id)) ids.push(device.id);
       this._saveRemoteBleIds(ids);
     } catch (err) {
-      if (String(err?.name || "") !== "NotFoundError") this._renderRemoteGatewayStatus(String(err?.message || err || l.remote_failed || "Connection failed"));
+      if (String(err?.name || "") !== "NotFoundError") {
+        console.error("[Fitness TV] Bluetooth sensor connection failed", err);
+        this._renderRemoteGatewayStatus(l.remote_failed);
+      }
     }
   }
 
@@ -7864,7 +8522,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     try {
       const wanted = new Set(this._remoteStoredBleIds());
       if (!wanted.size) return;
-      if (showStatus) this._renderRemoteGatewayStatus(this._labels().remote_reconnecting || "Reconnecting…");
+      if (showStatus) this._renderRemoteGatewayStatus(this._labels().remote_reconnecting);
       const devices = await navigator.bluetooth.getDevices();
       for (const device of devices.filter((item) => wanted.has(String(item.id)))) {
         try { await this._connectRemoteBleDevice(device); } catch (_err) {}
@@ -7908,17 +8566,30 @@ class FitnessTvDashboardCard extends HTMLElement {
     }
     if (!characteristics.length) {
       try { device.gatt.disconnect(); } catch (_err) {}
-      throw new Error(this._labels().remote_ble_unsupported || "No supported Bluetooth fitness measurement was found on this device.");
+      throw new Error(this._labels().remote_ble_unsupported);
     }
+    const identity = {};
+    try {
+      const infoService = await server.getPrimaryService(FITNESS_REMOTE_BLE_DEVICE_INFO_SERVICE);
+      for (const [charUuid, key] of Object.entries(FITNESS_REMOTE_BLE_IDENTITY_CHARACTERISTICS)) {
+        try {
+          const characteristic = await infoService.getCharacteristic(charUuid);
+          const value = await characteristic.readValue();
+          const text = new TextDecoder("utf-8").decode(new Uint8Array(value.buffer, value.byteOffset, value.byteLength)).replace(/\0/g, "").trim();
+          if (text) identity[key] = text;
+        } catch (_err) {}
+      }
+    } catch (_err) {}
     await this._remoteGatewayHello(["bluetooth"]);
     await this._hass.callWS({
       type:"fitness/remote_gateway/ble_device",
       profile_entry_id:this._profile.entry_id,
       gateway_id:this._remoteGatewayId(),
       device_id:device.id,
-      name:device.name || "Remote Bluetooth fitness sensor",
+      name:device.name || this._labels().remote_ble_sensor,
       service_uuids:serviceUuids,
       characteristic_uuids:characteristics,
+      identity,
     });
     const record = {device, listeners, characteristics, profileEntryId:this._profile.entry_id};
     this._remoteBleDevices.set(device.id, record);
@@ -8009,7 +8680,7 @@ class FitnessTvDashboardCard extends HTMLElement {
         device = allowed.find((item) => item.vendorId === 0x0fcf && FITNESS_ANT_USB_PRODUCT_IDS.has(item.productId));
         if (!device) return;
       }
-      this._renderRemoteGatewayStatus(l.remote_ant_connecting || "Opening ANT+ USB…");
+      this._renderRemoteGatewayStatus(l.remote_ant_connecting);
       if (!device.opened) await device.open();
       if (!device.configuration) await device.selectConfiguration(1);
       let selected = null;
@@ -8047,7 +8718,10 @@ class FitnessTvDashboardCard extends HTMLElement {
       this._renderRemoteGatewayStatus();
       void this._remoteAntReadLoop(this._remoteAntDevice);
     } catch (err) {
-      if (String(err?.name || "") !== "NotFoundError") this._renderRemoteGatewayStatus(String(err?.message || err || l.remote_failed || "Connection failed"));
+      if (String(err?.name || "") !== "NotFoundError") {
+        console.error("[Fitness TV] ANT+ sensor connection failed", err);
+        this._renderRemoteGatewayStatus(l.remote_failed);
+      }
       if (this._remoteAntDevice) await this._disconnectRemoteAntUsb(false);
     } finally {
       this._remoteAntConnectBusy = false;
@@ -8166,7 +8840,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       localToggle.querySelector("ha-icon")?.setAttribute("icon", active ? "mdi:cast-off" : "mdi:cast-connected");
       const label = localToggle.querySelector("span");
       const l = this._labels();
-      if (label) label.textContent = active ? (l.local_cast_stop || "Stop local Cast") : (l.local_cast_choose || "Choose local TV");
+      if (label) label.textContent = active ? (l.local_cast_stop) : (l.local_cast_choose);
     }
     const modalStop = modalRoot?.querySelector?.("#cast-local-stop");
     if (modalStop) { modalStop.hidden = true; modalStop.disabled = !active; }
@@ -8268,7 +8942,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     if (!this._profile || !this._hass || FITNESS_TV_CAST_RECEIVER) return;
     const context = this._localCastContext;
     if (!context) {
-      if (status) status.textContent = l.local_cast_unsupported || "Google Cast is not ready in this browser.";
+      if (status) status.textContent = l.local_cast_unsupported;
       return;
     }
     let credentials = null;
@@ -8277,11 +8951,11 @@ class FitnessTvDashboardCard extends HTMLElement {
     try {
       // Keep requestSession directly on the click path so Chrome permits the
       // chooser. Authentication is prepared only after the local receiver starts.
-      if (status) status.textContent = l.local_cast_connecting || "Opening local Google Cast chooser…";
+      if (status) status.textContent = l.local_cast_connecting;
       await context.requestSession();
       const session = context.getCurrentSession();
-      if (!session) throw new Error(l.local_cast_cancelled || "No Cast session was selected.");
-      if (status) status.textContent = l.local_cast_authenticating || "TV selected. Connecting it to Home Assistant…";
+      if (!session) throw new Error(l.local_cast_cancelled);
+      if (status) status.textContent = l.local_cast_authenticating;
       credentials = await this._hass.callWS({
         type:"fitness/tv/local_cast_credentials",
         profile_entry_id:this._profile.entry_id,
@@ -8304,7 +8978,7 @@ class FitnessTvDashboardCard extends HTMLElement {
           try { if (listener) session.removeMessageListener?.(namespace, listener); } catch (_err) {}
           if (err) reject(err); else resolve(ok);
         };
-        timeout = setTimeout(() => finish(false, new Error(l.local_cast_receiver_failed || "The local Cast receiver did not connect to Home Assistant.")), 22000);
+        timeout = setTimeout(() => finish(false, new Error(l.local_cast_receiver_failed)), 22000);
         listener = (_namespace, message) => {
           let payload = message;
           if (typeof payload === "string") { try { payload = JSON.parse(payload); } catch (_err) { return; } }
@@ -8342,9 +9016,9 @@ class FitnessTvDashboardCard extends HTMLElement {
       // to the fresh Cast browser before loading the view, exactly as server-side
       // Fitness Cast does. The laptop stays a controller and is silenced.
       handoffArmed = await this._armLocalCastHandoff("local_cast_receiver_authenticated");
-      if (!handoffArmed) throw new Error(l.cast_failed || "Unable to hand media playback to the local Cast receiver.");
+      if (!handoffArmed) throw new Error(l.cast_failed);
 
-      if (status) status.textContent = l.local_cast_loading || "Connected. Loading Fitness TV…";
+      if (status) status.textContent = l.local_cast_loading;
       await session.sendMessage(namespace, {
         type:"show_lovelace_view",
         hassUrl:credentials.hass_url,
@@ -8355,7 +9029,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       this._localCastServerActive = true;
       this._localCastDeviceName = String(session.getCastDevice?.()?.friendlyName || "Google Cast");
       this._syncLocalCastButtons();
-      if (status) status.textContent = `${l.local_cast_connected || "Fitness TV sent to local TV"}: ${this._localCastDeviceName}`;
+      if (status) status.textContent = `${l.local_cast_connected}: ${this._localCastDeviceName}`;
       void this._autoplaySelectionAfterLocalCast();
     } catch (err) {
       this._localCastActive = false;
@@ -8363,9 +9037,10 @@ class FitnessTvDashboardCard extends HTMLElement {
       if (handoffArmed) await this._releaseLocalCastHandoff("local_cast_start_failed");
       if (credentials) { try { await context.endCurrentSession(true); } catch (_err) {} }
       const message = String(err?.message || err || "");
+      console.error("[Fitness TV] local Cast start failed", err);
       if (status) status.textContent = message.includes("external_https_required")
-        ? (l.local_cast_no_https || "Local Cast needs an externally reachable HTTPS Home Assistant URL.")
-        : (message || l.cast_failed || "Unable to cast the dashboard.");
+        ? (l.local_cast_no_https)
+        : (l.cast_failed);
     } finally {
       if (button) button.disabled = false;
     }
@@ -8401,7 +9076,7 @@ class FitnessTvDashboardCard extends HTMLElement {
   async _stopLocalCast() {
     const l = this._labels();
     const status = this.shadowRoot?.getElementById("modal-root")?.querySelector?.("#cast-status");
-    if (status) status.textContent = l.cast_stopping || "Stopping Cast…";
+    if (status) status.textContent = l.cast_stopping;
     try {
       if (globalThis.cast?.framework?.CastContext) await cast.framework.CastContext.getInstance().endCurrentSession(true);
     } catch (_err) {}
@@ -8410,7 +9085,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     this._localCastServerActive = false;
     this._syncLocalCastButtons();
     this._updateMediaControls();
-    if (status) status.textContent = l.cast_stopped || "Fitness Cast stopped.";
+    if (status) status.textContent = l.cast_stopped;
   }
 
   async _openCastPicker() {
@@ -8426,20 +9101,21 @@ class FitnessTvDashboardCard extends HTMLElement {
       if (b.entity_id === preferred && a.entity_id !== preferred) return 1;
       return String(a.name || a.entity_id).localeCompare(String(b.name || b.entity_id));
     });
-    const selectedTarget = ordered.find((target) => target.entity_id === preferred) || ordered[0] || null;
+    const availableTargets = ordered.filter((target) => target?.available !== false);
+    const selectedTarget = availableTargets.find((target) => target.entity_id === preferred) || availableTargets[0] || null;
     const options = ordered.map((target) => {
-      const suffix = [target.entity_id === preferred ? (l.cast_default || "default") : "", target.available === false ? (l.cast_unavailable || "unavailable") : ""].filter(Boolean).join(", ");
+      const suffix = [target.entity_id === preferred ? (l.cast_default) : "", target.available === false ? (l.cast_unavailable) : ""].filter(Boolean).join(", ");
       const label = `${target.name || target.entity_id}${suffix ? ` (${suffix})` : ""}`;
-      return `<option value="${_fitnessEscape(target.entity_id)}" ${target.entity_id === selectedTarget?.entity_id ? "selected" : ""}>${_fitnessEscape(label)}</option>`;
+      return `<option value="${_fitnessEscape(target.entity_id)}" ${target.entity_id === selectedTarget?.entity_id ? "selected" : ""} ${target.available === false ? "disabled" : ""}>${_fitnessEscape(label)}</option>`;
     }).join("");
     const localCastVisible = !FITNESS_TV_CAST_RECEIVER;
     const haCastActive = this._refreshCastUiState();
     this._showModal(`
       <div class="modal-card cast-modal">
-        <div class="modal-head"><strong>${_fitnessEscape(l.cast_dashboard_title || "Cast Fitness TV")}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
+        <div class="modal-head"><strong>${_fitnessEscape(l.cast_dashboard_title)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
         <div class="cast-picker">
-          ${localCastVisible ? `<section class="cast-section local-cast-section"><div class="cast-section-copy"><ha-icon icon="mdi:wifi-marker"></ha-icon><span><strong>${_fitnessEscape(l.local_cast || "Local network TV")}</strong><small>${_fitnessEscape(l.local_cast_hint || "Use this phone/laptop to choose a Google Cast TV on its current Wi-Fi network, even when Home Assistant is elsewhere.")}</small></span></div><div class="cast-section-actions"><button class="tool cast-now" id="cast-local" disabled><ha-icon icon="${(this._localCastActive || this._localCastServerActive || this._localCastSessionActive()) ? "mdi:cast-off" : "mdi:cast-connected"}"></ha-icon><span>${_fitnessEscape((this._localCastActive || this._localCastServerActive || this._localCastSessionActive()) ? (l.local_cast_stop || "Stop local Cast") : (l.local_cast_choose || "Choose local TV"))}</span></button><button class="tool" id="cast-local-stop" hidden><ha-icon icon="mdi:cast-off"></ha-icon><span>${_fitnessEscape(l.local_cast_stop || "Stop local Cast")}</span></button></div></section>` : ""}
-          <section class="cast-section ha-cast-section"><div class="cast-section-copy"><ha-icon icon="mdi:home-assistant"></ha-icon><span><strong>${_fitnessEscape(l.cast_ha_devices || "Home Assistant network devices")}</strong><small>${_fitnessEscape(l.cast_ha_devices_hint || "TVs discovered by the Home Assistant server itself.")}</small></span></div>${ordered.length ? `<label class="cast-target-control"><span>${_fitnessEscape(l.cast_to || "Cast to")}</span><select id="cast-target">${options}</select></label><div class="cast-section-actions"><button class="tool cast-now" id="cast-now"><ha-icon icon="${haCastActive && String(this._activeCastTarget || "") === String(selectedTarget?.entity_id || "") ? "mdi:cast-off" : "mdi:cast-connected"}"></ha-icon><span>${_fitnessEscape(haCastActive && String(this._activeCastTarget || "") === String(selectedTarget?.entity_id || "") ? (l.cast_stop || "Stop Cast") : (l.cast_now || "Cast now"))}</span></button><button class="tool cast-stop" id="cast-stop" hidden><ha-icon icon="mdi:cast-off"></ha-icon><span>${_fitnessEscape(l.cast_stop || "Stop Cast")}</span></button></div>` : `<div class="browser-empty">${_fitnessEscape(l.cast_no_targets || "No Google Cast displays are available to Home Assistant.")}</div>`}</section>
+          ${localCastVisible ? `<section class="cast-section local-cast-section"><div class="cast-section-copy"><ha-icon icon="mdi:wifi-marker"></ha-icon><span><strong>${_fitnessEscape(l.local_cast)}</strong><small>${_fitnessEscape(l.local_cast_hint)}</small></span></div><div class="cast-section-actions"><button class="tool cast-now" id="cast-local" disabled><ha-icon icon="${(this._localCastActive || this._localCastServerActive || this._localCastSessionActive()) ? "mdi:cast-off" : "mdi:cast-connected"}"></ha-icon><span>${_fitnessEscape((this._localCastActive || this._localCastServerActive || this._localCastSessionActive()) ? (l.local_cast_stop) : (l.local_cast_choose))}</span></button><button class="tool" id="cast-local-stop" hidden><ha-icon icon="mdi:cast-off"></ha-icon><span>${_fitnessEscape(l.local_cast_stop)}</span></button></div></section>` : ""}
+          <section class="cast-section ha-cast-section"><div class="cast-section-copy"><ha-icon icon="mdi:home-assistant"></ha-icon><span><strong>${_fitnessEscape(l.cast_ha_devices)}</strong><small>${_fitnessEscape(l.cast_ha_devices_hint)}</small></span></div>${ordered.length ? `<label class="cast-target-control"><span>${_fitnessEscape(l.cast_to)}</span><select id="cast-target">${options}</select></label><div class="cast-section-actions"><button class="tool cast-now" id="cast-now" ${selectedTarget ? "" : "disabled"}><ha-icon icon="${haCastActive && String(this._activeCastTarget || "") === String(selectedTarget?.entity_id || "") ? "mdi:cast-off" : "mdi:cast-connected"}"></ha-icon><span>${_fitnessEscape(haCastActive && String(this._activeCastTarget || "") === String(selectedTarget?.entity_id || "") ? (l.cast_stop) : (l.cast_now))}</span></button><button class="tool cast-stop" id="cast-stop" hidden><ha-icon icon="mdi:cast-off"></ha-icon><span>${_fitnessEscape(l.cast_stop)}</span></button></div>` : `<div class="browser-empty">${_fitnessEscape(l.cast_no_targets)}</div>`}</section>
           <div class="cast-status" id="cast-status" aria-live="polite"></div>
         </div>
       </div>`);
@@ -8457,7 +9133,8 @@ class FitnessTvDashboardCard extends HTMLElement {
         if (localButton) localButton.disabled = false;
         this._syncLocalCastButtons();
       }).catch((err) => {
-        if (status) status.textContent = String(err?.message || err || l.local_cast_unsupported || "Google Cast is not available in this browser.");
+        console.error("[Fitness TV] local Cast setup failed", err);
+        if (status) status.textContent = l.local_cast_unsupported;
       });
     }
     root?.querySelector("#cast-now")?.addEventListener("click", () => {
@@ -8468,9 +9145,11 @@ class FitnessTvDashboardCard extends HTMLElement {
     root?.querySelector("#cast-target")?.addEventListener("change", () => {
       const target = String(root.querySelector("#cast-target")?.value || "");
       const button = root.querySelector("#cast-now");
+      const available = availableTargets.some((item) => String(item.entity_id || "") === target);
       const stopping = Boolean(this._serverCastActive && target && target === String(this._activeCastTarget || ""));
+      if (button) button.disabled = !available;
       button?.querySelector("ha-icon")?.setAttribute("icon", stopping ? "mdi:cast-off" : "mdi:cast-connected");
-      const span = button?.querySelector("span"); if (span) span.textContent = stopping ? (l.cast_stop || "Stop Cast") : (l.cast_now || "Cast now");
+      const span = button?.querySelector("span"); if (span) span.textContent = stopping ? (l.cast_stop) : (l.cast_now);
     });
     root?.querySelector("#cast-stop")?.addEventListener("click", () => this._stopCastDashboard(String(this._activeCastTarget || root.querySelector("#cast-target")?.value || "")));
   }
@@ -8480,13 +9159,14 @@ class FitnessTvDashboardCard extends HTMLElement {
     const root = this.shadowRoot?.getElementById("modal-root");
     const status = root?.querySelector("#cast-status");
     const button = root?.querySelector("#cast-now");
-    if (!entityId || !this._profile || !this._hass) return;
+    const target = (this._castTargets || []).find((item) => String(item?.entity_id || "") === String(entityId || ""));
+    if (!entityId || target?.available === false || !this._profile || !this._hass) return;
     if (button) button.disabled = true;
     if (status) status.textContent = "";
     try {
       // A Cast media_player can report off/idle while the physical TV is fully
       // awake and ready. Do not infer TV power/readiness from that entity state.
-      if (status) status.textContent = l.cast_connecting || "Connecting to TV…";
+      if (status) status.textContent = l.cast_connecting;
       await this._hass.callService("fitness", "cast_tv_dashboard", {
         config_entry_id:this._profile.entry_id,
         entity_id:entityId,
@@ -8497,10 +9177,10 @@ class FitnessTvDashboardCard extends HTMLElement {
       const modalStop = root?.querySelector("#cast-stop");
       if (modalStop) { modalStop.hidden = !this._castActive; modalStop.disabled = !this._castActive; }
       if (status) status.textContent = this._castActive
-        ? (l.cast_sent || "Dashboard active on TV.")
-        : (l.cast_failed || "Unable to cast the dashboard.");
+        ? (l.cast_sent)
+        : (l.cast_failed);
     } catch (_err) {
-      if (status) status.textContent = l.cast_failed || "Unable to cast the dashboard.";
+      if (status) status.textContent = l.cast_failed;
     } finally {
       if (button) button.disabled = false;
     }
@@ -8516,7 +9196,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     if (castButton) castButton.disabled = true;
     if (stopButton) stopButton.disabled = true;
     try {
-      if (status) status.textContent = l.cast_stopping || "Stopping Cast…";
+      if (status) status.textContent = l.cast_stopping;
       await this._hass.callService("fitness", "stop_tv_dashboard", {
         config_entry_id:this._profile.entry_id,
         entity_id:entityId,
@@ -8526,9 +9206,9 @@ class FitnessTvDashboardCard extends HTMLElement {
       this._castActive = false;
       this._updateMediaControls();
       if (stopButton) stopButton.hidden = true;
-      if (status) status.textContent = l.cast_stopped || "Fitness Cast stopped.";
+      if (status) status.textContent = l.cast_stopped;
     } catch (_err) {
-      if (status) status.textContent = l.cast_stop_failed || "Unable to stop Fitness Cast.";
+      if (status) status.textContent = l.cast_stop_failed;
     } finally {
       if (castButton) castButton.disabled = false;
       if (stopButton) stopButton.disabled = !this._refreshCastUiState();
@@ -8536,7 +9216,7 @@ class FitnessTvDashboardCard extends HTMLElement {
   }
 
   _openBackendFlow(mode, entryId = "", profileName = "") {
-    this._showModal(`<div class="modal-card backend-flow-modal"><div id="backend-flow-host"></div></div>`);
+    this._showModal(`<div class="modal-card backend-flow-modal"><div id="backend-flow-host" class="backend-flow-host"></div></div>`);
     const root = this.shadowRoot?.getElementById("modal-root");
     const host = root?.querySelector("#backend-flow-host");
     if (!host) return;
@@ -8568,7 +9248,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       </label>`).join("");
     this._showModal(`
       <div class="modal-card picker-modal">
-        <div class="modal-head"><strong>${_fitnessEscape(l.card_picker || "Cards on this TV")}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
+        <div class="modal-head"><strong>${_fitnessEscape(l.card_picker)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
         <div class="picker-list">${rows}</div>
       </div>`);
     const root = this.shadowRoot.getElementById("modal-root");
@@ -8590,9 +9270,18 @@ class FitnessTvDashboardCard extends HTMLElement {
     const toolbarRect = toolbar?.getBoundingClientRect?.();
     const top = Math.max(6, Math.round((toolbarRect?.bottom || 64) + 4));
     root.innerHTML = `<div class="modal-backdrop" style="--modal-top:${top}px">${content}</div>`;
+    const modalLabels = this._labels();
+    const closeButton = root.querySelector(".modal-close");
+    closeButton?.setAttribute("title", modalLabels.close);
+    closeButton?.setAttribute("aria-label", modalLabels.close);
+    root.querySelectorAll(".ytdlp-back,.browser-back").forEach((button) => {
+      button.setAttribute("title", modalLabels.back);
+      button.setAttribute("aria-label", modalLabels.back);
+    });
     const modalCard = root.querySelector(".modal-card");
+    const backendFlowModal = Boolean(modalCard?.classList?.contains("backend-flow-modal"));
     const scrollSelector = ":scope > .profile-settings,:scope > .picker-list,:scope > .media-list,:scope > .cast-picker,:scope > .remote-gateway-body,:scope > .provider-catalog-list,:scope > .music-search-form,:scope > .modal-scroll-body,:scope > .playlist-list,:scope > .playlist-edit-list,:scope > .music-source-list,:scope > .access-admin-body,:scope > .add-profile-list,:scope > .modal-auto-scroll-body";
-    if (modalCard) {
+    if (modalCard && !backendFlowModal) {
       if (!modalCard.querySelector(scrollSelector)) {
         const middle = [...modalCard.children].filter((node) => !node.classList.contains("modal-head") && !node.classList.contains("modal-actions") && !node.classList.contains("settings-actions"));
         if (middle.length) {
@@ -8603,8 +9292,9 @@ class FitnessTvDashboardCard extends HTMLElement {
         }
       }
     }
-    const scrollBody = modalCard?.querySelector(scrollSelector);
+    const scrollBody = backendFlowModal ? null : modalCard?.querySelector(scrollSelector);
     modalCard?.addEventListener("wheel", (ev) => {
+      if (backendFlowModal) return;
       if (!scrollBody) { ev.stopPropagation(); return; }
       if (scrollBody.contains(ev.target)) { ev.stopPropagation(); return; }
       if (Math.abs(Number(ev.deltaY || 0)) > 0) {
@@ -8632,14 +9322,14 @@ class FitnessTvDashboardCard extends HTMLElement {
     const l = this._labels();
     this._showModal(`
       <div class="modal-card browser-modal">
-        <div class="modal-head"><strong>${_fitnessEscape(l.music_sources || "Music sources")}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
+        <div class="modal-head"><strong>${_fitnessEscape(l.music_sources)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
         <div class="music-source-list">
-          <button class="music-source" data-source="favorites"><ha-icon icon="mdi:star"></ha-icon><span><strong>${_fitnessEscape(l.media_favorites || "Favorites")}</strong><small>${_fitnessEscape(l.music_favorites_hint || "Your saved music for this Fitness profile.")}</small></span></button>
-          <button class="music-source" data-source="playlists"><ha-icon icon="mdi:playlist-music"></ha-icon><span><strong>${_fitnessEscape(l.music_playlists || "Playlists")}</strong><small>${_fitnessEscape(l.music_playlists_hint || "Playlists saved for this Fitness profile.")} ${this._userPlaylists?.length ? `(${this._userPlaylists.length})` : ""}</small></span></button>
-          <button class="music-source" data-source="search"><ha-icon icon="mdi:magnify"></ha-icon><span><strong>${_fitnessEscape(l.music_search || "Search music")}</strong><small>${_fitnessEscape(l.music_search_hint || "Search one, several, or all enabled music adapters.")}</small></span></button>
-          <button class="music-source" data-source="radio"><ha-icon icon="mdi:radio-tower"></ha-icon><span><strong>${_fitnessEscape(l.music_internet_radio || "Internet radio")}</strong><small>${_fitnessEscape(l.music_internet_radio_hint || "Browse Radio Browser by country or station name.")}</small></span></button>
-          <button class="music-source" data-source="ha"><ha-icon icon="mdi:home-assistant"></ha-icon><span><strong>${_fitnessEscape(l.music_ha_sources || "Home Assistant media")}</strong><small>${_fitnessEscape(l.music_ha_sources_hint || "Browse media/account providers already configured in Home Assistant.")}</small></span></button>
-          <button class="music-source" data-source="link"><ha-icon icon="mdi:link-variant-plus"></ha-icon><span><strong>${_fitnessEscape(l.music_add_link || "Play from link")}</strong><small>${_fitnessEscape(l.music_add_link_hint_v2 || "Direct audio, YouTube/YouTube Music, or SoundCloud links that Fitness can play directly.")}</small></span></button>
+          <button class="music-source" data-source="favorites"><ha-icon icon="mdi:star"></ha-icon><span><strong>${_fitnessEscape(l.media_favorites)}</strong><small>${_fitnessEscape(l.music_favorites_hint)}</small></span></button>
+          <button class="music-source" data-source="playlists"><ha-icon icon="mdi:playlist-music"></ha-icon><span><strong>${_fitnessEscape(l.music_playlists)}</strong><small>${_fitnessEscape(l.music_playlists_hint)} ${this._userPlaylists?.length ? `(${this._userPlaylists.length})` : ""}</small></span></button>
+          <button class="music-source" data-source="search"><ha-icon icon="mdi:magnify"></ha-icon><span><strong>${_fitnessEscape(l.music_search)}</strong><small>${_fitnessEscape(l.music_search_hint)}</small></span></button>
+          <button class="music-source" data-source="radio"><ha-icon icon="mdi:radio-tower"></ha-icon><span><strong>${_fitnessEscape(l.music_internet_radio)}</strong><small>${_fitnessEscape(l.music_internet_radio_hint)}</small></span></button>
+          <button class="music-source" data-source="ha"><ha-icon icon="mdi:home-assistant"></ha-icon><span><strong>${_fitnessEscape(l.music_ha_sources)}</strong><small>${_fitnessEscape(l.music_ha_sources_hint)}</small></span></button>
+          <button class="music-source" data-source="link"><ha-icon icon="mdi:link-variant-plus"></ha-icon><span><strong>${_fitnessEscape(l.music_add_link)}</strong><small>${_fitnessEscape(l.music_add_link_hint_v2)}</small></span></button>
         </div>
       </div>`);
     const root = this.shadowRoot?.getElementById("modal-root");
@@ -8656,14 +9346,14 @@ class FitnessTvDashboardCard extends HTMLElement {
     const playlists = this._userPlaylists || [];
     const rows = playlists.map((playlist) => `
       <div class="playlist-row" data-playlist-id="${_fitnessEscape(playlist.id)}">
-        <button class="playlist-open">${this._mediaItemVisual({thumbnail:playlist.thumbnail,media_class:"playlist"})}<span><strong>${_fitnessEscape(playlist.name || "Playlist")}</strong><small>${playlist.items?.length || 0} ${_fitnessEscape(l.music_items || "items")}</small></span></button>
-        <button class="icon-tool playlist-play" title="${_fitnessEscape(l.play || "Play")}" ${playlist.items?.length ? "" : "disabled"}><ha-icon icon="mdi:play"></ha-icon></button>
-        ${this._canControlProfile ? `<button class="icon-tool playlist-edit" title="${_fitnessEscape(l.edit || "Edit")}"><ha-icon icon="mdi:pencil"></ha-icon></button>` : ""}
+        <button class="playlist-open">${this._mediaItemVisual({thumbnail:playlist.thumbnail,media_class:"playlist"})}<span><strong>${_fitnessEscape(playlist.name || l.music_playlist)}</strong><small>${playlist.items?.length || 0} ${_fitnessEscape(l.music_items)}</small></span></button>
+        <button class="icon-tool playlist-play" title="${_fitnessEscape(l.play)}" ${playlist.items?.length ? "" : "disabled"}><ha-icon icon="mdi:play"></ha-icon></button>
+        ${this._canControlProfile ? `<button class="icon-tool playlist-edit" title="${_fitnessEscape(l.edit)}"><ha-icon icon="mdi:pencil"></ha-icon></button>` : ""}
       </div>`).join("");
     this._showModal(`
       <div class="modal-card browser-modal playlist-modal">
-        <div class="modal-head"><div class="browser-title"><button class="icon-tool playlists-back"><ha-icon icon="mdi:arrow-left"></ha-icon></button><strong>${_fitnessEscape(l.music_playlists || "Playlists")}</strong></div><div class="browser-head-actions">${this._canControlProfile ? `<button class="tool playlist-new"><ha-icon icon="mdi:playlist-plus"></ha-icon><span>${_fitnessEscape(l.music_new_playlist || "New playlist")}</span></button>` : ""}<button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div></div>
-        <div class="playlist-list">${rows || `<div class="browser-empty">${_fitnessEscape(l.music_no_playlists || "No playlists yet.")}</div>`}</div>
+        <div class="modal-head"><div class="browser-title"><button class="icon-tool playlists-back"><ha-icon icon="mdi:arrow-left"></ha-icon></button><strong>${_fitnessEscape(l.music_playlists)}</strong></div><div class="browser-head-actions">${this._canControlProfile ? `<button class="tool playlist-new"><ha-icon icon="mdi:playlist-plus"></ha-icon><span>${_fitnessEscape(l.music_new_playlist)}</span></button>` : ""}<button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div></div>
+        <div class="playlist-list">${rows || `<div class="browser-empty">${_fitnessEscape(l.music_no_playlists)}</div>`}</div>
       </div>`);
     const root = this.shadowRoot?.getElementById("modal-root");
     root?.querySelector(".playlists-back")?.addEventListener("click", () => this._renderMusicSources());
@@ -8699,14 +9389,14 @@ class FitnessTvDashboardCard extends HTMLElement {
     const clone = (value) => globalThis.structuredClone ? structuredClone(value) : JSON.parse(JSON.stringify(value));
     const playlist = existing ? clone(existing) : {id:this._newUserPlaylistId(),name:"",items:[],thumbnail:""};
     const rows = () => (playlist.items || []).map((item, index) => `
-      <div class="playlist-edit-row" data-index="${index}">${this._mediaItemVisual(item)}<span><strong>${_fitnessEscape(item.title || "Media")}</strong><small>${_fitnessEscape([item.artist,item.album].filter(Boolean).join(" · "))}</small></span><button class="icon-tool playlist-up" ${index === 0 ? "disabled" : ""}><ha-icon icon="mdi:arrow-up"></ha-icon></button><button class="icon-tool playlist-down" ${index === playlist.items.length - 1 ? "disabled" : ""}><ha-icon icon="mdi:arrow-down"></ha-icon></button><button class="icon-tool playlist-remove"><ha-icon icon="mdi:delete-outline"></ha-icon></button></div>`).join("");
+      <div class="playlist-edit-row" data-index="${index}">${this._mediaItemVisual(item)}<span><strong>${_fitnessEscape(item.title || this._labels().generic_media)}</strong><small>${_fitnessEscape([item.artist,item.album].filter(Boolean).join(" · "))}</small></span><button class="icon-tool playlist-up" ${index === 0 ? "disabled" : ""}><ha-icon icon="mdi:arrow-up"></ha-icon></button><button class="icon-tool playlist-down" ${index === playlist.items.length - 1 ? "disabled" : ""}><ha-icon icon="mdi:arrow-down"></ha-icon></button><button class="icon-tool playlist-remove"><ha-icon icon="mdi:delete-outline"></ha-icon></button></div>`).join("");
     const render = () => {
       this._showModal(`
         <div class="modal-card browser-modal playlist-modal">
-          <div class="modal-head"><strong>${_fitnessEscape(existing ? (l.music_edit_playlist || "Edit playlist") : (l.music_new_playlist || "New playlist"))}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
-          <label class="field-label">${_fitnessEscape(l.name || "Name")}<input id="playlist-name" value="${_fitnessEscape(playlist.name || "")}" maxlength="160"></label>
-          <div class="playlist-edit-list">${rows() || `<div class="browser-empty">${_fitnessEscape(l.music_playlist_empty || "This playlist is empty.")}</div>`}</div>
-          <div class="modal-actions"><button class="primary-tool playlist-save"><ha-icon icon="mdi:content-save"></ha-icon>${_fitnessEscape(l.save || "Save")}</button>${existing ? `<button class="tool playlist-delete"><ha-icon icon="mdi:delete-outline"></ha-icon>${_fitnessEscape(l.delete || "Delete")}</button>` : ""}</div>
+          <div class="modal-head"><strong>${_fitnessEscape(existing ? (l.music_edit_playlist) : (l.music_new_playlist))}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
+          <label class="field-label">${_fitnessEscape(l.name)}<input id="playlist-name" value="${_fitnessEscape(playlist.name || "")}" maxlength="160"></label>
+          <div class="playlist-edit-list">${rows() || `<div class="browser-empty">${_fitnessEscape(l.music_playlist_empty)}</div>`}</div>
+          <div class="modal-actions"><button class="primary-tool playlist-save"><ha-icon icon="mdi:content-save"></ha-icon><span>${_fitnessEscape(l.save)}</span></button>${existing ? `<button class="tool playlist-delete"><ha-icon icon="mdi:delete-outline"></ha-icon><span>${_fitnessEscape(l.delete)}</span></button>` : ""}</div>
         </div>`);
       const root = this.shadowRoot?.getElementById("modal-root");
       root?.querySelector("#playlist-name")?.addEventListener("input", (ev) => { playlist.name = String(ev.target?.value || ""); });
@@ -8717,7 +9407,7 @@ class FitnessTvDashboardCard extends HTMLElement {
         row.querySelector(".playlist-down")?.addEventListener("click", () => { [playlist.items[index+1],playlist.items[index]]=[playlist.items[index],playlist.items[index+1]]; render(); });
       });
       root?.querySelector(".playlist-save")?.addEventListener("click", async () => {
-        playlist.name = String(root.querySelector("#playlist-name")?.value || "").trim() || (l.music_playlist || "Playlist");
+        playlist.name = String(root.querySelector("#playlist-name")?.value || "").trim() || (l.music_playlist);
         const next = [...(this._userPlaylists || [])];
         const at = next.findIndex((item) => String(item.id) === String(playlist.id));
         if (at >= 0) next[at] = playlist; else next.push(playlist);
@@ -8785,13 +9475,13 @@ class FitnessTvDashboardCard extends HTMLElement {
       this._radioCountryCode = String(result?.country_code || countryCode || "").toUpperCase();
       this._browseData = {
         ...result,
-        title:String(query || "").trim() || l.music_internet_radio || "Internet radio",
+        title:String(query || "").trim() || l.music_internet_radio,
         media_content_id:"__fitness_radio__",
       };
       this._mediaSearch = String(query || "");
       this._renderMediaBrowser();
     } catch (_err) {
-      this._showModal(`<div class="modal-card"><div class="modal-head"><strong>${_fitnessEscape(l.music_internet_radio || "Internet radio")}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="browser-empty">${_fitnessEscape(l.music_radio_error || "Internet radio could not be loaded.")}</div></div>`);
+      this._showModal(`<div class="modal-card"><div class="modal-head"><strong>${_fitnessEscape(l.music_internet_radio)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="browser-empty">${_fitnessEscape(l.music_radio_error)}</div></div>`);
     }
   }
 
@@ -8864,13 +9554,13 @@ class FitnessTvDashboardCard extends HTMLElement {
     const l = this._labels();
     this._showModal(`
       <div class="modal-card music-search-modal">
-        <div class="modal-head"><div class="browser-title"><button class="icon-tool music-sources-back" title="${_fitnessEscape(l.media_browser_back || "Back")}"><ha-icon icon="mdi:arrow-left"></ha-icon></button><strong>${_fitnessEscape(l.music_search || "Search music")}</strong></div><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
+        <div class="modal-head"><div class="browser-title"><button class="icon-tool music-sources-back" title="${_fitnessEscape(l.media_browser_back)}"><ha-icon icon="mdi:arrow-left"></ha-icon></button><strong>${_fitnessEscape(l.music_search)}</strong></div><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
         <div class="music-search-form">
-          <label class="field-label">${_fitnessEscape(l.music_search_query || "Search") }<input id="music-search-query" type="search" autocomplete="off" placeholder="${_fitnessEscape(l.music_search_placeholder || "Artist, song, album…")}"></label>
-          <div class="music-type-filter"><span class="music-type-filter-title">${_fitnessEscape(l.music_search_types || "Result types")}</span><div class="music-type-options"></div></div>
-          <div class="music-search-status music-search-working" hidden><ha-icon icon="mdi:loading" class="spin"></ha-icon><span>${_fitnessEscape(l.music_search_working || "Searching music… Some providers can take a few seconds.")}</span></div>
-          <div class="music-adapter-picker"><div class="browser-working"><ha-icon icon="mdi:loading" class="spin"></ha-icon><span>${_fitnessEscape(l.music_loading_adapters || "Loading music adapters…")}</span></div></div>
-          <div class="modal-actions"><button class="primary-tool run-music-search" disabled><ha-icon icon="mdi:magnify"></ha-icon>${_fitnessEscape(l.music_search || "Search music")}</button></div>
+          <label class="field-label">${_fitnessEscape(l.music_search_query) }<input id="music-search-query" type="search" autocomplete="off" placeholder="${_fitnessEscape(l.music_search_placeholder)}"></label>
+          <div class="music-type-filter"><span class="music-type-filter-title">${_fitnessEscape(l.music_search_types)}</span><div class="music-type-options"></div></div>
+          <div class="music-search-status music-search-working" hidden><ha-icon icon="mdi:loading" class="spin"></ha-icon><span>${_fitnessEscape(l.music_search_working)}</span></div>
+          <div class="music-adapter-picker"><div class="browser-working"><ha-icon icon="mdi:loading" class="spin"></ha-icon><span>${_fitnessEscape(l.music_loading_adapters)}</span></div></div>
+          <div class="modal-actions"><button class="primary-tool run-music-search" disabled><ha-icon icon="mdi:magnify"></ha-icon><span>${_fitnessEscape(l.music_search)}</span></button></div>
           <div class="browser-empty music-search-error" hidden></div>
         </div>
       </div>`);
@@ -8886,13 +9576,13 @@ class FitnessTvDashboardCard extends HTMLElement {
       const typeOptions = root.querySelector(".music-type-options");
       if (typeOptions) typeOptions.innerHTML = FITNESS_MUSIC_SEARCH_TYPES.map((item) => {
         const checked = savedTypes.includes(item.id);
-        const label = l[item.label] || item.fallback;
+        const label = l[item.label];
         return `<label class="music-type-option"><input type="checkbox" data-music-type="${_fitnessEscape(item.id)}" ${checked ? "checked" : ""}><ha-icon icon="${_fitnessEscape(item.icon)}"></ha-icon><span>${_fitnessEscape(label)}</span></label>`;
       }).join("");
       const rows = searchable.map((adapter) => {
         const savedAdapters = Array.isArray(this._musicSearchSavedAdapters) ? this._musicSearchSavedAdapters : [];
         const selected = this._musicSearchConfigured ? savedAdapters.includes(String(adapter.id)) : Boolean(adapter.selected);
-        const hint = adapter.setup_hint || "";
+        const hint = _fitnessMusicAdapterHint(l, adapter);
         const icon = String(adapter.icon || "mdi:music-note");
         const iconMarkup = icon.startsWith("/") ? `<img src="${_fitnessEscape(icon)}" alt="">` : `<ha-icon icon="${_fitnessEscape(icon)}"></ha-icon>`;
         const scopes = Array.isArray(adapter.search_scopes) ? adapter.search_scopes : [];
@@ -8906,12 +9596,12 @@ class FitnessTvDashboardCard extends HTMLElement {
           const scopeSelected = hasSavedScopes ? savedScopes.includes(String(scope.id)) : selected;
           return `<label class="music-provider-scope-row">${scopeIconMarkup}<input type="checkbox" data-adapter-scope="${_fitnessEscape(adapter.id)}" value="${_fitnessEscape(scope.id)}" ${scopeSelected ? "checked" : ""}><span><strong>${_fitnessEscape(scope.name || scope.domain || scope.id)}</strong><small>${_fitnessEscape(scope.domain || "Music Assistant")}</small></span></label>`;
         }).join("")}</div>` : "";
-        const busyMarkup = busyCount ? `<div class="music-provider-busy-note"><ha-icon icon="mdi:account-lock-outline"></ha-icon><span>${busyCount} ${_fitnessEscape(l.music_provider_busy_hidden || "provider account(s) currently playing elsewhere are hidden.")}</span></div>` : "";
+        const busyMarkup = busyCount ? `<div class="music-provider-busy-note"><ha-icon icon="mdi:account-lock-outline"></ha-icon><span>${_fitnessEscape(_fitnessFormatLabel(l.music_provider_busy_hidden, {count:busyCount}))}</span></div>` : "";
         const scopeLocked = scopes.length > 0 && availableScopes.length === 0;
         return `<div class="music-adapter-search-group"><label class="music-adapter-row ${scopeLocked ? "unavailable" : ""}"><input type="checkbox" data-adapter="${_fitnessEscape(adapter.id)}" ${selected && !scopeLocked ? "checked" : ""} ${scopeLocked ? "disabled" : ""}>${iconMarkup}<span><strong>${_fitnessEscape(adapter.name || adapter.id)}</strong>${hint ? `<small>${_fitnessEscape(hint)}</small>` : ""}</span></label>${scopeMarkup}${busyMarkup}</div>`;
       }).join("");
       const picker = root.querySelector(".music-adapter-picker");
-      if (picker) picker.innerHTML = `<label class="music-adapter-row all-adapters"><input id="music-search-all" type="checkbox"><ha-icon icon="mdi:select-all"></ha-icon><span><strong>${_fitnessEscape(l.music_all_adapters || "All available adapters")}</strong><small>${_fitnessEscape(l.music_all_adapters_hint || "Search every enabled adapter that supports search.")}</small></span></label>${rows || `<div class="browser-empty">${_fitnessEscape(l.music_no_search_adapters || "No searchable music adapters are available.")}</div>`}`;
+      if (picker) picker.innerHTML = `<label class="music-adapter-row all-adapters"><input id="music-search-all" type="checkbox"><ha-icon icon="mdi:select-all"></ha-icon><span><strong>${_fitnessEscape(l.music_all_adapters)}</strong><small>${_fitnessEscape(l.music_all_adapters_hint)}</small></span></label>${rows || `<div class="browser-empty">${_fitnessEscape(l.music_no_search_adapters)}</div>`}`;
       const run = root.querySelector(".run-music-search");
       const enabledAdapters = [...root.querySelectorAll('input[data-adapter]:not(:disabled)')];
       const all = root.querySelector("#music-search-all");
@@ -8945,8 +9635,9 @@ class FitnessTvDashboardCard extends HTMLElement {
       root.querySelector("#music-search-query")?.addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); this._runMusicSearch(root); } });
       root.querySelector("#music-search-query")?.focus?.();
     } catch (err) {
+      console.error("[Fitness TV] music adapter load failed", err);
       const picker = root?.querySelector(".music-adapter-picker");
-      if (picker) picker.innerHTML = `<div class="browser-empty">${_fitnessEscape(String(err?.message || err || l.music_adapter_error || "Music adapters could not be loaded."))}</div>`;
+      if (picker) picker.innerHTML = `<div class="browser-empty">${_fitnessEscape(l.music_adapter_error)}</div>`;
     }
   }
 
@@ -8957,11 +9648,11 @@ class FitnessTvDashboardCard extends HTMLElement {
     const error = root.querySelector(".music-search-error");
     const working = root.querySelector(".music-search-working");
     const button = root.querySelector(".run-music-search");
-    if (!query) { if (error) { error.textContent = l.music_search_enter_query || "Enter something to search for."; error.hidden = false; } return; }
+    if (!query) { if (error) { error.textContent = l.music_search_enter_query; error.hidden = false; } return; }
     const all = Boolean(root.querySelector("#music-search-all")?.checked);
     const {selected, scopes, types} = this._musicSearchSelection(root);
-    if (!all && !selected.length) { if (error) { error.textContent = l.music_search_select_adapter || "Select at least one music adapter."; error.hidden = false; } return; }
-    if (!types.length) { if (error) { error.textContent = l.music_search_select_type || "Select at least one result type."; error.hidden = false; } return; }
+    if (!all && !selected.length) { if (error) { error.textContent = l.music_search_select_adapter; error.hidden = false; } return; }
+    if (!types.length) { if (error) { error.textContent = l.music_search_select_type; error.hidden = false; } return; }
     if (error) error.hidden = true;
     await this._saveMusicSearchPreferences(root);
     if (working) working.hidden = false;
@@ -8988,16 +9679,17 @@ class FitnessTvDashboardCard extends HTMLElement {
       this._browseFavoritesMode = false;
       this._browseData = {
         ...result,
-        title:l.music_search_results || "Music search results",
+        title:l.music_search_results,
         media_content_id:"__fitness_music_search__",
       };
       this._mediaSearch = "";
       this._musicResultSelection = new Set();
       this._renderMediaBrowser();
     } catch (err) {
+      console.error("[Fitness TV] music search failed", err);
       if (working) working.hidden = true;
       if (button) button.disabled = false;
-      if (error) { error.textContent = String(err?.message || err || l.music_search_error || "Music search failed."); error.hidden = false; }
+      if (error) { error.textContent = l.music_search_error; error.hidden = false; }
     }
   }
 
@@ -9015,11 +9707,11 @@ class FitnessTvDashboardCard extends HTMLElement {
     const l = this._labels();
     this._showModal(`
       <div class="modal-card music-link-modal">
-        <div class="modal-head"><div class="browser-title"><button class="icon-tool music-sources-back" title="${_fitnessEscape(l.media_browser_back || "Back")}"><ha-icon icon="mdi:arrow-left"></ha-icon></button><strong>${_fitnessEscape(l.music_add_link || "Play from link")}</strong></div><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
-        <label class="field-label">${_fitnessEscape(l.music_link || "Music URL")}<input id="music-link" type="text" autocomplete="off" placeholder="https://…"></label>
-        <label class="field-label">${_fitnessEscape(l.music_title_optional || "Title (optional)")}<input id="music-link-title" type="text" autocomplete="off"></label>
-        <div class="music-link-support">${_fitnessEscape(l.music_link_supported_v2 || "Supported here: direct HTTP(S) audio streams, YouTube/YouTube Music links through the normal YouTube player, and SoundCloud links. Account-only providers such as Spotify are intentionally not accepted by this field; use their Home Assistant media adapter instead.")}<div class="music-link-examples"><span>https://…/stream.mp3</span><span>youtube.com/…</span><span>soundcloud.com/…</span></div></div>
-        <div class="modal-actions"><button class="primary-tool use-music-link"><ha-icon icon="mdi:play-circle-outline"></ha-icon>${_fitnessEscape(l.music_use_link || "Play & remember")}</button></div>
+        <div class="modal-head"><div class="browser-title"><button class="icon-tool music-sources-back" title="${_fitnessEscape(l.media_browser_back)}"><ha-icon icon="mdi:arrow-left"></ha-icon></button><strong>${_fitnessEscape(l.music_add_link)}</strong></div><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
+        <label class="field-label">${_fitnessEscape(l.music_link)}<input id="music-link" type="text" autocomplete="off" placeholder="https://…"></label>
+        <label class="field-label">${_fitnessEscape(l.music_title_optional)}<input id="music-link-title" type="text" autocomplete="off"></label>
+        <div class="music-link-support">${_fitnessEscape(l.music_link_supported_v2)}<div class="music-link-examples"><span>https://…/stream.mp3</span><span>youtube.com/…</span><span>soundcloud.com/…</span></div></div>
+        <div class="modal-actions"><button class="primary-tool use-music-link"><ha-icon icon="mdi:play-circle-outline"></ha-icon><span>${_fitnessEscape(l.music_use_link)}</span></button></div>
         <div class="browser-empty music-link-error" hidden></div>
       </div>`);
     const root = this.shadowRoot?.getElementById("modal-root");
@@ -9030,11 +9722,11 @@ class FitnessTvDashboardCard extends HTMLElement {
       const error = root.querySelector(".music-link-error");
       const showError = (message) => { if (error) { error.textContent = message; error.hidden = false; } };
       if (lower.startsWith("spotify:") || lower.includes("open.spotify.com/")) {
-        showError(l.music_spotify_requires_provider || "Spotify links are not directly playable here. Use Home Assistant media or Music Assistant with a Spotify-capable provider.");
+        showError(l.music_spotify_requires_provider);
         return;
       }
       const id = this._musicLinkId(target);
-      if (!id) { showError(l.music_invalid_link || "Enter a direct HTTP(S) audio URL, YouTube/YouTube Music link, or SoundCloud link."); return; }
+      if (!id) { showError(l.music_invalid_link); return; }
       if (error) error.hidden = true;
       const title = String(root.querySelector("#music-link-title")?.value || "").trim() || this._musicLinkDefaultTitle(target);
       await this._selectMusic({title,media_content_id:id,can_play:true,can_expand:false});
@@ -9064,14 +9756,15 @@ class FitnessTvDashboardCard extends HTMLElement {
       this._renderMediaBrowser();
     } catch (_err) {
       this._showModal(`
-        <div class="modal-card"><div class="modal-head"><strong>${_fitnessEscape(l.media_browser || "Media browser")}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
-        <div class="browser-empty">${_fitnessEscape(l.media_error || "Unable to play this media.")}</div></div>`);
+        <div class="modal-card"><div class="modal-head"><strong>${_fitnessEscape(l.media_browser)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
+        <div class="browser-empty">${_fitnessEscape(l.media_error)}</div></div>`);
     }
   }
 
   _favoriteMediaItems() {
+    const l = this._labels();
     return (this._mediaFavorites || []).map((item) => ({
-      title:String(item.title || item.media_content_id || "Media"),
+      title:String(item.title || item.media_content_id || l.media_browser),
       ...this._normalizedMediaMetadata(item),
       media_content_id:String(item.media_content_id || ""),
       can_play:true,
@@ -9105,14 +9798,14 @@ class FitnessTvDashboardCard extends HTMLElement {
     if (button) {
       button.classList.add("favorite-pulse");
       button.setAttribute("aria-pressed", adding ? "true" : "false");
-      button.title = adding ? (l.remove_favorite || "Remove favorite") : (l.add_favorite || "Add favorite");
+      button.title = adding ? (l.remove_favorite) : (l.add_favorite);
       const icon = button.querySelector("ha-icon");
       if (icon) icon.setAttribute("icon", adding ? "mdi:star" : "mdi:star-outline");
       setTimeout(() => button.classList.remove("favorite-pulse"), 220);
     }
     await this._saveFavorites(favorites);
     if (this._browseFavoritesMode) {
-      this._browseData = {title:l.media_favorites || "Favorites",media_content_id:"__fitness_favorites__",children:this._favoriteMediaItems()};
+      this._browseData = {title:l.media_favorites,media_content_id:"__fitness_favorites__",children:this._favoriteMediaItems()};
       this._renderMediaBrowser();
     }
   }
@@ -9126,7 +9819,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     this._browseNativeProvider = "";
     this._browseFavoritesMode = true;
     this._browseData = {
-      title:l.media_favorites || "Favorites",
+      title:l.media_favorites,
       media_content_id:"__fitness_favorites__",
       children:this._favoriteMediaItems(),
     };
@@ -9171,12 +9864,16 @@ class FitnessTvDashboardCard extends HTMLElement {
   _mediaResultMetadata(item = {}) {
     const metadata = this._normalizedMediaMetadata(item);
     const provider = this._mediaProviderLabel(item);
+    const labels = this._labels();
     const primary = [...new Set([metadata.artist, metadata.album].map((value) => String(value || "").trim()).filter(Boolean))];
     const secondary = [];
     if (metadata.year) secondary.push(metadata.year);
     if (metadata.duration > 0) secondary.push(this._formatMediaTime(metadata.duration));
     if (provider) secondary.push(provider);
-    const typeLabel = this._compactMediaDetails(provider, item.details || item.media_class);
+    const mediaType = FITNESS_MUSIC_SEARCH_TYPES.find(
+      (candidate) => candidate.id === String(item.media_class || "").toLowerCase(),
+    );
+    const typeLabel = mediaType ? String(labels?.[mediaType.label] || "").trim() : "";
     if (typeLabel && !secondary.some((value) => value.toLocaleLowerCase() === typeLabel.toLocaleLowerCase())) secondary.push(typeLabel);
     return {primary, secondary};
   }
@@ -9196,12 +9893,13 @@ class FitnessTvDashboardCard extends HTMLElement {
   }
 
   _updateMusicSelectionBar(root, children) {
+    const l = this._labels();
     const items = this._selectedMusicResults(children);
     const count = root?.querySelector(".music-selection-count");
     const play = root?.querySelector(".music-selection-play");
     const add = root?.querySelector(".music-selection-add");
     const clear = root?.querySelector(".music-selection-clear");
-    if (count) count.textContent = `${items.length} selected`;
+    if (count) count.textContent = _fitnessFormatLabel(l.selected_count, {count:items.length});
     if (play) play.disabled = !items.length || !items.every((item) => this._isMAItem(item));
     if (add) add.disabled = !items.length;
     if (clear) clear.disabled = !items.length;
@@ -9222,10 +9920,10 @@ class FitnessTvDashboardCard extends HTMLElement {
     if (!result?.playing) throw new Error("Music Assistant did not start the selected queue");
     const first = selected[0];
     this._currentMediaContentId = String(first.media_content_id);
-    this._musicTitle = String(first.title || "Music");
+    this._musicTitle = String(first.title || this._labels().music_sources);
     this._musicMetadata = this._normalizedMediaMetadata(first);
     if (!this._activePlaylistContext) {
-      this._activePlaylistContext = {kind:"selection",title:"Selected results",items:selected};
+      this._activePlaylistContext = {kind:"selection",title:this._labels().music_selected_items,items:selected};
     }
     this._activePlaylistContext.index = 0;
     this._fitnessPlaylistIndex = 0;
@@ -9241,11 +9939,11 @@ class FitnessTvDashboardCard extends HTMLElement {
     const options = (this._userPlaylists || []).map((playlist) => `<option value="${_fitnessEscape(playlist.id)}">${_fitnessEscape(playlist.name)} (${playlist.items?.length || 0})</option>`).join("");
     this._showModal(`
       <div class="modal-card playlist-add-modal">
-        <div class="modal-head"><strong>${_fitnessEscape(l.music_add_to_playlist || "Add to playlist")}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
-        <div class="playlist-add-summary">${selected.length} ${_fitnessEscape(l.music_selected_items || "selected items")}</div>
-        <label class="field-label">${_fitnessEscape(l.music_playlist || "Playlist")}<select id="playlist-target"><option value="">${_fitnessEscape(l.music_new_playlist || "New playlist")}</option>${options}</select></label>
-        <label class="field-label playlist-new-name">${_fitnessEscape(l.name || "Name")}<input id="playlist-new-name" maxlength="160" placeholder="${_fitnessEscape(l.music_new_playlist || "New playlist")}"></label>
-        <div class="modal-actions"><button class="primary-tool playlist-add-confirm"><ha-icon icon="mdi:playlist-plus"></ha-icon>${_fitnessEscape(l.add || "Add")}</button></div>
+        <div class="modal-head"><strong>${_fitnessEscape(l.music_add_to_playlist)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
+        <div class="playlist-add-summary">${selected.length} ${_fitnessEscape(l.music_selected_items)}</div>
+        <label class="field-label">${_fitnessEscape(l.music_playlist)}<select id="playlist-target"><option value="">${_fitnessEscape(l.music_new_playlist)}</option>${options}</select></label>
+        <label class="field-label playlist-new-name">${_fitnessEscape(l.name)}<input id="playlist-new-name" maxlength="160" placeholder="${_fitnessEscape(l.music_new_playlist)}"></label>
+        <div class="modal-actions"><button class="primary-tool playlist-add-confirm"><ha-icon icon="mdi:playlist-plus"></ha-icon><span>${_fitnessEscape(l.add)}</span></button></div>
       </div>`);
     const root = this.shadowRoot?.getElementById("modal-root");
     const target = root?.querySelector("#playlist-target");
@@ -9256,7 +9954,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       let playlist = target?.value ? this._userPlaylist(target.value) : null;
       const next = [...(this._userPlaylists || [])];
       if (!playlist) {
-        const name = String(root.querySelector("#playlist-new-name")?.value || "").trim() || (l.music_playlist || "Playlist");
+        const name = String(root.querySelector("#playlist-new-name")?.value || "").trim() || (l.music_playlist);
         playlist = {id:this._newUserPlaylistId(),name,items:[],thumbnail:""};
         next.push(playlist);
       } else {
@@ -9323,32 +10021,32 @@ class FitnessTvDashboardCard extends HTMLElement {
       const canOpenPlaylist = this._isMAPlaylistItem(item);
       return `
       <div class="media-row ${selectable ? "media-row-selectable" : ""}" data-index="${index}" data-search="${_fitnessEscape(searchText)}">
-        ${selectable && item.can_play ? `<label class="media-select"><input type="checkbox" ${checked ? "checked" : ""} aria-label="Select"><span></span></label>` : ""}
+        ${selectable && item.can_play ? `<label class="media-select"><input type="checkbox" ${checked ? "checked" : ""} aria-label="${_fitnessEscape(l.select_item)}"><span></span></label>` : ""}
         <button class="media-open" ${(item.can_expand || canOpenPlaylist) ? "" : "disabled"}>
           ${this._mediaItemVisual(item)}
-          <span class="media-result-copy"><strong>${_fitnessEscape(item.title || item.media_content_id || "Media")}</strong>${meta.primary.length ? `<small class="media-result-primary">${_fitnessEscape(meta.primary.join(" · "))}</small>` : ""}${meta.secondary.length ? `<small class="media-result-secondary">${_fitnessEscape(meta.secondary.join(" · "))}</small>` : ""}</span>
+          <span class="media-result-copy"><strong>${_fitnessEscape(item.title || item.media_content_id || this._labels().generic_media)}</strong>${meta.primary.length ? `<small class="media-result-primary">${_fitnessEscape(meta.primary.join(" · "))}</small>` : ""}${meta.secondary.length ? `<small class="media-result-secondary">${_fitnessEscape(meta.secondary.join(" · "))}</small>` : ""}</span>
         </button>
-        ${item.external_url ? `<button class="icon-tool media-external" title="${_fitnessEscape(l.music_open_provider || "Open provider")}"><ha-icon icon="mdi:open-in-new"></ha-icon></button>` : ""}
-        ${item.can_play ? `<button class="icon-tool media-favorite" title="${_fitnessEscape(favorite ? (l.remove_favorite || "Remove favorite") : (l.add_favorite || "Add favorite"))}"><ha-icon icon="${favorite ? "mdi:star" : "mdi:star-outline"}"></ha-icon></button><button class="icon-tool media-play" title="${_fitnessEscape(l.play || "Play")}"><ha-icon icon="mdi:play"></ha-icon></button>` : ""}
-        ${providerPlaylist && data.is_editable && this._canControlProfile && item.playlist_position ? `<button class="icon-tool media-remove" title="${_fitnessEscape(l.remove || "Remove")}"><ha-icon icon="mdi:playlist-remove"></ha-icon></button>` : ""}
+        ${item.external_url ? `<button class="icon-tool media-external" title="${_fitnessEscape(l.music_open_provider)}"><ha-icon icon="mdi:open-in-new"></ha-icon></button>` : ""}
+        ${item.can_play ? `<button class="icon-tool media-favorite" title="${_fitnessEscape(favorite ? (l.remove_favorite) : (l.add_favorite))}"><ha-icon icon="${favorite ? "mdi:star" : "mdi:star-outline"}"></ha-icon></button><button class="icon-tool media-play" title="${_fitnessEscape(l.play)}"><ha-icon icon="mdi:play"></ha-icon></button>` : ""}
+        ${providerPlaylist && data.is_editable && this._canControlProfile && item.playlist_position ? `<button class="icon-tool media-remove" title="${_fitnessEscape(l.remove)}"><ha-icon icon="mdi:playlist-remove"></ha-icon></button>` : ""}
       </div>`;
     }).join("");
-    const selectionBar = selectable ? `<div class="music-selection-bar"><strong class="music-selection-count">0 selected</strong><button class="tool music-selection-all"><ha-icon icon="mdi:select-all"></ha-icon><span>${_fitnessEscape(l.select_all || "Select all")}</span></button><button class="tool music-selection-clear" disabled><ha-icon icon="mdi:select-off"></ha-icon><span>${_fitnessEscape(l.clear || "Clear")}</span></button><button class="tool music-selection-add" disabled><ha-icon icon="mdi:playlist-plus"></ha-icon><span>${_fitnessEscape(l.music_add_to_playlist || "Add to playlist")}</span></button><button class="primary-tool music-selection-play" disabled><ha-icon icon="mdi:play"></ha-icon>${_fitnessEscape(l.play_selected || "Play selected")}</button></div>` : "";
+    const selectionBar = selectable ? `<div class="music-selection-bar"><strong class="music-selection-count">${_fitnessEscape(_fitnessFormatLabel(l.selected_count, {count:0}))}</strong><button class="tool music-selection-all"><ha-icon icon="mdi:select-all"></ha-icon><span>${_fitnessEscape(l.select_all)}</span></button><button class="tool music-selection-clear" disabled><ha-icon icon="mdi:select-off"></ha-icon><span>${_fitnessEscape(l.clear)}</span></button><button class="tool music-selection-add" disabled><ha-icon icon="mdi:playlist-plus"></ha-icon><span>${_fitnessEscape(l.music_add_to_playlist)}</span></button><button class="primary-tool music-selection-play" disabled><ha-icon icon="mdi:play"></ha-icon><span>${_fitnessEscape(l.play_selected)}</span></button></div>` : "";
     const headerExtra = userPlaylist && this._canControlProfile
-      ? `<button class="tool user-playlist-play"><ha-icon icon="mdi:play"></ha-icon><span>${_fitnessEscape(l.play || "Play")}</span></button><button class="tool user-playlist-edit"><ha-icon icon="mdi:pencil"></ha-icon><span>${_fitnessEscape(l.edit || "Edit")}</span></button>`
+      ? `<button class="tool user-playlist-play"><ha-icon icon="mdi:play"></ha-icon><span>${_fitnessEscape(l.play)}</span></button><button class="tool user-playlist-edit"><ha-icon icon="mdi:pencil"></ha-icon><span>${_fitnessEscape(l.edit)}</span></button>`
       : providerPlaylist
-        ? `<button class="tool provider-playlist-play"><ha-icon icon="mdi:play"></ha-icon><span>${_fitnessEscape(l.play || "Play")}</span></button>${data.is_editable && this._canControlProfile ? `<span class="playlist-editable-badge"><ha-icon icon="mdi:pencil"></ha-icon>${_fitnessEscape(l.edit || "Edit")}</span>` : ""}`
+        ? `<button class="tool provider-playlist-play"><ha-icon icon="mdi:play"></ha-icon><span>${_fitnessEscape(l.play)}</span></button>${data.is_editable && this._canControlProfile ? `<span class="playlist-editable-badge"><ha-icon icon="mdi:pencil"></ha-icon>${_fitnessEscape(l.edit)}</span>` : ""}`
         : "";
     this._showModal(`
       <div class="modal-card browser-modal">
         <div class="modal-head">
-          <div class="browser-title"><button class="icon-tool media-back" title="${_fitnessEscape(l.media_browser_back || "Back")}"><ha-icon icon="mdi:arrow-left"></ha-icon></button><strong>${_fitnessEscape(data.title || l.media_browser || "Media browser")}</strong></div>
-          <div class="browser-head-actions">${headerExtra}<button class="tool media-favorites" title="${_fitnessEscape(l.media_favorites || "Favorites")}"><ha-icon icon="mdi:star"></ha-icon><span>${_fitnessEscape(l.media_favorites || "Favorites")}</span></button><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
+          <div class="browser-title"><button class="icon-tool media-back" title="${_fitnessEscape(l.media_browser_back)}"><ha-icon icon="mdi:arrow-left"></ha-icon></button><strong>${_fitnessEscape(data.title || l.media_browser)}</strong></div>
+          <div class="browser-head-actions">${headerExtra}<button class="tool media-favorites" title="${_fitnessEscape(l.media_favorites)}"><ha-icon icon="mdi:star"></ha-icon><span>${_fitnessEscape(l.media_favorites)}</span></button><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
         </div>
-        ${this._browseNativeProvider === "radio" ? `<label class="media-country"><span>${_fitnessEscape(l.music_country || "Country")}</span><select id="media-country"><option value="">${_fitnessEscape(l.music_all_countries || "All countries")}</option>${this._sortedRadioCountries().map((country) => `<option value="${_fitnessEscape(country.code)}" ${String(country.code || "").toUpperCase() === String(this._radioCountryCode || "").toUpperCase() ? "selected" : ""}>${_fitnessEscape(country.display_name || country.code)}</option>`).join("")}</select></label>` : ""}
-        <label class="media-search"><ha-icon icon="mdi:magnify"></ha-icon><input id="media-search" type="search" autocomplete="off" placeholder="${_fitnessEscape(l.media_search || "Filter results")}" value="${_fitnessEscape(this._mediaSearch || "")}"></label>
+        ${this._browseNativeProvider === "radio" ? `<label class="media-country"><span>${_fitnessEscape(l.music_country)}</span><select id="media-country"><option value="">${_fitnessEscape(l.music_all_countries)}</option>${this._sortedRadioCountries().map((country) => `<option value="${_fitnessEscape(country.code)}" ${String(country.code || "").toUpperCase() === String(this._radioCountryCode || "").toUpperCase() ? "selected" : ""}>${_fitnessEscape(country.display_name || country.code)}</option>`).join("")}</select></label>` : ""}
+        <label class="media-search"><ha-icon icon="mdi:magnify"></ha-icon><input id="media-search" type="search" autocomplete="off" placeholder="${_fitnessEscape(l.media_search)}" value="${_fitnessEscape(this._mediaSearch || "")}"></label>
         ${selectionBar}
-        <div class="media-list">${rows || `<div class="browser-empty">${_fitnessEscape(this._browseFavoritesMode ? (l.no_favorites || "No favorites yet.") : (l.media_browser_empty || "No media is available here."))}</div>`}<div class="browser-empty media-filter-empty" hidden>${_fitnessEscape(l.media_search_empty || "No matching media.")}</div></div>
+        <div class="media-list">${rows || `<div class="browser-empty">${_fitnessEscape(this._browseFavoritesMode ? (l.no_favorites) : (l.media_browser_empty))}</div>`}<div class="browser-empty media-filter-empty" hidden>${_fitnessEscape(l.media_search_empty)}</div></div>
       </div>`);
     const root = this.shadowRoot.getElementById("modal-root");
     root?.querySelector(".media-back")?.addEventListener("click", async () => {
@@ -9407,7 +10105,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       root?.querySelector(".music-selection-all")?.addEventListener("click", () => { children.filter((item) => item?.can_play).forEach((item) => this._musicResultSelection.add(String(item.media_content_id || ""))); this._renderMediaBrowser(); });
       root?.querySelector(".music-selection-clear")?.addEventListener("click", () => { this._musicResultSelection = new Set(); this._renderMediaBrowser(); });
       root?.querySelector(".music-selection-add")?.addEventListener("click", () => this._openAddToPlaylist(this._selectedMusicResults(children)));
-      root?.querySelector(".music-selection-play")?.addEventListener("click", () => { this._activePlaylistContext = {kind:"selection",title:"Selected results",items:this._selectedMusicResults(children)}; void this._playSelectedMAItems(this._selectedMusicResults(children)); });
+      root?.querySelector(".music-selection-play")?.addEventListener("click", () => { this._activePlaylistContext = {kind:"selection",title:l.music_selected_items,items:this._selectedMusicResults(children)}; void this._playSelectedMAItems(this._selectedMusicResults(children)); });
       this._updateMusicSelectionBar(root, children);
     }
   }
@@ -9420,9 +10118,9 @@ class FitnessTvDashboardCard extends HTMLElement {
       && String(item.media_class || "").toLowerCase() === "playlist";
     if (!options.keepPlaylist) {
       this._activePlaylistContext = this._isMAPlaylistItem(item)
-        ? {kind:"provider",title:String(item.title || "Playlist"),item:this._playlistItemSnapshot(item)}
+        ? {kind:"provider",title:String(item.title || l.music_playlist),item:this._playlistItemSnapshot(item)}
         : (isYtdlpPlaylist
-          ? {kind:"youtube_playlist",title:String(item.title || "Playlist"),item:this._playlistItemSnapshot(item)}
+          ? {kind:"youtube_playlist",title:String(item.title || l.music_playlist),item:this._playlistItemSnapshot(item)}
           : null);
       this._fitnessPlaylistIndex = 0;
       if (this._activePlaylistContext) this._activePlaylistContext.index = 0;
@@ -9440,7 +10138,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       const metadata = this._normalizedMediaMetadata(item);
       const result = await this._sendMediaCommand("select", {
         media_content_id:item.media_content_id,
-        title:item.title || l.now_playing || "Music",
+        title:item.title || l.now_playing,
         provider_instance:String(item.provider_instance || ""),
         playlist_context:this._playlistContextSnapshot(),
         await_result:true,
@@ -9448,10 +10146,10 @@ class FitnessTvDashboardCard extends HTMLElement {
       });
       if (!result?.sent) throw new Error(result?.reason || "No active Fitness TV player");
       if (result?.error) {
-        throw new Error(String(result?.state?.details || l.media_error || "Unable to play this media."));
+        throw new Error(String(result?.state?.details || l.media_error));
       }
       if (!result?.playing) throw new Error("Playback did not start");
-      this._musicTitle = item.title || l.now_playing || "Music";
+      this._musicTitle = item.title || l.now_playing;
       this._musicMetadata = isMusicAssistant
         ? {...metadata, provider_origin:metadata.provider_origin || (metadata.provider_name ? `Music Assistant · ${metadata.provider_name}` : "Music Assistant")}
         : metadata;
@@ -9461,7 +10159,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     } catch (err) {
       console.error("[Fitness TV] music selection failed", err);
       const title = this.shadowRoot?.querySelector(".browser-title strong");
-      const message = String(err?.message || err || l.music_only || l.media_error || "Unable to play this media.");
+      const message = l.media_error || l.music_only;
       if (title) title.textContent = message;
     }
   }
@@ -9647,8 +10345,8 @@ class FitnessTvDashboardCard extends HTMLElement {
     const mediaContentId = String(this._currentMediaContentId || shared.media_content_id || "");
     const hasSelection = Boolean(mediaContentId);
     const displayTitle = hasSelection
-      ? (this._musicTitle || shared.title || l.nothing_playing || "No music selected")
-      : (l.nothing_playing || "No music selected");
+      ? (this._musicTitle || shared.title || l.nothing_playing)
+      : (l.nothing_playing);
     const failed = hasSelection && Boolean(error || shared.error);
     const playing = hasSelection && !failed && Boolean(shared.playing || (this._musicAudio && !this._musicAudio.paused) || this._embeddedPlaying);
     const providerLabel = this._mediaProviderLabel({...shared, ...(this._musicMetadata || {}), ...metadata});
@@ -9664,8 +10362,8 @@ class FitnessTvDashboardCard extends HTMLElement {
     if (status) status.textContent = !hasSelection
       ? ""
       : (failed
-          ? (l.media_error || "Unable to play this media.")
-          : (playing ? (l.now_playing || "Now playing") : (l.media_selected || "Selected")));
+          ? (l.media_error)
+          : (playing ? (l.now_playing) : (l.media_selected)));
 
     const playlistContext = this._activePlaylistContext;
     const playlistActive = Boolean(playlistContext && ((playlistContext.items?.length || 0) > 1 || ["provider","youtube_playlist"].includes(playlistContext.kind) || Number(this._maQueueProgress?.items || 0) > 1));
@@ -9711,7 +10409,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     if (current) current.textContent = hasSelection ? this._formatMediaTime(position) : "0:00";
     if (remaining) remaining.textContent = hasSelection && duration > 0
       ? this._formatMediaTime(duration)
-      : (playing ? (l.music_live || "LIVE") : "—");
+      : (playing ? (l.music_live) : "—");
     if (progress) {
       progress.min = "0";
       progress.max = String(duration > 0 ? duration : 1);
@@ -9719,7 +10417,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       progress.disabled = !hasSelection || duration <= 0;
       progress.setAttribute("aria-valuetext", duration > 0
         ? `${this._formatMediaTime(position)} / ${this._formatMediaTime(duration)}`
-        : (playing ? (l.music_live || "LIVE") : ""));
+        : (playing ? (l.music_live) : ""));
     }
 
     const play = this.shadowRoot?.getElementById("play");
@@ -9733,8 +10431,8 @@ class FitnessTvDashboardCard extends HTMLElement {
     if (castToggle) {
       castToggle.querySelector("ha-icon")?.setAttribute("icon", anyCastActive ? "mdi:cast-off" : "mdi:cast");
       const castLabel = castToggle.querySelector("span");
-      if (castLabel) castLabel.textContent = anyCastActive ? (l.cast_stop || "Stop Cast") : (l.cast_dashboard || "Cast");
-      castToggle.title = anyCastActive ? (l.cast_stop || "Stop Cast") : (l.cast_dashboard || "Cast");
+      if (castLabel) castLabel.textContent = anyCastActive ? (l.cast_stop) : (l.cast_dashboard);
+      castToggle.title = anyCastActive ? (l.cast_stop) : (l.cast_dashboard);
     }
     const stopCast = this.shadowRoot?.getElementById("stop-cast");
     if (stopCast) {
@@ -9761,21 +10459,27 @@ class FitnessTvDashboardCard extends HTMLElement {
       :host(:not([fitness-cast-receiver])) .tv-toolbar.fixed-profile{grid-template-columns:auto auto minmax(0,1fr);grid-template-areas:"brand identity actions" "music music music";align-items:center;row-gap:8px}
       :host(:not([fitness-cast-receiver])) .tv-toolbar.fixed-profile .tv-brand{grid-area:brand}
       :host(:not([fitness-cast-receiver])) .tv-toolbar.fixed-profile .tv-profile-identity{grid-area:identity}
-      :host(:not([fitness-cast-receiver])) .tv-toolbar.fixed-profile .tv-actions{grid-area:actions;justify-content:flex-end;flex-wrap:wrap;overflow:visible;min-width:0}
+      :host(:not([fitness-cast-receiver])) .tv-toolbar.fixed-profile .tv-actions{grid-area:actions;justify-content:flex-end;overflow:visible;min-width:0}:host(:not([fitness-cast-receiver])) .tv-toolbar.fixed-profile .tv-actions>.tool{min-width:88px;max-width:none}:host(:not([fitness-cast-receiver])) .tv-toolbar.fixed-profile .tv-actions>.tool span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       :host(:not([fitness-cast-receiver])) .tv-toolbar.fixed-profile .music-controls{grid-area:music;min-width:0;width:100%;grid-template-columns:auto minmax(280px,1fr);border-top:1px solid var(--divider-color);padding-top:8px}
       .profile-control{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;min-width:0}.profile-control span{font-size:12px;color:var(--secondary-text-color)}.tv-profile-identity{display:flex;align-items:center;gap:6px;min-width:0;color:var(--secondary-text-color)}.tv-profile-identity ha-icon{--mdc-icon-size:18px}.tv-profile-identity span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
-      .tv-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;min-width:0}
+      .tv-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));align-items:stretch;gap:7px;min-width:0;overflow:visible}.tv-actions>.tool{width:100%;min-width:0;padding-inline:clamp(7px,1vw,12px)}.tv-actions>.tool span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       select,.tool,.icon-tool{font:inherit;color:var(--primary-text-color);background:var(--secondary-background-color);border:1px solid var(--divider-color);border-radius:12px;min-height:42px}
-      select{width:100%;min-width:0;padding:0 10px}.tool,.icon-tool{cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:0 12px}.icon-tool{width:42px;padding:0}.tool:disabled,.icon-tool:disabled{opacity:.45;cursor:default}
-      .music-controls{display:grid;grid-template-columns:auto minmax(280px,1fr);gap:10px;align-items:center;min-width:0}.music-button-strip{display:flex;align-items:center;gap:7px;flex-wrap:wrap;min-width:0}.media-now{min-width:0;display:grid;grid-template-columns:44px minmax(0,1fr);gap:8px;align-items:center;padding-left:3px}.media-art{width:44px;height:44px;display:grid;place-items:center;overflow:hidden;border-radius:9px;background:var(--secondary-background-color);color:var(--secondary-text-color)}.media-art img{width:100%;height:100%;object-fit:cover}.media-art ha-icon{--mdc-icon-size:25px}.media-now-main{min-width:0;width:min(420px,100%);max-width:420px}.media-copy{min-width:0;width:100%;max-width:420px;overflow:hidden}.media-copy small{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--secondary-text-color);font-size:9px}.media-scroll-line{min-width:0;max-width:100%;overflow:hidden;white-space:nowrap}.media-scroll-line strong,.media-scroll-line span{display:inline-block;white-space:nowrap;min-width:0;will-change:transform}.media-copy strong{font-size:13px}.media-copy span{margin-top:1px;color:var(--secondary-text-color);font-size:10px}.media-scroll-line .media-marquee{animation:fitness-media-marquee var(--media-scroll-duration,8s) ease-in-out 1s infinite alternate}@keyframes fitness-media-marquee{from{transform:translateX(0)}to{transform:translateX(calc(-1 * var(--media-scroll-distance,0px)))}}.media-progress-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:1px;align-items:center;margin-top:3px;color:var(--secondary-text-color);font-size:9px;font-variant-numeric:tabular-nums;min-width:0;width:min(420px,100%);max-width:420px;justify-self:start}.media-progress-wrap input{grid-column:1;width:100%;height:14px;min-width:0;margin:0;accent-color:var(--primary-color)}.media-progress-wrap input:disabled{opacity:.45}.playlist-control.active{color:var(--primary-color);border-color:color-mix(in srgb,var(--primary-color) 65%,var(--divider-color));background:color-mix(in srgb,var(--primary-color) 12%,var(--secondary-background-color))}.media-time-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;line-height:1}.media-time-row span{white-space:nowrap}
-      .tv-oled-stage{min-width:0;position:relative;z-index:1}.tv-grid{--tv-columns:4;--tv-row:4px;display:grid;grid-template-columns:repeat(var(--tv-columns),minmax(0,1fr));grid-auto-rows:var(--tv-row);grid-auto-flow:dense;column-gap:12px;row-gap:0;width:100%;align-items:start}.tv-card-slot{min-width:0;position:relative;overflow:visible;min-height:var(--tv-card-visual-height,1px);border-radius:14px}.tv-card-slot>.tv-mounted-card{display:block;width:100%;max-width:none}.layout-tools{display:none;position:absolute;z-index:80;top:5px;right:5px;align-items:center;gap:3px;padding:3px;border-radius:10px;background:color-mix(in srgb,var(--card-background-color) 92%,transparent);border:1px solid var(--divider-color);box-shadow:0 2px 8px rgba(0,0,0,.18)}.fitness-remote-section-selected,.fitness-remote-section-active{position:relative;z-index:72!important;transform-origin:center center;will-change:transform,box-shadow,filter;transition:transform .19s cubic-bezier(.2,.85,.2,1),outline-color .16s ease,box-shadow .19s ease,filter .16s ease}.fitness-remote-section-selected{outline:2px solid color-mix(in srgb,var(--primary-color,#03a9f4) 92%,white 8%)!important;outline-offset:3px!important;transform:scale(1.028);box-shadow:0 0 0 2px rgba(255,255,255,.10),0 0 0 5px color-mix(in srgb,var(--primary-color,#03a9f4) 36%,transparent),0 0 24px 8px color-mix(in srgb,var(--primary-color,#03a9f4) 29%,transparent),0 18px 42px rgba(0,0,0,.30)!important;filter:brightness(1.07) saturate(1.055)}.tv-toolbar.fitness-remote-section-selected{transform:scale(1.012)}.fitness-remote-section-active{outline:1px solid color-mix(in srgb,var(--primary-color,#03a9f4) 72%,transparent)!important;outline-offset:3px!important;transform:scale(1.012);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary-color,#03a9f4) 16%,transparent),0 0 16px 4px color-mix(in srgb,var(--primary-color,#03a9f4) 14%,transparent),0 10px 28px rgba(0,0,0,.18)!important;filter:brightness(1.035) saturate(1.025)}.tv-toolbar.fitness-remote-section-active{transform:scale(1.006)}.cast-exit-confirm[hidden]{display:none!important}:host([fitness-cast-receiver]) .cast-exit-confirm{position:fixed;left:9vw;right:9vw;bottom:28px;z-index:9999;margin:0 auto;max-width:760px;padding:13px 20px;border-radius:14px;background:rgba(0,0,0,.86);color:#fff;font:700 15px/1.3 system-ui,sans-serif;text-align:center;pointer-events:none;box-shadow:0 8px 28px rgba(0,0,0,.38);border:1px solid rgba(255,255,255,.24)}.layout-tools .drag-grip{--mdc-icon-size:18px;color:var(--secondary-text-color);padding:0 3px}.layout-tools button{width:28px;height:28px;border:0;border-radius:7px;display:grid;place-items:center;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer}.layout-tools button ha-icon{--mdc-icon-size:16px}:host([layout-editing]) .layout-tools{display:flex}:host([layout-editing]) .tv-card-slot{outline:2px dashed color-mix(in srgb,var(--primary-color) 65%,transparent);outline-offset:-2px;cursor:grab}:host([layout-editing]) .tv-card-slot>.tv-mounted-card{pointer-events:none;user-select:none}:host([layout-editing]) .tv-card-slot.dragging{opacity:.42}:host([layout-editing]) .tv-card-slot.drop-target{outline:3px solid var(--primary-color);background:color-mix(in srgb,var(--primary-color) 7%,transparent)}.arrange-tool[aria-pressed="true"]{border-color:var(--primary-color);background:color-mix(in srgb,var(--primary-color) 16%,var(--secondary-background-color))}
+      select{width:100%;min-width:0;padding:0 10px}.tool,.icon-tool{cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:5px 12px;min-width:0;line-height:1.2}.icon-tool{width:42px;min-width:42px;padding:0}.tool>span,.primary-tool>span,.adapter-setup>span,.flow-home>span{display:block;min-width:0;max-width:100%;font-size:clamp(11px,.76vw,13px);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;word-break:normal;overflow-wrap:normal}.tool:disabled,.icon-tool:disabled{opacity:.45;cursor:default}
+      .music-controls{display:grid;grid-template-columns:auto minmax(280px,1fr);gap:10px;align-items:center;min-width:0}.music-button-strip{display:flex;align-items:center;gap:7px;flex-wrap:nowrap;min-width:0}.music-button-strip>.tool{flex:1 1 auto;min-width:0}.music-button-strip>.tool span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.media-now{min-width:0;display:grid;grid-template-columns:44px minmax(0,1fr);gap:8px;align-items:center;padding-left:3px}.media-art{width:44px;height:44px;display:grid;place-items:center;overflow:hidden;border-radius:9px;background:var(--secondary-background-color);color:var(--secondary-text-color)}.media-art img{width:100%;height:100%;object-fit:cover}.media-art ha-icon{--mdc-icon-size:25px}.media-now-main{min-width:0;width:min(420px,100%);max-width:420px}.media-copy{min-width:0;width:100%;max-width:420px;overflow:hidden}.media-copy small{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--secondary-text-color);font-size:9px}.media-scroll-line{min-width:0;max-width:100%;overflow:hidden;white-space:nowrap}.media-scroll-line strong,.media-scroll-line span{display:inline-block;white-space:nowrap;min-width:0;will-change:transform}.media-copy strong{font-size:13px}.media-copy span{margin-top:1px;color:var(--secondary-text-color);font-size:10px}.media-scroll-line .media-marquee{animation:fitness-media-marquee var(--media-scroll-duration,8s) ease-in-out 1s infinite alternate}@keyframes fitness-media-marquee{from{transform:translateX(0)}to{transform:translateX(calc(-1 * var(--media-scroll-distance,0px)))}}.media-progress-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:1px;align-items:center;margin-top:3px;color:var(--secondary-text-color);font-size:9px;font-variant-numeric:tabular-nums;min-width:0;width:min(420px,100%);max-width:420px;justify-self:start}.media-progress-wrap input{grid-column:1;width:100%;height:14px;min-width:0;margin:0;accent-color:var(--primary-color)}.media-progress-wrap input:disabled{opacity:.45}.playlist-control.active{color:var(--primary-color);border-color:color-mix(in srgb,var(--primary-color) 65%,var(--divider-color));background:color-mix(in srgb,var(--primary-color) 12%,var(--secondary-background-color))}.media-time-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;line-height:1}.media-time-row span{white-space:nowrap}
+      .tv-oled-stage{min-width:0;position:relative;z-index:1}.tv-grid{--tv-columns:4;--tv-row:4px;display:grid;grid-template-columns:repeat(var(--tv-columns),minmax(0,1fr));grid-auto-rows:var(--tv-row);grid-auto-flow:dense;column-gap:12px;row-gap:0;width:100%;align-items:start}.tv-card-slot{min-width:0;position:relative;overflow:visible;min-height:var(--tv-card-visual-height,1px);border-radius:14px}.tv-card-slot>.tv-mounted-card{display:block;width:100%;max-width:none}.tv-card-slot.read-only-card{cursor:default}.tv-card-slot.read-only-card>.tv-mounted-card{user-select:text}.layout-tools{display:none;position:absolute;z-index:80;top:5px;right:5px;align-items:center;gap:3px;padding:3px;border-radius:10px;background:color-mix(in srgb,var(--card-background-color) 92%,transparent);border:1px solid var(--divider-color);box-shadow:0 2px 8px rgba(0,0,0,.18)}.fitness-remote-section-selected,.fitness-remote-section-active{position:relative;z-index:72!important;transform-origin:center center;will-change:transform,box-shadow,filter;transition:transform .19s cubic-bezier(.2,.85,.2,1),outline-color .16s ease,box-shadow .19s ease,filter .16s ease}.fitness-remote-section-selected{outline:2px solid color-mix(in srgb,var(--primary-color,#03a9f4) 92%,white 8%)!important;outline-offset:3px!important;transform:scale(1.028);box-shadow:0 0 0 2px rgba(255,255,255,.10),0 0 0 5px color-mix(in srgb,var(--primary-color,#03a9f4) 36%,transparent),0 0 24px 8px color-mix(in srgb,var(--primary-color,#03a9f4) 29%,transparent),0 18px 42px rgba(0,0,0,.30)!important;filter:brightness(1.07) saturate(1.055)}.tv-toolbar.fitness-remote-section-selected{transform:scale(1.012)}.fitness-remote-section-active{outline:1px solid color-mix(in srgb,var(--primary-color,#03a9f4) 72%,transparent)!important;outline-offset:3px!important;transform:scale(1.012);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary-color,#03a9f4) 16%,transparent),0 0 16px 4px color-mix(in srgb,var(--primary-color,#03a9f4) 14%,transparent),0 10px 28px rgba(0,0,0,.18)!important;filter:brightness(1.035) saturate(1.025)}.tv-toolbar.fitness-remote-section-active{transform:scale(1.006)}.cast-exit-confirm[hidden]{display:none!important}:host([fitness-cast-receiver]) .cast-exit-confirm{position:fixed;left:9vw;right:9vw;bottom:28px;z-index:9999;margin:0 auto;max-width:760px;padding:13px 20px;border-radius:14px;background:rgba(0,0,0,.86);color:#fff;font:700 15px/1.3 system-ui,sans-serif;text-align:center;pointer-events:none;box-shadow:0 8px 28px rgba(0,0,0,.38);border:1px solid rgba(255,255,255,.24)}.layout-tools .drag-grip{--mdc-icon-size:18px;color:var(--secondary-text-color);padding:0 3px}.layout-tools button{width:28px;height:28px;border:0;border-radius:7px;display:grid;place-items:center;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer}.layout-tools button ha-icon{--mdc-icon-size:16px}:host([layout-editing]) .layout-tools{display:flex}:host([layout-editing]) .tv-card-slot{outline:2px dashed color-mix(in srgb,var(--primary-color) 65%,transparent);outline-offset:-2px;cursor:grab}:host([layout-editing]) .tv-card-slot>.tv-mounted-card{pointer-events:none;user-select:none}:host([layout-editing]) .tv-card-slot.dragging{opacity:.42}:host([layout-editing]) .tv-card-slot.drop-target{outline:3px solid var(--primary-color);background:color-mix(in srgb,var(--primary-color) 7%,transparent)}.arrange-tool[aria-pressed="true"]{border-color:var(--primary-color);background:color-mix(in srgb,var(--primary-color) 16%,var(--secondary-background-color))}
+      :host([fitness-cast-receiver]) .fitness-remote-section-selected,:host([fitness-cast-receiver]) .fitness-remote-section-active{will-change:transform;transition:transform .11s ease-out,outline-color .11s ease-out,box-shadow .11s ease-out;filter:none!important}
+      :host([fitness-cast-receiver]) .fitness-remote-section-selected{transform:translate3d(0,-1px,0) scale(1.012);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary-color,#03a9f4) 27%,transparent),0 8px 18px rgba(0,0,0,.24)!important}
+      :host([fitness-cast-receiver]) .tv-toolbar.fitness-remote-section-selected{transform:translate3d(0,-1px,0) scale(1.004)}
+      :host([fitness-cast-receiver]) .fitness-remote-section-active{transform:translate3d(0,0,0) scale(1.006);box-shadow:0 0 0 2px color-mix(in srgb,var(--primary-color,#03a9f4) 18%,transparent),0 6px 14px rgba(0,0,0,.18)!important}
+      :host([fitness-cast-receiver]) .tv-toolbar.fitness-remote-section-active{transform:translate3d(0,0,0) scale(1.002)}
+      .cast-focus-tooltip[hidden]{display:none!important}:host([fitness-cast-receiver]) .cast-focus-tooltip{position:fixed;z-index:9999;width:max-content;max-width:min(300px,calc(100vw - 24px));margin:0;padding:8px 12px;border-radius:10px;background:rgba(0,0,0,.90);color:#fff;font:600 12px/1.3 system-ui,sans-serif;text-align:center;white-space:normal;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.34);border:1px solid rgba(255,255,255,.22);animation:fitness-tooltip-in .14s ease-out both}:host([fitness-cast-receiver]) .cast-focus-tooltip::before{content:"";position:absolute;left:var(--cast-tooltip-arrow-left,50%);top:-7px;transform:translateX(-50%);border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:7px solid rgba(0,0,0,.90)}:host([fitness-cast-receiver]) .cast-focus-tooltip[data-placement="above"]::before{top:auto;bottom:-7px;border-bottom:0;border-top:7px solid rgba(0,0,0,.90)}@keyframes fitness-tooltip-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
       .fatal{padding:30px;font-size:18px}
       .access-denied{min-height:280px;display:flex;align-items:center;justify-content:center;gap:16px;padding:36px;text-align:left;color:var(--secondary-text-color)}.access-denied>ha-icon{--mdc-icon-size:38px;color:var(--error-color)}.access-denied strong,.access-denied span{display:block}.access-denied strong{font-size:20px;color:var(--primary-text-color);margin-bottom:5px}.access-denied span{max-width:620px;line-height:1.45}.view-only-badge,.view-only-notice{display:inline-flex;align-items:center;gap:6px;color:var(--secondary-text-color)}.view-only-badge{padding:3px 8px;border-radius:999px;background:var(--secondary-background-color);font-size:10px}.view-only-badge ha-icon,.view-only-notice ha-icon{--mdc-icon-size:16px}.view-only-notice{margin:-2px 0 10px;padding:9px 12px;border-radius:12px;background:color-mix(in srgb,var(--primary-color) 7%,var(--secondary-background-color));font-size:11px}.read-only-media{grid-template-columns:minmax(180px,1fr)!important}.read-only-card .layout-tools{display:none!important}
       .modal-backdrop{position:fixed;z-index:9999;top:var(--modal-top,68px);left:0;right:0;bottom:0;background:rgba(0,0,0,.42);display:grid;place-items:start center;padding:4px 18px 18px;overflow:hidden;overscroll-behavior:none}
-      .modal-card{width:min(760px,94vw);max-height:calc(100vh - var(--modal-top,68px) - 10px);overflow:hidden;display:flex;flex-direction:column;border-radius:20px;background:var(--card-background-color);box-shadow:0 20px 70px rgba(0,0,0,.42);border:1px solid var(--divider-color)}
-      .modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid var(--divider-color);font-size:17px}.browser-title,.browser-head-actions{display:flex;align-items:center;gap:8px;min-width:0}.browser-title strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.media-country{margin:8px 10px 0;display:grid;grid-template-columns:auto minmax(160px,1fr);align-items:center;gap:9px;color:var(--secondary-text-color);font-size:12px}.media-country select{width:100%;padding:0 9px}.media-search{margin:8px 10px 0;display:grid;grid-template-columns:24px minmax(0,1fr);align-items:center;gap:6px;padding:7px 10px;border:1px solid var(--divider-color);border-radius:12px;background:var(--secondary-background-color)}.media-search ha-icon{--mdc-icon-size:19px;color:var(--secondary-text-color)}.media-search input{min-width:0;border:0;outline:0;background:transparent;color:var(--primary-text-color);font:inherit}.media-row[hidden]{display:none}.media-favorite.favorite-pulse{transform:scale(1.13);border-color:var(--primary-color);background:color-mix(in srgb,var(--primary-color) 18%,var(--secondary-background-color));transition:transform .12s ease,background .12s ease}.backend-flow-modal{overflow:hidden!important}.backend-flow-modal #backend-flow-host{display:block;min-height:0;overflow:hidden}
+      .modal-card{width:min(760px,calc(100vw - 16px));max-width:calc(100vw - 16px);max-height:calc(100dvh - var(--modal-top,68px) - 12px);overflow:hidden;display:flex;flex-direction:column;border-radius:20px;background:var(--card-background-color);box-shadow:0 20px 70px rgba(0,0,0,.42);border:1px solid var(--divider-color)}
+      .modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid var(--divider-color);font-size:17px}.browser-title,.browser-head-actions{display:flex;align-items:center;gap:8px;min-width:0}.browser-title strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.media-country{margin:8px 10px 0;display:grid;grid-template-columns:auto minmax(160px,1fr);align-items:center;gap:9px;color:var(--secondary-text-color);font-size:12px}.media-country select{width:100%;padding:0 9px}.media-search{margin:8px 10px 0;display:grid;grid-template-columns:24px minmax(0,1fr);align-items:center;gap:6px;padding:7px 10px;border:1px solid var(--divider-color);border-radius:12px;background:var(--secondary-background-color)}.media-search ha-icon{--mdc-icon-size:19px;color:var(--secondary-text-color)}.media-search input{min-width:0;border:0;outline:0;background:transparent;color:var(--primary-text-color);font:inherit}.media-row[hidden]{display:none}.media-favorite.favorite-pulse{transform:scale(1.13);border-color:var(--primary-color);background:color-mix(in srgb,var(--primary-color) 18%,var(--secondary-background-color));transition:transform .12s ease,background .12s ease}.backend-flow-modal{height:min(900px,calc(100dvh - var(--modal-top,68px) - 26px));max-height:calc(100dvh - var(--modal-top,68px) - 26px);overflow:hidden!important}.backend-flow-modal .backend-flow-host{display:block;flex:1 1 auto;min-height:0;overflow:hidden!important}.backend-flow-modal .backend-flow-host>fitness-backend-flow{display:block;height:100%;min-height:0;overflow:hidden}
       .picker-list,.media-list{overflow:auto;padding:8px}.picker-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
-      .cast-picker{padding:14px;display:grid;gap:12px;overflow-y:auto;min-height:0}.cast-section{display:grid;gap:11px;padding:14px;border-radius:20px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 68%,transparent)}.cast-section-copy{display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;align-items:start}.cast-section-copy>ha-icon{color:var(--primary-color);--mdc-icon-size:24px}.cast-section-copy strong,.cast-section-copy small{display:block}.cast-section-copy small{margin-top:4px;color:var(--secondary-text-color);font-size:11px;line-height:1.4}.cast-section-actions{display:flex;gap:8px;flex-wrap:wrap}.cast-target-control{display:grid;gap:6px}.cast-target-control span{font-size:12px;color:var(--secondary-text-color)}.cast-now{min-width:140px}.cast-status{min-height:20px;color:var(--secondary-text-color);font-size:12px}.remote-gateway-modal{height:min(820px,calc(100dvh - 32px));max-height:calc(100dvh - 32px)}.remote-gateway-body{padding:14px;display:grid;gap:12px;overflow-y:auto;min-height:0}.remote-gateway-intro,.remote-radio-card,.remote-protocol{border:1px solid color-mix(in srgb,var(--divider-color) 68%,transparent);background:var(--secondary-background-color);border-radius:20px}.remote-gateway-intro{display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;padding:14px}.remote-gateway-intro>ha-icon,.remote-radio-head>ha-icon,.remote-protocol>ha-icon{color:var(--primary-color)}.remote-gateway-intro strong,.remote-gateway-intro small,.remote-radio-head strong,.remote-radio-head small{display:block}.remote-gateway-intro small,.remote-radio-head small{margin-top:4px;color:var(--secondary-text-color);font-size:11px;line-height:1.4}.remote-radio-card{padding:14px;display:grid;gap:11px}.remote-radio-head{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:start}.remote-state{font-size:11px;color:var(--secondary-text-color);white-space:nowrap}.remote-actions{display:flex;gap:8px;flex-wrap:wrap}.remote-warning{padding:10px 12px;border-radius:14px;background:color-mix(in srgb,var(--warning-color,#ff9800) 12%,transparent);color:var(--secondary-text-color);font-size:11px}.remote-device-list{display:grid;gap:7px}.remote-device{display:grid;grid-template-columns:24px minmax(0,1fr) 20px 34px;gap:8px;align-items:center;padding:9px 10px;border-radius:14px;background:color-mix(in srgb,var(--card-background-color) 70%,transparent)}.remote-device .remote-ble-disconnect{width:32px;min-width:32px;min-height:32px;height:32px;border-radius:9px}.remote-device strong,.remote-device small{display:block}.remote-device small,.remote-empty{color:var(--secondary-text-color);font-size:10px}.remote-device .ok{color:var(--success-color,#4caf50);--mdc-icon-size:18px}.remote-protocol{display:flex;gap:8px;align-items:center;padding:11px 13px;color:var(--secondary-text-color);font-size:11px}.profile-settings{display:grid;gap:10px;padding:14px}.configure-modal{height:min(860px,calc(100dvh - 32px));max-height:calc(100dvh - 32px);overflow:hidden!important;display:flex;flex-direction:column}.configure-modal .profile-settings{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.configure-modal>.settings-actions{flex:0 0 auto;position:relative;bottom:auto;z-index:4;padding:11px 14px;background:color-mix(in srgb,var(--card-background-color) 97%,transparent);border-top:1px solid color-mix(in srgb,var(--divider-color) 68%,transparent)}.setting-toggle,.setting-field,.setting-range{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px;border-radius:12px;background:var(--secondary-background-color)}.setting-field{grid-template-columns:180px minmax(0,1fr)}.setting-field select{width:100%}.setting-range{grid-template-columns:minmax(0,1fr) minmax(180px,280px) 48px}.setting-toggle small,.setting-range small,.setting-info small{display:block;margin-top:3px;color:var(--secondary-text-color);font-size:10px}.setting-title,.modal-title-with-icon{display:inline-flex;align-items:center;gap:7px}.setting-title ha-icon,.modal-title-with-icon ha-icon{--mdc-icon-size:20px;color:var(--primary-color)}.setting-info{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:center;padding:13px;border-radius:18px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 70%,transparent)}.setting-info ha-icon{color:var(--primary-color)}.setting-adapters{display:grid;gap:10px;padding:13px;border-radius:18px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 70%,transparent)}.setting-adapters>div>small{display:block;margin-top:3px;color:var(--secondary-text-color);font-size:10px}.music-adapter-list,.music-adapter-picker{display:grid;gap:7px}.music-adapter-row{display:grid;grid-template-columns:22px 24px minmax(0,1fr) auto;gap:9px;align-items:center;padding:10px;border-radius:16px;background:color-mix(in srgb,var(--card-background-color) 72%,transparent);border:1px solid color-mix(in srgb,var(--divider-color) 64%,transparent)}.music-adapter-row input{width:18px;height:18px}.music-adapter-row ha-icon{--mdc-icon-size:20px}.music-adapter-row img{width:20px;height:20px;object-fit:contain}.music-adapter-row small,.music-adapter-row strong{display:block}.music-adapter-row small{color:var(--secondary-text-color);font-size:10px;margin-top:2px}.music-adapter-row.unavailable{opacity:.58}.adapter-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap}.adapter-account{font:inherit;max-width:190px;min-height:32px;padding:0 6px;color:var(--primary-text-color);background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:9px}.adapter-setup{font:inherit;font-size:11px;color:var(--primary-color);background:transparent;border:1px solid var(--divider-color);border-radius:9px;padding:6px 8px;cursor:pointer}.music-adapter-picker .music-adapter-row{grid-template-columns:22px 24px minmax(0,1fr)}.music-search-modal{overflow:hidden!important;display:flex;flex-direction:column;height:min(820px,calc(100dvh - var(--modal-top,68px) - 26px));max-height:calc(100dvh - var(--modal-top,68px) - 26px);min-height:0}.provider-catalog-modal{overflow:hidden!important;display:flex;flex-direction:column;height:min(820px,calc(100dvh - 32px));max-height:calc(100dvh - 32px);min-height:0}.provider-catalog-list{flex:1 1 auto;min-height:0;max-height:100%;overflow-y:auto!important;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.music-search-form{display:flex;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch;flex-direction:column;gap:12px;padding:14px}.music-search-form>.field-label,.music-search-form>.music-search-status,.music-search-form>.music-search-error,.music-search-form>.modal-actions{flex:0 0 auto}.music-search-form>.music-adapter-picker{flex:0 0 auto;min-height:auto;overflow:visible}.music-type-filter{display:grid;gap:7px;padding:10px 11px;border-radius:14px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 64%,transparent)}.music-type-filter-title{font-size:11px;font-weight:700;color:var(--secondary-text-color)}.music-type-options{display:flex;gap:7px;flex-wrap:wrap}.music-type-option{display:inline-flex;align-items:center;gap:6px;padding:7px 9px;border-radius:11px;background:var(--card-background-color);border:1px solid var(--divider-color);cursor:pointer;white-space:nowrap}.music-type-option input{width:16px;height:16px;margin:0}.music-type-option ha-icon{--mdc-icon-size:18px;color:var(--primary-color)}.music-type-option span{font-size:11px}.provider-catalog-list{display:grid;gap:9px;padding:14px}.provider-catalog-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px;border-radius:18px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 70%,transparent)}.provider-catalog-row ha-icon{color:var(--primary-color)}.provider-catalog-row span strong,.provider-catalog-row span small{display:block}.provider-catalog-row span small{margin-top:3px;color:var(--secondary-text-color);font-size:10px}.setting-adapters-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.setting-adapters-head .adapter-setup{white-space:nowrap}.browser-working{display:flex;gap:9px;align-items:center;padding:12px;border-radius:11px;background:var(--secondary-background-color);color:var(--secondary-text-color)}.spin{animation:fitness-spin 1s linear infinite}@keyframes fitness-spin{to{transform:rotate(360deg)}}.setting-range input{width:100%}.setting-range output{text-align:right;font-weight:700}.setting-toggle input{width:20px;height:20px}.settings-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px}.settings-status{font-size:12px;color:var(--secondary-text-color)}
+      .cast-picker{padding:14px;display:grid;gap:12px;overflow-y:auto;min-height:0}.cast-section{display:grid;gap:11px;padding:14px;border-radius:20px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 68%,transparent)}.cast-section-copy{display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;align-items:start}.cast-section-copy>ha-icon{color:var(--primary-color);--mdc-icon-size:24px}.cast-section-copy strong,.cast-section-copy small{display:block}.cast-section-copy small{margin-top:4px;color:var(--secondary-text-color);font-size:11px;line-height:1.4}.cast-section-actions{display:flex;gap:8px;flex-wrap:nowrap;min-width:0}.cast-section-actions>button{flex:1 1 0;min-width:0}.cast-target-control{display:grid;gap:6px}.cast-target-control span{font-size:12px;color:var(--secondary-text-color)}.cast-now{min-width:140px}.cast-status{min-height:20px;color:var(--secondary-text-color);font-size:12px}.remote-gateway-modal{height:min(820px,calc(100dvh - var(--modal-top,68px) - 26px));max-height:calc(100dvh - var(--modal-top,68px) - 26px)}.remote-gateway-body{padding:14px;display:grid;gap:12px;overflow-y:auto;min-height:0}.remote-gateway-intro,.remote-radio-card,.remote-protocol{border:1px solid color-mix(in srgb,var(--divider-color) 68%,transparent);background:var(--secondary-background-color);border-radius:20px}.remote-gateway-intro{display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;padding:14px}.remote-gateway-intro>ha-icon,.remote-radio-head>ha-icon,.remote-protocol>ha-icon{color:var(--primary-color)}.remote-gateway-intro strong,.remote-gateway-intro small,.remote-radio-head strong,.remote-radio-head small{display:block}.remote-gateway-intro small,.remote-radio-head small{margin-top:4px;color:var(--secondary-text-color);font-size:11px;line-height:1.4}.remote-radio-card{padding:14px;display:grid;gap:11px}.remote-radio-head{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:start}.remote-state{font-size:11px;color:var(--secondary-text-color);white-space:nowrap}.remote-actions{display:flex;gap:8px;flex-wrap:nowrap;min-width:0}.remote-actions>button{flex:1 1 0;min-width:0}.remote-warning{padding:10px 12px;border-radius:14px;background:color-mix(in srgb,var(--warning-color,#ff9800) 12%,transparent);color:var(--secondary-text-color);font-size:11px}.remote-device-list{display:grid;gap:7px}.remote-device{display:grid;grid-template-columns:24px minmax(0,1fr) 20px 34px;gap:8px;align-items:center;padding:9px 10px;border-radius:14px;background:color-mix(in srgb,var(--card-background-color) 70%,transparent)}.remote-device .remote-ble-disconnect{width:32px;min-width:32px;min-height:32px;height:32px;border-radius:9px}.remote-device strong,.remote-device small{display:block}.remote-device small,.remote-empty{color:var(--secondary-text-color);font-size:10px}.remote-device .ok{color:var(--success-color,#4caf50);--mdc-icon-size:18px}.remote-protocol{display:flex;gap:8px;align-items:center;padding:11px 13px;color:var(--secondary-text-color);font-size:11px}.tool>span,.primary-tool>span,.adapter-setup>span,.flow-home>span{font-size:clamp(11px,.76vw,13px);line-height:1.2;min-width:0;word-break:normal;overflow-wrap:normal}.profile-assign{display:grid;grid-template-columns:20px minmax(92px,1fr);align-items:center;gap:5px;min-width:0;padding:0 7px;border:1px solid var(--divider-color);border-radius:10px;background:var(--secondary-background-color)}.profile-assign ha-icon{--mdc-icon-size:18px;color:var(--primary-color)}.profile-assign select{min-width:0;width:100%;height:34px;border:0;background:transparent;color:var(--primary-text-color);font:inherit;font-size:clamp(11px,.72vw,12px)}.profile-adapter-removed{opacity:.58}.profile-adapter-removed>span strong{text-decoration:line-through}.profile-settings{display:grid;gap:10px;padding:14px}.configure-modal{height:min(860px,calc(100dvh - var(--modal-top,68px) - 26px));max-height:calc(100dvh - var(--modal-top,68px) - 26px);overflow:hidden!important;display:flex;flex-direction:column}.configure-modal .profile-settings{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.configure-modal>.settings-actions{flex:0 0 auto;position:relative;bottom:auto;z-index:4;padding:11px 14px;background:color-mix(in srgb,var(--card-background-color) 97%,transparent);border-top:1px solid color-mix(in srgb,var(--divider-color) 68%,transparent)}.setting-toggle,.setting-field,.setting-range{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px;border-radius:12px;background:var(--secondary-background-color)}.setting-field{grid-template-columns:180px minmax(0,1fr)}.setting-field select{width:100%}.setting-range{grid-template-columns:minmax(0,1fr) minmax(180px,280px) 48px}.setting-toggle small,.setting-range small,.setting-info small{display:block;margin-top:3px;color:var(--secondary-text-color);font-size:10px}.setting-title,.modal-title-with-icon{display:inline-flex;align-items:center;gap:7px}.setting-title ha-icon,.modal-title-with-icon ha-icon{--mdc-icon-size:20px;color:var(--primary-color)}.setting-info{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:center;padding:13px;border-radius:18px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 70%,transparent)}.setting-info ha-icon{color:var(--primary-color)}.setting-adapters{display:grid;gap:10px;padding:13px;border-radius:18px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 70%,transparent)}.setting-adapters-head>span{min-width:0}.setting-adapters-head>span>strong,.setting-adapters-head>span>small{display:block}.setting-adapters-head>span>small{margin-top:4px;color:var(--secondary-text-color);font-size:10px;line-height:1.4}.music-adapter-list,.music-adapter-picker{display:grid;gap:7px}.music-adapter-row{display:grid;grid-template-columns:22px 24px minmax(0,1fr) auto;gap:9px;align-items:center;padding:10px;border-radius:16px;background:color-mix(in srgb,var(--card-background-color) 72%,transparent);border:1px solid color-mix(in srgb,var(--divider-color) 64%,transparent)}.music-adapter-row input{width:18px;height:18px}.music-adapter-row ha-icon{--mdc-icon-size:20px}.music-adapter-row img{width:20px;height:20px;object-fit:contain}.music-adapter-row small,.music-adapter-row strong{display:block}.music-adapter-row small{color:var(--secondary-text-color);font-size:10px;margin-top:2px}.music-adapter-row.unavailable{opacity:.58}.adapter-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:nowrap;min-width:0}.adapter-actions>*{flex:0 1 auto;min-width:104px;max-width:190px}.adapter-actions>.adapter-account{flex:1 1 140px;min-width:120px}.adapter-actions>.adapter-setup{min-width:112px;min-height:36px}.adapter-actions>.adapter-remove{min-width:102px}.adapter-account{font:inherit;max-width:190px;min-height:32px;padding:0 6px;color:var(--primary-text-color);background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:9px}.adapter-setup{font:inherit;font-size:11px;color:var(--primary-color);background:transparent;border:1px solid var(--divider-color);border-radius:9px;padding:6px 8px;cursor:pointer}.adapter-actions>.adapter-setup>span,.provider-catalog-row>.adapter-setup>span,.setting-adapters-head>.adapter-setup>span{white-space:normal;overflow:visible;text-overflow:clip;word-break:normal;overflow-wrap:normal}.music-adapter-picker .music-adapter-row{grid-template-columns:22px 24px minmax(0,1fr)}.music-search-modal{overflow:hidden!important;display:flex;flex-direction:column;height:min(820px,calc(100dvh - var(--modal-top,68px) - 26px));max-height:calc(100dvh - var(--modal-top,68px) - 26px);min-height:0}.provider-catalog-modal{overflow:hidden!important;display:flex;flex-direction:column;height:min(820px,calc(100dvh - 32px));max-height:calc(100dvh - 32px);min-height:0}.provider-catalog-list{flex:1 1 auto;min-height:0;max-height:100%;overflow-y:auto!important;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.music-search-form{display:flex;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch;flex-direction:column;gap:12px;padding:14px}.music-search-form>.field-label,.music-search-form>.music-search-status,.music-search-form>.music-search-error,.music-search-form>.modal-actions{flex:0 0 auto}.music-search-form>.music-adapter-picker{flex:0 0 auto;min-height:auto;overflow:visible}.music-type-filter{display:grid;gap:7px;padding:10px 11px;border-radius:14px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 64%,transparent)}.music-type-filter-title{font-size:11px;font-weight:700;color:var(--secondary-text-color)}.music-type-options{display:flex;gap:7px;flex-wrap:wrap}.music-type-option{display:inline-flex;align-items:center;gap:6px;padding:7px 9px;border-radius:11px;background:var(--card-background-color);border:1px solid var(--divider-color);cursor:pointer;white-space:nowrap}.music-type-option input{width:16px;height:16px;margin:0}.music-type-option ha-icon{--mdc-icon-size:18px;color:var(--primary-color)}.music-type-option span{font-size:11px}.provider-catalog-list{display:grid;gap:9px;padding:14px}.provider-catalog-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px;border-radius:18px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 70%,transparent)}.provider-catalog-row ha-icon{color:var(--primary-color)}.provider-catalog-row span strong,.provider-catalog-row span small{display:block}.provider-catalog-row span small{margin-top:3px;color:var(--secondary-text-color);font-size:10px}.provider-catalog-row>.adapter-setup{min-width:clamp(132px,16vw,190px);min-height:40px;white-space:normal}.setting-adapters-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.setting-adapters-head .adapter-setup{flex:0 0 auto;min-width:clamp(132px,18vw,190px);min-height:40px;white-space:normal}.browser-working{display:flex;gap:9px;align-items:center;padding:12px;border-radius:11px;background:var(--secondary-background-color);color:var(--secondary-text-color)}.spin{animation:fitness-spin 1s linear infinite}@keyframes fitness-spin{to{transform:rotate(360deg)}}.setting-range input{width:100%}.setting-range output{text-align:right;font-weight:700}.setting-toggle input{width:20px;height:20px}.settings-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px}.settings-status{font-size:12px;color:var(--secondary-text-color)}
       .picker-row{display:grid;grid-template-columns:24px 28px minmax(0,1fr);gap:9px;align-items:center;padding:11px;border-radius:12px;background:var(--secondary-background-color);cursor:pointer}.picker-row input{width:18px;height:18px}
       .music-source:disabled{opacity:.58;cursor:not-allowed}.browser-warning{display:flex;align-items:flex-start;gap:8px;margin:0 14px 10px;padding:10px 12px;border-radius:11px;background:var(--warning-color,rgba(255,152,0,.14));font-size:11px}.browser-warning ha-icon{--mdc-icon-size:18px;flex:0 0 auto}.media-thumb{width:52px;height:52px;object-fit:cover;border-radius:9px;flex:0 0 52px;background:var(--card-background-color)}.media-source-icon{width:52px;--mdc-icon-size:28px;color:var(--primary-color);justify-self:center}.media-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:7px;align-items:center;margin-bottom:6px}.media-open{min-width:0;min-height:66px;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;text-align:left;gap:10px;padding:7px 10px;border:0;border-radius:12px;color:var(--primary-text-color);background:var(--secondary-background-color);cursor:pointer}.media-open:disabled{cursor:default}.media-open span{display:grid;gap:2px;min-width:0;overflow:hidden}.media-open strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:650}.media-open small,.music-source small,.music-link-support{color:var(--secondary-text-color);font-size:12px;line-height:1.35;white-space:normal}.media-result-primary,.media-result-secondary{overflow:hidden;text-overflow:ellipsis;white-space:nowrap!important}.media-result-primary{color:var(--primary-text-color)!important;font-size:11px!important}.media-result-secondary{font-size:10px!important;opacity:.9}.browser-empty{padding:24px;text-align:center;color:var(--secondary-text-color)}.media-row-selectable{grid-template-columns:auto minmax(0,1fr) auto auto auto}.media-select{display:grid;place-items:center;width:30px;height:100%;cursor:pointer}.media-select input{width:18px;height:18px;accent-color:var(--primary-color)}.music-selection-bar{position:sticky;top:0;z-index:3;display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin:0 12px 8px;padding:8px 10px;border:1px solid var(--divider-color);border-radius:14px;background:var(--card-background-color);box-shadow:0 5px 16px rgba(0,0,0,.12)}.music-selection-count{margin-right:auto;font-size:12px}.playlist-list,.playlist-edit-list{display:grid;gap:8px;padding:12px;overflow:auto}.playlist-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:7px;align-items:center}.playlist-open{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:10px;min-width:0;padding:8px 10px;border:1px solid var(--divider-color);border-radius:14px;background:var(--secondary-background-color);color:var(--primary-text-color);text-align:left;cursor:pointer}.playlist-open span,.playlist-edit-row span{min-width:0;display:grid;gap:2px}.playlist-open strong,.playlist-open small,.playlist-edit-row strong,.playlist-edit-row small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.playlist-open small,.playlist-edit-row small{font-size:11px;color:var(--secondary-text-color)}.playlist-edit-row{display:grid;grid-template-columns:52px minmax(0,1fr) auto auto auto;gap:7px;align-items:center;padding:7px;border:1px solid var(--divider-color);border-radius:12px}.playlist-add-summary{margin:12px 14px;color:var(--secondary-text-color)}.field-label select{box-sizing:border-box;width:100%;padding:12px 13px;border:1px solid var(--divider-color);border-radius:15px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;outline:none}.playlist-editable-badge{display:inline-flex;align-items:center;gap:5px;padding:7px 9px;border:1px solid var(--divider-color);border-radius:12px;color:var(--secondary-text-color);font-size:11px}.playlist-editable-badge ha-icon{--mdc-icon-size:16px}.playlist-modal .modal-actions,.playlist-add-modal .modal-actions{padding:0 14px 14px}
       .music-source-list{display:grid;gap:10px;padding:12px}.music-source{display:flex;align-items:center;gap:14px;width:100%;padding:14px 16px;border:1px solid var(--divider-color);border-radius:18px;background:var(--secondary-background-color);color:var(--primary-text-color);text-align:left;cursor:pointer;transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease}.music-source:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--primary-color) 38%,var(--divider-color));background:color-mix(in srgb,var(--primary-color) 7%,var(--secondary-background-color));box-shadow:0 8px 22px rgba(0,0,0,.12)}.music-source>ha-icon{--mdc-icon-size:28px;color:var(--primary-color);flex:0 0 auto}.music-source span{display:grid;gap:4px;min-width:0}.music-source strong{font-size:15px}.field-label{display:grid;gap:6px;margin:12px 14px;color:var(--secondary-text-color);font-size:12px}.field-label input{box-sizing:border-box;width:100%;padding:12px 13px;border:1px solid var(--divider-color);border-radius:15px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;outline:none;transition:border-color .16s ease,box-shadow .16s ease}.field-label input:focus{border-color:var(--primary-color);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary-color) 18%,transparent)}.music-link-support{margin:4px 14px 12px}.music-link-examples{display:grid;gap:3px;margin-top:8px;font-family:monospace;font-size:10px}.music-link-modal .modal-actions{padding:0 14px 14px}.primary-tool{min-height:42px;display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--primary-color);border-radius:15px;padding:0 14px;background:var(--primary-color);color:var(--text-primary-color,#fff);cursor:pointer;transition:transform .16s ease,box-shadow .16s ease}.primary-tool:hover{transform:translateY(-1px);box-shadow:0 8px 20px color-mix(in srgb,var(--primary-color) 25%,transparent)}.fitness-embed-host{position:fixed;left:-10000px;top:-10000px;width:320px;height:180px;opacity:.01;pointer-events:none;overflow:hidden}.fitness-embed-host iframe{width:320px;height:180px;border:0}
@@ -9800,12 +10504,16 @@ class FitnessTvDashboardCard extends HTMLElement {
       :host([fitness-live-ambient][fitness-animations]) .media-progress-wrap input{filter:drop-shadow(0 0 5px rgba(var(--fitness-tv-ambient-rgb,3,169,244),.45));animation:fitness-progress-energy calc(var(--fitness-motion-speed,6s) * .74) ease-in-out infinite}
       @keyframes fitness-card-breathe{0%,100%{translate:0 0;scale:1}42%{translate:0 calc(-.72 * var(--fitness-motion-lift,2px));scale:calc(1 + ((var(--fitness-card-breath-scale,1.009) - 1) * .64))}56%{translate:0 calc(-1 * var(--fitness-motion-lift,2px));scale:var(--fitness-card-breath-scale,1.009)}74%{translate:0 calc(-.28 * var(--fitness-motion-lift,2px));scale:calc(1 + ((var(--fitness-card-breath-scale,1.009) - 1) * .28))}}@keyframes fitness-card-life-pulse{0%,9%{transform:translateX(-55%) scaleX(.4);opacity:0}20%{opacity:.18}49%{opacity:.56}77%{opacity:.17}91%,100%{transform:translateX(390%) scaleX(.78);opacity:0}}@keyframes fitness-card-aura{0%,100%{opacity:.18;filter:saturate(.92)}50%{opacity:.54;filter:saturate(1.16)}}@keyframes fitness-toolbar-alive{0%,100%{translate:0 0;scale:1;filter:brightness(1)}50%{translate:0 -1px;scale:1.001;filter:brightness(1.022)}}@keyframes fitness-tool-icon-alive{0%,100%{transform:translateY(0) scale(1);filter:brightness(1)}48%{transform:translateY(-1px) scale(1.045);filter:brightness(1.07)}60%{transform:translateY(-.35px) scale(1.018);filter:brightness(1.025)}}@keyframes fitness-brand-breathe{0%,100%{transform:scale(1);filter:brightness(1)}50%{transform:scale(1.035);filter:brightness(1.055)}}@keyframes fitness-media-alive{0%,100%{scale:1;translate:0 0;filter:brightness(1)}50%{scale:1.028;translate:0 -1px;filter:brightness(1.055)}}@keyframes fitness-progress-energy{0%,100%{opacity:.88}50%{opacity:1}}
       @media(prefers-reduced-motion:reduce){.fitness-ambient-layer i{animation:none!important}:host([fitness-animations]) .tv-toolbar ha-icon,:host([fitness-animations]) .fitness-brand-icon,:host([fitness-animations]) .media-art,:host([fitness-animations]) .media-progress-wrap input{animation:none!important;translate:none!important;scale:1!important;transform:none!important}}
-      .tool,.icon-tool,.media-tool,.adapter-setup,.cast-now,.cast-stop{border-radius:15px;transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease}.tool:hover,.icon-tool:hover,.media-tool:hover,.adapter-setup:hover,.cast-now:hover,.cast-stop:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--primary-color) 40%,var(--divider-color));box-shadow:0 6px 16px rgba(0,0,0,.10)}
+      .tool,.icon-tool,.media-tool,.adapter-setup,.cast-now,.cast-stop{border-radius:15px;transition:border-color .13s ease,background .13s ease,box-shadow .13s ease}.tool:hover,.icon-tool:hover,.media-tool:hover,.adapter-setup:hover,.cast-now:hover,.cast-stop:hover{transform:none;border-color:color-mix(in srgb,var(--primary-color) 40%,var(--divider-color));box-shadow:0 3px 10px rgba(0,0,0,.10)}
+      .tool>span,.primary-tool>span,.adapter-setup>span,.flow-home>span{font-size:clamp(11px,.76vw,13px);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;word-break:normal;overflow-wrap:normal}
       .modal-backdrop{background:rgba(0,0,0,.54);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}.modal-card{border-radius:28px;border-color:color-mix(in srgb,var(--divider-color) 72%,transparent);box-shadow:0 28px 90px rgba(0,0,0,.48)}.modal-head{padding:16px 18px;background:color-mix(in srgb,var(--card-background-color) 96%,transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
       .picker-row,.media-open,.provider-catalog-row,.music-adapter-row,.setting-toggle,.setting-field,.setting-range,.setting-info,.setting-adapters,.browser-working,.browser-warning{border-radius:18px;border:1px solid color-mix(in srgb,var(--divider-color) 72%,transparent);background:color-mix(in srgb,var(--secondary-background-color) 94%,var(--card-background-color));transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease}.picker-row:hover,.media-open:not(:disabled):hover,.provider-catalog-row:hover,.music-adapter-row:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--primary-color) 34%,var(--divider-color));box-shadow:0 8px 20px rgba(0,0,0,.09)}
       .media-art,.media-thumb{border-radius:14px}.adapter-account,select{border-radius:14px}.layout-tools{border-radius:15px}
       /* Every Fitness TV menu keeps its controls visible while its body scrolls. */
       .modal-card{overflow:hidden!important;display:flex;flex-direction:column;min-height:0;overscroll-behavior:contain}
+      .configure-modal{height:min(860px,calc(100dvh - var(--modal-top,68px) - 26px));max-height:calc(100dvh - var(--modal-top,68px) - 26px)}
+      .configure-modal>.profile-settings{flex:1 1 auto;min-height:0;overflow-y:auto!important;overflow-x:hidden!important;scrollbar-gutter:stable;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+      .configure-modal>.settings-actions{flex:0 0 auto;position:relative!important;bottom:auto!important}
       .modal-auto-scroll-body{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}
       .modal-card.music-search-modal{display:flex;flex-direction:column;min-height:0;height:min(820px,calc(100dvh - var(--modal-top,68px) - 26px));max-height:calc(100dvh - var(--modal-top,68px) - 26px);overflow:hidden!important}
       .modal-card.music-search-modal .music-search-form{display:flex;flex:1 1 auto;min-height:0;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch;flex-direction:column}
@@ -9818,8 +10526,11 @@ class FitnessTvDashboardCard extends HTMLElement {
       .music-search-status{display:flex;align-items:center;gap:7px;margin:-7px 14px 2px;padding:4px 2px!important;border:0!important;background:transparent!important;font-size:11px;color:var(--secondary-text-color)}.music-search-status ha-icon{--mdc-icon-size:16px;color:var(--primary-color)}
       .music-adapter-search-group{display:grid;gap:6px}.music-provider-scopes{display:grid;gap:5px;margin:0 0 4px 34px;padding-left:10px;border-left:2px solid color-mix(in srgb,var(--primary-color) 28%,var(--divider-color))}.music-provider-scope-row{display:grid;grid-template-columns:22px 20px minmax(0,1fr);gap:8px;align-items:center;padding:8px 10px;border-radius:14px;background:color-mix(in srgb,var(--card-background-color) 74%,transparent);border:1px solid color-mix(in srgb,var(--divider-color) 60%,transparent)}.music-provider-scope-row ha-icon{--mdc-icon-size:19px;color:var(--primary-color)}.music-provider-scope-row input{width:17px;height:17px}.music-provider-scope-row strong,.music-provider-scope-row small{display:block}.music-provider-scope-row small{font-size:9px;color:var(--secondary-text-color);margin-top:2px}.music-provider-busy-note{display:flex;gap:6px;align-items:center;margin:0 0 4px 44px;font-size:10px;color:var(--secondary-text-color)}.music-provider-busy-note ha-icon{--mdc-icon-size:15px;color:var(--warning-color,#ff9800)}
       .ytdlp-legal-modal{height:min(760px,calc(100dvh - 32px))}.ytdlp-legal-body{display:grid;gap:12px}.ytdlp-legal-body .browser-warning{display:grid;grid-template-columns:26px minmax(0,1fr);gap:10px;line-height:1.5}.provider-catalog-ytdlp{border-color:color-mix(in srgb,var(--warning-color,#ff9800) 28%,var(--divider-color))}
+      .overview-cast-target.unavailable{opacity:.48;filter:grayscale(.82);cursor:not-allowed}.overview-cast-target.unavailable:hover{transform:none;box-shadow:none;border-color:var(--divider-color)}
       :host([fitness-cast-receiver]) ha-card.tv-shell{padding:5px 7px 7px}
-      :host([fitness-cast-receiver]) .tv-toolbar{grid-template-columns:auto minmax(70px,120px) auto minmax(130px,1fr);gap:3px;margin-bottom:11px;padding:3px 5px;border-radius:13px;transition:opacity .6s ease}
+      :host([fitness-cast-receiver]) .fitness-ambient-layer i{filter:blur(46px);will-change:opacity}:host([fitness-cast-receiver]) .fitness-ambient-layer i:nth-child(3),:host([fitness-cast-receiver]) .fitness-ambient-layer i:nth-child(4){display:none}:host([fitness-cast-receiver][fitness-animations]) .fitness-ambient-layer i:nth-child(1),:host([fitness-cast-receiver][fitness-animations]) .fitness-ambient-layer i:nth-child(2){animation:fitness-cast-ambient-pulse 7s ease-in-out infinite alternate}:host([fitness-cast-receiver][fitness-animations]) .fitness-ambient-layer i:nth-child(2){animation-delay:-3.5s}@keyframes fitness-cast-ambient-pulse{from{opacity:.68}to{opacity:.93}}
+      :host([fitness-cast-receiver][fitness-animations]) .tv-toolbar .tool ha-icon,:host([fitness-cast-receiver][fitness-animations]) .tv-toolbar .icon-tool ha-icon,:host([fitness-cast-receiver][fitness-animations]) .fitness-brand-icon,:host([fitness-cast-receiver][fitness-animations]) .media-art{animation:none!important;transform:none!important;filter:none!important}
+      :host([fitness-cast-receiver]) .tv-toolbar{grid-template-columns:auto minmax(76px,120px) auto minmax(180px,1fr);gap:5px;margin-bottom:11px;padding:5px 7px;border-radius:13px;transition:opacity .35s ease;overflow:visible}
       :host([fitness-cast-receiver]) .tv-brand{font-size:13px;gap:3px}
       :host([fitness-cast-receiver]) .tv-brand .fitness-brand-icon{width:18px;height:18px;flex-basis:18px}
       :host([fitness-cast-receiver]) .tv-profile-identity{gap:3px;max-width:120px}
@@ -9827,31 +10538,68 @@ class FitnessTvDashboardCard extends HTMLElement {
       :host([fitness-cast-receiver]) .tv-profile-identity span{font-size:9px;font-weight:650;color:var(--primary-text-color)}
       :host([fitness-cast-receiver]) .profile-control{gap:3px}
       :host([fitness-cast-receiver]) .profile-control span{display:none}
-      :host([fitness-cast-receiver]) .tv-actions{grid-column:auto;justify-content:flex-start;gap:3px;flex-wrap:nowrap}
-      :host([fitness-cast-receiver]) select,:host([fitness-cast-receiver]) .tool,:host([fitness-cast-receiver]) .icon-tool{min-height:27px;border-radius:6px;font-size:9px}
-      :host([fitness-cast-receiver]) .tool,:host([fitness-cast-receiver]) .icon-tool{width:27px;min-width:27px;padding:0;gap:0}
-      :host([fitness-cast-receiver]) .tv-actions .tool span,:host([fitness-cast-receiver]) .media-tool span{display:none}
-      :host([fitness-cast-receiver]) .tool ha-icon,:host([fitness-cast-receiver]) .icon-tool ha-icon{--mdc-icon-size:15px}
+      :host([fitness-cast-receiver]) .tv-actions{grid-column:auto;grid-template-columns:repeat(4,34px);justify-content:flex-start;gap:4px;overflow:visible}
+      :host([fitness-cast-receiver]) select,:host([fitness-cast-receiver]) .tool,:host([fitness-cast-receiver]) .icon-tool{min-height:34px;border-radius:8px;font-size:10px}
+      :host([fitness-cast-receiver]) .tv-toolbar .tool{width:34px;min-width:34px;max-width:34px;padding:0;gap:0}
+      :host([fitness-cast-receiver]) .icon-tool{width:34px;min-width:34px;padding:0;gap:0}
+      :host([fitness-cast-receiver]) .tv-toolbar button>span{display:none!important}
+      :host([fitness-cast-receiver]) .tool ha-icon,:host([fitness-cast-receiver]) .icon-tool ha-icon{--mdc-icon-size:18px}
       :host([fitness-cast-receiver]) .music-controls{grid-column:auto;grid-template-columns:auto minmax(90px,1fr);gap:4px}:host([fitness-cast-receiver]) .music-button-strip{gap:3px;flex-wrap:wrap}
       :host([fitness-cast-receiver]) .media-now{grid-template-columns:28px minmax(0,1fr);gap:4px;padding-left:1px}
       :host([fitness-cast-receiver]) .media-art{width:28px;height:28px;border-radius:5px}
       :host([fitness-cast-receiver]) .media-art ha-icon{--mdc-icon-size:16px}
-      :host([fitness-cast-receiver]) .media-copy small{font-size:5px}
-      :host([fitness-cast-receiver]) .media-copy strong{font-size:8px}
-      :host([fitness-cast-receiver]) .media-copy span{font-size:6px}
+      :host([fitness-cast-receiver]) .media-copy small{font-size:8px}
+      :host([fitness-cast-receiver]) .media-copy strong{font-size:10px}
+      :host([fitness-cast-receiver]) .media-copy span{font-size:8px}
       :host([fitness-cast-receiver]) .media-now-main,:host([fitness-cast-receiver]) .media-copy{width:min(300px,100%);max-width:300px}
-      :host([fitness-cast-receiver]) .media-progress-wrap{gap:3px;margin-top:1px;font-size:6px;width:min(300px,100%);max-width:300px}
-      :host([fitness-cast-receiver]) .media-progress-wrap input{height:9px}
+      :host([fitness-cast-receiver]) .media-progress-wrap{gap:3px;margin-top:1px;font-size:8px;width:min(300px,100%);max-width:300px}
+      :host([fitness-cast-receiver]) .media-progress-wrap input{height:12px}
       :host([fitness-cast-receiver]) .tv-oled-stage{width:calc(100% - 4px);margin:2px;transition:transform .8s ease;will-change:transform}
       :host([fitness-cast-receiver]) .tv-grid{--tv-columns:3;column-gap:6px}
       :host([fitness-cast-receiver]) .tv-card-slot>.tv-mounted-card{position:absolute;top:0;left:0;width:calc(100% / var(--fitness-tv-card-scale,.70));transform:scale(var(--fitness-tv-card-scale,.70));transform-origin:top left}
       :host([oled-protection][fitness-cast-receiver]) .tv-oled-stage{transform:translate3d(var(--fitness-oled-x,0),var(--fitness-oled-y,0),0)}
       :host([oled-idle][fitness-cast-receiver]) .tv-toolbar{opacity:.34}
-      @media(max-width:1600px){:host(:not([fitness-cast-receiver])) .tv-toolbar.fixed-profile .tv-actions .tool span{display:none}:host(:not([fitness-cast-receiver])) .tv-toolbar.fixed-profile .tv-actions .tool{width:42px;padding:0}}
+      @media(max-width:1600px){:host(:not([fitness-cast-receiver])) .tv-toolbar.fixed-profile .tv-actions{grid-template-columns:repeat(auto-fit,minmax(94px,1fr))}:host(:not([fitness-cast-receiver])) .tv-toolbar.fixed-profile .tv-actions .tool{width:auto;padding:5px 8px}}
       @media(max-width:1500px){:host(:not([fitness-cast-receiver])) .tv-grid{--tv-columns:3}}
       @media(max-width:1250px){:host(:not([fitness-cast-receiver])) .tv-toolbar:not(.fixed-profile){grid-template-columns:auto minmax(180px,260px) 1fr}:host(:not([fitness-cast-receiver])) .tv-toolbar.fixed-profile{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"brand identity" "actions actions" "music music"}:host(:not([fitness-cast-receiver])) .tv-toolbar.fixed-profile .tv-actions{justify-content:flex-start}.music-controls{grid-column:1/-1}:host(:not([fitness-cast-receiver])) .tv-grid{--tv-columns:2}}
       @media(max-width:900px){:host([fitness-cast-receiver]) .tv-grid{--tv-columns:2}:host([fitness-cast-receiver]) .tv-toolbar{grid-template-columns:auto minmax(110px,160px) 1fr}}
       @media(max-width:760px){:host(:not([fitness-cast-receiver])) .tv-grid{--tv-columns:1}:host(:not([fitness-cast-receiver])) .tv-toolbar{grid-template-columns:1fr;gap:8px}.profile-control,.tv-actions,.music-controls{grid-column:1}.music-controls{grid-template-columns:1fr}.music-button-strip{grid-column:1;flex-wrap:wrap}.media-now{grid-column:1}.picker-list{grid-template-columns:1fr}.cast-picker{grid-template-columns:1fr}.cast-now,.cast-stop{width:100%}.setting-field,.setting-range{grid-template-columns:1fr}.setting-range output{text-align:left}.access-intro{align-items:stretch;flex-direction:column}.access-domain-row,.access-user-row{grid-template-columns:1fr}.access-user-actions,.access-url{grid-column:1}}
+      /* Cross-device reliability overrides. Keep the existing card breakpoints and DOM order above. */
+      :host([fitness-cast-receiver]){height:100dvh}
+      .tool:focus-visible,.icon-tool:focus-visible,.primary-tool:focus-visible,.adapter-setup:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}
+      .modal-backdrop{--modal-effective-top:min(var(--modal-top,68px),max(6px,calc(100dvh - 180px)));top:var(--modal-effective-top);padding-left:max(8px,env(safe-area-inset-left));padding-right:max(8px,env(safe-area-inset-right));padding-bottom:max(12px,env(safe-area-inset-bottom))}
+      .modal-card{max-height:calc(100dvh - var(--modal-effective-top) - max(12px,env(safe-area-inset-bottom)))}
+      .backend-flow-modal,.remote-gateway-modal,.configure-modal,.music-search-modal{max-height:calc(100dvh - var(--modal-effective-top) - max(12px,env(safe-area-inset-bottom)))}
+      @media(max-width:900px){
+        :host([fitness-cast-receiver]) .tv-toolbar{grid-template-columns:auto minmax(110px,160px) minmax(0,1fr);grid-template-areas:"brand profile actions" "music music music"}
+        :host([fitness-cast-receiver]) .tv-brand{grid-area:brand}
+        :host([fitness-cast-receiver]) .profile-control,:host([fitness-cast-receiver]) .tv-profile-identity{grid-area:profile}
+        :host([fitness-cast-receiver]) .tv-actions{grid-area:actions}
+        :host([fitness-cast-receiver]) .music-controls{grid-area:music;width:100%;grid-template-columns:auto minmax(90px,1fr)}
+      }
+      @media(max-width:760px){
+        :host(:not([fitness-cast-receiver])) .tv-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(44px,1fr));gap:6px;width:100%}
+        :host(:not([fitness-cast-receiver])) .tool,:host(:not([fitness-cast-receiver])) .icon-tool,:host(:not([fitness-cast-receiver])) .primary-tool{min-height:44px}
+        :host(:not([fitness-cast-receiver])) input:not([type="checkbox"]):not([type="range"]),:host(:not([fitness-cast-receiver])) select{font-size:16px}
+        .setting-adapters-head{display:grid;grid-template-columns:1fr}.setting-adapters-head .adapter-setup{width:100%;max-width:none;white-space:normal;min-height:44px}
+        .music-adapter-row{grid-template-columns:22px 24px minmax(0,1fr)}
+        .adapter-actions{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+        .adapter-actions>*{width:100%;min-width:0;max-width:none;min-height:44px}.adapter-actions .adapter-account{grid-column:1/-1;min-width:0;max-width:none}
+        .provider-catalog-row{grid-template-columns:30px minmax(0,1fr)}.provider-catalog-row>.adapter-setup{grid-column:1/-1;width:100%;max-width:none;min-width:0;min-height:44px}
+        :host([fitness-cast-receiver]) .tv-brand{grid-area:brand}
+        :host([fitness-cast-receiver]) .profile-control,:host([fitness-cast-receiver]) .tv-profile-identity{grid-area:profile;grid-column:auto}
+        :host([fitness-cast-receiver]) .tv-actions{grid-area:actions;grid-column:auto}
+        :host([fitness-cast-receiver]) .music-controls{grid-area:music;grid-column:auto}
+      }
+      @media(max-width:520px){
+        :host([fitness-cast-receiver]) .tv-toolbar{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"brand profile" "actions actions" "music music"}
+        :host([fitness-cast-receiver]) .tv-actions{justify-content:flex-start;flex-wrap:wrap}
+        .setting-adapters-head{display:grid;grid-template-columns:1fr}.setting-adapters-head .adapter-setup{width:100%;white-space:normal;min-height:44px}
+        .music-adapter-row{grid-template-columns:22px 24px minmax(0,1fr)}
+        .adapter-actions{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+        .adapter-actions>*{width:100%;max-width:none;min-height:44px}.adapter-actions .adapter-account{grid-column:1/-1;max-width:none}
+        .provider-catalog-row{grid-template-columns:30px minmax(0,1fr)}.provider-catalog-row>.adapter-setup{grid-column:1/-1;width:100%;min-height:44px}
+      }
     </style>`;
   }
 }
@@ -9887,12 +10635,13 @@ class FitnessBackendFlow extends HTMLElement {
     this._entryId = entryId;
     this._profileName = profileName;
     this._uiLabels = uiLabels || {};
+    this._language = String(language || this._hass?.language || "en");
     this._renderLoading();
     try {
       try {
         this._flowTranslations = await this._hass.callWS({
           type:"fitness/dashboard/flow_translations",
-          language:String(language || this._hass?.language || "en"),
+          language:this._language,
         });
       } catch (_err) {
         this._flowTranslations = {};
@@ -9913,7 +10662,8 @@ class FitnessBackendFlow extends HTMLElement {
       }
       await this._renderFlow();
     } catch (err) {
-      this._renderError(String(err?.message || err || "Unable to open Fitness settings."));
+      console.error("[Fitness] unable to open settings flow", err);
+      this._renderError(this._uiLabels?.error_open_fitness_settings);
     }
   }
 
@@ -9937,10 +10687,6 @@ class FitnessBackendFlow extends HTMLElement {
 
   _localize(key, fallback, replacements = undefined) {
     try {
-      const value = this._hass?.localize?.(key, replacements);
-      if (value && value !== key) return value;
-    } catch (_err) {}
-    try {
       const prefix = "component.fitness.";
       const parts = String(key || "").startsWith(prefix)
         ? String(key).slice(prefix.length).split(".")
@@ -9954,6 +10700,17 @@ class FitnessBackendFlow extends HTMLElement {
         return value;
       }
     } catch (_err) {}
+    // Only fall back to Home Assistant's own localizer when the requested
+    // profile language is the current frontend language. Otherwise that would
+    // silently replace the user's Fitness language with the browser/UI language.
+    const requested = String(this._language || "en").toLowerCase().split("-")[0];
+    const ui = String(this._hass?.language || "en").toLowerCase().split("-")[0];
+    if (requested === ui) {
+      try {
+        const value = this._hass?.localize?.(key, replacements);
+        if (value && value !== key) return value;
+      } catch (_err) {}
+    }
     return fallback;
   }
 
@@ -9965,8 +10722,8 @@ class FitnessBackendFlow extends HTMLElement {
     const section = this._flowNamespace();
     const id = String(step?.step_id || "user");
     const fallback = this._mode === "add"
-      ? "Add Fitness user"
-      : (this._profileName ? `Fitness settings · ${this._profileName}` : "Fitness settings");
+      ? this._uiLabels?.add_fitness_user
+      : (this._profileName ? `${this._uiLabels?.backend_settings} · ${this._profileName}` : this._uiLabels?.backend_settings);
     return this._localize(`component.fitness.${section}.step.${id}.title`, fallback, step?.description_placeholders);
   }
 
@@ -10039,15 +10796,25 @@ class FitnessBackendFlow extends HTMLElement {
 
   _shell(body, {title = "", description = "", error = ""} = {}) {
     const showMain = this._mode !== "add" && String(this._flow?.step_id || "init") !== "init";
-    const mainLabel = this._uiLabels?.settings_main_menu || "Settings menu";
-    const closeLabel = this._uiLabels?.close || "Close";
+    const mainLabel = this._uiLabels?.settings_main_menu;
+    const closeLabel = this._uiLabels?.close;
     this.shadowRoot.innerHTML = `<div class="flow-shell">
-      <div class="flow-head"><div><strong>${_fitnessEscape(title)}</strong>${description ? `<p>${_fitnessEscape(description)}</p>` : ""}</div><div class="flow-head-actions">${showMain ? `<button class="flow-home" title="${_fitnessEscape(mainLabel)}"><ha-icon icon="mdi:home-cog-outline"></ha-icon><span>${_fitnessEscape(mainLabel)}</span></button>` : ""}<button class="flow-close" title="${_fitnessEscape(closeLabel)}"><ha-icon icon="mdi:close"></ha-icon></button></div></div>
+      <div class="flow-head"><div><strong>${_fitnessEscape(title)}</strong>${description ? `<p>${_fitnessEscape(description)}</p>` : ""}</div><div class="flow-head-actions">${showMain ? `<button class="flow-home" title="${_fitnessEscape(mainLabel)}"><ha-icon icon="mdi:view-dashboard-outline"></ha-icon><span>${_fitnessEscape(mainLabel)}</span></button>` : ""}<button class="flow-close" title="${_fitnessEscape(closeLabel)}" aria-label="${_fitnessEscape(closeLabel)}"><ha-icon icon="mdi:close"></ha-icon></button></div></div>
       ${error ? `<div class="flow-error">${_fitnessEscape(error)}</div>` : ""}
       <div class="flow-body">${body}</div>
     </div>${this._style()}`;
     this.shadowRoot.querySelector(".flow-close")?.addEventListener("click", () => this.cancel());
     this.shadowRoot.querySelector(".flow-home")?.addEventListener("click", () => this._saveAndReturnToMenu());
+    const shell = this.shadowRoot.querySelector(".flow-shell");
+    const flowBody = this.shadowRoot.querySelector(".flow-body");
+    shell?.addEventListener("wheel", (event) => {
+      if (!flowBody || flowBody.contains(event.target)) return;
+      if (Math.abs(Number(event.deltaY || 0)) > 0) {
+        flowBody.scrollTop += Number(event.deltaY || 0);
+        event.preventDefault();
+      }
+      event.stopPropagation();
+    }, {passive:false});
   }
 
   async _restartOptionsFlow() {
@@ -10071,6 +10838,7 @@ class FitnessBackendFlow extends HTMLElement {
       entryId:this._entryId,
       profileName:this._profileName,
       uiLabels:this._uiLabels,
+      language:this._language,
     });
   }
 
@@ -10085,18 +10853,18 @@ class FitnessBackendFlow extends HTMLElement {
   }
 
   _renderLoading() {
-    this._shell(`<div class="flow-loading"><ha-circular-progress active></ha-circular-progress><span>${_fitnessEscape(this._uiLabels?.loading || "Loading…")}</span></div>`, {
+    this._shell(`<div class="flow-loading"><ha-circular-progress active></ha-circular-progress><span>${_fitnessEscape(this._uiLabels?.loading)}</span></div>`, {
       title:this._mode === "add"
-        ? (this._uiLabels?.add_fitness_user || "Add Fitness user")
-        : (this._uiLabels?.backend_settings || "Fitness settings"),
+        ? (this._uiLabels?.add_fitness_user)
+        : (this._uiLabels?.backend_settings),
     });
   }
 
   _renderError(message) {
     this._shell(`<div class="flow-message"><ha-icon icon="mdi:alert-circle-outline"></ha-icon><span>${_fitnessEscape(message)}</span></div>`, {
       title:this._mode === "add"
-        ? (this._uiLabels?.add_fitness_user || "Add Fitness user")
-        : (this._uiLabels?.backend_settings || "Fitness settings"),
+        ? (this._uiLabels?.add_fitness_user)
+        : (this._uiLabels?.backend_settings),
     });
   }
 
@@ -10118,7 +10886,8 @@ class FitnessBackendFlow extends HTMLElement {
       }
       await this._renderFlow();
     } catch (err) {
-      this._renderError(String(err?.message || err || "Unable to save Fitness settings."));
+      console.error("[Fitness] unable to save settings flow", err);
+      this._renderError(this._uiLabels?.error_save_fitness_settings);
     } finally {
       this._busy = false;
     }
@@ -10139,7 +10908,8 @@ class FitnessBackendFlow extends HTMLElement {
       }
       await this._renderFlow();
     } catch (err) {
-      this._renderError(String(err?.message || err || "Unable to continue Fitness setup."));
+      console.error("[Fitness] unable to continue settings flow", err);
+      this._renderError(this._uiLabels?.error_continue_fitness_setup);
     }
   }
 
@@ -10158,15 +10928,15 @@ class FitnessBackendFlow extends HTMLElement {
         const icon = FITNESS_FLOW_MENU_ICONS[option] || "mdi:cog-outline";
         return `<button class="flow-menu" data-next="${_fitnessEscape(option)}"><ha-icon class="flow-menu-icon" icon="${_fitnessEscape(icon)}"></ha-icon><span>${_fitnessEscape(label)}</span><ha-icon icon="mdi:chevron-right"></ha-icon></button>`;
       }).join("");
-      this._shell(rows || `<div class="flow-message">No settings are available.</div>`, {title, description, error});
+      this._shell(rows || `<div class="flow-message">${_fitnessEscape(this._uiLabels?.no_settings_available)}</div>`, {title, description, error});
       this.shadowRoot.querySelectorAll(".flow-menu").forEach((button) => button.addEventListener("click", () => this._submit({next_step_id:button.dataset.next})));
       return;
     }
 
     if (type === "form") {
       this._formData = this._initialFormData(step);
-      const submitLabel = this._mode === "options" || step.last_step ? (this._uiLabels?.save || "Save") : (this._uiLabels?.next || "Next");
-      this._shell(`<ha-form id="flow-form"></ha-form><div class="flow-actions"><button class="flow-submit" id="flow-submit">${_fitnessEscape(submitLabel)}</button></div>`, {title, description, error});
+      const submitLabel = this._mode === "options" || step.last_step ? (this._uiLabels?.save) : (this._uiLabels?.next);
+      this._shell(`<ha-form id="flow-form"></ha-form><div class="flow-actions"><button class="flow-submit" id="flow-submit"><span>${_fitnessEscape(submitLabel)}</span></button></div>`, {title, description, error});
       const form = this.shadowRoot.querySelector("#flow-form");
       if (form) {
         form.hass = this._hass;
@@ -10188,8 +10958,8 @@ class FitnessBackendFlow extends HTMLElement {
         return;
       }
       const successText = this._mode === "add"
-        ? (this._uiLabels?.add_fitness_user || "Fitness user added")
-        : (this._uiLabels?.saved || "Saved");
+        ? (this._uiLabels?.add_fitness_user)
+        : (this._uiLabels?.saved);
       this._shell(`<div class="flow-success"><ha-icon icon="mdi:check-circle-outline"></ha-icon><strong>${_fitnessEscape(successText)}</strong></div>`, {title});
       this.dispatchEvent(new CustomEvent("fitness-flow-complete", {detail:{mode:this._mode, result:step.result || null}, bubbles:true, composed:true}));
       if (this._mode === "options") {
@@ -10201,30 +10971,33 @@ class FitnessBackendFlow extends HTMLElement {
     }
 
     if (type === "abort") {
-      const reason = String(step.reason || "Flow aborted");
+      const reason = String(step.reason || "unknown");
       const section = this._flowNamespace();
-      const message = this._localize(`component.fitness.${section}.abort.${reason}`, reason, step.description_placeholders);
+      const message = this._localize(`component.fitness.${section}.abort.${reason}`, this._uiLabels?.flow_error_unknown, step.description_placeholders);
       this._shell(`<div class="flow-message"><ha-icon icon="mdi:information-outline"></ha-icon><span>${_fitnessEscape(message)}</span></div>`, {title});
       return;
     }
 
     if (type === "progress" || type === "progress_done") {
-      this._shell(`<div class="flow-loading"><ha-circular-progress active></ha-circular-progress><span>${_fitnessEscape(description || this._uiLabels?.working || "Working…")}</span></div>`, {title});
+      this._shell(`<div class="flow-loading"><ha-circular-progress active></ha-circular-progress><span>${_fitnessEscape(description || this._uiLabels?.working)}</span></div>`, {title});
       this._refreshProgress();
       return;
     }
 
     if (type === "external") {
-      this._shell(`<div class="flow-message"><ha-icon icon="mdi:open-in-new"></ha-icon><a href="${_fitnessEscape(step.url || "#")}" target="_blank" rel="noopener">Continue setup</a></div>`, {title, description});
+      this._shell(`<div class="flow-message"><ha-icon icon="mdi:open-in-new"></ha-icon><a href="${_fitnessEscape(step.url || "#")}" target="_blank" rel="noopener">${_fitnessEscape(this._uiLabels?.continue_setup)}</a></div>`, {title, description});
       return;
     }
 
-    this._renderError(`Unsupported Home Assistant flow step: ${type || "unknown"}`);
+    this._renderError(_fitnessFormatLabel(this._uiLabels?.unsupported_flow_step, {type:type || "—"}));
   }
 
   _style() {
     return `<style>
-      :host{display:block;color:var(--primary-text-color);max-height:calc(100vh - 120px);min-height:0;overflow:hidden}*{box-sizing:border-box}.flow-shell{width:100%;max-height:calc(100vh - 120px);min-height:0;display:flex;flex-direction:column;overflow:hidden}.flow-head{flex:0 0 auto;position:sticky;top:0;z-index:3;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 16px;background:var(--card-background-color);border-bottom:1px solid var(--divider-color)}.flow-head strong{font-size:18px}.flow-head p{margin:5px 0 0;color:var(--secondary-text-color);font-size:12px;max-width:620px}.flow-head-actions{display:flex;align-items:center;gap:7px;flex-shrink:0}.flow-close,.flow-home{min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--divider-color);border-radius:11px;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer}.flow-close{width:40px}.flow-home{padding:0 11px;font:inherit;white-space:nowrap;line-height:1}.flow-home ha-icon{--mdc-icon-size:20px}.flow-body{display:grid;gap:9px;padding:15px;overflow:auto;min-height:0;overscroll-behavior:contain}.flow-error{flex:0 0 auto;margin:12px 15px 0;padding:10px 12px;border-radius:11px;background:color-mix(in srgb,var(--error-color) 12%,transparent);color:var(--error-color);font-size:12px}.flow-menu{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;width:100%;padding:13px 14px;border:0;border-radius:12px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;text-align:left;cursor:pointer}.flow-menu-icon{--mdc-icon-size:21px;color:var(--primary-color)}.flow-menu:hover{background:color-mix(in srgb,var(--primary-color) 12%,var(--secondary-background-color))}.flow-actions{display:flex;justify-content:flex-end;padding-top:8px}.flow-submit{min-width:110px;min-height:42px;border:0;border-radius:11px;padding:0 18px;background:var(--primary-color);color:var(--text-primary-color,#fff);font:inherit;font-weight:700;cursor:pointer}.flow-submit:disabled{opacity:.55}.flow-loading,.flow-message,.flow-success{min-height:100px;display:flex;align-items:center;justify-content:center;gap:10px;color:var(--secondary-text-color)}.flow-success{color:var(--success-color,#2e7d32)}.flow-success ha-icon{--mdc-icon-size:30px}.flow-message a{color:var(--primary-color)}ha-form{display:block}@media(max-width:620px){.flow-home span{display:none}.flow-home{width:40px;padding:0}}
+      .flow-home>span,.flow-submit>span,.flow-menu>span{display:block!important;min-width:0;max-width:100%;font-size:clamp(11px,1vw,13px)!important;line-height:1.2!important;white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;word-break:normal;overflow-wrap:normal!important}
+      .flow-menu{grid-template-columns:auto minmax(0,1fr) auto!important;min-height:44px}
+      @media(max-width:620px){.flow-head{align-items:flex-start!important;flex-wrap:wrap}.flow-head>div:first-child{flex:1 1 180px}.flow-home{width:auto!important;min-width:112px!important;padding:0 10px!important}.flow-home span{display:block!important}}
+      :host{display:block;color:var(--primary-text-color);height:100%;max-height:100%;min-height:0;overflow:hidden}*{box-sizing:border-box}.flow-shell{width:100%;height:100%;max-height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden}.flow-head{flex:0 0 auto;position:sticky;top:0;z-index:3;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 16px;background:var(--card-background-color);border-bottom:1px solid var(--divider-color)}.flow-head strong{font-size:18px}.flow-head p{margin:5px 0 0;color:var(--secondary-text-color);font-size:12px;max-width:620px}.flow-head-actions{display:flex;align-items:center;gap:7px;flex:0 0 auto}.flow-close,.flow-home{min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--divider-color);border-radius:11px;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer}.flow-close{width:40px;min-width:40px;flex:0 0 40px}.flow-home{min-width:126px;max-width:min(240px,45vw);padding:0 11px;font:inherit;white-space:nowrap;line-height:1}.flow-home ha-icon{--mdc-icon-size:20px;flex:0 0 auto}.flow-home>span,.flow-submit>span,.flow-menu>span{font-size:clamp(11px,1vw,13px);line-height:1.2;min-width:0;word-break:normal;overflow-wrap:normal}.flow-body{display:grid;gap:9px;padding:15px;overflow-y:auto;overflow-x:hidden;min-height:0;flex:1 1 auto;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.flow-error{flex:0 0 auto;margin:12px 15px 0;padding:10px 12px;border-radius:11px;background:color-mix(in srgb,var(--error-color) 12%,transparent);color:var(--error-color);font-size:12px}.flow-menu{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;min-height:44px;padding:13px 14px;border:0;border-radius:12px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;text-align:left;cursor:pointer}.flow-menu-icon{--mdc-icon-size:21px;color:var(--primary-color)}.flow-menu:hover{background:color-mix(in srgb,var(--primary-color) 12%,var(--secondary-background-color))}.flow-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:8px;flex-wrap:nowrap;min-width:0}.flow-actions>button{flex:1 1 0;min-width:0;max-width:100%}.flow-submit{min-width:110px;min-height:42px;border:0;border-radius:11px;padding:0 18px;background:var(--primary-color);color:var(--text-primary-color,#fff);font:inherit;font-weight:700;cursor:pointer}.flow-submit:disabled{opacity:.55}.flow-loading,.flow-message,.flow-success{min-height:100px;display:flex;align-items:center;justify-content:center;gap:10px;color:var(--secondary-text-color)}.flow-success{color:var(--success-color,#2e7d32)}.flow-success ha-icon{--mdc-icon-size:30px}.flow-message a{color:var(--primary-color)}ha-form{display:block}.flow-close:focus-visible,.flow-home:focus-visible,.flow-submit:focus-visible,.flow-menu:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}@media(max-width:620px){.flow-head{padding:12px}.flow-head>div:first-child{min-width:0}.flow-head strong{font-size:16px}.flow-home span{display:block}.flow-home,.flow-close,.flow-submit{min-height:44px}.flow-close{width:44px;min-width:44px;flex-basis:44px;padding:0}.flow-home{width:auto;min-width:112px;padding:0 10px}.flow-body{padding:12px}.flow-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.flow-actions>button{width:100%}}
     </style>`;
   }
 }
@@ -10266,9 +11039,14 @@ class FitnessTvSetupCard extends HTMLElement {
   }
 
   _labels(profile = this._profiles?.[0]) {
-    if (!profile) return {};
     const language = String(profile?.language || this._access?.language || this._hass?.language || "en").toLowerCase().split("-")[0];
-    return profile.labels_by_language?.[language] || profile.labels_by_language?.en || profile.labels || {};
+    return profile?.labels_by_language?.[language]
+      || profile?.labels_by_language?.en
+      || profile?.labels
+      || this._rootLabelsByLanguage?.[language]
+      || this._rootLabelsByLanguage?.en
+      || this._rootLabels
+      || {};
   }
 
   _navigate(path) {
@@ -10291,12 +11069,19 @@ class FitnessTvSetupCard extends HTMLElement {
       if (_fitnessEnsureFrontendVersion(data?.frontend_version)) return;
       this._profiles = data?.profiles || [];
       this._access = data?.access || {role:"none",is_admin:false,session_allowed:false};
+      this._rootLabels = data?.labels || {};
+      this._rootLabelsByLanguage = data?.labels_by_language || {};
       this._castTargets = data?.cast_targets || [];
       this._overviewCast = data?.overview_cast || {active:false,target:null};
       this._audioOutputs = data?.audio_outputs || [];
+      this._adminAccess = null;
+      if (this._access?.is_admin) {
+        try { this._adminAccess = await this._hass.callWS({type:"fitness/access/admin"}); } catch (_err) {}
+      }
       this._error = "";
     } catch (err) {
-      this._error = String(err?.message || err || "Unknown error");
+      console.error("[Fitness TV] setup overview load failed", err);
+      this._error = this._labels().flow_error_unknown;
     } finally {
       this._loading = false;
       this._loaded = true;
@@ -10312,7 +11097,7 @@ class FitnessTvSetupCard extends HTMLElement {
   _render() {
     if (!this.shadowRoot) return;
     const l = this._labels();
-    const accessCopy = _fitnessAccessCopy(this._hass);
+    const accessCopy = _fitnessAccessCopy(l);
     if (this._error) {
       this.shadowRoot.innerHTML = `<ha-card class="setup-shell"><div class="empty">${_fitnessEscape(this._error)}</div></ha-card>${this._style()}`;
       return;
@@ -10325,24 +11110,17 @@ class FitnessTvSetupCard extends HTMLElement {
         this.shadowRoot.innerHTML = `<ha-card class="setup-shell"><div class="setup-access-denied"><ha-icon icon="mdi:shield-lock-outline"></ha-icon><div><strong>${_fitnessEscape(accessCopy.denied)}</strong><span>${_fitnessEscape(accessCopy.denied_hint)}</span></div></div></ha-card>${this._style()}`;
         return;
       }
-      const rows = profiles.map((profile) => {
-        const own = Boolean(profile?.access?.is_own);
-        const canControl = Boolean(profile?.access?.can_control);
-        return `<div class="profile-row tv-enabled limited-profile-row" data-entry="${_fitnessEscape(profile.entry_id)}">
-          <div class="profile-avatar"><ha-icon icon="mdi:account-circle-outline"></ha-icon></div>
-          <div class="profile-copy"><strong>${_fitnessEscape(profile.profile_name)}</strong><span>${_fitnessEscape(own ? accessCopy.own : accessCopy.view_only)}</span>${!canControl ? `<small>${_fitnessEscape(accessCopy.view_only_hint)}</small>` : ""}</div>
-          <div class="profile-badges"><span><ha-icon icon="${canControl ? "mdi:account-check-outline" : "mdi:eye-outline"}"></ha-icon>${_fitnessEscape(canControl ? accessCopy.own : accessCopy.view_only)}</span></div>
-          <div class="profile-actions"><button class="tool open-profile"><ha-icon icon="mdi:television-play"></ha-icon><span>${_fitnessEscape(l.open || "Open")}</span></button></div>
-        </div>`;
-      }).join("");
-      this.shadowRoot.innerHTML = `<ha-card class="setup-shell">
-        <div class="setup-head limited-setup-head"><div><div class="setup-title"><img class="fitness-brand-icon" src="${_fitnessEscape(_fitnessBrandIconUrl(this._hass))}" alt=""><strong>Fitness TV</strong></div><p>${_fitnessEscape(accessCopy.view_only_hint)}</p></div></div>
-        <div class="profiles-list">${rows}</div>
-      </ha-card>${this._style()}`;
-      this.shadowRoot.querySelectorAll(".profile-row .open-profile").forEach((button) => button.addEventListener("click", () => {
-        const entryId = button.closest(".profile-row")?.dataset?.entry || "";
-        if (entryId) this._navigate(`/fitness-tv/profile-${entryId}`);
-      }));
+      // The Fitness overview is an administrator surface. Non-admin users never
+      // receive a list of other profiles here: sidebar navigation goes directly
+      // to their own profile, or to the first explicitly granted view-only
+      // profile when they do not own a Fitness profile. Additional view-only
+      // profiles remain reachable only through their explicit profile URL.
+      const destination = profiles.find((profile) => profile?.access?.is_own) || profiles[0];
+      this.shadowRoot.innerHTML = `<ha-card class="setup-shell"><div class="setup-access-denied"><ha-icon icon="mdi:loading" class="spin"></ha-icon><div><strong>${_fitnessEscape(destination?.profile_name || l.tv_dashboard)}</strong><span>${_fitnessEscape(destination?.access?.can_control ? accessCopy.own : accessCopy.view_only)}</span></div></div></ha-card>${this._style()}`;
+      if (!this._nonAdminRedirectPending && destination?.entry_id) {
+        this._nonAdminRedirectPending = true;
+        queueMicrotask(() => this._navigate(`/fitness-tv/profile-${destination.entry_id}`));
+      }
       return;
     }
 
@@ -10350,27 +11128,46 @@ class FitnessTvSetupCard extends HTMLElement {
       const tv = profile.tv_dashboard || {};
       const enabled = Boolean(tv.enabled);
       const target = this._targetName(tv.cast_media_player_id);
-      return `<div class="profile-row ${enabled ? "tv-enabled" : "tv-disabled"}" data-entry="${_fitnessEscape(profile.entry_id)}">
+      const accessProfile = (this._adminAccess?.profiles || []).find((item) => String(item?.entry_id || "") === String(profile.entry_id || ""));
+      const boundUserId = String(accessProfile?.bound_user_id || "");
+      const assignOptions = [`<option value="">${_fitnessEscape(l.account_unassigned)}</option>`, ...(this._adminAccess?.users || []).filter((user) => user?.is_active !== false).map((user) => `<option value="${_fitnessEscape(user.user_id)}" ${String(user.user_id) === boundUserId ? "selected" : ""}>${_fitnessEscape(user.name || user.user_id)}</option>`)].join("");
+      return `<div class="profile-row admin-profile-link ${enabled ? "tv-enabled" : "tv-disabled"}" data-entry="${_fitnessEscape(profile.entry_id)}" role="link" tabindex="0" aria-label="${_fitnessEscape(profile.profile_name)}">
         <div class="profile-avatar"><ha-icon icon="mdi:account-circle-outline"></ha-icon></div>
-        <div class="profile-copy"><strong>${_fitnessEscape(profile.profile_name)}</strong><span>${_fitnessEscape(enabled ? (target || l.no_default_tv || "No default TV") : (l.tv_view_disabled || "Fitness TV disabled"))}</span>${enabled ? `<small class="profile-process-status" aria-live="polite"></small>` : ""}</div>
+        <div class="profile-copy"><strong>${_fitnessEscape(profile.profile_name)}</strong><span>${_fitnessEscape(enabled ? (target || l.no_default_tv) : (l.tv_view_disabled))}</span>${enabled ? `<small class="profile-process-status" aria-live="polite"></small>` : ""}</div>
         <div class="profile-badges">
-          ${enabled ? `<span>${_fitnessEscape(l.tts_ducking_short || "Duck")} ${Number(tv.ducking_percent ?? 25)}%</span><span>${_fitnessEscape(l.tv_scale_short || "Scale")} ${Number(tv.tv_scale_percent ?? 70)}%</span>${tv.oled_protection ? `<span><ha-icon icon="mdi:television-shimmer"></ha-icon>${_fitnessEscape(l.oled_short || "OLED")}</span>` : ""}` : `<span>${_fitnessEscape(l.backend_profile || "Fitness TV disabled")}</span>`}
+          ${enabled ? `<span>${_fitnessEscape(l.tts_ducking_short)} ${Number(tv.ducking_percent ?? 25)}%</span><span>${_fitnessEscape(l.tv_scale_short)} ${Number(tv.tv_scale_percent ?? 70)}%</span>${tv.oled_protection ? `<span><ha-icon icon="mdi:television-shimmer"></ha-icon>${_fitnessEscape(l.oled_short)}</span>` : ""}` : `<span>${_fitnessEscape(l.backend_profile)}</span>`}
         </div>
         <div class="profile-actions">
-          ${enabled ? `<button class="tool start-tv-workout"><ha-icon icon="mdi:run-fast"></ha-icon><span>${_fitnessEscape(l.start_tv_workout || "Start on TV")}</span></button><button class="tool open-profile"><ha-icon icon="mdi:television-play"></ha-icon><span>${_fitnessEscape(l.open || "Open")}</span></button><button class="tool configure-profile"><ha-icon icon="mdi:cog-outline"></ha-icon><span>${_fitnessEscape(l.reconfigure || "Configure")}</span></button>` : `<button class="tool enable-profile"><ha-icon icon="mdi:television-play"></ha-icon><span>${_fitnessEscape(l.enable_tv_view || "Enable Fitness TV")}</span></button>`}
-          <button class="tool backend-profile"><ha-icon icon="mdi:account-cog-outline"></ha-icon><span>${_fitnessEscape(l.backend_settings || "Fitness settings")}</span></button>
-          ${enabled ? `<button class="icon-tool remove-profile" title="${_fitnessEscape(l.disable_tv_view || "Disable TV view")}"><ha-icon icon="mdi:minus-circle-outline"></ha-icon></button>` : ""}
+          ${enabled ? `<button class="tool start-tv-workout"><ha-icon icon="mdi:run-fast"></ha-icon><span>${_fitnessEscape(l.start_tv_workout)}</span></button><button class="tool open-profile"><ha-icon icon="mdi:television-play"></ha-icon><span>${_fitnessEscape(l.open)}</span></button><button class="tool configure-profile"><ha-icon icon="mdi:cog-outline"></ha-icon><span>${_fitnessEscape(l.reconfigure)}</span></button>` : `<button class="tool backend-profile"><ha-icon icon="mdi:cog-outline"></ha-icon><span>${_fitnessEscape(l.reconfigure)}</span></button><button class="tool enable-profile"><ha-icon icon="mdi:television-play"></ha-icon><span>${_fitnessEscape(l.enable_tv_view)}</span></button>`}
+          ${enabled ? `<button class="tool backend-profile"><ha-icon icon="mdi:account-cog-outline"></ha-icon><span>${_fitnessEscape(l.backend_settings)}</span></button>` : ""}
+          <label class="profile-assign"><ha-icon icon="mdi:account-arrow-right-outline"></ha-icon><select data-profile-assign aria-label="${_fitnessEscape(l.assign_user)}">${assignOptions}</select></label>
+          ${enabled ? `<button class="tool danger complete-remove-profile"><ha-icon icon="mdi:account-remove-outline"></ha-icon><span>${_fitnessEscape(l.complete_remove)}</span></button><button class="icon-tool remove-profile" title="${_fitnessEscape(l.disable_tv_view)}"><ha-icon icon="mdi:minus-circle-outline"></ha-icon></button>` : `<button class="tool danger delete-backend-profile"><ha-icon icon="mdi:delete-outline"></ha-icon><span>${_fitnessEscape(l.delete)}</span></button>`}
         </div>
       </div>`;
     }).join("");
     this.shadowRoot.innerHTML = `<ha-card class="setup-shell">
       <div class="setup-head">
-        <div><div class="setup-title"><img class="fitness-brand-icon" src="${_fitnessEscape(_fitnessBrandIconUrl(this._hass))}" alt=""><strong>${_fitnessEscape(l.tv_setup || "Fitness TV setup")}</strong></div><p>${_fitnessEscape(l.tv_setup_hint || "Choose which Fitness profiles have their own TV page and configure each TV, music and TTS experience independently.")}</p></div>
-        <div class="setup-actions"><button class="tool overview-cast-toggle ${this._overviewCast?.active ? "active" : ""}" id="overview-cast-toggle" title="${_fitnessEscape(this._overviewCast?.active ? (l.cast_stop || "Stop Cast") : (l.cast_dashboard || "Cast Fitness TV overview"))}"><ha-icon icon="${this._overviewCast?.active ? "mdi:cast-off" : "mdi:cast"}"></ha-icon><span>${_fitnessEscape(this._overviewCast?.active ? (l.cast_stop || "Stop Cast") : (l.cast_dashboard || "Cast"))}</span></button><button class="tool" id="manage-access"><ha-icon icon="mdi:account-lock-outline"></ha-icon><span>${_fitnessEscape(l.fitness_accounts || "Fitness accounts")}</span></button><button class="tool" id="add-profile"><ha-icon icon="mdi:plus-circle-outline"></ha-icon><span>${_fitnessEscape(l.add_tv_profile || "Enable TV profile")}</span></button><button class="tool" id="add-backend-profile"><ha-icon icon="mdi:account-plus-outline"></ha-icon><span>${_fitnessEscape(l.add_fitness_user || "Add Fitness user")}</span></button><button class="tool" id="manage-profiles"><ha-icon icon="mdi:account-cog-outline"></ha-icon><span>${_fitnessEscape(l.manage_profiles || "Manage Fitness profiles")}</span></button></div>
+        <div><div class="setup-title"><img class="fitness-brand-icon" src="${_fitnessEscape(_fitnessBrandIconUrl(this._hass))}" alt=""><strong>${_fitnessEscape(l.tv_setup)}</strong></div><p>${_fitnessEscape(l.tv_setup_hint)}</p></div>
+        <div class="setup-actions"><button class="tool" id="overview-cast-toggle"><ha-icon icon="${(this._overviewCast?.active || this._overviewLocalCastSessionActive()) ? "mdi:cast-off" : "mdi:cast-connected"}"></ha-icon><span>${_fitnessEscape((this._overviewCast?.active || this._overviewLocalCastSessionActive()) ? (l.cast_stop) : (l.cast_dashboard))}</span></button><button class="tool" id="manage-access"><ha-icon icon="mdi:account-lock-outline"></ha-icon><span>${_fitnessEscape(l.fitness_accounts)}</span></button><button class="tool" id="add-profile"><ha-icon icon="mdi:plus-circle-outline"></ha-icon><span>${_fitnessEscape(l.add_tv_profile)}</span></button><button class="tool" id="add-backend-profile"><ha-icon icon="mdi:account-plus-outline"></ha-icon><span>${_fitnessEscape(l.add_fitness_user)}</span></button><button class="tool" id="manage-profiles"><ha-icon icon="mdi:account-cog-outline"></ha-icon><span>${_fitnessEscape(l.manage_profiles)}</span></button></div>
       </div>
-      <div class="profiles-list">${rows || `<div class="empty">${_fitnessEscape(l.no_fitness_profiles || "No Fitness users exist yet. Add one in the Fitness backend.")}</div>`}</div>
+      <div class="profiles-list">${rows || `<div class="empty">${_fitnessEscape(l.no_fitness_profiles)}</div>`}</div>
       <div id="setup-modal"></div>
     </ha-card>${this._style()}`;
+    const openAdminProfileRow = (row, event = null) => {
+      if (!row) return;
+      if (event?.target?.closest?.("button,a,input,select,textarea,[role=button]")) return;
+      const entryId = String(row.dataset?.entry || "");
+      if (entryId) this._navigate(`/fitness-tv/profile-${entryId}`);
+    };
+    this.shadowRoot.querySelectorAll(".admin-profile-link").forEach((row) => {
+      row.addEventListener("click", (event) => openAdminProfileRow(row, event));
+      row.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        if (event.target !== row) return;
+        event.preventDefault();
+        openAdminProfileRow(row);
+      });
+    });
     this.shadowRoot.getElementById("overview-cast-toggle")?.addEventListener("click", () => void this._toggleOverviewCast());
     this.shadowRoot.getElementById("manage-access")?.addEventListener("click", () => this._openAccessAdmin());
     this.shadowRoot.getElementById("add-profile")?.addEventListener("click", () => this._openAddProfile());
@@ -10384,13 +11181,243 @@ class FitnessTvSetupCard extends HTMLElement {
       row.querySelector(".configure-profile")?.addEventListener("click", () => this._openConfigure(profile));
       row.querySelector(".enable-profile")?.addEventListener("click", () => this._openConfigure(profile, true));
       row.querySelector(".backend-profile")?.addEventListener("click", () => this._openBackendFlow("options", entryId, profile?.profile_name || ""));
+      row.querySelector("[data-profile-assign]")?.addEventListener("change", (event) => void this._assignProfileUser(entryId, String(event.target?.value || "")));
+      row.querySelector(".delete-backend-profile")?.addEventListener("click", () => void this._deleteBackendProfile(profile, false));
+      row.querySelector(".complete-remove-profile")?.addEventListener("click", () => void this._deleteBackendProfile(profile, true));
       row.querySelector(".remove-profile")?.addEventListener("click", () => this._saveProfile(profile, {...profile.tv_dashboard, enabled:false}));
     });
+  }
+
+  async _assignProfileUser(profileEntryId, userId) {
+    if (!this._hass || !this._access?.is_admin) return;
+    const snapshot = this._adminAccess || {};
+    const profile = (snapshot.profiles || []).find((item) => String(item?.entry_id || "") === String(profileEntryId || ""));
+    const previousUserId = String(profile?.bound_user_id || "");
+    try {
+      if (previousUserId && previousUserId !== userId) {
+        const previous = (snapshot.users || []).find((item) => String(item?.user_id || "") === previousUserId);
+        if (previous?.fitness_profile_entry_id === profileEntryId) {
+          if (previous?.is_admin) {
+            await this._hass.callWS({
+              type:"fitness/access/account/save",
+              user_id:previousUserId, role:"admin", profile_entry_id:"",
+              view_profile_entry_ids:Array.isArray(previous.view_profile_entry_ids) ? previous.view_profile_entry_ids : [],
+              language:String(previous.language || "en"),
+            });
+          } else {
+            await this._hass.callWS({type:"fitness/access/account/delete",user_id:previousUserId});
+          }
+        }
+      }
+      if (userId) {
+        const user = (snapshot.users || []).find((item) => String(item?.user_id || "") === userId) || {};
+        await this._hass.callWS({
+          type:"fitness/access/account/save",
+          user_id:userId,
+          role:user.is_admin ? "admin" : (user.fitness_role && user.fitness_role !== "none" ? user.fitness_role : "local"),
+          profile_entry_id:profileEntryId,
+          remote_slug:String(user.remote_slug || ""),
+          view_profile_entry_ids:Array.isArray(user.view_profile_entry_ids) ? user.view_profile_entry_ids : [],
+          language:String(user.language || "en"),
+        });
+      }
+      this._loaded = false;
+      await this._load();
+    } catch (err) {
+      console.error("[Fitness TV] profile assignment failed", err);
+      this._error = this._labels().save_failed;
+      this._render();
+    }
+  }
+
+  async _deleteBackendProfile(profile, complete = false) {
+    if (!this._hass || !profile?.entry_id || !this._access?.is_admin) return;
+    const l = this._labels(profile);
+    const message = complete
+      ? l.complete_remove_confirm
+      : l.delete_backend_profile_confirm;
+    if (!window.confirm(message)) return;
+    try {
+      await this._hass.callWS({type:"fitness/access/profile/delete",profile_entry_id:profile.entry_id});
+      this._loaded = false;
+      await this._load();
+    } catch (err) {
+      console.error("[Fitness TV] profile deletion failed", err);
+      this._error = l.save_failed;
+      this._render();
+    }
+  }
+
+  async _overviewGoogleCastSenderApi() {
+    if (globalThis.cast?.framework?.CastContext) return globalThis.cast.framework.CastContext;
+    window.__fitnessExternalScripts = window.__fitnessExternalScripts || new Map();
+    const key = "google-cast-sender";
+    if (!window.__fitnessExternalScripts.has(key)) {
+      const promise = new Promise((resolve, reject) => {
+        let timeout = null;
+        const finish = () => {
+          if (timeout) clearTimeout(timeout);
+          if (globalThis.cast?.framework?.CastContext) resolve(globalThis.cast.framework.CastContext);
+          else reject(new Error("Google Cast API did not become ready"));
+        };
+        const previous = window.__onGCastApiAvailable;
+        window.__onGCastApiAvailable = (...args) => {
+          try { if (typeof previous === "function") previous(...args); } catch (_err) {}
+          finish();
+        };
+        const existing = document.querySelector('script[data-fitness-google-cast-sender]');
+        if (!existing) {
+          const script = document.createElement("script");
+          script.dataset.fitnessGoogleCastSender = "1";
+          script.src = "https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1";
+          script.async = true;
+          script.addEventListener("error", () => reject(new Error("Unable to load Google Cast sender")));
+          document.head.appendChild(script);
+        }
+        timeout = setTimeout(() => reject(new Error("Google Cast sender timed out")), 12000);
+      });
+      window.__fitnessExternalScripts.set(key, promise);
+    }
+    await window.__fitnessExternalScripts.get(key);
+    return globalThis.cast?.framework?.CastContext || null;
+  }
+
+  _overviewLocalCastSessionMarked() {
+    try { return sessionStorage.getItem(FITNESS_TV_OVERVIEW_LOCAL_CAST_TAB_STORAGE) === "1"; } catch (_err) { return false; }
+  }
+
+  _markOverviewLocalCast(active) {
+    try {
+      if (active) sessionStorage.setItem(FITNESS_TV_OVERVIEW_LOCAL_CAST_TAB_STORAGE, "1");
+      else sessionStorage.removeItem(FITNESS_TV_OVERVIEW_LOCAL_CAST_TAB_STORAGE);
+    } catch (_err) {}
+  }
+
+  _overviewLocalCastSessionActive(context = this._overviewLocalCastContext) {
+    if (!this._overviewLocalCastSessionMarked()) return false;
+    try { return Boolean(this._overviewLocalCastActive || context?.getCurrentSession?.()); } catch (_err) { return Boolean(this._overviewLocalCastActive); }
+  }
+
+  async _prepareOverviewLocalCastContext() {
+    await this._overviewGoogleCastSenderApi();
+    const context = globalThis.cast?.framework?.CastContext?.getInstance?.();
+    if (!context) throw new Error("Google Cast is not available in this browser.");
+    context.setOptions({
+      receiverApplicationId:FITNESS_TV_CAST_APP_ID,
+      autoJoinPolicy:globalThis.chrome?.cast?.AutoJoinPolicy?.TAB_AND_ORIGIN_SCOPED
+        || globalThis.chrome?.cast?.AutoJoinPolicy?.PAGE_SCOPED
+        || "tab_and_origin_scoped",
+      resumeSavedSession:true,
+    });
+    if (!this._overviewLocalCastSessionListener) {
+      this._overviewLocalCastSessionListener = (event) => {
+        const state = String(event?.sessionState || "");
+        const active = state.includes("STARTED") || state.includes("RESUMED") || state.includes("STARTING") || state.includes("RESUMING");
+        const ended = state.includes("ENDED") || state.includes("START_FAILED");
+        if (active) this._overviewLocalCastActive = true;
+        if (ended) {
+          this._overviewLocalCastActive = false;
+          this._markOverviewLocalCast(false);
+        }
+        // Do not redraw the setup page while Google Cast is opening its native
+        // chooser/auth flow: replacing the modal here destroys the picker state.
+        // Successful local Cast redraws explicitly after receiver authentication;
+        // only terminal session changes need an asynchronous UI refresh.
+        if (ended && this._loaded) this._render();
+      };
+      context.addEventListener(globalThis.cast.framework.CastContextEventType.SESSION_STATE_CHANGED, this._overviewLocalCastSessionListener);
+    }
+    this._overviewLocalCastContext = context;
+    this._overviewLocalCastActive = this._overviewLocalCastSessionMarked() && Boolean(context.getCurrentSession?.());
+    return context;
+  }
+
+  async _castOverviewLocal(root) {
+    if (!this._hass || !this._access?.is_admin) return;
+    const l = this._labels();
+    const status = root?.querySelector?.(".overview-cast-status");
+    const button = root?.querySelector?.("#overview-cast-local");
+    if (button) button.disabled = true;
+    let credentials = null;
+    try {
+      const context = await this._prepareOverviewLocalCastContext();
+      if (status) status.textContent = l.local_cast_connecting;
+      await context.requestSession();
+      const session = context.getCurrentSession?.();
+      if (!session) throw new Error(l.local_cast_cancelled);
+      credentials = await this._hass.callWS({
+        type:"fitness/tv/local_cast_credentials",
+        overview:true,
+        browser_origin:String(globalThis.location?.origin || ""),
+      });
+      const namespace = String(credentials.namespace || FITNESS_TV_CAST_NAMESPACE);
+      if (status) status.textContent = l.local_cast_authenticating;
+      let listener = null;
+      let timeout = null;
+      const receiverReady = new Promise((resolve, reject) => {
+        let settled = false;
+        const finish = (err = null) => {
+          if (settled) return;
+          settled = true;
+          if (timeout) clearTimeout(timeout);
+          try { if (listener) session.removeMessageListener?.(namespace, listener); } catch (_err) {}
+          if (err) reject(err); else resolve(true);
+        };
+        timeout = setTimeout(() => finish(new Error(l.local_cast_receiver_failed)), 22000);
+        listener = (_namespace, message) => {
+          let payload = message;
+          if (typeof payload === "string") { try { payload = JSON.parse(payload); } catch (_err) { return; } }
+          if (payload?.type === "receiver_status" && payload?.connected
+              && String(payload?.hassUrl || "").replace(/\/$/, "") === String(credentials.hass_url || "").replace(/\/$/, "")) finish();
+          else if (payload?.type === "receiver_error") finish(new Error(String(payload?.error_message || payload?.errorMessage || l.cast_failed)));
+        };
+        session.addMessageListener(namespace, listener);
+      });
+      const authMessage = {
+        type:"connect",
+        refreshToken:credentials.refresh_token,
+        clientId:credentials.client_id ?? null,
+        hassUrl:credentials.hass_url,
+      };
+      await session.sendMessage(namespace, authMessage);
+      setTimeout(() => void session.sendMessage(namespace, authMessage).catch(() => undefined), 1400);
+      setTimeout(() => void session.sendMessage(namespace, authMessage).catch(() => undefined), 4200);
+      await receiverReady;
+      await session.sendMessage(namespace, {
+        type:"show_lovelace_view",
+        hassUrl:credentials.hass_url,
+        viewPath:credentials.view_path,
+        urlPath:credentials.dashboard_path,
+      });
+      this._overviewLocalCastActive = true;
+      this._markOverviewLocalCast(true);
+      this._overviewLocalCastContext = context;
+      root?.replaceChildren();
+      this._render();
+    } catch (err) {
+      this._overviewLocalCastActive = false;
+      this._markOverviewLocalCast(false);
+      if (credentials) { try { await this._overviewLocalCastContext?.endCurrentSession?.(true); } catch (_err) {} }
+      console.error("[Fitness TV] overview local Cast failed", err);
+      if (status) { status.textContent = l.cast_failed; status.classList.add("error"); }
+      if (button) button.disabled = false;
+    }
+  }
+
+  async _stopOverviewLocalCast() {
+    try { await this._overviewLocalCastContext?.endCurrentSession?.(true); } catch (_err) {}
+    this._overviewLocalCastActive = false;
+    this._markOverviewLocalCast(false);
+    this._render();
   }
 
   async _toggleOverviewCast() {
     if (!this._hass || !this._access?.is_admin) return;
     const l = this._labels();
+    if (this._overviewLocalCastSessionActive()) {
+      await this._stopOverviewLocalCast();
+      return;
+    }
     if (this._overviewCast?.active) {
       const button = this.shadowRoot?.getElementById("overview-cast-toggle");
       if (button) button.disabled = true;
@@ -10403,7 +11430,8 @@ class FitnessTvSetupCard extends HTMLElement {
         await this._load();
       } catch (err) {
         if (button) button.disabled = false;
-        this._showOverviewCastError(String(err?.message || err || l.cast_failed || "Unable to stop Cast."));
+        console.error("[Fitness TV] overview Cast stop failed", err);
+        this._showOverviewCastError(l.cast_stop_failed || l.cast_failed);
       }
       return;
     }
@@ -10412,43 +11440,65 @@ class FitnessTvSetupCard extends HTMLElement {
 
   _openOverviewCastPicker() {
     const l = this._labels();
-    const rows = (this._castTargets || []).map((target) => `<button class="add-profile-row overview-cast-target" data-cast-target="${_fitnessEscape(target.entity_id)}"><ha-icon icon="mdi:television"></ha-icon><span><strong>${_fitnessEscape(target.name || target.entity_id)}</strong><small>${_fitnessEscape(target.state || "")}</small></span><ha-icon icon="mdi:cast"></ha-icon></button>`).join("");
-    this._modal(`<div class="modal-card"><div class="modal-head"><strong class="modal-title-with-icon"><ha-icon icon="mdi:cast"></ha-icon>${_fitnessEscape(l.cast_dashboard || "Cast Fitness TV overview")}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="add-profile-list">${rows || `<div class="empty">${_fitnessEscape(l.cast_no_devices || "No Home Assistant Cast devices are available.")}</div>`}<div class="access-status overview-cast-status" aria-live="polite"></div></div></div>`);
+    const rows = (this._castTargets || []).map((target) => {
+      const unavailable = target?.available === false;
+      const state = unavailable ? l.cast_unavailable : (target.state || "");
+      return `<button class="add-profile-row overview-cast-target ${unavailable ? "unavailable" : ""}" data-cast-target="${_fitnessEscape(target.entity_id)}" ${unavailable ? "disabled aria-disabled=\"true\"" : ""}><ha-icon icon="mdi:television"></ha-icon><span><strong>${_fitnessEscape(target.name || target.entity_id)}</strong><small>${_fitnessEscape(state)}</small></span><ha-icon icon="${unavailable ? "mdi:cast-off" : "mdi:cast"}"></ha-icon></button>`;
+    }).join("");
+    this._modal(`<div class="modal-card overview-cast-modal"><div class="modal-head"><strong class="modal-title-with-icon"><ha-icon icon="mdi:cast"></ha-icon>${_fitnessEscape(l.cast_dashboard)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="modal-scroll-body overview-cast-body"><section class="overview-cast-section"><div><strong>${_fitnessEscape(l.local_cast)}</strong><small>${_fitnessEscape(l.local_cast_hint)}</small></div><button class="tool" id="overview-cast-local" disabled><ha-icon icon="mdi:cast-connected"></ha-icon><span>${_fitnessEscape(l.local_cast_choose)}</span></button></section><section class="overview-cast-section"><div><strong>${_fitnessEscape(l.cast_ha_devices)}</strong><small>${_fitnessEscape(l.cast_ha_devices_hint)}</small></div><div class="overview-cast-targets">${rows || `<div class="empty">${_fitnessEscape(l.cast_no_devices)}</div>`}</div></section><div class="access-status overview-cast-status" aria-live="polite"></div></div></div>`);
     const root = this.shadowRoot?.getElementById("setup-modal");
     root?.querySelectorAll(".overview-cast-target").forEach((button) => button.addEventListener("click", () => void this._castOverviewToTarget(String(button.dataset.castTarget || ""), root)));
+    const localButton = root?.querySelector("#overview-cast-local");
+    void this._prepareOverviewLocalCastContext().then(() => {
+      if (localButton) localButton.disabled = false;
+    }).catch((err) => {
+      if (localButton) localButton.disabled = true;
+      const status = root?.querySelector(".overview-cast-status");
+      console.error("[Fitness TV] overview local Cast setup failed", err);
+      if (status) status.textContent = l.local_cast_unsupported;
+    });
+    localButton?.addEventListener("click", () => void this._castOverviewLocal(root));
   }
 
   async _castOverviewToTarget(target, root) {
     if (!this._hass || !target) return;
+    const selectedTarget = (this._castTargets || []).find((item) => String(item?.entity_id || "") === String(target));
+    if (selectedTarget?.available === false) return;
     const l = this._labels();
     const status = root?.querySelector?.(".overview-cast-status");
     const buttons = [...(root?.querySelectorAll?.(".overview-cast-target") || [])];
     buttons.forEach((button) => { button.disabled = true; });
-    if (status) status.textContent = l.cast_connecting || "Connecting to TV…";
+    if (status) status.textContent = l.cast_connecting;
     try {
       this._overviewCast = await this._hass.callWS({type:"fitness/tv/overview/cast",entity_id:target});
       root?.replaceChildren();
       this._loaded = false;
       await this._load();
     } catch (err) {
-      buttons.forEach((button) => { button.disabled = false; });
-      if (status) { status.textContent = String(err?.message || err || l.cast_failed || "Unable to start Cast."); status.classList.add("error"); }
+      buttons.forEach((button) => { button.disabled = button.classList.contains("unavailable"); });
+      console.error("[Fitness TV] overview Cast start failed", err);
+      if (status) { status.textContent = l.cast_failed; status.classList.add("error"); }
     }
   }
 
   _showOverviewCastError(message) {
     const root = this.shadowRoot?.getElementById("setup-modal");
     if (!root) return;
-    this._modal(`<div class="modal-card"><div class="modal-head"><strong>${_fitnessEscape(this._labels().cast_dashboard || "Cast")}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="modal-scroll-body"><div class="empty">${_fitnessEscape(message)}</div></div></div>`);
+    this._modal(`<div class="modal-card"><div class="modal-head"><strong>${_fitnessEscape(this._labels().cast_dashboard)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="modal-scroll-body"><div class="empty">${_fitnessEscape(message)}</div></div></div>`);
   }
 
   _modal(content) {
     const root = this.shadowRoot?.getElementById("setup-modal");
     if (!root) return;
     root.innerHTML = `<div class="modal-backdrop">${content}</div>`;
+    const modalLabels = this._labels();
+    const closeButton = root.querySelector(".modal-close");
+    closeButton?.setAttribute("title", modalLabels.close);
+    closeButton?.setAttribute("aria-label", modalLabels.close);
     const modalCard = root.querySelector(".modal-card");
-    const scrollSelector = ":scope > .profile-settings,:scope > .add-profile-list,:scope > .access-admin-body,:scope > .modal-scroll-body,:scope > #backend-flow-host,:scope > .modal-auto-scroll-body";
-    if (modalCard && !modalCard.querySelector(scrollSelector)) {
+    const backendFlowModal = Boolean(modalCard?.classList?.contains("backend-flow-modal"));
+    const scrollSelector = ":scope > .profile-settings,:scope > .add-profile-list,:scope > .access-admin-body,:scope > .modal-scroll-body,:scope > .modal-auto-scroll-body";
+    if (modalCard && !backendFlowModal && !modalCard.querySelector(scrollSelector)) {
       const middle = [...modalCard.children].filter((node) => !node.classList.contains("modal-head") && !node.classList.contains("modal-actions") && !node.classList.contains("settings-actions"));
       if (middle.length) {
         const body = document.createElement("div");
@@ -10457,8 +11507,9 @@ class FitnessTvSetupCard extends HTMLElement {
         middle.forEach((node) => body.appendChild(node));
       }
     }
-    const scrollBody = modalCard?.querySelector(scrollSelector);
+    const scrollBody = backendFlowModal ? null : modalCard?.querySelector(scrollSelector);
     modalCard?.addEventListener("wheel", (ev) => {
+      if (backendFlowModal) return;
       if (!scrollBody) { ev.stopPropagation(); return; }
       if (scrollBody.contains(ev.target)) { ev.stopPropagation(); return; }
       if (Math.abs(Number(ev.deltaY || 0)) > 0) {
@@ -10472,7 +11523,7 @@ class FitnessTvSetupCard extends HTMLElement {
   }
 
   _openBackendFlow(mode, entryId = "", profileName = "") {
-    this._modal(`<div class="modal-card backend-flow-modal"><div id="backend-flow-host"></div></div>`);
+    this._modal(`<div class="modal-card backend-flow-modal"><div id="backend-flow-host" class="backend-flow-host"></div></div>`);
     const root = this.shadowRoot?.getElementById("setup-modal");
     const host = root?.querySelector("#backend-flow-host");
     if (!host) return;
@@ -10498,7 +11549,7 @@ class FitnessTvSetupCard extends HTMLElement {
     const l = this._labels();
     const available = (this._profiles || []).filter((profile) => !profile.tv_dashboard?.enabled);
     const rows = available.map((profile) => `<button class="add-profile-row" data-entry="${_fitnessEscape(profile.entry_id)}"><ha-icon icon="mdi:account-circle-outline"></ha-icon><span>${_fitnessEscape(profile.profile_name)}</span><ha-icon icon="mdi:plus"></ha-icon></button>`).join("");
-    this._modal(`<div class="modal-card"><div class="modal-head"><strong class="modal-title-with-icon"><ha-icon icon="mdi:plus-circle-outline"></ha-icon>${_fitnessEscape(l.add_tv_profile || "Add profile")}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="add-profile-list">${rows || `<div class="empty">${_fitnessEscape(l.all_profiles_enabled || "All Fitness profiles already have a TV page.")}</div>`}</div></div>`);
+    this._modal(`<div class="modal-card"><div class="modal-head"><strong class="modal-title-with-icon"><ha-icon icon="mdi:plus-circle-outline"></ha-icon>${_fitnessEscape(l.add_tv_profile)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="add-profile-list">${rows || `<div class="empty">${_fitnessEscape(l.all_profiles_enabled)}</div>`}</div></div>`);
     const root = this.shadowRoot.getElementById("setup-modal");
     root?.querySelectorAll(".add-profile-row").forEach((button) => button.addEventListener("click", () => {
       const profile = this._profiles.find((item) => item.entry_id === button.dataset.entry);
@@ -10515,7 +11566,7 @@ class FitnessTvSetupCard extends HTMLElement {
     // Cast entity state is receiver/app state, not a trustworthy physical-TV
     // power signal. Let the backend prepare/wake the selected target and only
     // report the result it actually observes.
-    if (status) status.textContent = l.start_tv_workout_preparing || "Preparing TV, music and workout…";
+    if (status) status.textContent = l.start_tv_workout_preparing;
     try {
       const result = await this._hass.callWS({
         type:"fitness/tv/start_workout",
@@ -10523,14 +11574,14 @@ class FitnessTvSetupCard extends HTMLElement {
         entity_id:String(profile?.tv_dashboard?.cast_media_player_id || ""),
       });
       if (!result?.cast || !result?.workout_started) {
-        if (status) status.textContent = l.start_tv_workout_failed || "Could not prepare the TV and start the workout.";
+        if (status) status.textContent = l.start_tv_workout_failed;
       } else if (result?.music_error) {
-        if (status) status.textContent = l.start_tv_workout_music_failed || "TV ready and workout started, but the saved music could not be played.";
+        if (status) status.textContent = l.start_tv_workout_music_failed;
       } else {
-        if (status) status.textContent = l.start_tv_workout_ready || "TV ready. Workout started.";
+        if (status) status.textContent = l.start_tv_workout_ready;
       }
     } catch (_err) {
-      if (status) status.textContent = l.start_tv_workout_failed || "Could not prepare the TV and start the workout.";
+      if (status) status.textContent = l.start_tv_workout_failed;
     } finally {
       if (button) button.disabled = false;
     }
@@ -10540,17 +11591,21 @@ class FitnessTvSetupCard extends HTMLElement {
     if (!profile) return;
     const l = this._labels(profile);
     const tv = profile.tv_dashboard || {};
-    const options = [`<option value="">${_fitnessEscape(l.no_default_tv || "No default TV")}</option>`, ...(this._castTargets || []).map((target) => `<option value="${_fitnessEscape(target.entity_id)}" ${target.entity_id === tv.cast_media_player_id ? "selected" : ""}>${_fitnessEscape(target.name || target.entity_id)}</option>`)].join("");
+    const options = [`<option value="">${_fitnessEscape(l.no_default_tv)}</option>`, ...(this._castTargets || []).map((target) => {
+      const unavailable = target?.available === false;
+      const suffix = unavailable ? ` (${l.cast_unavailable})` : "";
+      return `<option value="${_fitnessEscape(target.entity_id)}" ${target.entity_id === tv.cast_media_player_id ? "selected" : ""} ${unavailable ? "disabled" : ""}>${_fitnessEscape(target.name || target.entity_id)}${_fitnessEscape(suffix)}</option>`;
+    })].join("");
     const preferred = String(tv.cast_media_player_id || "");
     const audioOutputId = String(tv.audio_output_id || "__fitness_browser__");
     const audioOutputs = (Array.isArray(this._audioOutputs) ? this._audioOutputs : []).filter((output) => String(output?.entity_id || "") !== preferred);
     const effectiveAudioOutput = audioOutputId === preferred ? "__fitness_browser__" : audioOutputId;
     const audioOutputOptions = [
-      `<option value="__fitness_browser__" ${effectiveAudioOutput === "__fitness_browser__" ? "selected" : ""}>${_fitnessEscape(l.audio_output_browser || "Fitness browser / Cast TV")}</option>`,
+      `<option value="__fitness_browser__" ${effectiveAudioOutput === "__fitness_browser__" ? "selected" : ""}>${_fitnessEscape(l.audio_output_browser)}</option>`,
       ...audioOutputs.map((output) => {
         const entityId = String(output?.entity_id || "");
         const ma = output?.music_assistant ? ` · ${_fitnessEscape("Music Assistant")}` : "";
-        const unavailable = ["unavailable", "unknown"].includes(String(output?.state || "")) ? ` · ${_fitnessEscape(l.unavailable || "Unavailable")}` : "";
+        const unavailable = ["unavailable", "unknown"].includes(String(output?.state || "")) ? ` · ${_fitnessEscape(l.unavailable)}` : "";
         return `<option value="${_fitnessEscape(entityId)}" ${entityId === effectiveAudioOutput ? "selected" : ""}>${_fitnessEscape(output?.name || entityId)}${ma}${unavailable}</option>`;
       }),
     ].join("");
@@ -10566,31 +11621,31 @@ class FitnessTvSetupCard extends HTMLElement {
       musicAdapterOptions = adapterData?.music_adapter_options && typeof adapterData.music_adapter_options === "object" ? adapterData.music_adapter_options : {};
       musicSearchLimit = Math.max(10, Math.min(100, Number(adapterData?.music_search_limit || 50)));
     } catch (_err) {}
-    const adapterRows = musicAdapters.filter((adapter) => adapter?.available !== false && adapter?.id !== "yt_dlp").map((adapter) => {
+    const adapterRows = musicAdapters.filter((adapter) => adapter?.available !== false).map((adapter) => {
       const checked = Boolean(adapter.selected);
-      const hint = adapter.setup_hint || "";
+      const hint = _fitnessMusicAdapterHint(l, adapter);
       const accounts = Array.isArray(adapter.account_options) ? adapter.account_options : [];
       const savedAccount = String(musicAdapterOptions?.[adapter.id]?.account_id || adapter.selected_account_id || "");
-      const accountMarkup = accounts.length ? `<select class="adapter-account" data-config-music-account="${_fitnessEscape(adapter.id)}" title="${_fitnessEscape(l.music_account || "Account")}">${accounts.map((account) => `<option value="${_fitnessEscape(account.id)}" ${String(account.id) === savedAccount ? "selected" : ""}>${_fitnessEscape(account.name || account.id)}</option>`).join("")}</select>` : "";
-      const setupMarkup = adapter.setup_path ? `<button type="button" class="adapter-setup" data-adapter-setup="${_fitnessEscape(adapter.setup_path)}">${_fitnessEscape(l.music_configure_provider || "Configure provider")}</button>` : "";
-      return `<div class="music-adapter-row"><input type="checkbox" data-config-music-adapter="${_fitnessEscape(adapter.id)}" ${checked ? "checked" : ""}><ha-icon icon="${String(adapter.icon || "mdi:music-note").startsWith("mdi:") ? _fitnessEscape(adapter.icon) : "mdi:music-note"}"></ha-icon><span><strong>${_fitnessEscape(adapter.name || adapter.id)}</strong>${hint ? `<small>${_fitnessEscape(hint)}</small>` : ""}</span><div class="adapter-actions">${accountMarkup}${setupMarkup}</div></div>`;
+      const accountMarkup = accounts.length ? `<select class="adapter-account" data-config-music-account="${_fitnessEscape(adapter.id)}" title="${_fitnessEscape(l.music_account)}">${accounts.map((account) => `<option value="${_fitnessEscape(account.id)}" ${String(account.id) === savedAccount ? "selected" : ""}>${_fitnessEscape(account.name || account.id)}</option>`).join("")}</select>` : "";
+      const setupMarkup = adapter.setup_path ? `<button type="button" class="adapter-setup" data-adapter-setup="${_fitnessEscape(adapter.setup_path)}"><span>${_fitnessEscape(l.music_configure_provider)}</span></button>` : "";
+      return `<div class="music-adapter-row"><input type="checkbox" data-config-music-adapter="${_fitnessEscape(adapter.id)}" ${checked ? "checked" : ""}><ha-icon icon="${String(adapter.icon || "mdi:music-note").startsWith("mdi:") ? _fitnessEscape(adapter.icon) : "mdi:music-note"}"></ha-icon><span><strong>${_fitnessEscape(adapter.name || adapter.id)}</strong>${hint ? `<small>${_fitnessEscape(hint)}</small>` : ""}</span><div class="adapter-actions">${accountMarkup}${setupMarkup}<button type="button" class="adapter-setup adapter-remove" data-remove-music-adapter="${_fitnessEscape(adapter.id)}" title="${_fitnessEscape(l.remove)}"><ha-icon icon="mdi:minus-circle-outline"></ha-icon><span>${_fitnessEscape(l.remove)}</span></button></div></div>`;
     }).join("");
     const duck = Number(tv.ducking_percent ?? 25);
     const scale = Number(tv.tv_scale_percent ?? 70);
     const animations = Boolean(tv.animations_enabled ?? true);
-    this._modal(`<div class="modal-card configure-modal"><div class="modal-head"><strong>${_fitnessEscape(l.reconfigure_profile || "Configure profile")}: ${_fitnessEscape(profile.profile_name)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="profile-settings">
-      <label class="setting-toggle"><span><strong class="setting-title"><ha-icon icon="mdi:monitor-dashboard"></ha-icon>${_fitnessEscape(l.enable_tv_view || "Enable Fitness TV view")}</strong><small>${_fitnessEscape(l.enable_tv_view_hint || "Show a dedicated TV page for this profile.")}</small></span><input id="cfg-enabled" type="checkbox" ${enabled ? "checked" : ""}></label>
-      <div class="setting-adapters"><div class="setting-adapters-head"><span><strong>${_fitnessEscape(l.music_adapters || "Music adapters")}</strong><small>${_fitnessEscape(l.music_adapters_hint || "Only installed and usable adapters are shown. Account-backed providers keep credentials in Home Assistant or Music Assistant.")}</small></span><button type="button" class="adapter-setup" id="cfg-add-provider"><ha-icon icon="mdi:plus"></ha-icon>${_fitnessEscape(l.music_add_provider || "Add music provider")}</button></div><div class="music-adapter-list">${adapterRows || `<div class="browser-empty">${_fitnessEscape(l.music_no_adapters || "No installed music adapters found.")}</div>`}</div></div>
-      <label class="setting-range"><span><strong>${_fitnessEscape(l.music_search_result_count || "Search results per adapter")}</strong><small>${_fitnessEscape(l.music_search_result_count_hint || "Maximum results returned by each selected music adapter.")}</small></span><input id="cfg-search-limit" type="range" min="10" max="100" step="10" value="${musicSearchLimit}"><output id="cfg-search-limit-value">${musicSearchLimit}</output></label>
-      <label class="setting-field"><span>${_fitnessEscape(l.default_tv || "Default Cast TV")}</span><select id="cfg-target">${options}</select></label>
-      <label class="setting-field audio-output-field"><span><strong>${_fitnessEscape(l.audio_output || "Music & TTS output")}</strong><small>${_fitnessEscape(l.audio_output_hint || "Use the Fitness browser/Cast receiver or any compatible Home Assistant media player. Music Assistant players are preferred when available.")}</small></span><select id="cfg-audio-output">${audioOutputOptions}</select></label>
-      <label class="setting-range"><span><strong>${_fitnessEscape(l.tts_ducking || "TTS music ducking")}</strong><small>${_fitnessEscape(l.tts_ducking_hint || "Music volume while Fitness speaks.")}</small></span><input id="cfg-duck" type="range" min="0" max="100" step="5" value="${duck}"><output id="cfg-duck-value">${duck}%</output></label>
-      <label class="setting-range"><span><strong>${_fitnessEscape(l.tv_scale || "TV card scale")}</strong><small>${_fitnessEscape(l.tv_scale_hint || "Smaller values fit more information on the TV.")}</small></span><input id="cfg-scale" type="range" min="10" max="150" step="5" value="${scale}"><output id="cfg-scale-value">${scale}%</output></label>
-      <label class="setting-toggle"><span><strong>${_fitnessEscape(l.ignore_lights_when_cast_active || "Ignore workout lights while TV Cast is active")}</strong><small>${_fitnessEscape(l.ignore_lights_when_cast_active_hint || "When Fitness TV is alive, use the TV for workout feedback and leave your room lights untouched.")}</small></span><input id="cfg-ignore-lights" type="checkbox" ${Boolean(tv.ignore_lights_when_cast_active ?? true) ? "checked" : ""}></label>
-      <label class="setting-toggle"><span><strong>${_fitnessEscape(l.dashboard_animations || "Living dashboard animations")}</strong><small>${_fitnessEscape(l.dashboard_animations_hint || "Animate the background, cards and status surfaces. During live workouts the motion becomes more energetic and follows your intensity zone.")}</small></span><input id="cfg-animations" type="checkbox" ${animations ? "checked" : ""}></label>
-      <label class="setting-toggle"><span><strong>${_fitnessEscape(l.oled_protection || "OLED protection")}</strong><small>${_fitnessEscape(l.oled_protection_hint || "Periodically shifts the dashboard and dims the static toolbar when idle.")}</small></span><input id="cfg-oled" type="checkbox" ${tv.oled_protection ? "checked" : ""}></label>
-      <div class="setting-info"><ha-icon icon="mdi:television-shimmer"></ha-icon><span><strong>${_fitnessEscape(l.keep_awake || "Screen saver protection")}</strong><small>${_fitnessEscape(l.keep_awake_hint || "While the Fitness Cast dashboard is open, Fitness requests a screen wake lock to keep the TV dashboard visible.")}</small></span></div>
-    </div><div class="settings-actions"><button class="tool" id="cfg-save"><ha-icon icon="mdi:content-save-outline"></ha-icon><span>${_fitnessEscape(l.save || "Save")}</span></button><span class="settings-status" id="cfg-status"></span></div></div>`);
+    this._modal(`<div class="modal-card configure-modal"><div class="modal-head"><strong>${_fitnessEscape(l.reconfigure_profile)}: ${_fitnessEscape(profile.profile_name)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="profile-settings">
+      <label class="setting-toggle"><span><strong class="setting-title"><ha-icon icon="mdi:monitor-dashboard"></ha-icon>${_fitnessEscape(l.enable_tv_view)}</strong><small>${_fitnessEscape(l.enable_tv_view_hint)}</small></span><input id="cfg-enabled" type="checkbox" ${enabled ? "checked" : ""}></label>
+      <div class="setting-adapters"><div class="setting-adapters-head"><span><strong>${_fitnessEscape(l.music_adapters)}</strong><small>${_fitnessEscape(l.music_adapters_hint)}</small></span><button type="button" class="adapter-setup" id="cfg-add-provider"><ha-icon icon="mdi:plus"></ha-icon><span>${_fitnessEscape(l.music_add_provider)}</span></button></div><div class="music-adapter-list">${adapterRows || `<div class="browser-empty">${_fitnessEscape(l.music_no_adapters)}</div>`}</div></div>
+      <label class="setting-range"><span><strong>${_fitnessEscape(l.music_search_result_count)}</strong><small>${_fitnessEscape(l.music_search_result_count_hint)}</small></span><input id="cfg-search-limit" type="range" min="10" max="100" step="10" value="${musicSearchLimit}"><output id="cfg-search-limit-value">${musicSearchLimit}</output></label>
+      <label class="setting-field"><span>${_fitnessEscape(l.default_tv)}</span><select id="cfg-target">${options}</select></label>
+      <label class="setting-field audio-output-field"><span><strong>${_fitnessEscape(l.audio_output)}</strong><small>${_fitnessEscape(l.audio_output_hint)}</small></span><select id="cfg-audio-output">${audioOutputOptions}</select></label>
+      <label class="setting-range"><span><strong>${_fitnessEscape(l.tts_ducking)}</strong><small>${_fitnessEscape(l.tts_ducking_hint)}</small></span><input id="cfg-duck" type="range" min="0" max="100" step="5" value="${duck}"><output id="cfg-duck-value">${duck}%</output></label>
+      <label class="setting-range"><span><strong>${_fitnessEscape(l.tv_scale)}</strong><small>${_fitnessEscape(l.tv_scale_hint)}</small></span><input id="cfg-scale" type="range" min="10" max="150" step="5" value="${scale}"><output id="cfg-scale-value">${scale}%</output></label>
+      <label class="setting-toggle"><span><strong>${_fitnessEscape(l.ignore_lights_when_cast_active)}</strong><small>${_fitnessEscape(l.ignore_lights_when_cast_active_hint)}</small></span><input id="cfg-ignore-lights" type="checkbox" ${Boolean(tv.ignore_lights_when_cast_active ?? true) ? "checked" : ""}></label>
+      <label class="setting-toggle"><span><strong>${_fitnessEscape(l.dashboard_animations)}</strong><small>${_fitnessEscape(l.dashboard_animations_hint)}</small></span><input id="cfg-animations" type="checkbox" ${animations ? "checked" : ""}></label>
+      <label class="setting-toggle"><span><strong>${_fitnessEscape(l.oled_protection)}</strong><small>${_fitnessEscape(l.oled_protection_hint)}</small></span><input id="cfg-oled" type="checkbox" ${tv.oled_protection ? "checked" : ""}></label>
+      <div class="setting-info"><ha-icon icon="mdi:television-shimmer"></ha-icon><span><strong>${_fitnessEscape(l.keep_awake)}</strong><small>${_fitnessEscape(l.keep_awake_hint)}</small></span></div>
+    </div><div class="settings-actions"><button class="tool" id="cfg-save"><ha-icon icon="mdi:content-save-outline"></ha-icon><span>${_fitnessEscape(l.save)}</span></button><span class="settings-status" id="cfg-status"></span></div></div>`);
     const root = this.shadowRoot.getElementById("setup-modal");
     const duckInput = root?.querySelector("#cfg-duck");
     const scaleInput = root?.querySelector("#cfg-scale");
@@ -10604,19 +11659,29 @@ class FitnessTvSetupCard extends HTMLElement {
     searchLimitInput?.addEventListener("input", () => { const out=root.querySelector("#cfg-search-limit-value"); if(out) out.textContent=searchLimitInput.value; });
     root?.querySelectorAll("[data-adapter-setup]").forEach((button) => button.addEventListener("click", () => this._navigate(String(button.dataset.adapterSetup || "/config/integrations"))));
     root?.querySelector("#cfg-add-provider")?.addEventListener("click", () => this._openMusicProviderCatalog(providerCatalog, profile));
+    root?.querySelectorAll("[data-remove-music-adapter]").forEach((button) => button.addEventListener("click", () => {
+      const adapterId = String(button.dataset.removeMusicAdapter || "");
+      const checkbox = [...root.querySelectorAll("input[data-config-music-adapter]")].find((input) => String(input.dataset.configMusicAdapter || "") === adapterId);
+      if (checkbox) checkbox.checked = false;
+      delete musicAdapterOptions[adapterId];
+      button.closest(".music-adapter-row")?.classList.add("profile-adapter-removed");
+      button.disabled = true;
+    }));
     root?.querySelector("#cfg-save")?.addEventListener("click", () => {
       const selectedAdapterOptions = {...musicAdapterOptions};
       root.querySelectorAll("select[data-config-music-account]").forEach((select) => {
         const adapterId = String(select.dataset.configMusicAccount || "");
-        if (adapterId) selectedAdapterOptions[adapterId] = {...(selectedAdapterOptions[adapterId] || {}), account_id:String(select.value || "")};
+        if (adapterId && !select.closest(".profile-adapter-removed")) {
+          selectedAdapterOptions[adapterId] = {...(selectedAdapterOptions[adapterId] || {}), account_id:String(select.value || "")};
+        }
       });
       this._saveProfile(profile, {
       enabled:Boolean(root.querySelector("#cfg-enabled")?.checked),
-      ytdlp_enabled:Boolean(tv.ytdlp_enabled),
-      music_adapters:[...new Set([
-        ...[...root.querySelectorAll('input[data-config-music-adapter]:checked')].map((input) => String(input.dataset.configMusicAdapter || "")).filter(Boolean),
-        ...(tv.ytdlp_enabled ? ["yt_dlp"] : []),
-      ])],
+      music_adapters:[...new Set(
+        [...root.querySelectorAll('input[data-config-music-adapter]:checked')]
+          .map((input) => String(input.dataset.configMusicAdapter || ""))
+          .filter(Boolean),
+      )],
       music_adapter_options:selectedAdapterOptions,
       music_search_limit:Number(root.querySelector("#cfg-search-limit")?.value || 50),
       cast_media_player_id:String(root.querySelector("#cfg-target")?.value || ""),
@@ -10636,11 +11701,11 @@ class FitnessTvSetupCard extends HTMLElement {
       const isYtdlp = provider.id === "yt_dlp" || provider.kind === "fitness_optional_adapter";
       const icon = String(provider.icon || "mdi:music-note").startsWith("mdi:") ? String(provider.icon || "mdi:music-note") : "mdi:music-note";
       const action = isYtdlp
-        ? `<button type="button" class="adapter-setup" data-setup-ytdlp="${provider.enabled ? "disable" : "enable"}">${_fitnessEscape(provider.enabled ? (l.disable || "Disable") : (l.music_enable_provider || "Enable provider"))}</button>`
-        : `<button type="button" class="adapter-setup" data-provider-path="${_fitnessEscape(provider.setup_path || "/config/integrations")}">${_fitnessEscape(provider.installed ? (l.music_configure_provider || "Configure provider") : (l.music_install_provider || "Install provider"))}</button>`;
-      return `<div class="provider-catalog-row ${isYtdlp ? "provider-catalog-ytdlp" : ""}"><ha-icon icon="${_fitnessEscape(icon)}"></ha-icon><span><strong>${_fitnessEscape(provider.name || provider.id)}</strong><small>${_fitnessEscape(provider.description || "")}</small></span>${action}</div>`;
+        ? `<button type="button" class="adapter-setup" data-setup-ytdlp="${provider.enabled ? "disable" : "enable"}"><span>${_fitnessEscape(provider.enabled ? (l.disable) : (l.music_enable_provider))}</span></button>`
+        : `<button type="button" class="adapter-setup" data-provider-path="${_fitnessEscape(provider.setup_path || "/config/integrations")}"><span>${_fitnessEscape(provider.installed ? (l.music_configure_provider) : (l.music_install_provider))}</span></button>`;
+      return `<div class="provider-catalog-row ${isYtdlp ? "provider-catalog-ytdlp" : ""}"><ha-icon icon="${_fitnessEscape(icon)}"></ha-icon><span><strong>${_fitnessEscape(_fitnessMusicProviderName(l, provider))}</strong><small>${_fitnessEscape(_fitnessMusicProviderDescription(l, provider))}</small></span>${action}</div>`;
     }).join("");
-    this._modal(`<div class="modal-card provider-catalog-modal"><div class="modal-head"><strong>${_fitnessEscape(l.music_add_provider || "Music Providers")}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="provider-catalog-list">${rows || `<div class="browser-empty">${_fitnessEscape(l.music_no_provider_catalog || "No provider setup options are available.")}</div>`}</div></div>`);
+    this._modal(`<div class="modal-card provider-catalog-modal"><div class="modal-head"><strong>${_fitnessEscape(l.music_add_provider)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="provider-catalog-list">${rows || `<div class="browser-empty">${_fitnessEscape(l.music_no_provider_catalog)}</div>`}</div></div>`);
     const root = this.shadowRoot?.getElementById("setup-modal");
     root?.querySelectorAll("[data-provider-path]").forEach((button) => button.addEventListener("click", () => this._navigate(String(button.dataset.providerPath || "/config/integrations"))));
     root?.querySelectorAll("[data-setup-ytdlp]").forEach((button) => button.addEventListener("click", () => {
@@ -10654,8 +11719,8 @@ class FitnessTvSetupCard extends HTMLElement {
     if (!profile) return;
     const l = this._labels(profile);
     const provider = (Array.isArray(providers) ? providers : []).find((item) => item?.id === "yt_dlp") || {};
-    const disclaimer = String(provider.legal_disclaimer || l.ytdlp_disclaimer || "yt-dlp is an optional third-party adapter. You are solely responsible for complying with applicable law, service terms and content rights when enabling or using it. Fitness and its developers do not authorize unlawful circumvention, downloading or redistribution and, to the maximum extent permitted by applicable law, do not accept responsibility for consequences of your use.");
-    this._modal(`<div class="modal-card ytdlp-legal-modal"><div class="modal-head"><strong class="modal-title-with-icon"><ha-icon icon="mdi:youtube"></ha-icon>${_fitnessEscape(provider.name || "YouTube via yt-dlp")}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="modal-scroll-body ytdlp-legal-body"><div class="setting-info legal-warning"><ha-icon icon="mdi:scale-balance"></ha-icon><span><strong>${_fitnessEscape(l.legal_notice || "Legal notice")}</strong><small>${_fitnessEscape(disclaimer)}</small></span></div><label class="setting-toggle ytdlp-accept"><span><strong>${_fitnessEscape(l.ytdlp_accept || "I understand and accept")}</strong><small>${_fitnessEscape(l.ytdlp_accept_hint || "Enabling this provider confirms that you accept responsibility for your use of yt-dlp.")}</small></span><input id="setup-ytdlp-accept" type="checkbox"></label></div><div class="modal-actions"><button class="tool setup-ytdlp-back"><ha-icon icon="mdi:arrow-left"></ha-icon>${_fitnessEscape(l.back || "Back")}</button><button class="primary-tool setup-ytdlp-enable" disabled><ha-icon icon="mdi:check"></ha-icon>${_fitnessEscape(l.music_enable_provider || "Enable provider")}</button></div></div>`);
+    const disclaimer = String(l.ytdlp_disclaimer);
+    this._modal(`<div class="modal-card ytdlp-legal-modal"><div class="modal-head"><strong class="modal-title-with-icon"><ha-icon icon="mdi:youtube"></ha-icon>${_fitnessEscape(provider.name || "yt-dlp")}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="modal-scroll-body ytdlp-legal-body"><div class="setting-info legal-warning"><ha-icon icon="mdi:scale-balance"></ha-icon><span><strong>${_fitnessEscape(l.legal_notice)}</strong><small>${_fitnessEscape(disclaimer)}</small></span></div><label class="setting-toggle ytdlp-accept"><span><strong>${_fitnessEscape(l.ytdlp_accept)}</strong><small>${_fitnessEscape(l.ytdlp_accept_hint)}</small></span><input id="setup-ytdlp-accept" type="checkbox"></label></div><div class="modal-actions"><button class="tool setup-ytdlp-back"><ha-icon icon="mdi:arrow-left"></ha-icon><span>${_fitnessEscape(l.back)}</span></button><button class="primary-tool setup-ytdlp-enable" disabled><ha-icon icon="mdi:check"></ha-icon><span>${_fitnessEscape(l.music_enable_provider)}</span></button></div></div>`);
     const root = this.shadowRoot?.getElementById("setup-modal");
     const accept = root?.querySelector("#setup-ytdlp-accept");
     const enable = root?.querySelector(".setup-ytdlp-enable");
@@ -10671,9 +11736,11 @@ class FitnessTvSetupCard extends HTMLElement {
       profile.tv_dashboard = {...(profile.tv_dashboard || {}),ytdlp_enabled:Boolean(result?.enabled)};
       await this._openConfigure(profile);
     } catch (err) {
+      console.error("[Fitness TV] setup yt-dlp update failed", err);
+      const l = this._labels(profile);
       const root = this.shadowRoot?.getElementById("setup-modal");
       const body = root?.querySelector(".ytdlp-legal-body") || root?.querySelector(".provider-catalog-list");
-      if (body) body.insertAdjacentHTML("beforeend", `<div class="browser-empty">${_fitnessEscape(String(err?.message || err || "Unable to update yt-dlp."))}</div>`);
+      if (body) body.insertAdjacentHTML("beforeend", `<div class="browser-empty">${_fitnessEscape(l.save_failed)}</div>`);
     }
   }
 
@@ -10697,7 +11764,7 @@ class FitnessTvSetupCard extends HTMLElement {
     const status = root?.querySelector?.("#cfg-status");
     const button = root?.querySelector?.("#cfg-save");
     if (button) button.disabled = true;
-    if (status) status.textContent = l.saving || "Saving…";
+    if (status) status.textContent = l.saving;
     try {
       const result = await this._hass.callWS({
         type:"fitness/tv/profile/configure",
@@ -10719,7 +11786,7 @@ class FitnessTvSetupCard extends HTMLElement {
         animations_enabled:Boolean(settings.animations_enabled ?? true),
       });
       profile.tv_dashboard = {...(profile.tv_dashboard || {}), ...result, music_adapters:prefs?.music_adapters || settings.music_adapters || [], music_adapter_options:prefs?.music_adapter_options || settings.music_adapter_options || {}, music_search_limit:Number(prefs?.music_search_limit || settings.music_search_limit || 50), audio_output_id:String(prefs?.audio_output_id || settings.audio_output_id || "__fitness_browser__"), animations_enabled:Boolean(prefs?.animations_enabled ?? settings.animations_enabled ?? true)};
-      if (status) status.textContent = l.saved || "Saved";
+      if (status) status.textContent = l.saved;
       setTimeout(() => {
         this.shadowRoot?.getElementById("setup-modal")?.replaceChildren();
         this._render();
@@ -10727,7 +11794,7 @@ class FitnessTvSetupCard extends HTMLElement {
         this._load();
       }, 350);
     } catch (_err) {
-      if (status) status.textContent = l.save_failed || "Unable to save settings.";
+      if (status) status.textContent = l.save_failed;
       if (button) button.disabled = false;
     }
   }
@@ -10735,14 +11802,15 @@ class FitnessTvSetupCard extends HTMLElement {
   async _openAccessAdmin() {
     if (!this._hass || !this._access?.is_admin) return;
     const l = this._labels();
-    this._modal(`<div class="modal-card access-admin-modal"><div class="modal-head"><strong class="modal-title-with-icon"><ha-icon icon="mdi:account-lock-outline"></ha-icon>${_fitnessEscape(l.fitness_accounts || "Fitness accounts")}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="access-admin-body"><div class="browser-working"><ha-icon class="spin" icon="mdi:loading"></ha-icon><span>${_fitnessEscape(l.loading || "Loading…")}</span></div></div></div>`);
+    this._modal(`<div class="modal-card access-admin-modal"><div class="modal-head"><strong class="modal-title-with-icon"><ha-icon icon="mdi:account-lock-outline"></ha-icon>${_fitnessEscape(l.fitness_accounts)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="access-admin-body"><div class="browser-working"><ha-icon class="spin" icon="mdi:loading"></ha-icon><span>${_fitnessEscape(l.loading)}</span></div></div></div>`);
     try {
       const snapshot = await this._hass.callWS({type:"fitness/access/admin"});
       this._renderAccessAdmin(snapshot || {});
     } catch (err) {
+      console.error("[Fitness TV] access settings load failed", err);
       const root = this.shadowRoot?.getElementById("setup-modal");
       const body = root?.querySelector(".access-admin-body");
-      if (body) body.innerHTML = `<div class="empty">${_fitnessEscape(String(err?.message || err || l.access_save_failed || "Unable to load Fitness access settings."))}</div>`;
+      if (body) body.innerHTML = `<div class="empty">${_fitnessEscape(l.access_save_failed)}</div>`;
     }
   }
 
@@ -10754,7 +11822,7 @@ class FitnessTvSetupCard extends HTMLElement {
     const baseDomain = String(snapshot?.remote_base_domain || "");
     const suffix = baseDomain ? `.${baseDomain}` : "";
     const supportedLanguages = snapshot?.supported_languages && typeof snapshot.supported_languages === "object" ? snapshot.supported_languages : {en:"English"};
-    const profileOptions = (selected = "") => [`<option value="">${_fitnessEscape(l.account_unassigned || "Unassigned")}</option>`, ...profiles.map((profile) => `<option value="${_fitnessEscape(profile.entry_id)}" ${String(profile.entry_id) === String(selected || "") ? "selected" : ""}>${_fitnessEscape(profile.name || profile.entry_id)}</option>`)].join("");
+    const profileOptions = (selected = "") => [`<option value="">${_fitnessEscape(l.account_unassigned)}</option>`, ...profiles.map((profile) => `<option value="${_fitnessEscape(profile.entry_id)}" ${String(profile.entry_id) === String(selected || "") ? "selected" : ""}>${_fitnessEscape(profile.name || profile.entry_id)}</option>`)].join("");
     const languageOptions = (selected = "en") => Object.entries(supportedLanguages).map(([code, name]) => `<option value="${_fitnessEscape(code)}" ${String(code) === String(selected || "en") ? "selected" : ""}>${_fitnessEscape(name || code)}</option>`).join("");
     const userRows = users.map((user) => {
       const role = String(user.fitness_role || "none");
@@ -10762,33 +11830,35 @@ class FitnessTvSetupCard extends HTMLElement {
       const selectedViewProfiles = new Set(Array.isArray(user.view_profile_entry_ids) ? user.view_profile_entry_ids.map(String) : []);
       const slug = String(user.remote_slug || "");
       const roleOptions = [
-        ["none", l.role_none || "No Fitness account", false],
-        ["admin", l.role_admin || "Fitness administrator", !user.is_admin],
-        ["local", l.role_local || "Local user", Boolean(user.is_admin)],
-        ["remote", l.role_remote || "Remote user", Boolean(user.is_admin)],
+        ["none", l.role_none, false],
+        ["admin", l.role_admin, !user.is_admin],
+        ["local", l.role_local, Boolean(user.is_admin)],
+        ["remote", l.role_remote, Boolean(user.is_admin)],
       ].map(([value, text, disabled]) => `<option value="${value}" ${role === value ? "selected" : ""} ${disabled ? "disabled" : ""}>${_fitnessEscape(text)}</option>`).join("");
       const profileMeta = profiles.find((profile) => String(profile.entry_id) === selectedProfile) || null;
       const profileName = profileMeta?.name || selectedProfile;
       const language = String(user.language || profileMeta?.language || "en");
       const remoteUrl = role === "remote" && baseDomain && slug && selectedProfile ? `https://${slug}.${baseDomain}/fitness-tv/profile-${selectedProfile}` : "";
-      const badge = user.is_owner ? " · HA owner" : (user.is_admin ? " · HA admin" : "");
+      const badge = user.is_owner
+        ? ` · ${l.ha_owner_badge}`
+        : (user.is_admin ? ` · ${l.ha_admin_badge}` : "");
       const viewOptions = profiles.filter((item) => String(item.entry_id) !== selectedProfile).map((item) => `<label class="access-view-option"><input type="checkbox" data-access-view-profile value="${_fitnessEscape(item.entry_id)}" ${selectedViewProfiles.has(String(item.entry_id)) ? "checked" : ""} ${user.is_admin ? "disabled" : ""}><span>${_fitnessEscape(item.name || item.entry_id)}</span></label>`).join("");
       return `<div class="access-user-row" data-access-user="${_fitnessEscape(user.user_id)}">
-        <div class="access-user-head"><ha-icon icon="${role === "admin" ? "mdi:shield-account" : role === "remote" ? "mdi:web-account" : role === "local" ? "mdi:home-account" : "mdi:account-outline"}"></ha-icon><span><strong>${_fitnessEscape(user.name || user.user_id)}</strong><small>${_fitnessEscape(`${user.is_active ? "Active" : "Inactive"}${badge}`)}</small></span></div>
-        <label class="access-role-field"><span>${_fitnessEscape(l.account_role || "Access role")}</span><select data-access-role>${roleOptions}</select><small data-access-role-hint></small></label>
-        <label class="access-profile-field ${role === "none" ? "hidden" : ""}"><span>${_fitnessEscape(l.account_profile || "Fitness profile")}</span><select data-access-profile>${profileOptions(selectedProfile)}</select><small>${_fitnessEscape(role === "admin" ? (l.admin_own_profile || "This is the administrator's own Fitness profile; administrator access to all profiles remains unchanged.") : (l.account_profile_hint || "Assign this Home Assistant user to a Fitness profile."))}</small></label>
-        <label class="access-language-field ${role === "none" ? "hidden" : ""}"><span>${_fitnessEscape(l.account_language || "Language")}</span><select data-access-language>${languageOptions(language)}</select><small>${_fitnessEscape(l.account_language_hint || "Menus and this user's Fitness TV dashboard use this language.")}</small></label>
-        <label class="access-slug-field ${role === "remote" ? "" : "hidden"}"><span>${_fitnessEscape(l.remote_slug || "Remote subdomain")}</span><div class="access-slug-input"><input data-access-slug value="${_fitnessEscape(slug)}" placeholder="${_fitnessEscape((user.name || "user").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") || "user")}"><span>${_fitnessEscape(suffix || ".fitness.example.com")}</span></div></label>
-        <div class="access-view-field ${role === "none" ? "hidden" : ""}"><span>${_fitnessEscape(l.view_only_profiles || "Additional view-only profiles")}</span><small>${_fitnessEscape(user.is_admin ? (l.ha_admin_global_access || "Home Assistant administrators always have full access to all Fitness profiles.") : (l.view_only_profiles_hint || "These profiles are visible, but cannot be controlled or configured by this user."))}</small><div class="access-view-options">${viewOptions || `<em>${_fitnessEscape(l.no_other_profiles || "No other profiles")}</em>`}</div></div>
-        <div class="access-url">${remoteUrl ? `${_fitnessEscape(l.remote_url || "Remote URL")}: <code>${_fitnessEscape(remoteUrl)}</code>` : (role === "local" ? _fitnessEscape(l.local_only_own_profile || "This account can access only its assigned Fitness profile and only from the local Home Assistant network.") : role === "remote" ? _fitnessEscape(l.remote_only_own_profile || "This account can access only its assigned Fitness profile and only through its own subdomain.") : profileName ? _fitnessEscape(profileName) : "")}</div>
-        <div class="access-user-actions"><button class="tool" data-access-save><ha-icon icon="mdi:content-save-outline"></ha-icon><span>${_fitnessEscape(l.save_account || "Save account")}</span></button>${role !== "none" ? `<button class="tool danger" data-access-remove><ha-icon icon="mdi:account-remove-outline"></ha-icon><span>${_fitnessEscape(l.remove_account || "Remove Fitness account")}</span></button>` : ""}</div>
+        <div class="access-user-head"><ha-icon icon="${role === "admin" ? "mdi:shield-account" : role === "remote" ? "mdi:web-account" : role === "local" ? "mdi:home-account" : "mdi:account-outline"}"></ha-icon><span><strong>${_fitnessEscape(user.name || user.user_id)}</strong><small>${_fitnessEscape(`${user.is_active ? (l.account_active) : (l.account_inactive)}${badge}`)}</small></span></div>
+        <label class="access-role-field"><span>${_fitnessEscape(l.account_role)}</span><select data-access-role>${roleOptions}</select><small data-access-role-hint></small></label>
+        <label class="access-profile-field ${role === "none" ? "hidden" : ""}"><span>${_fitnessEscape(l.account_profile)}</span><select data-access-profile>${profileOptions(selectedProfile)}</select><small>${_fitnessEscape(role === "admin" ? (l.admin_own_profile) : (l.account_profile_hint))}</small></label>
+        <label class="access-language-field ${role === "none" ? "hidden" : ""}"><span>${_fitnessEscape(l.account_language)}</span><select data-access-language>${languageOptions(language)}</select><small>${_fitnessEscape(l.account_language_hint)}</small></label>
+        <label class="access-slug-field ${role === "remote" ? "" : "hidden"}"><span>${_fitnessEscape(l.remote_slug)}</span><div class="access-slug-input"><input data-access-slug value="${_fitnessEscape(slug)}" placeholder="${_fitnessEscape((user.name || "user").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") || "user")}"><span>${_fitnessEscape(suffix || ".fitness.example.com")}</span></div></label>
+        <div class="access-view-field ${role === "none" ? "hidden" : ""}"><span>${_fitnessEscape(l.view_only_profiles)}</span><small>${_fitnessEscape(user.is_admin ? (l.ha_admin_global_access) : (l.view_only_profiles_hint))}</small><div class="access-view-options">${viewOptions || `<em>${_fitnessEscape(l.no_other_profiles)}</em>`}</div></div>
+        <div class="access-url">${remoteUrl ? `${_fitnessEscape(l.remote_url)}: <code>${_fitnessEscape(remoteUrl)}</code>` : (role === "local" ? _fitnessEscape(l.local_only_own_profile) : role === "remote" ? _fitnessEscape(l.remote_only_own_profile) : profileName ? _fitnessEscape(profileName) : "")}</div>
+        <div class="access-user-actions"><button class="tool" data-access-save><ha-icon icon="mdi:content-save-outline"></ha-icon><span>${_fitnessEscape(l.save_account)}</span></button>${role !== "none" ? `<button class="tool danger" data-access-remove><ha-icon icon="mdi:account-remove-outline"></ha-icon><span>${_fitnessEscape(l.remove_account)}</span></button>` : ""}</div>
       </div>`;
     }).join("");
 
-    this._modal(`<div class="modal-card access-admin-modal"><div class="modal-head"><strong class="modal-title-with-icon"><ha-icon icon="mdi:account-lock-outline"></ha-icon>${_fitnessEscape(l.fitness_accounts || "Fitness accounts")}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="access-admin-body">
-      <div class="access-intro"><div><strong>${_fitnessEscape(l.fitness_accounts || "Fitness accounts")}</strong><p>${_fitnessEscape(l.fitness_accounts_hint || "Only the local Fitness administrator can assign Home Assistant users to Fitness profiles. Local and remote users never see other Fitness profiles.")}</p></div><a class="tool" id="access-ha-users" href="/config/person"><ha-icon icon="mdi:account-cog-outline"></ha-icon><span>${_fitnessEscape(l.manage_ha_users || "Manage Home Assistant users")}</span></a></div>
-      <section class="access-section"><div class="access-section-title"><ha-icon icon="mdi:web"></ha-icon><span><strong>${_fitnessEscape(l.remote_base_domain || "Remote Fitness base domain")}</strong><small>${_fitnessEscape(l.remote_base_domain_hint || "Configure wildcard DNS/TLS once. Fitness then assigns one logical subdomain per remote account.")}</small></span></div><div class="access-domain-row"><input id="access-base-domain" value="${_fitnessEscape(baseDomain)}" placeholder="fitness.example.com"><button class="tool" id="access-save-domain"><ha-icon icon="mdi:content-save-outline"></ha-icon><span>${_fitnessEscape(l.save_domain || "Save domain")}</span></button></div><div class="setting-info"><ha-icon icon="mdi:certificate-outline"></ha-icon><span><strong>${_fitnessEscape(l.wildcard_setup || "Wildcard DNS/TLS required")}</strong><small>${_fitnessEscape(l.wildcard_setup_hint || "Fitness manages users, profile bindings and subdomain slugs. Outside Fitness, point *.your-domain to the same Home Assistant HTTPS/reverse-proxy endpoint, use wildcard-valid TLS, preserve the original Host header, and configure Home Assistant to trust that proxy. Removing a Fitness remote account blocks that slug immediately even though wildcard DNS may still resolve.")}</small></span></div></section>
-      <section class="access-section"><div class="access-section-title"><ha-icon icon="mdi:account-multiple-outline"></ha-icon><span><strong>${_fitnessEscape(l.fitness_accounts || "Fitness accounts")}</strong><small>${_fitnessEscape(l.fitness_accounts_hint || "Assign existing Home Assistant users. Users cannot enroll themselves.")}</small></span></div><div class="access-user-list">${userRows || `<div class="empty">${_fitnessEscape(l.no_users || "No Home Assistant users found.")}</div>`}</div></section>
+    this._modal(`<div class="modal-card access-admin-modal"><div class="modal-head"><strong class="modal-title-with-icon"><ha-icon icon="mdi:account-lock-outline"></ha-icon>${_fitnessEscape(l.fitness_accounts)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="access-admin-body">
+      <div class="access-intro"><div><strong>${_fitnessEscape(l.fitness_accounts)}</strong><p>${_fitnessEscape(l.fitness_accounts_hint)}</p></div><a class="tool" id="access-ha-users" href="/config/person"><ha-icon icon="mdi:account-cog-outline"></ha-icon><span>${_fitnessEscape(l.manage_ha_users)}</span></a></div>
+      <section class="access-section"><div class="access-section-title"><ha-icon icon="mdi:web"></ha-icon><span><strong>${_fitnessEscape(l.remote_base_domain)}</strong><small>${_fitnessEscape(l.remote_base_domain_hint)}</small></span></div><div class="access-domain-row"><input id="access-base-domain" value="${_fitnessEscape(baseDomain)}" placeholder="fitness.example.com"><button class="tool" id="access-save-domain"><ha-icon icon="mdi:content-save-outline"></ha-icon><span>${_fitnessEscape(l.save_domain)}</span></button></div><div class="setting-info"><ha-icon icon="mdi:certificate-outline"></ha-icon><span><strong>${_fitnessEscape(l.wildcard_setup)}</strong><small>${_fitnessEscape(l.wildcard_setup_hint)}</small></span></div></section>
+      <section class="access-section"><div class="access-section-title"><ha-icon icon="mdi:account-multiple-outline"></ha-icon><span><strong>${_fitnessEscape(l.fitness_accounts)}</strong><small>${_fitnessEscape(l.fitness_accounts_hint)}</small></span></div><div class="access-user-list">${userRows || `<div class="empty">${_fitnessEscape(l.no_users)}</div>`}</div></section>
       <div class="access-status" id="access-status" aria-live="polite"></div>
     </div></div>`);
 
@@ -10801,13 +11871,14 @@ class FitnessTvSetupCard extends HTMLElement {
     root.querySelector("#access-save-domain")?.addEventListener("click", async () => {
       const button = root.querySelector("#access-save-domain");
       if (button) button.disabled = true;
-      setStatus(l.saving || "Saving…");
+      setStatus(l.saving);
       try {
         const next = await this._hass.callWS({type:"fitness/access/settings/save",remote_base_domain:String(root.querySelector("#access-base-domain")?.value || "").trim()});
         refresh(next);
       } catch (err) {
         if (button) button.disabled = false;
-        setStatus(String(err?.message || err || l.access_save_failed || "Unable to save Fitness access settings."), true);
+        console.error("[Fitness TV] access domain save failed", err);
+        setStatus(l.access_save_failed, true);
       }
     });
 
@@ -10831,23 +11902,23 @@ class FitnessTvSetupCard extends HTMLElement {
         viewField?.classList.toggle("hidden", withoutProfile);
         slugField?.classList.toggle("hidden", current !== "remote");
         if (roleHint) roleHint.textContent = current === "admin"
-          ? (l.role_admin_hint || "Full Fitness administration; an own Fitness profile is optional.")
+          ? (l.role_admin_hint)
           : current === "local"
-            ? (l.role_local_hint || "Access the assigned Fitness profile from the local Home Assistant network.")
+            ? (l.role_local_hint)
             : current === "remote"
-              ? (l.role_remote_hint || "Access the assigned Fitness profile through this account's remote subdomain.")
-              : (l.role_none_hint || "No Fitness profile or additional Fitness views are exposed to this Home Assistant user.");
+              ? (l.role_remote_hint)
+              : (l.role_none_hint);
         if (url) {
-          if (current === "local") url.textContent = l.local_only_own_profile || "This account can access only its assigned Fitness profile and only from the local Home Assistant network.";
+          if (current === "local") url.textContent = l.local_only_own_profile;
           else if (current === "remote") {
             const slugValue = String(slug?.value || "").trim().toLowerCase();
             const profileValue = String(profile?.value || "");
-            url.innerHTML = baseDomain && slugValue && profileValue ? `${_fitnessEscape(l.remote_url || "Remote URL")}: <code>${_fitnessEscape(`https://${slugValue}.${baseDomain}/fitness-tv/profile-${profileValue}`)}</code>` : _fitnessEscape(l.remote_only_own_profile || "A unique subdomain is created when this account is saved.");
+            url.innerHTML = baseDomain && slugValue && profileValue ? `${_fitnessEscape(l.remote_url)}: <code>${_fitnessEscape(`https://${slugValue}.${baseDomain}/fitness-tv/profile-${profileValue}`)}</code>` : _fitnessEscape(l.remote_only_own_profile);
           } else if (current === "admin") {
             const profileValue = String(profile?.value || "");
             url.textContent = profileValue
-              ? (l.admin_own_profile || "Administrator access is global; this profile is the administrator's own Fitness TV/profile.")
-              : (l.admin_profile_optional || "Administrator access is global. Assign an own Fitness profile here if this administrator also uses Fitness TV.");
+              ? (l.admin_own_profile)
+              : (l.admin_profile_optional);
           } else url.textContent = "";
         }
       };
@@ -10858,7 +11929,7 @@ class FitnessTvSetupCard extends HTMLElement {
       row.querySelector("[data-access-save]")?.addEventListener("click", async () => {
         const button = row.querySelector("[data-access-save]");
         if (button) button.disabled = true;
-        setStatus(l.saving || "Saving…");
+        setStatus(l.saving);
         try {
           const selectedRole = String(role?.value || "none");
           let next;
@@ -10878,16 +11949,18 @@ class FitnessTvSetupCard extends HTMLElement {
           refresh(next);
         } catch (err) {
           if (button) button.disabled = false;
-          setStatus(String(err?.message || err || l.access_save_failed || "Unable to save Fitness access settings."), true);
+          console.error("[Fitness TV] access account save failed", err);
+          setStatus(l.access_save_failed, true);
         }
       });
       row.querySelector("[data-access-remove]")?.addEventListener("click", async () => {
-        if (!confirm(l.remove_account_confirm || "Remove this user's Fitness account access?")) return;
+        if (!confirm(l.remove_account_confirm)) return;
         try {
           const next = await this._hass.callWS({type:"fitness/access/account/delete",user_id:String(row.dataset.accessUser || "")});
           refresh(next);
         } catch (err) {
-          setStatus(String(err?.message || err || l.access_save_failed || "Unable to remove Fitness access."), true);
+          console.error("[Fitness TV] access account removal failed", err);
+          setStatus(l.access_save_failed, true);
         }
       });
     });
@@ -10896,7 +11969,40 @@ class FitnessTvSetupCard extends HTMLElement {
 
   _style() {
     return `<style>
-      :host{display:block;width:100%;max-width:none;background:var(--primary-background-color);color:var(--primary-text-color)}*{box-sizing:border-box}.setup-shell{border:0;border-radius:0;box-shadow:none;background:var(--primary-background-color);padding:20px;min-height:100vh}.setup-head{display:flex;justify-content:space-between;gap:18px;align-items:center;padding:20px;border-radius:26px;background:var(--card-background-color);margin-bottom:16px;border:1px solid color-mix(in srgb,var(--divider-color) 72%,transparent);box-shadow:0 12px 34px rgba(0,0,0,.12)}.setup-title{display:flex;align-items:center;gap:9px;font-size:23px}.setup-title .fitness-brand-icon{width:30px;height:30px;object-fit:contain;flex:0 0 30px}.setup-head p{margin:6px 0 0;color:var(--secondary-text-color);max-width:760px}.setup-actions,.profile-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.profiles-list{display:grid;gap:10px}.profile-row{display:grid;grid-template-columns:46px minmax(170px,1fr) auto auto;gap:12px;align-items:center;padding:15px 17px;border-radius:22px;background:var(--card-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 74%,transparent);box-shadow:0 8px 24px rgba(0,0,0,.08);transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}.profile-row:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--primary-color) 32%,var(--divider-color));box-shadow:0 12px 30px rgba(0,0,0,.11)}.profile-row.tv-disabled{opacity:.78}.profile-row.tv-disabled .profile-avatar{filter:saturate(.35)}.profile-avatar{width:42px;height:42px;display:grid;place-items:center;border-radius:16px;background:color-mix(in srgb,var(--primary-color) 14%,transparent);color:var(--primary-color)}.profile-avatar ha-icon{--mdc-icon-size:25px}.profile-copy{min-width:0}.profile-copy strong,.profile-copy span,.profile-copy small{display:block}.profile-copy strong{font-size:17px}.profile-copy span{font-size:12px;color:var(--secondary-text-color);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.profile-copy small{font-size:10px;color:var(--secondary-text-color);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.profile-process-status:not(:empty){color:var(--primary-color);font-weight:600}.profile-badges{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.profile-badges span{display:inline-flex;align-items:center;gap:3px;padding:5px 7px;border-radius:9px;background:var(--secondary-background-color);font-size:10px;color:var(--secondary-text-color)}.profile-badges ha-icon{--mdc-icon-size:13px}.tool,.icon-tool,select{font:inherit;color:var(--primary-text-color);background:var(--secondary-background-color);border:1px solid var(--divider-color);border-radius:15px;min-height:40px}.tool,.icon-tool{cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 11px}.icon-tool{width:40px;padding:0}.empty{padding:28px;text-align:center;color:var(--secondary-text-color);border-radius:16px;background:var(--card-background-color)}.modal-backdrop{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.54);display:grid;place-items:center;padding:24px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}.modal-card{width:min(820px,96vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;min-height:0;border-radius:28px;background:var(--card-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 72%,transparent);box-shadow:0 28px 90px rgba(0,0,0,.48)}.modal-auto-scroll-body{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.add-profile-list,#backend-flow-host{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.configure-modal{overflow:hidden!important;display:flex;flex-direction:column;height:min(860px,calc(100dvh - 32px));max-height:calc(100dvh - 32px)}.configure-modal .profile-settings{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch;flex:1 1 auto}.configure-modal>.settings-actions{flex:0 0 auto;position:relative;bottom:auto;z-index:4;padding:11px 15px;background:color-mix(in srgb,var(--card-background-color) 97%,transparent);border-top:1px solid color-mix(in srgb,var(--divider-color) 68%,transparent)}.modal-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 15px;background:var(--card-background-color);border-bottom:1px solid var(--divider-color)}.add-profile-list{display:grid;gap:7px;padding:12px}.add-profile-row{display:grid;grid-template-columns:30px 1fr 24px;gap:9px;align-items:center;padding:13px;border:1px solid color-mix(in srgb,var(--divider-color) 70%,transparent);border-radius:18px;background:var(--secondary-background-color);color:var(--primary-text-color);text-align:left;cursor:pointer}.profile-settings{display:grid;gap:12px;padding:15px}.setting-toggle,.setting-field,.setting-range{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:13px;border-radius:18px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 70%,transparent)}.setting-field{grid-template-columns:180px minmax(0,1fr)}.setting-field select{width:100%;padding:0 10px}.setting-range{grid-template-columns:minmax(0,1fr) minmax(180px,280px) 48px}.setting-toggle small,.setting-range small,.setting-info small{display:block;margin-top:3px;color:var(--secondary-text-color);font-size:10px}.setting-title,.modal-title-with-icon{display:inline-flex;align-items:center;gap:7px}.setting-title ha-icon,.modal-title-with-icon ha-icon{--mdc-icon-size:20px;color:var(--primary-color)}.setting-info{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:center;padding:12px;border-radius:13px;background:var(--secondary-background-color)}.setting-info ha-icon{color:var(--primary-color)}.setting-adapters{display:grid;gap:10px;padding:12px;border-radius:13px;background:var(--secondary-background-color)}.setting-adapters>div>small{display:block;margin-top:3px;color:var(--secondary-text-color);font-size:10px}.music-adapter-list,.music-adapter-picker{display:grid;gap:7px}.music-adapter-row{display:grid;grid-template-columns:22px 24px minmax(0,1fr) auto;gap:9px;align-items:center;padding:9px;border-radius:10px;background:color-mix(in srgb,var(--card-background-color) 65%,transparent)}.music-adapter-row input{width:18px;height:18px}.music-adapter-row ha-icon{--mdc-icon-size:20px}.music-adapter-row img{width:20px;height:20px;object-fit:contain}.music-adapter-row small,.music-adapter-row strong{display:block}.music-adapter-row small{color:var(--secondary-text-color);font-size:10px;margin-top:2px}.music-adapter-row.unavailable{opacity:.58}.adapter-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap}.adapter-account{font:inherit;max-width:190px;min-height:32px;padding:0 6px;color:var(--primary-text-color);background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:9px}.adapter-setup{font:inherit;font-size:11px;color:var(--primary-color);background:transparent;border:1px solid var(--divider-color);border-radius:9px;padding:6px 8px;cursor:pointer}.music-adapter-picker .music-adapter-row{grid-template-columns:22px 24px minmax(0,1fr)}.music-search-modal{overflow:hidden!important;display:flex;flex-direction:column;height:min(820px,calc(100dvh - var(--modal-top,68px) - 26px));max-height:calc(100dvh - var(--modal-top,68px) - 26px);min-height:0}.provider-catalog-modal{overflow:hidden!important;display:flex;flex-direction:column;height:min(820px,calc(100dvh - 32px));max-height:calc(100dvh - 32px);min-height:0}.provider-catalog-list{flex:1 1 auto;min-height:0;max-height:100%;overflow-y:auto!important;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.music-search-form{display:flex;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch;flex-direction:column;gap:12px;padding:14px}.music-search-form>.field-label,.music-search-form>.music-search-status,.music-search-form>.music-search-error,.music-search-form>.modal-actions{flex:0 0 auto}.music-search-form>.music-adapter-picker{flex:0 0 auto;min-height:auto;overflow:visible}.music-type-filter{display:grid;gap:7px;padding:10px 11px;border-radius:14px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 64%,transparent)}.music-type-filter-title{font-size:11px;font-weight:700;color:var(--secondary-text-color)}.music-type-options{display:flex;gap:7px;flex-wrap:wrap}.music-type-option{display:inline-flex;align-items:center;gap:6px;padding:7px 9px;border-radius:11px;background:var(--card-background-color);border:1px solid var(--divider-color);cursor:pointer;white-space:nowrap}.music-type-option input{width:16px;height:16px;margin:0}.music-type-option ha-icon{--mdc-icon-size:18px;color:var(--primary-color)}.music-type-option span{font-size:11px}.provider-catalog-list{display:grid;gap:9px;padding:14px}.provider-catalog-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;padding:11px;border-radius:12px;background:var(--secondary-background-color)}.provider-catalog-row ha-icon{color:var(--primary-color)}.provider-catalog-row span strong,.provider-catalog-row span small{display:block}.provider-catalog-row span small{margin-top:3px;color:var(--secondary-text-color);font-size:10px}.setting-adapters-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.setting-adapters-head .adapter-setup{white-space:nowrap}.browser-working{display:flex;gap:9px;align-items:center;padding:12px;border-radius:11px;background:var(--secondary-background-color);color:var(--secondary-text-color)}.spin{animation:fitness-spin 1s linear infinite}@keyframes fitness-spin{to{transform:rotate(360deg)}}.setting-range input{width:100%}.setting-range output{text-align:right;font-weight:700}.setting-toggle input{width:20px;height:20px}.settings-actions{display:flex;align-items:center;gap:10px;justify-content:flex-end}.settings-status{font-size:12px;color:var(--secondary-text-color)}.access-admin-modal{overflow:hidden;display:flex;flex-direction:column;width:min(980px,96vw);height:min(900px,calc(100dvh - 32px));max-height:calc(100dvh - 32px)}.access-admin-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:16px;display:grid;gap:14px}.access-intro{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px;border-radius:20px;background:color-mix(in srgb,var(--primary-color) 8%,var(--secondary-background-color));border:1px solid color-mix(in srgb,var(--primary-color) 20%,var(--divider-color))}.access-intro p{margin:0;color:var(--secondary-text-color);max-width:680px}.access-section{display:grid;gap:12px;padding:15px;border-radius:22px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 72%,transparent)}.access-section-title{display:flex;gap:10px;align-items:flex-start}.access-section-title>ha-icon{color:var(--primary-color);margin-top:2px}.access-section-title strong,.access-section-title small{display:block}.access-section-title small{margin-top:3px;color:var(--secondary-text-color);font-size:11px}.access-domain-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px}.access-domain-row input,.access-user-row input,.access-user-row select{width:100%;min-height:40px;border-radius:13px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);padding:0 11px;font:inherit}.access-user-list{display:grid;gap:10px}.access-user-row{display:grid;grid-template-columns:minmax(170px,1.2fr) minmax(180px,.9fr) minmax(230px,1.15fr);gap:10px;align-items:end;padding:14px;border-radius:18px;background:var(--card-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 72%,transparent)}.access-user-head{display:flex;align-items:center;gap:9px;align-self:center}.access-user-head>ha-icon{color:var(--primary-color)}.access-user-head strong,.access-user-head small{display:block}.access-user-head small{margin-top:2px;color:var(--secondary-text-color);font-size:10px}.access-user-row label>span{display:block;margin:0 0 5px;font-size:11px;color:var(--secondary-text-color)}.access-role-field,.access-profile-field,.access-language-field{display:block;min-width:0;align-self:stretch}.access-role-field select,.access-profile-field select,.access-language-field select{width:100%;min-height:40px;border-radius:13px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);padding:0 11px;font:inherit}.access-role-field small,.access-profile-field small,.access-language-field small{display:block;margin-top:5px;color:var(--secondary-text-color);font-size:10px;line-height:1.3}.access-view-field{grid-column:1/-1}.access-view-field>span{display:block;margin:0 0 4px;font-size:11px;color:var(--secondary-text-color)}.access-view-field>small{display:block;margin-bottom:7px;color:var(--secondary-text-color);font-size:10px;line-height:1.35}.access-view-options{display:flex;gap:7px;flex-wrap:wrap}.access-view-option{display:inline-flex!important;align-items:center;gap:6px;padding:7px 9px;border:1px solid var(--divider-color);border-radius:11px;background:var(--secondary-background-color)}.access-view-option input{margin:0}.access-view-option span{margin:0!important;color:var(--primary-text-color)!important}.access-view-options em{color:var(--secondary-text-color);font-size:11px}.access-slug-field{grid-column:2/4}.access-slug-input{display:flex;align-items:center;border:1px solid var(--divider-color);border-radius:13px;background:var(--card-background-color);overflow:hidden}.access-slug-input input{border:0;border-radius:0;min-width:80px}.access-slug-input span{padding:0 9px;color:var(--secondary-text-color);font-size:11px;white-space:nowrap}.access-url{grid-column:1/-1;min-height:16px;font-size:11px;color:var(--secondary-text-color);overflow-wrap:anywhere}.access-url code{color:var(--primary-text-color)}.access-user-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}.tool.danger{color:var(--error-color);border-color:color-mix(in srgb,var(--error-color) 35%,var(--divider-color))}.modal-card{max-height:calc(100dvh - 32px);overflow:hidden;display:flex;flex-direction:column;min-height:0;overscroll-behavior:contain}.configure-modal,.browser-modal,.picker-modal,.cast-modal,.remote-gateway-modal,.provider-catalog-modal,.music-search-modal,.ytdlp-legal-modal,.access-admin-modal{overflow:hidden!important;display:flex;flex-direction:column;min-height:0}.profile-settings,.picker-list,.media-list,.cast-picker,.remote-gateway-body,.provider-catalog-list,.music-search-form,.modal-scroll-body,.playlist-list,.playlist-edit-list,.music-source-list,.access-admin-body,.add-profile-list{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.browser-modal>.media-list,.browser-modal>.playlist-list,.browser-modal>.music-source-list,.picker-modal>.picker-list,.cast-modal>.cast-picker,.remote-gateway-modal>.remote-gateway-body,.provider-catalog-modal>.provider-catalog-list,.access-admin-modal>.access-admin-body{flex:1 1 auto}.modal-head{position:sticky!important;top:0;z-index:30;flex:0 0 auto;background:color-mix(in srgb,var(--card-background-color) 96%,transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}.modal-actions,.settings-actions{position:sticky;bottom:0;z-index:24;flex:0 0 auto;padding:12px 14px;background:color-mix(in srgb,var(--card-background-color) 96%,transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid color-mix(in srgb,var(--divider-color) 68%,transparent)}.configure-modal>.settings-actions{position:relative;bottom:auto}.modal-scroll-body{padding:14px}.hidden,[hidden]{display:none!important}.access-status{position:sticky;bottom:0;min-height:18px;padding:5px 2px;background:var(--card-background-color);color:var(--secondary-text-color);font-size:12px}.access-status.error{color:var(--error-color)}@media(max-width:800px){.setup-head{align-items:flex-start;flex-direction:column}.profile-row{grid-template-columns:42px 1fr}.profile-badges,.profile-actions{grid-column:2}.setting-field,.setting-range{grid-template-columns:1fr}.setting-range output{text-align:left}.access-intro{align-items:stretch;flex-direction:column}.access-domain-row,.access-user-row{grid-template-columns:1fr}.access-user-actions,.access-url{grid-column:1}}
+      .tool>span,.primary-tool>span,.adapter-setup>span,.add-profile-row>span{display:block!important;min-width:0;max-width:100%;font-size:clamp(11px,.8vw,13px)!important;line-height:1.2!important;white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;word-break:normal;overflow-wrap:normal!important}
+      .overview-cast-target.unavailable{opacity:.48;filter:grayscale(.82);cursor:not-allowed}.overview-cast-target.unavailable:hover{transform:none;box-shadow:none;border-color:var(--divider-color)}
+      :host{display:block;width:100%;max-width:none;background:var(--primary-background-color);color:var(--primary-text-color)}*{box-sizing:border-box}.setup-shell{border:0;border-radius:0;box-shadow:none;background:var(--primary-background-color);padding:20px;min-height:100vh}.setup-head{display:flex;justify-content:space-between;gap:18px;align-items:center;padding:20px;border-radius:26px;background:var(--card-background-color);margin-bottom:16px;border:1px solid color-mix(in srgb,var(--divider-color) 72%,transparent);box-shadow:0 12px 34px rgba(0,0,0,.12)}.setup-title{display:flex;align-items:center;gap:9px;font-size:23px}.setup-title .fitness-brand-icon{width:30px;height:30px;object-fit:contain;flex:0 0 30px}.setup-head p{margin:6px 0 0;color:var(--secondary-text-color);max-width:760px}.setup-actions,.profile-actions{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;min-width:0}.setup-actions>.tool,.profile-actions>.tool{flex:1 1 0;min-width:0}.setup-actions>.tool span,.profile-actions>.tool span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.profiles-list{display:grid;gap:10px}.profile-row{display:grid;grid-template-columns:46px minmax(170px,1fr) auto auto;gap:12px;align-items:center;padding:15px 17px;border-radius:22px;background:var(--card-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 74%,transparent);box-shadow:0 8px 24px rgba(0,0,0,.08);transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}.profile-row:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--primary-color) 32%,var(--divider-color));box-shadow:0 12px 30px rgba(0,0,0,.11)}.admin-profile-link{cursor:pointer}.admin-profile-link:focus-visible{outline:2px solid var(--primary-color);outline-offset:3px}.profile-row.tv-disabled{opacity:.78}.profile-row.tv-disabled .profile-avatar{filter:saturate(.35)}.profile-avatar{width:42px;height:42px;display:grid;place-items:center;border-radius:16px;background:color-mix(in srgb,var(--primary-color) 14%,transparent);color:var(--primary-color)}.profile-avatar ha-icon{--mdc-icon-size:25px}.profile-copy{min-width:0}.profile-copy strong,.profile-copy span,.profile-copy small{display:block}.profile-copy strong{font-size:17px}.profile-copy span{font-size:12px;color:var(--secondary-text-color);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.profile-copy small{font-size:10px;color:var(--secondary-text-color);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.profile-process-status:not(:empty){color:var(--primary-color);font-weight:600}.profile-badges{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.profile-badges span{display:inline-flex;align-items:center;gap:3px;padding:5px 7px;border-radius:9px;background:var(--secondary-background-color);font-size:10px;color:var(--secondary-text-color)}.profile-badges ha-icon{--mdc-icon-size:13px}.tool,.icon-tool,select{font:inherit;color:var(--primary-text-color);background:var(--secondary-background-color);border:1px solid var(--divider-color);border-radius:15px;min-height:40px}.tool,.icon-tool{cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 11px}.icon-tool{width:40px;padding:0}.empty{padding:28px;text-align:center;color:var(--secondary-text-color);border-radius:16px;background:var(--card-background-color)}.modal-backdrop{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.54);display:grid;place-items:center;padding:clamp(8px,2.5vh,24px);overflow:hidden;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}.modal-card{width:min(820px,calc(100vw - 16px));max-width:calc(100vw - 16px);height:auto;max-height:calc(100dvh - 16px);overflow:hidden;display:flex;flex-direction:column;min-height:0;border-radius:28px;background:var(--card-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 72%,transparent);box-shadow:0 28px 90px rgba(0,0,0,.48)}.modal-auto-scroll-body{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.add-profile-list{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}#backend-flow-host{display:block;flex:1 1 auto;min-height:0;overflow:hidden!important}.configure-modal{overflow:hidden!important;display:flex;flex-direction:column;height:min(860px,calc(100dvh - 16px));max-height:calc(100dvh - 16px)}.configure-modal .profile-settings{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch;flex:1 1 auto}.configure-modal>.settings-actions{flex:0 0 auto;position:relative;bottom:auto;z-index:4;padding:11px 15px;background:color-mix(in srgb,var(--card-background-color) 97%,transparent);border-top:1px solid color-mix(in srgb,var(--divider-color) 68%,transparent)}.modal-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 15px;background:var(--card-background-color);border-bottom:1px solid var(--divider-color)}.add-profile-list{display:grid;gap:7px;padding:12px}.add-profile-row{display:grid;grid-template-columns:30px 1fr 24px;gap:9px;align-items:center;padding:13px;border:1px solid color-mix(in srgb,var(--divider-color) 70%,transparent);border-radius:18px;background:var(--secondary-background-color);color:var(--primary-text-color);text-align:left;cursor:pointer}.profile-settings{display:grid;gap:12px;padding:15px}.setting-toggle,.setting-field,.setting-range{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:13px;border-radius:18px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 70%,transparent)}.setting-field{grid-template-columns:180px minmax(0,1fr)}.setting-field select{width:100%;padding:0 10px}.setting-range{grid-template-columns:minmax(0,1fr) minmax(180px,280px) 48px}.setting-toggle small,.setting-range small,.setting-info small{display:block;margin-top:3px;color:var(--secondary-text-color);font-size:10px}.setting-title,.modal-title-with-icon{display:inline-flex;align-items:center;gap:7px}.setting-title ha-icon,.modal-title-with-icon ha-icon{--mdc-icon-size:20px;color:var(--primary-color)}.setting-info{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:center;padding:12px;border-radius:13px;background:var(--secondary-background-color)}.setting-info ha-icon{color:var(--primary-color)}.setting-adapters{display:grid;gap:10px;padding:12px;border-radius:13px;background:var(--secondary-background-color)}.setting-adapters>div>small{display:block;margin-top:3px;color:var(--secondary-text-color);font-size:10px}.music-adapter-list,.music-adapter-picker{display:grid;gap:7px}.music-adapter-row{display:grid;grid-template-columns:22px 24px minmax(0,1fr) auto;gap:9px;align-items:center;padding:9px;border-radius:10px;background:color-mix(in srgb,var(--card-background-color) 65%,transparent)}.music-adapter-row input{width:18px;height:18px}.music-adapter-row ha-icon{--mdc-icon-size:20px}.music-adapter-row img{width:20px;height:20px;object-fit:contain}.music-adapter-row small,.music-adapter-row strong{display:block}.music-adapter-row small{color:var(--secondary-text-color);font-size:10px;margin-top:2px}.music-adapter-row.unavailable{opacity:.58}.adapter-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:nowrap;min-width:0}.adapter-actions>*{flex:1 1 0;min-width:0;max-width:190px}.adapter-account{font:inherit;max-width:190px;min-height:32px;padding:0 6px;color:var(--primary-text-color);background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:9px}.adapter-setup{font:inherit;font-size:11px;color:var(--primary-color);background:transparent;border:1px solid var(--divider-color);border-radius:9px;padding:6px 8px;cursor:pointer}.music-adapter-picker .music-adapter-row{grid-template-columns:22px 24px minmax(0,1fr)}.music-search-modal{overflow:hidden!important;display:flex;flex-direction:column;height:min(820px,calc(100dvh - var(--modal-top,68px) - 26px));max-height:calc(100dvh - var(--modal-top,68px) - 26px);min-height:0}.provider-catalog-modal{overflow:hidden!important;display:flex;flex-direction:column;height:min(820px,calc(100dvh - 32px));max-height:calc(100dvh - 32px);min-height:0}.provider-catalog-list{flex:1 1 auto;min-height:0;max-height:100%;overflow-y:auto!important;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.music-search-form{display:flex;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch;flex-direction:column;gap:12px;padding:14px}.music-search-form>.field-label,.music-search-form>.music-search-status,.music-search-form>.music-search-error,.music-search-form>.modal-actions{flex:0 0 auto}.music-search-form>.music-adapter-picker{flex:0 0 auto;min-height:auto;overflow:visible}.music-type-filter{display:grid;gap:7px;padding:10px 11px;border-radius:14px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 64%,transparent)}.music-type-filter-title{font-size:11px;font-weight:700;color:var(--secondary-text-color)}.music-type-options{display:flex;gap:7px;flex-wrap:wrap}.music-type-option{display:inline-flex;align-items:center;gap:6px;padding:7px 9px;border-radius:11px;background:var(--card-background-color);border:1px solid var(--divider-color);cursor:pointer;white-space:nowrap}.music-type-option input{width:16px;height:16px;margin:0}.music-type-option ha-icon{--mdc-icon-size:18px;color:var(--primary-color)}.music-type-option span{font-size:11px}.provider-catalog-list{display:grid;gap:9px;padding:14px}.provider-catalog-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;padding:11px;border-radius:12px;background:var(--secondary-background-color)}.provider-catalog-row ha-icon{color:var(--primary-color)}.provider-catalog-row span strong,.provider-catalog-row span small{display:block}.provider-catalog-row span small{margin-top:3px;color:var(--secondary-text-color);font-size:10px}.setting-adapters-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.setting-adapters-head .adapter-setup{white-space:nowrap}.browser-working{display:flex;gap:9px;align-items:center;padding:12px;border-radius:11px;background:var(--secondary-background-color);color:var(--secondary-text-color)}.spin{animation:fitness-spin 1s linear infinite}@keyframes fitness-spin{to{transform:rotate(360deg)}}.setting-range input{width:100%}.setting-range output{text-align:right;font-weight:700}.setting-toggle input{width:20px;height:20px}.settings-actions{display:flex;align-items:center;gap:10px;justify-content:flex-end;flex-wrap:nowrap;min-width:0}.settings-actions>button{flex:1 1 0;min-width:0}.settings-actions>button span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.settings-status{font-size:12px;color:var(--secondary-text-color)}.access-admin-modal{overflow:hidden;display:flex;flex-direction:column;width:min(980px,calc(100vw - 16px));height:min(900px,calc(100dvh - 16px));max-height:calc(100dvh - 16px)}.access-admin-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:16px;display:grid;gap:14px}.access-intro{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px;border-radius:20px;background:color-mix(in srgb,var(--primary-color) 8%,var(--secondary-background-color));border:1px solid color-mix(in srgb,var(--primary-color) 20%,var(--divider-color))}.access-intro p{margin:0;color:var(--secondary-text-color);max-width:680px}.access-section{display:grid;gap:12px;padding:15px;border-radius:22px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 72%,transparent)}.access-section-title{display:flex;gap:10px;align-items:flex-start}.access-section-title>ha-icon{color:var(--primary-color);margin-top:2px}.access-section-title strong,.access-section-title small{display:block}.access-section-title small{margin-top:3px;color:var(--secondary-text-color);font-size:11px}.access-domain-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px}.access-domain-row input,.access-user-row input,.access-user-row select{width:100%;min-height:40px;border-radius:13px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);padding:0 11px;font:inherit}.access-user-list{display:grid;gap:10px}.access-user-row{display:grid;grid-template-columns:minmax(170px,1.2fr) minmax(180px,.9fr) minmax(230px,1.15fr);gap:10px;align-items:end;padding:14px;border-radius:18px;background:var(--card-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 72%,transparent)}.access-user-head{display:flex;align-items:center;gap:9px;align-self:center}.access-user-head>ha-icon{color:var(--primary-color)}.access-user-head strong,.access-user-head small{display:block}.access-user-head small{margin-top:2px;color:var(--secondary-text-color);font-size:10px}.access-user-row label>span{display:block;margin:0 0 5px;font-size:11px;color:var(--secondary-text-color)}.access-role-field,.access-profile-field,.access-language-field{display:block;min-width:0;align-self:stretch}.access-role-field select,.access-profile-field select,.access-language-field select{width:100%;min-height:40px;border-radius:13px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);padding:0 11px;font:inherit}.access-role-field small,.access-profile-field small,.access-language-field small{display:block;margin-top:5px;color:var(--secondary-text-color);font-size:10px;line-height:1.3}.access-view-field{grid-column:1/-1}.access-view-field>span{display:block;margin:0 0 4px;font-size:11px;color:var(--secondary-text-color)}.access-view-field>small{display:block;margin-bottom:7px;color:var(--secondary-text-color);font-size:10px;line-height:1.35}.access-view-options{display:flex;gap:7px;flex-wrap:wrap}.access-view-option{display:inline-flex!important;align-items:center;gap:6px;padding:7px 9px;border:1px solid var(--divider-color);border-radius:11px;background:var(--secondary-background-color)}.access-view-option input{margin:0}.access-view-option span{margin:0!important;color:var(--primary-text-color)!important}.access-view-options em{color:var(--secondary-text-color);font-size:11px}.access-slug-field{grid-column:2/4}.access-slug-input{display:flex;align-items:center;border:1px solid var(--divider-color);border-radius:13px;background:var(--card-background-color);overflow:hidden}.access-slug-input input{border:0;border-radius:0;min-width:80px}.access-slug-input span{padding:0 9px;color:var(--secondary-text-color);font-size:11px;white-space:nowrap}.access-url{grid-column:1/-1;min-height:16px;font-size:11px;color:var(--secondary-text-color);overflow-wrap:anywhere}.access-url code{color:var(--primary-text-color)}.access-user-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;flex-wrap:nowrap;min-width:0}.access-user-actions>button{flex:1 1 0;min-width:0}.access-user-actions>button span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tool.danger{color:var(--error-color);border-color:color-mix(in srgb,var(--error-color) 35%,var(--divider-color))}.modal-card{max-height:calc(100dvh - 16px);overflow:hidden;display:flex;flex-direction:column;min-height:0;overscroll-behavior:contain}.configure-modal,.browser-modal,.picker-modal,.cast-modal,.remote-gateway-modal,.provider-catalog-modal,.music-search-modal,.ytdlp-legal-modal,.access-admin-modal{overflow:hidden!important;display:flex;flex-direction:column;min-height:0}.configure-modal{height:min(860px,calc(100dvh - 16px));max-height:calc(100dvh - 16px)}.configure-modal>.profile-settings{flex:1 1 auto;min-height:0;overflow-y:auto!important;overflow-x:hidden!important}.backend-flow-modal{height:min(900px,calc(100dvh - 16px));max-height:calc(100dvh - 16px);overflow:hidden!important}.backend-flow-host{display:block;flex:1 1 auto;min-height:0;overflow:hidden!important}.backend-flow-host>fitness-backend-flow{display:block;height:100%;min-height:0;overflow:hidden}.profile-settings,.picker-list,.media-list,.cast-picker,.remote-gateway-body,.provider-catalog-list,.music-search-form,.modal-scroll-body,.playlist-list,.playlist-edit-list,.music-source-list,.access-admin-body,.add-profile-list{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.browser-modal>.media-list,.browser-modal>.playlist-list,.browser-modal>.music-source-list,.picker-modal>.picker-list,.cast-modal>.cast-picker,.remote-gateway-modal>.remote-gateway-body,.provider-catalog-modal>.provider-catalog-list,.access-admin-modal>.access-admin-body{flex:1 1 auto}.modal-head{position:sticky!important;top:0;z-index:30;flex:0 0 auto;background:color-mix(in srgb,var(--card-background-color) 96%,transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}.modal-actions,.settings-actions{position:sticky;bottom:0;z-index:24;flex:0 0 auto;padding:12px 14px;background:color-mix(in srgb,var(--card-background-color) 96%,transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid color-mix(in srgb,var(--divider-color) 68%,transparent)}.configure-modal>.settings-actions{position:relative;bottom:auto}.modal-scroll-body{padding:14px}.hidden,[hidden]{display:none!important}.access-status{position:sticky;bottom:0;min-height:18px;padding:5px 2px;background:var(--card-background-color);color:var(--secondary-text-color);font-size:12px}.access-status.error{color:var(--error-color)}.setup-actions,.profile-actions,.settings-actions,.modal-actions,.access-user-actions,.flow-actions{flex-wrap:nowrap!important;min-width:0}.setup-actions>button,.profile-actions>button,.settings-actions>button,.modal-actions>button,.access-user-actions>button,.flow-actions>button{flex:1 1 0;min-width:0;max-width:100%}.setup-actions>button span,.profile-actions>button span,.settings-actions>button span,.modal-actions>button span,.access-user-actions>button span,.flow-actions>button span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@media(max-width:800px){.setup-head{align-items:flex-start;flex-direction:column}.profile-row{grid-template-columns:42px 1fr}.profile-badges,.profile-actions{grid-column:2}.setting-field,.setting-range{grid-template-columns:1fr}.setting-range output{text-align:left}.access-intro{align-items:stretch;flex-direction:column}.access-domain-row,.access-user-row{grid-template-columns:1fr}.access-user-actions,.access-url{grid-column:1}}
+      /* Keep translated modal actions intrinsic and readable; inline-size containment makes label-bearing buttons collapse. */
+      .setting-adapters-head>span{min-width:0}.setting-adapters-head>span>strong,.setting-adapters-head>span>small{display:block}.setting-adapters-head>span>small{margin-top:4px;color:var(--secondary-text-color);font-size:10px;line-height:1.4}
+      .setting-adapters-head{gap:12px}.setting-adapters-head .adapter-setup{flex:0 0 auto;min-width:clamp(132px,18vw,190px);min-height:40px;white-space:normal}
+      .adapter-actions>*{flex:0 1 auto;min-width:104px;max-width:190px}.adapter-actions>.adapter-account{flex:1 1 140px;min-width:120px}.adapter-actions>.adapter-setup{min-width:112px;min-height:36px}.adapter-actions>.adapter-remove{min-width:102px}
+      .adapter-actions>.adapter-setup>span,.provider-catalog-row>.adapter-setup>span,.setting-adapters-head>.adapter-setup>span{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;word-break:normal;overflow-wrap:normal!important}
+      .provider-catalog-row>.adapter-setup{min-width:clamp(132px,16vw,190px);min-height:40px;white-space:normal}
+      /* Cross-device setup reliability: safe areas, full-width mobile rows and touch targets. */
+      .setup-shell{min-height:100dvh}
+      .modal-backdrop{padding-top:max(clamp(8px,2.5vh,24px),env(safe-area-inset-top));padding-right:max(clamp(8px,2.5vh,24px),env(safe-area-inset-right));padding-bottom:max(clamp(8px,2.5vh,24px),env(safe-area-inset-bottom));padding-left:max(clamp(8px,2.5vh,24px),env(safe-area-inset-left))}
+      .tool:focus-visible,.icon-tool:focus-visible,.primary-tool:focus-visible,.adapter-setup:focus-visible,.add-profile-row:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}
+      @media(max-width:800px){
+        .setup-shell{padding:12px}.setup-head{padding:15px}.setup-title{font-size:20px;min-width:0}
+        .setup-actions,.profile-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+        .profile-badges,.profile-actions{grid-column:1/-1}.profile-actions>.profile-assign{grid-column:1/-1}.profile-actions>.icon-tool{width:100%}
+        .access-slug-field,.access-view-field,.access-user-actions,.access-url{grid-column:1}
+        .tool,.icon-tool,.primary-tool,.adapter-setup,.add-profile-row,.access-domain-row input,.access-user-row input,.access-user-row select{min-height:44px}
+        input:not([type="checkbox"]):not([type="range"]),select{font-size:16px}
+        .setting-adapters-head{display:grid;grid-template-columns:1fr}.setting-adapters-head .adapter-setup{width:100%;max-width:none;white-space:normal}
+        .music-adapter-row{grid-template-columns:22px 24px minmax(0,1fr)}
+        .adapter-actions{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+        .adapter-actions>*{width:100%;min-width:0;max-width:none;min-height:44px}.adapter-actions .adapter-account{grid-column:1/-1;min-width:0;max-width:none}
+        .provider-catalog-row{grid-template-columns:30px minmax(0,1fr)}.provider-catalog-row>.adapter-setup{grid-column:1/-1;width:100%;max-width:none;min-width:0}
+      }
+      @media(max-width:520px){
+        .setting-adapters-head{display:grid;grid-template-columns:1fr}.setting-adapters-head .adapter-setup{width:100%;white-space:normal}
+        .music-adapter-row{grid-template-columns:22px 24px minmax(0,1fr)}
+        .adapter-actions{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+        .adapter-actions>*{width:100%;max-width:none;min-height:44px}.adapter-actions .adapter-account{grid-column:1/-1;max-width:none}
+        .provider-catalog-row{grid-template-columns:30px minmax(0,1fr)}.provider-catalog-row>.adapter-setup{grid-column:1/-1;width:100%}
+        .access-user-actions,.settings-actions,.modal-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+      }
     </style>`;
   }
 }
@@ -10913,7 +12019,34 @@ class FitnessTvDashboardStrategy extends HTMLElement {
     const labelProfile = profiles[0] || allProfiles[0];
     const ui = String(labelProfile?.language || hass?.language || "en").toLowerCase().split("-")[0];
     const labels = labelProfile?.labels_by_language?.[ui] || labelProfile?.labels_by_language?.en || labelProfile?.labels || {};
-    const title = config?.title || labels.tv_dashboard || "Fitness TV";
+    const title = config?.title || labels.tv_dashboard;
+    const isAdmin = Boolean(data?.access?.is_admin);
+    if (!isAdmin) {
+      // Never generate the administrator overview for ordinary users. The
+      // sidebar lands directly on the user's own Fitness profile (or the first
+      // explicitly granted view-only profile when no owned profile exists).
+      const primary = profiles.find((profile) => profile?.access?.is_own) || profiles[0];
+      if (!primary) {
+        return {title, views:[{title,path:"main",panel:true,cards:[{type:`custom:${FITNESS_TV_LOVELACE_SETUP_CARD_TAG}`}]}]};
+      }
+      const views = [{
+        title:primary.profile_name || title,
+        path:"main",
+        panel:true,
+        cards:[{type:`custom:${FITNESS_TV_LOVELACE_SETUP_CARD_TAG}`, profile_entry_id:primary.entry_id}],
+      }];
+      for (const profile of profiles) {
+        if (profile.entry_id === primary.entry_id) continue;
+        views.push({
+          title:profile.profile_name || title,
+          path:`profile-${profile.entry_id}`,
+          subview:true,
+          back_path:"/fitness-tv/main",
+          cards:[{type:`custom:${FITNESS_TV_LOVELACE_SETUP_CARD_TAG}`, profile_entry_id:profile.entry_id}],
+        });
+      }
+      return {title, views};
+    }
     const views = [{
       title,
       path:"main",
@@ -11228,30 +12361,30 @@ window.customCards = window.customCards || [];
 const FITNESS_PUBLIC_CARDS = [
   {
     type: "fitness-live-workout-card",
-    name: "Fitness live workout",
+    name: PICKER_CARD_COPY.live,
     preview: false,
-    description: "Current workout metrics and Fitness session controls in one adaptive card.",
+    description: PICKER_DESCRIPTION,
     documentationURL: "https://github.com/Chreece/HA-Fitness#fitness-dashboard",
   },
   {
     type: "fitness-workout-card",
-    name: "Fitness workout",
+    name: PICKER_CARD_COPY.workout,
     preview: false,
-    description: "Latest workout metrics, route and personal-baseline comparison in one adaptive card.",
+    description: PICKER_DESCRIPTION,
     documentationURL: "https://github.com/Chreece/HA-Fitness#fitness-dashboard",
   },
   {
     type: "fitness-sleep-recovery-card",
-    name: "Fitness sleep & recovery",
+    name: PICKER_CARD_COPY.sleep,
     preview: false,
-    description: "Sleep stages, duration, HRV and recovery context in one adaptive card.",
+    description: PICKER_DESCRIPTION,
     documentationURL: "https://github.com/Chreece/HA-Fitness#fitness-dashboard",
   },
   {
     type: "fitness-evaluation-card",
-    name: "Fitness evaluation",
+    name: PICKER_CARD_COPY.evaluation,
     preview: false,
-    description: "Fitness progress and training-load evaluation in one adaptive card.",
+    description: PICKER_DESCRIPTION,
     documentationURL: "https://github.com/Chreece/HA-Fitness#fitness-dashboard",
   },
 ];

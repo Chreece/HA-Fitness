@@ -463,6 +463,7 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 canonical_id = runtime.resolve_sensor_id(sensor_id)
                 runtime.finalize_sensor_acceptance(canonical_id)
                 runtime.schedule_profile_assignment_refresh(changed_entries)
+                runtime.notify_sensor_assignment_changed(canonical_id)
 
             self.hass.async_create_background_task(
                 _finalize_assignment(),
@@ -1019,6 +1020,7 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 changed_entries.append(entry.entry_id)
 
             runtime.schedule_profile_assignment_refresh(changed_entries)
+            runtime.notify_sensor_assignment_changed(sensor_id)
 
             # Refresh the disabled Workout owner diagnostic so its
             # assigned_profiles attribute reflects this explicit reassignment.
@@ -1614,4 +1616,3 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
             step_id="tv_dashboard",
             data_schema=vol.Schema(schema),
         )
-

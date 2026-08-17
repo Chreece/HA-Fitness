@@ -42,12 +42,17 @@ def test_dashboard_config_only_returns_profiles_current_user_may_see():
 
 
 def test_unauthorized_and_view_only_pages_have_explicit_ui_and_no_control_tools():
-    assert 'denied:"Access denied"' in JS
-    assert 'view_only:"View only"' in JS
+    assert "denied:labels.access_denied" in JS
+    assert "denied_hint:labels.access_denied_hint" in JS
+    assert "view_only:labels.view_only" in JS
+    assert "view_only_hint:labels.view_only_hint" in JS
+    assert 'denied:"Access denied"' not in JS
     assert 'if (this._accessDenied)' in JS
     assert 'const canControl = Boolean(this._access?.is_admin || this._profile?.access?.can_control);' in JS
-    assert 'canControl ? `<button class="tool backend-tool"' in JS
-    assert 'canControl ? `<button class="tool configure-tool"' in JS
+    assert ': (canControl ? [' in JS
+    assert 'class="tool backend-tool"' in JS
+    assert 'class="tool configure-tool"' in JS
+    assert ': "");' in JS
     assert 'const musicTools = canControl ?' in JS
     assert 'id="play"' in JS
 

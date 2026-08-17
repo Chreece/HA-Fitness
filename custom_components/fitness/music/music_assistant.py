@@ -966,11 +966,7 @@ class MusicAssistantMusicAdapter(MusicAdapter):
             can_search=callable(searcher),
             can_browse=callable(browser),
             account_setup="music_assistant",
-            setup_hint=(
-                "Searches the configured Music Assistant sources you choose and plays "
-                "supported results natively in Fitness TV through a Sendspin browser player. "
-                "Provider accounts remain owned by Music Assistant."
-            ),
+            setup_hint_key="music_adapter_music_assistant_hint",
             setup_path=music_assistant_settings_url(entry) or music_assistant_setup_path(
                 hass, entries, selected_account_id=selected, destination="settings"
             ),

@@ -747,7 +747,7 @@
         }
       },
       "heart_rate_percent_max": {
-        "name": "Heart rate % of maximum",
+        "name": "Heart rate as % of maximum",
         "state_attributes": {
           "source_entity": {
             "name": "Source entity"
@@ -1213,7 +1213,7 @@
         }
       },
       "last_workout_total_reps": {
-        "name": "Last workout total reps",
+        "name": "Last workout total repetitions",
         "state_attributes": {
           "sources": {
             "name": "Sources"
@@ -3133,6 +3133,96 @@
             "name": "Full physiological recovery claimed"
           }
         }
+      },
+      "cycplus_device_number": {
+        "name": "Device number"
+      },
+      "cycplus_sync_state": {
+        "name": "Workout sync state",
+        "state": {
+          "idle": "Idle",
+          "waiting": "Waiting for device",
+          "connecting": "Connecting",
+          "syncing": "Synchronizing",
+          "ready": "Up to date",
+          "retrying": "Retrying",
+          "error": "Error"
+        }
+      },
+      "cycplus_last_sync": {
+        "name": "Last sync attempt"
+      },
+      "cycplus_last_successful_sync": {
+        "name": "Last successful sync"
+      },
+      "cycplus_device_workout_count": {
+        "name": "Workouts on device"
+      },
+      "cycplus_imported_file_count": {
+        "name": "Imported workout files"
+      },
+      "cycplus_pending_file_count": {
+        "name": "Pending workout files"
+      },
+      "cycplus_active_file": {
+        "name": "Active download"
+      },
+      "cycplus_downloaded_bytes": {
+        "name": "Downloaded bytes"
+      },
+      "cycplus_retry_count": {
+        "name": "Retry count"
+      },
+      "cycplus_disk_free_kb": {
+        "name": "Free device storage"
+      },
+      "cycplus_disk_total_kb": {
+        "name": "Total device storage"
+      },
+      "cycplus_last_error": {
+        "name": "Last sync error",
+        "state": {
+          "none": "No error",
+          "connection_failed": "Connection failed",
+          "catalog_failed": "Workout catalogue failed",
+          "transfer_interrupted": "Transfer interrupted",
+          "invalid_fit": "Invalid FIT file",
+          "import_failed": "Workout import failed",
+          "unknown": "Unknown error"
+        }
+      },
+      "cycplus_latest_workout": {
+        "name": "Latest workout on device"
+      },
+      "cycplus_fit_serial_number": {
+        "name": "FIT serial number"
+      },
+      "cycplus_fit_manufacturer": {
+        "name": "FIT manufacturer"
+      },
+      "cycplus_fit_product": {
+        "name": "FIT product"
+      },
+      "cycplus_fit_hardware_version": {
+        "name": "FIT hardware version"
+      },
+      "cycplus_fit_software_version": {
+        "name": "FIT software version"
+      },
+      "cycplus_fit_battery_voltage": {
+        "name": "FIT battery voltage"
+      },
+      "cycplus_fit_battery_status": {
+        "name": "FIT battery status",
+        "state": {
+          "new": "New",
+          "good": "Good",
+          "ok": "OK",
+          "low": "Low",
+          "critical": "Critical",
+          "charging": "Charging",
+          "unknown": "Unknown"
+        }
       }
     },
     "button": {
@@ -3150,6 +3240,9 @@
       },
       "regenerate_ai_evaluation": {
         "name": "Regenerate AI evaluation"
+      },
+      "cycplus_sync_workouts": {
+        "name": "Sync workouts now"
       }
     },
     "select": {
@@ -3292,6 +3385,20 @@
         "prompt": {
           "name": "AI prompt",
           "description": "Prompt to send to the AI provider."
+        }
+      }
+    },
+    "delete_workouts_before": {
+      "name": "Delete old Fitness workouts",
+      "description": "Permanently deletes stored Fitness workout history older than the selected number of days.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness profile",
+          "description": "Fitness profile whose stored workout history should be cleaned up."
+        },
+        "days": {
+          "name": "Keep days",
+          "description": "Keep workouts from this many most recent days; delete anything older."
         }
       }
     }

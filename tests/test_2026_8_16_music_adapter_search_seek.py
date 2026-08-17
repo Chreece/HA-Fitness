@@ -82,7 +82,7 @@ def test_search_ui_has_visible_busy_state_scroll_and_adapter_selector():
     assert "_openMusicSearch()" in FRONTEND
     assert "_runMusicSearch(root)" in FRONTEND
     assert "music-search-working" in FRONTEND
-    assert "Searching music… Some providers can take a few seconds." in FRONTEND
+    assert "l.music_search_working" in FRONTEND
     assert 'icon="mdi:loading" class="spin"' in FRONTEND
     assert "music_all_adapters" in FRONTEND
     assert "music-adapter-picker" in FRONTEND
@@ -99,7 +99,7 @@ def test_direct_link_youtube_stays_normal_and_ytdlp_has_own_namespace():
     assert 'media_content_id.startswith(FITNESS_YOUTUBE_PREFIX)' in YOUTUBE
     assert '"kind": "youtube"' in YOUTUBE
     assert 'FITNESS_MUSIC_PREFIXES.youtube' in FRONTEND
-    assert 'music_add_link_hint_v2 || "Direct audio, YouTube/YouTube Music, or SoundCloud links that Fitness can play directly."' in FRONTEND
+    assert "l.music_add_link_hint_v2" in FRONTEND
 
 
 def test_seek_is_verified_for_html_audio_and_embedded_players():

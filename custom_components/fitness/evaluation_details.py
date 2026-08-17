@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .research.references import REFERENCES
+from .scientific_translations import EVALUATION_FORMULAS
 
 _LABELS = {
     "en": {"study":"Scientific basis","formula":"Formula","data":"Data used","meaning":"What this means","benefit":"Why this is useful"},
@@ -82,34 +83,6 @@ _STUDY = {
     "training_adaptation_status": "training_load_consensus_2017",
 }
 
-_FORMULA = {
-    "sleep_consistency": "mean and population SD of merged sleep duration/timing over rolling 7/28-day windows",
-    "sleep_deficit_7d": "Σ max(0, 420 min − nightly sleep duration) over the previous 7 days",
-    "autonomic_recovery_trend": "HRV recovery signal = 7-day mean nightly HRV compared with the preceding personal 28-day baseline (latest night excluded from its own baseline); RHR deviation = current RHR − 28d mean RHR",
-    "cardiorespiratory_fitness_trend": "VO₂max trend = linear slope of daily VO₂max values, normalized to the mean and expressed as % per 30 days",
-    "training_load": "Banister TRIMP = duration × HR-ratio × sex-specific exponential weighting; rolling 7d/28d sums plus objective duration/frequency/distance",
-    "heart_rate_recovery": "HRRₜ = heart rate at exercise end − heart rate t seconds after exercise",
-    "training_recovery_relationship": "Pearson r(workout TRIMP, next-sleep duration/HRV), using matched workout→sleep pairs",
-    "vo2max_percent_predicted": "measured VO₂max / FRIEND predicted VO₂max × 100; FRIEND = 79.9 − 0.39×age − 13.7×sex − 0.127×weight(lb)",
-    "readiness": "weighted mean of available personal recovery domains: autonomic 30%, sleep 30%, training recovery 25%, post-exercise recovery response 15%; missing domains are omitted and weights are renormalized",
-    "training_adaptation_status": "rule-based synthesis of recent-to-baseline training load, VO₂max trend, HRV-vs-personal-baseline, resting-HR deviation and readiness; no single signal is treated as diagnostic",
-}
-_FORMULA_LOCALIZED = {
-    "el": {
-        "sleep_consistency": "Μέσος όρος και τυπική απόκλιση πληθυσμού της διάρκειας/ώρας ύπνου σε κυλιόμενα παράθυρα 7 και 28 ημερών",
-        "sleep_deficit_7d": "Σ max(0, 420 λεπτά − διάρκεια νυχτερινού ύπνου) για τις προηγούμενες 7 ημέρες",
-        "autonomic_recovery_trend": "Σήμα HRV = μέσο νυχτερινό HRV 7 ημερών σε σύγκριση με την προηγούμενη προσωπική βάση 28 ημερών (η τελευταία νύχτα δεν περιλαμβάνεται στη δική της βάση)· απόκλιση RHR = τρέχον RHR − μέσο RHR 28 ημερών",
-        "cardiorespiratory_fitness_trend": "Τάση VO₂max = γραμμική κλίση των ημερήσιων τιμών VO₂max, κανονικοποιημένη ως προς τον μέσο όρο και εκφρασμένη ως % ανά 30 ημέρες",
-        "training_load": "Banister TRIMP = διάρκεια × λόγος καρδιακού ρυθμού × εκθετική στάθμιση ανά φύλο· αθροίσματα 7/28 ημερών μαζί με διάρκεια, συχνότητα και απόσταση",
-        "heart_rate_recovery": "HRRₜ = καρδιακός ρυθμός στο τέλος της άσκησης − καρδιακός ρυθμός t δευτερόλεπτα μετά",
-        "training_recovery_relationship": "Pearson r(TRIMP προπόνησης, διάρκεια/HRV του επόμενου ύπνου), από αντιστοιχισμένα ζεύγη προπόνησης→ύπνου",
-        "vo2max_percent_predicted": "μετρημένο VO₂max / προβλεπόμενο VO₂max FRIEND × 100· FRIEND = 79,9 − 0,39×ηλικία − 13,7×φύλο − 0,127×βάρος(lb)",
-        "readiness": "σταθμισμένος μέσος όρος των διαθέσιμων προσωπικών τομέων αποκατάστασης: αυτόνομη αποκατάσταση 30%, ύπνος 30%, αποκατάσταση από προπόνηση 25%, απόκριση μετά την άσκηση 15%· οι απόντες τομείς παραλείπονται και τα βάρη επανακανονικοποιούνται",
-    },
-}
-
-
-
 def _code(language: str | None) -> str:
     code = str(language or "en").lower().split("-")[0].split("_")[0]
     return code if code in _LABELS else "en"
@@ -156,7 +129,7 @@ def evaluation_user_details(language: str | None, metric: str, data_used: list[s
             additional.append(" — ".join(bit for bit in bits if bit))
         if additional:
             result["additional_scientific_basis"] = additional
-    formula = _FORMULA_LOCALIZED.get(code, {}).get(metric) or _FORMULA.get(metric)
+    formula = EVALUATION_FORMULAS[code].get(metric)
     if formula:
         result["formula"] = formula
     if data_used:

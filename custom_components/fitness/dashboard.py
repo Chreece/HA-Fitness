@@ -51,6 +51,10 @@ from .const import (
     TV_DASHBOARD_PATH,
     DOMAIN,
 )
+from .dashboard_translations import (
+    DASHBOARD_LANGUAGE_AUDIT_TEXT,
+    SUPPORTED_DASHBOARD_LANGUAGES,
+)
 from .feedback import INTENSITY_RGB
 from .live import get_live_runtime
 from .profile_data import (
@@ -1196,8 +1200,8 @@ _RECOVERY_REFINEMENT_TEXT: dict[str, dict[str, str]] = {
     "uk": {"recovery_from_last_workout":"Час відновлення після останнього тренування","total_recovery":"Повне відновлення","at_time":"о","baseline":"Базовий рівень","current":"Зараз","fitness_sleep_score":"Оцінка сну Fitness","recovery_done_short":"Завершено","ready_at_compact":"Готово: {time}","remaining_compact":"залишилось {time}","certain_compact":"{percent}% впевненості","minutes_short":"хв"},
     "tr": {"recovery_from_last_workout":"Son antrenmandan toparlanma süresi","total_recovery":"Tam toparlanma","at_time":"saat","baseline":"Baz","current":"Güncel","fitness_sleep_score":"Fitness uyku puanı","recovery_done_short":"Tamam","ready_at_compact":"Hazır: {time}","remaining_compact":"{time} kaldı","certain_compact":"%{percent} kesin","minutes_short":"dk"},
     "zh": {"recovery_from_last_workout":"上次训练后的恢复时间","total_recovery":"完全恢复","at_time":"于","baseline":"基线","current":"当前","fitness_sleep_score":"Fitness 睡眠评分","recovery_done_short":"完成","ready_at_compact":"准备时间：{time}","remaining_compact":"剩余 {time}","certain_compact":"{percent}% 确定","minutes_short":"分"},
-    "ja": {"recovery_from_last_workout":"前回ワークアウトからの回復時間","total_recovery":"完全回復","at_time":"","baseline":"ベースライン","current":"現在","fitness_sleep_score":"Fitness 睡眠スコア","recovery_done_short":"完了","ready_at_compact":"準備完了：{time}","remaining_compact":"残り {time}","certain_compact":"確信度 {percent}%","minutes_short":"分"},
-    "ko": {"recovery_from_last_workout":"마지막 운동 후 회복 시간","total_recovery":"완전 회복","at_time":"","baseline":"기준선","current":"현재","fitness_sleep_score":"Fitness 수면 점수","recovery_done_short":"완료","ready_at_compact":"준비 완료: {time}","remaining_compact":"{time} 남음","certain_compact":"확신도 {percent}%","minutes_short":"분"},
+    "ja": {"recovery_from_last_workout":"前回ワークアウトからの回復時間","total_recovery":"完全回復","at_time":"時刻","baseline":"ベースライン","current":"現在","fitness_sleep_score":"Fitness 睡眠スコア","recovery_done_short":"完了","ready_at_compact":"準備完了：{time}","remaining_compact":"残り {time}","certain_compact":"確信度 {percent}%","minutes_short":"分"},
+    "ko": {"recovery_from_last_workout":"마지막 운동 후 회복 시간","total_recovery":"완전 회복","at_time":"시각","baseline":"기준선","current":"현재","fitness_sleep_score":"Fitness 수면 점수","recovery_done_short":"완료","ready_at_compact":"준비 완료: {time}","remaining_compact":"{time} 남음","certain_compact":"확신도 {percent}%","minutes_short":"분"},
 }
 for _code, _labels in _RECOVERY_REFINEMENT_TEXT.items():
     _DASHBOARD_TEXT.setdefault(_code, {}).update(_labels)
@@ -1225,7 +1229,7 @@ for _code, _labels in _SESSION_STATUS_TEXT.items():
 # Frontend-only labels belong to the same profile-language payload as the rest of
 # the dashboard.  Keeping them here (rather than hard-coding English in JS) makes
 # every visible card label, tooltip and interaction control overridable per
-# supported language. Languages without an explicit override inherit English.
+# supported language. The audited catalog supplies each legacy gap natively.
 _DASHBOARD_UI_TEXT: dict[str, dict[str, str]] = {
     "en": {
         "difference":"Difference", "history":"History", "measurements":"measurements",
@@ -1447,9 +1451,8 @@ _TV_DASHBOARD_MUSIC_TEXT: dict[str, dict[str, str]] = {
     "ko": {"music_sources":"음악 소스","music_favorites_hint":"이 Fitness 프로필에 저장된 음악입니다.","music_internet_radio":"인터넷 라디오","music_internet_radio_hint":"Fitness에 내장되어 있으며 추가 Home Assistant 통합이 필요하지 않습니다.","music_ha_sources":"Home Assistant 미디어","music_ha_sources_hint":"Home Assistant 미디어 소스에서 제공하는 오디오를 탐색합니다.","music_add_link":"음악 링크 추가","music_add_link_hint":"직접 스트림, Spotify, SoundCloud, YouTube 또는 YouTube Music URL/URI.","music_link":"음악 URL 또는 URI","music_title_optional":"제목(선택 사항)","music_link_supported":"직접 오디오 스트림과 Spotify, SoundCloud, YouTube 및 YouTube Music 링크를 지원합니다.","music_use_link":"이 음악 사용","music_invalid_link":"지원되는 음악 링크 또는 URI를 입력하세요.","music_radio_error":"인터넷 라디오를 불러올 수 없습니다."},
 }
 
-# Audio-output labels share the music language bundle so every profile receives
-# the English fallback, with native wording for the user's primary development
-# languages.
+# Audio-output labels share the music language bundle. The audited catalog supplies
+# native wording for every remaining supported language.
 _TV_DASHBOARD_MUSIC_TEXT["en"].update({
     "audio_output": "Music & TTS output",
     "audio_output_hint": "Choose the Fitness browser/Cast receiver or a compatible Home Assistant media player. Music Assistant-managed players use Music Assistant preferentially.",
@@ -1679,6 +1682,9 @@ _TV_DASHBOARD_ACCESS_TEXT: dict[str, dict[str, str]] = {
         "account_language_hint":"Menus and this user's Fitness TV dashboard use this language.",
         "configure_tv":"Configure Fitness TV",
         "configure_account":"Configure Fitness account",
+        "assign_user":"Assign Home Assistant user",
+        "complete_remove":"Remove completely",
+        "complete_remove_confirm":"Remove this Fitness profile completely? This deletes its backend profile and all Fitness TV settings.",
         "light_feedback_on":"Light feedback on",
         "light_feedback_off":"Light feedback off",
         "tts_announcements_on":"TTS announcements on",
@@ -1723,6 +1729,9 @@ _TV_DASHBOARD_ACCESS_TEXT: dict[str, dict[str, str]] = {
         "account_language_hint":"Τα μενού και το Fitness TV αυτού του χρήστη χρησιμοποιούν αυτή τη γλώσσα.",
         "configure_tv":"Ρύθμιση Fitness TV",
         "configure_account":"Ρύθμιση λογαριασμού Fitness",
+        "assign_user":"Αντιστοίχιση χρήστη Home Assistant",
+        "complete_remove":"Πλήρης διαγραφή",
+        "complete_remove_confirm":"Να διαγραφεί πλήρως αυτό το προφίλ Fitness; Θα διαγραφούν το backend προφίλ και όλες οι ρυθμίσεις Fitness TV.",
         "light_feedback_on":"Φωτεινή ανάδραση ενεργή",
         "light_feedback_off":"Φωτεινή ανάδραση ανενεργή",
         "tts_announcements_on":"Ανακοινώσεις TTS ενεργές",
@@ -1767,6 +1776,9 @@ _TV_DASHBOARD_ACCESS_TEXT: dict[str, dict[str, str]] = {
         "account_language_hint":"Menüs und das Fitness-TV-Dashboard dieses Benutzers verwenden diese Sprache.",
         "configure_tv":"Fitness TV konfigurieren",
         "configure_account":"Fitness-Konto konfigurieren",
+        "assign_user":"Home-Assistant-Benutzer zuweisen",
+        "complete_remove":"Vollständig entfernen",
+        "complete_remove_confirm":"Dieses Fitness-Profil vollständig entfernen? Dadurch werden das Backend-Profil und alle Fitness-TV-Einstellungen gelöscht.",
         "light_feedback_on":"Licht-Feedback an",
         "light_feedback_off":"Licht-Feedback aus",
         "tts_announcements_on":"TTS-Ansagen an",
@@ -1796,34 +1808,61 @@ _TV_DASHBOARD_ACCESS_TEXT: dict[str, dict[str, str]] = {
     },
 }
 
+_DASHBOARD_LABEL_GROUPS = (
+    _DASHBOARD_UI_TEXT,
+    _TV_DASHBOARD_TEXT,
+    _TV_DASHBOARD_SETTINGS_TEXT,
+    _TV_DASHBOARD_EXTRA_TEXT,
+    _TV_DASHBOARD_MUSIC_TEXT,
+    _TV_DASHBOARD_INTERACTION_TEXT,
+    _TV_DASHBOARD_FLOW_TEXT,
+    _TV_DASHBOARD_REMOTE_TEXT,
+    _TV_DASHBOARD_ACCESS_TEXT,
+)
+_REQUIRED_DASHBOARD_LABELS = set(DASHBOARD_LANGUAGE_AUDIT_TEXT["en"])
+for _group in _DASHBOARD_LABEL_GROUPS:
+    _REQUIRED_DASHBOARD_LABELS.update(_group["en"])
+
+if tuple(_DASHBOARD_TEXT) != SUPPORTED_DASHBOARD_LANGUAGES:
+    raise RuntimeError("Dashboard and audited translation language sets differ")
+if set(_PACE_TEXT) != set(_DASHBOARD_TEXT):
+    raise RuntimeError("Dashboard pace translations do not match supported languages")
+
 for _code, _labels in _DASHBOARD_TEXT.items():
-    _ui = dict(_DASHBOARD_UI_TEXT["en"])
-    _ui.update(_DASHBOARD_UI_TEXT.get(_code, {}))
-    _labels.update(_ui)
-    _tv = dict(_TV_DASHBOARD_TEXT["en"])
-    _tv.update(_TV_DASHBOARD_TEXT.get(_code, {}))
-    _labels.update(_tv)
-    _tv_settings = dict(_TV_DASHBOARD_SETTINGS_TEXT["en"])
-    _tv_settings.update(_TV_DASHBOARD_SETTINGS_TEXT.get(_code, {}))
-    _labels.update(_tv_settings)
-    _tv_extra = dict(_TV_DASHBOARD_EXTRA_TEXT["en"])
-    _tv_extra.update(_TV_DASHBOARD_EXTRA_TEXT.get(_code, {}))
-    _labels.update(_tv_extra)
-    _music = dict(_TV_DASHBOARD_MUSIC_TEXT["en"])
-    _music.update(_TV_DASHBOARD_MUSIC_TEXT.get(_code, {}))
-    _labels.update(_music)
-    _interaction = dict(_TV_DASHBOARD_INTERACTION_TEXT["en"])
-    _interaction.update(_TV_DASHBOARD_INTERACTION_TEXT.get(_code, {}))
-    _labels.update(_interaction)
-    _flow = dict(_TV_DASHBOARD_FLOW_TEXT["en"])
-    _flow.update(_TV_DASHBOARD_FLOW_TEXT.get(_code, {}))
-    _labels.update(_flow)
-    _remote = dict(_TV_DASHBOARD_REMOTE_TEXT["en"])
-    _remote.update(_TV_DASHBOARD_REMOTE_TEXT.get(_code, {}))
-    _labels.update(_remote)
-    _access = dict(_TV_DASHBOARD_ACCESS_TEXT["en"])
-    _access.update(_TV_DASHBOARD_ACCESS_TEXT.get(_code, {}))
-    _labels.update(_access)
+    # Never merge English into a non-English profile.  Older groups may be
+    # partial, so the audited overlay supplies their missing native values.
+    for _group in _DASHBOARD_LABEL_GROUPS:
+        _labels.update(_group.get(_code, {}))
+    _labels.update(DASHBOARD_LANGUAGE_AUDIT_TEXT[_code])
+    _missing_labels = _REQUIRED_DASHBOARD_LABELS.difference(_labels)
+    if _missing_labels:
+        raise RuntimeError(
+            f"Dashboard language {_code!r} is missing labels: "
+            f"{sorted(_missing_labels)}"
+        )
+    _empty_labels = sorted(
+        key for key, value in _labels.items()
+        if not isinstance(value, str) or not value.strip()
+    )
+    if _empty_labels:
+        raise RuntimeError(
+            f"Dashboard language {_code!r} has empty labels: {_empty_labels}"
+        )
+
+_english_dashboard_keys = set(_DASHBOARD_TEXT["en"])
+_placeholder_pattern = re.compile(r"\{([A-Za-z0-9_]+)\}")
+for _code, _labels in _DASHBOARD_TEXT.items():
+    if set(_labels) != _english_dashboard_keys:
+        raise RuntimeError(
+            f"Dashboard language {_code!r} does not have exact key parity"
+        )
+    for _key, _english_value in _DASHBOARD_TEXT["en"].items():
+        if set(_placeholder_pattern.findall(_labels[_key])) != set(
+            _placeholder_pattern.findall(_english_value)
+        ):
+            raise RuntimeError(
+                f"Dashboard placeholder mismatch for {_code}.{_key}"
+            )
 
 def _language(entry) -> str:
     raw = str(entry.options.get(CONF_LANGUAGE, entry.data.get(CONF_LANGUAGE, "en")) or "en")
@@ -2770,12 +2809,12 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                     "language": lang,
                     "labels": {
                         **_DASHBOARD_TEXT[lang],
-                        "pace": _PACE_TEXT.get(lang, "Pace"),
+                        "pace": _PACE_TEXT[lang],
                     },
                     "labels_by_language": {
                         code: {
                             **labels,
-                            "pace": _PACE_TEXT.get(code, _PACE_TEXT.get("en", "Pace")),
+                            "pace": _PACE_TEXT[code],
                         }
                         for code, labels in _DASHBOARD_TEXT.items()
                     },
@@ -2913,11 +2952,22 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                 entities[key] = source
 
         runtime = get_live_runtime(hass)
+        assigned_live_sensors = [
+            sensor
+            for sensor in runtime.sensors_for_profile(entry)
+            if runtime.sensor_is_accepted(runtime.resolve_sensor_id(sensor.sensor_id))
+        ]
+        assigned_live_sensor_ids = list(
+            dict.fromkeys(
+                runtime.resolve_sensor_id(sensor.sensor_id)
+                for sensor in assigned_live_sensors
+            )
+        )
         live_sensor_metrics: list[dict[str, str]] = []
         seen_live_sensor_entities = {
             str(value) for value in entities.values() if isinstance(value, str)
         }
-        for sensor in runtime.sensors_for_profile(entry):
+        for sensor in assigned_live_sensors:
             sensor_id = runtime.resolve_sensor_id(sensor.sensor_id)
             owner_entity_id = physical_workout_owner_entity_id(hass, sensor_id)
             metric_names = set(sensor.capabilities or ()) | set(
@@ -2950,13 +3000,19 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                     "mode": "control" if entry.entry_id in control_profile_ids else "view",
                 },
                 "language": lang,
-                "labels": {**_DASHBOARD_TEXT[lang], "pace": _PACE_TEXT.get(lang, "Pace")},
+                "labels": {**_DASHBOARD_TEXT[lang], "pace": _PACE_TEXT[lang]},
                 "labels_by_language": {
-                    code: {**labels, "pace": _PACE_TEXT.get(code, _PACE_TEXT.get("en", "Pace"))}
+                    code: {**labels, "pace": _PACE_TEXT[code]}
                     for code, labels in _DASHBOARD_TEXT.items()
                 },
                 "entities": entities,
                 "data_entities": data_entities,
+                # Assignment is the visibility contract for the Live Workout
+                # card. Keep it independent from physical metric entity
+                # materialization so a newly assigned sensor cannot leave the
+                # card hidden while entity-registry rows are created later.
+                "has_assigned_live_sensor": bool(assigned_live_sensor_ids),
+                "assigned_live_sensor_ids": assigned_live_sensor_ids,
                 "live_sensor_metrics": live_sensor_metrics,
                 "live_entity_keys": [
                     key for key in entities
@@ -3029,6 +3085,25 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
             "frontend_version": "unreleased-82",
             "profiles": profiles,
             "access": access,
+            # Access-denied and administrator overview screens can render
+            # before a profile exists.  Give them the same account-language
+            # catalog instead of falling back to Home Assistant's UI language.
+            "labels": {
+                **_DASHBOARD_TEXT[
+                    str(access.get("language") or "en")
+                    if str(access.get("language") or "en") in _DASHBOARD_TEXT
+                    else "en"
+                ],
+                "pace": _PACE_TEXT[
+                    str(access.get("language") or "en")
+                    if str(access.get("language") or "en") in _PACE_TEXT
+                    else "en"
+                ],
+            },
+            "labels_by_language": {
+                code: {**labels, "pace": _PACE_TEXT[code]}
+                for code, labels in _DASHBOARD_TEXT.items()
+            },
             "cast_targets": _tv_cast_targets(hass, registry) if access.get("is_admin") else [],
             "overview_cast": _tv_overview_cast_descriptor(hass) if access.get("is_admin") else {"active": False, "target": None},
             "audio_outputs": _fitness_audio_outputs(hass, registry),
@@ -3136,7 +3211,7 @@ def _tv_dashboard_expected_config(hass: HomeAssistant) -> dict[str, object]:
             title="Fitness TV", path="main", panel=True, setup=True
         ),
         _tv_dashboard_view(
-            title="Fitness TV Overview Cast", path="cast-overview", setup=True
+            title="Fitness TV Overview Cast", path="cast-overview", subview=True, setup=True
         ),
     ]
     for entry in entries:

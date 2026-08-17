@@ -85,7 +85,7 @@ def test_ma_playing_state_requires_local_sendspin_stream_and_uses_pcm_media_elem
     assert 'playbackState === "playing"' not in state_body
     assert "progress?.track_progress" in state_body
     assert "progress?.track_duration" in state_body
-    assert 'details:current.details || "Track"' in state_body
+    assert "details:current.details || this._labels().music_type_tracks" in state_body
     assert 'provider_origin:current.provider_origin || "Music Assistant"' in state_body
     player_start = FRONTEND.index("_createMASendspinPlayer()")
     player_end = FRONTEND.index("async _connectMASendspinPlayer", player_start)

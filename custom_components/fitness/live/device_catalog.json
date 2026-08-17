@@ -31,6 +31,22 @@
       "decoder_ids": [
         "stryd_ble_passive_battery_v1"
       ]
+    },
+    {
+      "id": "cycplus_m1_gps_bike_computer",
+      "manufacturer": "CYCPLUS",
+      "model": "CYCPLUS M1 GPS Bike Computer",
+      "model_id": "M1",
+      "name": "CYCPLUS M1",
+      "match_any": [
+        {
+          "transport": "bluetooth",
+          "name_prefix": "M1_"
+        },
+        {
+          "name_prefix": "CYCPLUS M1"
+        }
+      ]
     }
   ],
   "profile_models": {

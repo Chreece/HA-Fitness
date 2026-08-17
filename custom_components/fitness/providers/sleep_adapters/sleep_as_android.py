@@ -25,6 +25,7 @@ STAGE_FIELD = {
     "deep_sleep": "deep_sleep_s",
     "light_sleep": "light_sleep_s",
     "rem": "rem_sleep_s",
+    "not_awake": "unclassified_asleep_s",
 }
 
 
@@ -122,21 +123,47 @@ def records_from_event_history(
             continue
 
         phases = [event for event in phase_events if start <= event[0] <= end]
-        totals = {key: 0.0 for key in ("awake_s", "light_sleep_s", "deep_sleep_s", "rem_sleep_s")}
+        totals = {key: 0.0 for key in (
+            "awake_s", "light_sleep_s", "deep_sleep_s", "rem_sleep_s",
+            "unclassified_asleep_s",
+        )}
         for i, (stamp, event_type) in enumerate(phases):
             next_stamp = phases[i + 1][0] if i + 1 < len(phases) else end
             field = STAGE_FIELD.get(event_type)
             if field and next_stamp > stamp:
                 totals[field] += _overlap_seconds(stamp, next_stamp, windows)
 
-        sleep_s = max(0.0, active_s - totals["awake_s"])
-        field_sources = {"start": tracking_entity_id, "end": tracking_entity_id, "duration_s": tracking_entity_id}
+        classified_sleep_s = sum(
+            totals[key]
+            for key in ("light_sleep_s", "deep_sleep_s", "rem_sleep_s", "unclassified_asleep_s")
+        )
+        # A phase event describes the interval from that event until the next
+        # event. Recorder may not contain a phase at STARTED, so the unknown
+        # prefix must not be guessed as sleep. If no phase events exist at all,
+        # retain the tracking-only fallback because STARTED/STOPPED is then the
+        # only evidence Sleep as Android provided.
+        sleep_s = min(active_s, classified_sleep_s) if phases else active_s
+        unobserved_active_s = max(
+            0.0,
+            active_s - totals["awake_s"] - classified_sleep_s,
+        ) if phases else 0.0
+        field_sources = {
+            "start": tracking_entity_id,
+            "end": tracking_entity_id,
+            "duration_s": tracking_entity_id,
+            "time_in_bed_s": tracking_entity_id,
+        }
         if phase_entity_id:
-            field_sources.update({k: phase_entity_id for k, v in totals.items() if v > 0})
+            field_sources.update({
+                key: phase_entity_id
+                for key, value in totals.items()
+                if key != "unclassified_asleep_s" and value > 0
+            })
         records.append(SleepRecord(
             source=tracking_entity_id, provider_domain="sleep_as_android",
             start=start.isoformat(), end=end.isoformat(), observed_at=end.isoformat(),
-            duration_s=sleep_s, awake_s=totals["awake_s"] or None,
+            duration_s=sleep_s, time_in_bed_s=active_s,
+            awake_s=totals["awake_s"] or None,
             light_sleep_s=totals["light_sleep_s"] or None, deep_sleep_s=totals["deep_sleep_s"] or None,
             rem_sleep_s=totals["rem_sleep_s"] or None,
             sources=[tracking_entity_id] + ([phase_entity_id] if phase_entity_id else []),
@@ -144,11 +171,16 @@ def records_from_event_history(
             provider_values={"sleep_as_android": {
                 "tracking_entity": tracking_entity_id, "phase_entity": phase_entity_id,
                 "stage_method": "home_assistant_recorder_event_timeline",
+                "duration_method": "classified_phase_intervals" if phases else "tracking_active_time_fallback",
                 "reconstructed_fields": [
-                    "duration_s",
-                    *[key for key, value in totals.items() if value > 0],
+                    "duration_s", "time_in_bed_s",
+                    *[
+                        key for key, value in totals.items()
+                        if key != "unclassified_asleep_s" and value > 0
+                    ],
                 ],
-                "unclassified_asleep_s": max(0.0, sleep_s - totals["light_sleep_s"] - totals["deep_sleep_s"] - totals["rem_sleep_s"]),
+                "unclassified_asleep_s": totals["unclassified_asleep_s"] if phases else active_s,
+                "unobserved_active_s": unobserved_active_s,
             }},
         ))
     return records

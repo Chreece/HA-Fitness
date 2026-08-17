@@ -658,6 +658,11 @@ class FitnessAccessController:
                 else:
                     row.pop("view_profile_entry_ids", None)
         await self._store.async_save(self._data)
+        # A complete backend-profile removal also owns the matching Fitness TV
+        # profile state. Scrub its cards, music choices, playlists and other TV
+        # preferences instead of leaving an orphan keyed by the deleted entry.
+        from .tv_dashboard import get_tv_dashboard_hub
+        await get_tv_dashboard_hub(self.hass).async_remove_profile_preferences(entry.entry_id)
         await self.hass.config_entries.async_remove(entry.entry_id)
         return await self.async_admin_snapshot(connection)
 

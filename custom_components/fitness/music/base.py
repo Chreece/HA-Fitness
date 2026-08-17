@@ -48,6 +48,7 @@ class MusicAdapterInfo:
     experimental: bool = False
     account_setup: str = "none"
     setup_hint: str = ""
+    setup_hint_key: str = ""
     setup_path: str = ""
     source: str = "fitness"
     account_options: tuple[tuple[str, str], ...] = ()
@@ -67,6 +68,7 @@ class MusicAdapterInfo:
             "experimental": self.experimental,
             "account_setup": self.account_setup,
             "setup_hint": self.setup_hint,
+            "setup_hint_key": self.setup_hint_key,
             "setup_path": self.setup_path,
             "source": self.source,
             "account_options": [{"id": account_id, "name": name} for account_id, name in self.account_options],

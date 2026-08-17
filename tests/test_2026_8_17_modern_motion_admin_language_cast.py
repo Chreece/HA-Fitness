@@ -54,18 +54,18 @@ def test_cast_buttons_are_toggles_and_receiver_gets_only_requested_profile_contr
     assert 'id="configure"' in FRONTEND
 
 
-def test_main_tv_overview_owns_one_whole_dashboard_cast_toggle_and_accounts_stay_account_focused():
-    assert 'class="tool overview-cast-toggle' in FRONTEND
+def test_main_tv_overview_is_admin_only_castable_and_accounts_stay_account_focused():
+    # The overview itself is an admin-only surface, but admins may cast that whole
+    # overview either through the HA server or a local browser Google Cast chooser.
+    assert 'const isAdmin = Boolean(this._access?.is_admin);' in FRONTEND
+    assert 'if (!isAdmin) {' in FRONTEND
+    assert 'const destination = profiles.find((profile) => profile?.access?.is_own) || profiles[0];' in FRONTEND
+    assert 'id="overview-cast-toggle"' in FRONTEND
     assert 'getElementById("overview-cast-toggle")?.addEventListener' in FRONTEND
-    assert '_toggleOverviewCast()' in FRONTEND
-    assert '_openOverviewCastPicker()' in FRONTEND
-    assert 'type:"fitness/tv/overview/cast"' in FRONTEND
-    assert 'type:"fitness/tv/overview/stop"' in FRONTEND
-    assert 'view_path": "cast-overview"' in DASHBOARD
-    assert 'title="Fitness TV Overview Cast", path="cast-overview", setup=True' in DASHBOARD
-    assert '"overview_cast": _tv_overview_cast_descriptor(hass)' in DASHBOARD
-    assert 'row.querySelector(".overview-cast-toggle")' not in FRONTEND
-    assert '_toggleOverviewProfileCast(profile, row)' not in FRONTEND
+    assert 'overview:true' in FRONTEND
+    assert 'id="overview-cast-local"' in FRONTEND
+    assert 'class="add-profile-row overview-cast-target ${unavailable ? "unavailable" : ""}"' in FRONTEND
+    assert 'admin-profile-link' in FRONTEND
     assert 'lastMediaTitle' not in FRONTEND
     assert 'data-user-cast' not in FRONTEND
     assert 'data-user-tv-config' not in FRONTEND

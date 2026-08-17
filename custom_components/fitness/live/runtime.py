@@ -26,6 +26,7 @@ from .device_identity import (
 )
 
 from ..const import (
+    CAPABILITY_WORKOUT_HISTORY,
     CONF_LIVE_SENSOR_IDS,
     DOMAIN,
     LIVE_ADAPTER_STORE_KEY,
@@ -167,8 +168,18 @@ class LiveSensor:
         return f"{self.name} ({self.protocol_label()})"
 
     def label(self) -> str:
-        metrics = ", ".join(sorted(self.capabilities)) or "fitness sensor"
-        return f"{self.discovery_name()} · {metrics}"
+        # Only live metric keys belong in this compact diagnostic suffix. Archive
+        # capabilities are control-plane implementation keys; the verified M1
+        # product name already explains the device and must not leak a raw
+        # ``workout_history`` token into localized config-flow UI.
+        metrics = ", ".join(
+            sorted(set(self.capabilities).intersection(LIVE_METRICS))
+        )
+        return (
+            f"{self.discovery_name()} · {metrics}"
+            if metrics
+            else self.discovery_name()
+        )
 
 
 class LiveRuntime:
@@ -1459,6 +1470,11 @@ class LiveRuntime:
         for sensor in tuple(self.sensors.values()):
             if sensor.capabilities and not self.sensor_is_accepted(sensor.sensor_id):
                 self._schedule_sensor_discovery(sensor.sensor_id)
+            elif (
+                CAPABILITY_WORKOUT_HISTORY in sensor.capabilities
+                and self.sensor_is_accepted(sensor.sensor_id)
+            ):
+                self.notify_sensor_assignment_changed(sensor.sensor_id)
         # Person/profile entries never start radio providers. Live transports
         # are owned exclusively by the Local Sensors hub entry.
 
@@ -2224,6 +2240,45 @@ class LiveRuntime:
         merged = self._merge_physical_sensors(sensor, matching[0][0])
         merged.metadata["merge_evidence"] = rule_id
         return merged
+
+    def find_sensor_for_remote_ble_identity(
+        self, *, name: str, capabilities: set[str], identity: dict[str, Any]
+    ) -> LiveSensor | None:
+        """Find one already-known physical sensor for a browser BLE route.
+
+        Web Bluetooth hides the real Bluetooth address and exposes a per-origin
+        opaque device id, so a browser route can only be merged safely from
+        Device Information Service identity. A unique serial is strongest; a
+        unique catalog product identity is the conservative fallback.
+        """
+        from .device_identity import catalog_product_id
+
+        serial = _serial(identity)
+        if serial:
+            matches = [
+                sensor for sensor in self.sensors.values()
+                if bool(sensor.capabilities & set(capabilities))
+                and any(_serial(endpoint.metadata) == serial for endpoint in sensor.endpoints.values())
+            ]
+            if len(matches) == 1:
+                return matches[0]
+
+        # Build a temporary Bluetooth endpoint only for catalog matching; do not
+        # attach/overwrite the canonical local Bluetooth endpoint.
+        temp = TransportEndpoint(
+            transport="bluetooth", endpoint_id="bluetooth:web:identity",
+            capabilities=set(capabilities), metadata=dict(identity or {}),
+        )
+        family = catalog_product_id(name, {"bluetooth": temp})
+        if family:
+            matches = [
+                sensor for sensor in self.sensors.values()
+                if bool(sensor.capabilities & set(capabilities))
+                and catalog_product_id(sensor.name, sensor.endpoints) == family
+            ]
+            if len(matches) == 1:
+                return matches[0]
+        return None
 
     def _match_sensor(self, endpoint: TransportEndpoint, name: str) -> LiveSensor | None:
         current = None
@@ -3272,6 +3327,14 @@ class LiveRuntime:
             "fitness refresh physical sensor assignments",
             eager_start=False,
         )
+
+    def notify_sensor_assignment_changed(self, sensor_id: str) -> None:
+        """Tell transport-owned archive adapters that profile access changed."""
+        sensor_id = self.resolve_sensor_id(sensor_id)
+        for provider in tuple(self.providers.values()):
+            callback_fn = getattr(provider, "sensor_assignment_changed", None)
+            if callback_fn is not None:
+                callback_fn(sensor_id)
 
     def sensor_assigned_profile_ids(self, sensor_id: str) -> list[str]:
         """Return profiles which are configured to use one physical sensor."""

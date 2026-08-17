@@ -36,11 +36,11 @@
       },
       "optional": {
         "title": "Προαιρετικές αρχικές / υπολογίσιμες τιμές",
-        "description": "Κάθε πεδίο δέχεται αριθμητική τιμή ή entity ID. Οι άμεσες τιμές θεωρούνται στις μονάδες που αναγράφονται, ενώ οι τιμές από entities μετατρέπονται αυτόματα από το unit_of_measurement. Άφησε κενά όσα δεν γνωρίζεις.",
+        "description": "Κάθε πεδίο δέχεται αριθμητική τιμή ή αναγνωριστικό οντότητας. Οι άμεσες τιμές χρησιμοποιούν την τεκμηριωμένη μονάδα του πεδίου· οι τιμές οντοτήτων μετατρέπονται αυτόματα από το unit_of_measurement. Άφησε κενά τα άγνωστα πεδία.",
         "data": {
           "height": "Ύψος (cm ή entity)",
           "max_hr": "Μέγιστοι καρδιακοί παλμοί (bpm ή entity)",
-          "vo2max": "VO₂max (mL/kg/min ή entity)",
+          "vo2max": "VO₂max (mL/kg/min ή οντότητα)",
           "threshold_hr": "Καρδιακοί παλμοί κατωφλίου (bpm ή entity)",
           "threshold_pace": "Ρυθμός κατωφλίου (min/km ή entity)",
           "threshold_power": "Ισχύς κατωφλίου (W ή entity)"
@@ -62,15 +62,15 @@
           "live_device_ids": "Άλλες ζωντανές συσκευές Home Assistant"
         },
         "data_description": {
-          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
-          "live_device_ids": "Optional Home Assistant devices exposing compatible live heart-rate, power, cadence, speed, distance or altitude entities."
+          "live_sensor_ids": "Φυσικοί αισθητήρες που εντοπίστηκαν από το Fitness. Οι ταυτότητες ANT+ και Bluetooth συγχωνεύονται σε μία συσκευή όταν αφορούν τον ίδιο αισθητήρα· το ANT+ προτιμάται για ζωντανές μετρήσεις.",
+          "live_device_ids": "Προαιρετικές συσκευές Home Assistant που παρέχουν συμβατές οντότητες ζωντανού καρδιακού ρυθμού, ισχύος, ρυθμού, ταχύτητας, απόστασης ή υψομέτρου."
         }
       },
       "workout_devices": {
         "title": "Συσκευές προπονήσεων και μακροχρόνιων δεδομένων",
-        "description": "Επίλεξε συσκευές με ολοκληρωμένες προπονήσεις ή μακροχρόνια δεδομένα φυσικής κατάστασης/αποκατάστασης, όπως Garmin Connect ή Strava.",
+        "description": "Επίλεξε συσκευές που παρέχουν ολοκληρωμένες προπονήσεις ή μακροχρόνια δεδομένα fitness/αποκατάστασης, όπως Garmin Connect ή Strava.",
         "data": {
-          "workout_device_ids": "Συσκευές με ιστορικό προπονήσεων / φυσικής κατάστασης",
+          "workout_device_ids": "Συσκευές που παρέχουν ιστορικό προπόνησης / fitness",
           "detailed_strength_analysis": "Αναλυτική αξιολόγηση ενδυνάμωσης",
           "workout_retention_days": "Διατήρηση προπονήσεων"
         },
@@ -84,7 +84,7 @@
         "title": "Ερμηνεία με AI",
         "description": "Το προεπιλεγμένο AI Task του Home Assistant επιλέγεται από προεπιλογή. Το Fitness ακολουθεί αυτόματα το τρέχον προεπιλεγμένο AI Task του συστήματος· επίλεξε συγκεκριμένο AI Task ή conversation agent μόνο αν θέλεις να το κλειδώσεις.",
         "data": {
-          "ai_enabled": "Δημιουργία αξιολογήσεων με AI",
+          "ai_enabled": "Δημιουργία αξιολογήσεων fitness με AI",
           "ai_entity": "Πάροχος AI"
         },
         "data_description": {
@@ -94,13 +94,13 @@
       },
       "feedback": {
         "title": "Καθοδήγηση, φώτα και ανακοινώσεις",
-        "description": "Επίλεξε δωμάτια και/ή συγκεκριμένα light entities για χρωματική ένδειξη έντασης διάρκειας πέντε δευτερολέπτων. Όλα τα διαθέσιμα φώτα του επιλεγμένου δωματίου που υποστηρίζουν χρώμα συμπεριλαμβάνονται αυτόματα. Μπορείς επίσης να επιλέξεις notify entities, πάροχο TTS και media players για ανακοινώσεις.",
+        "description": "Επίλεξε χώρους ή/και συγκεκριμένες οντότητες φωτισμού για έγχρωμη ανατροφοδότηση έντασης πέντε δευτερολέπτων. Κάθε διαθέσιμο έγχρωμο φως στους επιλεγμένους χώρους συμπεριλαμβάνεται αυτόματα. Μπορείς επίσης να επιλέξεις οντότητες ειδοποιήσεων, πάροχο TTS και συσκευές αναπαραγωγής για ανακοινώσεις.",
         "data": {
-          "feedback_light_ids": "Επιπλέον / συγκεκριμένα φώτα για ένδειξη έντασης",
+          "feedback_light_ids": "Πρόσθετα / συγκεκριμένα φώτα για ανατροφοδότηση έντασης",
           "notify_entity_ids": "Notify entities για προπονήσεις",
           "tts_entity_id": "Πάροχος TTS",
           "tts_media_player_ids": "Ηχεία / media players για ανακοινώσεις",
-          "feedback_area_ids": "Δωμάτια για χρωματική ένδειξη έντασης",
+          "feedback_area_ids": "Χώροι για φωτεινή ανατροφοδότηση έντασης",
           "periodic_live_announcements": "Περιοδικές ανακοινώσεις ζωντανών δεδομένων",
           "periodic_live_interval_minutes": "Διάστημα μεταξύ ζωντανών ανακοινώσεων"
         },
@@ -125,13 +125,13 @@
         }
       },
       "assign_live_sensor": {
-        "title": "New fitness sensor discovered",
-        "description": "{sensor} was discovered. Choose every Fitness user who may use this physical sensor for live workouts.",
+        "title": "Εντοπίστηκε νέος αισθητήρας fitness",
+        "description": "Εντοπίστηκε ο αισθητήρας {sensor}. Επίλεξε όλους τους χρήστες Fitness που μπορούν να τον χρησιμοποιούν σε ζωντανές προπονήσεις.",
         "data": {
-          "fitness_profile_ids": "Fitness users"
+          "fitness_profile_ids": "Χρήστες Fitness"
         },
         "data_description": {
-          "fitness_profile_ids": "One physical sensor can be shared by multiple Fitness profiles."
+          "fitness_profile_ids": "Ένας φυσικός αισθητήρας μπορεί να χρησιμοποιείται από πολλά προφίλ Fitness."
         }
       },
       "tv_dashboard": {
@@ -154,18 +154,18 @@
       }
     },
     "error": {
-      "invalid_date": "Βάλε έγκυρη ημερομηνία γέννησης στο παρελθόν.",
-      "invalid_number_or_entity": "Βάλε έγκυρη αριθμητική τιμή ή Home Assistant entity ID.",
-      "select_profile": "Select at least one Fitness user."
+      "invalid_date": "Εισαγάγετε έγκυρη ημερομηνία γέννησης στο παρελθόν.",
+      "invalid_number_or_entity": "Εισαγάγετε έγκυρη αριθμητική τιμή ή αναγνωριστικό οντότητας Home Assistant.",
+      "select_profile": "Επίλεξε τουλάχιστον έναν χρήστη Fitness."
     },
     "abort": {
       "already_configured": "Υπάρχει ήδη προφίλ Fitness με αυτό το όνομα.",
-      "live_sensor_assigned": "The fitness sensor was assigned successfully.",
-      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
-      "no_fitness_profiles": "Create a Fitness user before assigning this sensor.",
-      "invalid_discovery": "The fitness sensor discovery data was invalid.",
-      "adapters_already_configured": "All Fitness live adapters are already configured. Enable or disable them from their adapter devices.",
-      "adapters_managed_on_devices": "Local sensor adapters are configured from the ANT+ and Bluetooth adapter devices."
+      "live_sensor_assigned": "Ο αισθητήρας fitness αντιστοιχίστηκε με επιτυχία.",
+      "sensor_unavailable": "Ο αισθητήρας fitness που εντοπίστηκε δεν είναι πλέον διαθέσιμος.",
+      "no_fitness_profiles": "Δημιούργησε χρήστη Fitness πριν αντιστοιχίσεις αυτόν τον αισθητήρα.",
+      "invalid_discovery": "Τα δεδομένα εντοπισμού του αισθητήρα fitness δεν ήταν έγκυρα.",
+      "adapters_already_configured": "Όλοι οι προσαρμογείς ζωντανών δεδομένων Fitness έχουν ήδη ρυθμιστεί. Ενεργοποίησέ τους ή απενεργοποίησέ τους από τις συσκευές προσαρμογέα.",
+      "adapters_managed_on_devices": "Οι τοπικοί προσαρμογείς αισθητήρων ρυθμίζονται από τις συσκευές προσαρμογέα ANT+ και Bluetooth."
     }
   },
   "options": {
@@ -186,7 +186,7 @@
       },
       "profile": {
         "title": "Προφίλ",
-        "description": "Επεξεργασία στοιχείων προφίλ.",
+        "description": "Επεξεργάσου τα στοιχεία προφίλ του ατόμου.",
         "data": {
           "language": "Γλώσσα",
           "birth_day": "Ημέρα γέννησης",
@@ -210,7 +210,7 @@
           "resting_hr": "Καρδιακοί παλμοί ηρεμίας (bpm ή entity)",
           "height": "Ύψος (cm ή entity)",
           "max_hr": "Μέγιστοι καρδιακοί παλμοί (bpm ή entity)",
-          "vo2max": "VO₂max (mL/kg/min ή entity)",
+          "vo2max": "VO₂max (mL/kg/min ή οντότητα)",
           "threshold_hr": "Καρδιακοί παλμοί κατωφλίου (bpm ή entity)",
           "threshold_pace": "Ρυθμός κατωφλίου (min/km ή entity)",
           "threshold_power": "Ισχύς κατωφλίου (W ή entity)"
@@ -234,15 +234,15 @@
           "live_device_ids": "Άλλες ζωντανές συσκευές Home Assistant"
         },
         "data_description": {
-          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
-          "live_device_ids": "Optional Home Assistant devices exposing compatible live heart-rate, power, cadence, speed, distance or altitude entities."
+          "live_sensor_ids": "Φυσικοί αισθητήρες που εντοπίστηκαν από το Fitness. Οι ταυτότητες ANT+ και Bluetooth συγχωνεύονται σε μία συσκευή όταν αφορούν τον ίδιο αισθητήρα· το ANT+ προτιμάται για ζωντανές μετρήσεις.",
+          "live_device_ids": "Προαιρετικές συσκευές Home Assistant που παρέχουν συμβατές οντότητες ζωντανού καρδιακού ρυθμού, ισχύος, ρυθμού, ταχύτητας, απόστασης ή υψομέτρου."
         }
       },
       "workout_devices": {
         "title": "Συσκευές προπονήσεων και μακροχρόνιων δεδομένων",
-        "description": "Επίλεξε συσκευές με ολοκληρωμένες προπονήσεις ή μακροχρόνια δεδομένα.",
+        "description": "Επίλεξε συσκευές που παρέχουν ολοκληρωμένες προπονήσεις ή μακροχρόνιες τιμές fitness/αποκατάστασης.",
         "data": {
-          "workout_device_ids": "Συσκευές με ιστορικό προπονήσεων / φυσικής κατάστασης",
+          "workout_device_ids": "Συσκευές που παρέχουν ιστορικό προπόνησης / fitness",
           "detailed_strength_analysis": "Αναλυτική αξιολόγηση ενδυνάμωσης",
           "workout_retention_days": "Διατήρηση προπονήσεων"
         },
@@ -256,7 +256,7 @@
         "title": "Ερμηνεία με AI",
         "description": "Το προεπιλεγμένο AI Task του Home Assistant επιλέγεται από προεπιλογή. Το Fitness ακολουθεί αυτόματα το τρέχον προεπιλεγμένο AI Task του συστήματος· επίλεξε συγκεκριμένο AI Task ή conversation agent μόνο αν θέλεις να το κλειδώσεις.",
         "data": {
-          "ai_enabled": "Δημιουργία αξιολογήσεων με AI",
+          "ai_enabled": "Δημιουργία αξιολογήσεων fitness με AI",
           "ai_entity": "Πάροχος AI"
         },
         "data_description": {
@@ -266,13 +266,13 @@
       },
       "feedback": {
         "title": "Καθοδήγηση, φώτα και ανακοινώσεις",
-        "description": "Επίλεξε δωμάτια και/ή συγκεκριμένα light entities για χρωματική ένδειξη έντασης διάρκειας πέντε δευτερολέπτων. Όλα τα διαθέσιμα φώτα του επιλεγμένου δωματίου που υποστηρίζουν χρώμα συμπεριλαμβάνονται αυτόματα. Μπορείς επίσης να επιλέξεις notify entities, πάροχο TTS και media players για ανακοινώσεις.",
+        "description": "Επίλεξε χώρους ή/και συγκεκριμένες οντότητες φωτισμού για έγχρωμη ανατροφοδότηση έντασης πέντε δευτερολέπτων. Κάθε διαθέσιμο έγχρωμο φως στους επιλεγμένους χώρους συμπεριλαμβάνεται αυτόματα. Μπορείς επίσης να επιλέξεις οντότητες ειδοποιήσεων, πάροχο TTS και συσκευές αναπαραγωγής για ανακοινώσεις.",
         "data": {
-          "feedback_light_ids": "Επιπλέον / συγκεκριμένα φώτα για ένδειξη έντασης",
+          "feedback_light_ids": "Πρόσθετα / συγκεκριμένα φώτα για ανατροφοδότηση έντασης",
           "notify_entity_ids": "Notify entities για προπονήσεις",
           "tts_entity_id": "Πάροχος TTS",
           "tts_media_player_ids": "Ηχεία / media players για ανακοινώσεις",
-          "feedback_area_ids": "Δωμάτια για χρωματική ένδειξη έντασης",
+          "feedback_area_ids": "Χώροι για φωτεινή ανατροφοδότηση έντασης",
           "periodic_live_announcements": "Περιοδικές ανακοινώσεις ζωντανών δεδομένων",
           "periodic_live_interval_minutes": "Διάστημα μεταξύ ζωντανών ανακοινώσεων"
         },
@@ -337,11 +337,11 @@
     },
     "abort": {
       "no_live_sensors": "Δεν υπάρχουν αποδεκτοί τοπικοί αισθητήρες Fitness διαθέσιμοι για νέα ανάθεση.",
-      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
-      "no_fitness_profiles": "Create a Fitness user before assigning this sensor."
+      "sensor_unavailable": "Ο αισθητήρας fitness που εντοπίστηκε δεν είναι πλέον διαθέσιμος.",
+      "no_fitness_profiles": "Δημιούργησε χρήστη Fitness πριν αντιστοιχίσεις αυτόν τον αισθητήρα."
     },
     "error": {
-      "sensor_unavailable": "The discovered fitness sensor is no longer available."
+      "sensor_unavailable": "Ο αισθητήρας fitness που εντοπίστηκε δεν είναι πλέον διαθέσιμος."
     }
   },
   "entity": {
@@ -400,7 +400,7 @@
         }
       },
       "current_heart_rate": {
-        "name": "Τρέχοντες καρδιακοί παλμοί",
+        "name": "Τρέχων καρδιακός ρυθμός",
         "state_attributes": {
           "source_entity": {
             "name": "Οντότητα πηγής"
@@ -428,7 +428,7 @@
         }
       },
       "current_cadence": {
-        "name": "Τρέχουσα συχνότητα βημάτων",
+        "name": "Τρέχων ρυθμός πεταλιάς",
         "state_attributes": {
           "source_entity": {
             "name": "Οντότητα πηγής"
@@ -526,7 +526,7 @@
         }
       },
       "last_workout_distance": {
-        "name": "Απόσταση τελευταίας προπόνησης",
+        "name": "απόσταση της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -540,7 +540,7 @@
         }
       },
       "last_workout_avg_hr": {
-        "name": "Μέσοι παλμοί τελευταίας προπόνησης",
+        "name": "μέσος καρδιακός ρυθμός της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -554,7 +554,7 @@
         }
       },
       "last_workout_max_hr": {
-        "name": "Μέγιστοι παλμοί τελευταίας προπόνησης",
+        "name": "μέγιστος καρδιακός ρυθμός της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -568,7 +568,7 @@
         }
       },
       "last_workout_avg_power": {
-        "name": "Μέση ισχύς τελευταίας προπόνησης",
+        "name": "μέση ισχύς της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -582,7 +582,7 @@
         }
       },
       "last_workout_max_power": {
-        "name": "Μέγιστη ισχύς τελευταίας προπόνησης",
+        "name": "μέγιστη ισχύς της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -596,7 +596,7 @@
         }
       },
       "last_workout_avg_cadence": {
-        "name": "Μέση συχνότητα βημάτων τελευταίας προπόνησης",
+        "name": "μέσος ρυθμός πεταλιάς της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -610,7 +610,7 @@
         }
       },
       "last_workout_elevation_gain": {
-        "name": "Υψομετρική άνοδος τελευταίας προπόνησης",
+        "name": "υψομετρική ανάβαση της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -633,7 +633,7 @@
         "name": "Καρδιακοί παλμοί ηρεμίας"
       },
       "maximum_hr": {
-        "name": "Μέγιστοι καρδιακοί παλμοί"
+        "name": "Μέγιστος καρδιακός ρυθμός"
       },
       "heart_rate_reserve": {
         "name": "Απόθεμα καρδιακής συχνότητας"
@@ -645,7 +645,7 @@
         "name": "Αναμενόμενο VO₂max βάσει FRIEND"
       },
       "vo2max_percent_predicted": {
-        "name": "VO₂max ως % της προβλεπόμενης τιμής αναφοράς",
+        "name": "Προβλεπόμενο ποσοστό VO₂max",
         "state_attributes": {
           "scientific_basis": {
             "name": "Επιστημονική βάση"
@@ -665,7 +665,7 @@
         }
       },
       "cardiorespiratory_status": {
-        "name": "Καρδιοαναπνευστική ικανότητα"
+        "name": "Κατάσταση καρδιοαναπνευστικής φυσικής κατάστασης"
       },
       "hrv_weekly": {
         "name": "Εβδομαδιαίος μέσος HRV"
@@ -677,7 +677,7 @@
         "name": "Κατάσταση HRV"
       },
       "threshold_hr": {
-        "name": "Καρδιακοί παλμοί κατωφλίου"
+        "name": "Καρδιακός ρυθμός κατωφλίου"
       },
       "threshold_pace": {
         "name": "Ρυθμός κατωφλίου"
@@ -686,7 +686,7 @@
         "name": "Ισχύς κατωφλίου"
       },
       "threshold_power_to_weight": {
-        "name": "Ισχύς κατωφλίου ανά κιλό σωματικού βάρους"
+        "name": "Αναλογία ισχύος κατωφλίου προς βάρος"
       },
       "fitness_age": {
         "name": "Ηλικία φυσικής κατάστασης"
@@ -695,10 +695,10 @@
         "name": "Διαφορά από τη βιολογική ηλικία φυσικής κατάστασης"
       },
       "training_readiness_context": {
-        "name": "Ετοιμότητα για προπόνηση"
+        "name": "Πλαίσιο ετοιμότητας προπόνησης"
       },
       "sleep_score_context": {
-        "name": "Αξιολόγηση ύπνου"
+        "name": "Πλαίσιο βαθμολογίας ύπνου"
       },
       "acute_training_load": {
         "name": "Οξύ προπονητικό φορτίο"
@@ -710,7 +710,7 @@
         "name": "Λόγος οξέος/χρόνιου φορτίου"
       },
       "provider_training_status": {
-        "name": "Κατάσταση προπόνησης από τον πάροχο"
+        "name": "Κατάσταση προπόνησης παρόχου"
       },
       "ai_general_evaluation": {
         "name": "Συνολική αξιολόγηση AI",
@@ -747,7 +747,7 @@
         }
       },
       "heart_rate_percent_max": {
-        "name": "Καρδιακοί παλμοί ως % του μέγιστου",
+        "name": "Καρδιακός ρυθμός ως % του μέγιστου",
         "state_attributes": {
           "source_entity": {
             "name": "Οντότητα πηγής"
@@ -843,7 +843,7 @@
         }
       },
       "heart_rate_relative_threshold": {
-        "name": "Καρδιακοί παλμοί σε σχέση με το κατώφλι",
+        "name": "Καρδιακός ρυθμός σε σχέση με το κατώφλι",
         "state_attributes": {
           "source_entity": {
             "name": "Οντότητα πηγής"
@@ -1017,7 +1017,7 @@
         }
       },
       "last_workout_moving_time": {
-        "name": "Χρόνος κίνησης τελευταίας προπόνησης",
+        "name": "χρόνος κίνησης της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1031,7 +1031,7 @@
         }
       },
       "last_workout_elapsed_time": {
-        "name": "Συνολικός χρόνος τελευταίας προπόνησης",
+        "name": "συνολικός χρόνος της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1045,7 +1045,7 @@
         }
       },
       "last_workout_average_speed": {
-        "name": "Μέση ταχύτητα τελευταίας προπόνησης",
+        "name": "μέση ταχύτητα της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1059,7 +1059,7 @@
         }
       },
       "last_workout_max_speed": {
-        "name": "Μέγιστη ταχύτητα τελευταίας προπόνησης",
+        "name": "μέγιστη ταχύτητα της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1073,7 +1073,7 @@
         }
       },
       "last_workout_weighted_power": {
-        "name": "Σταθμισμένη / κανονικοποιημένη ισχύς",
+        "name": "σταθμισμένη / κανονικοποιημένη ισχύς της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1087,7 +1087,7 @@
         }
       },
       "last_workout_max_cadence": {
-        "name": "Μέγιστη συχνότητα τελευταίας προπόνησης",
+        "name": "μέγιστος ρυθμός πεταλιάς της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1101,7 +1101,7 @@
         }
       },
       "last_workout_elevation_loss": {
-        "name": "Υψομετρική κάθοδος τελευταίας προπόνησης",
+        "name": "υψομετρική κατάβαση της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1129,7 +1129,7 @@
         }
       },
       "last_workout_aerobic_effect": {
-        "name": "Αερόβια επίδραση τελευταίας προπόνησης",
+        "name": "αερόβια επίδραση προπόνησης της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1143,7 +1143,7 @@
         }
       },
       "last_workout_anaerobic_effect": {
-        "name": "Αναερόβια επίδραση τελευταίας προπόνησης",
+        "name": "αναερόβια επίδραση προπόνησης της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1157,7 +1157,7 @@
         }
       },
       "last_workout_training_effect": {
-        "name": "Επίδραση τελευταίας προπόνησης",
+        "name": "επίδραση προπόνησης της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1185,7 +1185,7 @@
         }
       },
       "last_workout_relative_effort": {
-        "name": "Σχετική προσπάθεια τελευταίας προπόνησης",
+        "name": "σχετική προσπάθεια της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1199,7 +1199,7 @@
         }
       },
       "last_workout_kilojoules": {
-        "name": "Ενέργεια τελευταίας προπόνησης",
+        "name": "ενέργεια της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1213,7 +1213,7 @@
         }
       },
       "last_workout_total_reps": {
-        "name": "Συνολικές επαναλήψεις τελευταίας προπόνησης",
+        "name": "συνολικές επαναλήψεις της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1227,7 +1227,7 @@
         }
       },
       "last_workout_exercise_count": {
-        "name": "Αριθμός ασκήσεων τελευταίας προπόνησης",
+        "name": "αριθμός ασκήσεων της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1241,7 +1241,7 @@
         }
       },
       "last_workout_volume": {
-        "name": "Όγκος τελευταίας προπόνησης",
+        "name": "όγκος προπόνησης της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1255,7 +1255,7 @@
         }
       },
       "last_workout_device": {
-        "name": "Συσκευή τελευταίας προπόνησης",
+        "name": "συσκευή της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1269,7 +1269,7 @@
         }
       },
       "last_workout_gear": {
-        "name": "Εξοπλισμός τελευταίας προπόνησης",
+        "name": "εξοπλισμός της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1283,7 +1283,7 @@
         }
       },
       "last_workout_sources": {
-        "name": "Πηγές δεδομένων τελευταίας προπόνησης",
+        "name": "πηγές δεδομένων της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1297,7 +1297,7 @@
         }
       },
       "live_average_heart_rate": {
-        "name": "Μέσος καρδιακός ρυθμός προπόνησης",
+        "name": "Ζωντανά: μέσος καρδιακός ρυθμός",
         "state_attributes": {
           "source_entity": {
             "name": "Οντότητα πηγής"
@@ -1329,7 +1329,7 @@
         }
       },
       "live_maximum_heart_rate": {
-        "name": "Μέγιστος καρδιακός ρυθμός προπόνησης",
+        "name": "Ζωντανά: μέγιστος καρδιακός ρυθμός",
         "state_attributes": {
           "source_entity": {
             "name": "Οντότητα πηγής"
@@ -1361,7 +1361,7 @@
         }
       },
       "live_average_power": {
-        "name": "Μέση ισχύς προπόνησης",
+        "name": "Ζωντανά: μέση ισχύς",
         "state_attributes": {
           "source_entity": {
             "name": "Οντότητα πηγής"
@@ -1393,7 +1393,7 @@
         }
       },
       "live_maximum_power": {
-        "name": "Μέγιστη ισχύς προπόνησης",
+        "name": "Ζωντανά: μέγιστη ισχύς",
         "state_attributes": {
           "source_entity": {
             "name": "Οντότητα πηγής"
@@ -1425,7 +1425,7 @@
         }
       },
       "live_average_cadence": {
-        "name": "Μέση συχνότητα προπόνησης",
+        "name": "Ζωντανά: μέσος ρυθμός πεταλιάς",
         "state_attributes": {
           "source_entity": {
             "name": "Οντότητα πηγής"
@@ -1457,7 +1457,7 @@
         }
       },
       "live_average_speed": {
-        "name": "Μέση ταχύτητα προπόνησης",
+        "name": "Ζωντανά: μέση ταχύτητα",
         "state_attributes": {
           "source_entity": {
             "name": "Οντότητα πηγής"
@@ -1489,7 +1489,7 @@
         }
       },
       "live_banister_trimp": {
-        "name": "Τρέχον Banister TRIMP",
+        "name": "Ζωντανό Banister TRIMP",
         "state_attributes": {
           "source_entity": {
             "name": "Οντότητα πηγής"
@@ -1521,7 +1521,7 @@
         }
       },
       "live_mechanical_work": {
-        "name": "Τρέχον μηχανικό έργο",
+        "name": "Ζωντανά: μηχανικό έργο",
         "state_attributes": {
           "source_entity": {
             "name": "Οντότητα πηγής"
@@ -1553,7 +1553,7 @@
         }
       },
       "live_aerobic_efficiency": {
-        "name": "Τρέχουσα αερόβια αποδοτικότητα",
+        "name": "Ζωντανά: αερόβια αποδοτικότητα",
         "state_attributes": {
           "source_entity": {
             "name": "Οντότητα πηγής"
@@ -1585,7 +1585,7 @@
         }
       },
       "live_aerobic_decoupling": {
-        "name": "Τρέχουσα αερόβια αποσύζευξη",
+        "name": "Ζωντανά: αερόβια αποσύζευξη",
         "state_attributes": {
           "source_entity": {
             "name": "Οντότητα πηγής"
@@ -1727,7 +1727,7 @@
         }
       },
       "last_workout_trimp_per_hour": {
-        "name": "TRIMP ανά ώρα τελευταίας προπόνησης",
+        "name": "TRIMP ανά ώρα της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1741,7 +1741,7 @@
         }
       },
       "last_workout_mechanical_work": {
-        "name": "Μηχανικό έργο τελευταίας προπόνησης",
+        "name": "μηχανικό έργο της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1755,7 +1755,7 @@
         }
       },
       "last_workout_aerobic_efficiency": {
-        "name": "Αερόβια αποδοτικότητα τελευταίας προπόνησης",
+        "name": "αερόβια αποδοτικότητα της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1769,7 +1769,7 @@
         }
       },
       "last_workout_aerobic_decoupling": {
-        "name": "Αερόβια αποσύζευξη τελευταίας προπόνησης",
+        "name": "αερόβια αποσύζευξη της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1839,7 +1839,7 @@
         }
       },
       "last_workout_time_moderate": {
-        "name": "Χρόνος μέτριας έντασης τελευταίας προπόνησης",
+        "name": "χρόνος μέτριας έντασης της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1853,7 +1853,7 @@
         }
       },
       "last_workout_time_vigorous": {
-        "name": "Χρόνος έντονης έντασης τελευταίας προπόνησης",
+        "name": "χρόνος υψηλής έντασης της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1867,7 +1867,7 @@
         }
       },
       "last_workout_time_near_maximal": {
-        "name": "Χρόνος σχεδόν μέγιστης έντασης",
+        "name": "χρόνος σχεδόν μέγιστης έντασης της τελευταίας προπόνησης",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -1986,7 +1986,7 @@
         }
       },
       "last_workout_trimp_vs_recent": {
-        "name": "TRIMP έναντι παρόμοιων πρόσφατων προπονήσεων",
+        "name": "TRIMP έναντι συγκρίσιμων πρόσφατων προπονήσεων",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -2000,7 +2000,7 @@
         }
       },
       "last_workout_load_context": {
-        "name": "Σχετικό φορτίο προπόνησης",
+        "name": "Πλαίσιο προπονητικού φορτίου",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -2144,7 +2144,7 @@
         }
       },
       "last_sleep_time_in_bed": {
-        "name": "Χρόνος στο κρεβάτι τελευταίου ύπνου",
+        "name": "χρόνος στο κρεβάτι του τελευταίου ύπνου",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -2246,7 +2246,7 @@
         }
       },
       "last_sleep_average_hr": {
-        "name": "Μέσος καρδιακός ρυθμός ύπνου",
+        "name": "μέσος καρδιακός ρυθμός του τελευταίου ύπνου",
         "state_attributes": {
           "sources": {
             "name": "Πηγές δεδομένων"
@@ -2334,7 +2334,7 @@
         "name": "Φορτίο 7 ημερών έναντι βάσης 28 ημερών"
       },
       "hrr_60s_vs_90d": {
-        "name": "Τελευταία ανάκαμψη 60 δευτ. έναντι βάσης 90 ημερών"
+        "name": "Τελευταία αποκατάσταση καρδιακού ρυθμού 60 δ. έναντι βάσης 90 ημερών"
       },
       "sleep_duration_7d_mean": {
         "name": "Μέση διάρκεια ύπνου 7 ημερών"
@@ -2346,10 +2346,10 @@
         "name": "Τελευταίος ύπνος έναντι βάσης διάρκειας 28 ημερών"
       },
       "sleep_duration_shortfall": {
-        "name": "Έλλειμμα ύπνου έναντι ελάχιστου 7 ωρών για ενήλικες"
+        "name": "Έλλειμμα διάρκειας ύπνου έναντι ελάχιστου 7 ωρών για ενήλικες"
       },
       "sleep_midpoint_variability_14d": {
-        "name": "Μεταβλητότητα μέσου σημείου ύπνου 14 ημερών"
+        "name": "Μεταβλητότητα μέσου σημείου ύπνου (14 ημέρες)"
       },
       "sleep_hrv_7d_mean": {
         "name": "Μέσο HRV ύπνου 7 ημερών"
@@ -2488,7 +2488,7 @@
             "name": "Μέσο HRV ύπνου 28 ημερών"
           },
           "sleep_hrv_vs_28d_percent": {
-            "name": "Τελευταίο HRV ύπνου έναντι βάσης 28 ημερών"
+            "name": "Τελευταία HRV ύπνου έναντι βάσης 28 ημερών"
           },
           "resting_hr_current_bpm": {
             "name": "Τρέχοντες παλμοί ηρεμίας"
@@ -3133,6 +3133,96 @@
             "name": "Δηλώνεται πλήρης φυσιολογική αποκατάσταση"
           }
         }
+      },
+      "cycplus_device_number": {
+        "name": "Αριθμός συσκευής"
+      },
+      "cycplus_sync_state": {
+        "name": "Κατάσταση συγχρονισμού προπονήσεων",
+        "state": {
+          "idle": "Αδρανές",
+          "waiting": "Αναμονή για συσκευή",
+          "connecting": "Σύνδεση",
+          "syncing": "Συγχρονισμός",
+          "ready": "Ενημερωμένο",
+          "retrying": "Νέα προσπάθεια",
+          "error": "Σφάλμα"
+        }
+      },
+      "cycplus_last_sync": {
+        "name": "Τελευταία προσπάθεια συγχρονισμού"
+      },
+      "cycplus_last_successful_sync": {
+        "name": "Τελευταίος επιτυχής συγχρονισμός"
+      },
+      "cycplus_device_workout_count": {
+        "name": "Προπονήσεις στη συσκευή"
+      },
+      "cycplus_imported_file_count": {
+        "name": "Εισαγμένα αρχεία προπόνησης"
+      },
+      "cycplus_pending_file_count": {
+        "name": "Αρχεία προπόνησης σε αναμονή"
+      },
+      "cycplus_active_file": {
+        "name": "Ενεργή λήψη"
+      },
+      "cycplus_downloaded_bytes": {
+        "name": "Ληφθέντα byte"
+      },
+      "cycplus_retry_count": {
+        "name": "Πλήθος επαναπροσπαθειών"
+      },
+      "cycplus_disk_free_kb": {
+        "name": "Ελεύθερος χώρος συσκευής"
+      },
+      "cycplus_disk_total_kb": {
+        "name": "Συνολικός χώρος συσκευής"
+      },
+      "cycplus_last_error": {
+        "name": "Τελευταίο σφάλμα συγχρονισμού",
+        "state": {
+          "none": "Χωρίς σφάλμα",
+          "connection_failed": "Αποτυχία σύνδεσης",
+          "catalog_failed": "Αποτυχία καταλόγου προπονήσεων",
+          "transfer_interrupted": "Η μεταφορά διακόπηκε",
+          "invalid_fit": "Μη έγκυρο αρχείο FIT",
+          "import_failed": "Αποτυχία εισαγωγής προπόνησης",
+          "unknown": "Άγνωστο σφάλμα"
+        }
+      },
+      "cycplus_latest_workout": {
+        "name": "Τελευταία προπόνηση στη συσκευή"
+      },
+      "cycplus_fit_serial_number": {
+        "name": "Σειριακός αριθμός FIT"
+      },
+      "cycplus_fit_manufacturer": {
+        "name": "Κατασκευαστής FIT"
+      },
+      "cycplus_fit_product": {
+        "name": "Προϊόν FIT"
+      },
+      "cycplus_fit_hardware_version": {
+        "name": "Έκδοση υλικού FIT"
+      },
+      "cycplus_fit_software_version": {
+        "name": "Έκδοση λογισμικού FIT"
+      },
+      "cycplus_fit_battery_voltage": {
+        "name": "Τάση μπαταρίας FIT"
+      },
+      "cycplus_fit_battery_status": {
+        "name": "Κατάσταση μπαταρίας FIT",
+        "state": {
+          "new": "Νέα",
+          "good": "Καλή",
+          "ok": "Ικανοποιητική",
+          "low": "Χαμηλή",
+          "critical": "Κρίσιμη",
+          "charging": "Φορτίζεται",
+          "unknown": "Άγνωστη"
+        }
       }
     },
     "button": {
@@ -3150,6 +3240,9 @@
       },
       "regenerate_ai_evaluation": {
         "name": "Ανανέωση αξιολόγησης AI"
+      },
+      "cycplus_sync_workouts": {
+        "name": "Συγχρονισμός προπονήσεων τώρα"
       }
     },
     "select": {
@@ -3206,16 +3299,16 @@
       "name": "Προπονήσεις"
     },
     "sensors_adapters": {
-      "name": "Sensors & Adapters"
+      "name": "Αισθητήρες και προσαρμογείς"
     },
     "sensors": {
-      "name": "Sensors"
+      "name": "Αισθητήρες"
     },
     "antplus_adapter": {
-      "name": "ANT+ Adapter"
+      "name": "Προσαρμογέας ANT+"
     },
     "bluetooth_adapter": {
-      "name": "Bluetooth Adapter"
+      "name": "Προσαρμογέας Bluetooth"
     }
   },
   "issues": {
@@ -3292,6 +3385,20 @@
         "prompt": {
           "name": "Προτροπή AI",
           "description": "Η προτροπή που θα σταλεί στον πάροχο AI."
+        }
+      }
+    },
+    "delete_workouts_before": {
+      "name": "Διαγραφή παλιών προπονήσεων Fitness",
+      "description": "Διαγράφει οριστικά το αποθηκευμένο ιστορικό προπονήσεων Fitness που είναι παλαιότερο από τον επιλεγμένο αριθμό ημερών.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Προφίλ Fitness",
+          "description": "Προφίλ Fitness του οποίου θα καθαριστεί το αποθηκευμένο ιστορικό προπονήσεων."
+        },
+        "days": {
+          "name": "Ημέρες διατήρησης",
+          "description": "Διατήρησε τις προπονήσεις των πιο πρόσφατων ημερών και διέγραψε οτιδήποτε παλαιότερο."
         }
       }
     }

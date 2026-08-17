@@ -1,6 +1,6 @@
 # Workout calendar and historical workout reconciliation
 
-The unreleased Fitness development build adds a Home Assistant calendar for each Fitness profile. The calendar is a view of the same canonical workout history used by Fitness calculations; it is not a separate workout database.
+The unreleased Fitness development build adds a Home Assistant calendar for each Fitness profile. The calendar is a view of the same canonical workout history used by Fitness calculations; it is not a separate workout database. Validated completed workouts fetched directly from a supported device archive, currently the CYCPLUS M1, enter this same history.
 
 ## One physical workout, one event
 
@@ -10,10 +10,16 @@ Every completed-workout candidate enters the same normalization and reconciliati
 Fitness live/local completion ─┐
 Garmin / Strava / Polar ... ───┼─> normalize -> reconcile -> canonical history -> calendar
 Provider history APIs ─────────┤
-HA Recorder history fallback ──┘
+HA Recorder history fallback ──┤
+validated device FIT archive ──┘
 ```
 
 Fitness compares start time, compatible sport, duration, distance and end time conservatively. Multiple providers can therefore describe one physical session without producing multiple calendar events. If a later provider synchronization contains additional fields, Fitness re-runs reconciliation and enriches the existing canonical workout.
+
+For the CYCPLUS M1, Fitness imports all valid FIT sessions advertised by the
+device, then applies the profile's normal retention setting and explicit deletion
+cutoff. A deleted or retention-pruned calendar event is not recreated in violation
+of those policies merely because its device file remains present.
 
 ## Historical imports
 
@@ -22,8 +28,9 @@ Historical data is collected only from workout sources selected for the Fitness 
 Fitness uses, in order:
 
 1. completed workouts currently exposed by supported adapters;
-2. provider-specific Home Assistant history APIs/actions where the adapter has an explicit safe contract;
-3. Home Assistant Recorder history for selected completed-workout entities as a fallback.
+2. completed FIT workouts from an assigned supported local device archive;
+3. provider-specific Home Assistant history APIs/actions where the adapter has an explicit safe contract;
+4. Home Assistant Recorder history for selected completed-workout entities as a fallback.
 
 Recorder is not scanned for every heart-rate, power, cadence or general fitness sensor. This keeps historical reconstruction bounded and prevents high-frequency live sensors from becoming a historical import workload.
 

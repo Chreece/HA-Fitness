@@ -35,12 +35,12 @@
         }
       },
       "optional": {
-        "title": "Optional initial / calculable values",
-        "description": "Each field accepts a numeric value OR entity ID. Leave unknown fields empty.",
+        "title": "任意の初期値/計算可能な値",
+        "description": "各フィールドには数値またはエンティティ ID を指定できます。直接入力した値には各フィールド記載の単位が使われ、エンティティ値は unit_of_measurement から自動変換されます。不明なフィールドは空欄にしてください。",
         "data": {
           "height": "身長（cm またはエンティティ）",
           "max_hr": "最大心拍数（bpm またはエンティティ）",
-          "vo2max": "VO₂max (mL/kg/min or entity)",
+          "vo2max": "VO₂max（mL/kg/min またはエンティティ）",
           "threshold_hr": "閾値心拍数（bpm またはエンティティ）",
           "threshold_pace": "閾値ペース（min/km またはエンティティ）",
           "threshold_power": "閾値パワー（W またはエンティティ）"
@@ -62,15 +62,15 @@
           "live_device_ids": "その他のHome Assistantライブデバイス"
         },
         "data_description": {
-          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
-          "live_device_ids": "Optional Home Assistant devices exposing compatible live heart-rate, power, cadence, speed, distance or altitude entities."
+          "live_sensor_ids": "Fitness が検出した物理センサー。同じセンサーを示す ANT+ と Bluetooth の識別情報は1つのデバイスに統合され、ライブ測定では ANT+ を優先します。",
+          "live_device_ids": "対応するライブ心拍数、パワー、ケイデンス、速度、距離、高度エンティティを公開する任意の Home Assistant デバイス。"
         }
       },
       "workout_devices": {
         "title": "ワークアウト / 長期データ",
-        "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
+        "description": "Garmin Connect や Strava など、完了したワークアウトまたは長期的なフィットネス/回復データを提供するデバイスを選びます。",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data",
+          "workout_device_ids": "ワークアウト/フィットネス履歴データを提供するデバイス",
           "detailed_strength_analysis": "詳細な筋力分析",
           "workout_retention_days": "ワークアウト保持期間"
         },
@@ -84,7 +84,7 @@
         "title": "AI 解釈",
         "description": "Home Assistant のデフォルト AI Task が初期選択されます。Fitness は現在のシステム既定値を自動的に追従します。特定の AI Task または会話エージェントに固定したい場合のみ個別に選択してください。",
         "data": {
-          "ai_enabled": "Generate AI fitness assessments",
+          "ai_enabled": "AI フィットネス評価を生成",
           "ai_entity": "AI プロバイダー"
         },
         "data_description": {
@@ -94,13 +94,13 @@
       },
       "feedback": {
         "title": "コーチング、ライト、アナウンス",
-        "description": "Choose rooms and/or explicit light entities for five-second intensity color feedback. Every available color-capable light in the selected rooms is included automatically. You can also select notification entities, a TTS provider and media players for announcements.",
+        "description": "5秒間の強度カラー表示に使用する部屋や照明エンティティを選びます。選択した部屋にある利用可能なカラー対応照明は自動的に含まれます。通知エンティティ、TTS プロバイダー、アナウンス用メディアプレーヤーも選択できます。",
         "data": {
-          "feedback_light_ids": "Additional / explicit lights for intensity feedback",
+          "feedback_light_ids": "強度フィードバック用の追加/明示指定した照明",
           "notify_entity_ids": "ワークアウト通知エンティティ",
           "tts_entity_id": "TTSプロバイダー",
           "tts_media_player_ids": "スピーカー / メディアプレーヤー",
-          "feedback_area_ids": "Rooms for intensity light feedback",
+          "feedback_area_ids": "強度照明フィードバックを使う部屋",
           "periodic_live_announcements": "定期ライブワークアウト案内",
           "periodic_live_interval_minutes": "ライブ案内の間隔"
         },
@@ -125,13 +125,13 @@
         }
       },
       "assign_live_sensor": {
-        "title": "New fitness sensor discovered",
-        "description": "{sensor} was discovered. Choose every Fitness user who may use this physical sensor for live workouts.",
+        "title": "新しいフィットネスセンサーを検出",
+        "description": "{sensor} を検出しました。ライブワークアウトでこの物理センサーを使用できる Fitness ユーザーをすべて選択してください。",
         "data": {
-          "fitness_profile_ids": "Fitness users"
+          "fitness_profile_ids": "Fitness ユーザー"
         },
         "data_description": {
-          "fitness_profile_ids": "One physical sensor can be shared by multiple Fitness profiles."
+          "fitness_profile_ids": "1つの物理センサーを複数の Fitness プロフィールで共有できます。"
         }
       },
       "tv_dashboard": {
@@ -141,31 +141,31 @@
           "tv_dashboard_enabled": "Fitness TV ダッシュボードを有効化",
           "tv_dashboard_media_player_id": "TV / Cast メディアプレーヤー",
           "tv_dashboard_ducking_percent": "TTS中の音楽音量",
-          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp 音楽アダプターを有効にする（試験的）",
           "tv_dashboard_ignore_lights_when_cast_active": "TV Cast中はワークアウト照明を使用しない"
         },
         "data_description": {
           "tv_dashboard_enabled": "ワークアウト開始時にFitness TVダッシュボードを自動で全画面表示します。音楽とTTSはダッシュボード内で再生されるため、Cast画面はそのまま維持されます。",
           "tv_dashboard_media_player_id": "Fitness TVダッシュボードを表示するGoogle Castメディアプレーヤーです。Fitnessはダッシュボードの音楽やTTSをこのプレーヤーへ直接送信しません。",
           "tv_dashboard_ducking_percent": "FitnessがTTS案内を再生している間に維持する現在の音楽音量の割合です。案内終了後、元の音量へ滑らかに戻します。",
-          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp は任意の第三者製アダプターで、YouTube その他のサービスとは提携していません。法令、サービス規約、著作権を守り、必要な権利や許可を得る責任は利用者にあります。Fitness はアカウント Cookie を提供せず、回避や無断再配布を認めず、無保証で提供します。この通知は法律上の助言ではありません。",
           "tv_dashboard_ignore_lights_when_cast_active": "Fitness TV Castレシーバーが動作中は、トレーニングのフィードバックにテレビを使用し、設定済みのワークアウト照明は変更しません。"
         }
       }
     },
     "error": {
-      "invalid_date": "Enter a valid date of birth in the past.",
-      "invalid_number_or_entity": "Enter a valid numeric value or Home Assistant entity ID.",
-      "select_profile": "Select at least one Fitness user."
+      "invalid_date": "過去の有効な生年月日を入力してください。",
+      "invalid_number_or_entity": "有効な数値または Home Assistant エンティティ ID を入力してください。",
+      "select_profile": "Fitness ユーザーを1人以上選択してください。"
     },
     "abort": {
-      "already_configured": "A Fitness profile with this name already exists.",
-      "live_sensor_assigned": "The fitness sensor was assigned successfully.",
-      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
-      "no_fitness_profiles": "Create a Fitness user before assigning this sensor.",
-      "invalid_discovery": "The fitness sensor discovery data was invalid.",
-      "adapters_already_configured": "All Fitness live adapters are already configured. Enable or disable them from their adapter devices.",
-      "adapters_managed_on_devices": "Local sensor adapters are configured from the ANT+ and Bluetooth adapter devices."
+      "already_configured": "同じ名前の Fitness プロフィールがすでに存在します。",
+      "live_sensor_assigned": "フィットネスセンサーを割り当てました。",
+      "sensor_unavailable": "検出したフィットネスセンサーは利用できなくなりました。",
+      "no_fitness_profiles": "このセンサーを割り当てる前に Fitness ユーザーを作成してください。",
+      "invalid_discovery": "フィットネスセンサーの検出データが無効です。",
+      "adapters_already_configured": "Fitness ライブアダプターはすべて設定済みです。各アダプターデバイスから有効または無効にしてください。",
+      "adapters_managed_on_devices": "ローカルセンサーアダプターは ANT+ および Bluetooth アダプターデバイスから設定します。"
     }
   },
   "options": {
@@ -186,7 +186,7 @@
       },
       "profile": {
         "title": "プロフィール",
-        "description": "Edit the person's profile information.",
+        "description": "個人のプロフィール情報を編集します。",
         "data": {
           "language": "言語",
           "birth_day": "生まれた日",
@@ -210,7 +210,7 @@
           "resting_hr": "安静時心拍数（bpm またはエンティティ）",
           "height": "身長（cm またはエンティティ）",
           "max_hr": "最大心拍数（bpm またはエンティティ）",
-          "vo2max": "VO₂max (mL/kg/min or entity)",
+          "vo2max": "VO₂max（mL/kg/min またはエンティティ）",
           "threshold_hr": "閾値心拍数（bpm またはエンティティ）",
           "threshold_pace": "閾値ペース（min/km またはエンティティ）",
           "threshold_power": "閾値パワー（W またはエンティティ）"
@@ -234,15 +234,15 @@
           "live_device_ids": "その他のHome Assistantライブデバイス"
         },
         "data_description": {
-          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
-          "live_device_ids": "Optional Home Assistant devices exposing compatible live heart-rate, power, cadence, speed, distance or altitude entities."
+          "live_sensor_ids": "Fitness が検出した物理センサー。同じセンサーを示す ANT+ と Bluetooth の識別情報は1つのデバイスに統合され、ライブ測定では ANT+ を優先します。",
+          "live_device_ids": "対応するライブ心拍数、パワー、ケイデンス、速度、距離、高度エンティティを公開する任意の Home Assistant デバイス。"
         }
       },
       "workout_devices": {
         "title": "ワークアウト / 長期データ",
-        "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
+        "description": "完了したワークアウトまたは長期的なフィットネス/回復値を提供するデバイスを選びます。",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data",
+          "workout_device_ids": "ワークアウト/フィットネス履歴データを提供するデバイス",
           "detailed_strength_analysis": "詳細な筋力分析",
           "workout_retention_days": "ワークアウト保持期間"
         },
@@ -256,7 +256,7 @@
         "title": "AI 解釈",
         "description": "Home Assistant のデフォルト AI Task が初期選択されます。Fitness は現在のシステム既定値を自動的に追従します。特定の AI Task または会話エージェントに固定したい場合のみ個別に選択してください。",
         "data": {
-          "ai_enabled": "Generate AI fitness assessments",
+          "ai_enabled": "AI フィットネス評価を生成",
           "ai_entity": "AI プロバイダー"
         },
         "data_description": {
@@ -266,13 +266,13 @@
       },
       "feedback": {
         "title": "コーチング、ライト、アナウンス",
-        "description": "Choose rooms and/or explicit light entities for five-second intensity color feedback. Every available color-capable light in the selected rooms is included automatically. You can also select notification entities, a TTS provider and media players for announcements.",
+        "description": "5秒間の強度カラー表示に使用する部屋や照明エンティティを選びます。選択した部屋にある利用可能なカラー対応照明は自動的に含まれます。通知エンティティ、TTS プロバイダー、アナウンス用メディアプレーヤーも選択できます。",
         "data": {
-          "feedback_light_ids": "Additional / explicit lights for intensity feedback",
+          "feedback_light_ids": "強度フィードバック用の追加/明示指定した照明",
           "notify_entity_ids": "ワークアウト通知エンティティ",
           "tts_entity_id": "TTSプロバイダー",
           "tts_media_player_ids": "スピーカー / メディアプレーヤー",
-          "feedback_area_ids": "Rooms for intensity light feedback",
+          "feedback_area_ids": "強度照明フィードバックを使う部屋",
           "periodic_live_announcements": "定期ライブワークアウト案内",
           "periodic_live_interval_minutes": "ライブ案内の間隔"
         },
@@ -323,25 +323,25 @@
           "tv_dashboard_enabled": "Fitness TV ダッシュボードを有効化",
           "tv_dashboard_media_player_id": "TV / Cast メディアプレーヤー",
           "tv_dashboard_ducking_percent": "TTS中の音楽音量",
-          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp 音楽アダプターを有効にする（試験的）",
           "tv_dashboard_ignore_lights_when_cast_active": "TV Cast中はワークアウト照明を使用しない"
         },
         "data_description": {
           "tv_dashboard_enabled": "ワークアウト開始時にFitness TVダッシュボードを自動で全画面表示します。音楽とTTSはダッシュボード内で再生されるため、Cast画面はそのまま維持されます。",
           "tv_dashboard_media_player_id": "Fitness TVダッシュボードを表示するGoogle Castメディアプレーヤーです。Fitnessはダッシュボードの音楽やTTSをこのプレーヤーへ直接送信しません。",
           "tv_dashboard_ducking_percent": "FitnessがTTS案内を再生している間に維持する現在の音楽音量の割合です。案内終了後、元の音量へ滑らかに戻します。",
-          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp は任意の第三者製アダプターで、YouTube その他のサービスとは提携していません。法令、サービス規約、著作権を守り、必要な権利や許可を得る責任は利用者にあります。Fitness はアカウント Cookie を提供せず、回避や無断再配布を認めず、無保証で提供します。この通知は法律上の助言ではありません。",
           "tv_dashboard_ignore_lights_when_cast_active": "Fitness TV Castレシーバーが動作中は、トレーニングのフィードバックにテレビを使用し、設定済みのワークアウト照明は変更しません。"
         }
       }
     },
     "abort": {
       "no_live_sensors": "再割り当てできる承認済みのローカル Fitness センサーがありません。",
-      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
-      "no_fitness_profiles": "Create a Fitness user before assigning this sensor."
+      "sensor_unavailable": "検出したフィットネスセンサーは利用できなくなりました。",
+      "no_fitness_profiles": "このセンサーを割り当てる前に Fitness ユーザーを作成してください。"
     },
     "error": {
-      "sensor_unavailable": "The discovered fitness sensor is no longer available."
+      "sensor_unavailable": "検出したフィットネスセンサーは利用できなくなりました。"
     }
   },
   "entity": {
@@ -400,7 +400,7 @@
         }
       },
       "current_heart_rate": {
-        "name": "現在の 心拍数",
+        "name": "現在の心拍数",
         "state_attributes": {
           "source_entity": {
             "name": "ソースエンティティ"
@@ -414,7 +414,7 @@
         }
       },
       "current_power": {
-        "name": "現在の パワー",
+        "name": "現在のパワー",
         "state_attributes": {
           "source_entity": {
             "name": "ソースエンティティ"
@@ -428,7 +428,7 @@
         }
       },
       "current_cadence": {
-        "name": "現在の cadence",
+        "name": "現在のケイデンス",
         "state_attributes": {
           "source_entity": {
             "name": "ソースエンティティ"
@@ -442,7 +442,7 @@
         }
       },
       "current_speed": {
-        "name": "現在の 速度",
+        "name": "現在の速度",
         "state_attributes": {
           "source_entity": {
             "name": "ソースエンティティ"
@@ -456,7 +456,7 @@
         }
       },
       "current_distance": {
-        "name": "現在の distance",
+        "name": "現在の距離",
         "state_attributes": {
           "source_entity": {
             "name": "ソースエンティティ"
@@ -470,7 +470,7 @@
         }
       },
       "current_altitude": {
-        "name": "現在の altitude",
+        "name": "現在の高度",
         "state_attributes": {
           "source_entity": {
             "name": "ソースエンティティ"
@@ -526,7 +526,7 @@
         }
       },
       "last_workout_distance": {
-        "name": "前回のワークアウト distance",
+        "name": "前回のワークアウト：距離",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -540,7 +540,7 @@
         }
       },
       "last_workout_avg_hr": {
-        "name": "前回のワークアウト average 心拍数",
+        "name": "前回のワークアウト：平均心拍数",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -554,7 +554,7 @@
         }
       },
       "last_workout_max_hr": {
-        "name": "前回のワークアウト maximum 心拍数",
+        "name": "前回のワークアウト：最大心拍数",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -568,7 +568,7 @@
         }
       },
       "last_workout_avg_power": {
-        "name": "前回のワークアウト average パワー",
+        "name": "前回のワークアウト：平均パワー",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -582,7 +582,7 @@
         }
       },
       "last_workout_max_power": {
-        "name": "前回のワークアウト maximum パワー",
+        "name": "前回のワークアウト：最大パワー",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -596,7 +596,7 @@
         }
       },
       "last_workout_avg_cadence": {
-        "name": "前回のワークアウト average cadence",
+        "name": "前回のワークアウト：平均ケイデンス",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -610,7 +610,7 @@
         }
       },
       "last_workout_elevation_gain": {
-        "name": "前回のワークアウト elevation gain",
+        "name": "前回のワークアウト：獲得標高",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -633,7 +633,7 @@
         "name": "安静時心拍数"
       },
       "maximum_hr": {
-        "name": "最大 心拍数"
+        "name": "最大心拍数"
       },
       "heart_rate_reserve": {
         "name": "心拍予備能"
@@ -645,7 +645,7 @@
         "name": "FRIEND 予測 VO₂max"
       },
       "vo2max_percent_predicted": {
-        "name": "VO₂max percent 予測",
+        "name": "予測 VO₂max の割合",
         "state_attributes": {
           "scientific_basis": {
             "name": "科学的根拠"
@@ -665,7 +665,7 @@
         }
       },
       "cardiorespiratory_status": {
-        "name": "Cardiorespiratory fitness 状態"
+        "name": "心肺フィットネス状態"
       },
       "hrv_weekly": {
         "name": "HRV 週間平均"
@@ -677,16 +677,16 @@
         "name": "HRV 状態"
       },
       "threshold_hr": {
-        "name": "Threshold 心拍数"
+        "name": "閾値心拍数"
       },
       "threshold_pace": {
-        "name": "Threshold ペース"
+        "name": "閾値ペース"
       },
       "threshold_power": {
-        "name": "Threshold パワー"
+        "name": "閾値パワー"
       },
       "threshold_power_to_weight": {
-        "name": "Threshold パワー-to-weight"
+        "name": "閾値パワーウェイトレシオ"
       },
       "fitness_age": {
         "name": "フィットネス年齢"
@@ -695,10 +695,10 @@
         "name": "フィットネス年齢 difference"
       },
       "training_readiness_context": {
-        "name": "Training readiness コンテキスト"
+        "name": "トレーニング準備度の状況"
       },
       "sleep_score_context": {
-        "name": "睡眠 スコア コンテキスト"
+        "name": "睡眠スコアの状況"
       },
       "acute_training_load": {
         "name": "Acute トレーニング負荷"
@@ -710,7 +710,7 @@
         "name": "急性/慢性負荷比"
       },
       "provider_training_status": {
-        "name": "Provider training 状態"
+        "name": "プロバイダーのトレーニング状態"
       },
       "ai_general_evaluation": {
         "name": "AI総合評価",
@@ -747,7 +747,7 @@
         }
       },
       "heart_rate_percent_max": {
-        "name": "心拍数 % of maximum",
+        "name": "最大心拍数に対する割合",
         "state_attributes": {
           "source_entity": {
             "name": "ソースエンティティ"
@@ -843,7 +843,7 @@
         }
       },
       "heart_rate_relative_threshold": {
-        "name": "心拍数 relative to しきい値",
+        "name": "閾値に対する心拍数",
         "state_attributes": {
           "source_entity": {
             "name": "ソースエンティティ"
@@ -907,7 +907,7 @@
         }
       },
       "power_relative_threshold": {
-        "name": "パワー relative to しきい値",
+        "name": "閾値に対するパワー",
         "state_attributes": {
           "source_entity": {
             "name": "ソースエンティティ"
@@ -971,7 +971,7 @@
         }
       },
       "speed_relative_threshold": {
-        "name": "速度 relative to しきい値",
+        "name": "閾値に対する速度",
         "state_attributes": {
           "source_entity": {
             "name": "ソースエンティティ"
@@ -1017,7 +1017,7 @@
         }
       },
       "last_workout_moving_time": {
-        "name": "前回のワークアウト moving time",
+        "name": "前回のワークアウト：移動時間",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1031,7 +1031,7 @@
         }
       },
       "last_workout_elapsed_time": {
-        "name": "前回のワークアウト elapsed time",
+        "name": "前回のワークアウト：経過時間",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1045,7 +1045,7 @@
         }
       },
       "last_workout_average_speed": {
-        "name": "前回のワークアウト average 速度",
+        "name": "前回のワークアウト：平均速度",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1059,7 +1059,7 @@
         }
       },
       "last_workout_max_speed": {
-        "name": "前回のワークアウト maximum 速度",
+        "name": "前回のワークアウト：最高速度",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1073,7 +1073,7 @@
         }
       },
       "last_workout_weighted_power": {
-        "name": "前回のワークアウト weighted / normalized パワー",
+        "name": "前回のワークアウト：加重 / 正規化パワー",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1087,7 +1087,7 @@
         }
       },
       "last_workout_max_cadence": {
-        "name": "前回のワークアウト maximum cadence",
+        "name": "前回のワークアウト：最大ケイデンス",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1101,7 +1101,7 @@
         }
       },
       "last_workout_elevation_loss": {
-        "name": "前回のワークアウト elevation loss",
+        "name": "前回のワークアウト：下降標高",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1129,7 +1129,7 @@
         }
       },
       "last_workout_aerobic_effect": {
-        "name": "前回のワークアウト 有酸素 training effect",
+        "name": "前回のワークアウト：有酸素トレーニング効果",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1143,7 +1143,7 @@
         }
       },
       "last_workout_anaerobic_effect": {
-        "name": "前回のワークアウト 無酸素 training effect",
+        "name": "前回のワークアウト：無酸素トレーニング効果",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1157,7 +1157,7 @@
         }
       },
       "last_workout_training_effect": {
-        "name": "前回のワークアウト training effect",
+        "name": "前回のワークアウト：トレーニング効果",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1185,7 +1185,7 @@
         }
       },
       "last_workout_relative_effort": {
-        "name": "前回のワークアウト relative effort",
+        "name": "前回のワークアウト：相対エフォート",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1199,7 +1199,7 @@
         }
       },
       "last_workout_kilojoules": {
-        "name": "前回のワークアウト energy",
+        "name": "前回のワークアウト：エネルギー",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1213,7 +1213,7 @@
         }
       },
       "last_workout_total_reps": {
-        "name": "前回のワークアウト total reps",
+        "name": "前回のワークアウト：合計レップ数",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1227,7 +1227,7 @@
         }
       },
       "last_workout_exercise_count": {
-        "name": "前回のワークアウト exercise count",
+        "name": "前回のワークアウト：種目数",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1241,7 +1241,7 @@
         }
       },
       "last_workout_volume": {
-        "name": "前回のワークアウト training volume",
+        "name": "前回のワークアウト：トレーニング量",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1255,7 +1255,7 @@
         }
       },
       "last_workout_device": {
-        "name": "前回のワークアウト device",
+        "name": "前回のワークアウト：デバイス",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1269,7 +1269,7 @@
         }
       },
       "last_workout_gear": {
-        "name": "前回のワークアウト gear",
+        "name": "前回のワークアウト：ギア",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1283,7 +1283,7 @@
         }
       },
       "last_workout_sources": {
-        "name": "前回のワークアウト data ソース",
+        "name": "前回のワークアウト：データソース",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1297,7 +1297,7 @@
         }
       },
       "live_average_heart_rate": {
-        "name": "ライブ average 心拍数",
+        "name": "ライブ：平均心拍数",
         "state_attributes": {
           "source_entity": {
             "name": "ソースエンティティ"
@@ -1329,7 +1329,7 @@
         }
       },
       "live_maximum_heart_rate": {
-        "name": "ライブ maximum 心拍数",
+        "name": "ライブ：最大心拍数",
         "state_attributes": {
           "source_entity": {
             "name": "ソースエンティティ"
@@ -1361,7 +1361,7 @@
         }
       },
       "live_average_power": {
-        "name": "ライブ average パワー",
+        "name": "ライブ：平均パワー",
         "state_attributes": {
           "source_entity": {
             "name": "ソースエンティティ"
@@ -1393,7 +1393,7 @@
         }
       },
       "live_maximum_power": {
-        "name": "ライブ maximum パワー",
+        "name": "ライブ：最大パワー",
         "state_attributes": {
           "source_entity": {
             "name": "ソースエンティティ"
@@ -1425,7 +1425,7 @@
         }
       },
       "live_average_cadence": {
-        "name": "ライブ average cadence",
+        "name": "ライブ：平均ケイデンス",
         "state_attributes": {
           "source_entity": {
             "name": "ソースエンティティ"
@@ -1457,7 +1457,7 @@
         }
       },
       "live_average_speed": {
-        "name": "ライブ average 速度",
+        "name": "ライブ：平均速度",
         "state_attributes": {
           "source_entity": {
             "name": "ソースエンティティ"
@@ -1521,7 +1521,7 @@
         }
       },
       "live_mechanical_work": {
-        "name": "ライブ mechanical work",
+        "name": "ライブ：機械的仕事",
         "state_attributes": {
           "source_entity": {
             "name": "ソースエンティティ"
@@ -1553,7 +1553,7 @@
         }
       },
       "live_aerobic_efficiency": {
-        "name": "ライブ 有酸素 効率",
+        "name": "ライブ：有酸素効率",
         "state_attributes": {
           "source_entity": {
             "name": "ソースエンティティ"
@@ -1585,7 +1585,7 @@
         }
       },
       "live_aerobic_decoupling": {
-        "name": "ライブ 有酸素 デカップリング",
+        "name": "ライブ：有酸素デカップリング",
         "state_attributes": {
           "source_entity": {
             "name": "ソースエンティティ"
@@ -1727,7 +1727,7 @@
         }
       },
       "last_workout_trimp_per_hour": {
-        "name": "前回のワークアウト TRIMP per hour",
+        "name": "前回のワークアウト：1時間あたりの TRIMP",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1741,7 +1741,7 @@
         }
       },
       "last_workout_mechanical_work": {
-        "name": "前回のワークアウト mechanical work",
+        "name": "前回のワークアウト：機械的仕事",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1755,7 +1755,7 @@
         }
       },
       "last_workout_aerobic_efficiency": {
-        "name": "前回のワークアウト 有酸素 効率",
+        "name": "前回のワークアウト：有酸素効率",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1769,7 +1769,7 @@
         }
       },
       "last_workout_aerobic_decoupling": {
-        "name": "前回のワークアウト 有酸素 デカップリング",
+        "name": "前回のワークアウト：有酸素デカップリング",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1839,7 +1839,7 @@
         }
       },
       "last_workout_time_moderate": {
-        "name": "前回のワークアウト moderate-intensity time",
+        "name": "前回のワークアウト：中強度時間",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1853,7 +1853,7 @@
         }
       },
       "last_workout_time_vigorous": {
-        "name": "前回のワークアウト vigorous-intensity time",
+        "name": "前回のワークアウト：高強度時間",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1867,7 +1867,7 @@
         }
       },
       "last_workout_time_near_maximal": {
-        "name": "前回のワークアウト near-maximal time",
+        "name": "前回のワークアウト：最大強度付近の時間",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -1986,7 +1986,7 @@
         }
       },
       "last_workout_trimp_vs_recent": {
-        "name": "TRIMP vs comparable 最近のワークアウト",
+        "name": "最近の同等ワークアウトに対する TRIMP",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -2000,7 +2000,7 @@
         }
       },
       "last_workout_load_context": {
-        "name": "ワークアウト load コンテキスト",
+        "name": "ワークアウト負荷の状況",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -2014,7 +2014,7 @@
         }
       },
       "last_workout_personal_context": {
-        "name": "ワークアウト personal コンテキスト",
+        "name": "ワークアウトの個人状況",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -2144,7 +2144,7 @@
         }
       },
       "last_sleep_time_in_bed": {
-        "name": "前回の睡眠 time in bed",
+        "name": "前回の睡眠：就床時間",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -2246,7 +2246,7 @@
         }
       },
       "last_sleep_average_hr": {
-        "name": "前回の睡眠 average 心拍数",
+        "name": "前回の睡眠：平均心拍数",
         "state_attributes": {
           "sources": {
             "name": "データソース"
@@ -2334,7 +2334,7 @@
         "name": "7-日 トレーニング負荷 vs 28-日 ベースライン"
       },
       "hrr_60s_vs_90d": {
-        "name": "Latest 60 s 心拍回復 vs 90-日 ベースライン"
+        "name": "最新の60秒心拍回復と90日基準の比較"
       },
       "sleep_duration_7d_mean": {
         "name": "平均 睡眠 時間 (7 日)"
@@ -2346,10 +2346,10 @@
         "name": "前回の睡眠 時間 vs 28-日 ベースライン"
       },
       "sleep_duration_shortfall": {
-        "name": "睡眠 時間 shortfall vs 7 h adult minimum"
+        "name": "成人の最低7時間に対する睡眠不足"
       },
       "sleep_midpoint_variability_14d": {
-        "name": "睡眠 midpoint variability (14 日)"
+        "name": "睡眠中間時刻の変動（14日間）"
       },
       "sleep_hrv_7d_mean": {
         "name": "平均 睡眠 HRV (7 日)"
@@ -2488,7 +2488,7 @@
             "name": "平均 睡眠 HRV (28 日)"
           },
           "sleep_hrv_vs_28d_percent": {
-            "name": "Latest 睡眠 HRV vs 28-日 ベースライン"
+            "name": "最新の睡眠 HRV と28日基準の比較"
           },
           "resting_hr_current_bpm": {
             "name": "現在の 安静時心拍数"
@@ -2621,7 +2621,7 @@
             "name": "距離 (28 日)"
           },
           "last_recovery_interval_h": {
-            "name": "前回の recovery interval"
+            "name": "前回の回復間隔"
           },
           "median_recovery_interval_28d_h": {
             "name": "回復間隔の中央値 (28 日)"
@@ -2706,10 +2706,10 @@
             "name": "TRIMP vs next-睡眠 HRV (r)"
           },
           "sleep_duration_pairs": {
-            "name": "ワークアウト–睡眠 時間 pairs"
+            "name": "ワークアウト–睡眠時間のペア"
           },
           "sleep_hrv_pairs": {
-            "name": "ワークアウト–睡眠 HRV pairs"
+            "name": "ワークアウト–睡眠 HRV のペア"
           },
           "window_days": {
             "name": "分析期間"
@@ -3002,7 +3002,7 @@
             "name": "TRIMP / 7日"
           },
           "trimp_28d_weekly_equivalent": {
-            "name": "28日週換算TRIMP"
+            "name": "28日間の週換算 TRIMP"
           },
           "recent_to_baseline_load_ratio": {
             "name": "最近/基準負荷比"
@@ -3133,6 +3133,96 @@
             "name": "完全な生理学的回復を主張"
           }
         }
+      },
+      "cycplus_device_number": {
+        "name": "デバイス番号"
+      },
+      "cycplus_sync_state": {
+        "name": "ワークアウト同期状態",
+        "state": {
+          "idle": "アイドル",
+          "waiting": "デバイスを待機中",
+          "connecting": "接続中",
+          "syncing": "同期中",
+          "ready": "最新",
+          "retrying": "再試行中",
+          "error": "エラー"
+        }
+      },
+      "cycplus_last_sync": {
+        "name": "前回の同期試行"
+      },
+      "cycplus_last_successful_sync": {
+        "name": "前回の同期成功"
+      },
+      "cycplus_device_workout_count": {
+        "name": "デバイス上のワークアウト"
+      },
+      "cycplus_imported_file_count": {
+        "name": "インポート済みワークアウトファイル"
+      },
+      "cycplus_pending_file_count": {
+        "name": "保留中のワークアウトファイル"
+      },
+      "cycplus_active_file": {
+        "name": "ダウンロード中"
+      },
+      "cycplus_downloaded_bytes": {
+        "name": "ダウンロード済みバイト"
+      },
+      "cycplus_retry_count": {
+        "name": "再試行回数"
+      },
+      "cycplus_disk_free_kb": {
+        "name": "デバイスの空き容量"
+      },
+      "cycplus_disk_total_kb": {
+        "name": "デバイスの総容量"
+      },
+      "cycplus_last_error": {
+        "name": "前回の同期エラー",
+        "state": {
+          "none": "エラーなし",
+          "connection_failed": "接続に失敗",
+          "catalog_failed": "ワークアウト一覧の取得に失敗",
+          "transfer_interrupted": "転送が中断されました",
+          "invalid_fit": "無効なFITファイル",
+          "import_failed": "ワークアウトのインポートに失敗",
+          "unknown": "不明なエラー"
+        }
+      },
+      "cycplus_latest_workout": {
+        "name": "デバイス上の最新ワークアウト"
+      },
+      "cycplus_fit_serial_number": {
+        "name": "FITシリアル番号"
+      },
+      "cycplus_fit_manufacturer": {
+        "name": "FITメーカー"
+      },
+      "cycplus_fit_product": {
+        "name": "FIT製品"
+      },
+      "cycplus_fit_hardware_version": {
+        "name": "FITハードウェアバージョン"
+      },
+      "cycplus_fit_software_version": {
+        "name": "FITソフトウェアバージョン"
+      },
+      "cycplus_fit_battery_voltage": {
+        "name": "FITバッテリー電圧"
+      },
+      "cycplus_fit_battery_status": {
+        "name": "FITバッテリー状態",
+        "state": {
+          "new": "新品",
+          "good": "良好",
+          "ok": "正常",
+          "low": "低下",
+          "critical": "危険",
+          "charging": "充電中",
+          "unknown": "不明"
+        }
       }
     },
     "button": {
@@ -3150,6 +3240,9 @@
       },
       "regenerate_ai_evaluation": {
         "name": "AI評価を再生成"
+      },
+      "cycplus_sync_workouts": {
+        "name": "ワークアウトを今すぐ同期"
       }
     },
     "select": {
@@ -3206,16 +3299,16 @@
       "name": "ワークアウト"
     },
     "sensors_adapters": {
-      "name": "Sensors & Adapters"
+      "name": "センサーとアダプター"
     },
     "sensors": {
-      "name": "Sensors"
+      "name": "センサー"
     },
     "antplus_adapter": {
-      "name": "ANT+ Adapter"
+      "name": "ANT+ アダプター"
     },
     "bluetooth_adapter": {
-      "name": "Bluetooth Adapter"
+      "name": "Bluetooth アダプター"
     }
   },
   "issues": {
@@ -3292,6 +3385,20 @@
         "prompt": {
           "name": "AIプロンプト",
           "description": "AIプロバイダーに送信するプロンプト。"
+        }
+      }
+    },
+    "delete_workouts_before": {
+      "name": "古い Fitness ワークアウトを削除",
+      "description": "選択した日数より古い保存済み Fitness ワークアウト履歴を完全に削除します。",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness プロフィール",
+          "description": "保存済みワークアウト履歴を整理する Fitness プロフィール。"
+        },
+        "days": {
+          "name": "保持日数",
+          "description": "直近の指定日数のワークアウトを保持し、それより古いものを削除します。"
         }
       }
     }

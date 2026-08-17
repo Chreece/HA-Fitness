@@ -38,7 +38,7 @@ def test_ytdlp_is_a_music_adapter_and_search_returns_up_to_fifty_results():
     assert 'vol.Required("type"): "fitness/tv/music/search"' in TV
     assert 'type:"fitness/tv/music/search"' in FRONTEND
     assert 'data-source="search"' in FRONTEND
-    assert "Searching music… Some providers can take a few seconds." in FRONTEND
+    assert "l.music_search_working" in FRONTEND
 
 
 def test_ytdlp_search_results_use_real_audio_resolution_without_changing_direct_youtube_links():
@@ -70,7 +70,8 @@ def test_profile_payload_and_inline_settings_expose_ytdlp_opt_in_and_adapter_sel
     assert 'fitness/tv/music/ytdlp' in FRONTEND
     assert 'ytdlp_enabled:ytdlpEnabled' not in FRONTEND
     assert 'ytdlp_enabled:Boolean(settings.ytdlp_enabled)' not in FRONTEND
-    assert 'adapter?.id !== "yt_dlp"' in FRONTEND
+    assert 'adapter?.id !== "yt_dlp"' not in FRONTEND
+    assert 'if (ytdlpEnabled && !musicAdapters.includes("yt_dlp"))' not in FRONTEND
     assert 'music_adapters:' in FRONTEND
     assert 'data-config-music-adapter' in FRONTEND
 

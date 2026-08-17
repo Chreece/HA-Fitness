@@ -24,6 +24,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 
 from .access_control import get_fitness_access_controller
+from .live import get_live_runtime
 
 from .const import (
     CONF_TV_DASHBOARD_ENABLED,
@@ -617,6 +618,34 @@ class FitnessTVDashboardHub:
                 pass
             self._audio_owner.pop(profile_entry_id, None)
         return await self.async_preferences(profile_entry_id)
+
+    async def async_remove_profile_preferences(self, profile_entry_id: str) -> None:
+        """Remove all Fitness TV state owned by one deleted backend profile."""
+        await self.async_load()
+        profile_entry_id = str(profile_entry_id)
+        self._data.get("profiles", {}).pop(profile_entry_id, None)
+        self._clients.pop(profile_entry_id, None)
+        self._media_state.pop(profile_entry_id, None)
+        self._expected_cast.pop(profile_entry_id, None)
+        self._cast_generation.pop(profile_entry_id, None)
+        self._expected_cast_generation.pop(profile_entry_id, None)
+        self._expected_local_cast.pop(profile_entry_id, None)
+        self._local_cast_established_at.pop(profile_entry_id, None)
+        self._local_cast_accept_after.pop(profile_entry_id, None)
+        self._ignored_cast_clients.pop(profile_entry_id, None)
+        self._cast_established_at.pop(profile_entry_id, None)
+        self._cast_accept_after.pop(profile_entry_id, None)
+        watchdog = self._cast_watchdogs.pop(profile_entry_id, None)
+        if watchdog is not None and not watchdog.done():
+            watchdog.cancel()
+        unsub = self._cast_target_unsubs.pop(profile_entry_id, None)
+        if unsub is not None:
+            try:
+                unsub()
+            except Exception:
+                pass
+        self._audio_owner.pop(profile_entry_id, None)
+        await self._store.async_save(self._data)
 
     def heartbeat(self, profile_entry_id: str, client_id: str, *, is_cast_receiver: bool = False) -> None:
         now = time.monotonic()
@@ -2895,6 +2924,10 @@ async def websocket_tv_music_ytdlp(hass: HomeAssistant, connection, msg) -> None
         return
     options = dict(entry.options)
     options[CONF_TV_YTDLP_ENABLED] = enabled
+    # This UI-only option does not require rebuilding the profile manager. A
+    # normal config-entry reload briefly tears down every entity and can leave
+    # the dashboard on Home Assistant's red configuration-error card.
+    get_live_runtime(hass).suppress_entry_reload_once(entry.entry_id)
     hass.config_entries.async_update_entry(entry, options=options)
     prefs = await hub.async_preferences(profile_entry_id)
     configured = bool(prefs.get("music_adapters_configured"))

@@ -35,12 +35,12 @@
         }
       },
       "optional": {
-        "title": "Optional initial / calculable values",
-        "description": "Each field accepts a numeric value OR entity ID. Leave unknown fields empty.",
+        "title": "Необов’язкові початкові/розрахункові значення",
+        "description": "Кожне поле приймає число або ідентифікатор сутності. Прямі значення використовують зазначену для поля одиницю; значення сутностей автоматично перетворюються з їх unit_of_measurement. Невідомі поля залиште порожніми.",
         "data": {
           "height": "Зріст (см або сутність)",
           "max_hr": "Максимальний пульс (bpm або сутність)",
-          "vo2max": "VO₂max (mL/kg/min or entity)",
+          "vo2max": "МСК (мл/кг/хв або сутність)",
           "threshold_hr": "Пороговий пульс (bpm або сутність)",
           "threshold_pace": "Пороговий темп (min/km або сутність)",
           "threshold_power": "Порогова потужність (W або сутність)"
@@ -62,15 +62,15 @@
           "live_device_ids": "Інші пристрої Home Assistant для даних наживо"
         },
         "data_description": {
-          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
-          "live_device_ids": "Optional Home Assistant devices exposing compatible live heart-rate, power, cadence, speed, distance or altitude entities."
+          "live_sensor_ids": "Фізичні датчики, виявлені Fitness. Ідентифікатори ANT+ і Bluetooth об’єднуються в один пристрій, якщо стосуються одного датчика; для вимірювань наживо перевага надається ANT+.",
+          "live_device_ids": "Необов’язкові пристрої Home Assistant із сумісними сутностями пульсу, потужності, каденсу, швидкості, відстані або висоти наживо."
         }
       },
       "workout_devices": {
         "title": "Тренування / довгострокові дані",
-        "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
+        "description": "Виберіть пристрої із завершеними тренуваннями або довгостроковими даними про форму/відновлення, наприклад Garmin Connect або Strava.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data",
+          "workout_device_ids": "Пристрої з історією тренувань/фізичної форми",
           "detailed_strength_analysis": "Детальний аналіз силових тренувань",
           "workout_retention_days": "Зберігання тренувань"
         },
@@ -84,7 +84,7 @@
         "title": "Інтерпретація ШІ",
         "description": "За замовчуванням вибрано системне AI Task Home Assistant. Fitness автоматично слідує поточному системному вибору; обирайте конкретне AI Task або розмовного агента лише якщо хочете закріпити його.",
         "data": {
-          "ai_enabled": "Generate AI fitness assessments",
+          "ai_enabled": "Створювати фітнес-оцінки за допомогою ШІ",
           "ai_entity": "Постачальник ШІ"
         },
         "data_description": {
@@ -94,13 +94,13 @@
       },
       "feedback": {
         "title": "Коучинг, світло та оголошення",
-        "description": "Choose rooms and/or explicit light entities for five-second intensity color feedback. Every available color-capable light in the selected rooms is included automatically. You can also select notification entities, a TTS provider and media players for announcements.",
+        "description": "Виберіть кімнати та/або конкретні сутності світла для п’ятисекундної кольорової індикації інтенсивності. Усі доступні кольорові лампи у вибраних кімнатах додаються автоматично. Також можна вибрати сутності сповіщень, постачальника TTS і медіаплеєри для оголошень.",
         "data": {
-          "feedback_light_ids": "Additional / explicit lights for intensity feedback",
+          "feedback_light_ids": "Додаткові/явно вибрані лампи для індикації інтенсивності",
           "notify_entity_ids": "Сутності сповіщень про тренування",
           "tts_entity_id": "Провайдер TTS",
           "tts_media_player_ids": "Динаміки / медіаплеєри",
-          "feedback_area_ids": "Rooms for intensity light feedback",
+          "feedback_area_ids": "Кімнати для світлової індикації інтенсивності",
           "periodic_live_announcements": "Періодичні голосові дані тренування",
           "periodic_live_interval_minutes": "Інтервал голосових оновлень"
         },
@@ -125,13 +125,13 @@
         }
       },
       "assign_live_sensor": {
-        "title": "New fitness sensor discovered",
-        "description": "{sensor} was discovered. Choose every Fitness user who may use this physical sensor for live workouts.",
+        "title": "Виявлено новий фітнес-датчик",
+        "description": "Виявлено датчик {sensor}. Виберіть усіх користувачів Fitness, які можуть використовувати цей фізичний датчик для тренувань наживо.",
         "data": {
-          "fitness_profile_ids": "Fitness users"
+          "fitness_profile_ids": "Користувачі Fitness"
         },
         "data_description": {
-          "fitness_profile_ids": "One physical sensor can be shared by multiple Fitness profiles."
+          "fitness_profile_ids": "Один фізичний датчик можна використовувати в кількох профілях Fitness."
         }
       },
       "tv_dashboard": {
@@ -141,31 +141,31 @@
           "tv_dashboard_enabled": "Увімкнути панель Fitness TV",
           "tv_dashboard_media_player_id": "ТВ / медіаплеєр Cast",
           "tv_dashboard_ducking_percent": "Гучність музики під час TTS",
-          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ytdlp_enabled": "Увімкнути музичний адаптер yt-dlp (експериментальний)",
           "tv_dashboard_ignore_lights_when_cast_active": "Не використовувати тренувальне освітлення під час активного TV Cast"
         },
         "data_description": {
           "tv_dashboard_enabled": "Автоматично показує повноекранну панель Fitness TV на початку тренування. Музика й TTS відтворюються всередині панелі, тому представлення Cast залишається відкритим.",
           "tv_dashboard_media_player_id": "Медіаплеєр Google Cast, на якому має відображатися панель Fitness TV. Fitness не надсилає музику панелі чи TTS безпосередньо на цей медіаплеєр.",
           "tv_dashboard_ducking_percent": "Відсоток поточної гучності музики, що зберігається під час голосового повідомлення TTS. Після нього початкова гучність плавно відновлюється.",
-          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp — необов’язковий сторонній адаптер, не пов’язаний із YouTube чи іншими сервісами. Лише ви відповідаєте за дотримання законів, умов сервісів і авторських прав та отримання дозволів. Fitness не надає cookies, не дозволяє обхід обмежень чи розповсюдження і постачає адаптер без гарантій; це не юридична консультація.",
           "tv_dashboard_ignore_lights_when_cast_active": "Коли приймач Fitness TV Cast активний, використовуйте телевізор для зворотного зв’язку тренування та не змінюйте налаштоване тренувальне освітлення."
         }
       }
     },
     "error": {
-      "invalid_date": "Enter a valid date of birth in the past.",
-      "invalid_number_or_entity": "Enter a valid numeric value or Home Assistant entity ID.",
-      "select_profile": "Select at least one Fitness user."
+      "invalid_date": "Введіть коректну дату народження в минулому.",
+      "invalid_number_or_entity": "Введіть коректне число або ідентифікатор сутності Home Assistant.",
+      "select_profile": "Виберіть принаймні одного користувача Fitness."
     },
     "abort": {
-      "already_configured": "A Fitness profile with this name already exists.",
-      "live_sensor_assigned": "The fitness sensor was assigned successfully.",
-      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
-      "no_fitness_profiles": "Create a Fitness user before assigning this sensor.",
-      "invalid_discovery": "The fitness sensor discovery data was invalid.",
-      "adapters_already_configured": "All Fitness live adapters are already configured. Enable or disable them from their adapter devices.",
-      "adapters_managed_on_devices": "Local sensor adapters are configured from the ANT+ and Bluetooth adapter devices."
+      "already_configured": "Профіль Fitness із такою назвою вже існує.",
+      "live_sensor_assigned": "Фітнес-датчик успішно призначено.",
+      "sensor_unavailable": "Виявлений фітнес-датчик більше недоступний.",
+      "no_fitness_profiles": "Створіть користувача Fitness перед призначенням цього датчика.",
+      "invalid_discovery": "Дані виявлення фітнес-датчика недійсні.",
+      "adapters_already_configured": "Усі адаптери Fitness для даних наживо вже налаштовані. Вмикайте або вимикайте їх на пристроях адаптерів.",
+      "adapters_managed_on_devices": "Локальні адаптери датчиків налаштовуються на пристроях адаптерів ANT+ і Bluetooth."
     }
   },
   "options": {
@@ -186,7 +186,7 @@
       },
       "profile": {
         "title": "Профіль",
-        "description": "Edit the person's profile information.",
+        "description": "Змініть дані профілю людини.",
         "data": {
           "language": "Мова",
           "birth_day": "День народження",
@@ -210,7 +210,7 @@
           "resting_hr": "Пульс у спокої (bpm або сутність)",
           "height": "Зріст (см або сутність)",
           "max_hr": "Максимальний пульс (bpm або сутність)",
-          "vo2max": "VO₂max (mL/kg/min or entity)",
+          "vo2max": "МСК (мл/кг/хв або сутність)",
           "threshold_hr": "Пороговий пульс (bpm або сутність)",
           "threshold_pace": "Пороговий темп (min/km або сутність)",
           "threshold_power": "Порогова потужність (W або сутність)"
@@ -234,15 +234,15 @@
           "live_device_ids": "Інші пристрої Home Assistant для даних наживо"
         },
         "data_description": {
-          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
-          "live_device_ids": "Optional Home Assistant devices exposing compatible live heart-rate, power, cadence, speed, distance or altitude entities."
+          "live_sensor_ids": "Фізичні датчики, виявлені Fitness. Ідентифікатори ANT+ і Bluetooth об’єднуються в один пристрій, якщо стосуються одного датчика; для вимірювань наживо перевага надається ANT+.",
+          "live_device_ids": "Необов’язкові пристрої Home Assistant із сумісними сутностями пульсу, потужності, каденсу, швидкості, відстані або висоти наживо."
         }
       },
       "workout_devices": {
         "title": "Тренування / довгострокові дані",
-        "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
+        "description": "Виберіть пристрої із завершеними тренуваннями або довгостроковими показниками форми/відновлення.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data",
+          "workout_device_ids": "Пристрої з історією тренувань/фізичної форми",
           "detailed_strength_analysis": "Детальний аналіз силових тренувань",
           "workout_retention_days": "Зберігання тренувань"
         },
@@ -256,7 +256,7 @@
         "title": "Інтерпретація ШІ",
         "description": "За замовчуванням вибрано системне AI Task Home Assistant. Fitness автоматично слідує поточному системному вибору; обирайте конкретне AI Task або розмовного агента лише якщо хочете закріпити його.",
         "data": {
-          "ai_enabled": "Generate AI fitness assessments",
+          "ai_enabled": "Створювати фітнес-оцінки за допомогою ШІ",
           "ai_entity": "Постачальник ШІ"
         },
         "data_description": {
@@ -266,13 +266,13 @@
       },
       "feedback": {
         "title": "Коучинг, світло та оголошення",
-        "description": "Choose rooms and/or explicit light entities for five-second intensity color feedback. Every available color-capable light in the selected rooms is included automatically. You can also select notification entities, a TTS provider and media players for announcements.",
+        "description": "Виберіть кімнати та/або конкретні сутності світла для п’ятисекундної кольорової індикації інтенсивності. Усі доступні кольорові лампи у вибраних кімнатах додаються автоматично. Також можна вибрати сутності сповіщень, постачальника TTS і медіаплеєри для оголошень.",
         "data": {
-          "feedback_light_ids": "Additional / explicit lights for intensity feedback",
+          "feedback_light_ids": "Додаткові/явно вибрані лампи для індикації інтенсивності",
           "notify_entity_ids": "Сутності сповіщень про тренування",
           "tts_entity_id": "Провайдер TTS",
           "tts_media_player_ids": "Динаміки / медіаплеєри",
-          "feedback_area_ids": "Rooms for intensity light feedback",
+          "feedback_area_ids": "Кімнати для світлової індикації інтенсивності",
           "periodic_live_announcements": "Періодичні голосові дані тренування",
           "periodic_live_interval_minutes": "Інтервал голосових оновлень"
         },
@@ -323,25 +323,25 @@
           "tv_dashboard_enabled": "Увімкнути панель Fitness TV",
           "tv_dashboard_media_player_id": "ТВ / медіаплеєр Cast",
           "tv_dashboard_ducking_percent": "Гучність музики під час TTS",
-          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ytdlp_enabled": "Увімкнути музичний адаптер yt-dlp (експериментальний)",
           "tv_dashboard_ignore_lights_when_cast_active": "Не використовувати тренувальне освітлення під час активного TV Cast"
         },
         "data_description": {
           "tv_dashboard_enabled": "Автоматично показує повноекранну панель Fitness TV на початку тренування. Музика й TTS відтворюються всередині панелі, тому представлення Cast залишається відкритим.",
           "tv_dashboard_media_player_id": "Медіаплеєр Google Cast, на якому має відображатися панель Fitness TV. Fitness не надсилає музику панелі чи TTS безпосередньо на цей медіаплеєр.",
           "tv_dashboard_ducking_percent": "Відсоток поточної гучності музики, що зберігається під час голосового повідомлення TTS. Після нього початкова гучність плавно відновлюється.",
-          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp — необов’язковий сторонній адаптер, не пов’язаний із YouTube чи іншими сервісами. Лише ви відповідаєте за дотримання законів, умов сервісів і авторських прав та отримання дозволів. Fitness не надає cookies, не дозволяє обхід обмежень чи розповсюдження і постачає адаптер без гарантій; це не юридична консультація.",
           "tv_dashboard_ignore_lights_when_cast_active": "Коли приймач Fitness TV Cast активний, використовуйте телевізор для зворотного зв’язку тренування та не змінюйте налаштоване тренувальне освітлення."
         }
       }
     },
     "abort": {
       "no_live_sensors": "Немає прийнятих локальних датчиків Fitness, доступних для перепризначення.",
-      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
-      "no_fitness_profiles": "Create a Fitness user before assigning this sensor."
+      "sensor_unavailable": "Виявлений фітнес-датчик більше недоступний.",
+      "no_fitness_profiles": "Створіть користувача Fitness перед призначенням цього датчика."
     },
     "error": {
-      "sensor_unavailable": "The discovered fitness sensor is no longer available."
+      "sensor_unavailable": "Виявлений фітнес-датчик більше недоступний."
     }
   },
   "entity": {
@@ -400,7 +400,7 @@
         }
       },
       "current_heart_rate": {
-        "name": "Поточний частота пульсу",
+        "name": "Поточний пульс",
         "state_attributes": {
           "source_entity": {
             "name": "Вихідна сутність"
@@ -414,7 +414,7 @@
         }
       },
       "current_power": {
-        "name": "Поточний потужність",
+        "name": "Поточна потужність",
         "state_attributes": {
           "source_entity": {
             "name": "Вихідна сутність"
@@ -428,7 +428,7 @@
         }
       },
       "current_cadence": {
-        "name": "Поточний cadence",
+        "name": "Поточний каденс",
         "state_attributes": {
           "source_entity": {
             "name": "Вихідна сутність"
@@ -442,7 +442,7 @@
         }
       },
       "current_speed": {
-        "name": "Поточний швидкість",
+        "name": "Поточна швидкість",
         "state_attributes": {
           "source_entity": {
             "name": "Вихідна сутність"
@@ -456,7 +456,7 @@
         }
       },
       "current_distance": {
-        "name": "Поточний distance",
+        "name": "Поточна дистанція",
         "state_attributes": {
           "source_entity": {
             "name": "Вихідна сутність"
@@ -470,7 +470,7 @@
         }
       },
       "current_altitude": {
-        "name": "Поточний altitude",
+        "name": "Поточна висота",
         "state_attributes": {
           "source_entity": {
             "name": "Вихідна сутність"
@@ -526,7 +526,7 @@
         }
       },
       "last_workout_distance": {
-        "name": "Останнє тренування distance",
+        "name": "дистанція останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -540,7 +540,7 @@
         }
       },
       "last_workout_avg_hr": {
-        "name": "Останнє тренування average частота пульсу",
+        "name": "середній пульс останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -554,7 +554,7 @@
         }
       },
       "last_workout_max_hr": {
-        "name": "Останнє тренування maximum частота пульсу",
+        "name": "максимальний пульс останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -568,7 +568,7 @@
         }
       },
       "last_workout_avg_power": {
-        "name": "Останнє тренування average потужність",
+        "name": "середня потужність останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -582,7 +582,7 @@
         }
       },
       "last_workout_max_power": {
-        "name": "Останнє тренування maximum потужність",
+        "name": "максимальна потужність останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -596,7 +596,7 @@
         }
       },
       "last_workout_avg_cadence": {
-        "name": "Останнє тренування average cadence",
+        "name": "середній каденс останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -610,7 +610,7 @@
         }
       },
       "last_workout_elevation_gain": {
-        "name": "Останнє тренування elevation gain",
+        "name": "набір висоти останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -633,7 +633,7 @@
         "name": "Пульс у спокої"
       },
       "maximum_hr": {
-        "name": "Максимальний частота пульсу"
+        "name": "Максимальний пульс"
       },
       "heart_rate_reserve": {
         "name": "Резерв ЧСС"
@@ -645,7 +645,7 @@
         "name": "FRIEND прогнозований VO₂max"
       },
       "vo2max_percent_predicted": {
-        "name": "VO₂max percent прогнозований",
+        "name": "Прогнозований відсоток МСК",
         "state_attributes": {
           "scientific_basis": {
             "name": "Наукова основа"
@@ -665,7 +665,7 @@
         }
       },
       "cardiorespiratory_status": {
-        "name": "Cardiorespiratory fitness стан"
+        "name": "Стан кардіореспіраторної форми"
       },
       "hrv_weekly": {
         "name": "HRV середнє за тиждень"
@@ -677,16 +677,16 @@
         "name": "HRV стан"
       },
       "threshold_hr": {
-        "name": "Threshold частота пульсу"
+        "name": "Пороговий пульс"
       },
       "threshold_pace": {
-        "name": "Threshold темп"
+        "name": "Пороговий темп"
       },
       "threshold_power": {
-        "name": "Threshold потужність"
+        "name": "Порогова потужність"
       },
       "threshold_power_to_weight": {
-        "name": "Threshold потужність-to-weight"
+        "name": "Порогова питома потужність"
       },
       "fitness_age": {
         "name": "Фітнес-вік"
@@ -695,10 +695,10 @@
         "name": "Фітнес-вік difference"
       },
       "training_readiness_context": {
-        "name": "Training readiness контекст"
+        "name": "Контекст готовності до тренування"
       },
       "sleep_score_context": {
-        "name": "Сон оцінка контекст"
+        "name": "Контекст оцінки сну"
       },
       "acute_training_load": {
         "name": "Acute тренувальне навантаження"
@@ -710,7 +710,7 @@
         "name": "Співвідношення гострого/хронічного навантаження"
       },
       "provider_training_status": {
-        "name": "Provider training стан"
+        "name": "Статус тренування від постачальника"
       },
       "ai_general_evaluation": {
         "name": "Загальна оцінка ШІ",
@@ -747,7 +747,7 @@
         }
       },
       "heart_rate_percent_max": {
-        "name": "Частота пульсу % of maximum",
+        "name": "Пульс у % від максимуму",
         "state_attributes": {
           "source_entity": {
             "name": "Вихідна сутність"
@@ -843,7 +843,7 @@
         }
       },
       "heart_rate_relative_threshold": {
-        "name": "Частота пульсу relative to поріг",
+        "name": "Пульс відносно порога",
         "state_attributes": {
           "source_entity": {
             "name": "Вихідна сутність"
@@ -907,7 +907,7 @@
         }
       },
       "power_relative_threshold": {
-        "name": "Потужність relative to поріг",
+        "name": "Потужність відносно порога",
         "state_attributes": {
           "source_entity": {
             "name": "Вихідна сутність"
@@ -971,7 +971,7 @@
         }
       },
       "speed_relative_threshold": {
-        "name": "Швидкість relative to поріг",
+        "name": "Швидкість відносно порога",
         "state_attributes": {
           "source_entity": {
             "name": "Вихідна сутність"
@@ -1017,7 +1017,7 @@
         }
       },
       "last_workout_moving_time": {
-        "name": "Останнє тренування moving time",
+        "name": "час у русі останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1031,7 +1031,7 @@
         }
       },
       "last_workout_elapsed_time": {
-        "name": "Останнє тренування elapsed time",
+        "name": "загальний час останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1045,7 +1045,7 @@
         }
       },
       "last_workout_average_speed": {
-        "name": "Останнє тренування average швидкість",
+        "name": "середня швидкість останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1059,7 +1059,7 @@
         }
       },
       "last_workout_max_speed": {
-        "name": "Останнє тренування maximum швидкість",
+        "name": "максимальна швидкість останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1073,7 +1073,7 @@
         }
       },
       "last_workout_weighted_power": {
-        "name": "Останнє тренування weighted / normalized потужність",
+        "name": "зважена / нормалізована потужність останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1087,7 +1087,7 @@
         }
       },
       "last_workout_max_cadence": {
-        "name": "Останнє тренування maximum cadence",
+        "name": "максимальний каденс останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1101,7 +1101,7 @@
         }
       },
       "last_workout_elevation_loss": {
-        "name": "Останнє тренування elevation loss",
+        "name": "втрата висоти останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1129,7 +1129,7 @@
         }
       },
       "last_workout_aerobic_effect": {
-        "name": "Останнє тренування аеробний training effect",
+        "name": "аеробний ефект тренування останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1143,7 +1143,7 @@
         }
       },
       "last_workout_anaerobic_effect": {
-        "name": "Останнє тренування анаеробний training effect",
+        "name": "анаеробний ефект тренування останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1157,7 +1157,7 @@
         }
       },
       "last_workout_training_effect": {
-        "name": "Останнє тренування training effect",
+        "name": "ефект тренування останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1185,7 +1185,7 @@
         }
       },
       "last_workout_relative_effort": {
-        "name": "Останнє тренування relative effort",
+        "name": "відносне навантаження останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1199,7 +1199,7 @@
         }
       },
       "last_workout_kilojoules": {
-        "name": "Останнє тренування energy",
+        "name": "енергія останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1213,7 +1213,7 @@
         }
       },
       "last_workout_total_reps": {
-        "name": "Останнє тренування total reps",
+        "name": "усього повторень останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1227,7 +1227,7 @@
         }
       },
       "last_workout_exercise_count": {
-        "name": "Останнє тренування exercise count",
+        "name": "кількість вправ останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1241,7 +1241,7 @@
         }
       },
       "last_workout_volume": {
-        "name": "Останнє тренування training volume",
+        "name": "тренувальний обсяг останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1255,7 +1255,7 @@
         }
       },
       "last_workout_device": {
-        "name": "Останнє тренування device",
+        "name": "пристрій останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1269,7 +1269,7 @@
         }
       },
       "last_workout_gear": {
-        "name": "Останнє тренування gear",
+        "name": "спорядження останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1283,7 +1283,7 @@
         }
       },
       "last_workout_sources": {
-        "name": "Останнє тренування data джерела",
+        "name": "джерела даних останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1297,7 +1297,7 @@
         }
       },
       "live_average_heart_rate": {
-        "name": "Наживо average частота пульсу",
+        "name": "Наживо: середній пульс",
         "state_attributes": {
           "source_entity": {
             "name": "Вихідна сутність"
@@ -1329,7 +1329,7 @@
         }
       },
       "live_maximum_heart_rate": {
-        "name": "Наживо maximum частота пульсу",
+        "name": "Наживо: максимальний пульс",
         "state_attributes": {
           "source_entity": {
             "name": "Вихідна сутність"
@@ -1361,7 +1361,7 @@
         }
       },
       "live_average_power": {
-        "name": "Наживо average потужність",
+        "name": "Наживо: середня потужність",
         "state_attributes": {
           "source_entity": {
             "name": "Вихідна сутність"
@@ -1393,7 +1393,7 @@
         }
       },
       "live_maximum_power": {
-        "name": "Наживо maximum потужність",
+        "name": "Наживо: максимальна потужність",
         "state_attributes": {
           "source_entity": {
             "name": "Вихідна сутність"
@@ -1425,7 +1425,7 @@
         }
       },
       "live_average_cadence": {
-        "name": "Наживо average cadence",
+        "name": "Наживо: середній каденс",
         "state_attributes": {
           "source_entity": {
             "name": "Вихідна сутність"
@@ -1457,7 +1457,7 @@
         }
       },
       "live_average_speed": {
-        "name": "Наживо average швидкість",
+        "name": "Наживо: середня швидкість",
         "state_attributes": {
           "source_entity": {
             "name": "Вихідна сутність"
@@ -1489,7 +1489,7 @@
         }
       },
       "live_banister_trimp": {
-        "name": "Наживо Banister TRIMP",
+        "name": "Banister TRIMP наживо",
         "state_attributes": {
           "source_entity": {
             "name": "Вихідна сутність"
@@ -1521,7 +1521,7 @@
         }
       },
       "live_mechanical_work": {
-        "name": "Наживо mechanical work",
+        "name": "Наживо: механічна робота",
         "state_attributes": {
           "source_entity": {
             "name": "Вихідна сутність"
@@ -1553,7 +1553,7 @@
         }
       },
       "live_aerobic_efficiency": {
-        "name": "Наживо аеробний ефективність",
+        "name": "Наживо: аеробна ефективність",
         "state_attributes": {
           "source_entity": {
             "name": "Вихідна сутність"
@@ -1585,7 +1585,7 @@
         }
       },
       "live_aerobic_decoupling": {
-        "name": "Наживо аеробний роз’єднання",
+        "name": "Наживо: аеробне розузгодження",
         "state_attributes": {
           "source_entity": {
             "name": "Вихідна сутність"
@@ -1727,7 +1727,7 @@
         }
       },
       "last_workout_trimp_per_hour": {
-        "name": "Останнє тренування TRIMP per hour",
+        "name": "TRIMP за годину останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1741,7 +1741,7 @@
         }
       },
       "last_workout_mechanical_work": {
-        "name": "Останнє тренування mechanical work",
+        "name": "механічна робота останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1755,7 +1755,7 @@
         }
       },
       "last_workout_aerobic_efficiency": {
-        "name": "Останнє тренування аеробний ефективність",
+        "name": "аеробна ефективність останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1769,7 +1769,7 @@
         }
       },
       "last_workout_aerobic_decoupling": {
-        "name": "Останнє тренування аеробний роз’єднання",
+        "name": "аеробне розузгодження останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1839,7 +1839,7 @@
         }
       },
       "last_workout_time_moderate": {
-        "name": "Останнє тренування moderate-intensity time",
+        "name": "час помірної інтенсивності останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1853,7 +1853,7 @@
         }
       },
       "last_workout_time_vigorous": {
-        "name": "Останнє тренування vigorous-intensity time",
+        "name": "час високої інтенсивності останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1867,7 +1867,7 @@
         }
       },
       "last_workout_time_near_maximal": {
-        "name": "Останнє тренування near-maximal time",
+        "name": "час майже максимальної інтенсивності останнього тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -1986,7 +1986,7 @@
         }
       },
       "last_workout_trimp_vs_recent": {
-        "name": "TRIMP vs comparable недавні тренування",
+        "name": "TRIMP відносно порівнюваних останніх тренувань",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -2000,7 +2000,7 @@
         }
       },
       "last_workout_load_context": {
-        "name": "Тренування load контекст",
+        "name": "Контекст тренувального навантаження",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -2014,7 +2014,7 @@
         }
       },
       "last_workout_personal_context": {
-        "name": "Тренування personal контекст",
+        "name": "Особистий контекст тренування",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -2144,7 +2144,7 @@
         }
       },
       "last_sleep_time_in_bed": {
-        "name": "Останній сон time in bed",
+        "name": "час у ліжку останнього сну",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -2246,7 +2246,7 @@
         }
       },
       "last_sleep_average_hr": {
-        "name": "Останній сон average частота пульсу",
+        "name": "середній пульс останнього сну",
         "state_attributes": {
           "sources": {
             "name": "Джерела даних"
@@ -2334,7 +2334,7 @@
         "name": "7-день тренувальне навантаження vs 28-день базовий рівень"
       },
       "hrr_60s_vs_90d": {
-        "name": "Latest 60 s відновлення ЧСС vs 90-день базовий рівень"
+        "name": "Останнє відновлення пульсу за 60 с відносно бази за 90 днів"
       },
       "sleep_duration_7d_mean": {
         "name": "Середнє сон тривалість (7 днів)"
@@ -2346,10 +2346,10 @@
         "name": "Останній сон тривалість vs 28-день базовий рівень"
       },
       "sleep_duration_shortfall": {
-        "name": "Сон тривалість shortfall vs 7 h adult minimum"
+        "name": "Дефіцит сну відносно мінімуму 7 год для дорослих"
       },
       "sleep_midpoint_variability_14d": {
-        "name": "Сон midpoint variability (14 днів)"
+        "name": "Варіабельність середини сну (14 днів)"
       },
       "sleep_hrv_7d_mean": {
         "name": "Середнє сон HRV (7 днів)"
@@ -2488,7 +2488,7 @@
             "name": "Середнє сон HRV (28 днів)"
           },
           "sleep_hrv_vs_28d_percent": {
-            "name": "Latest сон HRV vs 28-день базовий рівень"
+            "name": "Остання ВСР сну відносно бази за 28 днів"
           },
           "resting_hr_current_bpm": {
             "name": "Поточний пульс у спокої"
@@ -2621,7 +2621,7 @@
             "name": "Відстань (28 днів)"
           },
           "last_recovery_interval_h": {
-            "name": "Останній recovery interval"
+            "name": "Останній інтервал відновлення"
           },
           "median_recovery_interval_28d_h": {
             "name": "Медіанний інтервал відновлення (28 днів)"
@@ -2706,10 +2706,10 @@
             "name": "TRIMP vs next-сон HRV (r)"
           },
           "sleep_duration_pairs": {
-            "name": "Тренування–сон тривалість pairs"
+            "name": "Пари тренування–тривалість сну"
           },
           "sleep_hrv_pairs": {
-            "name": "Тренування–сон HRV pairs"
+            "name": "Пари тренування–ВСР сну"
           },
           "window_days": {
             "name": "Вікно аналізу"
@@ -3133,6 +3133,96 @@
             "name": "Заявлено повне фізіологічне відновлення"
           }
         }
+      },
+      "cycplus_device_number": {
+        "name": "Номер пристрою"
+      },
+      "cycplus_sync_state": {
+        "name": "Стан синхронізації тренувань",
+        "state": {
+          "idle": "Неактивно",
+          "waiting": "Очікування пристрою",
+          "connecting": "Підключення",
+          "syncing": "Синхронізація",
+          "ready": "Актуально",
+          "retrying": "Повторна спроба",
+          "error": "Помилка"
+        }
+      },
+      "cycplus_last_sync": {
+        "name": "Остання спроба синхронізації"
+      },
+      "cycplus_last_successful_sync": {
+        "name": "Остання успішна синхронізація"
+      },
+      "cycplus_device_workout_count": {
+        "name": "Тренування на пристрої"
+      },
+      "cycplus_imported_file_count": {
+        "name": "Імпортовані файли тренувань"
+      },
+      "cycplus_pending_file_count": {
+        "name": "Файли тренувань в очікуванні"
+      },
+      "cycplus_active_file": {
+        "name": "Активне завантаження"
+      },
+      "cycplus_downloaded_bytes": {
+        "name": "Завантажено байтів"
+      },
+      "cycplus_retry_count": {
+        "name": "Кількість повторів"
+      },
+      "cycplus_disk_free_kb": {
+        "name": "Вільна пам’ять пристрою"
+      },
+      "cycplus_disk_total_kb": {
+        "name": "Загальна пам’ять пристрою"
+      },
+      "cycplus_last_error": {
+        "name": "Остання помилка синхронізації",
+        "state": {
+          "none": "Помилок немає",
+          "connection_failed": "Не вдалося підключитися",
+          "catalog_failed": "Помилка каталогу тренувань",
+          "transfer_interrupted": "Передавання перервано",
+          "invalid_fit": "Недійсний файл FIT",
+          "import_failed": "Не вдалося імпортувати тренування",
+          "unknown": "Невідома помилка"
+        }
+      },
+      "cycplus_latest_workout": {
+        "name": "Останнє тренування на пристрої"
+      },
+      "cycplus_fit_serial_number": {
+        "name": "Серійний номер FIT"
+      },
+      "cycplus_fit_manufacturer": {
+        "name": "Виробник FIT"
+      },
+      "cycplus_fit_product": {
+        "name": "Продукт FIT"
+      },
+      "cycplus_fit_hardware_version": {
+        "name": "Версія обладнання FIT"
+      },
+      "cycplus_fit_software_version": {
+        "name": "Версія ПЗ FIT"
+      },
+      "cycplus_fit_battery_voltage": {
+        "name": "Напруга батареї FIT"
+      },
+      "cycplus_fit_battery_status": {
+        "name": "Стан батареї FIT",
+        "state": {
+          "new": "Нова",
+          "good": "Добра",
+          "ok": "Нормальна",
+          "low": "Низький заряд",
+          "critical": "Критичний заряд",
+          "charging": "Заряджається",
+          "unknown": "Невідомо"
+        }
       }
     },
     "button": {
@@ -3150,6 +3240,9 @@
       },
       "regenerate_ai_evaluation": {
         "name": "Оновити оцінку ШІ"
+      },
+      "cycplus_sync_workouts": {
+        "name": "Синхронізувати тренування зараз"
       }
     },
     "select": {
@@ -3206,16 +3299,16 @@
       "name": "Тренування"
     },
     "sensors_adapters": {
-      "name": "Sensors & Adapters"
+      "name": "Датчики й адаптери"
     },
     "sensors": {
-      "name": "Sensors"
+      "name": "Датчики"
     },
     "antplus_adapter": {
-      "name": "ANT+ Adapter"
+      "name": "Адаптер ANT+"
     },
     "bluetooth_adapter": {
-      "name": "Bluetooth Adapter"
+      "name": "Адаптер Bluetooth"
     }
   },
   "issues": {
@@ -3292,6 +3385,20 @@
         "prompt": {
           "name": "AI-запит",
           "description": "Запит для AI-провайдера."
+        }
+      }
+    },
+    "delete_workouts_before": {
+      "name": "Видалити старі тренування Fitness",
+      "description": "Назавжди видаляє збережену історію тренувань Fitness, старішу за вибрану кількість днів.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Профіль Fitness",
+          "description": "Профіль Fitness, для якого потрібно очистити збережену історію тренувань."
+        },
+        "days": {
+          "name": "Днів зберігання",
+          "description": "Зберегти тренування за вказану кількість останніх днів, а старіші видалити."
         }
       }
     }

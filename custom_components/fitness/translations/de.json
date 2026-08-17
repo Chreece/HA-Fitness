@@ -35,12 +35,12 @@
         }
       },
       "optional": {
-        "title": "Optional initial / calculable values",
-        "description": "Each field accepts a numeric value OR entity ID. Leave unknown fields empty.",
+        "title": "Optionale Anfangs-/berechenbare Werte",
+        "description": "Jedes Feld akzeptiert einen Zahlenwert oder eine Entitäts-ID. Direkte Werte verwenden die dokumentierte Einheit des Feldes; Entitätswerte werden automatisch aus ihrem unit_of_measurement umgerechnet. Unbekannte Felder leer lassen.",
         "data": {
           "height": "Größe (cm oder Entität)",
           "max_hr": "Maximalpuls (bpm oder Entität)",
-          "vo2max": "VO₂max (mL/kg/min or entity)",
+          "vo2max": "VO₂max (mL/kg/min oder Entität)",
           "threshold_hr": "Schwellenpuls (bpm oder Entität)",
           "threshold_pace": "Schwellentempo (min/km oder Entität)",
           "threshold_power": "Schwellenleistung (W oder Entität)"
@@ -62,15 +62,15 @@
           "live_device_ids": "Andere Home-Assistant-Live-Geräte"
         },
         "data_description": {
-          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
-          "live_device_ids": "Optional Home Assistant devices exposing compatible live heart-rate, power, cadence, speed, distance or altitude entities."
+          "live_sensor_ids": "Von Fitness erkannte physische Sensoren. ANT+- und Bluetooth-Identitäten werden zu einem Gerät zusammengeführt, wenn sie denselben Sensor bezeichnen; für Live-Messungen wird ANT+ bevorzugt.",
+          "live_device_ids": "Optionale Home-Assistant-Geräte mit kompatiblen Live-Entitäten für Herzfrequenz, Leistung, Kadenz, Geschwindigkeit, Distanz oder Höhe."
         }
       },
       "workout_devices": {
         "title": "Training / Langzeitdaten",
-        "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
+        "description": "Wähle Geräte mit abgeschlossenen Trainings oder langfristigen Fitness-/Erholungsdaten, etwa Garmin Connect oder Strava.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data",
+          "workout_device_ids": "Geräte mit Trainings-/Fitnessverlaufsdaten",
           "detailed_strength_analysis": "Detaillierte Kraftanalyse",
           "workout_retention_days": "Workout-Aufbewahrung"
         },
@@ -84,7 +84,7 @@
         "title": "KI-Interpretation",
         "description": "Standardmäßig ist die Standard-AI-Task von Home Assistant ausgewählt. Fitness folgt automatisch der aktuellen Systemvorgabe; wähle nur dann eine bestimmte AI-Task oder einen Conversation-Agenten, wenn du ihn fest zuordnen möchtest.",
         "data": {
-          "ai_enabled": "Generate AI fitness assessments",
+          "ai_enabled": "KI-Fitnessbewertungen erstellen",
           "ai_entity": "AI-Anbieter"
         },
         "data_description": {
@@ -94,13 +94,13 @@
       },
       "feedback": {
         "title": "Coaching, Lichter und Ansagen",
-        "description": "Wähle Räume und/oder konkrete Licht-Entitäten für fünf Sekunden Farbrückmeldung zur Intensität. Alle verfügbaren farbfähigen Lichter in den ausgewählten Räumen werden automatisch einbezogen. Zusätzlich können Benachrichtigungen, TTS und Media Player gewählt werden.",
+        "description": "Wähle Räume und/oder bestimmte Lichtentitäten für fünfsekündiges farbiges Intensitätsfeedback. Alle verfügbaren farbfähigen Lichter in den gewählten Räumen werden automatisch einbezogen. Zusätzlich kannst du Benachrichtigungsentitäten, einen TTS-Anbieter und Mediaplayer für Ansagen auswählen.",
         "data": {
-          "feedback_light_ids": "Zusätzliche / konkrete Lichter",
+          "feedback_light_ids": "Zusätzliche/ausdrückliche Lichter für Intensitätsfeedback",
           "notify_entity_ids": "Benachrichtigungs-Entitäten für Trainings",
           "tts_entity_id": "TTS-Anbieter",
           "tts_media_player_ids": "Lautsprecher / Media Player für Ansagen",
-          "feedback_area_ids": "Räume für Intensitäts-Farbrückmeldung",
+          "feedback_area_ids": "Räume für intensitätsabhängiges Lichtfeedback",
           "periodic_live_announcements": "Regelmäßige Live-Trainingsansagen",
           "periodic_live_interval_minutes": "Intervall der Live-Ansagen"
         },
@@ -125,13 +125,13 @@
         }
       },
       "assign_live_sensor": {
-        "title": "New fitness sensor discovered",
-        "description": "{sensor} was discovered. Choose every Fitness user who may use this physical sensor for live workouts.",
+        "title": "Neuer Fitness-Sensor erkannt",
+        "description": "{sensor} wurde erkannt. Wähle alle Fitness-Benutzer aus, die diesen physischen Sensor für Live-Trainings verwenden dürfen.",
         "data": {
-          "fitness_profile_ids": "Fitness users"
+          "fitness_profile_ids": "Fitness-Benutzer"
         },
         "data_description": {
-          "fitness_profile_ids": "One physical sensor can be shared by multiple Fitness profiles."
+          "fitness_profile_ids": "Ein physischer Sensor kann von mehreren Fitness-Profilen gemeinsam genutzt werden."
         }
       },
       "tv_dashboard": {
@@ -154,18 +154,18 @@
       }
     },
     "error": {
-      "invalid_date": "Enter a valid date of birth in the past.",
-      "invalid_number_or_entity": "Enter a valid numeric value or Home Assistant entity ID.",
-      "select_profile": "Select at least one Fitness user."
+      "invalid_date": "Gib ein gültiges Geburtsdatum in der Vergangenheit ein.",
+      "invalid_number_or_entity": "Gib einen gültigen Zahlenwert oder eine Home-Assistant-Entitäts-ID ein.",
+      "select_profile": "Wähle mindestens einen Fitness-Benutzer aus."
     },
     "abort": {
-      "already_configured": "A Fitness profile with this name already exists.",
-      "live_sensor_assigned": "The fitness sensor was assigned successfully.",
-      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
-      "no_fitness_profiles": "Create a Fitness user before assigning this sensor.",
-      "invalid_discovery": "The fitness sensor discovery data was invalid.",
-      "adapters_already_configured": "All Fitness live adapters are already configured. Enable or disable them from their adapter devices.",
-      "adapters_managed_on_devices": "Local sensor adapters are configured from the ANT+ and Bluetooth adapter devices."
+      "already_configured": "Ein Fitness-Profil mit diesem Namen ist bereits vorhanden.",
+      "live_sensor_assigned": "Der Fitness-Sensor wurde erfolgreich zugewiesen.",
+      "sensor_unavailable": "Der erkannte Fitness-Sensor ist nicht mehr verfügbar.",
+      "no_fitness_profiles": "Erstelle zuerst einen Fitness-Benutzer, bevor du diesen Sensor zuweist.",
+      "invalid_discovery": "Die Erkennungsdaten des Fitness-Sensors waren ungültig.",
+      "adapters_already_configured": "Alle Fitness-Live-Adapter sind bereits eingerichtet. Aktiviere oder deaktiviere sie über ihre Adaptergeräte.",
+      "adapters_managed_on_devices": "Lokale Sensoradapter werden über die ANT+- und Bluetooth-Adaptergeräte eingerichtet."
     }
   },
   "options": {
@@ -186,7 +186,7 @@
       },
       "profile": {
         "title": "Profil",
-        "description": "Edit the person's profile information.",
+        "description": "Bearbeite die Profilangaben der Person.",
         "data": {
           "language": "Sprache",
           "birth_day": "Geburtstag",
@@ -210,7 +210,7 @@
           "resting_hr": "Ruhepuls (bpm oder Entität)",
           "height": "Größe (cm oder Entität)",
           "max_hr": "Maximalpuls (bpm oder Entität)",
-          "vo2max": "VO₂max (mL/kg/min or entity)",
+          "vo2max": "VO₂max (mL/kg/min oder Entität)",
           "threshold_hr": "Schwellenpuls (bpm oder Entität)",
           "threshold_pace": "Schwellentempo (min/km oder Entität)",
           "threshold_power": "Schwellenleistung (W oder Entität)"
@@ -234,15 +234,15 @@
           "live_device_ids": "Andere Home-Assistant-Live-Geräte"
         },
         "data_description": {
-          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
-          "live_device_ids": "Optional Home Assistant devices exposing compatible live heart-rate, power, cadence, speed, distance or altitude entities."
+          "live_sensor_ids": "Von Fitness erkannte physische Sensoren. ANT+- und Bluetooth-Identitäten werden zu einem Gerät zusammengeführt, wenn sie denselben Sensor bezeichnen; für Live-Messungen wird ANT+ bevorzugt.",
+          "live_device_ids": "Optionale Home-Assistant-Geräte mit kompatiblen Live-Entitäten für Herzfrequenz, Leistung, Kadenz, Geschwindigkeit, Distanz oder Höhe."
         }
       },
       "workout_devices": {
         "title": "Training / Langzeitdaten",
-        "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
+        "description": "Wähle Geräte mit abgeschlossenen Trainings oder langfristigen Fitness-/Erholungswerten.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data",
+          "workout_device_ids": "Geräte mit Trainings-/Fitnessverlaufsdaten",
           "detailed_strength_analysis": "Detaillierte Kraftanalyse",
           "workout_retention_days": "Workout-Aufbewahrung"
         },
@@ -256,7 +256,7 @@
         "title": "KI-Interpretation",
         "description": "Standardmäßig ist die Standard-AI-Task von Home Assistant ausgewählt. Fitness folgt automatisch der aktuellen Systemvorgabe; wähle nur dann eine bestimmte AI-Task oder einen Conversation-Agenten, wenn du ihn fest zuordnen möchtest.",
         "data": {
-          "ai_enabled": "Generate AI fitness assessments",
+          "ai_enabled": "KI-Fitnessbewertungen erstellen",
           "ai_entity": "AI-Anbieter"
         },
         "data_description": {
@@ -266,13 +266,13 @@
       },
       "feedback": {
         "title": "Coaching, Lichter und Ansagen",
-        "description": "Wähle Räume und/oder konkrete Licht-Entitäten für fünf Sekunden Farbrückmeldung zur Intensität. Alle verfügbaren farbfähigen Lichter in den ausgewählten Räumen werden automatisch einbezogen. Zusätzlich können Benachrichtigungen, TTS und Media Player gewählt werden.",
+        "description": "Wähle Räume und/oder bestimmte Lichtentitäten für fünfsekündiges farbiges Intensitätsfeedback. Alle verfügbaren farbfähigen Lichter in den gewählten Räumen werden automatisch einbezogen. Zusätzlich kannst du Benachrichtigungsentitäten, einen TTS-Anbieter und Mediaplayer für Ansagen auswählen.",
         "data": {
-          "feedback_light_ids": "Zusätzliche / konkrete Lichter",
+          "feedback_light_ids": "Zusätzliche/ausdrückliche Lichter für Intensitätsfeedback",
           "notify_entity_ids": "Benachrichtigungs-Entitäten für Trainings",
           "tts_entity_id": "TTS-Anbieter",
           "tts_media_player_ids": "Lautsprecher / Media Player für Ansagen",
-          "feedback_area_ids": "Räume für Intensitäts-Farbrückmeldung",
+          "feedback_area_ids": "Räume für intensitätsabhängiges Lichtfeedback",
           "periodic_live_announcements": "Regelmäßige Live-Trainingsansagen",
           "periodic_live_interval_minutes": "Intervall der Live-Ansagen"
         },
@@ -337,11 +337,11 @@
     },
     "abort": {
       "no_live_sensors": "Es sind keine akzeptierten lokalen Fitness-Sensoren zum Neuzuweisen verfügbar.",
-      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
-      "no_fitness_profiles": "Create a Fitness user before assigning this sensor."
+      "sensor_unavailable": "Der erkannte Fitness-Sensor ist nicht mehr verfügbar.",
+      "no_fitness_profiles": "Erstelle zuerst einen Fitness-Benutzer, bevor du diesen Sensor zuweist."
     },
     "error": {
-      "sensor_unavailable": "The discovered fitness sensor is no longer available."
+      "sensor_unavailable": "Der erkannte Fitness-Sensor ist nicht mehr verfügbar."
     }
   },
   "entity": {
@@ -400,7 +400,7 @@
         }
       },
       "current_heart_rate": {
-        "name": "Aktuell Herzfrequenz",
+        "name": "Aktuelle Herzfrequenz",
         "state_attributes": {
           "source_entity": {
             "name": "Quellentität"
@@ -414,7 +414,7 @@
         }
       },
       "current_power": {
-        "name": "Aktuell Leistung",
+        "name": "Aktuelle Leistung",
         "state_attributes": {
           "source_entity": {
             "name": "Quellentität"
@@ -428,7 +428,7 @@
         }
       },
       "current_cadence": {
-        "name": "Aktuell Kadenz",
+        "name": "Aktuelle Kadenz",
         "state_attributes": {
           "source_entity": {
             "name": "Quellentität"
@@ -442,7 +442,7 @@
         }
       },
       "current_speed": {
-        "name": "Aktuell Geschwindigkeit",
+        "name": "Aktuelle Geschwindigkeit",
         "state_attributes": {
           "source_entity": {
             "name": "Quellentität"
@@ -456,7 +456,7 @@
         }
       },
       "current_distance": {
-        "name": "Aktuell Distanz",
+        "name": "Aktuelle Distanz",
         "state_attributes": {
           "source_entity": {
             "name": "Quellentität"
@@ -470,7 +470,7 @@
         }
       },
       "current_altitude": {
-        "name": "Aktuell Höhe",
+        "name": "Aktuelle Höhe",
         "state_attributes": {
           "source_entity": {
             "name": "Quellentität"
@@ -526,7 +526,7 @@
         }
       },
       "last_workout_distance": {
-        "name": "Letztes Training Distanz",
+        "name": "Distanz des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -540,7 +540,7 @@
         }
       },
       "last_workout_avg_hr": {
-        "name": "Letztes Training average Herzfrequenz",
+        "name": "durchschnittliche Herzfrequenz des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -554,7 +554,7 @@
         }
       },
       "last_workout_max_hr": {
-        "name": "Letztes Training maximum Herzfrequenz",
+        "name": "maximale Herzfrequenz des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -568,7 +568,7 @@
         }
       },
       "last_workout_avg_power": {
-        "name": "Letztes Training average Leistung",
+        "name": "durchschnittliche Leistung des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -582,7 +582,7 @@
         }
       },
       "last_workout_max_power": {
-        "name": "Letztes Training maximum Leistung",
+        "name": "maximale Leistung des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -596,7 +596,7 @@
         }
       },
       "last_workout_avg_cadence": {
-        "name": "Letztes Training average Kadenz",
+        "name": "durchschnittliche Kadenz des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -610,7 +610,7 @@
         }
       },
       "last_workout_elevation_gain": {
-        "name": "Letztes Training elevation gain",
+        "name": "Höhengewinn des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -645,7 +645,7 @@
         "name": "FRIEND prognostiziert VO₂max"
       },
       "vo2max_percent_predicted": {
-        "name": "VO₂max Prozent des Sollwerts",
+        "name": "Vorhergesagter VO₂max-Prozentwert",
         "state_attributes": {
           "scientific_basis": {
             "name": "Wissenschaftliche Grundlage"
@@ -665,7 +665,7 @@
         }
       },
       "cardiorespiratory_status": {
-        "name": "Kardiorespiratorischer FitnessStatus"
+        "name": "Status der kardiorespiratorischen Fitness"
       },
       "hrv_weekly": {
         "name": "HRV Wochendurchschnitt"
@@ -677,16 +677,16 @@
         "name": "HRV Status"
       },
       "threshold_hr": {
-        "name": "Schwelle Herzfrequenz"
+        "name": "Schwellenherzfrequenz"
       },
       "threshold_pace": {
-        "name": "Schwelle Tempo"
+        "name": "Schwellentempo"
       },
       "threshold_power": {
-        "name": "Schwelle Leistung"
+        "name": "Schwellenleistung"
       },
       "threshold_power_to_weight": {
-        "name": "Schwelle Leistung-Gewicht"
+        "name": "Schwellenleistung pro Gewicht"
       },
       "fitness_age": {
         "name": "Fitnessalter"
@@ -695,10 +695,10 @@
         "name": "Differenz Fitnessalter"
       },
       "training_readiness_context": {
-        "name": "Kontext Trainingsbereitschaft"
+        "name": "Kontext der Trainingsbereitschaft"
       },
       "sleep_score_context": {
-        "name": "Kontext Schlafbewertung"
+        "name": "Kontext der Schlafbewertung"
       },
       "acute_training_load": {
         "name": "Akute Trainingsbelastung"
@@ -710,7 +710,7 @@
         "name": "Akute/chronic load ratio"
       },
       "provider_training_status": {
-        "name": "TrainingsStatus des Anbieters"
+        "name": "Trainingsstatus des Anbieters"
       },
       "ai_general_evaluation": {
         "name": "Allgemeine KI-Auswertung",
@@ -747,7 +747,7 @@
         }
       },
       "heart_rate_percent_max": {
-        "name": "Herzfrequenz % of maximum",
+        "name": "Herzfrequenz in % des Maximums",
         "state_attributes": {
           "source_entity": {
             "name": "Quellentität"
@@ -843,7 +843,7 @@
         }
       },
       "heart_rate_relative_threshold": {
-        "name": "Herzfrequenz relativ zu Schwelle",
+        "name": "Herzfrequenz relativ zur Schwelle",
         "state_attributes": {
           "source_entity": {
             "name": "Quellentität"
@@ -907,7 +907,7 @@
         }
       },
       "power_relative_threshold": {
-        "name": "Leistung relativ zu Schwelle",
+        "name": "Leistung relativ zur Schwelle",
         "state_attributes": {
           "source_entity": {
             "name": "Quellentität"
@@ -971,7 +971,7 @@
         }
       },
       "speed_relative_threshold": {
-        "name": "Geschwindigkeit relativ zu Schwelle",
+        "name": "Geschwindigkeit relativ zur Schwelle",
         "state_attributes": {
           "source_entity": {
             "name": "Quellentität"
@@ -1017,7 +1017,7 @@
         }
       },
       "last_workout_moving_time": {
-        "name": "Letztes Training moving time",
+        "name": "Bewegungszeit des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1031,7 +1031,7 @@
         }
       },
       "last_workout_elapsed_time": {
-        "name": "Letztes Training elapsed time",
+        "name": "verstrichene Zeit des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1045,7 +1045,7 @@
         }
       },
       "last_workout_average_speed": {
-        "name": "Letztes Training average Geschwindigkeit",
+        "name": "durchschnittliche Geschwindigkeit des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1059,7 +1059,7 @@
         }
       },
       "last_workout_max_speed": {
-        "name": "Letztes Training maximum Geschwindigkeit",
+        "name": "maximale Geschwindigkeit des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1073,7 +1073,7 @@
         }
       },
       "last_workout_weighted_power": {
-        "name": "Letztes Training weighted / normalized Leistung",
+        "name": "gewichtete / normalisierte Leistung des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1087,7 +1087,7 @@
         }
       },
       "last_workout_max_cadence": {
-        "name": "Letztes Training maximum Kadenz",
+        "name": "maximale Kadenz des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1101,7 +1101,7 @@
         }
       },
       "last_workout_elevation_loss": {
-        "name": "Letztes Training elevation loss",
+        "name": "Höhenverlust des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1129,7 +1129,7 @@
         }
       },
       "last_workout_aerobic_effect": {
-        "name": "Letztes Training aerobe training effect",
+        "name": "aerober Trainingseffekt des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1143,7 +1143,7 @@
         }
       },
       "last_workout_anaerobic_effect": {
-        "name": "Letztes Training anaerobe training effect",
+        "name": "anaerober Trainingseffekt des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1157,7 +1157,7 @@
         }
       },
       "last_workout_training_effect": {
-        "name": "Letztes Training training effect",
+        "name": "Trainingseffekt des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1185,7 +1185,7 @@
         }
       },
       "last_workout_relative_effort": {
-        "name": "Letztes Training relative effort",
+        "name": "relative Anstrengung des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1199,7 +1199,7 @@
         }
       },
       "last_workout_kilojoules": {
-        "name": "Letztes Training energy",
+        "name": "Energie des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1213,7 +1213,7 @@
         }
       },
       "last_workout_total_reps": {
-        "name": "Letztes Training total reps",
+        "name": "Wiederholungen gesamt des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1227,7 +1227,7 @@
         }
       },
       "last_workout_exercise_count": {
-        "name": "Letztes Training exercise count",
+        "name": "Anzahl Übungen des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1241,7 +1241,7 @@
         }
       },
       "last_workout_volume": {
-        "name": "Letztes Training training volume",
+        "name": "Trainingsvolumen des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1255,7 +1255,7 @@
         }
       },
       "last_workout_device": {
-        "name": "Letztes Training device",
+        "name": "Gerät des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1269,7 +1269,7 @@
         }
       },
       "last_workout_gear": {
-        "name": "Letztes Training gear",
+        "name": "Ausrüstung des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1283,7 +1283,7 @@
         }
       },
       "last_workout_sources": {
-        "name": "Letztes Training data Quellen",
+        "name": "Datenquellen des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1297,7 +1297,7 @@
         }
       },
       "live_average_heart_rate": {
-        "name": "Live average Herzfrequenz",
+        "name": "Live: durchschnittliche Herzfrequenz",
         "state_attributes": {
           "source_entity": {
             "name": "Quellentität"
@@ -1329,7 +1329,7 @@
         }
       },
       "live_maximum_heart_rate": {
-        "name": "Live maximum Herzfrequenz",
+        "name": "Live: maximale Herzfrequenz",
         "state_attributes": {
           "source_entity": {
             "name": "Quellentität"
@@ -1361,7 +1361,7 @@
         }
       },
       "live_average_power": {
-        "name": "Live average Leistung",
+        "name": "Live: durchschnittliche Leistung",
         "state_attributes": {
           "source_entity": {
             "name": "Quellentität"
@@ -1393,7 +1393,7 @@
         }
       },
       "live_maximum_power": {
-        "name": "Live maximum Leistung",
+        "name": "Live: maximale Leistung",
         "state_attributes": {
           "source_entity": {
             "name": "Quellentität"
@@ -1425,7 +1425,7 @@
         }
       },
       "live_average_cadence": {
-        "name": "Live average Kadenz",
+        "name": "Live: durchschnittliche Kadenz",
         "state_attributes": {
           "source_entity": {
             "name": "Quellentität"
@@ -1457,7 +1457,7 @@
         }
       },
       "live_average_speed": {
-        "name": "Live average Geschwindigkeit",
+        "name": "Live: durchschnittliche Geschwindigkeit",
         "state_attributes": {
           "source_entity": {
             "name": "Quellentität"
@@ -1489,7 +1489,7 @@
         }
       },
       "live_banister_trimp": {
-        "name": "Live Banister TRIMP",
+        "name": "Live-Banister-TRIMP",
         "state_attributes": {
           "source_entity": {
             "name": "Quellentität"
@@ -1521,7 +1521,7 @@
         }
       },
       "live_mechanical_work": {
-        "name": "Live mechanische Arbeit",
+        "name": "Live: mechanische Arbeit",
         "state_attributes": {
           "source_entity": {
             "name": "Quellentität"
@@ -1553,7 +1553,7 @@
         }
       },
       "live_aerobic_efficiency": {
-        "name": "Live aerobe Effizienz",
+        "name": "Live: aerobe Effizienz",
         "state_attributes": {
           "source_entity": {
             "name": "Quellentität"
@@ -1585,7 +1585,7 @@
         }
       },
       "live_aerobic_decoupling": {
-        "name": "Live aerobe Entkopplung",
+        "name": "Live: aerobe Entkopplung",
         "state_attributes": {
           "source_entity": {
             "name": "Quellentität"
@@ -1727,7 +1727,7 @@
         }
       },
       "last_workout_trimp_per_hour": {
-        "name": "Letztes Training TRIMP per hour",
+        "name": "TRIMP pro Stunde des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1741,7 +1741,7 @@
         }
       },
       "last_workout_mechanical_work": {
-        "name": "Letztes Training mechanische Arbeit",
+        "name": "mechanische Arbeit des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1755,7 +1755,7 @@
         }
       },
       "last_workout_aerobic_efficiency": {
-        "name": "Letztes Training aerobe Effizienz",
+        "name": "aerobe Effizienz des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1769,7 +1769,7 @@
         }
       },
       "last_workout_aerobic_decoupling": {
-        "name": "Letztes Training aerobe Entkopplung",
+        "name": "aerobe Entkopplung des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1839,7 +1839,7 @@
         }
       },
       "last_workout_time_moderate": {
-        "name": "Letztes Training moderate-intensity time",
+        "name": "Zeit bei mittlerer Intensität des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1853,7 +1853,7 @@
         }
       },
       "last_workout_time_vigorous": {
-        "name": "Letztes Training vigorous-intensity time",
+        "name": "Zeit bei hoher Intensität des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1867,7 +1867,7 @@
         }
       },
       "last_workout_time_near_maximal": {
-        "name": "Letztes Training near-maximal time",
+        "name": "Zeit bei nahezu maximaler Intensität des letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -1986,7 +1986,7 @@
         }
       },
       "last_workout_trimp_vs_recent": {
-        "name": "TRIMP vs comparable jüngsten Trainings",
+        "name": "TRIMP im Vergleich zu ähnlichen letzten Trainings",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -2000,7 +2000,7 @@
         }
       },
       "last_workout_load_context": {
-        "name": "Training load Kontext",
+        "name": "Kontext der Trainingsbelastung",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -2014,7 +2014,7 @@
         }
       },
       "last_workout_personal_context": {
-        "name": "Training personal Kontext",
+        "name": "Persönlicher Trainingskontext",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -2144,7 +2144,7 @@
         }
       },
       "last_sleep_time_in_bed": {
-        "name": "Letzter Schlaf time in bed",
+        "name": "Bettzeit des letzten Schlafs",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -2246,7 +2246,7 @@
         }
       },
       "last_sleep_average_hr": {
-        "name": "Letzter Schlaf average Herzfrequenz",
+        "name": "durchschnittliche Herzfrequenz des letzten Schlafs",
         "state_attributes": {
           "sources": {
             "name": "Datenquellen"
@@ -2334,7 +2334,7 @@
         "name": "7-Tag Trainingsbelastung vs 28-Tag Basiswert"
       },
       "hrr_60s_vs_90d": {
-        "name": "Latest 60 s Herzfrequenz-Erholung vs 90-Tag Basiswert"
+        "name": "Letzte 60-s-Herzfrequenzerholung gegenüber 90-Tage-Basis"
       },
       "sleep_duration_7d_mean": {
         "name": "Mittelwert Schlaf Dauer (7 Tage)"
@@ -2346,10 +2346,10 @@
         "name": "Letzter Schlaf Dauer vs 28-Tag Basiswert"
       },
       "sleep_duration_shortfall": {
-        "name": "Schlaf Dauer shortfall vs 7 h adult minimum"
+        "name": "Schlafdefizit gegenüber dem Erwachsenenminimum von 7 Std."
       },
       "sleep_midpoint_variability_14d": {
-        "name": "Schlaf midpoint variability (14 Tage)"
+        "name": "Variabilität der Schlafmitte (14 Tage)"
       },
       "sleep_hrv_7d_mean": {
         "name": "Mittelwert Schlaf HRV (7 Tage)"
@@ -2488,7 +2488,7 @@
             "name": "Mittelwert Schlaf HRV (28 Tage)"
           },
           "sleep_hrv_vs_28d_percent": {
-            "name": "Latest Schlaf HRV vs 28-Tag Basiswert"
+            "name": "Letzte Schlaf-HRV gegenüber 28-Tage-Basis"
           },
           "resting_hr_current_bpm": {
             "name": "Aktuell Ruheherzfrequenz"
@@ -2621,7 +2621,7 @@
             "name": "Distanz (28 Tage)"
           },
           "last_recovery_interval_h": {
-            "name": "Letzte recovery interval"
+            "name": "Letztes Erholungsintervall"
           },
           "median_recovery_interval_28d_h": {
             "name": "Medianes Erholungsintervall (28 Tage)"
@@ -2706,10 +2706,10 @@
             "name": "TRIMP vs next-Schlaf HRV (r)"
           },
           "sleep_duration_pairs": {
-            "name": "Training–Schlaf Dauer pairs"
+            "name": "Paare aus Training und Schlafdauer"
           },
           "sleep_hrv_pairs": {
-            "name": "Training–Schlaf HRV pairs"
+            "name": "Paare aus Training und Schlaf-HRV"
           },
           "window_days": {
             "name": "Analysefenster"
@@ -2999,10 +2999,10 @@
             "name": "Aktive Trainingstage / 28 Tage"
           },
           "trimp_7d": {
-            "name": "TRIMP / 7 days"
+            "name": "TRIMP / 7 Tage"
           },
           "trimp_28d_weekly_equivalent": {
-            "name": "28-day weekly-equivalent TRIMP"
+            "name": "28-Tage-TRIMP als Wochenäquivalent"
           },
           "recent_to_baseline_load_ratio": {
             "name": "Verhältnis aktuelle zu Basisbelastung"
@@ -3133,6 +3133,96 @@
             "name": "Vollständige physiologische Erholung beansprucht"
           }
         }
+      },
+      "cycplus_device_number": {
+        "name": "Gerätenummer"
+      },
+      "cycplus_sync_state": {
+        "name": "Status der Trainingssynchronisierung",
+        "state": {
+          "idle": "Inaktiv",
+          "waiting": "Warten auf Gerät",
+          "connecting": "Verbindung wird hergestellt",
+          "syncing": "Synchronisierung läuft",
+          "ready": "Aktuell",
+          "retrying": "Erneuter Versuch",
+          "error": "Fehler"
+        }
+      },
+      "cycplus_last_sync": {
+        "name": "Letzter Synchronisierungsversuch"
+      },
+      "cycplus_last_successful_sync": {
+        "name": "Letzte erfolgreiche Synchronisierung"
+      },
+      "cycplus_device_workout_count": {
+        "name": "Trainings auf dem Gerät"
+      },
+      "cycplus_imported_file_count": {
+        "name": "Importierte Trainingsdateien"
+      },
+      "cycplus_pending_file_count": {
+        "name": "Ausstehende Trainingsdateien"
+      },
+      "cycplus_active_file": {
+        "name": "Aktiver Download"
+      },
+      "cycplus_downloaded_bytes": {
+        "name": "Heruntergeladene Bytes"
+      },
+      "cycplus_retry_count": {
+        "name": "Anzahl der Wiederholungsversuche"
+      },
+      "cycplus_disk_free_kb": {
+        "name": "Freier Gerätespeicher"
+      },
+      "cycplus_disk_total_kb": {
+        "name": "Gesamter Gerätespeicher"
+      },
+      "cycplus_last_error": {
+        "name": "Letzter Synchronisierungsfehler",
+        "state": {
+          "none": "Kein Fehler",
+          "connection_failed": "Verbindung fehlgeschlagen",
+          "catalog_failed": "Trainingskatalog fehlgeschlagen",
+          "transfer_interrupted": "Übertragung unterbrochen",
+          "invalid_fit": "Ungültige FIT-Datei",
+          "import_failed": "Trainingsimport fehlgeschlagen",
+          "unknown": "Unbekannter Fehler"
+        }
+      },
+      "cycplus_latest_workout": {
+        "name": "Neuestes Training auf dem Gerät"
+      },
+      "cycplus_fit_serial_number": {
+        "name": "FIT-Seriennummer"
+      },
+      "cycplus_fit_manufacturer": {
+        "name": "FIT-Hersteller"
+      },
+      "cycplus_fit_product": {
+        "name": "FIT-Produkt"
+      },
+      "cycplus_fit_hardware_version": {
+        "name": "FIT-Hardwareversion"
+      },
+      "cycplus_fit_software_version": {
+        "name": "FIT-Softwareversion"
+      },
+      "cycplus_fit_battery_voltage": {
+        "name": "FIT-Batteriespannung"
+      },
+      "cycplus_fit_battery_status": {
+        "name": "FIT-Batteriestatus",
+        "state": {
+          "new": "Neu",
+          "good": "Gut",
+          "ok": "In Ordnung",
+          "low": "Niedrig",
+          "critical": "Kritisch",
+          "charging": "Wird geladen",
+          "unknown": "Unbekannt"
+        }
       }
     },
     "button": {
@@ -3150,6 +3240,9 @@
       },
       "regenerate_ai_evaluation": {
         "name": "KI-Auswertung neu erstellen"
+      },
+      "cycplus_sync_workouts": {
+        "name": "Trainings jetzt synchronisieren"
       }
     },
     "select": {
@@ -3206,16 +3299,16 @@
       "name": "Trainings"
     },
     "sensors_adapters": {
-      "name": "Sensors & Adapters"
+      "name": "Sensoren & Adapter"
     },
     "sensors": {
-      "name": "Sensors"
+      "name": "Sensoren"
     },
     "antplus_adapter": {
-      "name": "ANT+ Adapter"
+      "name": "ANT+-Adapter"
     },
     "bluetooth_adapter": {
-      "name": "Bluetooth Adapter"
+      "name": "Bluetooth-Adapter"
     }
   },
   "issues": {
@@ -3292,6 +3385,20 @@
         "prompt": {
           "name": "KI-Prompt",
           "description": "Prompt, der an den KI-Anbieter gesendet wird."
+        }
+      }
+    },
+    "delete_workouts_before": {
+      "name": "Alte Fitness-Trainings löschen",
+      "description": "Löscht gespeicherte Fitness-Trainings dauerhaft, die älter als die gewählte Anzahl von Tagen sind.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness-Profil",
+          "description": "Fitness-Profil, dessen gespeicherter Trainingsverlauf bereinigt werden soll."
+        },
+        "days": {
+          "name": "Aufbewahrungstage",
+          "description": "Behält Trainings aus dieser Anzahl der jüngsten Tage und löscht alles Ältere."
         }
       }
     }

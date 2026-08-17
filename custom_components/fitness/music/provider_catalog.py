@@ -129,17 +129,7 @@ async def async_provider_catalog(
             "installed": YTDLPMusicAdapter.available(),
             "enabled": bool(ytdlp_enabled),
             "setup_path": "",
-            "description": (
-                "Optional experimental extractor. Enabling it means you accept sole "
-                "responsibility for complying with applicable law, service terms, "
-                "copyright/licensing rules and obtaining all necessary rights or "
-                "permissions. Fitness does not authorize circumvention, unauthorized "
-                "downloading or redistribution and provides this adapter without "
-                "warranty. To the maximum extent permitted by applicable law, you "
-                "accept responsibility for consequences of your use. This notice is "
-                "not legal advice and cannot exclude liabilities that law does not "
-                "allow to be excluded."
-            ),
+            "description_key": "ytdlp_disclaimer",
             "kind": "fitness_optional_adapter",
             "external": False,
             "requires_acknowledgement": True,
@@ -150,12 +140,10 @@ async def async_provider_catalog(
             "icon": "mdi:music-circle",
             "installed": ma_installed,
             "setup_path": ma_settings_path if ma_installed else MUSIC_ASSISTANT_INSTALL_URL,
-            "description": (
-                "Open the selected Music Assistant server's Settings page. "
-                "Its configured sources are searched together by the single Fitness "
-                "Music Assistant adapter."
+            "description_key": (
+                "music_provider_ma_installed_description"
                 if ma_installed
-                else "Install a Music Assistant server, then connect its Home Assistant integration."
+                else "music_provider_ma_install_description"
             ),
             "kind": "adapter",
             "external": bool((ma_settings_path if ma_installed else MUSIC_ASSISTANT_INSTALL_URL).startswith(("http://", "https://"))),
@@ -177,7 +165,6 @@ async def async_provider_catalog(
                 item["domain"],
                 item.get("name") or static_by_id.get(item["domain"], {}).get("name") or item["domain"],
                 item.get("icon") or static_by_id.get(item["domain"], {}).get("icon") or "mdi:music-circle",
-                item.get("description") or "",
             )
             for item in manifests
         ]
@@ -185,11 +172,11 @@ async def async_provider_catalog(
         # Compatibility fallback for an older/offline MA client.  When connected,
         # the live providers/manifests response above is authoritative.
         source_rows = [
-            (provider_id, display_name, icon, "")
+            (provider_id, display_name, icon)
             for provider_id, display_name, icon in _MUSIC_ASSISTANT_SOURCE_SHORTCUTS
         ]
 
-    for provider_id, display_name, icon, manifest_description in source_rows:
+    for provider_id, display_name, icon in source_rows:
         instance_ids = list(ma_instances.get(provider_id) or [])
         provider_destination = _music_assistant_provider_destination(
             selected_entry, provider_id, instance_ids
@@ -197,15 +184,17 @@ async def async_provider_catalog(
         rows.append(
             {
                 "id": f"music_assistant_source:{provider_id}",
-                "name": f"{display_name} via Music Assistant",
+                "name": display_name,
+                "provider_name": display_name,
                 "icon": icon if str(icon).startswith("mdi:") else "mdi:music-circle",
                 "installed": bool(instance_ids),
                 "setup_path": provider_destination or ma_path,
-                "description": (
-                    "Open this configured Music Assistant source directly."
+                "description_key": (
+                    "music_provider_configured_description"
                     if instance_ids
-                    else (manifest_description or f"Open Music Assistant directly on the {display_name} setup page.")
+                    else "music_provider_setup_description"
                 ),
+                "configured": bool(instance_ids),
                 "kind": "provider_source",
                 "external": (provider_destination or ma_path).startswith(("http://", "https://")),
                 "provider_domain": provider_id,

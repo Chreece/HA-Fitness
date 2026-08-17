@@ -45,6 +45,8 @@ CONF_BLUETOOTH_ENABLED = "bluetooth_fitness_enabled"
 CONF_ANTPLUS_ENABLED = "antplus_enabled"
 LIVE_ADAPTER_STORE_VERSION = 1
 LIVE_ADAPTER_STORE_KEY = "fitness.live_adapters"
+CYCPLUS_SYNC_STORE_VERSION = 1
+CYCPLUS_SYNC_STORE_KEY = "fitness.cycplus_m1_sync"
 CONF_WORKOUT_DEVICE_IDS = "workout_device_ids"
 CONF_DETAILED_STRENGTH_ANALYSIS = "detailed_strength_analysis"
 CONF_WORKOUT_RETENTION_DAYS = "workout_retention_days"
@@ -85,6 +87,10 @@ METRIC_CADENCE = "cadence"
 METRIC_SPEED = "speed"
 METRIC_DISTANCE = "distance"
 METRIC_ALTITUDE = "altitude"
+
+# Non-live physical-device capabilities share the same discovery and profile
+# assignment model without pretending that they publish real-time telemetry.
+CAPABILITY_WORKOUT_HISTORY = "workout_history"
 
 LIVE_METRICS = (
     METRIC_HEART_RATE,

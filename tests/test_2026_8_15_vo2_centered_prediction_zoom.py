@@ -10,15 +10,15 @@ def test_vo2_prediction_is_centered_and_zero_prediction_is_not_authoritative():
     assert 'const predictedMarker = useAbsoluteVo2Scale\n      ? 50' in FRONTEND
     assert 'vo2ScaleMagnitude * 0.10' in FRONTEND
     assert 'Math.abs(current - predictedAbsolute) * 1.05' in FRONTEND
-    assert '`${predictedAbsolute.toFixed(1)} ${l.predicted || "Predicted"}`' in FRONTEND
+    assert '`${predictedAbsolute.toFixed(1)} ${l.predicted}`' in FRONTEND
 
 
 def test_vo2_history_zoom_ignores_distant_prediction():
     assert 'const measuredVals = [...series.map(x=>x.v), trendStart, trendEnd];' in FRONTEND
     assert 'predictedAbsolute' not in FRONTEND.split('const measuredVals = [...series.map(x=>x.v), trendStart, trendEnd];', 1)[1].split('let lo =', 1)[0]
     assert 'const predictedInViewport' in FRONTEND
-    assert 'l.below_zoom || "below zoom"' in FRONTEND
-    assert 'l.above_zoom || "above zoom"' in FRONTEND
+    assert "l.below_zoom" in FRONTEND
+    assert "l.above_zoom" in FRONTEND
 
 
 def test_dashboard_resource_bumped():

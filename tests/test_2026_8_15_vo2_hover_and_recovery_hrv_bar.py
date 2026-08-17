@@ -17,8 +17,8 @@ def test_vo2_progress_uses_absolute_current_marker_and_predicted_reference():
     assert '? 50' in FRONTEND
     assert 'class="vo2-reference"' in FRONTEND
     assert 'class="vo2-marker"' in FRONTEND
-    assert 'l.predicted_marker || "Predicted"' in FRONTEND
-    assert 'l.current_marker || "Current"' in FRONTEND
+    assert "l.predicted_marker" in FRONTEND
+    assert "l.current_marker" in FRONTEND
     assert 'background:#fff' in FRONTEND
     assert '.vo2-marker:after' in FRONTEND
 

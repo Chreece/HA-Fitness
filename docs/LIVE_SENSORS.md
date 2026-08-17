@@ -1,6 +1,6 @@
 # Native fitness sensors
 
-Fitness can merge ANT+ and Bluetooth representations of the same physical sensor into one Home Assistant device.
+Fitness can merge ANT+ and Bluetooth representations of the same physical sensor into one Home Assistant device. It can also represent a supported device workout archive, such as the CYCPLUS M1, without pretending that archive is a live metric source.
 
 ## Identity
 
@@ -11,8 +11,8 @@ Identity is accumulated rather than guessed. Numeric protocol identifiers (for e
 
 ### Vendor/product decoder registry
 
-The native sensor runtime contains no product-specific decode branches. Product
-recognition and proprietary payload definitions are selected from
+The generic live-telemetry runtime contains no product-specific decode branches. Product
+recognition and proprietary advertisement payload definitions are selected from
 `custom_components/fitness/live/device_catalog.json`; the generic
 `vendor_registry.py` engine validates and executes those definitions.
 
@@ -55,6 +55,41 @@ adapters under `custom_components/fitness/providers/` are intentionally outside
 this rule: Garmin/Strava/Oura/etc. adapters parse those Home Assistant
 integrations and are not native ANT+/BLE physical-sensor decoders.
 
+Device archive protocols are a separate boundary: a verified product may have a
+small, isolated transfer adapter when its protocol cannot be described as an
+advertisement-field decoder. It shares discovery, assignment and physical-device
+identity with the generic runtime, but never adds fake live metrics.
+
+## CYCPLUS M1 workout archive
+
+Fitness recognizes the CYCPLUS M1 only when both its `M1_…`/CYCPLUS M1 local name
+and documented vendor service are advertised. The device then appears in **Local
+Sensors** as an assignable workout-history sensor. Accepting it does not open a
+permanent GATT connection: Fitness connects only for an automatic or manual archive
+sync and disconnects afterwards. A connectable Home Assistant Bluetooth adapter or
+proxy must be in range, and the M1 must be powered on.
+
+The sync reads `filelist.txt` (with `workouts.json` firmware fallback), downloads
+every timestamped FIT workout not already checkpointed, verifies FIT framing and
+CRC, and imports every completed session through Fitness's canonical workout merge.
+The protocol exposes no byte-offset seek command. Fitness therefore resumes safely
+at a **file boundary**: completed files remain checkpointed, while an interrupted or
+invalid active file is downloaded again from its beginning after automatic
+reconnection. Retry delay is bounded and increases after repeated failures.
+
+Already decoded workout summaries are kept in the private checkpoint store. If the
+same M1 is later assigned to another Fitness profile, that profile can import the
+cached workouts without forcing the slow BLE device to resend them. Profile-specific
+derived context is calculated from an independent copy, so one person's history
+cannot affect another person's imported record.
+
+Enabled diagnostic entities show device number, sync state, attempts/success time,
+device/imported/pending file counts, active download, last error and latest workout.
+Optional diagnostics expose downloaded bytes, free/total storage, FIT serial,
+manufacturer/product, hardware/software version and battery voltage/status. Stable
+identity fields also enrich the Home Assistant device registry. **Sync workouts
+now** requests an immediate retry; normal synchronization is automatic.
+
 ## Information entities
 
 Core live measurements remain normal sensor entities. Additional decoded ANT+ values, ANT identity/profile/control/event capabilities, BLE advertisement fields, GATT services/characteristics and Device Information values are retained as merged detail entities. Diagnostic or high-frequency/advanced fields are disabled by default. When ANT+ and Bluetooth report the same canonical fact, Fitness keeps one entity and exposes the source values as attributes.
@@ -65,7 +100,7 @@ Battery is treated as one passive physical value across transports. `Last seen` 
 
 Positively detected semantic protocol events are represented by Home Assistant Event entities. Fitness retains detected control capabilities diagnostically. It does not send guessed ANT+/Bluetooth control payloads: writable controls require a verified encoder, valid range/unit contract and protocol acknowledgement handling before they become actionable.
 
-The adapter **Activate** switch is the only transport/module control. There are no capture buttons and no manual GATT connect/disconnect buttons. While Bluetooth is enabled, Fitness listens passively through Home Assistant's Bluetooth stack. During a workout, Fitness prefers fresh ANT+ broadcasts; if ANT+ is unavailable/stale and a connectable BLE endpoint exists, Fitness opens GATT automatically **only for the profile that exclusively owns that physical sensor for the workout**. If ANT+ resumes, the same owner hands transport back to ANT+ and BLE GATT is disconnected automatically. Transport handover never changes workout ownership.
+The adapter **Activate** switch is the only live transport/module control. There are no capture buttons and no manual GATT connect/disconnect buttons. While Bluetooth is enabled, Fitness listens passively through Home Assistant's Bluetooth stack. During a workout, Fitness prefers fresh ANT+ broadcasts; if ANT+ is unavailable/stale and a connectable BLE endpoint exists, Fitness opens GATT automatically **only for the profile that exclusively owns that physical sensor for the workout**. If ANT+ resumes, the same owner hands transport back to ANT+ and BLE GATT is disconnected automatically. Transport handover never changes workout ownership. An archive device may expose a separate one-shot **Sync workouts now** retry action; it does not control the Bluetooth module or keep GATT connected.
 
 ## Shared assignments and exclusive workout ownership
 

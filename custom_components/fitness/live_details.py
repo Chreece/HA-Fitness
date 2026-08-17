@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from .research.references import REFERENCES
+from .scientific_translations import LIVE_FORMULAS
 
 CALCULATED_LIVE_METRICS = {
     "session_duration",
@@ -23,31 +24,6 @@ _STUDY = {
     "live_time_near_maximal": "acsm_hrr_intensity_2011",
     "live_banister_trimp": "banister_trimp_validation_2014",
     "live_aerobic_decoupling": "cardiovascular_drift_2001",
-}
-
-_FORMULA = {
-    "session_duration": "now − workout start time",
-    "heart_rate_percent_max": "current HR / maximum HR × 100",
-    "heart_rate_reserve_percent": "(current HR − resting HR) / (maximum HR − resting HR) × 100",
-    "heart_rate_intensity": "ACSM HR-reserve bands: <30 very light; 30–39 light; 40–59 moderate; 60–89 vigorous; ≥90 near-maximal",
-    "heart_rate_relative_threshold": "current HR / configured threshold HR × 100",
-    "current_power_to_weight": "current power (W) / body mass (kg)",
-    "power_relative_threshold": "current power / configured threshold power × 100",
-    "current_pace": "60 / speed (km/h)",
-    "speed_relative_threshold": "current speed / threshold speed × 100; threshold speed = 60 / threshold pace",
-    "live_average_hr": "arithmetic mean of valid heart-rate samples collected in this session",
-    "live_maximum_hr": "maximum valid heart-rate sample collected in this session",
-    "live_average_power": "arithmetic mean of valid power samples collected in this session",
-    "live_maximum_power": "maximum valid power sample collected in this session",
-    "live_average_cadence": "arithmetic mean of valid cadence samples collected in this session",
-    "live_average_speed": "arithmetic mean of valid speed samples collected in this session",
-    "live_banister_trimp": "duration(min) × HR reserve fraction × sex-specific exponential weighting",
-    "live_mechanical_work": "Σ ((P₁ + P₂) / 2) × Δt / 1000, integrating power samples to kJ",
-    "live_aerobic_efficiency": "mean external work / HR; power/HR is preferred, otherwise speed/HR",
-    "live_aerobic_decoupling": "(mean efficiency first half − mean efficiency second half) / first-half mean × 100",
-    "live_time_moderate": "Σ sample intervals where HR reserve is 40–59%",
-    "live_time_vigorous": "Σ sample intervals where HR reserve is 60–89%",
-    "live_time_near_maximal": "Σ sample intervals where HR reserve is ≥90%",
 }
 
 _EN = {
@@ -119,7 +95,8 @@ _OTHER = {
 }
 
 def _code(language):
-    return str(language or "en").lower().split("-")[0].split("_")[0]
+    code = str(language or "en").lower().split("-")[0].split("_")[0]
+    return code if code in LIVE_FORMULAS else "en"
 
 def _citation(metric):
     ref=REFERENCES.get(_STUDY.get(metric, ""))
@@ -136,7 +113,7 @@ def live_user_details(language, metric, data_used):
     out={"calculated_by_fitness": True}
     citation=_citation(metric)
     if citation: out["scientific_basis"]=citation
-    formula=_FORMULA.get(metric)
+    formula=LIVE_FORMULAS[code].get(metric)
     if formula: out["formula"]=formula
     if data_used: out["data_used"]=data_used
     if meaning: out["what_it_means"]=meaning

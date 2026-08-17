@@ -35,12 +35,12 @@
         }
       },
       "optional": {
-        "title": "Optional initial / calculable values",
-        "description": "Each field accepts a numeric value OR entity ID. Leave unknown fields empty.",
+        "title": "可选的初始/可计算值",
+        "description": "每个字段都可接受数值或实体 ID。直接数值使用该字段注明的单位；实体值会根据其 unit_of_measurement 自动换算。未知字段请留空。",
         "data": {
           "height": "身高（cm 或实体）",
           "max_hr": "最大心率（bpm 或实体）",
-          "vo2max": "VO₂max (mL/kg/min or entity)",
+          "vo2max": "最大摄氧量（mL/kg/min 或实体）",
           "threshold_hr": "阈值心率（bpm 或实体）",
           "threshold_pace": "阈值配速（min/km 或实体）",
           "threshold_power": "阈值功率（W 或实体）"
@@ -62,15 +62,15 @@
           "live_device_ids": "其他 Home Assistant 实时设备"
         },
         "data_description": {
-          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
-          "live_device_ids": "Optional Home Assistant devices exposing compatible live heart-rate, power, cadence, speed, distance or altitude entities."
+          "live_sensor_ids": "Fitness 发现的物理传感器。当 ANT+ 和蓝牙标识指向同一传感器时，会合并为一个设备；实时测量优先使用 ANT+。",
+          "live_device_ids": "可选的 Home Assistant 设备，用于提供兼容的实时心率、功率、踏频、速度、距离或海拔实体。"
         }
       },
       "workout_devices": {
         "title": "训练 / 长期数据",
-        "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
+        "description": "选择可提供已完成训练或长期健身/恢复数据的设备，例如 Garmin Connect 或 Strava。",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data",
+          "workout_device_ids": "提供训练/健身历史数据的设备",
           "detailed_strength_analysis": "详细力量分析",
           "workout_retention_days": "训练保留期"
         },
@@ -84,7 +84,7 @@
         "title": "AI 解读",
         "description": "默认选择 Home Assistant 的默认 AI Task。Fitness 会自动跟随当前系统默认项；只有在需要固定某个提供方时才选择特定 AI Task 或对话代理。",
         "data": {
-          "ai_enabled": "Generate AI fitness assessments",
+          "ai_enabled": "生成 AI 健身评估",
           "ai_entity": "AI 提供方"
         },
         "data_description": {
@@ -94,13 +94,13 @@
       },
       "feedback": {
         "title": "指导、灯光与播报",
-        "description": "Choose rooms and/or explicit light entities for five-second intensity color feedback. Every available color-capable light in the selected rooms is included automatically. You can also select notification entities, a TTS provider and media players for announcements.",
+        "description": "选择房间和/或明确指定的灯光实体，以提供五秒钟的强度颜色反馈。所选房间中所有可用的彩色灯光会自动包含。你还可以选择通知实体、TTS 提供商和用于播报的媒体播放器。",
         "data": {
-          "feedback_light_ids": "Additional / explicit lights for intensity feedback",
+          "feedback_light_ids": "用于强度反馈的其他/明确指定灯光",
           "notify_entity_ids": "训练通知实体",
           "tts_entity_id": "TTS 提供商",
           "tts_media_player_ids": "扬声器 / 媒体播放器",
-          "feedback_area_ids": "Rooms for intensity light feedback",
+          "feedback_area_ids": "用于强度灯光反馈的房间",
           "periodic_live_announcements": "定期播报实时训练数据",
           "periodic_live_interval_minutes": "实时播报间隔"
         },
@@ -125,13 +125,13 @@
         }
       },
       "assign_live_sensor": {
-        "title": "New fitness sensor discovered",
-        "description": "{sensor} was discovered. Choose every Fitness user who may use this physical sensor for live workouts.",
+        "title": "发现新的健身传感器",
+        "description": "已发现 {sensor}。请选择可在实时训练中使用此物理传感器的所有 Fitness 用户。",
         "data": {
-          "fitness_profile_ids": "Fitness users"
+          "fitness_profile_ids": "Fitness 用户"
         },
         "data_description": {
-          "fitness_profile_ids": "One physical sensor can be shared by multiple Fitness profiles."
+          "fitness_profile_ids": "一个物理传感器可由多个 Fitness 个人资料共享。"
         }
       },
       "tv_dashboard": {
@@ -141,31 +141,31 @@
           "tv_dashboard_enabled": "启用 Fitness TV 仪表板",
           "tv_dashboard_media_player_id": "电视 / Cast 媒体播放器",
           "tv_dashboard_ducking_percent": "TTS 时的音乐音量",
-          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ytdlp_enabled": "启用 yt-dlp 音乐适配器（实验性）",
           "tv_dashboard_ignore_lights_when_cast_active": "TV Cast 活动时忽略训练灯光"
         },
         "data_description": {
           "tv_dashboard_enabled": "训练开始时自动以全屏方式显示 Fitness TV 仪表板。音乐和 TTS 都在仪表板内部播放，因此 Cast 视图不会被替换。",
           "tv_dashboard_media_player_id": "用于显示 Fitness TV 仪表板的 Google Cast 媒体播放器。Fitness 不会把仪表板音乐或 TTS 直接发送到该媒体播放器。",
           "tv_dashboard_ducking_percent": "Fitness 播放 TTS 通知时保留的当前音乐音量百分比。语音结束后会平滑恢复原来的音乐音量。",
-          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp 是可选的第三方适配器，与 YouTube 或其他服务没有关联。你应独自负责遵守法律、服务条款和版权规定，并取得所有必要授权。Fitness 不提供帐户 Cookie，不允许规避限制或未经授权的再分发，且不作任何担保；本声明不构成法律建议。",
           "tv_dashboard_ignore_lights_when_cast_active": "当 Fitness TV Cast 接收器处于活动状态时，使用电视提供训练反馈，并保持已配置的训练灯光不变。"
         }
       }
     },
     "error": {
-      "invalid_date": "Enter a valid date of birth in the past.",
-      "invalid_number_or_entity": "Enter a valid numeric value or Home Assistant entity ID.",
-      "select_profile": "Select at least one Fitness user."
+      "invalid_date": "请输入有效且早于今天的出生日期。",
+      "invalid_number_or_entity": "请输入有效数值或 Home Assistant 实体 ID。",
+      "select_profile": "请至少选择一个 Fitness 用户。"
     },
     "abort": {
-      "already_configured": "A Fitness profile with this name already exists.",
-      "live_sensor_assigned": "The fitness sensor was assigned successfully.",
-      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
-      "no_fitness_profiles": "Create a Fitness user before assigning this sensor.",
-      "invalid_discovery": "The fitness sensor discovery data was invalid.",
-      "adapters_already_configured": "All Fitness live adapters are already configured. Enable or disable them from their adapter devices.",
-      "adapters_managed_on_devices": "Local sensor adapters are configured from the ANT+ and Bluetooth adapter devices."
+      "already_configured": "已存在同名的 Fitness 个人资料。",
+      "live_sensor_assigned": "健身传感器已成功分配。",
+      "sensor_unavailable": "发现的健身传感器已不可用。",
+      "no_fitness_profiles": "分配此传感器前，请先创建 Fitness 用户。",
+      "invalid_discovery": "健身传感器发现数据无效。",
+      "adapters_already_configured": "所有 Fitness 实时适配器均已配置。请在相应适配器设备中启用或停用它们。",
+      "adapters_managed_on_devices": "本地传感器适配器通过 ANT+ 和蓝牙适配器设备进行配置。"
     }
   },
   "options": {
@@ -186,7 +186,7 @@
       },
       "profile": {
         "title": "个人资料",
-        "description": "Edit the person's profile information.",
+        "description": "编辑此人的个人资料信息。",
         "data": {
           "language": "语言",
           "birth_day": "出生日期",
@@ -210,7 +210,7 @@
           "resting_hr": "静息心率（bpm 或实体）",
           "height": "身高（cm 或实体）",
           "max_hr": "最大心率（bpm 或实体）",
-          "vo2max": "VO₂max (mL/kg/min or entity)",
+          "vo2max": "最大摄氧量（mL/kg/min 或实体）",
           "threshold_hr": "阈值心率（bpm 或实体）",
           "threshold_pace": "阈值配速（min/km 或实体）",
           "threshold_power": "阈值功率（W 或实体）"
@@ -234,15 +234,15 @@
           "live_device_ids": "其他 Home Assistant 实时设备"
         },
         "data_description": {
-          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
-          "live_device_ids": "Optional Home Assistant devices exposing compatible live heart-rate, power, cadence, speed, distance or altitude entities."
+          "live_sensor_ids": "Fitness 发现的物理传感器。当 ANT+ 和蓝牙标识指向同一传感器时，会合并为一个设备；实时测量优先使用 ANT+。",
+          "live_device_ids": "可选的 Home Assistant 设备，用于提供兼容的实时心率、功率、踏频、速度、距离或海拔实体。"
         }
       },
       "workout_devices": {
         "title": "训练 / 长期数据",
-        "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
+        "description": "选择可提供已完成训练或长期健身/恢复数值的设备。",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data",
+          "workout_device_ids": "提供训练/健身历史数据的设备",
           "detailed_strength_analysis": "详细力量分析",
           "workout_retention_days": "训练保留期"
         },
@@ -256,7 +256,7 @@
         "title": "AI 解读",
         "description": "默认选择 Home Assistant 的默认 AI Task。Fitness 会自动跟随当前系统默认项；只有在需要固定某个提供方时才选择特定 AI Task 或对话代理。",
         "data": {
-          "ai_enabled": "Generate AI fitness assessments",
+          "ai_enabled": "生成 AI 健身评估",
           "ai_entity": "AI 提供方"
         },
         "data_description": {
@@ -266,13 +266,13 @@
       },
       "feedback": {
         "title": "指导、灯光与播报",
-        "description": "Choose rooms and/or explicit light entities for five-second intensity color feedback. Every available color-capable light in the selected rooms is included automatically. You can also select notification entities, a TTS provider and media players for announcements.",
+        "description": "选择房间和/或明确指定的灯光实体，以提供五秒钟的强度颜色反馈。所选房间中所有可用的彩色灯光会自动包含。你还可以选择通知实体、TTS 提供商和用于播报的媒体播放器。",
         "data": {
-          "feedback_light_ids": "Additional / explicit lights for intensity feedback",
+          "feedback_light_ids": "用于强度反馈的其他/明确指定灯光",
           "notify_entity_ids": "训练通知实体",
           "tts_entity_id": "TTS 提供商",
           "tts_media_player_ids": "扬声器 / 媒体播放器",
-          "feedback_area_ids": "Rooms for intensity light feedback",
+          "feedback_area_ids": "用于强度灯光反馈的房间",
           "periodic_live_announcements": "定期播报实时训练数据",
           "periodic_live_interval_minutes": "实时播报间隔"
         },
@@ -323,25 +323,25 @@
           "tv_dashboard_enabled": "启用 Fitness TV 仪表板",
           "tv_dashboard_media_player_id": "电视 / Cast 媒体播放器",
           "tv_dashboard_ducking_percent": "TTS 时的音乐音量",
-          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ytdlp_enabled": "启用 yt-dlp 音乐适配器（实验性）",
           "tv_dashboard_ignore_lights_when_cast_active": "TV Cast 活动时忽略训练灯光"
         },
         "data_description": {
           "tv_dashboard_enabled": "训练开始时自动以全屏方式显示 Fitness TV 仪表板。音乐和 TTS 都在仪表板内部播放，因此 Cast 视图不会被替换。",
           "tv_dashboard_media_player_id": "用于显示 Fitness TV 仪表板的 Google Cast 媒体播放器。Fitness 不会把仪表板音乐或 TTS 直接发送到该媒体播放器。",
           "tv_dashboard_ducking_percent": "Fitness 播放 TTS 通知时保留的当前音乐音量百分比。语音结束后会平滑恢复原来的音乐音量。",
-          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp 是可选的第三方适配器，与 YouTube 或其他服务没有关联。你应独自负责遵守法律、服务条款和版权规定，并取得所有必要授权。Fitness 不提供帐户 Cookie，不允许规避限制或未经授权的再分发，且不作任何担保；本声明不构成法律建议。",
           "tv_dashboard_ignore_lights_when_cast_active": "当 Fitness TV Cast 接收器处于活动状态时，使用电视提供训练反馈，并保持已配置的训练灯光不变。"
         }
       }
     },
     "abort": {
       "no_live_sensors": "没有可重新分配的已接受本地 Fitness 传感器。",
-      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
-      "no_fitness_profiles": "Create a Fitness user before assigning this sensor."
+      "sensor_unavailable": "发现的健身传感器已不可用。",
+      "no_fitness_profiles": "分配此传感器前，请先创建 Fitness 用户。"
     },
     "error": {
-      "sensor_unavailable": "The discovered fitness sensor is no longer available."
+      "sensor_unavailable": "发现的健身传感器已不可用。"
     }
   },
   "entity": {
@@ -400,7 +400,7 @@
         }
       },
       "current_heart_rate": {
-        "name": "当前 心率",
+        "name": "当前心率",
         "state_attributes": {
           "source_entity": {
             "name": "来源实体"
@@ -414,7 +414,7 @@
         }
       },
       "current_power": {
-        "name": "当前 功率",
+        "name": "当前功率",
         "state_attributes": {
           "source_entity": {
             "name": "来源实体"
@@ -428,7 +428,7 @@
         }
       },
       "current_cadence": {
-        "name": "当前 cadence",
+        "name": "当前踏频",
         "state_attributes": {
           "source_entity": {
             "name": "来源实体"
@@ -442,7 +442,7 @@
         }
       },
       "current_speed": {
-        "name": "当前 速度",
+        "name": "当前速度",
         "state_attributes": {
           "source_entity": {
             "name": "来源实体"
@@ -456,7 +456,7 @@
         }
       },
       "current_distance": {
-        "name": "当前 distance",
+        "name": "当前距离",
         "state_attributes": {
           "source_entity": {
             "name": "来源实体"
@@ -470,7 +470,7 @@
         }
       },
       "current_altitude": {
-        "name": "当前 altitude",
+        "name": "当前海拔",
         "state_attributes": {
           "source_entity": {
             "name": "来源实体"
@@ -526,7 +526,7 @@
         }
       },
       "last_workout_distance": {
-        "name": "上次训练 distance",
+        "name": "上次训练：距离",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -540,7 +540,7 @@
         }
       },
       "last_workout_avg_hr": {
-        "name": "上次训练 average 心率",
+        "name": "上次训练：平均心率",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -554,7 +554,7 @@
         }
       },
       "last_workout_max_hr": {
-        "name": "上次训练 maximum 心率",
+        "name": "上次训练：最大心率",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -568,7 +568,7 @@
         }
       },
       "last_workout_avg_power": {
-        "name": "上次训练 average 功率",
+        "name": "上次训练：平均功率",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -582,7 +582,7 @@
         }
       },
       "last_workout_max_power": {
-        "name": "上次训练 maximum 功率",
+        "name": "上次训练：最大功率",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -596,7 +596,7 @@
         }
       },
       "last_workout_avg_cadence": {
-        "name": "上次训练 average cadence",
+        "name": "上次训练：平均踏频",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -610,7 +610,7 @@
         }
       },
       "last_workout_elevation_gain": {
-        "name": "上次训练 elevation gain",
+        "name": "上次训练：累计爬升",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -633,7 +633,7 @@
         "name": "静息心率"
       },
       "maximum_hr": {
-        "name": "最大 心率"
+        "name": "最大心率"
       },
       "heart_rate_reserve": {
         "name": "心率储备"
@@ -645,7 +645,7 @@
         "name": "FRIEND 预测 VO₂max"
       },
       "vo2max_percent_predicted": {
-        "name": "VO₂max percent 预测",
+        "name": "预测最大摄氧量百分比",
         "state_attributes": {
           "scientific_basis": {
             "name": "科学依据"
@@ -665,7 +665,7 @@
         }
       },
       "cardiorespiratory_status": {
-        "name": "Cardiorespiratory fitness 状态"
+        "name": "心肺适能状态"
       },
       "hrv_weekly": {
         "name": "HRV 周平均"
@@ -677,16 +677,16 @@
         "name": "HRV 状态"
       },
       "threshold_hr": {
-        "name": "Threshold 心率"
+        "name": "阈值心率"
       },
       "threshold_pace": {
-        "name": "Threshold 配速"
+        "name": "阈值配速"
       },
       "threshold_power": {
-        "name": "Threshold 功率"
+        "name": "阈值功率"
       },
       "threshold_power_to_weight": {
-        "name": "Threshold 功率-to-weight"
+        "name": "阈值功率体重比"
       },
       "fitness_age": {
         "name": "体能年龄"
@@ -695,10 +695,10 @@
         "name": "体能年龄 difference"
       },
       "training_readiness_context": {
-        "name": "Training readiness 背景"
+        "name": "训练准备度上下文"
       },
       "sleep_score_context": {
-        "name": "睡眠 评分 背景"
+        "name": "睡眠评分上下文"
       },
       "acute_training_load": {
         "name": "Acute 训练负荷"
@@ -710,7 +710,7 @@
         "name": "急性/慢性负荷比"
       },
       "provider_training_status": {
-        "name": "Provider training 状态"
+        "name": "提供商训练状态"
       },
       "ai_general_evaluation": {
         "name": "AI 综合评估",
@@ -747,7 +747,7 @@
         }
       },
       "heart_rate_percent_max": {
-        "name": "心率 % of maximum",
+        "name": "心率占最大值百分比",
         "state_attributes": {
           "source_entity": {
             "name": "来源实体"
@@ -843,7 +843,7 @@
         }
       },
       "heart_rate_relative_threshold": {
-        "name": "心率 relative to 阈值",
+        "name": "心率相对阈值",
         "state_attributes": {
           "source_entity": {
             "name": "来源实体"
@@ -907,7 +907,7 @@
         }
       },
       "power_relative_threshold": {
-        "name": "功率 relative to 阈值",
+        "name": "功率相对阈值",
         "state_attributes": {
           "source_entity": {
             "name": "来源实体"
@@ -971,7 +971,7 @@
         }
       },
       "speed_relative_threshold": {
-        "name": "速度 relative to 阈值",
+        "name": "速度相对阈值",
         "state_attributes": {
           "source_entity": {
             "name": "来源实体"
@@ -1017,7 +1017,7 @@
         }
       },
       "last_workout_moving_time": {
-        "name": "上次训练 moving time",
+        "name": "上次训练：移动时间",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1031,7 +1031,7 @@
         }
       },
       "last_workout_elapsed_time": {
-        "name": "上次训练 elapsed time",
+        "name": "上次训练：总用时",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1045,7 +1045,7 @@
         }
       },
       "last_workout_average_speed": {
-        "name": "上次训练 average 速度",
+        "name": "上次训练：平均速度",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1059,7 +1059,7 @@
         }
       },
       "last_workout_max_speed": {
-        "name": "上次训练 maximum 速度",
+        "name": "上次训练：最高速度",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1073,7 +1073,7 @@
         }
       },
       "last_workout_weighted_power": {
-        "name": "上次训练 weighted / normalized 功率",
+        "name": "上次训练：加权 / 标准化功率",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1087,7 +1087,7 @@
         }
       },
       "last_workout_max_cadence": {
-        "name": "上次训练 maximum cadence",
+        "name": "上次训练：最大踏频",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1101,7 +1101,7 @@
         }
       },
       "last_workout_elevation_loss": {
-        "name": "上次训练 elevation loss",
+        "name": "上次训练：累计下降",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1129,7 +1129,7 @@
         }
       },
       "last_workout_aerobic_effect": {
-        "name": "上次训练 有氧 training effect",
+        "name": "上次训练：有氧训练效果",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1143,7 +1143,7 @@
         }
       },
       "last_workout_anaerobic_effect": {
-        "name": "上次训练 无氧 training effect",
+        "name": "上次训练：无氧训练效果",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1157,7 +1157,7 @@
         }
       },
       "last_workout_training_effect": {
-        "name": "上次训练 training effect",
+        "name": "上次训练：训练效果",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1185,7 +1185,7 @@
         }
       },
       "last_workout_relative_effort": {
-        "name": "上次训练 relative effort",
+        "name": "上次训练：相对努力程度",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1199,7 +1199,7 @@
         }
       },
       "last_workout_kilojoules": {
-        "name": "上次训练 energy",
+        "name": "上次训练：能量",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1213,7 +1213,7 @@
         }
       },
       "last_workout_total_reps": {
-        "name": "上次训练 total reps",
+        "name": "上次训练：总次数",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1227,7 +1227,7 @@
         }
       },
       "last_workout_exercise_count": {
-        "name": "上次训练 exercise count",
+        "name": "上次训练：动作数量",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1241,7 +1241,7 @@
         }
       },
       "last_workout_volume": {
-        "name": "上次训练 training volume",
+        "name": "上次训练：训练容量",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1255,7 +1255,7 @@
         }
       },
       "last_workout_device": {
-        "name": "上次训练 device",
+        "name": "上次训练：设备",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1269,7 +1269,7 @@
         }
       },
       "last_workout_gear": {
-        "name": "上次训练 gear",
+        "name": "上次训练：装备",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1283,7 +1283,7 @@
         }
       },
       "last_workout_sources": {
-        "name": "上次训练 data 来源",
+        "name": "上次训练：数据源",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1297,7 +1297,7 @@
         }
       },
       "live_average_heart_rate": {
-        "name": "实时 average 心率",
+        "name": "实时：平均心率",
         "state_attributes": {
           "source_entity": {
             "name": "来源实体"
@@ -1329,7 +1329,7 @@
         }
       },
       "live_maximum_heart_rate": {
-        "name": "实时 maximum 心率",
+        "name": "实时：最大心率",
         "state_attributes": {
           "source_entity": {
             "name": "来源实体"
@@ -1361,7 +1361,7 @@
         }
       },
       "live_average_power": {
-        "name": "实时 average 功率",
+        "name": "实时：平均功率",
         "state_attributes": {
           "source_entity": {
             "name": "来源实体"
@@ -1393,7 +1393,7 @@
         }
       },
       "live_maximum_power": {
-        "name": "实时 maximum 功率",
+        "name": "实时：最大功率",
         "state_attributes": {
           "source_entity": {
             "name": "来源实体"
@@ -1425,7 +1425,7 @@
         }
       },
       "live_average_cadence": {
-        "name": "实时 average cadence",
+        "name": "实时：平均踏频",
         "state_attributes": {
           "source_entity": {
             "name": "来源实体"
@@ -1457,7 +1457,7 @@
         }
       },
       "live_average_speed": {
-        "name": "实时 average 速度",
+        "name": "实时：平均速度",
         "state_attributes": {
           "source_entity": {
             "name": "来源实体"
@@ -1521,7 +1521,7 @@
         }
       },
       "live_mechanical_work": {
-        "name": "实时 mechanical work",
+        "name": "实时：机械功",
         "state_attributes": {
           "source_entity": {
             "name": "来源实体"
@@ -1553,7 +1553,7 @@
         }
       },
       "live_aerobic_efficiency": {
-        "name": "实时 有氧 效率",
+        "name": "实时：有氧效率",
         "state_attributes": {
           "source_entity": {
             "name": "来源实体"
@@ -1585,7 +1585,7 @@
         }
       },
       "live_aerobic_decoupling": {
-        "name": "实时 有氧 解耦",
+        "name": "实时：有氧解耦",
         "state_attributes": {
           "source_entity": {
             "name": "来源实体"
@@ -1727,7 +1727,7 @@
         }
       },
       "last_workout_trimp_per_hour": {
-        "name": "上次训练 TRIMP per hour",
+        "name": "上次训练：每小时 TRIMP",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1741,7 +1741,7 @@
         }
       },
       "last_workout_mechanical_work": {
-        "name": "上次训练 mechanical work",
+        "name": "上次训练：机械功",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1755,7 +1755,7 @@
         }
       },
       "last_workout_aerobic_efficiency": {
-        "name": "上次训练 有氧 效率",
+        "name": "上次训练：有氧效率",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1769,7 +1769,7 @@
         }
       },
       "last_workout_aerobic_decoupling": {
-        "name": "上次训练 有氧 解耦",
+        "name": "上次训练：有氧解耦",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1839,7 +1839,7 @@
         }
       },
       "last_workout_time_moderate": {
-        "name": "上次训练 moderate-intensity time",
+        "name": "上次训练：中等强度时间",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1853,7 +1853,7 @@
         }
       },
       "last_workout_time_vigorous": {
-        "name": "上次训练 vigorous-intensity time",
+        "name": "上次训练：高强度时间",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1867,7 +1867,7 @@
         }
       },
       "last_workout_time_near_maximal": {
-        "name": "上次训练 near-maximal time",
+        "name": "上次训练：接近最大强度时间",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -1986,7 +1986,7 @@
         }
       },
       "last_workout_trimp_vs_recent": {
-        "name": "TRIMP vs comparable 近期训练",
+        "name": "TRIMP 与近期同类训练对比",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -2000,7 +2000,7 @@
         }
       },
       "last_workout_load_context": {
-        "name": "训练 load 背景",
+        "name": "训练负荷上下文",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -2014,7 +2014,7 @@
         }
       },
       "last_workout_personal_context": {
-        "name": "训练 personal 背景",
+        "name": "训练个人上下文",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -2144,7 +2144,7 @@
         }
       },
       "last_sleep_time_in_bed": {
-        "name": "上次睡眠 time in bed",
+        "name": "上次睡眠：卧床时间",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -2246,7 +2246,7 @@
         }
       },
       "last_sleep_average_hr": {
-        "name": "上次睡眠 average 心率",
+        "name": "上次睡眠：平均心率",
         "state_attributes": {
           "sources": {
             "name": "数据来源"
@@ -2334,7 +2334,7 @@
         "name": "7-天 训练负荷 vs 28-天 基线"
       },
       "hrr_60s_vs_90d": {
-        "name": "Latest 60 s 心率恢复 vs 90-天 基线"
+        "name": "最近 60 秒心率恢复与 90 天基线对比"
       },
       "sleep_duration_7d_mean": {
         "name": "平均 睡眠 时长 (7 天)"
@@ -2346,10 +2346,10 @@
         "name": "上次睡眠 时长 vs 28-天 基线"
       },
       "sleep_duration_shortfall": {
-        "name": "睡眠 时长 shortfall vs 7 h adult minimum"
+        "name": "睡眠时长低于成人最低 7 小时的差值"
       },
       "sleep_midpoint_variability_14d": {
-        "name": "睡眠 midpoint variability (14 天)"
+        "name": "睡眠中点变异性（14 天）"
       },
       "sleep_hrv_7d_mean": {
         "name": "平均 睡眠 HRV (7 天)"
@@ -2488,7 +2488,7 @@
             "name": "平均 睡眠 HRV (28 天)"
           },
           "sleep_hrv_vs_28d_percent": {
-            "name": "Latest 睡眠 HRV vs 28-天 基线"
+            "name": "最近睡眠 HRV 与 28 天基线对比"
           },
           "resting_hr_current_bpm": {
             "name": "当前 静息心率"
@@ -2621,7 +2621,7 @@
             "name": "距离 (28 天)"
           },
           "last_recovery_interval_h": {
-            "name": "上次 recovery interval"
+            "name": "上次恢复间隔"
           },
           "median_recovery_interval_28d_h": {
             "name": "恢复间隔中位数 (28 天)"
@@ -2706,10 +2706,10 @@
             "name": "TRIMP vs next-睡眠 HRV (r)"
           },
           "sleep_duration_pairs": {
-            "name": "训练–睡眠 时长 pairs"
+            "name": "训练–睡眠时长数据对"
           },
           "sleep_hrv_pairs": {
-            "name": "训练–睡眠 HRV pairs"
+            "name": "训练–睡眠 HRV 数据对"
           },
           "window_days": {
             "name": "分析窗口"
@@ -3133,6 +3133,96 @@
             "name": "是否声称完全生理恢复"
           }
         }
+      },
+      "cycplus_device_number": {
+        "name": "设备编号"
+      },
+      "cycplus_sync_state": {
+        "name": "训练同步状态",
+        "state": {
+          "idle": "空闲",
+          "waiting": "正在等待设备",
+          "connecting": "正在连接",
+          "syncing": "正在同步",
+          "ready": "已是最新",
+          "retrying": "正在重试",
+          "error": "错误"
+        }
+      },
+      "cycplus_last_sync": {
+        "name": "上次同步尝试"
+      },
+      "cycplus_last_successful_sync": {
+        "name": "上次成功同步"
+      },
+      "cycplus_device_workout_count": {
+        "name": "设备上的训练"
+      },
+      "cycplus_imported_file_count": {
+        "name": "已导入的训练文件"
+      },
+      "cycplus_pending_file_count": {
+        "name": "待处理的训练文件"
+      },
+      "cycplus_active_file": {
+        "name": "当前下载"
+      },
+      "cycplus_downloaded_bytes": {
+        "name": "已下载字节"
+      },
+      "cycplus_retry_count": {
+        "name": "重试次数"
+      },
+      "cycplus_disk_free_kb": {
+        "name": "设备可用存储空间"
+      },
+      "cycplus_disk_total_kb": {
+        "name": "设备总存储空间"
+      },
+      "cycplus_last_error": {
+        "name": "上次同步错误",
+        "state": {
+          "none": "无错误",
+          "connection_failed": "连接失败",
+          "catalog_failed": "训练目录读取失败",
+          "transfer_interrupted": "传输已中断",
+          "invalid_fit": "FIT 文件无效",
+          "import_failed": "训练导入失败",
+          "unknown": "未知错误"
+        }
+      },
+      "cycplus_latest_workout": {
+        "name": "设备上的最新训练"
+      },
+      "cycplus_fit_serial_number": {
+        "name": "FIT 序列号"
+      },
+      "cycplus_fit_manufacturer": {
+        "name": "FIT 制造商"
+      },
+      "cycplus_fit_product": {
+        "name": "FIT 产品"
+      },
+      "cycplus_fit_hardware_version": {
+        "name": "FIT 硬件版本"
+      },
+      "cycplus_fit_software_version": {
+        "name": "FIT 软件版本"
+      },
+      "cycplus_fit_battery_voltage": {
+        "name": "FIT 电池电压"
+      },
+      "cycplus_fit_battery_status": {
+        "name": "FIT 电池状态",
+        "state": {
+          "new": "全新",
+          "good": "良好",
+          "ok": "正常",
+          "low": "电量低",
+          "critical": "电量严重不足",
+          "charging": "正在充电",
+          "unknown": "未知"
+        }
       }
     },
     "button": {
@@ -3150,6 +3240,9 @@
       },
       "regenerate_ai_evaluation": {
         "name": "重新生成 AI 评估"
+      },
+      "cycplus_sync_workouts": {
+        "name": "立即同步训练"
       }
     },
     "select": {
@@ -3206,16 +3299,16 @@
       "name": "训练记录"
     },
     "sensors_adapters": {
-      "name": "Sensors & Adapters"
+      "name": "传感器和适配器"
     },
     "sensors": {
-      "name": "Sensors"
+      "name": "传感器"
     },
     "antplus_adapter": {
-      "name": "ANT+ Adapter"
+      "name": "ANT+ 适配器"
     },
     "bluetooth_adapter": {
-      "name": "Bluetooth Adapter"
+      "name": "蓝牙适配器"
     }
   },
   "issues": {
@@ -3292,6 +3385,20 @@
         "prompt": {
           "name": "AI 提示词",
           "description": "发送给 AI 提供商的提示词。"
+        }
+      }
+    },
+    "delete_workouts_before": {
+      "name": "删除旧 Fitness 训练",
+      "description": "永久删除早于所选天数的已存储 Fitness 训练历史。",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness 个人资料",
+          "description": "要清理已存储训练历史的 Fitness 个人资料。"
+        },
+        "days": {
+          "name": "保留天数",
+          "description": "保留最近这些天的训练，并删除更早的记录。"
         }
       }
     }

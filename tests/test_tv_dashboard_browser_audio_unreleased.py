@@ -100,7 +100,7 @@ def test_tv_dashboard_cast_button_lists_native_cast_targets_and_casts_selected_p
     assert 'Fitness TV cast attempt %d/3 to %s failed' in DASHBOARD
     assert 'async _openCastPicker()' in FRONTEND
     assert 'if (Array.isArray(data?.cast_targets)) this._castTargets = data.cast_targets' in FRONTEND
-    assert 'target.available === false ? "disabled"' not in FRONTEND
+    assert 'target.available === false ? "disabled"' in FRONTEND
     for label in (
         "cast_dashboard", "cast_dashboard_title", "cast_to", "cast_now",
         "cast_default", "cast_unavailable", "cast_no_targets",
@@ -285,7 +285,9 @@ def test_tv_modals_anchor_under_toolbar_and_cards_pack_without_row_gaps():
     assert 'top:var(--modal-top,68px);left:0;right:0;bottom:0' in FRONTEND
     assert '.tv-toolbar{position:sticky;top:0' in FRONTEND
     assert ':host{display:block;width:100%;max-width:none;min-height:0' in FRONTEND
-    assert 'transform:translateX(-50%)' not in FRONTEND[FRONTEND.index('class FitnessTvDashboardCard'):FRONTEND.index('class FitnessTvDashboardStrategy')]
+    dashboard = FRONTEND[FRONTEND.index('class FitnessTvDashboardCard'):FRONTEND.index('class FitnessTvDashboardStrategy')]
+    layout_before_tooltip = dashboard[:dashboard.index('.cast-focus-tooltip[hidden]')]
+    assert 'transform:translateX(-50%)' not in layout_before_tooltip
     assert '.tv-grid{--tv-columns:4;--tv-row:4px;display:grid' in FRONTEND
     assert 'grid-auto-flow:dense' in FRONTEND
     assert 'new ResizeObserver((entries) =>' in FRONTEND
@@ -295,7 +297,7 @@ def test_tv_modals_anchor_under_toolbar_and_cards_pack_without_row_gaps():
     assert ':host([fitness-cast-receiver]) .tv-grid{--tv-columns:3;column-gap:6px' in FRONTEND
     assert 'transform:scale(var(--fitness-tv-card-scale,.70))' in FRONTEND
     assert 'zoom:.82' not in FRONTEND
-    assert ':host([fitness-cast-receiver]) .tv-toolbar{grid-template-columns:auto minmax(70px,120px) auto minmax(130px,1fr)' in FRONTEND
+    assert ':host([fitness-cast-receiver]) .tv-toolbar{grid-template-columns:auto minmax(76px,120px) auto minmax(180px,1fr)' in FRONTEND
 
 
 def test_browser_profile_views_are_full_width_panels_and_cast_uses_separate_safe_views():
@@ -362,7 +364,7 @@ def test_oled_protection_and_tv_density_controls_are_available_and_translatable(
     assert '_startOledProtection()' in FRONTEND
     assert '--fitness-oled-x' in FRONTEND
     assert ':host([oled-idle][fitness-cast-receiver]) .tv-toolbar{opacity:.34}' in FRONTEND
-    assert '.tv-actions .tool span' in FRONTEND
+    assert ':host([fitness-cast-receiver]) .tv-toolbar button>span{display:none!important}' in FRONTEND
     for label in (
         'tv_setup','add_tv_profile','reconfigure_profile','default_tv','tts_ducking',
         'tv_scale','oled_protection','save'
@@ -413,10 +415,11 @@ def test_unreleased_38_flow_modal_is_scrollable_translated_and_has_main_menu_but
     assert 'websocket_dashboard_flow_translations' in DASHBOARD
     assert 'type:"fitness/dashboard/flow_translations"' in FRONTEND
     assert 'class="flow-home"' in FRONTEND
-    assert 'mdi:home-cog-outline' in FRONTEND
+    assert 'mdi:view-dashboard-outline' in FRONTEND
     assert '_restartOptionsFlow()' in FRONTEND
-    assert '.flow-body{display:grid;gap:9px;padding:15px;overflow:auto;min-height:0' in FRONTEND
-    assert 'max-height:calc(100vh - 120px)' in FRONTEND
+    assert '.flow-body{display:grid;gap:9px;padding:15px;overflow-y:auto;overflow-x:hidden;min-height:0' in FRONTEND
+    assert ':host{display:block;color:var(--primary-text-color);height:100%;max-height:100%;min-height:0;overflow:hidden}' in FRONTEND
+    assert 'flowBody.scrollTop += Number(event.deltaY || 0);' in FRONTEND
     assert 'settings_main_menu' in DASHBOARD
 
 
@@ -447,7 +450,8 @@ def test_unreleased_38_favorite_feedback_is_optimistic_and_toolbar_cannot_overla
     assert 'favorite-pulse' in FRONTEND
     assert 'ev.currentTarget' in FRONTEND
     assert '@media(max-width:1600px)' in FRONTEND
-    assert '.tv-toolbar.fixed-profile .tv-actions .tool span{display:none}' in FRONTEND
+    assert '.tv-toolbar.fixed-profile .tv-actions .tool span{display:none}' not in FRONTEND
+    assert '.tv-toolbar.fixed-profile .tv-actions{grid-template-columns:repeat(auto-fit,minmax(94px,1fr))}' in FRONTEND
 
 
 def test_unreleased_39_cast_handoff_stops_old_audio_and_single_browser_instance_handles_events():
@@ -576,7 +580,7 @@ def test_unreleased_44_cast_launch_requires_fitness_browser_heartbeat_and_failur
 
 def test_unreleased_45_now_playing_requires_a_real_selection_and_reflects_actual_playback():
     assert 'id="media-status"' in FRONTEND
-    assert 'l.media_selected || "Selected"' in FRONTEND
+    assert "l.media_selected" in FRONTEND
     assert 'const failed = hasSelection && Boolean(error || shared.error)' in FRONTEND
     assert 'const playing = hasSelection && !failed && Boolean(shared.playing' in FRONTEND
     assert 'if (play) play.disabled = playing || !hasSelection' in FRONTEND
@@ -632,7 +636,7 @@ def test_unreleased_46_persists_last_music_and_re_resolves_after_cast_restart():
 def test_unreleased_46_powered_off_tv_has_wake_cooldown_and_screen_wake_lock():
     assert 'remaining = 10.0 - (asyncio.get_running_loop().time() - wake_started)' in DASHBOARD
     assert 'await asyncio.sleep(remaining)' in DASHBOARD
-    assert 'l.cast_connecting || "Connecting to TV…"' in FRONTEND
+    assert "l.cast_connecting" in FRONTEND
     assert 'navigator.wakeLock.request("screen")' in FRONTEND
     assert 'FITNESS_TV_CAST_RECEIVER ? 5000 : 10000' in FRONTEND
     assert 'CAST_CLIENT_STALE_SECONDS = 14.0' in TV
@@ -654,7 +658,7 @@ def test_unreleased_46_setup_has_one_touch_profile_tv_workout_flow():
     assert 'await self.async_start_session()' in MANAGER
     assert 'type:"fitness/tv/start_workout"' in FRONTEND
     assert 'class="tool start-tv-workout"' in FRONTEND
-    assert 'l.start_tv_workout || "Start on TV"' in FRONTEND
+    assert "l.start_tv_workout" in FRONTEND
 
 
 def test_unreleased_46_cast_uses_profile_language_and_tv_safe_recovery_bar_fallbacks():
@@ -685,7 +689,7 @@ def test_unreleased_48_music_sources_are_profile_native_searchable_and_stream_sa
     assert 'data-source="ha"' in FRONTEND
     assert 'data-source="link"' in FRONTEND
     assert 'open.spotify.com/embed/iframe-api/v1' not in FRONTEND
-    assert 'Spotify links are not directly playable here' in FRONTEND
+    assert "l.music_spotify_requires_provider" in FRONTEND
     assert 'w.soundcloud.com/player/api.js' in FRONTEND
     assert 'youtube.com/iframe_api' in FRONTEND
 
@@ -724,7 +728,7 @@ def test_unreleased_49_radio_browser_country_filter_and_ambient_tv_background():
 def test_unreleased_49_tv_setup_icons_and_labels_are_native_mdi():
     assert 'sidebar_icon="mdi:television-play"' in DASHBOARD
     assert 'fitness:logo' not in DASHBOARD
-    assert 'l.backend_profile || "Fitness TV disabled"' in FRONTEND
+    assert "l.backend_profile" in FRONTEND
     assert 'class="tool enable-profile"><ha-icon icon="mdi:television-play"' in FRONTEND
     assert 'id="add-profile"><ha-icon icon="mdi:plus-circle-outline"' in FRONTEND
 

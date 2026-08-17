@@ -39,7 +39,7 @@ class SpotifyMusicAdapter(MusicAdapter):
             can_browse=True,
             can_play_link=False,
             account_setup="home_assistant",
-            setup_hint="Uses an installed Home Assistant Spotify account. Native Spotify is browse/control only here; for searchable Fitness-TV browser audio use the Music Assistant adapter with Spotify configured there.",
+            setup_hint_key="music_adapter_spotify_hint",
             setup_path="/config/integrations/integration/spotify",
             source="spotify",
             account_options=account_options,

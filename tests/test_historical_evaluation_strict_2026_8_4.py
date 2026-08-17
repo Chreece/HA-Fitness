@@ -47,4 +47,4 @@ def test_evaluation_exposes_auditable_history_series():
     assert '"minimum_days_28d": 21' in SENSOR
     assert '"minimum_days_90d": 60' in SENSOR
     assert 'class="history' in FRONTEND
-    assert 'aria-label="${_fitnessEscape(l.history || "History")}"' in FRONTEND
+    assert 'aria-label="${_fitnessEscape(l.history)}"' in FRONTEND

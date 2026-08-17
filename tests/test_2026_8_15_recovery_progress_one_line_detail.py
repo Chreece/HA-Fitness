@@ -7,10 +7,10 @@ BACKEND = (ROOT / "custom_components/fitness/dashboard.py").read_text(encoding="
 
 def test_recovery_progress_owns_compact_ready_remaining_and_certainty_detail():
     assert 'const recoveryProgressDetail = recoveryComplete' in FRONTEND
-    assert 'l.recovery_done_short || "Done"' in FRONTEND
-    assert 'l.ready_at_compact || "Ready at: {time}"' in FRONTEND
-    assert 'l.remaining_compact || "{time} remaining"' in FRONTEND
-    assert 'l.certain_compact || "{percent}% certain"' in FRONTEND
+    assert "l.recovery_done_short" in FRONTEND
+    assert "l.ready_at_compact" in FRONTEND
+    assert "l.remaining_compact" in FRONTEND
+    assert "l.certain_compact" in FRONTEND
     assert 'detail:recoveryProgressDetail' in FRONTEND
     assert 'Math.round(recoveryPct) >= 100' in FRONTEND
     assert 'class="next-main"' not in FRONTEND
@@ -22,7 +22,7 @@ def test_same_day_ready_time_is_compact_localized_and_detail_stays_one_line():
     assert 'return `${day} ${timeText}`;' in FRONTEND
     assert 'at_time || "at"' not in FRONTEND
     assert 'Math.round(remaining * 60)' in FRONTEND
-    assert 'l.minutes_short || "min"' in FRONTEND
+    assert "l.minutes_short" in FRONTEND
     assert '.recovery-score-progress .recovery-score-detail{white-space:nowrap' in FRONTEND
     assert 'overflow-x:auto' in FRONTEND
 

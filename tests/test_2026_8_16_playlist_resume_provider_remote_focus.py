@@ -48,9 +48,15 @@ def test_youtube_playlist_resume_restores_playlist_item_index_and_track_time():
     assert "playerVars.index = playlistIndex" in youtube
 
 
-def test_provider_details_are_compacted_for_results_and_now_playing():
+def test_provider_details_are_compacted_for_now_playing_and_result_types_are_localized():
     assert "_compactMediaDetails(providerLabel, details)" in FRONTEND
-    assert "const typeLabel = this._compactMediaDetails(provider, item.details || item.media_class);" in FRONTEND
+    result_metadata = FRONTEND[
+        FRONTEND.index("  _mediaResultMetadata(item = {}) {"):
+        FRONTEND.index("  _isMAItem(item = {})", FRONTEND.index("  _mediaResultMetadata(item = {}) {"))
+    ]
+    assert "const mediaType = FITNESS_MUSIC_SEARCH_TYPES.find" in result_metadata
+    assert 'const typeLabel = mediaType ? String(labels?.[mediaType.label] || "").trim() : "";' in result_metadata
+    assert "item.details" not in result_metadata
     assert "metadata.details = this._compactMediaDetails(providerLabel, metadata.details);" in FRONTEND
 
 
@@ -60,7 +66,7 @@ def test_now_playing_text_is_bounded_to_progress_width_and_marquees_only_on_over
     assert ".media-progress-wrap{display:grid" in FRONTEND
     assert "width:min(420px,100%);max-width:420px" in FRONTEND
     assert ":host([fitness-cast-receiver]) .media-now-main,:host([fitness-cast-receiver]) .media-copy{width:min(300px,100%);max-width:300px}" in FRONTEND
-    assert ":host([fitness-cast-receiver]) .media-progress-wrap{gap:3px;margin-top:1px;font-size:6px;width:min(300px,100%);max-width:300px}" in FRONTEND
+    assert ":host([fitness-cast-receiver]) .media-progress-wrap{gap:3px;margin-top:1px;font-size:8px;width:min(300px,100%);max-width:300px}" in FRONTEND
     assert "_updateMediaMarquee()" in FRONTEND
     assert "element.scrollWidth - line.clientWidth" in FRONTEND
     assert "@keyframes fitness-media-marquee" in FRONTEND
@@ -68,10 +74,10 @@ def test_now_playing_text_is_bounded_to_progress_width_and_marquees_only_on_over
 
 def test_cast_remote_has_visible_focus_press_feedback_and_range_navigation():
     remote = FRONTEND[FRONTEND.index("  _clearCastRemoteFocus() {"):FRONTEND.index("  _claimWindowController() {")]
-    assert "_markCastRemoteFocus(element, pressed = false)" in remote
+    assert "_markCastRemoteFocus(element, pressed = false, record = true)" in remote
     assert 'element.style.outline = "2px solid color-mix(in srgb,var(--primary-color,#03a9f4) 92%,white 8%)"' in remote
-    assert 'pressed ? "scale(1.02)" : "scale(1.065)"' in remote
-    assert 'brightness(1.15) saturate(1.09)' in remote
+    assert 'pressed ? "translate3d(0,0,0) scale(.985)" : "translate3d(0,-1px,0) scale(1.018)"' in remote
+    assert 'element.style.filter = "none"' in remote
     assert '["Enter","NumpadEnter","Select","Accept"," "]' in remote
     assert "target.click?.();" in remote
     assert 'String(active?.type || "").toLowerCase() === "range"' in remote

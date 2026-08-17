@@ -35,7 +35,7 @@ class YTDLPMusicAdapter(MusicAdapter):
             can_search=True,
             experimental=True,
             account_setup="fitness_opt_in",
-            setup_hint="Enabled by this Fitness profile's explicit yt-dlp acknowledgement.",
+            setup_hint_key="music_adapter_ytdlp_hint",
         )
 
     @staticmethod

@@ -137,7 +137,11 @@ class PhysicalDetailSensor(_PhysicalSensorEntity):
         super().__init__(runtime, sensor_id)
         self.key = key
         meta = runtime.sensor_detail_meta.get(sensor_id, {}).get(key, {})
-        self._attr_name = str(meta.get("name") or key.replace("_", " ").title())
+        translation_key = str(meta.get("translation_key") or "").strip()
+        if translation_key:
+            self._attr_translation_key = translation_key
+        else:
+            self._attr_name = str(meta.get("name") or key.replace("_", " ").title())
         self._attr_unique_id = f"fitness_{sensor_id}_detail_{key}"
         unit = meta.get("unit")
         if unit:
@@ -145,7 +149,12 @@ class PhysicalDetailSensor(_PhysicalSensorEntity):
         if meta.get("icon"):
             self._attr_icon = str(meta["icon"])
         if meta.get("device_class"):
-            self._attr_device_class = str(meta["device_class"])
+            try:
+                self._attr_device_class = SensorDeviceClass(str(meta["device_class"]))
+            except ValueError:
+                self._attr_device_class = str(meta["device_class"])
+        if meta.get("options"):
+            self._attr_options = [str(value) for value in meta["options"]]
         if meta.get("state_class") in {"measurement", "total", "total_increasing"}:
             self._attr_state_class = str(meta["state_class"])
         if str(meta.get("entity_category") or "").lower() == "diagnostic":
@@ -162,6 +171,14 @@ class PhysicalDetailSensor(_PhysicalSensorEntity):
     @property
     def native_value(self):
         value = self._raw_value()
+        if (
+            getattr(self, "_attr_device_class", None) == SensorDeviceClass.TIMESTAMP
+            and isinstance(value, str)
+        ):
+            try:
+                return datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError:
+                return None
         rendered = str(value) if isinstance(value, (dict, list, tuple, set)) else value
         # Home Assistant's state string is capped at 255 characters. Large raw
         # GATT/service/manufacturer diagnostics belong in attributes, not state.

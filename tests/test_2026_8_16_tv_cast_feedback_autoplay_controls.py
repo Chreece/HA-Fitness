@@ -72,16 +72,17 @@ def test_music_selection_remains_immediate_autoplay_for_tracks_and_playlists():
 
 
 def test_cast_receiver_toolbar_only_exposes_cast_relevant_action_buttons():
+    dashboard = FRONTEND.index("class FitnessTvDashboardCard")
     render = FRONTEND[
-        FRONTEND.index("  _render() {"):
-        FRONTEND.index("  async _toggleFullscreen()")
+        FRONTEND.index("  _render() {", dashboard):
+        FRONTEND.index("  async _toggleFullscreen()", dashboard)
     ]
-    assert "const profileActions = FITNESS_TV_CAST_RECEIVER" in render
-    assert 'class="tool cast-receiver-action" id="stop-cast"' in render
+    assert "const profileActions = profileNavTool + (FITNESS_TV_CAST_RECEIVER" in render
     receiver_branch = render[
-        render.index("const profileActions = FITNESS_TV_CAST_RECEIVER"):
-        render.index(": [", render.index("const profileActions = FITNESS_TV_CAST_RECEIVER"))
+        render.index("const profileActions = profileNavTool + (FITNESS_TV_CAST_RECEIVER"):
+        render.index(": (canControl ? [", render.index("const profileActions = profileNavTool + (FITNESS_TV_CAST_RECEIVER"))
     ]
+    assert 'id="stop-cast"' not in receiver_branch
     assert 'id="fullscreen"' not in receiver_branch
     assert 'id="cast"' not in receiver_branch
     assert 'id="cards"' not in receiver_branch
@@ -91,7 +92,7 @@ def test_cast_receiver_toolbar_only_exposes_cast_relevant_action_buttons():
     assert 'id="backend-config"' in receiver_branch
     assert 'id="light-feedback-toggle"' in receiver_branch
     assert 'id="tts-announcements-toggle"' in receiver_branch
-    assert 'void this._quitCastFromRemote("toolbar stop")' in render
+    assert 'id="stop-cast"' in render  # desktop/local Cast control remains available
 
 
 def test_tv_profile_payload_and_frontend_revision_expose_new_setting():

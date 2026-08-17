@@ -169,6 +169,7 @@ class RemoteGatewayRuntime:
         name: str,
         service_uuids: list[str],
         characteristic_uuids: list[str],
+        identity: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         entry = _profile_entry(self.hass, profile_entry_id)
         if entry is None:
@@ -191,7 +192,22 @@ class RemoteGatewayRuntime:
             raise ValueError("unsupported_ble_sensor")
 
         endpoint_id = f"bluetooth:web:{profile_entry_id}:{gateway_id}:{device_id}"
-        sensor = runtime.register_transport_sensor(
+        identity = {str(k): str(v).strip() for k, v in dict(identity or {}).items() if str(v).strip()}
+        existing = runtime.find_sensor_for_remote_ble_identity(
+            name=str(name or "Remote Bluetooth fitness sensor")[:160],
+            capabilities=capabilities,
+            identity=identity,
+        )
+        if existing is not None:
+            sensor = existing
+            runtime.endpoint_aliases[endpoint_id] = sensor.sensor_id
+            sensor.metadata.setdefault("remote_gateways", {})[gateway_id] = {
+                "device_id": device_id,
+                "profile_entry_id": profile_entry_id,
+                **identity,
+            }
+        else:
+            sensor = runtime.register_transport_sensor(
             transport="bluetooth",
             endpoint_id=endpoint_id,
             name=str(name or "Remote Bluetooth fitness sensor")[:160],
@@ -200,16 +216,17 @@ class RemoteGatewayRuntime:
             source=f"remote:{gateway_id}",
             last_seen=datetime.now(timezone.utc),
             available=True,
-            metadata={
-                "remote_gateway": gateway_id,
-                "remote_device_id": device_id,
-                "browser_remote": True,
-                "service_uuids": sorted(services),
-                "characteristic_uuids": sorted(chars),
-                "profile_entry_id": profile_entry_id,
-                "gateway_protocol": REMOTE_GATEWAY_PROTOCOL,
-            },
-        )
+                metadata={
+                    "remote_gateway": gateway_id,
+                    "remote_device_id": device_id,
+                    "browser_remote": True,
+                    "service_uuids": sorted(services),
+                    "characteristic_uuids": sorted(chars),
+                    "profile_entry_id": profile_entry_id,
+                    "gateway_protocol": REMOTE_GATEWAY_PROTOCOL,
+                    **identity,
+                },
+            )
         self._ble_sensor_ids[(profile_entry_id, gateway_id, device_id)] = sensor.sensor_id
         self._last_seen[(profile_entry_id, gateway_id, device_id)] = time.monotonic()
         await _async_assign_sensor_to_profile(self.hass, runtime, entry, sensor.sensor_id)
@@ -229,16 +246,31 @@ class RemoteGatewayRuntime:
         """Mark one browser BLE endpoint offline without deleting assignment."""
         key = (profile_entry_id, gateway_id, device_id)
         runtime = get_live_runtime(self.hass)
+        browser_endpoint_id = (
+            f"bluetooth:web:{profile_entry_id}:{gateway_id}:{device_id}"
+        )
         sensor_id = self._ble_sensor_ids.pop(key, None)
         if not sensor_id:
-            sensor_id = runtime.endpoint_aliases.get(
-                f"bluetooth:web:{profile_entry_id}:{gateway_id}:{device_id}"
-            )
+            sensor_id = runtime.endpoint_aliases.get(browser_endpoint_id)
         if sensor_id:
             sensor_id = runtime.resolve_sensor_id(sensor_id)
             sensor = runtime.sensors.get(sensor_id)
             endpoint = sensor.endpoints.get("bluetooth") if sensor is not None else None
-            if endpoint is not None:
+            other_browser_route_active = any(
+                runtime.resolve_sensor_id(mapped_sensor_id) == sensor_id
+                for mapped_sensor_id in self._ble_sensor_ids.values()
+            )
+            # A browser route may be only an alias to a Bluetooth endpoint seen
+            # directly by Home Assistant (and possibly already merged with
+            # ANT+). Disconnecting the browser must never mark that local route
+            # unavailable. Only own the availability flag when this exact web
+            # route created the canonical Bluetooth endpoint and no other
+            # browser route is still publishing to it.
+            if (
+                endpoint is not None
+                and endpoint.endpoint_id == browser_endpoint_id
+                and not other_browser_route_active
+            ):
                 runtime.refresh_transport_endpoint(
                     sensor_id,
                     "bluetooth",
@@ -421,6 +453,7 @@ async def websocket_remote_gateway_hello(hass: HomeAssistant, connection, msg) -
     vol.Optional("name", default="Remote Bluetooth fitness sensor"): str,
     vol.Optional("service_uuids", default=[]): [str],
     vol.Optional("characteristic_uuids", default=[]): [str],
+    vol.Optional("identity", default={}): {str: str},
 })
 @websocket_api.async_response
 async def websocket_remote_gateway_ble_device(hass: HomeAssistant, connection, msg) -> None:
@@ -433,6 +466,7 @@ async def websocket_remote_gateway_ble_device(hass: HomeAssistant, connection, m
             name=str(msg.get("name") or "Remote Bluetooth fitness sensor"),
             service_uuids=list(msg.get("service_uuids") or []),
             characteristic_uuids=list(msg.get("characteristic_uuids") or []),
+            identity=dict(msg.get("identity") or {}),
         )
         connection.send_result(msg["id"], result)
     except ValueError as err:
@@ -608,16 +642,22 @@ def _current_browser_refresh_token(hass: HomeAssistant, connection):
 
 @websocket_api.websocket_command({
     vol.Required("type"): "fitness/tv/local_cast_credentials",
-    vol.Required("profile_entry_id"): str,
+    vol.Optional("profile_entry_id", default=""): str,
+    vol.Optional("overview", default=False): bool,
     vol.Optional("browser_origin", default=""): str,
 })
 @websocket_api.async_response
 async def websocket_tv_local_cast_credentials(hass: HomeAssistant, connection, msg) -> None:
-    entry = _profile_entry(hass, msg["profile_entry_id"])
-    if entry is None:
-        connection.send_error(msg["id"], "profile_not_found", "Fitness profile not found")
-        return
-    await _require_profile_access(hass, connection, entry.entry_id)
+    overview = bool(msg.get("overview"))
+    entry = None
+    if overview:
+        await get_fitness_access_controller(hass).async_require_admin(connection)
+    else:
+        entry = _profile_entry(hass, msg.get("profile_entry_id"))
+        if entry is None:
+            connection.send_error(msg["id"], "profile_not_found", "Fitness profile not found")
+            return
+        await _require_profile_access(hass, connection, entry.entry_id)
     user = getattr(connection, "user", None)
     if user is None:
         connection.send_error(msg["id"], "auth_required", "Authenticated Home Assistant user required")
@@ -647,7 +687,7 @@ async def websocket_tv_local_cast_credentials(hass: HomeAssistant, connection, m
             "credential_source": "current_browser_session",
             "hass_url": hass_url,
             "dashboard_path": "fitness-tv",
-            "view_path": f"cast-{entry.entry_id}",
+            "view_path": "cast-overview" if overview else f"cast-{entry.entry_id}",
         })
     except ValueError as err:
         connection.send_error(msg["id"], str(err), "Local Cast requires an externally reachable HTTPS Home Assistant URL")

@@ -87,7 +87,7 @@ def test_fitness_accounts_ui_is_admin_only_and_users_cannot_self_enroll():
     assert 'type:"fitness/access/admin"' in JS
     assert 'type:"fitness/access/account/save"' in JS
     assert 'type:"fitness/access/account/delete"' in JS
-    assert 'type:"fitness/access/profile/delete"' not in JS
+    assert 'type:"fitness/access/profile/delete"' in JS
     assert 'data-profile-entry' not in JS
     assert 'id="access-base-domain"' in JS
     assert 'href="/config/person"' in JS

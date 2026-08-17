@@ -35,12 +35,12 @@
         }
       },
       "optional": {
-        "title": "Optional initial / calculable values",
-        "description": "Each field accepts a numeric value OR entity ID. Leave unknown fields empty.",
+        "title": "İsteğe bağlı başlangıç/hesaplanabilir değerler",
+        "description": "Her alan sayısal bir değer veya varlık kimliği kabul eder. Doğrudan değerler alanın belgelenen birimini kullanır; varlık değerleri kendi unit_of_measurement değerinden otomatik dönüştürülür. Bilinmeyen alanları boş bırak.",
         "data": {
           "height": "Boy (cm veya varlık)",
           "max_hr": "Maksimum nabız (bpm veya varlık)",
-          "vo2max": "VO₂max (mL/kg/min or entity)",
+          "vo2max": "VO₂maks (mL/kg/dk veya varlık)",
           "threshold_hr": "Eşik nabzı (bpm veya varlık)",
           "threshold_pace": "Eşik temposu (min/km veya varlık)",
           "threshold_power": "Eşik gücü (W veya varlık)"
@@ -62,15 +62,15 @@
           "live_device_ids": "Diğer Home Assistant canlı veri cihazları"
         },
         "data_description": {
-          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
-          "live_device_ids": "Optional Home Assistant devices exposing compatible live heart-rate, power, cadence, speed, distance or altitude entities."
+          "live_sensor_ids": "Fitness tarafından keşfedilen fiziksel sensörler. ANT+ ve Bluetooth kimlikleri aynı sensöre aitse tek cihazda birleştirilir; canlı ölçümlerde ANT+ tercih edilir.",
+          "live_device_ids": "Uyumlu canlı nabız, güç, kadans, hız, mesafe veya irtifa varlıkları sunan isteğe bağlı Home Assistant cihazları."
         }
       },
       "workout_devices": {
         "title": "Antrenman / uzun dönem verileri",
-        "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
+        "description": "Garmin Connect veya Strava gibi tamamlanmış antrenman ya da uzun dönem fitness/toparlanma verisi sağlayan cihazları seç.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data",
+          "workout_device_ids": "Antrenman/fitness geçmişi sağlayan cihazlar",
           "detailed_strength_analysis": "Ayrıntılı kuvvet analizi",
           "workout_retention_days": "Antrenman saklama"
         },
@@ -84,7 +84,7 @@
         "title": "Yapay zekâ yorumu",
         "description": "Varsayılan olarak Home Assistant'ın varsayılan AI Task'ı seçilir. Fitness mevcut sistem tercihini otomatik olarak izler; yalnızca sabitlemek istiyorsanız belirli bir AI Task veya konuşma aracısı seçin.",
         "data": {
-          "ai_enabled": "Generate AI fitness assessments",
+          "ai_enabled": "Yapay zekâ fitness değerlendirmeleri oluştur",
           "ai_entity": "AI sağlayıcısı"
         },
         "data_description": {
@@ -94,13 +94,13 @@
       },
       "feedback": {
         "title": "Koçluk, ışıklar ve duyurular",
-        "description": "Choose rooms and/or explicit light entities for five-second intensity color feedback. Every available color-capable light in the selected rooms is included automatically. You can also select notification entities, a TTS provider and media players for announcements.",
+        "description": "Beş saniyelik yoğunluk rengi geri bildirimi için odaları ve/veya açıkça seçilmiş ışık varlıklarını belirle. Seçilen odalardaki renk destekli tüm ışıklar otomatik eklenir. Duyurular için bildirim varlıkları, TTS sağlayıcısı ve medya oynatıcılar da seçebilirsin.",
         "data": {
-          "feedback_light_ids": "Additional / explicit lights for intensity feedback",
+          "feedback_light_ids": "Yoğunluk geri bildirimi için ek/açıkça seçilmiş ışıklar",
           "notify_entity_ids": "Antrenman bildirim varlıkları",
           "tts_entity_id": "TTS sağlayıcısı",
           "tts_media_player_ids": "Hoparlörler / medya oynatıcılar",
-          "feedback_area_ids": "Rooms for intensity light feedback",
+          "feedback_area_ids": "Yoğunluk ışığı geri bildirimi için odalar",
           "periodic_live_announcements": "Periyodik canlı antrenman duyuruları",
           "periodic_live_interval_minutes": "Canlı duyuru aralığı"
         },
@@ -125,13 +125,13 @@
         }
       },
       "assign_live_sensor": {
-        "title": "New fitness sensor discovered",
-        "description": "{sensor} was discovered. Choose every Fitness user who may use this physical sensor for live workouts.",
+        "title": "Yeni fitness sensörü keşfedildi",
+        "description": "{sensor} keşfedildi. Bu fiziksel sensörü canlı antrenmanlarda kullanabilecek tüm Fitness kullanıcılarını seç.",
         "data": {
-          "fitness_profile_ids": "Fitness users"
+          "fitness_profile_ids": "Fitness kullanıcıları"
         },
         "data_description": {
-          "fitness_profile_ids": "One physical sensor can be shared by multiple Fitness profiles."
+          "fitness_profile_ids": "Bir fiziksel sensör birden çok Fitness profiliyle paylaşılabilir."
         }
       },
       "tv_dashboard": {
@@ -141,31 +141,31 @@
           "tv_dashboard_enabled": "Fitness TV panelini etkinleştir",
           "tv_dashboard_media_player_id": "TV / Cast medya oynatıcı",
           "tv_dashboard_ducking_percent": "TTS sırasında müzik ses düzeyi",
-          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp müzik adaptörünü etkinleştir (deneysel)",
           "tv_dashboard_ignore_lights_when_cast_active": "TV Cast etkinken antrenman ışıklarını kullanma"
         },
         "data_description": {
           "tv_dashboard_enabled": "Antrenman başladığında Fitness TV panelini otomatik olarak tam ekranda gösterir. Cast görünümünün açık kalması için müzik ve TTS panelin içinde oynatılır.",
           "tv_dashboard_media_player_id": "Fitness TV panelini gösterecek Google Cast medya oynatıcısı. Fitness panel müziğini veya TTS sesini hiçbir zaman doğrudan bu medya oynatıcıya göndermez.",
           "tv_dashboard_ducking_percent": "Fitness bir TTS duyurusu yaparken korunacak mevcut müzik ses düzeyi yüzdesi. Duyuru sonrasında özgün ses düzeyi yumuşak biçimde geri yüklenir.",
-          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp, YouTube veya başka hizmetlerle bağlantısı olmayan isteğe bağlı bir üçüncü taraf adaptörüdür. Yasalara, hizmet koşullarına ve telif haklarına uyma ve gerekli izinleri alma sorumluluğu yalnızca sana aittir. Fitness çerez sağlamaz, aşmayı ya da yeniden dağıtımı yetkilendirmez ve adaptörü garantisiz sunar; bu bildirim hukuki tavsiye değildir.",
           "tv_dashboard_ignore_lights_when_cast_active": "Bir Fitness TV Cast alıcısı etkinken antrenman geri bildirimi için TV’yi kullanır ve yapılandırılmış antrenman ışıklarını değiştirmez."
         }
       }
     },
     "error": {
-      "invalid_date": "Enter a valid date of birth in the past.",
-      "invalid_number_or_entity": "Enter a valid numeric value or Home Assistant entity ID.",
-      "select_profile": "Select at least one Fitness user."
+      "invalid_date": "Geçmişte olan geçerli bir doğum tarihi gir.",
+      "invalid_number_or_entity": "Geçerli bir sayı veya Home Assistant varlık kimliği gir.",
+      "select_profile": "En az bir Fitness kullanıcısı seç."
     },
     "abort": {
-      "already_configured": "A Fitness profile with this name already exists.",
-      "live_sensor_assigned": "The fitness sensor was assigned successfully.",
-      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
-      "no_fitness_profiles": "Create a Fitness user before assigning this sensor.",
-      "invalid_discovery": "The fitness sensor discovery data was invalid.",
-      "adapters_already_configured": "All Fitness live adapters are already configured. Enable or disable them from their adapter devices.",
-      "adapters_managed_on_devices": "Local sensor adapters are configured from the ANT+ and Bluetooth adapter devices."
+      "already_configured": "Bu ada sahip bir Fitness profili zaten var.",
+      "live_sensor_assigned": "Fitness sensörü başarıyla atandı.",
+      "sensor_unavailable": "Keşfedilen fitness sensörü artık kullanılamıyor.",
+      "no_fitness_profiles": "Bu sensörü atamadan önce bir Fitness kullanıcısı oluştur.",
+      "invalid_discovery": "Fitness sensörü keşif verileri geçersizdi.",
+      "adapters_already_configured": "Tüm Fitness canlı adaptörleri zaten yapılandırılmış. Bunları adaptör cihazlarından etkinleştir veya devre dışı bırak.",
+      "adapters_managed_on_devices": "Yerel sensör adaptörleri ANT+ ve Bluetooth adaptör cihazlarından yapılandırılır."
     }
   },
   "options": {
@@ -186,7 +186,7 @@
       },
       "profile": {
         "title": "Profil",
-        "description": "Edit the person's profile information.",
+        "description": "Kişinin profil bilgilerini düzenle.",
         "data": {
           "language": "Dil",
           "birth_day": "Doğum günü",
@@ -210,7 +210,7 @@
           "resting_hr": "Dinlenik nabız (bpm veya varlık)",
           "height": "Boy (cm veya varlık)",
           "max_hr": "Maksimum nabız (bpm veya varlık)",
-          "vo2max": "VO₂max (mL/kg/min or entity)",
+          "vo2max": "VO₂maks (mL/kg/dk veya varlık)",
           "threshold_hr": "Eşik nabzı (bpm veya varlık)",
           "threshold_pace": "Eşik temposu (min/km veya varlık)",
           "threshold_power": "Eşik gücü (W veya varlık)"
@@ -234,15 +234,15 @@
           "live_device_ids": "Diğer Home Assistant canlı veri cihazları"
         },
         "data_description": {
-          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
-          "live_device_ids": "Optional Home Assistant devices exposing compatible live heart-rate, power, cadence, speed, distance or altitude entities."
+          "live_sensor_ids": "Fitness tarafından keşfedilen fiziksel sensörler. ANT+ ve Bluetooth kimlikleri aynı sensöre aitse tek cihazda birleştirilir; canlı ölçümlerde ANT+ tercih edilir.",
+          "live_device_ids": "Uyumlu canlı nabız, güç, kadans, hız, mesafe veya irtifa varlıkları sunan isteğe bağlı Home Assistant cihazları."
         }
       },
       "workout_devices": {
         "title": "Antrenman / uzun dönem verileri",
-        "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
+        "description": "Tamamlanmış antrenman veya uzun dönem fitness/toparlanma değerleri sağlayan cihazları seç.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data",
+          "workout_device_ids": "Antrenman/fitness geçmişi sağlayan cihazlar",
           "detailed_strength_analysis": "Ayrıntılı kuvvet analizi",
           "workout_retention_days": "Antrenman saklama"
         },
@@ -256,7 +256,7 @@
         "title": "Yapay zekâ yorumu",
         "description": "Varsayılan olarak Home Assistant'ın varsayılan AI Task'ı seçilir. Fitness mevcut sistem tercihini otomatik olarak izler; yalnızca sabitlemek istiyorsanız belirli bir AI Task veya konuşma aracısı seçin.",
         "data": {
-          "ai_enabled": "Generate AI fitness assessments",
+          "ai_enabled": "Yapay zekâ fitness değerlendirmeleri oluştur",
           "ai_entity": "AI sağlayıcısı"
         },
         "data_description": {
@@ -266,13 +266,13 @@
       },
       "feedback": {
         "title": "Koçluk, ışıklar ve duyurular",
-        "description": "Choose rooms and/or explicit light entities for five-second intensity color feedback. Every available color-capable light in the selected rooms is included automatically. You can also select notification entities, a TTS provider and media players for announcements.",
+        "description": "Beş saniyelik yoğunluk rengi geri bildirimi için odaları ve/veya açıkça seçilmiş ışık varlıklarını belirle. Seçilen odalardaki renk destekli tüm ışıklar otomatik eklenir. Duyurular için bildirim varlıkları, TTS sağlayıcısı ve medya oynatıcılar da seçebilirsin.",
         "data": {
-          "feedback_light_ids": "Additional / explicit lights for intensity feedback",
+          "feedback_light_ids": "Yoğunluk geri bildirimi için ek/açıkça seçilmiş ışıklar",
           "notify_entity_ids": "Antrenman bildirim varlıkları",
           "tts_entity_id": "TTS sağlayıcısı",
           "tts_media_player_ids": "Hoparlörler / medya oynatıcılar",
-          "feedback_area_ids": "Rooms for intensity light feedback",
+          "feedback_area_ids": "Yoğunluk ışığı geri bildirimi için odalar",
           "periodic_live_announcements": "Periyodik canlı antrenman duyuruları",
           "periodic_live_interval_minutes": "Canlı duyuru aralığı"
         },
@@ -323,25 +323,25 @@
           "tv_dashboard_enabled": "Fitness TV panelini etkinleştir",
           "tv_dashboard_media_player_id": "TV / Cast medya oynatıcı",
           "tv_dashboard_ducking_percent": "TTS sırasında müzik ses düzeyi",
-          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp müzik adaptörünü etkinleştir (deneysel)",
           "tv_dashboard_ignore_lights_when_cast_active": "TV Cast etkinken antrenman ışıklarını kullanma"
         },
         "data_description": {
           "tv_dashboard_enabled": "Antrenman başladığında Fitness TV panelini otomatik olarak tam ekranda gösterir. Cast görünümünün açık kalması için müzik ve TTS panelin içinde oynatılır.",
           "tv_dashboard_media_player_id": "Fitness TV panelini gösterecek Google Cast medya oynatıcısı. Fitness panel müziğini veya TTS sesini hiçbir zaman doğrudan bu medya oynatıcıya göndermez.",
           "tv_dashboard_ducking_percent": "Fitness bir TTS duyurusu yaparken korunacak mevcut müzik ses düzeyi yüzdesi. Duyuru sonrasında özgün ses düzeyi yumuşak biçimde geri yüklenir.",
-          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp, YouTube veya başka hizmetlerle bağlantısı olmayan isteğe bağlı bir üçüncü taraf adaptörüdür. Yasalara, hizmet koşullarına ve telif haklarına uyma ve gerekli izinleri alma sorumluluğu yalnızca sana aittir. Fitness çerez sağlamaz, aşmayı ya da yeniden dağıtımı yetkilendirmez ve adaptörü garantisiz sunar; bu bildirim hukuki tavsiye değildir.",
           "tv_dashboard_ignore_lights_when_cast_active": "Bir Fitness TV Cast alıcısı etkinken antrenman geri bildirimi için TV’yi kullanır ve yapılandırılmış antrenman ışıklarını değiştirmez."
         }
       }
     },
     "abort": {
       "no_live_sensors": "Yeniden atanabilecek kabul edilmiş Yerel Fitness sensörü yok.",
-      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
-      "no_fitness_profiles": "Create a Fitness user before assigning this sensor."
+      "sensor_unavailable": "Keşfedilen fitness sensörü artık kullanılamıyor.",
+      "no_fitness_profiles": "Bu sensörü atamadan önce bir Fitness kullanıcısı oluştur."
     },
     "error": {
-      "sensor_unavailable": "The discovered fitness sensor is no longer available."
+      "sensor_unavailable": "Keşfedilen fitness sensörü artık kullanılamıyor."
     }
   },
   "entity": {
@@ -428,7 +428,7 @@
         }
       },
       "current_cadence": {
-        "name": "Mevcut cadence",
+        "name": "Mevcut kadans",
         "state_attributes": {
           "source_entity": {
             "name": "Kaynak varlık"
@@ -456,7 +456,7 @@
         }
       },
       "current_distance": {
-        "name": "Mevcut distance",
+        "name": "Mevcut mesafe",
         "state_attributes": {
           "source_entity": {
             "name": "Kaynak varlık"
@@ -470,7 +470,7 @@
         }
       },
       "current_altitude": {
-        "name": "Mevcut altitude",
+        "name": "Mevcut irtifa",
         "state_attributes": {
           "source_entity": {
             "name": "Kaynak varlık"
@@ -526,7 +526,7 @@
         }
       },
       "last_workout_distance": {
-        "name": "Son antrenman distance",
+        "name": "Son antrenman: mesafe",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -540,7 +540,7 @@
         }
       },
       "last_workout_avg_hr": {
-        "name": "Son antrenman average kalp hızı",
+        "name": "Son antrenman: ortalama kalp hızı",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -554,7 +554,7 @@
         }
       },
       "last_workout_max_hr": {
-        "name": "Son antrenman maximum kalp hızı",
+        "name": "Son antrenman: maksimum kalp hızı",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -568,7 +568,7 @@
         }
       },
       "last_workout_avg_power": {
-        "name": "Son antrenman average güç",
+        "name": "Son antrenman: ortalama güç",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -582,7 +582,7 @@
         }
       },
       "last_workout_max_power": {
-        "name": "Son antrenman maximum güç",
+        "name": "Son antrenman: maksimum güç",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -596,7 +596,7 @@
         }
       },
       "last_workout_avg_cadence": {
-        "name": "Son antrenman average cadence",
+        "name": "Son antrenman: ortalama kadans",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -610,7 +610,7 @@
         }
       },
       "last_workout_elevation_gain": {
-        "name": "Son antrenman elevation gain",
+        "name": "Son antrenman: irtifa kazanımı",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -645,7 +645,7 @@
         "name": "FRIEND öngörülen VO₂max"
       },
       "vo2max_percent_predicted": {
-        "name": "VO₂max percent öngörülen",
+        "name": "Tahmini VO₂maks yüzdesi",
         "state_attributes": {
           "scientific_basis": {
             "name": "Bilimsel günanak"
@@ -665,7 +665,7 @@
         }
       },
       "cardiorespiratory_status": {
-        "name": "Cardiorespiratory fitness durum"
+        "name": "Kardiyorespiratuvar uygunluk durumu"
       },
       "hrv_weekly": {
         "name": "HRV haftalık ortalama"
@@ -677,16 +677,16 @@
         "name": "HRV durum"
       },
       "threshold_hr": {
-        "name": "Threshold kalp hızı"
+        "name": "Eşik kalp hızı"
       },
       "threshold_pace": {
-        "name": "Threshold tempo"
+        "name": "Eşik tempo"
       },
       "threshold_power": {
-        "name": "Threshold güç"
+        "name": "Eşik güç"
       },
       "threshold_power_to_weight": {
-        "name": "Threshold güç-to-weight"
+        "name": "Eşik güç/ağırlık oranı"
       },
       "fitness_age": {
         "name": "Fitness yaşı"
@@ -695,10 +695,10 @@
         "name": "Fitness yaşı difference"
       },
       "training_readiness_context": {
-        "name": "Training readiness bağlam"
+        "name": "Antrenmana hazır olma bağlamı"
       },
       "sleep_score_context": {
-        "name": "Uyku puan bağlam"
+        "name": "Uyku puanı bağlamı"
       },
       "acute_training_load": {
         "name": "Acute antrenman yükü"
@@ -710,7 +710,7 @@
         "name": "Akut/kronik yük oranı"
       },
       "provider_training_status": {
-        "name": "Provider training durum"
+        "name": "Sağlayıcı antrenman durumu"
       },
       "ai_general_evaluation": {
         "name": "Genel yapay zekâ değerlendirmesi",
@@ -747,7 +747,7 @@
         }
       },
       "heart_rate_percent_max": {
-        "name": "Kalp hızı % of maximum",
+        "name": "Maksimumun yüzdesi olarak kalp hızı",
         "state_attributes": {
           "source_entity": {
             "name": "Kaynak varlık"
@@ -843,7 +843,7 @@
         }
       },
       "heart_rate_relative_threshold": {
-        "name": "Kalp hızı relative to eşik",
+        "name": "Eşiğe göre kalp hızı",
         "state_attributes": {
           "source_entity": {
             "name": "Kaynak varlık"
@@ -907,7 +907,7 @@
         }
       },
       "power_relative_threshold": {
-        "name": "Güç relative to eşik",
+        "name": "Eşiğe göre güç",
         "state_attributes": {
           "source_entity": {
             "name": "Kaynak varlık"
@@ -971,7 +971,7 @@
         }
       },
       "speed_relative_threshold": {
-        "name": "Hız relative to eşik",
+        "name": "Eşiğe göre hız",
         "state_attributes": {
           "source_entity": {
             "name": "Kaynak varlık"
@@ -1017,7 +1017,7 @@
         }
       },
       "last_workout_moving_time": {
-        "name": "Son antrenman moving time",
+        "name": "Son antrenman: hareket süresi",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1031,7 +1031,7 @@
         }
       },
       "last_workout_elapsed_time": {
-        "name": "Son antrenman elapsed time",
+        "name": "Son antrenman: geçen süre",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1045,7 +1045,7 @@
         }
       },
       "last_workout_average_speed": {
-        "name": "Son antrenman average hız",
+        "name": "Son antrenman: ortalama hız",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1059,7 +1059,7 @@
         }
       },
       "last_workout_max_speed": {
-        "name": "Son antrenman maximum hız",
+        "name": "Son antrenman: maksimum hız",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1073,7 +1073,7 @@
         }
       },
       "last_workout_weighted_power": {
-        "name": "Son antrenman weighted / normalized güç",
+        "name": "Son antrenman: ağırlıklı / normalize güç",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1087,7 +1087,7 @@
         }
       },
       "last_workout_max_cadence": {
-        "name": "Son antrenman maximum cadence",
+        "name": "Son antrenman: maksimum kadans",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1101,7 +1101,7 @@
         }
       },
       "last_workout_elevation_loss": {
-        "name": "Son antrenman elevation loss",
+        "name": "Son antrenman: irtifa kaybı",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1129,7 +1129,7 @@
         }
       },
       "last_workout_aerobic_effect": {
-        "name": "Son antrenman aerobik training effect",
+        "name": "Son antrenman: aerobik antrenman etkisi",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1143,7 +1143,7 @@
         }
       },
       "last_workout_anaerobic_effect": {
-        "name": "Son antrenman anaerobik training effect",
+        "name": "Son antrenman: anaerobik antrenman etkisi",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1157,7 +1157,7 @@
         }
       },
       "last_workout_training_effect": {
-        "name": "Son antrenman training effect",
+        "name": "Son antrenman: antrenman etkisi",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1185,7 +1185,7 @@
         }
       },
       "last_workout_relative_effort": {
-        "name": "Son antrenman relative effort",
+        "name": "Son antrenman: göreli efor",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1199,7 +1199,7 @@
         }
       },
       "last_workout_kilojoules": {
-        "name": "Son antrenman energy",
+        "name": "Son antrenman: enerji",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1213,7 +1213,7 @@
         }
       },
       "last_workout_total_reps": {
-        "name": "Son antrenman total reps",
+        "name": "Son antrenman: toplam tekrar",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1227,7 +1227,7 @@
         }
       },
       "last_workout_exercise_count": {
-        "name": "Son antrenman exercise count",
+        "name": "Son antrenman: egzersiz sayısı",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1241,7 +1241,7 @@
         }
       },
       "last_workout_volume": {
-        "name": "Son antrenman training volume",
+        "name": "Son antrenman: antrenman hacmi",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1255,7 +1255,7 @@
         }
       },
       "last_workout_device": {
-        "name": "Son antrenman device",
+        "name": "Son antrenman: cihaz",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1269,7 +1269,7 @@
         }
       },
       "last_workout_gear": {
-        "name": "Son antrenman gear",
+        "name": "Son antrenman: ekipman",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1283,7 +1283,7 @@
         }
       },
       "last_workout_sources": {
-        "name": "Son antrenman data kaynaklar",
+        "name": "Son antrenman: veri kaynakları",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1297,7 +1297,7 @@
         }
       },
       "live_average_heart_rate": {
-        "name": "Canlı average kalp hızı",
+        "name": "Canlı: ortalama kalp hızı",
         "state_attributes": {
           "source_entity": {
             "name": "Kaynak varlık"
@@ -1329,7 +1329,7 @@
         }
       },
       "live_maximum_heart_rate": {
-        "name": "Canlı maximum kalp hızı",
+        "name": "Canlı: maksimum kalp hızı",
         "state_attributes": {
           "source_entity": {
             "name": "Kaynak varlık"
@@ -1361,7 +1361,7 @@
         }
       },
       "live_average_power": {
-        "name": "Canlı average güç",
+        "name": "Canlı: ortalama güç",
         "state_attributes": {
           "source_entity": {
             "name": "Kaynak varlık"
@@ -1393,7 +1393,7 @@
         }
       },
       "live_maximum_power": {
-        "name": "Canlı maximum güç",
+        "name": "Canlı: maksimum güç",
         "state_attributes": {
           "source_entity": {
             "name": "Kaynak varlık"
@@ -1425,7 +1425,7 @@
         }
       },
       "live_average_cadence": {
-        "name": "Canlı average cadence",
+        "name": "Canlı: ortalama kadans",
         "state_attributes": {
           "source_entity": {
             "name": "Kaynak varlık"
@@ -1457,7 +1457,7 @@
         }
       },
       "live_average_speed": {
-        "name": "Canlı average hız",
+        "name": "Canlı: ortalama hız",
         "state_attributes": {
           "source_entity": {
             "name": "Kaynak varlık"
@@ -1521,7 +1521,7 @@
         }
       },
       "live_mechanical_work": {
-        "name": "Canlı mechanical work",
+        "name": "Canlı: mekanik iş",
         "state_attributes": {
           "source_entity": {
             "name": "Kaynak varlık"
@@ -1553,7 +1553,7 @@
         }
       },
       "live_aerobic_efficiency": {
-        "name": "Canlı aerobik verimlilik",
+        "name": "Canlı: aerobik verimlilik",
         "state_attributes": {
           "source_entity": {
             "name": "Kaynak varlık"
@@ -1585,7 +1585,7 @@
         }
       },
       "live_aerobic_decoupling": {
-        "name": "Canlı aerobik ayrışma",
+        "name": "Canlı: aerobik ayrışma",
         "state_attributes": {
           "source_entity": {
             "name": "Kaynak varlık"
@@ -1727,7 +1727,7 @@
         }
       },
       "last_workout_trimp_per_hour": {
-        "name": "Son antrenman TRIMP per hour",
+        "name": "Son antrenman: saatlik TRIMP",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1741,7 +1741,7 @@
         }
       },
       "last_workout_mechanical_work": {
-        "name": "Son antrenman mechanical work",
+        "name": "Son antrenman: mekanik iş",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1755,7 +1755,7 @@
         }
       },
       "last_workout_aerobic_efficiency": {
-        "name": "Son antrenman aerobik verimlilik",
+        "name": "Son antrenman: aerobik verimlilik",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1769,7 +1769,7 @@
         }
       },
       "last_workout_aerobic_decoupling": {
-        "name": "Son antrenman aerobik ayrışma",
+        "name": "Son antrenman: aerobik ayrışma",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1839,7 +1839,7 @@
         }
       },
       "last_workout_time_moderate": {
-        "name": "Son antrenman moderate-intensity time",
+        "name": "Son antrenman: orta yoğunluk süresi",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1853,7 +1853,7 @@
         }
       },
       "last_workout_time_vigorous": {
-        "name": "Son antrenman vigorous-intensity time",
+        "name": "Son antrenman: yüksek yoğunluk süresi",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1867,7 +1867,7 @@
         }
       },
       "last_workout_time_near_maximal": {
-        "name": "Son antrenman near-maximal time",
+        "name": "Son antrenman: maksimale yakın yoğunluk süresi",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -1986,7 +1986,7 @@
         }
       },
       "last_workout_trimp_vs_recent": {
-        "name": "TRIMP vs comparable yakın tarihli antrenmanlar",
+        "name": "Benzer son antrenmanlara göre TRIMP",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -2000,7 +2000,7 @@
         }
       },
       "last_workout_load_context": {
-        "name": "Antrenman load bağlam",
+        "name": "Antrenman yükü bağlamı",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -2014,7 +2014,7 @@
         }
       },
       "last_workout_personal_context": {
-        "name": "Antrenman personal bağlam",
+        "name": "Kişisel antrenman bağlamı",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -2144,7 +2144,7 @@
         }
       },
       "last_sleep_time_in_bed": {
-        "name": "Son uyku time in bed",
+        "name": "Son uyku: yatakta geçirilen süre",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -2246,7 +2246,7 @@
         }
       },
       "last_sleep_average_hr": {
-        "name": "Son uyku average kalp hızı",
+        "name": "Son uyku: ortalama kalp hızı",
         "state_attributes": {
           "sources": {
             "name": "Veri kaynakları"
@@ -2334,7 +2334,7 @@
         "name": "7-gün antrenman yükü vs 28-gün baz değer"
       },
       "hrr_60s_vs_90d": {
-        "name": "Latest 60 s kalp hızı toparlanması vs 90-gün baz değer"
+        "name": "Son 60 sn kalp hızı toparlanmasının 90 günlük tabana göre durumu"
       },
       "sleep_duration_7d_mean": {
         "name": "Ortalama uyku süre (7 gün)"
@@ -2346,10 +2346,10 @@
         "name": "Son uyku süre vs 28-gün baz değer"
       },
       "sleep_duration_shortfall": {
-        "name": "Uyku süre shortfall vs 7 h adult minimum"
+        "name": "Yetişkinler için 7 saatlik asgariye göre uyku açığı"
       },
       "sleep_midpoint_variability_14d": {
-        "name": "Uyku midpoint variability (14 gün)"
+        "name": "Uyku orta noktası değişkenliği (14 gün)"
       },
       "sleep_hrv_7d_mean": {
         "name": "Ortalama uyku HRV (7 gün)"
@@ -2488,7 +2488,7 @@
             "name": "Ortalama uyku HRV (28 gün)"
           },
           "sleep_hrv_vs_28d_percent": {
-            "name": "Latest uyku HRV vs 28-gün baz değer"
+            "name": "Son uyku HRV'sinin 28 günlük tabana göre durumu"
           },
           "resting_hr_current_bpm": {
             "name": "Mevcut dinlenik kalp hızı"
@@ -2621,7 +2621,7 @@
             "name": "Mesafe (28 gün)"
           },
           "last_recovery_interval_h": {
-            "name": "Son recovery interval"
+            "name": "Son toparlanma aralığı"
           },
           "median_recovery_interval_28d_h": {
             "name": "Medyan toparlanma aralığı (28 gün)"
@@ -2706,10 +2706,10 @@
             "name": "TRIMP vs next-uyku HRV (r)"
           },
           "sleep_duration_pairs": {
-            "name": "Antrenman–uyku süre pairs"
+            "name": "Antrenman–uyku süresi çiftleri"
           },
           "sleep_hrv_pairs": {
-            "name": "Antrenman–uyku HRV pairs"
+            "name": "Antrenman–uyku HRV çiftleri"
           },
           "window_days": {
             "name": "Analiz penceresi"
@@ -3133,6 +3133,96 @@
             "name": "Tam fizyolojik toparlanma iddiası"
           }
         }
+      },
+      "cycplus_device_number": {
+        "name": "Cihaz numarası"
+      },
+      "cycplus_sync_state": {
+        "name": "Antrenman eşitleme durumu",
+        "state": {
+          "idle": "Boşta",
+          "waiting": "Cihaz bekleniyor",
+          "connecting": "Bağlanıyor",
+          "syncing": "Eşitleniyor",
+          "ready": "Güncel",
+          "retrying": "Yeniden deneniyor",
+          "error": "Hata"
+        }
+      },
+      "cycplus_last_sync": {
+        "name": "Son eşitleme denemesi"
+      },
+      "cycplus_last_successful_sync": {
+        "name": "Son başarılı eşitleme"
+      },
+      "cycplus_device_workout_count": {
+        "name": "Cihazdaki antrenmanlar"
+      },
+      "cycplus_imported_file_count": {
+        "name": "İçe aktarılan antrenman dosyaları"
+      },
+      "cycplus_pending_file_count": {
+        "name": "Bekleyen antrenman dosyaları"
+      },
+      "cycplus_active_file": {
+        "name": "Etkin indirme"
+      },
+      "cycplus_downloaded_bytes": {
+        "name": "İndirilen bayt"
+      },
+      "cycplus_retry_count": {
+        "name": "Yeniden deneme sayısı"
+      },
+      "cycplus_disk_free_kb": {
+        "name": "Boş cihaz depolama alanı"
+      },
+      "cycplus_disk_total_kb": {
+        "name": "Toplam cihaz depolama alanı"
+      },
+      "cycplus_last_error": {
+        "name": "Son eşitleme hatası",
+        "state": {
+          "none": "Hata yok",
+          "connection_failed": "Bağlantı başarısız",
+          "catalog_failed": "Antrenman kataloğu alınamadı",
+          "transfer_interrupted": "Aktarım kesildi",
+          "invalid_fit": "Geçersiz FIT dosyası",
+          "import_failed": "Antrenman içe aktarılamadı",
+          "unknown": "Bilinmeyen hata"
+        }
+      },
+      "cycplus_latest_workout": {
+        "name": "Cihazdaki son antrenman"
+      },
+      "cycplus_fit_serial_number": {
+        "name": "FIT seri numarası"
+      },
+      "cycplus_fit_manufacturer": {
+        "name": "FIT üreticisi"
+      },
+      "cycplus_fit_product": {
+        "name": "FIT ürünü"
+      },
+      "cycplus_fit_hardware_version": {
+        "name": "FIT donanım sürümü"
+      },
+      "cycplus_fit_software_version": {
+        "name": "FIT yazılım sürümü"
+      },
+      "cycplus_fit_battery_voltage": {
+        "name": "FIT pil voltajı"
+      },
+      "cycplus_fit_battery_status": {
+        "name": "FIT pil durumu",
+        "state": {
+          "new": "Yeni",
+          "good": "İyi",
+          "ok": "Normal",
+          "low": "Düşük",
+          "critical": "Kritik",
+          "charging": "Şarj oluyor",
+          "unknown": "Bilinmiyor"
+        }
       }
     },
     "button": {
@@ -3150,6 +3240,9 @@
       },
       "regenerate_ai_evaluation": {
         "name": "Yapay zekâ değerlendirmesini yeniden oluştur"
+      },
+      "cycplus_sync_workouts": {
+        "name": "Antrenmanları şimdi eşitle"
       }
     },
     "select": {
@@ -3206,16 +3299,16 @@
       "name": "Antrenmanlar"
     },
     "sensors_adapters": {
-      "name": "Sensors & Adapters"
+      "name": "Sensörler ve adaptörler"
     },
     "sensors": {
-      "name": "Sensors"
+      "name": "Sensörler"
     },
     "antplus_adapter": {
-      "name": "ANT+ Adapter"
+      "name": "ANT+ adaptörü"
     },
     "bluetooth_adapter": {
-      "name": "Bluetooth Adapter"
+      "name": "Bluetooth adaptörü"
     }
   },
   "issues": {
@@ -3292,6 +3385,20 @@
         "prompt": {
           "name": "AI istemi",
           "description": "AI sağlayıcısına gönderilecek istem."
+        }
+      }
+    },
+    "delete_workouts_before": {
+      "name": "Eski Fitness antrenmanlarını sil",
+      "description": "Seçilen gün sayısından eski kayıtlı Fitness antrenman geçmişini kalıcı olarak siler.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness profili",
+          "description": "Kayıtlı antrenman geçmişi temizlenecek Fitness profili."
+        },
+        "days": {
+          "name": "Saklanacak gün",
+          "description": "Bu sayıdaki en son güne ait antrenmanları tut; daha eskileri sil."
         }
       }
     }

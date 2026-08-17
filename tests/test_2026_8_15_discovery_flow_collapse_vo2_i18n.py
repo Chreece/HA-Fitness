@@ -105,11 +105,11 @@ def test_new_visible_vo2_and_strength_ui_text_is_profile_translatable():
     for key in required:
         assert f'"{key}"' in DASH
     assert '_DASHBOARD_UI_TEXT' in DASH
-    assert 'l.measurements || "measurements"' in JS
-    assert 'l.actual || "Actual"' in JS
-    assert 'l.predicted || "Predicted"' in JS
-    assert 'l.zoom_in || "Zoom in"' in JS
-    assert 'l.strength_progression || "Strength progression"' in JS
+    assert "l.measurements" in JS
+    assert "l.actual" in JS
+    assert "l.predicted" in JS
+    assert "l.zoom_in" in JS
+    assert "l.strength_progression" in JS
 
 
 def test_frontend_resource_revision_bumped():

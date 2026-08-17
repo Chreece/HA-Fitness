@@ -30,13 +30,14 @@ def test_ytdlp_is_provider_managed_not_backend_tv_setting():
     assert 'vol.Optional(CONF_TV_YTDLP_ENABLED, default=False): bool' not in CONFIG_FLOW
     profile_configure = TV[TV.index('vol.Required("type"): "fitness/tv/profile/configure"'):TV.index('vol.Required("type"): "fitness/tv/music/ytdlp"')]
     assert 'vol.Optional("ytdlp_enabled"' not in profile_configure
-    assert 'adapter?.id !== "yt_dlp"' in FRONTEND
+    assert 'adapter?.id !== "yt_dlp"' not in FRONTEND
+    assert 'if (ytdlpEnabled && !musicAdapters.includes("yt_dlp"))' not in FRONTEND
     assert 'data-ytdlp-toggle' in FRONTEND
     assert 'type:"fitness/tv/music/ytdlp"' in FRONTEND
 
 
 def test_stop_cast_is_visible_only_for_the_cast_mode_that_is_actually_active():
-    assert 'id="stop-cast" title="${_fitnessEscape(l.cast_stop || "Stop Cast")}" hidden' in FRONTEND
+    assert 'id="stop-cast" title="${_fitnessEscape(l.cast_stop)}" hidden' in FRONTEND
     assert 'const haCastActive = this._refreshCastUiState();' in FRONTEND
     assert 'id="cast-stop" hidden' in FRONTEND
     assert 'this._serverCastActive && target && target === String(this._activeCastTarget || "")' in FRONTEND

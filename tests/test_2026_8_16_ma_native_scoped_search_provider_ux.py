@@ -66,7 +66,7 @@ def test_search_ui_scopes_music_assistant_and_only_shows_working_state_during_re
     assert 'class="music-search-status music-search-working" hidden' in FRONTEND
     assert "if (working) working.hidden = false;" in FRONTEND
     assert "if (working) working.hidden = true;" in FRONTEND
-    assert "Searching music… Some providers can take a few seconds." in FRONTEND
+    assert "l.music_search_working" in FRONTEND
     assert "scopeLocked" in FRONTEND
     assert 'scopeLocked ? "disabled" : ""' in FRONTEND
 

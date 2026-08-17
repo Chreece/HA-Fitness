@@ -14,7 +14,7 @@ def test_rpe_scale_uses_effort_gradient_not_primary_color():
 
 def test_readiness_confidence_is_localized():
     assert "confidence from available evidence</span>" not in FRONTEND
-    assert 'l.certain_compact || "{percent}% certain"' in FRONTEND
+    assert "l.certain_compact" in FRONTEND
     assert "readinessCertainty" in FRONTEND
 
 

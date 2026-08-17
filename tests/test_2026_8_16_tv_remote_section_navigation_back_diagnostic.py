@@ -59,9 +59,18 @@ def test_short_back_leaves_inner_section_and_outer_back_arms_double_press_exit()
     back = remote[remote.index("  _handleCastRemoteBackPress("):remote.index("  async _quitCastFromRemote(")]
     assert 'if (this._castRemoteMode === "inner")' in back
     assert "this._leaveCastRemoteSection(source);" in back
+    inner_back = back[back.index('if (this._castRemoteMode === "inner")'):back.index("this._ensureCastRemoteOuterFocus()")]
+    assert "_restoreCastRemotePreviousFocus" not in inner_back
     assert "this._showCastExitConfirmation();" in back
     assert 'void this._quitCastFromRemote("double back", quitAuthorization)' in back
     assert "FITNESS_TV_BACK_CONFIRM_MS = 2800" in FRONTEND
+
+
+def test_history_fallback_also_leaves_the_current_section_directly():
+    remote = _remote_block()
+    popstate = remote[remote.index("  _handleCastPopstate("):remote.index("  async _quitCastFromRemote(")]
+    assert 'this._leaveCastRemoteSection("history-fallback");' in popstate
+    assert "_restoreCastRemotePreviousFocus" not in popstate
 
 
 def test_one_physical_back_or_held_repeat_cannot_count_as_second_press():
@@ -98,7 +107,7 @@ def test_double_back_stops_backend_cast_and_receiver_application():
 
 def test_exit_confirmation_is_localized_and_remote_debug_overlay_is_removed():
     assert 'id="cast-exit-confirm" class="cast-exit-confirm"' in FRONTEND
-    assert 'l.cast_exit_confirm || "Press Back once more to exit Cast"' in FRONTEND
+    assert "l.cast_exit_confirm" in FRONTEND
     assert 'id="remote-diagnostic"' not in FRONTEND
     assert ':host([fitness-cast-receiver]) .remote-diagnostic' not in FRONTEND
     assert "FITNESS_TV_REMOTE_DIAGNOSTIC_STORAGE" not in FRONTEND

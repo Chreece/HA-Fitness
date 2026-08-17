@@ -35,12 +35,12 @@
         }
       },
       "optional": {
-        "title": "Optional initial / calculable values",
-        "description": "Each field accepts a numeric value OR entity ID. Leave unknown fields empty.",
+        "title": "Optionele begin-/berekenbare waarden",
+        "description": "Elk veld accepteert een getal of entiteits-ID. Directe waarden gebruiken de gedocumenteerde eenheid van het veld; entiteitswaarden worden automatisch omgerekend vanuit hun unit_of_measurement. Laat onbekende velden leeg.",
         "data": {
           "height": "Lengte (cm of entiteit)",
           "max_hr": "Maximale hartslag (bpm of entiteit)",
-          "vo2max": "VO₂max (mL/kg/min or entity)",
+          "vo2max": "VO₂max (mL/kg/min of entiteit)",
           "threshold_hr": "Drempelhartslag (bpm of entiteit)",
           "threshold_pace": "Drempeltempo (min/km of entiteit)",
           "threshold_power": "Drempelvermogen (W of entiteit)"
@@ -62,15 +62,15 @@
           "live_device_ids": "Andere Home Assistant-liveapparaten"
         },
         "data_description": {
-          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
-          "live_device_ids": "Optional Home Assistant devices exposing compatible live heart-rate, power, cadence, speed, distance or altitude entities."
+          "live_sensor_ids": "Door Fitness gevonden fysieke sensoren. ANT+- en Bluetooth-identiteiten worden samengevoegd als ze dezelfde sensor zijn; ANT+ heeft de voorkeur voor live metingen.",
+          "live_device_ids": "Optionele Home Assistant-apparaten met geschikte live-entiteiten voor hartslag, vermogen, cadans, snelheid, afstand of hoogte."
         }
       },
       "workout_devices": {
         "title": "Training / langetermijngegevens",
-        "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
+        "description": "Selecteer apparaten met voltooide trainingen of langetermijngegevens over fitness/herstel, zoals Garmin Connect of Strava.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data",
+          "workout_device_ids": "Apparaten met trainings-/fitnesshistorie",
           "detailed_strength_analysis": "Gedetailleerde krachtanalyse",
           "workout_retention_days": "Bewaartermijn workouts"
         },
@@ -84,7 +84,7 @@
         "title": "AI-interpretatie",
         "description": "De standaard AI-taak van Home Assistant is standaard geselecteerd. Fitness volgt automatisch de huidige systeemvoorkeur; kies alleen een specifieke AI-taak of conversatie-agent als je die wilt vastzetten.",
         "data": {
-          "ai_enabled": "Generate AI fitness assessments",
+          "ai_enabled": "AI-fitnessbeoordelingen genereren",
           "ai_entity": "AI-provider"
         },
         "data_description": {
@@ -94,13 +94,13 @@
       },
       "feedback": {
         "title": "Coaching, verlichting en meldingen",
-        "description": "Choose rooms and/or explicit light entities for five-second intensity color feedback. Every available color-capable light in the selected rooms is included automatically. You can also select notification entities, a TTS provider and media players for announcements.",
+        "description": "Kies ruimtes en/of expliciete lampentiteiten voor vijf seconden kleurfeedback over de intensiteit. Alle beschikbare kleurlampen in de gekozen ruimtes worden automatisch opgenomen. Je kunt ook meldingsentiteiten, een TTS-provider en mediaspelers voor aankondigingen kiezen.",
         "data": {
-          "feedback_light_ids": "Additional / explicit lights for intensity feedback",
+          "feedback_light_ids": "Extra/expliciete lampen voor intensiteitsfeedback",
           "notify_entity_ids": "Meldingsentiteiten voor trainingen",
           "tts_entity_id": "TTS-provider",
           "tts_media_player_ids": "Luidsprekers / mediaspelers",
-          "feedback_area_ids": "Rooms for intensity light feedback",
+          "feedback_area_ids": "Ruimtes voor lichtfeedback op intensiteit",
           "periodic_live_announcements": "Periodieke live trainingsmeldingen",
           "periodic_live_interval_minutes": "Interval voor live meldingen"
         },
@@ -125,13 +125,13 @@
         }
       },
       "assign_live_sensor": {
-        "title": "New fitness sensor discovered",
-        "description": "{sensor} was discovered. Choose every Fitness user who may use this physical sensor for live workouts.",
+        "title": "Nieuwe fitnesssensor gevonden",
+        "description": "{sensor} is gevonden. Selecteer alle Fitness-gebruikers die deze fysieke sensor voor live trainingen mogen gebruiken.",
         "data": {
-          "fitness_profile_ids": "Fitness users"
+          "fitness_profile_ids": "Fitness-gebruikers"
         },
         "data_description": {
-          "fitness_profile_ids": "One physical sensor can be shared by multiple Fitness profiles."
+          "fitness_profile_ids": "Eén fysieke sensor kan door meerdere Fitness-profielen worden gedeeld."
         }
       },
       "tv_dashboard": {
@@ -141,31 +141,31 @@
           "tv_dashboard_enabled": "Fitness TV-dashboard inschakelen",
           "tv_dashboard_media_player_id": "TV / Cast-mediaspeler",
           "tv_dashboard_ducking_percent": "Muziekvolume tijdens TTS",
-          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp-muziekadapter inschakelen (experimenteel)",
           "tv_dashboard_ignore_lights_when_cast_active": "Trainingsverlichting negeren tijdens TV Cast"
         },
         "data_description": {
           "tv_dashboard_enabled": "Toont automatisch het Fitness TV-dashboard op volledig scherm wanneer een training start. Muziek en TTS spelen in het dashboard zodat de Cast-weergave open blijft.",
           "tv_dashboard_media_player_id": "Google Cast-mediaspeler waarop het Fitness TV-dashboard moet worden weergegeven. Fitness stuurt dashboardmuziek of TTS nooit rechtstreeks naar deze mediaspeler.",
           "tv_dashboard_ducking_percent": "Percentage van het huidige muziekvolume dat behouden blijft terwijl Fitness een TTS-aankondiging uitspreekt. Daarna wordt het oorspronkelijke volume vloeiend hersteld.",
-          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp is een optionele adapter van derden en is niet verbonden aan YouTube of andere diensten. Je bent zelf verantwoordelijk voor naleving van wetgeving, servicevoorwaarden en auteursrecht en voor benodigde toestemmingen. Fitness levert geen cookies, staat geen omzeiling of herdistributie toe en biedt de adapter zonder garantie; dit is geen juridisch advies.",
           "tv_dashboard_ignore_lights_when_cast_active": "Wanneer een Fitness TV Cast-ontvanger actief is, gebruik je de tv voor trainingsfeedback en blijven de geconfigureerde trainingslampen ongewijzigd."
         }
       }
     },
     "error": {
-      "invalid_date": "Enter a valid date of birth in the past.",
-      "invalid_number_or_entity": "Enter a valid numeric value or Home Assistant entity ID.",
-      "select_profile": "Select at least one Fitness user."
+      "invalid_date": "Voer een geldige geboortedatum in het verleden in.",
+      "invalid_number_or_entity": "Voer een geldige numerieke waarde of Home Assistant-entiteits-ID in.",
+      "select_profile": "Selecteer minstens één Fitness-gebruiker."
     },
     "abort": {
-      "already_configured": "A Fitness profile with this name already exists.",
-      "live_sensor_assigned": "The fitness sensor was assigned successfully.",
-      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
-      "no_fitness_profiles": "Create a Fitness user before assigning this sensor.",
-      "invalid_discovery": "The fitness sensor discovery data was invalid.",
-      "adapters_already_configured": "All Fitness live adapters are already configured. Enable or disable them from their adapter devices.",
-      "adapters_managed_on_devices": "Local sensor adapters are configured from the ANT+ and Bluetooth adapter devices."
+      "already_configured": "Er bestaat al een Fitness-profiel met deze naam.",
+      "live_sensor_assigned": "De fitnesssensor is toegewezen.",
+      "sensor_unavailable": "De gevonden fitnesssensor is niet meer beschikbaar.",
+      "no_fitness_profiles": "Maak een Fitness-gebruiker voordat je deze sensor toewijst.",
+      "invalid_discovery": "De ontdekkingsgegevens van de fitnesssensor waren ongeldig.",
+      "adapters_already_configured": "Alle Fitness-liveadapters zijn al geconfigureerd. Schakel ze in of uit via hun adapterapparaten.",
+      "adapters_managed_on_devices": "Lokale sensoradapters worden ingesteld via de ANT+- en Bluetooth-adapterapparaten."
     }
   },
   "options": {
@@ -186,7 +186,7 @@
       },
       "profile": {
         "title": "Profiel",
-        "description": "Edit the person's profile information.",
+        "description": "Bewerk de profielgegevens van de persoon.",
         "data": {
           "language": "Taal",
           "birth_day": "Geboortedag",
@@ -210,7 +210,7 @@
           "resting_hr": "Rusthartslag (bpm of entiteit)",
           "height": "Lengte (cm of entiteit)",
           "max_hr": "Maximale hartslag (bpm of entiteit)",
-          "vo2max": "VO₂max (mL/kg/min or entity)",
+          "vo2max": "VO₂max (mL/kg/min of entiteit)",
           "threshold_hr": "Drempelhartslag (bpm of entiteit)",
           "threshold_pace": "Drempeltempo (min/km of entiteit)",
           "threshold_power": "Drempelvermogen (W of entiteit)"
@@ -234,15 +234,15 @@
           "live_device_ids": "Andere Home Assistant-liveapparaten"
         },
         "data_description": {
-          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
-          "live_device_ids": "Optional Home Assistant devices exposing compatible live heart-rate, power, cadence, speed, distance or altitude entities."
+          "live_sensor_ids": "Door Fitness gevonden fysieke sensoren. ANT+- en Bluetooth-identiteiten worden samengevoegd als ze dezelfde sensor zijn; ANT+ heeft de voorkeur voor live metingen.",
+          "live_device_ids": "Optionele Home Assistant-apparaten met geschikte live-entiteiten voor hartslag, vermogen, cadans, snelheid, afstand of hoogte."
         }
       },
       "workout_devices": {
         "title": "Training / langetermijngegevens",
-        "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
+        "description": "Selecteer apparaten met voltooide trainingen of langetermijnwaarden voor fitness/herstel.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data",
+          "workout_device_ids": "Apparaten met trainings-/fitnesshistorie",
           "detailed_strength_analysis": "Gedetailleerde krachtanalyse",
           "workout_retention_days": "Bewaartermijn workouts"
         },
@@ -256,7 +256,7 @@
         "title": "AI-interpretatie",
         "description": "De standaard AI-taak van Home Assistant is standaard geselecteerd. Fitness volgt automatisch de huidige systeemvoorkeur; kies alleen een specifieke AI-taak of conversatie-agent als je die wilt vastzetten.",
         "data": {
-          "ai_enabled": "Generate AI fitness assessments",
+          "ai_enabled": "AI-fitnessbeoordelingen genereren",
           "ai_entity": "AI-provider"
         },
         "data_description": {
@@ -266,13 +266,13 @@
       },
       "feedback": {
         "title": "Coaching, verlichting en meldingen",
-        "description": "Choose rooms and/or explicit light entities for five-second intensity color feedback. Every available color-capable light in the selected rooms is included automatically. You can also select notification entities, a TTS provider and media players for announcements.",
+        "description": "Kies ruimtes en/of expliciete lampentiteiten voor vijf seconden kleurfeedback over de intensiteit. Alle beschikbare kleurlampen in de gekozen ruimtes worden automatisch opgenomen. Je kunt ook meldingsentiteiten, een TTS-provider en mediaspelers voor aankondigingen kiezen.",
         "data": {
-          "feedback_light_ids": "Additional / explicit lights for intensity feedback",
+          "feedback_light_ids": "Extra/expliciete lampen voor intensiteitsfeedback",
           "notify_entity_ids": "Meldingsentiteiten voor trainingen",
           "tts_entity_id": "TTS-provider",
           "tts_media_player_ids": "Luidsprekers / mediaspelers",
-          "feedback_area_ids": "Rooms for intensity light feedback",
+          "feedback_area_ids": "Ruimtes voor lichtfeedback op intensiteit",
           "periodic_live_announcements": "Periodieke live trainingsmeldingen",
           "periodic_live_interval_minutes": "Interval voor live meldingen"
         },
@@ -323,25 +323,25 @@
           "tv_dashboard_enabled": "Fitness TV-dashboard inschakelen",
           "tv_dashboard_media_player_id": "TV / Cast-mediaspeler",
           "tv_dashboard_ducking_percent": "Muziekvolume tijdens TTS",
-          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp-muziekadapter inschakelen (experimenteel)",
           "tv_dashboard_ignore_lights_when_cast_active": "Trainingsverlichting negeren tijdens TV Cast"
         },
         "data_description": {
           "tv_dashboard_enabled": "Toont automatisch het Fitness TV-dashboard op volledig scherm wanneer een training start. Muziek en TTS spelen in het dashboard zodat de Cast-weergave open blijft.",
           "tv_dashboard_media_player_id": "Google Cast-mediaspeler waarop het Fitness TV-dashboard moet worden weergegeven. Fitness stuurt dashboardmuziek of TTS nooit rechtstreeks naar deze mediaspeler.",
           "tv_dashboard_ducking_percent": "Percentage van het huidige muziekvolume dat behouden blijft terwijl Fitness een TTS-aankondiging uitspreekt. Daarna wordt het oorspronkelijke volume vloeiend hersteld.",
-          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp is een optionele adapter van derden en is niet verbonden aan YouTube of andere diensten. Je bent zelf verantwoordelijk voor naleving van wetgeving, servicevoorwaarden en auteursrecht en voor benodigde toestemmingen. Fitness levert geen cookies, staat geen omzeiling of herdistributie toe en biedt de adapter zonder garantie; dit is geen juridisch advies.",
           "tv_dashboard_ignore_lights_when_cast_active": "Wanneer een Fitness TV Cast-ontvanger actief is, gebruik je de tv voor trainingsfeedback en blijven de geconfigureerde trainingslampen ongewijzigd."
         }
       }
     },
     "abort": {
       "no_live_sensors": "Er zijn geen geaccepteerde lokale Fitness-sensoren beschikbaar om opnieuw toe te wijzen.",
-      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
-      "no_fitness_profiles": "Create a Fitness user before assigning this sensor."
+      "sensor_unavailable": "De gevonden fitnesssensor is niet meer beschikbaar.",
+      "no_fitness_profiles": "Maak een Fitness-gebruiker voordat je deze sensor toewijst."
     },
     "error": {
-      "sensor_unavailable": "The discovered fitness sensor is no longer available."
+      "sensor_unavailable": "De gevonden fitnesssensor is niet meer beschikbaar."
     }
   },
   "entity": {
@@ -400,7 +400,7 @@
         }
       },
       "current_heart_rate": {
-        "name": "Huidig hartslag",
+        "name": "Huidige hartslag",
         "state_attributes": {
           "source_entity": {
             "name": "Bronentiteit"
@@ -428,7 +428,7 @@
         }
       },
       "current_cadence": {
-        "name": "Huidig cadence",
+        "name": "Huidige cadans",
         "state_attributes": {
           "source_entity": {
             "name": "Bronentiteit"
@@ -442,7 +442,7 @@
         }
       },
       "current_speed": {
-        "name": "Huidig snelheid",
+        "name": "Huidige snelheid",
         "state_attributes": {
           "source_entity": {
             "name": "Bronentiteit"
@@ -456,7 +456,7 @@
         }
       },
       "current_distance": {
-        "name": "Huidig distance",
+        "name": "Huidige afstand",
         "state_attributes": {
           "source_entity": {
             "name": "Bronentiteit"
@@ -470,7 +470,7 @@
         }
       },
       "current_altitude": {
-        "name": "Huidig altitude",
+        "name": "Huidige hoogte",
         "state_attributes": {
           "source_entity": {
             "name": "Bronentiteit"
@@ -526,7 +526,7 @@
         }
       },
       "last_workout_distance": {
-        "name": "Laatste training distance",
+        "name": "afstand van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -540,7 +540,7 @@
         }
       },
       "last_workout_avg_hr": {
-        "name": "Laatste training average hartslag",
+        "name": "gemiddelde hartslag van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -554,7 +554,7 @@
         }
       },
       "last_workout_max_hr": {
-        "name": "Laatste training maximum hartslag",
+        "name": "maximale hartslag van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -568,7 +568,7 @@
         }
       },
       "last_workout_avg_power": {
-        "name": "Laatste training average vermogen",
+        "name": "gemiddeld vermogen van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -582,7 +582,7 @@
         }
       },
       "last_workout_max_power": {
-        "name": "Laatste training maximum vermogen",
+        "name": "maximaal vermogen van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -596,7 +596,7 @@
         }
       },
       "last_workout_avg_cadence": {
-        "name": "Laatste training average cadence",
+        "name": "gemiddelde cadans van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -610,7 +610,7 @@
         }
       },
       "last_workout_elevation_gain": {
-        "name": "Laatste training elevation gain",
+        "name": "hoogtemeters van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -645,7 +645,7 @@
         "name": "FRIEND voorspeld VO₂max"
       },
       "vo2max_percent_predicted": {
-        "name": "VO₂max percent voorspeld",
+        "name": "Voorspeld VO₂max-percentage",
         "state_attributes": {
           "scientific_basis": {
             "name": "Wetenschappelijke basis"
@@ -665,7 +665,7 @@
         }
       },
       "cardiorespiratory_status": {
-        "name": "Cardiorespiratoire fitheidsstatus"
+        "name": "Cardiorespiratoire fitnessstatus"
       },
       "hrv_weekly": {
         "name": "HRV weekgemiddelde"
@@ -677,16 +677,16 @@
         "name": "HRV-status"
       },
       "threshold_hr": {
-        "name": "Threshold hartslag"
+        "name": "Drempelhartslag"
       },
       "threshold_pace": {
-        "name": "Threshold tempo"
+        "name": "Drempeltempo"
       },
       "threshold_power": {
-        "name": "Threshold vermogen"
+        "name": "Drempelvermogen"
       },
       "threshold_power_to_weight": {
-        "name": "Threshold vermogen-to-weight"
+        "name": "Drempelvermogen per gewicht"
       },
       "fitness_age": {
         "name": "Fitnessleeftijd"
@@ -695,10 +695,10 @@
         "name": "Fitnessleeftijd difference"
       },
       "training_readiness_context": {
-        "name": "Context trainingsgereedheid"
+        "name": "Context van trainingsgereedheid"
       },
       "sleep_score_context": {
-        "name": "Slaap score context"
+        "name": "Context van slaapscore"
       },
       "acute_training_load": {
         "name": "Acute trainingsbelasting"
@@ -747,7 +747,7 @@
         }
       },
       "heart_rate_percent_max": {
-        "name": "Hartslag % of maximum",
+        "name": "Hartslag als % van maximum",
         "state_attributes": {
           "source_entity": {
             "name": "Bronentiteit"
@@ -843,7 +843,7 @@
         }
       },
       "heart_rate_relative_threshold": {
-        "name": "Hartslag relative to drempel",
+        "name": "Hartslag ten opzichte van drempel",
         "state_attributes": {
           "source_entity": {
             "name": "Bronentiteit"
@@ -907,7 +907,7 @@
         }
       },
       "power_relative_threshold": {
-        "name": "Vermogen relative to drempel",
+        "name": "Vermogen ten opzichte van drempel",
         "state_attributes": {
           "source_entity": {
             "name": "Bronentiteit"
@@ -971,7 +971,7 @@
         }
       },
       "speed_relative_threshold": {
-        "name": "Snelheid relative to drempel",
+        "name": "Snelheid ten opzichte van drempel",
         "state_attributes": {
           "source_entity": {
             "name": "Bronentiteit"
@@ -1017,7 +1017,7 @@
         }
       },
       "last_workout_moving_time": {
-        "name": "Laatste training moving time",
+        "name": "beweegtijd van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1031,7 +1031,7 @@
         }
       },
       "last_workout_elapsed_time": {
-        "name": "Laatste training elapsed time",
+        "name": "verstreken tijd van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1045,7 +1045,7 @@
         }
       },
       "last_workout_average_speed": {
-        "name": "Laatste training average snelheid",
+        "name": "gemiddelde snelheid van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1059,7 +1059,7 @@
         }
       },
       "last_workout_max_speed": {
-        "name": "Laatste training maximum snelheid",
+        "name": "maximale snelheid van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1073,7 +1073,7 @@
         }
       },
       "last_workout_weighted_power": {
-        "name": "Laatste training weighted / normalized vermogen",
+        "name": "gewogen / genormaliseerd vermogen van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1087,7 +1087,7 @@
         }
       },
       "last_workout_max_cadence": {
-        "name": "Laatste training maximum cadence",
+        "name": "maximale cadans van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1101,7 +1101,7 @@
         }
       },
       "last_workout_elevation_loss": {
-        "name": "Laatste training elevation loss",
+        "name": "hoogteverlies van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1129,7 +1129,7 @@
         }
       },
       "last_workout_aerobic_effect": {
-        "name": "Laatste training aerobe training effect",
+        "name": "aeroob trainingseffect van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1143,7 +1143,7 @@
         }
       },
       "last_workout_anaerobic_effect": {
-        "name": "Laatste training anaerobe training effect",
+        "name": "anaeroob trainingseffect van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1157,7 +1157,7 @@
         }
       },
       "last_workout_training_effect": {
-        "name": "Laatste training training effect",
+        "name": "trainingseffect van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1185,7 +1185,7 @@
         }
       },
       "last_workout_relative_effort": {
-        "name": "Laatste training relative effort",
+        "name": "relatieve inspanning van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1199,7 +1199,7 @@
         }
       },
       "last_workout_kilojoules": {
-        "name": "Laatste training energy",
+        "name": "energie van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1213,7 +1213,7 @@
         }
       },
       "last_workout_total_reps": {
-        "name": "Laatste training total reps",
+        "name": "totaal herhalingen van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1227,7 +1227,7 @@
         }
       },
       "last_workout_exercise_count": {
-        "name": "Laatste training exercise count",
+        "name": "aantal oefeningen van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1241,7 +1241,7 @@
         }
       },
       "last_workout_volume": {
-        "name": "Laatste training training volume",
+        "name": "trainingsvolume van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1255,7 +1255,7 @@
         }
       },
       "last_workout_device": {
-        "name": "Laatste training device",
+        "name": "apparaat van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1269,7 +1269,7 @@
         }
       },
       "last_workout_gear": {
-        "name": "Laatste training gear",
+        "name": "uitrusting van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1283,7 +1283,7 @@
         }
       },
       "last_workout_sources": {
-        "name": "Laatste training data bronnen",
+        "name": "gegevensbronnen van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1297,7 +1297,7 @@
         }
       },
       "live_average_heart_rate": {
-        "name": "Live average hartslag",
+        "name": "Live: gemiddelde hartslag",
         "state_attributes": {
           "source_entity": {
             "name": "Bronentiteit"
@@ -1329,7 +1329,7 @@
         }
       },
       "live_maximum_heart_rate": {
-        "name": "Live maximum hartslag",
+        "name": "Live: maximale hartslag",
         "state_attributes": {
           "source_entity": {
             "name": "Bronentiteit"
@@ -1361,7 +1361,7 @@
         }
       },
       "live_average_power": {
-        "name": "Live average vermogen",
+        "name": "Live: gemiddeld vermogen",
         "state_attributes": {
           "source_entity": {
             "name": "Bronentiteit"
@@ -1393,7 +1393,7 @@
         }
       },
       "live_maximum_power": {
-        "name": "Live maximum vermogen",
+        "name": "Live: maximaal vermogen",
         "state_attributes": {
           "source_entity": {
             "name": "Bronentiteit"
@@ -1425,7 +1425,7 @@
         }
       },
       "live_average_cadence": {
-        "name": "Live average cadence",
+        "name": "Live: gemiddelde cadans",
         "state_attributes": {
           "source_entity": {
             "name": "Bronentiteit"
@@ -1457,7 +1457,7 @@
         }
       },
       "live_average_speed": {
-        "name": "Live average snelheid",
+        "name": "Live: gemiddelde snelheid",
         "state_attributes": {
           "source_entity": {
             "name": "Bronentiteit"
@@ -1489,7 +1489,7 @@
         }
       },
       "live_banister_trimp": {
-        "name": "Live Banister TRIMP",
+        "name": "Live Banister-TRIMP",
         "state_attributes": {
           "source_entity": {
             "name": "Bronentiteit"
@@ -1521,7 +1521,7 @@
         }
       },
       "live_mechanical_work": {
-        "name": "Live mechanical work",
+        "name": "Live: mechanische arbeid",
         "state_attributes": {
           "source_entity": {
             "name": "Bronentiteit"
@@ -1553,7 +1553,7 @@
         }
       },
       "live_aerobic_efficiency": {
-        "name": "Live aerobe efficiëntie",
+        "name": "Live: aerobe efficiëntie",
         "state_attributes": {
           "source_entity": {
             "name": "Bronentiteit"
@@ -1585,7 +1585,7 @@
         }
       },
       "live_aerobic_decoupling": {
-        "name": "Live aerobe ontkoppeling",
+        "name": "Live: aerobe ontkoppeling",
         "state_attributes": {
           "source_entity": {
             "name": "Bronentiteit"
@@ -1727,7 +1727,7 @@
         }
       },
       "last_workout_trimp_per_hour": {
-        "name": "Laatste training TRIMP per hour",
+        "name": "TRIMP per uur van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1741,7 +1741,7 @@
         }
       },
       "last_workout_mechanical_work": {
-        "name": "Laatste training mechanical work",
+        "name": "mechanische arbeid van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1755,7 +1755,7 @@
         }
       },
       "last_workout_aerobic_efficiency": {
-        "name": "Laatste training aerobe efficiëntie",
+        "name": "aerobe efficiëntie van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1769,7 +1769,7 @@
         }
       },
       "last_workout_aerobic_decoupling": {
-        "name": "Laatste training aerobe ontkoppeling",
+        "name": "aerobe ontkoppeling van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1839,7 +1839,7 @@
         }
       },
       "last_workout_time_moderate": {
-        "name": "Laatste training moderate-intensity time",
+        "name": "tijd op matige intensiteit van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1853,7 +1853,7 @@
         }
       },
       "last_workout_time_vigorous": {
-        "name": "Laatste training vigorous-intensity time",
+        "name": "tijd op hoge intensiteit van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1867,7 +1867,7 @@
         }
       },
       "last_workout_time_near_maximal": {
-        "name": "Laatste training near-maximal time",
+        "name": "tijd op bijna maximale intensiteit van de laatste training",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -1986,7 +1986,7 @@
         }
       },
       "last_workout_trimp_vs_recent": {
-        "name": "TRIMP vs comparable recente trainingen",
+        "name": "TRIMP versus vergelijkbare recente trainingen",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -2000,7 +2000,7 @@
         }
       },
       "last_workout_load_context": {
-        "name": "Training load context",
+        "name": "Context van trainingsbelasting",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -2014,7 +2014,7 @@
         }
       },
       "last_workout_personal_context": {
-        "name": "Training personal context",
+        "name": "Persoonlijke trainingscontext",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -2144,7 +2144,7 @@
         }
       },
       "last_sleep_time_in_bed": {
-        "name": "Laatste slaap time in bed",
+        "name": "tijd in bed van de laatste slaap",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -2246,7 +2246,7 @@
         }
       },
       "last_sleep_average_hr": {
-        "name": "Laatste slaap average hartslag",
+        "name": "gemiddelde hartslag van de laatste slaap",
         "state_attributes": {
           "sources": {
             "name": "Gegevensbronnen"
@@ -2334,7 +2334,7 @@
         "name": "7-dag trainingsbelasting vs 28-dag basislijn"
       },
       "hrr_60s_vs_90d": {
-        "name": "Latest 60 s hartslagherstel vs 90-dag basislijn"
+        "name": "Laatste hartslagherstel na 60 s versus 90-daagse basis"
       },
       "sleep_duration_7d_mean": {
         "name": "Gemiddelde slaap duur (7 dagen)"
@@ -2346,10 +2346,10 @@
         "name": "Laatste slaap duur vs 28-dag basislijn"
       },
       "sleep_duration_shortfall": {
-        "name": "Slaap duur shortfall vs 7 h adult minimum"
+        "name": "Slaaptekort ten opzichte van minimaal 7 uur voor volwassenen"
       },
       "sleep_midpoint_variability_14d": {
-        "name": "Slaap midpoint variability (14 dagen)"
+        "name": "Variatie in slaapmiddelpunt (14 dagen)"
       },
       "sleep_hrv_7d_mean": {
         "name": "Gemiddelde slaap HRV (7 dagen)"
@@ -2488,7 +2488,7 @@
             "name": "Gemiddelde slaap HRV (28 dagen)"
           },
           "sleep_hrv_vs_28d_percent": {
-            "name": "Latest slaap HRV vs 28-dag basislijn"
+            "name": "Laatste slaap-HRV versus 28-daagse basis"
           },
           "resting_hr_current_bpm": {
             "name": "Huidig rusthartslag"
@@ -2621,7 +2621,7 @@
             "name": "Afstand (28 dagen)"
           },
           "last_recovery_interval_h": {
-            "name": "Laatste recovery interval"
+            "name": "Laatste herstelinterval"
           },
           "median_recovery_interval_28d_h": {
             "name": "Mediane herstelinterval (28 dagen)"
@@ -2706,10 +2706,10 @@
             "name": "TRIMP vs next-slaap HRV (r)"
           },
           "sleep_duration_pairs": {
-            "name": "Training–slaap duur pairs"
+            "name": "Paren training–slaapduur"
           },
           "sleep_hrv_pairs": {
-            "name": "Training–slaap HRV pairs"
+            "name": "Paren training–slaap-HRV"
           },
           "window_days": {
             "name": "Analysevenster"
@@ -3002,7 +3002,7 @@
             "name": "TRIMP / 7 dagen"
           },
           "trimp_28d_weekly_equivalent": {
-            "name": "28-daags wekelijks equivalent TRIMP"
+            "name": "28-daagse TRIMP als weekequivalent"
           },
           "recent_to_baseline_load_ratio": {
             "name": "Verhouding recente/basisbelasting"
@@ -3133,6 +3133,96 @@
             "name": "Volledig fysiologisch herstel geclaimd"
           }
         }
+      },
+      "cycplus_device_number": {
+        "name": "Apparaatnummer"
+      },
+      "cycplus_sync_state": {
+        "name": "Status van trainingssynchronisatie",
+        "state": {
+          "idle": "Inactief",
+          "waiting": "Wachten op apparaat",
+          "connecting": "Verbinden",
+          "syncing": "Synchroniseren",
+          "ready": "Bijgewerkt",
+          "retrying": "Opnieuw proberen",
+          "error": "Fout"
+        }
+      },
+      "cycplus_last_sync": {
+        "name": "Laatste synchronisatiepoging"
+      },
+      "cycplus_last_successful_sync": {
+        "name": "Laatste geslaagde synchronisatie"
+      },
+      "cycplus_device_workout_count": {
+        "name": "Trainingen op het apparaat"
+      },
+      "cycplus_imported_file_count": {
+        "name": "Geïmporteerde trainingsbestanden"
+      },
+      "cycplus_pending_file_count": {
+        "name": "Wachtende trainingsbestanden"
+      },
+      "cycplus_active_file": {
+        "name": "Actieve download"
+      },
+      "cycplus_downloaded_bytes": {
+        "name": "Gedownloade bytes"
+      },
+      "cycplus_retry_count": {
+        "name": "Aantal pogingen"
+      },
+      "cycplus_disk_free_kb": {
+        "name": "Vrije apparaatopslag"
+      },
+      "cycplus_disk_total_kb": {
+        "name": "Totale apparaatopslag"
+      },
+      "cycplus_last_error": {
+        "name": "Laatste synchronisatiefout",
+        "state": {
+          "none": "Geen fout",
+          "connection_failed": "Verbinding mislukt",
+          "catalog_failed": "Trainingscatalogus mislukt",
+          "transfer_interrupted": "Overdracht onderbroken",
+          "invalid_fit": "Ongeldig FIT-bestand",
+          "import_failed": "Importeren van training mislukt",
+          "unknown": "Onbekende fout"
+        }
+      },
+      "cycplus_latest_workout": {
+        "name": "Nieuwste training op het apparaat"
+      },
+      "cycplus_fit_serial_number": {
+        "name": "FIT-serienummer"
+      },
+      "cycplus_fit_manufacturer": {
+        "name": "FIT-fabrikant"
+      },
+      "cycplus_fit_product": {
+        "name": "FIT-product"
+      },
+      "cycplus_fit_hardware_version": {
+        "name": "FIT-hardwareversie"
+      },
+      "cycplus_fit_software_version": {
+        "name": "FIT-softwareversie"
+      },
+      "cycplus_fit_battery_voltage": {
+        "name": "FIT-batterijspanning"
+      },
+      "cycplus_fit_battery_status": {
+        "name": "FIT-batterijstatus",
+        "state": {
+          "new": "Nieuw",
+          "good": "Goed",
+          "ok": "Voldoende",
+          "low": "Laag",
+          "critical": "Kritiek",
+          "charging": "Bezig met opladen",
+          "unknown": "Onbekend"
+        }
       }
     },
     "button": {
@@ -3150,6 +3240,9 @@
       },
       "regenerate_ai_evaluation": {
         "name": "AI-evaluatie opnieuw genereren"
+      },
+      "cycplus_sync_workouts": {
+        "name": "Trainingen nu synchroniseren"
       }
     },
     "select": {
@@ -3206,16 +3299,16 @@
       "name": "Trainingen"
     },
     "sensors_adapters": {
-      "name": "Sensors & Adapters"
+      "name": "Sensoren en adapters"
     },
     "sensors": {
-      "name": "Sensors"
+      "name": "Sensoren"
     },
     "antplus_adapter": {
-      "name": "ANT+ Adapter"
+      "name": "ANT+-adapter"
     },
     "bluetooth_adapter": {
-      "name": "Bluetooth Adapter"
+      "name": "Bluetooth-adapter"
     }
   },
   "issues": {
@@ -3292,6 +3385,20 @@
         "prompt": {
           "name": "AI-prompt",
           "description": "Prompt die naar de AI-provider wordt gestuurd."
+        }
+      }
+    },
+    "delete_workouts_before": {
+      "name": "Oude Fitness-trainingen verwijderen",
+      "description": "Verwijdert opgeslagen Fitness-trainingsgeschiedenis die ouder is dan het gekozen aantal dagen definitief.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness-profiel",
+          "description": "Fitness-profiel waarvan de opgeslagen trainingsgeschiedenis moet worden opgeschoond."
+        },
+        "days": {
+          "name": "Dagen bewaren",
+          "description": "Bewaar trainingen van dit aantal meest recente dagen en verwijder alles wat ouder is."
         }
       }
     }

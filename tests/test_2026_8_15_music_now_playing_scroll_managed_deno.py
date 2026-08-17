@@ -44,7 +44,8 @@ def test_sources_preserve_the_richest_metadata_available():
 
 
 def test_settings_dialog_has_a_bounded_scroll_body_and_reachable_save_action():
-    assert 'height:min(860px,calc(100dvh - 32px))' in FRONTEND
+    assert 'height:min(860px,calc(100dvh - var(--modal-top,68px) - 26px))' in FRONTEND
+    assert 'height:min(860px,calc(100dvh - 16px))' in FRONTEND
     assert '.configure-modal .profile-settings{min-height:0;overflow-y:auto' in FRONTEND
     assert 'scrollbar-gutter:stable' in FRONTEND
     assert '.configure-modal>.settings-actions{flex:0 0 auto;position:relative;bottom:auto' in FRONTEND

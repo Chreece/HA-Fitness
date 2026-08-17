@@ -59,9 +59,9 @@ def test_fitness_sleep_score_is_marked_as_calculated_and_non_medical():
 
 
 def test_recovery_ui_uses_compact_progress_detail_and_relative_ready_time():
-    assert 'l.recovery_done_short || "Done"' in FRONTEND
-    assert 'l.ready_at_compact || "Ready at: {time}"' in FRONTEND
-    assert 'l.remaining_compact || "{time} remaining"' in FRONTEND
+    assert "l.recovery_done_short" in FRONTEND
+    assert "l.ready_at_compact" in FRONTEND
+    assert "l.remaining_compact" in FRONTEND
     assert 'Math.round(remaining * 60)' in FRONTEND
     assert 'new Intl.RelativeTimeFormat(language, {numeric:"auto"})' in FRONTEND
     assert 'class="next-main"' not in FRONTEND

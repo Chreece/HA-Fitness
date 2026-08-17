@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Added direct local CYCPLUS M1 workout-archive support: verified Bluetooth discovery and profile assignment, automatic connect/reconnect, CRC-validated FIT import into canonical calendars, persistent file-boundary recovery for interrupted transfers, a manual retry button, translated sync entities in all 15 bundled languages, and Home Assistant device identity/storage/battery diagnostics.
+- Completed the Fitness overview/profile-management pass: backend-only profiles are shown with configure, assignment and deletion controls; merged backend/Fitness TV profiles can now be removed completely; the hidden Cast overview remains available as a subview.
+- Fixed profile-scoped localization and controls, including translated backend settings, a Main menu icon, persistent per-profile music-adapter removal and adaptive button labels with a readable minimum size.
+- Fixed live-workout visibility for profiles whose accepted sensors are assigned before live metric entities exist, and preserved local BLE availability when an equivalent browser Bluetooth identity is merged or disconnected.
+- Added distinct self-running animations for the sleep score, recovery progress and training-readiness indicators.
+- Audited laptop, TV and phone layouts and hardened responsive toolbars, profile/access actions, music-adapter controls, modal viewport/safe-area sizing, keyboard focus and mobile touch targets without changing the established desktop card grid or TV remote order.
+- Completed a 15-language audit across Home Assistant setup/options/services, dashboard and card-picker controls, compound entity names, music-provider metadata and scientific formula details. Profile/account language is authoritative, catalogs enforce exact key and placeholder parity, and raw backend exception text is no longer exposed as UI copy.
+
 ## 2026.8.01a01
 
 First public alpha release of HA-Fitness. This release is intentionally marked alpha while the expanded Fitness TV, multi-user, Cast, live-sensor, audio/TTS and remote-access workflows receive wider real-world testing.

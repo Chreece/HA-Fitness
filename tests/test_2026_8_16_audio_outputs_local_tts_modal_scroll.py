@@ -52,7 +52,7 @@ def test_shared_ha_speaker_output_is_owned_by_only_one_active_fitness_profile():
 
 def test_configured_cast_tv_is_not_offered_as_a_second_generic_audio_output():
     assert JS.count('filter((output) => String(output?.entity_id || "") !== preferred)') >= 2
-    assert JS.count('l.audio_output_browser || "Fitness browser / Cast TV"') >= 2
+    assert JS.count("l.audio_output_browser") >= 2
 
 
 def test_local_tts_auto_selection_is_profile_language_aware_and_never_picks_random_cloud_provider():
@@ -92,7 +92,9 @@ def test_all_tv_modals_keep_outer_shell_fixed_and_forward_wheel_to_internal_scro
 
 def test_dashboard_modal_scroll_selector_is_in_scope_for_wheel_forwarding():
     modal = JS[JS.index("  _showModal(content) {"):JS.index("  async _openMediaBrowser()")]
+    backend_at = modal.index('const backendFlowModal = Boolean(')
     selector_at = modal.index('const scrollSelector = ')
-    conditional_at = modal.index('if (modalCard) {')
-    use_at = modal.index('const scrollBody = modalCard?.querySelector(scrollSelector);')
-    assert selector_at < conditional_at < use_at
+    conditional_at = modal.index('if (modalCard && !backendFlowModal) {')
+    use_at = modal.index('const scrollBody = backendFlowModal ? null : modalCard?.querySelector(scrollSelector);')
+    assert backend_at < selector_at < conditional_at < use_at
+    assert 'if (backendFlowModal) return;' in modal

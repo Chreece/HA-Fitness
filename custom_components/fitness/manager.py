@@ -20,7 +20,7 @@ from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.event import async_track_state_change_event, async_track_time_change
 from homeassistant.helpers.storage import Store
 
 from .explanations import provenance_text
@@ -503,6 +503,18 @@ class FitnessManager:
         )
         self.hass.async_create_task(self._async_delayed_long_term_refresh())
         self._schedule_sleep_as_android_history_refresh(delay=5.0, retries=0)
+        # Rolling sleep windows change at the profile's local date boundary even
+        # when no provider emits a new state. Refresh shortly after midnight so
+        # the 7-day deficit never remains stale for another full day.
+        self.remove_listeners.append(
+            async_track_time_change(
+                self.hass,
+                self._handle_sleep_calendar_tick,
+                hour=0,
+                minute=5,
+                second=0,
+            )
+        )
         if self.config.get(CONF_AI_ENABLED) and not self.ai_general:
             self.hass.async_create_task(self.async_generate_ai(general=True, workout=False))
 
@@ -673,6 +685,12 @@ class FitnessManager:
                 listener()
             except Exception:
                 _LOGGER.exception("Fitness sleep entity listener failed")
+
+    @callback
+    def _handle_sleep_calendar_tick(self, _now: datetime) -> None:
+        """Publish sleep/evaluation entities after the local date changes."""
+        self._notify_sleep()
+        self._notify()
 
     def _notify_workout_history(self):
         self._invalidate_workout_history_cache()
@@ -4691,6 +4709,36 @@ class FitnessManager:
             self._notify()
         return changed
 
+    async def async_import_device_workouts(self, candidates: list[Workout]) -> int:
+        """Import completed workouts fetched directly from an assigned device.
+
+        Device archives use the same normalization, personal-context enrichment,
+        retention, deletion tombstones and canonical merge path as provider and
+        Recorder history. This public boundary keeps transport code out of the
+        manager's persistence internals.
+        """
+        prepared: list[Workout] = []
+        for workout in sorted(
+            candidates,
+            key=lambda item: _dt(item.start)
+            or datetime.min.replace(tzinfo=timezone.utc),
+        ):
+            if workout is None or not workout.start:
+                continue
+            # Personal baselines and derived fields belong to this profile. Keep
+            # the caller's device snapshot immutable so the same imported FIT
+            # session can be offered safely to several assigned profiles.
+            workout = Workout(**workout.as_dict())
+            workout = self._apply_beta2_workout_metrics(workout)
+            workout = self._apply_personal_workout_context(workout)
+            prepared.append(workout)
+        changed = await self._async_remember_completed_workouts(prepared)
+        if changed:
+            await self._save()
+            self._notify_workout_history()
+            self._notify()
+        return len(prepared)
+
     async def async_import_provider_workout_history(self) -> int:
         """Import historical workouts exposed by provider-specific HA APIs."""
         try:
@@ -5342,8 +5390,15 @@ class FitnessManager:
 
         dated = sorted(nightly_by_date.values(), key=lambda item: item[0])
 
+        today = now.astimezone(tz).date()
+
         def subset(days: int):
-            return [(stamp, r) for stamp, r in dated if (now - stamp).total_seconds() <= days * 86400]
+            first_date = today - timedelta(days=max(0, days - 1))
+            return [
+                (stamp, record)
+                for stamp, record in dated
+                if first_date <= stamp.astimezone(tz).date() <= today
+            ]
 
         def field_values(field: str, days: int):
             return [float(getattr(r, field)) for _stamp, r in subset(days) if getattr(r, field) is not None]

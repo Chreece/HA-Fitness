@@ -52,7 +52,7 @@ def test_cast_picker_and_start_on_tv_use_neutral_preparing_status_not_idle_guess
     cast = FRONTEND[FRONTEND.index("  async _castDashboard(entityId)"):FRONTEND.index("  async _stopCastDashboard", FRONTEND.index("  async _castDashboard(entityId)"))]
     assert "targetOff" not in cast
     assert "idle or not responding yet" not in cast
-    assert 'l.cast_connecting || "Connecting to TV…"' in cast
+    assert "l.cast_connecting" in cast
     start = FRONTEND[FRONTEND.index("  async _startTvWorkout(profile, row)"):FRONTEND.index("  async _openConfigure", FRONTEND.index("  async _startTvWorkout(profile, row)"))]
     assert "targetOff" not in start
     assert "idle or not responding yet" not in start

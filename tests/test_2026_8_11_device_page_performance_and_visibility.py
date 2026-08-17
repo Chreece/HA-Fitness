@@ -53,7 +53,7 @@ def test_hr_comparison_uses_semantic_key_not_entity_id_name():
     )[0]
     assert 'metric.key === "last_workout_hr_vs_baseline"' in comparison
     assert "baseline-number" in comparison
-    assert 'labels.baseline || "Baseline"' in comparison
+    assert "labels.baseline" in comparison
 
 
 def test_baseline_comparisons_need_at_least_three_comparable_workouts():

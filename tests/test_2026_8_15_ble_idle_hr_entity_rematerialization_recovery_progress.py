@@ -33,7 +33,7 @@ def test_training_recovery_bar_is_removed_and_recovery_progress_uses_readiness_s
     assert "trainingRecoveryBar" not in FRONTEND
     assert "readinessTrainingStack" not in FRONTEND
     assert 'kind:"progress"' in FRONTEND
-    assert 'label:l.recovery_progress_label || "Recovery progress"' in FRONTEND
+    assert "label:l.recovery_progress_label" in FRONTEND
     assert "recoveryProgressBar" in FRONTEND
     assert "recovery-progress\"><i" not in FRONTEND
     assert "recovery-score-track" in FRONTEND

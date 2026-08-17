@@ -35,12 +35,12 @@
         }
       },
       "optional": {
-        "title": "Optional initial / calculable values",
-        "description": "Each field accepts a numeric value OR entity ID. Leave unknown fields empty.",
+        "title": "선택형 초기값/계산 가능 값",
+        "description": "각 필드는 숫자 값 또는 엔티티 ID를 받습니다. 직접 입력한 값에는 필드에 명시된 단위를 사용하며 엔티티 값은 unit_of_measurement를 기준으로 자동 변환됩니다. 알 수 없는 필드는 비워 두세요.",
         "data": {
           "height": "키(cm 또는 엔티티)",
           "max_hr": "최대 심박수(bpm 또는 엔티티)",
-          "vo2max": "VO₂max (mL/kg/min or entity)",
+          "vo2max": "VO₂max(mL/kg/min 또는 엔티티)",
           "threshold_hr": "역치 심박수(bpm 또는 엔티티)",
           "threshold_pace": "역치 페이스(min/km 또는 엔티티)",
           "threshold_power": "역치 파워(W 또는 엔티티)"
@@ -62,15 +62,15 @@
           "live_device_ids": "기타 Home Assistant 실시간 장치"
         },
         "data_description": {
-          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
-          "live_device_ids": "Optional Home Assistant devices exposing compatible live heart-rate, power, cadence, speed, distance or altitude entities."
+          "live_sensor_ids": "Fitness가 발견한 물리 센서입니다. ANT+와 Bluetooth 식별자가 같은 센서를 나타내면 하나의 기기로 병합하며, 실시간 측정에는 ANT+를 우선합니다.",
+          "live_device_ids": "호환되는 실시간 심박수, 파워, 케이던스, 속도, 거리 또는 고도 엔티티를 제공하는 선택형 Home Assistant 기기입니다."
         }
       },
       "workout_devices": {
         "title": "운동 / 장기 데이터",
-        "description": "Select devices providing completed workouts or long-term fitness/recovery data, such as Garmin Connect or Strava.",
+        "description": "Garmin Connect 또는 Strava처럼 완료된 운동이나 장기 피트니스/회복 데이터를 제공하는 기기를 선택하세요.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data",
+          "workout_device_ids": "운동/피트니스 기록 데이터를 제공하는 기기",
           "detailed_strength_analysis": "상세 근력 분석",
           "workout_retention_days": "운동 보관 기간"
         },
@@ -84,7 +84,7 @@
         "title": "AI 해석",
         "description": "기본적으로 Home Assistant의 기본 AI Task가 선택됩니다. Fitness는 현재 시스템 기본값을 자동으로 따릅니다. 특정 AI Task 또는 대화 에이전트에 고정하려는 경우에만 별도로 선택하세요.",
         "data": {
-          "ai_enabled": "Generate AI fitness assessments",
+          "ai_enabled": "AI 피트니스 평가 생성",
           "ai_entity": "AI 제공자"
         },
         "data_description": {
@@ -94,13 +94,13 @@
       },
       "feedback": {
         "title": "코칭, 조명 및 안내",
-        "description": "Choose rooms and/or explicit light entities for five-second intensity color feedback. Every available color-capable light in the selected rooms is included automatically. You can also select notification entities, a TTS provider and media players for announcements.",
+        "description": "5초 동안 강도 색상 피드백을 표시할 공간 또는 특정 조명 엔티티를 선택합니다. 선택한 공간의 사용 가능한 색상 조명은 자동으로 포함됩니다. 알림 엔티티, TTS 제공자, 안내용 미디어 플레이어도 선택할 수 있습니다.",
         "data": {
-          "feedback_light_ids": "Additional / explicit lights for intensity feedback",
+          "feedback_light_ids": "강도 피드백용 추가/직접 지정 조명",
           "notify_entity_ids": "운동 알림 엔티티",
           "tts_entity_id": "TTS 제공자",
           "tts_media_player_ids": "스피커 / 미디어 플레이어",
-          "feedback_area_ids": "Rooms for intensity light feedback",
+          "feedback_area_ids": "강도 조명 피드백을 사용할 공간",
           "periodic_live_announcements": "주기적 실시간 운동 안내",
           "periodic_live_interval_minutes": "실시간 안내 간격"
         },
@@ -125,13 +125,13 @@
         }
       },
       "assign_live_sensor": {
-        "title": "New fitness sensor discovered",
-        "description": "{sensor} was discovered. Choose every Fitness user who may use this physical sensor for live workouts.",
+        "title": "새 피트니스 센서 발견",
+        "description": "{sensor} 센서를 발견했습니다. 실시간 운동에서 이 물리 센서를 사용할 수 있는 모든 Fitness 사용자를 선택하세요.",
         "data": {
-          "fitness_profile_ids": "Fitness users"
+          "fitness_profile_ids": "Fitness 사용자"
         },
         "data_description": {
-          "fitness_profile_ids": "One physical sensor can be shared by multiple Fitness profiles."
+          "fitness_profile_ids": "하나의 물리 센서를 여러 Fitness 프로필에서 공유할 수 있습니다."
         }
       },
       "tv_dashboard": {
@@ -141,31 +141,31 @@
           "tv_dashboard_enabled": "Fitness TV 대시보드 사용",
           "tv_dashboard_media_player_id": "TV / Cast 미디어 플레이어",
           "tv_dashboard_ducking_percent": "TTS 중 음악 볼륨",
-          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp 음악 어댑터 활성화(실험적)",
           "tv_dashboard_ignore_lights_when_cast_active": "TV Cast 활성 중 운동 조명 무시"
         },
         "data_description": {
           "tv_dashboard_enabled": "운동이 시작되면 Fitness TV 대시보드를 자동으로 전체 화면에 표시합니다. 음악과 TTS가 대시보드 안에서 재생되므로 Cast 화면이 계속 유지됩니다.",
           "tv_dashboard_media_player_id": "Fitness TV 대시보드를 표시할 Google Cast 미디어 플레이어입니다. Fitness는 대시보드 음악이나 TTS를 이 미디어 플레이어로 직접 보내지 않습니다.",
           "tv_dashboard_ducking_percent": "Fitness가 TTS 안내를 재생하는 동안 유지할 현재 음악 볼륨의 백분율입니다. 안내가 끝나면 원래 볼륨으로 부드럽게 복원됩니다.",
-          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp는 선택형 타사 어댑터이며 YouTube 또는 기타 서비스와 제휴하지 않습니다. 법률, 서비스 약관, 저작권을 준수하고 필요한 권한을 얻을 책임은 전적으로 사용자에게 있습니다. Fitness는 계정 쿠키를 제공하거나 우회 및 무단 재배포를 허용하지 않으며 보증 없이 제공합니다. 이 고지는 법률 자문이 아닙니다.",
           "tv_dashboard_ignore_lights_when_cast_active": "Fitness TV Cast 수신기가 활성화되어 있으면 운동 피드백은 TV를 사용하고 설정된 운동 조명은 변경하지 않습니다."
         }
       }
     },
     "error": {
-      "invalid_date": "Enter a valid date of birth in the past.",
-      "invalid_number_or_entity": "Enter a valid numeric value or Home Assistant entity ID.",
-      "select_profile": "Select at least one Fitness user."
+      "invalid_date": "과거의 올바른 생년월일을 입력하세요.",
+      "invalid_number_or_entity": "올바른 숫자 값 또는 Home Assistant 엔티티 ID를 입력하세요.",
+      "select_profile": "Fitness 사용자를 한 명 이상 선택하세요."
     },
     "abort": {
-      "already_configured": "A Fitness profile with this name already exists.",
-      "live_sensor_assigned": "The fitness sensor was assigned successfully.",
-      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
-      "no_fitness_profiles": "Create a Fitness user before assigning this sensor.",
-      "invalid_discovery": "The fitness sensor discovery data was invalid.",
-      "adapters_already_configured": "All Fitness live adapters are already configured. Enable or disable them from their adapter devices.",
-      "adapters_managed_on_devices": "Local sensor adapters are configured from the ANT+ and Bluetooth adapter devices."
+      "already_configured": "같은 이름의 Fitness 프로필이 이미 있습니다.",
+      "live_sensor_assigned": "피트니스 센서를 할당했습니다.",
+      "sensor_unavailable": "검색된 피트니스 센서를 더 이상 사용할 수 없습니다.",
+      "no_fitness_profiles": "이 센서를 할당하기 전에 Fitness 사용자를 만드세요.",
+      "invalid_discovery": "피트니스 센서 검색 데이터가 올바르지 않습니다.",
+      "adapters_already_configured": "모든 Fitness 실시간 어댑터가 이미 구성되었습니다. 각 어댑터 기기에서 활성화하거나 비활성화하세요.",
+      "adapters_managed_on_devices": "로컬 센서 어댑터는 ANT+ 및 Bluetooth 어댑터 기기에서 구성합니다."
     }
   },
   "options": {
@@ -186,7 +186,7 @@
       },
       "profile": {
         "title": "프로필",
-        "description": "Edit the person's profile information.",
+        "description": "사용자의 프로필 정보를 편집합니다.",
         "data": {
           "language": "언어",
           "birth_day": "생일",
@@ -210,7 +210,7 @@
           "resting_hr": "안정시 심박수(bpm 또는 엔티티)",
           "height": "키(cm 또는 엔티티)",
           "max_hr": "최대 심박수(bpm 또는 엔티티)",
-          "vo2max": "VO₂max (mL/kg/min or entity)",
+          "vo2max": "VO₂max(mL/kg/min 또는 엔티티)",
           "threshold_hr": "역치 심박수(bpm 또는 엔티티)",
           "threshold_pace": "역치 페이스(min/km 또는 엔티티)",
           "threshold_power": "역치 파워(W 또는 엔티티)"
@@ -234,15 +234,15 @@
           "live_device_ids": "기타 Home Assistant 실시간 장치"
         },
         "data_description": {
-          "live_sensor_ids": "Physical sensors discovered by Fitness. ANT+ and Bluetooth identities are merged into one device when they refer to the same sensor; ANT+ is preferred for live measurements.",
-          "live_device_ids": "Optional Home Assistant devices exposing compatible live heart-rate, power, cadence, speed, distance or altitude entities."
+          "live_sensor_ids": "Fitness가 발견한 물리 센서입니다. ANT+와 Bluetooth 식별자가 같은 센서를 나타내면 하나의 기기로 병합하며, 실시간 측정에는 ANT+를 우선합니다.",
+          "live_device_ids": "호환되는 실시간 심박수, 파워, 케이던스, 속도, 거리 또는 고도 엔티티를 제공하는 선택형 Home Assistant 기기입니다."
         }
       },
       "workout_devices": {
         "title": "운동 / 장기 데이터",
-        "description": "Select devices providing completed workouts or long-term fitness/recovery values.",
+        "description": "완료된 운동 또는 장기 피트니스/회복 값을 제공하는 기기를 선택하세요.",
         "data": {
-          "workout_device_ids": "Devices providing workout / fitness history data",
+          "workout_device_ids": "운동/피트니스 기록 데이터를 제공하는 기기",
           "detailed_strength_analysis": "상세 근력 분석",
           "workout_retention_days": "운동 보관 기간"
         },
@@ -256,7 +256,7 @@
         "title": "AI 해석",
         "description": "기본적으로 Home Assistant의 기본 AI Task가 선택됩니다. Fitness는 현재 시스템 기본값을 자동으로 따릅니다. 특정 AI Task 또는 대화 에이전트에 고정하려는 경우에만 별도로 선택하세요.",
         "data": {
-          "ai_enabled": "Generate AI fitness assessments",
+          "ai_enabled": "AI 피트니스 평가 생성",
           "ai_entity": "AI 제공자"
         },
         "data_description": {
@@ -266,13 +266,13 @@
       },
       "feedback": {
         "title": "코칭, 조명 및 안내",
-        "description": "Choose rooms and/or explicit light entities for five-second intensity color feedback. Every available color-capable light in the selected rooms is included automatically. You can also select notification entities, a TTS provider and media players for announcements.",
+        "description": "5초 동안 강도 색상 피드백을 표시할 공간 또는 특정 조명 엔티티를 선택합니다. 선택한 공간의 사용 가능한 색상 조명은 자동으로 포함됩니다. 알림 엔티티, TTS 제공자, 안내용 미디어 플레이어도 선택할 수 있습니다.",
         "data": {
-          "feedback_light_ids": "Additional / explicit lights for intensity feedback",
+          "feedback_light_ids": "강도 피드백용 추가/직접 지정 조명",
           "notify_entity_ids": "운동 알림 엔티티",
           "tts_entity_id": "TTS 제공자",
           "tts_media_player_ids": "스피커 / 미디어 플레이어",
-          "feedback_area_ids": "Rooms for intensity light feedback",
+          "feedback_area_ids": "강도 조명 피드백을 사용할 공간",
           "periodic_live_announcements": "주기적 실시간 운동 안내",
           "periodic_live_interval_minutes": "실시간 안내 간격"
         },
@@ -323,25 +323,25 @@
           "tv_dashboard_enabled": "Fitness TV 대시보드 사용",
           "tv_dashboard_media_player_id": "TV / Cast 미디어 플레이어",
           "tv_dashboard_ducking_percent": "TTS 중 음악 볼륨",
-          "tv_dashboard_ytdlp_enabled": "Enable yt-dlp music adapter (experimental)",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp 음악 어댑터 활성화(실험적)",
           "tv_dashboard_ignore_lights_when_cast_active": "TV Cast 활성 중 운동 조명 무시"
         },
         "data_description": {
           "tv_dashboard_enabled": "운동이 시작되면 Fitness TV 대시보드를 자동으로 전체 화면에 표시합니다. 음악과 TTS가 대시보드 안에서 재생되므로 Cast 화면이 계속 유지됩니다.",
           "tv_dashboard_media_player_id": "Fitness TV 대시보드를 표시할 Google Cast 미디어 플레이어입니다. Fitness는 대시보드 음악이나 TTS를 이 미디어 플레이어로 직접 보내지 않습니다.",
           "tv_dashboard_ducking_percent": "Fitness가 TTS 안내를 재생하는 동안 유지할 현재 음악 볼륨의 백분율입니다. 안내가 끝나면 원래 볼륨으로 부드럽게 복원됩니다.",
-          "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
+          "tv_dashboard_ytdlp_enabled": "yt-dlp는 선택형 타사 어댑터이며 YouTube 또는 기타 서비스와 제휴하지 않습니다. 법률, 서비스 약관, 저작권을 준수하고 필요한 권한을 얻을 책임은 전적으로 사용자에게 있습니다. Fitness는 계정 쿠키를 제공하거나 우회 및 무단 재배포를 허용하지 않으며 보증 없이 제공합니다. 이 고지는 법률 자문이 아닙니다.",
           "tv_dashboard_ignore_lights_when_cast_active": "Fitness TV Cast 수신기가 활성화되어 있으면 운동 피드백은 TV를 사용하고 설정된 운동 조명은 변경하지 않습니다."
         }
       }
     },
     "abort": {
       "no_live_sensors": "다시 할당할 수 있는 승인된 로컬 Fitness 센서가 없습니다.",
-      "sensor_unavailable": "The discovered fitness sensor is no longer available.",
-      "no_fitness_profiles": "Create a Fitness user before assigning this sensor."
+      "sensor_unavailable": "검색된 피트니스 센서를 더 이상 사용할 수 없습니다.",
+      "no_fitness_profiles": "이 센서를 할당하기 전에 Fitness 사용자를 만드세요."
     },
     "error": {
-      "sensor_unavailable": "The discovered fitness sensor is no longer available."
+      "sensor_unavailable": "검색된 피트니스 센서를 더 이상 사용할 수 없습니다."
     }
   },
   "entity": {
@@ -428,7 +428,7 @@
         }
       },
       "current_cadence": {
-        "name": "현재 cadence",
+        "name": "현재 케이던스",
         "state_attributes": {
           "source_entity": {
             "name": "소스 엔터티"
@@ -456,7 +456,7 @@
         }
       },
       "current_distance": {
-        "name": "현재 distance",
+        "name": "현재 거리",
         "state_attributes": {
           "source_entity": {
             "name": "소스 엔터티"
@@ -470,7 +470,7 @@
         }
       },
       "current_altitude": {
-        "name": "현재 altitude",
+        "name": "현재 고도",
         "state_attributes": {
           "source_entity": {
             "name": "소스 엔터티"
@@ -526,7 +526,7 @@
         }
       },
       "last_workout_distance": {
-        "name": "최근 운동 distance",
+        "name": "마지막 운동: 거리",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -540,7 +540,7 @@
         }
       },
       "last_workout_avg_hr": {
-        "name": "최근 운동 average 심박수",
+        "name": "마지막 운동: 평균 심박수",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -554,7 +554,7 @@
         }
       },
       "last_workout_max_hr": {
-        "name": "최근 운동 maximum 심박수",
+        "name": "마지막 운동: 최대 심박수",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -568,7 +568,7 @@
         }
       },
       "last_workout_avg_power": {
-        "name": "최근 운동 average 파워",
+        "name": "마지막 운동: 평균 파워",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -582,7 +582,7 @@
         }
       },
       "last_workout_max_power": {
-        "name": "최근 운동 maximum 파워",
+        "name": "마지막 운동: 최대 파워",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -596,7 +596,7 @@
         }
       },
       "last_workout_avg_cadence": {
-        "name": "최근 운동 average cadence",
+        "name": "마지막 운동: 평균 케이던스",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -610,7 +610,7 @@
         }
       },
       "last_workout_elevation_gain": {
-        "name": "최근 운동 elevation gain",
+        "name": "마지막 운동: 누적 상승고도",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -645,7 +645,7 @@
         "name": "FRIEND 예측 VO₂max"
       },
       "vo2max_percent_predicted": {
-        "name": "VO₂max percent 예측",
+        "name": "예측 VO₂max 백분율",
         "state_attributes": {
           "scientific_basis": {
             "name": "과학적 근거"
@@ -665,7 +665,7 @@
         }
       },
       "cardiorespiratory_status": {
-        "name": "Cardiorespiratory fitness 상태"
+        "name": "심폐 체력 상태"
       },
       "hrv_weekly": {
         "name": "HRV 주간 평균"
@@ -677,16 +677,16 @@
         "name": "HRV 상태"
       },
       "threshold_hr": {
-        "name": "Threshold 심박수"
+        "name": "역치 심박수"
       },
       "threshold_pace": {
-        "name": "Threshold 페이스"
+        "name": "역치 페이스"
       },
       "threshold_power": {
-        "name": "Threshold 파워"
+        "name": "역치 파워"
       },
       "threshold_power_to_weight": {
-        "name": "Threshold 파워-to-weight"
+        "name": "역치 파워 대 체중비"
       },
       "fitness_age": {
         "name": "피트니스 나이"
@@ -695,7 +695,7 @@
         "name": "피트니스 나이 difference"
       },
       "training_readiness_context": {
-        "name": "Training readiness 맥락"
+        "name": "훈련 준비도 맥락"
       },
       "sleep_score_context": {
         "name": "수면 점수 맥락"
@@ -710,7 +710,7 @@
         "name": "급성/만성 부하 비율"
       },
       "provider_training_status": {
-        "name": "Provider training 상태"
+        "name": "제공자 훈련 상태"
       },
       "ai_general_evaluation": {
         "name": "AI 종합 평가",
@@ -747,7 +747,7 @@
         }
       },
       "heart_rate_percent_max": {
-        "name": "심박수 % of maximum",
+        "name": "최대 심박수 대비 백분율",
         "state_attributes": {
           "source_entity": {
             "name": "소스 엔터티"
@@ -843,7 +843,7 @@
         }
       },
       "heart_rate_relative_threshold": {
-        "name": "심박수 relative to 역치",
+        "name": "역치 대비 심박수",
         "state_attributes": {
           "source_entity": {
             "name": "소스 엔터티"
@@ -907,7 +907,7 @@
         }
       },
       "power_relative_threshold": {
-        "name": "파워 relative to 역치",
+        "name": "역치 대비 파워",
         "state_attributes": {
           "source_entity": {
             "name": "소스 엔터티"
@@ -971,7 +971,7 @@
         }
       },
       "speed_relative_threshold": {
-        "name": "속도 relative to 역치",
+        "name": "역치 대비 속도",
         "state_attributes": {
           "source_entity": {
             "name": "소스 엔터티"
@@ -1017,7 +1017,7 @@
         }
       },
       "last_workout_moving_time": {
-        "name": "최근 운동 moving time",
+        "name": "마지막 운동: 이동 시간",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1031,7 +1031,7 @@
         }
       },
       "last_workout_elapsed_time": {
-        "name": "최근 운동 elapsed time",
+        "name": "마지막 운동: 경과 시간",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1045,7 +1045,7 @@
         }
       },
       "last_workout_average_speed": {
-        "name": "최근 운동 average 속도",
+        "name": "마지막 운동: 평균 속도",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1059,7 +1059,7 @@
         }
       },
       "last_workout_max_speed": {
-        "name": "최근 운동 maximum 속도",
+        "name": "마지막 운동: 최고 속도",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1073,7 +1073,7 @@
         }
       },
       "last_workout_weighted_power": {
-        "name": "최근 운동 weighted / normalized 파워",
+        "name": "마지막 운동: 가중 / 정규화 파워",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1087,7 +1087,7 @@
         }
       },
       "last_workout_max_cadence": {
-        "name": "최근 운동 maximum cadence",
+        "name": "마지막 운동: 최대 케이던스",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1101,7 +1101,7 @@
         }
       },
       "last_workout_elevation_loss": {
-        "name": "최근 운동 elevation loss",
+        "name": "마지막 운동: 누적 하강고도",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1129,7 +1129,7 @@
         }
       },
       "last_workout_aerobic_effect": {
-        "name": "최근 운동 유산소 training effect",
+        "name": "마지막 운동: 유산소 훈련 효과",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1143,7 +1143,7 @@
         }
       },
       "last_workout_anaerobic_effect": {
-        "name": "최근 운동 무산소 training effect",
+        "name": "마지막 운동: 무산소 훈련 효과",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1157,7 +1157,7 @@
         }
       },
       "last_workout_training_effect": {
-        "name": "최근 운동 training effect",
+        "name": "마지막 운동: 훈련 효과",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1185,7 +1185,7 @@
         }
       },
       "last_workout_relative_effort": {
-        "name": "최근 운동 relative effort",
+        "name": "마지막 운동: 상대 운동량",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1199,7 +1199,7 @@
         }
       },
       "last_workout_kilojoules": {
-        "name": "최근 운동 energy",
+        "name": "마지막 운동: 에너지",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1213,7 +1213,7 @@
         }
       },
       "last_workout_total_reps": {
-        "name": "최근 운동 total reps",
+        "name": "마지막 운동: 총 반복 횟수",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1227,7 +1227,7 @@
         }
       },
       "last_workout_exercise_count": {
-        "name": "최근 운동 exercise count",
+        "name": "마지막 운동: 운동 종목 수",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1241,7 +1241,7 @@
         }
       },
       "last_workout_volume": {
-        "name": "최근 운동 training volume",
+        "name": "마지막 운동: 훈련 볼륨",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1255,7 +1255,7 @@
         }
       },
       "last_workout_device": {
-        "name": "최근 운동 device",
+        "name": "마지막 운동: 기기",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1269,7 +1269,7 @@
         }
       },
       "last_workout_gear": {
-        "name": "최근 운동 gear",
+        "name": "마지막 운동: 장비",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1283,7 +1283,7 @@
         }
       },
       "last_workout_sources": {
-        "name": "최근 운동 data 소스",
+        "name": "마지막 운동: 데이터 소스",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1297,7 +1297,7 @@
         }
       },
       "live_average_heart_rate": {
-        "name": "실시간 average 심박수",
+        "name": "실시간: 평균 심박수",
         "state_attributes": {
           "source_entity": {
             "name": "소스 엔터티"
@@ -1329,7 +1329,7 @@
         }
       },
       "live_maximum_heart_rate": {
-        "name": "실시간 maximum 심박수",
+        "name": "실시간: 최대 심박수",
         "state_attributes": {
           "source_entity": {
             "name": "소스 엔터티"
@@ -1361,7 +1361,7 @@
         }
       },
       "live_average_power": {
-        "name": "실시간 average 파워",
+        "name": "실시간: 평균 파워",
         "state_attributes": {
           "source_entity": {
             "name": "소스 엔터티"
@@ -1393,7 +1393,7 @@
         }
       },
       "live_maximum_power": {
-        "name": "실시간 maximum 파워",
+        "name": "실시간: 최대 파워",
         "state_attributes": {
           "source_entity": {
             "name": "소스 엔터티"
@@ -1425,7 +1425,7 @@
         }
       },
       "live_average_cadence": {
-        "name": "실시간 average cadence",
+        "name": "실시간: 평균 케이던스",
         "state_attributes": {
           "source_entity": {
             "name": "소스 엔터티"
@@ -1457,7 +1457,7 @@
         }
       },
       "live_average_speed": {
-        "name": "실시간 average 속도",
+        "name": "실시간: 평균 속도",
         "state_attributes": {
           "source_entity": {
             "name": "소스 엔터티"
@@ -1521,7 +1521,7 @@
         }
       },
       "live_mechanical_work": {
-        "name": "실시간 mechanical work",
+        "name": "실시간: 기계적 일",
         "state_attributes": {
           "source_entity": {
             "name": "소스 엔터티"
@@ -1553,7 +1553,7 @@
         }
       },
       "live_aerobic_efficiency": {
-        "name": "실시간 유산소 효율",
+        "name": "실시간: 유산소 효율",
         "state_attributes": {
           "source_entity": {
             "name": "소스 엔터티"
@@ -1585,7 +1585,7 @@
         }
       },
       "live_aerobic_decoupling": {
-        "name": "실시간 유산소 디커플링",
+        "name": "실시간: 유산소 디커플링",
         "state_attributes": {
           "source_entity": {
             "name": "소스 엔터티"
@@ -1727,7 +1727,7 @@
         }
       },
       "last_workout_trimp_per_hour": {
-        "name": "최근 운동 TRIMP per hour",
+        "name": "마지막 운동: 시간당 TRIMP",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1741,7 +1741,7 @@
         }
       },
       "last_workout_mechanical_work": {
-        "name": "최근 운동 mechanical work",
+        "name": "마지막 운동: 기계적 일",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1755,7 +1755,7 @@
         }
       },
       "last_workout_aerobic_efficiency": {
-        "name": "최근 운동 유산소 효율",
+        "name": "마지막 운동: 유산소 효율",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1769,7 +1769,7 @@
         }
       },
       "last_workout_aerobic_decoupling": {
-        "name": "최근 운동 유산소 디커플링",
+        "name": "마지막 운동: 유산소 디커플링",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1839,7 +1839,7 @@
         }
       },
       "last_workout_time_moderate": {
-        "name": "최근 운동 moderate-intensity time",
+        "name": "마지막 운동: 중강도 시간",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1853,7 +1853,7 @@
         }
       },
       "last_workout_time_vigorous": {
-        "name": "최근 운동 vigorous-intensity time",
+        "name": "마지막 운동: 고강도 시간",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1867,7 +1867,7 @@
         }
       },
       "last_workout_time_near_maximal": {
-        "name": "최근 운동 near-maximal time",
+        "name": "마지막 운동: 최대 근접 강도 시간",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -1986,7 +1986,7 @@
         }
       },
       "last_workout_trimp_vs_recent": {
-        "name": "TRIMP vs comparable 최근 운동",
+        "name": "유사한 최근 운동 대비 TRIMP",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -2000,7 +2000,7 @@
         }
       },
       "last_workout_load_context": {
-        "name": "운동 load 맥락",
+        "name": "운동 부하 맥락",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -2014,7 +2014,7 @@
         }
       },
       "last_workout_personal_context": {
-        "name": "운동 personal 맥락",
+        "name": "개인 운동 맥락",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -2144,7 +2144,7 @@
         }
       },
       "last_sleep_time_in_bed": {
-        "name": "최근 수면 time in bed",
+        "name": "마지막 수면: 침대에 있던 시간",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -2246,7 +2246,7 @@
         }
       },
       "last_sleep_average_hr": {
-        "name": "최근 수면 average 심박수",
+        "name": "마지막 수면: 평균 심박수",
         "state_attributes": {
           "sources": {
             "name": "데이터 소스"
@@ -2334,7 +2334,7 @@
         "name": "7-일 훈련 부하 vs 28-일 기준선"
       },
       "hrr_60s_vs_90d": {
-        "name": "Latest 60 s 심박수 회복 vs 90-일 기준선"
+        "name": "최근 60초 심박수 회복과 90일 기준 비교"
       },
       "sleep_duration_7d_mean": {
         "name": "평균 수면 시간 (7 일)"
@@ -2346,10 +2346,10 @@
         "name": "최근 수면 시간 vs 28-일 기준선"
       },
       "sleep_duration_shortfall": {
-        "name": "수면 시간 shortfall vs 7 h adult minimum"
+        "name": "성인 최소 7시간 대비 수면 부족"
       },
       "sleep_midpoint_variability_14d": {
-        "name": "수면 midpoint variability (14 일)"
+        "name": "수면 중간 시각 변동성(14일)"
       },
       "sleep_hrv_7d_mean": {
         "name": "평균 수면 HRV (7 일)"
@@ -2488,7 +2488,7 @@
             "name": "평균 수면 HRV (28 일)"
           },
           "sleep_hrv_vs_28d_percent": {
-            "name": "Latest 수면 HRV vs 28-일 기준선"
+            "name": "최근 수면 HRV와 28일 기준 비교"
           },
           "resting_hr_current_bpm": {
             "name": "현재 안정 시 심박수"
@@ -2621,7 +2621,7 @@
             "name": "거리 (28 일)"
           },
           "last_recovery_interval_h": {
-            "name": "최근 recovery interval"
+            "name": "마지막 회복 간격"
           },
           "median_recovery_interval_28d_h": {
             "name": "회복 간격 중앙값 (28 일)"
@@ -2706,10 +2706,10 @@
             "name": "TRIMP vs next-수면 HRV (r)"
           },
           "sleep_duration_pairs": {
-            "name": "운동–수면 시간 pairs"
+            "name": "운동–수면 시간 쌍"
           },
           "sleep_hrv_pairs": {
-            "name": "운동–수면 HRV pairs"
+            "name": "운동–수면 HRV 쌍"
           },
           "window_days": {
             "name": "분석 기간"
@@ -3133,6 +3133,96 @@
             "name": "완전한 생리적 회복 주장"
           }
         }
+      },
+      "cycplus_device_number": {
+        "name": "기기 번호"
+      },
+      "cycplus_sync_state": {
+        "name": "운동 동기화 상태",
+        "state": {
+          "idle": "유휴",
+          "waiting": "기기 대기 중",
+          "connecting": "연결 중",
+          "syncing": "동기화 중",
+          "ready": "최신 상태",
+          "retrying": "재시도 중",
+          "error": "오류"
+        }
+      },
+      "cycplus_last_sync": {
+        "name": "마지막 동기화 시도"
+      },
+      "cycplus_last_successful_sync": {
+        "name": "마지막 동기화 성공"
+      },
+      "cycplus_device_workout_count": {
+        "name": "기기의 운동"
+      },
+      "cycplus_imported_file_count": {
+        "name": "가져온 운동 파일"
+      },
+      "cycplus_pending_file_count": {
+        "name": "대기 중인 운동 파일"
+      },
+      "cycplus_active_file": {
+        "name": "진행 중인 다운로드"
+      },
+      "cycplus_downloaded_bytes": {
+        "name": "다운로드한 바이트"
+      },
+      "cycplus_retry_count": {
+        "name": "재시도 횟수"
+      },
+      "cycplus_disk_free_kb": {
+        "name": "기기 여유 저장 공간"
+      },
+      "cycplus_disk_total_kb": {
+        "name": "기기 전체 저장 공간"
+      },
+      "cycplus_last_error": {
+        "name": "마지막 동기화 오류",
+        "state": {
+          "none": "오류 없음",
+          "connection_failed": "연결 실패",
+          "catalog_failed": "운동 목록 가져오기 실패",
+          "transfer_interrupted": "전송 중단됨",
+          "invalid_fit": "잘못된 FIT 파일",
+          "import_failed": "운동 가져오기 실패",
+          "unknown": "알 수 없는 오류"
+        }
+      },
+      "cycplus_latest_workout": {
+        "name": "기기의 최신 운동"
+      },
+      "cycplus_fit_serial_number": {
+        "name": "FIT 일련번호"
+      },
+      "cycplus_fit_manufacturer": {
+        "name": "FIT 제조사"
+      },
+      "cycplus_fit_product": {
+        "name": "FIT 제품"
+      },
+      "cycplus_fit_hardware_version": {
+        "name": "FIT 하드웨어 버전"
+      },
+      "cycplus_fit_software_version": {
+        "name": "FIT 소프트웨어 버전"
+      },
+      "cycplus_fit_battery_voltage": {
+        "name": "FIT 배터리 전압"
+      },
+      "cycplus_fit_battery_status": {
+        "name": "FIT 배터리 상태",
+        "state": {
+          "new": "새 배터리",
+          "good": "양호",
+          "ok": "정상",
+          "low": "부족",
+          "critical": "매우 부족",
+          "charging": "충전 중",
+          "unknown": "알 수 없음"
+        }
       }
     },
     "button": {
@@ -3150,6 +3240,9 @@
       },
       "regenerate_ai_evaluation": {
         "name": "AI 평가 다시 생성"
+      },
+      "cycplus_sync_workouts": {
+        "name": "지금 운동 동기화"
       }
     },
     "select": {
@@ -3206,16 +3299,16 @@
       "name": "운동 기록"
     },
     "sensors_adapters": {
-      "name": "Sensors & Adapters"
+      "name": "센서 및 어댑터"
     },
     "sensors": {
-      "name": "Sensors"
+      "name": "센서"
     },
     "antplus_adapter": {
-      "name": "ANT+ Adapter"
+      "name": "ANT+ 어댑터"
     },
     "bluetooth_adapter": {
-      "name": "Bluetooth Adapter"
+      "name": "Bluetooth 어댑터"
     }
   },
   "issues": {
@@ -3292,6 +3385,20 @@
         "prompt": {
           "name": "AI 프롬프트",
           "description": "AI 공급자에게 보낼 프롬프트입니다."
+        }
+      }
+    },
+    "delete_workouts_before": {
+      "name": "오래된 Fitness 운동 삭제",
+      "description": "선택한 일수보다 오래된 저장된 Fitness 운동 기록을 영구 삭제합니다.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Fitness 프로필",
+          "description": "저장된 운동 기록을 정리할 Fitness 프로필입니다."
+        },
+        "days": {
+          "name": "보관 일수",
+          "description": "최근 지정한 일수의 운동을 보관하고 그보다 오래된 기록은 삭제합니다."
         }
       }
     }
