@@ -181,7 +181,8 @@
           "feedback": "Coaching, verlichting en meldingen",
           "sleep_devices": "Slaapapparaten",
           "sensor_assignments": "Sensortoewijzingen",
-          "tv_dashboard": "Fitness TV-dashboard"
+          "tv_dashboard": "Fitness TV-dashboard",
+          "garmin_local_guide": "Handleiding lokale Garmin-instelling"
         }
       },
       "profile": {
@@ -333,6 +334,10 @@
           "tv_dashboard_ytdlp_enabled": "yt-dlp is een optionele adapter van derden en is niet verbonden aan YouTube of andere diensten. Je bent zelf verantwoordelijk voor naleving van wetgeving, servicevoorwaarden en auteursrecht en voor benodigde toestemmingen. Fitness levert geen cookies, staat geen omzeiling of herdistributie toe en biedt de adapter zonder garantie; dit is geen juridisch advies.",
           "tv_dashboard_ignore_lights_when_cast_active": "Wanneer een Fitness TV Cast-ontvanger actief is, gebruik je de tv voor trainingsfeedback en blijven de geconfigureerde trainingslampen ongewijzigd."
         }
+      },
+      "garmin_local_guide": {
+        "title": "Lokale Garmin-workoutsynchronisatie",
+        "description": "Garmin-horloges maken rechtstreeks via Bluetooth verbinding met Home Assistant; een telefoon is niet nodig en Garmin Connect kan gekoppeld blijven. 1) Houd het horloge in de buurt tot het onder Lokale sensoren verschijnt. 2) Accepteer de Garmin-sensor en wijs hem toe aan een of meer Fitness-profielen. 3) HA-Fitness maakt kort verbinding, importeert alleen nog onbekende FIT-workouts en verbreekt de verbinding. Als de diagnose Koppeling vereist toont, koppel het horloge één keer met de Bluetooth-host van Home Assistant en druk daarna op Garmin-workouts nu synchroniseren. Synchronisatie is alleen-lezen: bestanden worden niet als gesynchroniseerd gemarkeerd, gearchiveerd of verwijderd. De adapter kiest GFDI V0/V1 of V2 Multi-Link op basis van mogelijkheden, nooit via een modellijst. Niet-geverifieerd MLR-only transport wordt met begrensde backoff geweigerd in plaats van onbeperkt te wachten. Gedetecteerde Garmin-apparaten: {garmin_devices}"
       }
     },
     "abort": {
@@ -3238,6 +3243,64 @@
           "charging": "Bezig met opladen",
           "unknown": "Onbekend"
         }
+      },
+      "garmin_local_backend": {
+        "name": "Lokale synchronisatiebackend"
+      },
+      "garmin_sync_state": {
+        "name": "Status workoutsynchronisatie",
+        "state": {
+          "idle": "Inactief",
+          "waiting": "Wachten",
+          "connecting": "Verbinden",
+          "syncing": "Synchroniseren",
+          "ready": "Actueel",
+          "retrying": "Opnieuw proberen",
+          "error": "Fout",
+          "unsupported": "Niet-ondersteund transport"
+        }
+      },
+      "garmin_last_sync": {
+        "name": "Laatste synchronisatiepoging"
+      },
+      "garmin_last_successful_sync": {
+        "name": "Laatste geslaagde synchronisatie"
+      },
+      "garmin_device_workout_count": {
+        "name": "Workouts op apparaat"
+      },
+      "garmin_imported_file_count": {
+        "name": "Geïmporteerde workoutbestanden"
+      },
+      "garmin_pending_file_count": {
+        "name": "Wachtende workoutbestanden"
+      },
+      "garmin_downloaded_bytes": {
+        "name": "Gedownloade bytes"
+      },
+      "garmin_retry_count": {
+        "name": "Aantal pogingen"
+      },
+      "garmin_last_error": {
+        "name": "Laatste synchronisatiefout",
+        "state": {
+          "none": "Geen fout",
+          "connection_failed": "Verbinding mislukt",
+          "pairing_required": "Koppelen vereist",
+          "handshake_failed": "Handshake mislukt",
+          "catalog_failed": "Workoutcatalogus mislukt",
+          "transfer_interrupted": "Overdracht onderbroken",
+          "invalid_fit": "Ongeldig FIT-bestand",
+          "import_failed": "Workout importeren mislukt",
+          "unsupported_transport": "Niet-ondersteund transport",
+          "unknown": "Onbekende fout"
+        }
+      },
+      "garmin_protocol_version": {
+        "name": "GFDI-protocolversie"
+      },
+      "garmin_latest_workout": {
+        "name": "Nieuwste workout op apparaat"
       }
     },
     "binary_sensor": {
@@ -3266,6 +3329,9 @@
       },
       "cycplus_sync_workouts": {
         "name": "Trainingen nu synchroniseren"
+      },
+      "garmin_sync_workouts": {
+        "name": "Garmin-workouts nu synchroniseren"
       }
     },
     "select": {

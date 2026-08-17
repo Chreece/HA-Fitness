@@ -47,7 +47,11 @@ from .live.bluetooth import (
     _parse_hr,
     _parse_rsc,
 )
-from .live.cycplus_m1 import cycplus_m1_name_identity
+from .live.cycplus_m1 import (
+    CYCPLUS_M1_SERVICE_UUID,
+    cycplus_m1_name_identity,
+    cycplus_m1_serial_identity,
+)
 from .live.runtime import get_live_runtime
 from .resource_safety import bounded_payload, bounded_websocket_payload
 
@@ -324,7 +328,17 @@ class RemoteGatewayRuntime:
         # suffix is the exact route bridge shared with HA's verified archive
         # advertisement. Compute it server-side so a client cannot invent an
         # arbitrary physical identity token.
-        identity.update(cycplus_m1_name_identity(device_name) or {})
+        route_identity = cycplus_m1_name_identity(device_name) or {}
+        if (
+            not route_identity.get("fitness_physical_identity")
+            and CYCPLUS_M1_SERVICE_UUID in services
+        ):
+            serial_identity = cycplus_m1_serial_identity(
+                identity.get("serial_number")
+            )
+            if serial_identity:
+                route_identity.update(serial_identity)
+        identity.update(route_identity)
         existing = runtime.find_sensor_for_remote_ble_identity(
             name=device_name,
             capabilities=capabilities,

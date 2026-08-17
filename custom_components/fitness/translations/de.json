@@ -181,7 +181,8 @@
           "feedback": "Coaching, Lichter und Ansagen",
           "sleep_devices": "Schlafgeräte",
           "sensor_assignments": "Sensorzuweisungen",
-          "tv_dashboard": "Fitness-TV-Dashboard"
+          "tv_dashboard": "Fitness-TV-Dashboard",
+          "garmin_local_guide": "Anleitung für lokales Garmin-Setup"
         }
       },
       "profile": {
@@ -333,6 +334,10 @@
           "tv_dashboard_ytdlp_enabled": "yt-dlp ist ein optionaler Drittanbieter-Adapter und weder mit YouTube noch mit anderen Diensten verbunden oder von ihnen empfohlen. Durch die Aktivierung erkennst du an, dass du allein für die Nutzung verantwortlich bist, einschließlich der Einhaltung geltenden Rechts, der Nutzungsbedingungen, Urheber-/Lizenzregeln und aller erforderlichen Rechte oder Genehmigungen. Fitness stellt keine Konto-Cookies bereit, autorisiert keine Umgehung, unbefugtes Herunterladen oder Weiterverbreiten und stellt den Adapter ohne Gewähr bereit. Du übernimmst allein die Verantwortung für dein Verhalten und, soweit nach geltendem Recht zulässig, für daraus entstehende rechtliche, vertragliche, finanzielle, kontobezogene, urheber- oder lizenzrechtliche Folgen, Ansprüche, Gebühren, Bußgelder oder sonstige Sanktionen. Die Entwickler und Mitwirkenden von Fitness übernehmen keine Verantwortung für rechtswidrige oder unbefugte Nutzung durch einen Benutzer. Dieser Hinweis ist keine Rechtsberatung und schließt keine Rechte oder Haftungen aus, die gesetzlich nicht ausgeschlossen werden können.",
           "tv_dashboard_ignore_lights_when_cast_active": "Wenn ein Fitness-TV-Cast-Empfänger aktiv ist, wird der Fernseher für das Trainingsfeedback verwendet und die konfigurierten Trainingslichter bleiben unverändert."
         }
+      },
+      "garmin_local_guide": {
+        "title": "Lokale Garmin-Workout-Synchronisierung",
+        "description": "Garmin-Uhren verbinden sich direkt per Bluetooth mit Home Assistant; das Telefon ist nicht erforderlich und Garmin Connect kann gekoppelt bleiben. 1) Uhr in der Nähe lassen und warten, bis sie unter Lokale Sensoren erscheint. 2) Garmin-Sensor akzeptieren und einem oder mehreren Fitness-Profilen zuweisen. 3) HA-Fitness verbindet sich kurz, importiert noch nicht bekannte FIT-Workouts und trennt die Verbindung wieder. Zeigt die Diagnose Kopplung erforderlich, die Uhr einmal mit dem Bluetooth-Host von Home Assistant koppeln und danach Workouts jetzt synchronisieren drücken. Die Synchronisierung ist schreibgeschützt: Dateien werden weder als synchronisiert markiert noch archiviert oder gelöscht. Der Adapter wählt GFDI V0/V1 oder V2 Multi-Link anhand der Gerätefunktionen und nicht anhand einer Modellliste. Ein nicht verifizierter MLR-only-Transport wird mit begrenztem Backoff abgelehnt statt unbegrenzt zu warten. Erkannte Garmin-Geräte: {garmin_devices}"
       }
     },
     "abort": {
@@ -3238,6 +3243,64 @@
           "charging": "Wird geladen",
           "unknown": "Unbekannt"
         }
+      },
+      "garmin_local_backend": {
+        "name": "Lokales Sync-Backend"
+      },
+      "garmin_sync_state": {
+        "name": "Workout-Synchronisierungsstatus",
+        "state": {
+          "idle": "Inaktiv",
+          "waiting": "Wartet",
+          "connecting": "Verbindet",
+          "syncing": "Synchronisiert",
+          "ready": "Aktuell",
+          "retrying": "Neuer Versuch",
+          "error": "Fehler",
+          "unsupported": "Nicht unterstützte Übertragung"
+        }
+      },
+      "garmin_last_sync": {
+        "name": "Letzter Synchronisierungsversuch"
+      },
+      "garmin_last_successful_sync": {
+        "name": "Letzte erfolgreiche Synchronisierung"
+      },
+      "garmin_device_workout_count": {
+        "name": "Workouts auf dem Gerät"
+      },
+      "garmin_imported_file_count": {
+        "name": "Importierte Workout-Dateien"
+      },
+      "garmin_pending_file_count": {
+        "name": "Ausstehende Workout-Dateien"
+      },
+      "garmin_downloaded_bytes": {
+        "name": "Heruntergeladene Bytes"
+      },
+      "garmin_retry_count": {
+        "name": "Wiederholungszähler"
+      },
+      "garmin_last_error": {
+        "name": "Letzter Synchronisierungsfehler",
+        "state": {
+          "none": "Kein Fehler",
+          "connection_failed": "Verbindung fehlgeschlagen",
+          "pairing_required": "Kopplung erforderlich",
+          "handshake_failed": "Handshake fehlgeschlagen",
+          "catalog_failed": "Workout-Katalog fehlgeschlagen",
+          "transfer_interrupted": "Übertragung unterbrochen",
+          "invalid_fit": "Ungültige FIT-Datei",
+          "import_failed": "Workout-Import fehlgeschlagen",
+          "unsupported_transport": "Nicht unterstützte Übertragung",
+          "unknown": "Unbekannter Fehler"
+        }
+      },
+      "garmin_protocol_version": {
+        "name": "GFDI-Protokollversion"
+      },
+      "garmin_latest_workout": {
+        "name": "Neuestes Workout auf dem Gerät"
       }
     },
     "binary_sensor": {
@@ -3266,6 +3329,9 @@
       },
       "cycplus_sync_workouts": {
         "name": "Trainings jetzt synchronisieren"
+      },
+      "garmin_sync_workouts": {
+        "name": "Garmin-Workouts jetzt synchronisieren"
       }
     },
     "select": {

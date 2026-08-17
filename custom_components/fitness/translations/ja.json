@@ -181,7 +181,8 @@
           "feedback": "コーチング、ライト、アナウンス",
           "sleep_devices": "睡眠デバイス",
           "sensor_assignments": "センサー割り当て",
-          "tv_dashboard": "Fitness TV ダッシュボード"
+          "tv_dashboard": "Fitness TV ダッシュボード",
+          "garmin_local_guide": "Garmin ローカル設定ガイド"
         }
       },
       "profile": {
@@ -333,6 +334,10 @@
           "tv_dashboard_ytdlp_enabled": "yt-dlp は任意の第三者製アダプターで、YouTube その他のサービスとは提携していません。法令、サービス規約、著作権を守り、必要な権利や許可を得る責任は利用者にあります。Fitness はアカウント Cookie を提供せず、回避や無断再配布を認めず、無保証で提供します。この通知は法律上の助言ではありません。",
           "tv_dashboard_ignore_lights_when_cast_active": "Fitness TV Castレシーバーが動作中は、トレーニングのフィードバックにテレビを使用し、設定済みのワークアウト照明は変更しません。"
         }
+      },
+      "garmin_local_guide": {
+        "title": "Garmin ローカルワークアウト同期",
+        "description": "Garmin ウォッチは Bluetooth で Home Assistant に直接接続します。スマートフォンは不要で、Garmin Connect のペアリングは維持できます。1) ウォッチを近くに置き、ローカルセンサーに表示されるのを待ちます。2) Garmin センサーを承認し、1つ以上の Fitness プロファイルに割り当てます。3) HA-Fitness は短時間だけ接続し、未取り込みの FIT ワークアウトのみをインポートして切断します。診断が「ペアリングが必要」を示す場合は、ウォッチを Home Assistant の Bluetooth ホストと一度ペアリングしてから「Garmin ワークアウトを今すぐ同期」を押してください。同期は読み取り専用で、ファイルを同期済みにしたり、アーカイブや削除を行いません。アダプターはモデル一覧ではなく機能に基づいて GFDI V0/V1 または V2 Multi-Link を選択します。未検証の MLR-only 転送は無期限に待たず、制限付きバックオフで安全に拒否します。検出された Garmin: {garmin_devices}"
       }
     },
     "abort": {
@@ -3238,6 +3243,64 @@
           "charging": "充電中",
           "unknown": "不明"
         }
+      },
+      "garmin_local_backend": {
+        "name": "ローカル同期バックエンド"
+      },
+      "garmin_sync_state": {
+        "name": "ワークアウト同期状態",
+        "state": {
+          "idle": "待機",
+          "waiting": "待機中",
+          "connecting": "接続中",
+          "syncing": "同期中",
+          "ready": "最新",
+          "retrying": "再試行中",
+          "error": "エラー",
+          "unsupported": "未対応の転送方式"
+        }
+      },
+      "garmin_last_sync": {
+        "name": "前回の同期試行"
+      },
+      "garmin_last_successful_sync": {
+        "name": "前回の成功した同期"
+      },
+      "garmin_device_workout_count": {
+        "name": "デバイス上のワークアウト"
+      },
+      "garmin_imported_file_count": {
+        "name": "インポート済みワークアウトファイル"
+      },
+      "garmin_pending_file_count": {
+        "name": "保留中のワークアウトファイル"
+      },
+      "garmin_downloaded_bytes": {
+        "name": "ダウンロード済みバイト"
+      },
+      "garmin_retry_count": {
+        "name": "再試行回数"
+      },
+      "garmin_last_error": {
+        "name": "前回の同期エラー",
+        "state": {
+          "none": "エラーなし",
+          "connection_failed": "接続に失敗",
+          "pairing_required": "ペアリングが必要",
+          "handshake_failed": "ハンドシェイクに失敗",
+          "catalog_failed": "ワークアウト一覧の取得に失敗",
+          "transfer_interrupted": "転送が中断",
+          "invalid_fit": "無効な FIT ファイル",
+          "import_failed": "ワークアウトのインポートに失敗",
+          "unsupported_transport": "未対応の転送方式",
+          "unknown": "不明なエラー"
+        }
+      },
+      "garmin_protocol_version": {
+        "name": "GFDI プロトコルバージョン"
+      },
+      "garmin_latest_workout": {
+        "name": "デバイス上の最新ワークアウト"
       }
     },
     "binary_sensor": {
@@ -3266,6 +3329,9 @@
       },
       "cycplus_sync_workouts": {
         "name": "ワークアウトを今すぐ同期"
+      },
+      "garmin_sync_workouts": {
+        "name": "Garmin ワークアウトを今すぐ同期"
       }
     },
     "select": {

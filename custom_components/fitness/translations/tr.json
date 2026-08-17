@@ -181,7 +181,8 @@
           "feedback": "Koçluk, ışıklar ve duyurular",
           "sleep_devices": "Uyku cihazları",
           "sensor_assignments": "Sensör atamaları",
-          "tv_dashboard": "Fitness TV paneli"
+          "tv_dashboard": "Fitness TV paneli",
+          "garmin_local_guide": "Yerel Garmin kurulum kılavuzu"
         }
       },
       "profile": {
@@ -333,6 +334,10 @@
           "tv_dashboard_ytdlp_enabled": "yt-dlp, YouTube veya başka hizmetlerle bağlantısı olmayan isteğe bağlı bir üçüncü taraf adaptörüdür. Yasalara, hizmet koşullarına ve telif haklarına uyma ve gerekli izinleri alma sorumluluğu yalnızca sana aittir. Fitness çerez sağlamaz, aşmayı ya da yeniden dağıtımı yetkilendirmez ve adaptörü garantisiz sunar; bu bildirim hukuki tavsiye değildir.",
           "tv_dashboard_ignore_lights_when_cast_active": "Bir Fitness TV Cast alıcısı etkinken antrenman geri bildirimi için TV’yi kullanır ve yapılandırılmış antrenman ışıklarını değiştirmez."
         }
+      },
+      "garmin_local_guide": {
+        "title": "Yerel Garmin antrenman senkronizasyonu",
+        "description": "Garmin saatleri Bluetooth üzerinden doğrudan Home Assistant'a bağlanır; telefon gerekmez ve Garmin Connect eşleşmiş kalabilir. 1) Saat Yerel Sensörler altında görünene kadar yakında tutun. 2) Garmin sensörünü kabul edip bir veya daha fazla Fitness profiline atayın. 3) HA-Fitness kısa süre bağlanır, yalnızca daha önce görülmemiş FIT antrenmanlarını içe aktarır ve bağlantıyı keser. Tanı Eşleştirme gerekli gösterirse saati bir kez Home Assistant Bluetooth hostuyla eşleştirip Garmin antrenmanlarını şimdi senkronize et düğmesine basın. Senkronizasyon salt okunurdur: dosyalar senkronize işaretlenmez, arşivlenmez veya silinmez. Adaptör GFDI V0/V1 ya da V2 Multi-Link'i model listesiyle değil cihaz yetenekleriyle seçer. Doğrulanmamış yalnızca MLR aktarımı sonsuza kadar beklemek yerine sınırlı geri çekilme ile reddedilir. Algılanan Garmin cihazları: {garmin_devices}"
       }
     },
     "abort": {
@@ -3238,6 +3243,64 @@
           "charging": "Şarj oluyor",
           "unknown": "Bilinmiyor"
         }
+      },
+      "garmin_local_backend": {
+        "name": "Yerel senkronizasyon backend’i"
+      },
+      "garmin_sync_state": {
+        "name": "Antrenman senkronizasyon durumu",
+        "state": {
+          "idle": "Boşta",
+          "waiting": "Bekliyor",
+          "connecting": "Bağlanıyor",
+          "syncing": "Eşitleniyor",
+          "ready": "Güncel",
+          "retrying": "Yeniden deneniyor",
+          "error": "Hata",
+          "unsupported": "Desteklenmeyen aktarım"
+        }
+      },
+      "garmin_last_sync": {
+        "name": "Son senkronizasyon denemesi"
+      },
+      "garmin_last_successful_sync": {
+        "name": "Son başarılı senkronizasyon"
+      },
+      "garmin_device_workout_count": {
+        "name": "Cihazdaki antrenmanlar"
+      },
+      "garmin_imported_file_count": {
+        "name": "İçe aktarılan antrenman dosyaları"
+      },
+      "garmin_pending_file_count": {
+        "name": "Bekleyen antrenman dosyaları"
+      },
+      "garmin_downloaded_bytes": {
+        "name": "İndirilen bayt"
+      },
+      "garmin_retry_count": {
+        "name": "Yeniden deneme sayısı"
+      },
+      "garmin_last_error": {
+        "name": "Son senkronizasyon hatası",
+        "state": {
+          "none": "Hata yok",
+          "connection_failed": "Bağlantı başarısız",
+          "pairing_required": "Eşleştirme gerekli",
+          "handshake_failed": "El sıkışma başarısız",
+          "catalog_failed": "Antrenman kataloğu başarısız",
+          "transfer_interrupted": "Aktarım kesildi",
+          "invalid_fit": "Geçersiz FIT dosyası",
+          "import_failed": "Antrenman içe aktarma başarısız",
+          "unsupported_transport": "Desteklenmeyen aktarım",
+          "unknown": "Bilinmeyen hata"
+        }
+      },
+      "garmin_protocol_version": {
+        "name": "GFDI protokol sürümü"
+      },
+      "garmin_latest_workout": {
+        "name": "Cihazdaki en yeni antrenman"
       }
     },
     "binary_sensor": {
@@ -3266,6 +3329,9 @@
       },
       "cycplus_sync_workouts": {
         "name": "Antrenmanları şimdi eşitle"
+      },
+      "garmin_sync_workouts": {
+        "name": "Garmin antrenmanlarını şimdi senkronize et"
       }
     },
     "select": {

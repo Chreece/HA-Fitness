@@ -181,7 +181,8 @@
           "feedback": "코칭, 조명 및 안내",
           "sleep_devices": "수면 기기",
           "sensor_assignments": "센서 할당",
-          "tv_dashboard": "Fitness TV 대시보드"
+          "tv_dashboard": "Fitness TV 대시보드",
+          "garmin_local_guide": "Garmin 로컬 설정 가이드"
         }
       },
       "profile": {
@@ -333,6 +334,10 @@
           "tv_dashboard_ytdlp_enabled": "yt-dlp는 선택형 타사 어댑터이며 YouTube 또는 기타 서비스와 제휴하지 않습니다. 법률, 서비스 약관, 저작권을 준수하고 필요한 권한을 얻을 책임은 전적으로 사용자에게 있습니다. Fitness는 계정 쿠키를 제공하거나 우회 및 무단 재배포를 허용하지 않으며 보증 없이 제공합니다. 이 고지는 법률 자문이 아닙니다.",
           "tv_dashboard_ignore_lights_when_cast_active": "Fitness TV Cast 수신기가 활성화되어 있으면 운동 피드백은 TV를 사용하고 설정된 운동 조명은 변경하지 않습니다."
         }
+      },
+      "garmin_local_guide": {
+        "title": "Garmin 로컬 운동 동기화",
+        "description": "Garmin 시계는 Bluetooth로 Home Assistant에 직접 연결됩니다. 휴대폰은 필요하지 않으며 Garmin Connect는 계속 페어링된 상태로 둘 수 있습니다. 1) 시계를 가까이 두고 로컬 센서에 나타날 때까지 기다립니다. 2) Garmin 센서를 승인하고 하나 이상의 Fitness 프로필에 할당합니다. 3) HA-Fitness가 잠시 연결하여 아직 가져오지 않은 FIT 운동만 가져온 뒤 연결을 끊습니다. 진단에 페어링 필요가 표시되면 시계를 Home Assistant Bluetooth 호스트와 한 번 페어링한 후 Garmin 운동 지금 동기화를 누르세요. 동기화는 읽기 전용이며 Garmin 파일을 동기화됨으로 표시하거나 보관·삭제하지 않습니다. 어댑터는 모델 목록이 아니라 장치 기능에 따라 GFDI V0/V1 또는 V2 Multi-Link를 선택합니다. 검증되지 않은 MLR-only 전송은 무기한 대기하지 않고 제한된 백오프로 안전하게 거부합니다. 감지된 Garmin: {garmin_devices}"
       }
     },
     "abort": {
@@ -3238,6 +3243,64 @@
           "charging": "충전 중",
           "unknown": "알 수 없음"
         }
+      },
+      "garmin_local_backend": {
+        "name": "로컬 동기화 백엔드"
+      },
+      "garmin_sync_state": {
+        "name": "운동 동기화 상태",
+        "state": {
+          "idle": "유휴",
+          "waiting": "대기 중",
+          "connecting": "연결 중",
+          "syncing": "동기화 중",
+          "ready": "최신 상태",
+          "retrying": "재시도 중",
+          "error": "오류",
+          "unsupported": "지원되지 않는 전송 방식"
+        }
+      },
+      "garmin_last_sync": {
+        "name": "마지막 동기화 시도"
+      },
+      "garmin_last_successful_sync": {
+        "name": "마지막 성공 동기화"
+      },
+      "garmin_device_workout_count": {
+        "name": "장치의 운동"
+      },
+      "garmin_imported_file_count": {
+        "name": "가져온 운동 파일"
+      },
+      "garmin_pending_file_count": {
+        "name": "대기 중인 운동 파일"
+      },
+      "garmin_downloaded_bytes": {
+        "name": "다운로드한 바이트"
+      },
+      "garmin_retry_count": {
+        "name": "재시도 횟수"
+      },
+      "garmin_last_error": {
+        "name": "마지막 동기화 오류",
+        "state": {
+          "none": "오류 없음",
+          "connection_failed": "연결 실패",
+          "pairing_required": "페어링 필요",
+          "handshake_failed": "핸드셰이크 실패",
+          "catalog_failed": "운동 목록 가져오기 실패",
+          "transfer_interrupted": "전송 중단",
+          "invalid_fit": "잘못된 FIT 파일",
+          "import_failed": "운동 가져오기 실패",
+          "unsupported_transport": "지원되지 않는 전송 방식",
+          "unknown": "알 수 없는 오류"
+        }
+      },
+      "garmin_protocol_version": {
+        "name": "GFDI 프로토콜 버전"
+      },
+      "garmin_latest_workout": {
+        "name": "장치의 최신 운동"
       }
     },
     "binary_sensor": {
@@ -3266,6 +3329,9 @@
       },
       "cycplus_sync_workouts": {
         "name": "지금 운동 동기화"
+      },
+      "garmin_sync_workouts": {
+        "name": "Garmin 운동 지금 동기화"
       }
     },
     "select": {

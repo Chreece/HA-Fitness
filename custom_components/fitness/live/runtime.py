@@ -69,6 +69,7 @@ TRANSPORT_HANDOVER_INTERVAL_SECONDS = 1.0
 RUNTIME_OPERATION_TIMEOUT = 15.0
 MAX_PERSISTED_LIVE_SENSORS = 2_048
 MAX_RUNTIME_LIVE_SENSORS = 4_096
+MAX_PERSISTED_SENSOR_ALIASES = 4_096
 MAX_TOPOLOGY_METADATA_NODES = 512
 _LOGGER = logging.getLogger(__name__)
 
@@ -138,6 +139,22 @@ def _physical_identity(metadata: dict[str, Any]) -> str | None:
     if not value or not re.fullmatch(r"[a-z0-9][a-z0-9:._-]{2,127}", value):
         return None
     return value
+
+
+def _sensor_physical_identity(sensor: "LiveSensor") -> str | None:
+    """Return one unambiguous exact route identity for a physical sensor."""
+    identities = {
+        identity
+        for identity in (
+            _physical_identity(sensor.metadata),
+            *(
+                _physical_identity(endpoint.metadata)
+                for endpoint in sensor.endpoints.values()
+            ),
+        )
+        if identity
+    }
+    return next(iter(identities)) if len(identities) == 1 else None
 
 
 def _browser_ble_endpoint(endpoint: "TransportEndpoint") -> bool:
@@ -470,6 +487,26 @@ class LiveRuntime:
             except Exception:
                 continue
 
+        # A merged physical ID is part of the durable topology too. Earlier
+        # versions persisted endpoint aliases but forgot discarded sensor IDs;
+        # after a restart profile selections and registry cleanup could therefore
+        # refer to the obsolete side of an otherwise successful merge.
+        raw_aliases = stored.get("sensor_aliases") or {}
+        if isinstance(raw_aliases, dict):
+            for raw_alias, raw_target in islice(
+                raw_aliases.items(), MAX_PERSISTED_SENSOR_ALIASES
+            ):
+                alias = str(raw_alias or "")[:256]
+                target = str(raw_target or "")[:256]
+                if (
+                    alias.startswith("sensor:")
+                    and alias != target
+                    and target in self.sensors
+                ):
+                    self.endpoint_aliases[alias] = target
+        elif raw_aliases:
+            sanitized_topology = True
+
         self._initialized = True
         if sanitized_topology:
             self._schedule_save()
@@ -526,6 +563,19 @@ class LiveRuntime:
             )
         return result
 
+    def _serialize_sensor_aliases(self) -> dict[str, str]:
+        """Persist bounded discarded physical IDs, never volatile route IDs."""
+        aliases: dict[str, str] = {}
+        for raw_alias in sorted(self.endpoint_aliases):
+            if len(aliases) >= MAX_PERSISTED_SENSOR_ALIASES:
+                break
+            if not str(raw_alias).startswith("sensor:"):
+                continue
+            target = self.resolve_sensor_id(raw_alias)
+            if raw_alias != target and target in self.sensors:
+                aliases[str(raw_alias)[:256]] = str(target)[:256]
+        return aliases
+
     async def _async_save_adapter_config(self) -> None:
         async with self._save_lock:
             await self._store.async_save(
@@ -534,6 +584,7 @@ class LiveRuntime:
                     "enabled": dict(self._enabled),
                     "adapter_device_model": ADAPTER_DEVICE_MODEL_VERSION,
                     "physical_sensors": self._serialize_sensors(),
+                    "sensor_aliases": self._serialize_sensor_aliases(),
                     "requires_reassignment": sorted(self._requires_reassignment)[
                         :MAX_PERSISTED_LIVE_SENSORS
                     ],
@@ -1153,11 +1204,14 @@ class LiveRuntime:
         self._migrate_adapter_devices_to_transport_subentries()
         self._remove_legacy_adapters_subentry_if_empty()
         self.ensure_ant_receiver_topology()
+        self._restore_sensor_device_registry_links()
+        self._consolidate_restored_exact_physical_identities()
         for sensor_id in tuple(self.sensors):
             if self.sensor_is_accepted(sensor_id):
                 self.ensure_sensor_device(sensor_id)
             else:
                 self.remove_unaccepted_sensor_device(sensor_id)
+        self._cleanup_persisted_sensor_alias_devices()
 
         # Radio/proxy discovery must never delay Home Assistant startup.  The
         # adapter entities can be created immediately from persisted config;
@@ -1517,6 +1571,19 @@ class LiveRuntime:
         identifiers = {(DOMAIN, f"live_sensor:{sensor.sensor_id}")}
         for endpoint in sensor.endpoints.values():
             identifiers.add((DOMAIN, f"endpoint:{endpoint.endpoint_id}"))
+        physical_identity = _sensor_physical_identity(sensor)
+        if physical_identity and sensor.metadata.get("merge_evidence") in {
+            "exact_physical_route_identity",
+            "restored_exact_physical_route_identity",
+        }:
+            # Unlike an opaque runtime sensor ID or browser route ID, this
+            # server-derived token is stable across local/browser reconnection.
+            # It is exposed only after two routes proved the match; an isolated
+            # short device number is not globally unique enough to claim an HA
+            # identifier by itself.
+            identifiers.add(
+                (DOMAIN, f"physical_sensor:{physical_identity}")
+            )
 
         identity = resolve_identity(sensor)
         info = {
@@ -1947,6 +2014,113 @@ class LiveRuntime:
             self.endpoint_aliases[alias] = current
         return current
 
+    def _restore_sensor_device_registry_links(self) -> None:
+        """Reconnect persisted physical records to their existing HA devices."""
+        if self.hub_entry is None:
+            return
+        from homeassistant.helpers import device_registry as dr
+
+        registry = dr.async_get(self.hass)
+        for sensor_id in tuple(self.sensors):
+            if not self.sensor_is_accepted(sensor_id):
+                continue
+            device = registry.async_get_device_by_identifier(
+                (DOMAIN, f"live_sensor:{sensor_id}"),
+                self.hub_entry.entry_id,
+            )
+            if device is not None:
+                self._sensor_device_ids[sensor_id] = device.id
+
+    def _consolidate_restored_exact_physical_identities(self) -> None:
+        """Collapse persisted local/browser routes before platform setup.
+
+        A CYCPLUS device number is intentionally short, so two directly observed
+        local devices are never merged from it alone. The safe persisted case is
+        exactly one autonomous HA/proxy route plus one or more opaque browser
+        routes carrying the same server-derived physical identity.
+        """
+        grouped: dict[str, list[LiveSensor]] = {}
+        for sensor in tuple(self.sensors.values()):
+            physical_identity = _sensor_physical_identity(sensor)
+            if physical_identity:
+                grouped.setdefault(physical_identity, []).append(sensor)
+
+        for physical_identity, candidates in grouped.items():
+            local = [
+                sensor
+                for sensor in candidates
+                if any(
+                    endpoint.transport == "bluetooth"
+                    and not _browser_ble_endpoint(endpoint)
+                    for endpoint in sensor.endpoints.values()
+                )
+            ]
+            browser = [
+                sensor
+                for sensor in candidates
+                if any(
+                    _browser_ble_endpoint(endpoint)
+                    for endpoint in sensor.endpoints.values()
+                )
+            ]
+            if len(local) != 1 or not browser:
+                continue
+            canonical = local[0]
+            for duplicate in tuple(browser):
+                if (
+                    duplicate.sensor_id == canonical.sensor_id
+                    or duplicate.sensor_id not in self.sensors
+                ):
+                    continue
+                canonical = self._merge_physical_sensors(canonical, duplicate)
+            canonical.metadata["merge_evidence"] = (
+                "restored_exact_physical_route_identity"
+            )
+            canonical.metadata.setdefault(
+                "fitness_physical_identity", physical_identity
+            )
+
+    def _cleanup_persisted_sensor_alias_devices(self) -> None:
+        """Remove orphan HA devices left behind by a pre-restart route merge."""
+        if self.hub_entry is None:
+            return
+        from homeassistant.helpers import device_registry as dr
+        from homeassistant.helpers import entity_registry as er
+
+        device_registry = dr.async_get(self.hass)
+        entity_registry = er.async_get(self.hass)
+        obsolete_device_ids: set[str] = set()
+        for device in list(device_registry.devices.values()):
+            if device.config_entry_id != self.hub_entry.entry_id:
+                continue
+            live_sensor_ids = {
+                str(identifier).removeprefix("live_sensor:")
+                for domain, identifier in device.identifiers
+                if domain == DOMAIN
+                and str(identifier).startswith("live_sensor:")
+            }
+            if not live_sensor_ids or any(
+                sensor_id in self.sensors for sensor_id in live_sensor_ids
+            ):
+                continue
+            if any(
+                self.resolve_sensor_id(sensor_id) in self.sensors
+                for sensor_id in live_sensor_ids
+            ):
+                obsolete_device_ids.add(device.id)
+
+        if not obsolete_device_ids:
+            return
+        for entity in list(entity_registry.entities.values()):
+            if (
+                entity.config_entry_id == self.hub_entry.entry_id
+                and entity.platform == DOMAIN
+                and entity.device_id in obsolete_device_ids
+            ):
+                entity_registry.async_remove(entity.entity_id)
+        for device_id in obsolete_device_ids:
+            device_registry.async_remove_device(device_id)
+
     def _select_merge_primary(self, a: LiveSensor, b: LiveSensor) -> tuple[LiveSensor, LiveSensor]:
         """Choose the canonical object without destroying a live HA entity surface.
 
@@ -1964,6 +2138,36 @@ class LiveRuntime:
             return (a, b) if a_materialized else (b, a)
         if bool(a.metadata.get("accepted")) != bool(b.metadata.get("accepted")):
             return (a, b) if a.metadata.get("accepted") else (b, a)
+        # If both historical routes already own devices, retain the side backed
+        # by a real GATT Device Information serial. This is the authoritative M1
+        # identity and prevents an older FIT recording-source serial from winning
+        # merely because that route happened to be restored first.
+        if (
+            a_materialized
+            and b_materialized
+            and _sensor_physical_identity(a)
+            and _sensor_physical_identity(a) == _sensor_physical_identity(b)
+        ):
+            def identity_rank(sensor: LiveSensor) -> tuple[int, int, int]:
+                endpoints = tuple(sensor.endpoints.values())
+                gatt_serial = any(
+                    endpoint.metadata.get("identity_source")
+                    == "gatt_device_information"
+                    and _serial(endpoint.metadata)
+                    for endpoint in endpoints
+                )
+                serial = any(_serial(endpoint.metadata) for endpoint in endpoints)
+                autonomous = any(
+                    endpoint.transport == "bluetooth"
+                    and not _browser_ble_endpoint(endpoint)
+                    for endpoint in endpoints
+                )
+                return int(gatt_serial), int(serial), int(autonomous)
+
+            a_rank = identity_rank(a)
+            b_rank = identity_rank(b)
+            if a_rank != b_rank:
+                return (a, b) if a_rank > b_rank else (b, a)
         if ("antplus" in a.endpoints) != ("antplus" in b.endpoints):
             return (a, b) if "antplus" in a.endpoints else (b, a)
         return a, b

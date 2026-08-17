@@ -909,7 +909,36 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
         if runtime.live_surface_available:
             menu.append("live_devices")
         menu.extend(["workout_devices", "sleep_devices", "ai", "feedback", "tv_dashboard"])
+        menu.insert(menu.index("workout_devices") + 1, "garmin_local_guide")
         return self.async_show_menu(step_id="init", menu_options=menu)
+
+    async def async_step_garmin_local_guide(self, user_input=None):
+        """Explain direct local Garmin setup and surface current device status."""
+        from .live import get_live_runtime
+
+        runtime = get_live_runtime(self.hass)
+        await runtime.async_initialize()
+        if user_input is not None:
+            return await self.async_step_init()
+
+        devices = []
+        for sensor in sorted(runtime.sensors.values(), key=lambda item: item.label().lower()):
+            sensor_id = runtime.resolve_sensor_id(sensor.sensor_id)
+            endpoint = sensor.endpoints.get("bluetooth")
+            metadata = endpoint.metadata if endpoint is not None else {}
+            if not metadata.get("garmin_local"):
+                continue
+            status = "accepted" if runtime.sensor_is_accepted(sensor_id) else "discovered"
+            assigned = len(runtime.sensor_assigned_profile_ids(sensor_id))
+            devices.append(f"{sensor.label()} ({status}, {assigned} profile(s))")
+
+        return self.async_show_form(
+            step_id="garmin_local_guide",
+            data_schema=vol.Schema({}),
+            description_placeholders={
+                "garmin_devices": "; ".join(devices[:8]) if devices else "—",
+            },
+        )
 
     async def async_step_sensor_assignments(self, user_input=None):
         """Choose a physical Local Fitness sensor to reassign after setup."""

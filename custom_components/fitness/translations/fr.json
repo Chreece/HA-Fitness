@@ -181,7 +181,8 @@
           "feedback": "Coaching, lumières et annonces",
           "sleep_devices": "Appareils de sommeil",
           "sensor_assignments": "Affectations des capteurs",
-          "tv_dashboard": "Tableau de bord Fitness TV"
+          "tv_dashboard": "Tableau de bord Fitness TV",
+          "garmin_local_guide": "Guide de configuration Garmin locale"
         }
       },
       "profile": {
@@ -333,6 +334,10 @@
           "tv_dashboard_ytdlp_enabled": "yt-dlp est un adaptateur tiers facultatif, sans affiliation avec YouTube ou d’autres services. Vous êtes seul responsable du respect de la loi, des conditions de service, des droits d’auteur et de l’obtention des autorisations nécessaires. Fitness ne fournit pas de cookies, n’autorise aucun contournement ni redistribution et fournit l’adaptateur sans garantie ; cet avis ne constitue pas un conseil juridique.",
           "tv_dashboard_ignore_lights_when_cast_active": "Lorsqu’un récepteur Fitness TV Cast est actif, utilise le téléviseur pour le retour d’entraînement et laisse les lumières d’entraînement configurées inchangées."
         }
+      },
+      "garmin_local_guide": {
+        "title": "Synchronisation locale des entraînements Garmin",
+        "description": "Les montres Garmin se connectent directement à Home Assistant en Bluetooth ; le téléphone n'est pas requis et Garmin Connect peut rester appairé. 1) Gardez la montre à proximité jusqu'à son apparition dans Capteurs locaux. 2) Acceptez le capteur Garmin et assignez-le à un ou plusieurs profils Fitness. 3) HA-Fitness se connecte brièvement, importe uniquement les fichiers FIT d'entraînement inconnus puis se déconnecte. Si le diagnostic indique Appairage requis, appairez une fois la montre avec l'hôte Bluetooth Home Assistant puis utilisez Synchroniser les entraînements Garmin. La synchronisation est en lecture seule : aucun fichier Garmin n'est marqué synchronisé, archivé ou supprimé. L'adaptateur choisit GFDI V0/V1 ou V2 Multi-Link selon les capacités, jamais selon une liste de modèles. Un transport MLR-only non vérifié est refusé avec temporisation bornée au lieu d'attendre indéfiniment. Appareils Garmin détectés : {garmin_devices}"
       }
     },
     "abort": {
@@ -3238,6 +3243,64 @@
           "charging": "En charge",
           "unknown": "Inconnue"
         }
+      },
+      "garmin_local_backend": {
+        "name": "Backend de synchronisation locale"
+      },
+      "garmin_sync_state": {
+        "name": "État de synchronisation des entraînements",
+        "state": {
+          "idle": "Inactif",
+          "waiting": "En attente",
+          "connecting": "Connexion",
+          "syncing": "Synchronisation",
+          "ready": "À jour",
+          "retrying": "Nouvel essai",
+          "error": "Erreur",
+          "unsupported": "Transport non pris en charge"
+        }
+      },
+      "garmin_last_sync": {
+        "name": "Dernière tentative de synchronisation"
+      },
+      "garmin_last_successful_sync": {
+        "name": "Dernière synchronisation réussie"
+      },
+      "garmin_device_workout_count": {
+        "name": "Entraînements sur l’appareil"
+      },
+      "garmin_imported_file_count": {
+        "name": "Fichiers d’entraînement importés"
+      },
+      "garmin_pending_file_count": {
+        "name": "Fichiers d’entraînement en attente"
+      },
+      "garmin_downloaded_bytes": {
+        "name": "Octets téléchargés"
+      },
+      "garmin_retry_count": {
+        "name": "Nombre de tentatives"
+      },
+      "garmin_last_error": {
+        "name": "Dernière erreur de synchronisation",
+        "state": {
+          "none": "Aucune erreur",
+          "connection_failed": "Échec de connexion",
+          "pairing_required": "Appairage requis",
+          "handshake_failed": "Échec de la négociation",
+          "catalog_failed": "Échec du catalogue des entraînements",
+          "transfer_interrupted": "Transfert interrompu",
+          "invalid_fit": "Fichier FIT non valide",
+          "import_failed": "Échec de l’importation de l’entraînement",
+          "unsupported_transport": "Transport non pris en charge",
+          "unknown": "Erreur inconnue"
+        }
+      },
+      "garmin_protocol_version": {
+        "name": "Version du protocole GFDI"
+      },
+      "garmin_latest_workout": {
+        "name": "Dernier entraînement sur l’appareil"
       }
     },
     "binary_sensor": {
@@ -3266,6 +3329,9 @@
       },
       "cycplus_sync_workouts": {
         "name": "Synchroniser les entraînements maintenant"
+      },
+      "garmin_sync_workouts": {
+        "name": "Synchroniser les entraînements Garmin"
       }
     },
     "select": {

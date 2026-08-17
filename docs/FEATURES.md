@@ -12,6 +12,8 @@ The Live workout device exposes the measurements and Fitness calculations that a
 
 Completed workout adapters normalize provider-specific fields into a common Fitness workout model. Representations of the same physical workout can be merged so a later watch sync does not erase useful data collected live. Field provenance is retained where relevant.
 
+Direct archive adapters can also obtain completed workouts locally from supported hardware. The Garmin local adapter selects GFDI transport from device capabilities, downloads FIT activities read-only in bounded background sessions and feeds them through the same canonical workout merge. See [Local Garmin workout synchronization](GARMIN_LOCAL.md).
+
 Provider placeholder values such as meaningless zero distance/power are treated as missing when they do not make sense for the activity.
 
 ## RPE

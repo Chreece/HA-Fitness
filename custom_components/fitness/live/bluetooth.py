@@ -12,6 +12,7 @@ from homeassistant.components import bluetooth
 from homeassistant.components.bluetooth import BluetoothScanningMode
 from homeassistant.components.bluetooth.match import BluetoothCallbackMatcher
 
+from ..device_archives import DeviceArchiveRegistry
 from ..const import (
     CAPABILITY_WORKOUT_HISTORY,
     METRIC_CADENCE,
@@ -24,6 +25,7 @@ from .cycplus_m1 import (
     CYCPLUS_M1_SERVICE_UUID,
     CycplusM1Coordinator,
     cycplus_m1_identity,
+    cycplus_m1_serial_identity,
 )
 from .runtime import LiveSensor
 from .vendor_registry import decode_bluetooth_advertisement, vendor_registry_issues
@@ -171,6 +173,7 @@ class BluetoothFitnessProvider:
         self._identity_probe_tasks: dict[str, asyncio.Task] = {}
         self._identity_probe_last_attempt: dict[str, float] = {}
         self.cycplus_m1 = CycplusM1Coordinator(self)
+        self.device_archives = DeviceArchiveRegistry(self)
         # Raw BLE fitness measurements require an active GATT subscription, but
         # Fitness deliberately does not keep telemetry GATT open while idle.
         # Accepted sensors get only a short Device Information probe. A persistent
@@ -190,6 +193,7 @@ class BluetoothFitnessProvider:
             return
 
         await self.cycplus_m1.async_setup()
+        await self.device_archives.async_setup()
 
         # Let Home Assistant's Bluetooth manager discard unrelated devices before
         # our callback runs. One registration per standard fitness service gives
@@ -205,6 +209,19 @@ class BluetoothFitnessProvider:
                     BluetoothCallbackMatcher(
                         service_uuid=service_uuid, connectable=False
                     ),
+                    BluetoothScanningMode.PASSIVE,
+                    replay=bluetooth.BluetoothCallbackReplay.DISABLED,
+                )
+            )
+        # Direct workout-archive adapters contribute their own low-cost HA
+        # Bluetooth matchers through a vendor-neutral registry. Actual protocol
+        # capability verification is deferred until a user accepts the sensor.
+        for matcher in self.device_archives.bluetooth_matchers():
+            self._unsubs.append(
+                bluetooth.async_register_callback(
+                    self.hass,
+                    self._async_discovered,
+                    matcher,
                     BluetoothScanningMode.PASSIVE,
                     replay=bluetooth.BluetoothCallbackReplay.DISABLED,
                 )
@@ -241,6 +258,9 @@ class BluetoothFitnessProvider:
         service_data = getattr(info, "service_data", {}) or {}
         uuids = {str(x).lower() for x in (info.service_uuids or [])}
         cycplus_identity = cycplus_m1_identity(info.name, uuids)
+        archive_advertisement = self.device_archives.match_bluetooth(
+            info.name, uuids, manufacturer_data
+        )
 
         capabilities: set[str] = set()
         for service, caps in SERVICE_CAPABILITIES.items():
@@ -251,6 +271,8 @@ class BluetoothFitnessProvider:
                 if service == CYCPLUS_M1_SERVICE_UUID and cycplus_identity is None:
                     continue
                 capabilities.update(caps)
+        if archive_advertisement is not None:
+            capabilities.update(archive_advertisement.capabilities)
         if not capabilities:
             return
 
@@ -340,6 +362,7 @@ class BluetoothFitnessProvider:
                     "connectable": bool(getattr(info, "connectable", False)),
                     "manufacturer_data_ids": sorted(int(x) for x in manufacturer_data),
                     **(cycplus_identity or {}),
+                    **(archive_advertisement.metadata if archive_advertisement is not None else {}),
                 },
             )
             self._provisional_identity_signature[endpoint_id] = identity_signature
@@ -382,6 +405,8 @@ class BluetoothFitnessProvider:
 
         if cycplus_identity is not None:
             self.cycplus_m1.advertise(sensor.sensor_id, cycplus_identity)
+        if archive_advertisement is not None:
+            self.device_archives.advertise(sensor.sensor_id, archive_advertisement)
 
         # Raw changing payload diagnostics and proprietary passive decoders are
         # useful only after the user accepts the sensor. Before acceptance they
@@ -437,11 +462,24 @@ class BluetoothFitnessProvider:
         # persistent notification connection.
         self._schedule_identity_probe(sensor.sensor_id)
 
+    def _archive_coordinator(self, sensor_id: str):
+        """Return the accepted device archive owner without model checks."""
+        sensor = self.runtime.sensors.get(self.runtime.resolve_sensor_id(sensor_id))
+        endpoint = sensor.endpoints.get("bluetooth") if sensor is not None else None
+        metadata = endpoint.metadata if endpoint is not None else {}
+        direct = self.device_archives.coordinator_for_metadata(metadata)
+        if direct is not None:
+            return direct
+        if metadata.get("cycplus_protocol") == "m1_ble_fit_archive_v1":
+            return self.cycplus_m1
+        return None
+
     def sensor_acceptance_changed(self, sensor_id: str, accepted: bool) -> None:
         """Probe identity on acceptance; never keep idle telemetry GATT open."""
-        sensor = self.runtime.sensors.get(self.runtime.resolve_sensor_id(sensor_id))
-        if sensor is not None and CAPABILITY_WORKOUT_HISTORY in sensor.capabilities:
-            self.cycplus_m1.acceptance_changed(sensor.sensor_id, accepted)
+        sensor_id = self.runtime.resolve_sensor_id(sensor_id)
+        coordinator = self._archive_coordinator(sensor_id)
+        if coordinator is not None:
+            coordinator.acceptance_changed(sensor_id, accepted)
             if accepted:
                 return
         if accepted:
@@ -473,11 +511,14 @@ class BluetoothFitnessProvider:
             task.cancel()
         self._identity_probe_last_attempt.pop(canonical, None)
         self.cycplus_m1.forget_sensor(canonical)
+        self.device_archives.forget_sensor(canonical)
         self._schedule_unowned_disconnect(canonical)
 
     def sensor_assignment_changed(self, sensor_id: str) -> None:
         """Refresh an archive device when its allowed Fitness profiles change."""
-        self.cycplus_m1.assignment_changed(sensor_id)
+        coordinator = self._archive_coordinator(sensor_id)
+        if coordinator is not None:
+            coordinator.assignment_changed(sensor_id)
 
     def _schedule_unowned_disconnect(self, sensor_id: str) -> None:
         """Close a GATT client unless an active live profile currently owns it."""
@@ -828,6 +869,22 @@ class BluetoothFitnessProvider:
             characteristic_uuids = sorted(characteristic_properties)
         except Exception:
             service_uuids, characteristic_uuids, characteristic_properties = [], [], {}
+        # The M1 GATT serial ends with the same per-device number as its
+        # ``M1_XXXX`` local name. Some scanners/routes expose only one of those
+        # facts, so bridge them after the connected service database proves this
+        # is the CYCPLUS archive protocol rather than an unrelated Nordic-UART
+        # peripheral.
+        verified_services = {
+            str(value).lower()
+            for value in (
+                list(metadata.get("service_uuids") or []) + service_uuids
+            )
+        }
+        serial_identity = cycplus_m1_serial_identity(
+            metadata.get("serial_number")
+        )
+        if CYCPLUS_M1_SERVICE_UUID in verified_services and serial_identity:
+            metadata.update(serial_identity)
         if service_uuids:
             metadata["gatt_services"] = service_uuids
             details["bluetooth_gatt_services"] = ", ".join(service_uuids)
@@ -1038,6 +1095,7 @@ class BluetoothFitnessProvider:
 
     async def async_shutdown(self) -> None:
         await self.cycplus_m1.async_shutdown()
+        await self.device_archives.async_shutdown()
         for unsub in tuple(self._unsubs):
             try:
                 unsub()

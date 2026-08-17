@@ -122,6 +122,28 @@ def cycplus_m1_name_identity(name: str | None) -> dict[str, str] | None:
     return result
 
 
+def cycplus_m1_serial_identity(serial_number: str | None) -> dict[str, str] | None:
+    """Return the route identity encoded at the end of an M1 GATT serial.
+
+    Current M1 firmware exposes a long Device Information serial whose final
+    four hexadecimal characters are the same number advertised in ``M1_XXXX``.
+    Requiring the documented ``M1`` prefix and a non-trivial serial length keeps
+    this bridge specific to the CYCPLUS device family; callers must additionally
+    verify the M1 vendor service before trusting it.
+    """
+    serial = str(serial_number or "").strip().upper()
+    if len(serial) < 8 or not serial.startswith("M1"):
+        return None
+    number = serial[-4:]
+    if re.fullmatch(r"[0-9A-F]{4}", number) is None:
+        return None
+    return {
+        "cycplus_model_id": "M1",
+        "cycplus_device_number": number,
+        "fitness_physical_identity": f"cycplus:m1:{number.lower()}",
+    }
+
+
 def cycplus_m1_identity(
     name: str | None, service_uuids: Iterable[str]
 ) -> dict[str, str] | None:
@@ -1027,6 +1049,21 @@ class CycplusM1Coordinator:
                 clean_devices[sensor_id] = state
             self._state = {"devices": clean_devices}
         self._initialized = True
+        # Builds which promoted FIT ``device_info`` into Bluetooth DeviceInfo
+        # left the recording-source serial/revisions in the persisted live
+        # endpoint. Clean those values even when every workout is already
+        # downloaded, so migration does not depend on a future FIT transfer.
+        for raw_sensor_id, state in tuple(
+            self._state.get("devices", {}).items()
+        ):
+            attributes = (
+                state.get("device_attributes")
+                if isinstance(state, dict)
+                else None
+            )
+            if isinstance(attributes, dict):
+                self._apply_fit_device_attributes(raw_sensor_id, attributes)
+        self._migrate_persisted_m1_route_identities()
         if int(stored.get("workout_compaction_version") or 0) < 1:
             for state in self._state.get("devices", {}).values():
                 files = state.get("files") if isinstance(state, dict) else None
@@ -1050,6 +1087,80 @@ class CycplusM1Coordinator:
         # this removes oversized/corrupt legacy state before normal scheduling.
         self._state["workout_compaction_version"] = 1
         await self._save()
+
+    def _migrate_persisted_m1_route_identities(self) -> None:
+        """Rebuild the exact M1 route bridge without waiting for rediscovery."""
+        devices = self._state.get("devices", {})
+        for restored in tuple(self.runtime.sensors.values()):
+            sensor_id = self.runtime.resolve_sensor_id(restored.sensor_id)
+            sensor = self.runtime.sensors.get(sensor_id)
+            endpoint = (
+                sensor.endpoints.get("bluetooth")
+                if sensor is not None
+                else None
+            )
+            if sensor is None or endpoint is None:
+                continue
+            metadata = dict(endpoint.metadata)
+            services = {
+                str(value).lower()
+                for value in (
+                    list(metadata.get("service_uuids") or [])
+                    + list(metadata.get("gatt_services") or [])
+                )
+            }
+            if CYCPLUS_M1_SERVICE_UUID not in services:
+                continue
+
+            route_identity = cycplus_m1_name_identity(
+                metadata.get("advertised_name") or sensor.name
+            ) or {}
+            serial_identity = cycplus_m1_serial_identity(
+                metadata.get("serial_number")
+            )
+            if serial_identity:
+                route_identity.update(serial_identity)
+
+            state = devices.get(restored.sensor_id)
+            if not isinstance(state, dict):
+                state = devices.get(sensor_id)
+            attributes = (
+                state.get("device_attributes")
+                if isinstance(state, dict)
+                else None
+            )
+            number = (
+                str(attributes.get("device_number") or "").strip().upper()
+                if isinstance(attributes, dict)
+                else ""
+            )
+            if re.fullmatch(r"[0-9A-F]{4,16}", number):
+                route_identity.update(
+                    cycplus_m1_name_identity(f"M1_{number}") or {}
+                )
+            if not route_identity.get("fitness_physical_identity"):
+                continue
+
+            metadata.update({
+                "manufacturer": "CYCPLUS",
+                "model": "CYCPLUS M1 GPS Bike Computer",
+                "model_id": "M1",
+                "cycplus_protocol": "m1_ble_fit_archive_v1",
+                **route_identity,
+            })
+            merged = self.runtime.register_transport_sensor(
+                transport="bluetooth",
+                endpoint_id=endpoint.endpoint_id,
+                name=sensor.name,
+                capabilities=set(endpoint.capabilities),
+                address=endpoint.address,
+                source=endpoint.source,
+                last_seen=endpoint.last_seen,
+                rssi=endpoint.rssi,
+                available=endpoint.available,
+                metadata=metadata,
+            )
+            self._migrate_sensor_state(restored.sensor_id, merged.sensor_id)
 
     def _device(self, sensor_id: str) -> dict[str, Any]:
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)

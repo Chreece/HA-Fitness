@@ -117,6 +117,14 @@ distance therefore appear when the device actually exposes those measurements;
 Fitness does not create unsupported placeholder measurements merely because they
 may exist inside completed FIT workouts.
 
+## Garmin local workout archive
+
+Compatible Garmin wearables can be accepted as Local Sensors and assigned to Fitness profiles for direct completed-workout import. The phone is not part of this data path: Fitness connects from Home Assistant to the wearable, selects a Garmin GFDI backend from GATT capabilities, reads only unseen activity files in a bounded batch and disconnects again. Garmin Connect can remain paired and is not replaced.
+
+The implementation supports the modern V2 Multi-Link/FileSync path and a legacy V0/V1 GFDI directory path without a watch-model whitelist. Unverified reliable MLR transfer mode is rejected and backed off instead of guessed. The adapter uses hard stage/session timeouts, bounded queues and file/message limits, moves FIT inflation/decoding off the event loop, checkpoints each completed activity before profile import, and never sends Garmin mark-synced/archive/delete operations.
+
+See **[Local Garmin workout synchronization](GARMIN_LOCAL.md)** for setup, one-time pairing guidance, diagnostics, compatibility details and troubleshooting.
+
 ## Information entities
 
 Core live measurements remain normal sensor entities. Additional decoded ANT+ values, ANT identity/profile/control/event capabilities, BLE advertisement fields, GATT services/characteristics and Device Information values are retained as merged detail entities. Diagnostic or high-frequency/advanced fields are disabled by default. When ANT+ and Bluetooth report the same canonical fact, Fitness keeps one entity and exposes the source values as attributes.

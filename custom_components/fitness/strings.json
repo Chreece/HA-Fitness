@@ -181,7 +181,8 @@
           "feedback": "Coaching, lights and announcements",
           "sleep_devices": "Sleep devices",
           "sensor_assignments": "Sensor assignments",
-          "tv_dashboard": "Fitness TV dashboard"
+          "tv_dashboard": "Fitness TV dashboard",
+          "garmin_local_guide": "Garmin local setup guide"
         }
       },
       "profile": {
@@ -333,6 +334,10 @@
           "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
           "tv_dashboard_ignore_lights_when_cast_active": "When a Fitness TV Cast receiver is alive, use the TV for workout feedback and leave configured workout lights untouched."
         }
+      },
+      "garmin_local_guide": {
+        "title": "Garmin local workout sync",
+        "description": "Garmin watches connect directly to Home Assistant over Bluetooth; your phone is not required and Garmin Connect can remain paired. 1) Keep the watch nearby and wait for it to appear under Local Sensors. 2) Accept the Garmin sensor and assign it to one or more Fitness profiles. 3) HA-Fitness then connects briefly, imports unseen workout FIT files, and disconnects. If the diagnostic shows Pairing required, pair the watch with the Home Assistant Bluetooth host once, then press Sync workouts now. Sync is read-only: HA-Fitness does not mark Garmin files synced, archive them, or delete them. The adapter selects Garmin GFDI V0/V1 or V2 Multi-Link from device capabilities, never from a model list. Unverified MLR-only transport is rejected with a bounded backoff instead of waiting indefinitely. Detected Garmin devices: {garmin_devices}"
       }
     },
     "abort": {
@@ -3238,6 +3243,64 @@
           "charging": "Charging",
           "unknown": "Unknown"
         }
+      },
+      "garmin_local_backend": {
+        "name": "Local sync backend"
+      },
+      "garmin_sync_state": {
+        "name": "Workout sync state",
+        "state": {
+          "idle": "Idle",
+          "waiting": "Waiting",
+          "connecting": "Connecting",
+          "syncing": "Synchronizing",
+          "ready": "Up to date",
+          "retrying": "Retrying",
+          "error": "Error",
+          "unsupported": "Unsupported transport"
+        }
+      },
+      "garmin_last_sync": {
+        "name": "Last sync attempt"
+      },
+      "garmin_last_successful_sync": {
+        "name": "Last successful sync"
+      },
+      "garmin_device_workout_count": {
+        "name": "Workouts on device"
+      },
+      "garmin_imported_file_count": {
+        "name": "Imported workout files"
+      },
+      "garmin_pending_file_count": {
+        "name": "Pending workout files"
+      },
+      "garmin_downloaded_bytes": {
+        "name": "Downloaded bytes"
+      },
+      "garmin_retry_count": {
+        "name": "Retry count"
+      },
+      "garmin_last_error": {
+        "name": "Last sync error",
+        "state": {
+          "none": "No error",
+          "connection_failed": "Connection failed",
+          "pairing_required": "Pairing required",
+          "handshake_failed": "Handshake failed",
+          "catalog_failed": "Workout catalogue failed",
+          "transfer_interrupted": "Transfer interrupted",
+          "invalid_fit": "Invalid FIT file",
+          "import_failed": "Workout import failed",
+          "unsupported_transport": "Unsupported transport",
+          "unknown": "Unknown error"
+        }
+      },
+      "garmin_protocol_version": {
+        "name": "GFDI protocol version"
+      },
+      "garmin_latest_workout": {
+        "name": "Latest workout on device"
       }
     },
     "binary_sensor": {
@@ -3266,6 +3329,9 @@
       },
       "cycplus_sync_workouts": {
         "name": "Sync workouts now"
+      },
+      "garmin_sync_workouts": {
+        "name": "Sync Garmin workouts now"
       }
     },
     "select": {
