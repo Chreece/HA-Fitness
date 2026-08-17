@@ -13,7 +13,7 @@ CHANGELOG = ROOT / "CHANGELOG.md"
 def test_dashboard_release_files_and_version():
     manifest = json.loads((ROOT / "custom_components/fitness/manifest.json").read_text())
     assert manifest["version"] == "0.0.0" or re.fullmatch(
-        r"\d{4}\.\d{1,2}\.\d+(?:(?:a\d+)|-(?:alpha|beta)\d+)?",
+        r"\d{4}\.\d{1,2}\.\d+(?:a\d+|-beta\d+)?",
         manifest["version"],
     )
     assert DASHBOARD.is_file()

@@ -38,8 +38,9 @@ def test_ytdlp_is_provider_managed_not_backend_tv_setting():
 def test_stop_cast_is_visible_only_for_the_cast_mode_that_is_actually_active():
     assert 'id="stop-cast" title="${_fitnessEscape(l.cast_stop || "Stop Cast")}" hidden' in FRONTEND
     assert 'const haCastActive = this._refreshCastUiState();' in FRONTEND
-    assert 'id="cast-stop" ${haCastActive ? "" : "hidden"}' in FRONTEND
-    assert 'stopCast.hidden = !anyCastActive' in FRONTEND
+    assert 'id="cast-stop" hidden' in FRONTEND
+    assert 'this._serverCastActive && target && target === String(this._activeCastTarget || "")' in FRONTEND
+    assert 'stopCast.hidden = !FITNESS_TV_CAST_RECEIVER || !anyCastActive' in FRONTEND
     assert 'modalHaStop.hidden = !serverCastActive' in FRONTEND
 
 

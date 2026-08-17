@@ -26,13 +26,16 @@ The repository CI additionally runs the official HACS validator and Home Assista
 
 ## Versioning
 
-Before the first public release, `manifest.json` stays at `0.0.0` and frontend cache revisions use `unreleased-N`. Public releases use `YYYY.MM.RR`; prereleases append `-betaXX`:
+`manifest.json` must match the Git tag exactly for every published release. Stable releases use `YYYY.M.RR`; alpha prereleases append `aXX`, and beta prereleases append `-betaXX`:
 
 ```text
-2026.08.01-beta01
-2026.08.01
-2026.08.02
+2026.8.01a01
+2026.8.01-beta01
+2026.8.01
+2026.8.02
 ```
+
+The release helper (`harel`) uses this canonical tag form; do not add a different padded version to `manifest.json`.
 
 
 ## Automated dependency updates

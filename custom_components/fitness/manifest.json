@@ -2,9 +2,8 @@
   "domain": "fitness",
   "name": "Fitness",
   "after_dependencies": [
-    "bluetooth",
-    "lovelace",
-    "recorder"
+    "recorder",
+    "bluetooth"
   ],
   "codeowners": [
     "@Chreece"

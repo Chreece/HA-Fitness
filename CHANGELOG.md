@@ -2,10 +2,14 @@
 
 ## Unreleased
 
+## 2026.8.01a01
+
+First public alpha release of HA-Fitness. This release is intentionally marked alpha while the expanded Fitness TV, multi-user, Cast, live-sensor, audio/TTS and remote-access workflows receive wider real-world testing.
+
 - Added profile-persistent music search result-type filters for Tracks, Albums, Playlists, Artists, Radio, Podcasts and Audiobooks. Music Assistant collection results are now native playable queue targets, and result groups are interleaved so tracks cannot consume the entire Fitness search limit before album/playlist matches appear.
 ### Internal development checkpoint: 2026.8.10
 
-HA-Fitness has **not had a public release yet**. Until the first release, the manifest stays at `0.0.0` and frontend cache revisions use `unreleased-N`. Public prereleases will use `YYYY.MM.RR-betaXX`; stable releases will use `YYYY.MM.RR`.
+Release tags and `manifest.json` use the same canonical version. Alpha prereleases use `YYYY.M.RRaXX` (for example `2026.8.01a01`), beta prereleases use `YYYY.M.RR-betaXX`, and stable releases use `YYYY.M.RR`. Frontend cache revisions are independent implementation revisions and may retain an `unreleased-N` identifier until deliberately rebased.
 
 - Reworked Fitness TV music-provider search around configured Music Assistant provider instances. The single Music Assistant adapter now exposes its configured music sources as selectable search scopes, supports one/many/all source selection, and hides provider/account instances that are already playing elsewhere when Music Assistant or Home Assistant exposes that active session.
 - Added native Music Assistant playback inside Fitness TV using the official Sendspin browser client through a short-lived same-origin Home Assistant WebSocket relay. Supported MA track/radio/podcast/audiobook results now play on the current Fitness TV audio owner and participate in the same play/pause state and TTS duck/restore path as other providers instead of opening the Music Assistant web UI.

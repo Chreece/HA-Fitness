@@ -1,6 +1,6 @@
 # Release checklist
 
-Before creating a Fitness release (`YYYY.MM.RR-betaXX` for beta, `YYYY.MM.RR` for stable):
+Before creating a Fitness release (`YYYY.M.RRaXX` for alpha, `YYYY.M.RR-betaXX` for beta, `YYYY.M.RR` for stable):
 
 - [ ] `pytest` passes locally.
 - [ ] HACS validation GitHub Action passes with no ignored checks.
@@ -12,7 +12,7 @@ Before creating a Fitness release (`YYYY.MM.RR-betaXX` for beta, `YYYY.MM.RR` fo
 - [ ] CHANGELOG / release notes describe user-visible changes.
 - [ ] Create an annotated Git tag matching the manifest version.
 - [ ] Push the tag.
-- [ ] Create a GitHub Release (pre-release for beta versions).
+- [ ] Create a GitHub Release (pre-release for alpha and beta versions).
 - [ ] Verify HACS can install/update the release from the custom repository.
 
 For submission to the HACS default repository, also confirm the current HACS inclusion requirements and wait until the HACS + hassfest workflows are green before opening the submission PR.

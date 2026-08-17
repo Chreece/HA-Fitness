@@ -25,10 +25,16 @@ def test_idle_dashboard_always_has_an_ambient_tone_and_motion_contract():
     assert 'const key = Number.isFinite(fitness)' in JS
     assert ': "light";' in JS
     assert ':host([fitness-animations]) .fitness-ambient-layer i:nth-child(1)' in JS
-    assert '@keyframes fitness-card-float' in JS
+    assert '@keyframes fitness-card-breathe' in JS
+    assert '@keyframes fitness-card-life-pulse' in JS
+    assert '.fitness-ambient-layer i:nth-child(4)' in JS
+    assert '@keyframes fitness-ambient-ribbon' in JS
     assert '@keyframes fitness-card-aura' in JS
     assert '@keyframes fitness-toolbar-alive' in JS
     assert '@keyframes fitness-media-alive' in JS
+    assert '@keyframes fitness-tool-icon-alive' in JS
+    assert 'fitness-vital-field' not in JS
+    assert 'vital-particle' not in JS
 
 
 def test_live_workout_motion_changes_with_zone_without_disabling_reduced_motion():
@@ -39,5 +45,7 @@ def test_live_workout_motion_changes_with_zone_without_disabling_reduced_motion(
     assert 'this.style.setProperty("--fitness-energy-alpha"' in JS
     assert 'this.toggleAttribute("fitness-live-ambient", Boolean(tone?.live))' in JS
     assert 'this.setAttribute("fitness-workout-zone"' in JS
-    assert ':host([fitness-live-ambient][fitness-animations]) .tv-card-slot' in JS
+    assert ':host([fitness-live-ambient][fitness-animations]) .tv-card-slot' not in JS
+    assert 'root.host?.toggleAttribute?.("fitness-motion-live", this.hasAttribute("fitness-live-ambient"))' in JS
+    assert 'const mode = live ? `live:${this.getAttribute("fitness-workout-zone") || "light"}` : "idle"' in JS
     assert '@media(prefers-reduced-motion:reduce)' in JS

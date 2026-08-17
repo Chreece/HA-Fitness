@@ -73,7 +73,7 @@ def test_access_role_controls_hide_profile_and_extra_views_for_no_profile_role()
     assert 'profileField?.classList.toggle("hidden", withoutProfile);' in JS
     assert 'viewField?.classList.toggle("hidden", withoutProfile);' in JS
     assert 'data-access-role-hint' in JS
-    assert '.access-role-field,.access-profile-field{display:block;min-width:0;align-self:stretch}' in JS
+    assert '.access-role-field,.access-profile-field,.access-language-field{display:block;min-width:0;align-self:stretch}' in JS
 
 
 def test_structured_modals_scroll_the_body_and_keep_config_save_footer_reachable():

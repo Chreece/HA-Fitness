@@ -652,7 +652,7 @@ class FitnessRouteCard extends HTMLElement {
       </ha-card>
       <style>
         ha-card{overflow:hidden}.entity-link{cursor:pointer}.entity-link:hover{filter:brightness(1.04)}.header{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 12px}.title{font-size:18px;font-weight:600}.meta{font-size:12px;color:var(--secondary-text-color)}
-        .map{position:relative;overflow:hidden;background:var(--secondary-background-color);touch-action:none;cursor:grab;overscroll-behavior:contain}.map:active{cursor:grabbing}.map-scene{position:absolute;inset:0;will-change:transform}.tile{position:absolute;width:256px;height:256px;user-select:none;-webkit-user-drag:none;pointer-events:none}svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.start{fill:#2e7d32;stroke:white;stroke-width:2}.end{fill:#c62828;stroke:white;stroke-width:2}.workout-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;padding:12px 16px 14px}.summary-item{background:var(--secondary-background-color);border-radius:12px;padding:9px 11px;min-width:0}.summary-item span{display:block;color:var(--secondary-text-color);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.summary-item strong{display:block;margin-top:3px;font-size:14px}.attribution{position:absolute;right:4px;bottom:3px;background:rgba(255,255,255,.78);font-size:10px;padding:1px 4px;border-radius:3px;color:#333}.attribution a{color:#333}.privacy{padding:8px 16px 12px;font-size:11px;color:var(--secondary-text-color)}
+        .map{position:relative;overflow-x:clip;overflow-y:visible;background:var(--secondary-background-color);touch-action:none;cursor:grab;overscroll-behavior:contain}.map:active{cursor:grabbing}.map-scene{position:absolute;inset:0;will-change:transform}.tile{position:absolute;width:256px;height:256px;user-select:none;-webkit-user-drag:none;pointer-events:none}svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.start{fill:#2e7d32;stroke:white;stroke-width:2}.end{fill:#c62828;stroke:white;stroke-width:2}.workout-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;padding:12px 16px 14px}.summary-item{background:var(--secondary-background-color);border-radius:12px;padding:9px 11px;min-width:0}.summary-item span{display:block;color:var(--secondary-text-color);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.summary-item strong{display:block;margin-top:3px;font-size:14px}.attribution{position:absolute;right:4px;bottom:3px;background:rgba(255,255,255,.78);font-size:10px;padding:1px 4px;border-radius:3px;color:#333}.attribution a{color:#333}.privacy{padding:8px 16px 12px;font-size:11px;color:var(--secondary-text-color)}
       </style>`;
     this._bindMapGestures();
   }
@@ -1555,7 +1555,7 @@ class FitnessAutoProfileCard extends HTMLElement {
       this._profile = profiles.find((p) => p.entry_id === this.config?.profile_entry_id)
         || (profiles.length === 1 ? profiles[0] : null);
       if (this._profile?.labels_by_language) {
-        const ui = String((FITNESS_TV_CAST_RECEIVER ? this._profile?.language : this._hass?.language) || this._profile?.language || "en").toLowerCase().split("-")[0];
+        const ui = String(this._profile?.language || this._hass?.language || "en").toLowerCase().split("-")[0];
         this._profile = {...this._profile, labels: this._profile.labels_by_language[ui] || this._profile.labels_by_language.en || this._profile.labels};
       }
     } catch (_err) {
@@ -1894,7 +1894,7 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
         x:xPos(x.t), y:y(x.v), v:x.v, d:x.d, t:x.t,
         trend:regIntercept + regSlope*xs[i],
       }));
-      const locale = (FITNESS_TV_CAST_RECEIVER ? this._profile?.language : this._hass?.language) || this._profile?.language || undefined;
+      const locale = this._profile?.language || this._hass?.language || undefined;
       const tickFormatter = new Intl.DateTimeFormat(locale, {month:"short", day:"numeric"});
       const tickCount = Math.min(6, Math.max(2, Math.ceil(timeSpan / (14 * 86400000)) + 1));
       const ticks = Array.from({length:tickCount}, (_, index) => {
@@ -1975,7 +1975,7 @@ class FitnessProgressCard extends FitnessAutoProfileCard {
       cursorLine.setAttribute("x2", point.x.toFixed(2));
       cursorDot.setAttribute("cx", point.x.toFixed(2));
       cursorDot.setAttribute("cy", point.y.toFixed(2));
-      const language = (FITNESS_TV_CAST_RECEIVER ? this._profile?.language : this._hass?.language) || this._profile?.language || undefined;
+      const language = this._profile?.language || this._hass?.language || undefined;
       const date = new Intl.DateTimeFormat(language, {year:"numeric",month:"short",day:"numeric"}).format(new Date(point.t));
       const bits = [`<strong>${point.v.toFixed(1)} mL/kg/min</strong>`, `<span>${_fitnessEscape(date)}</span>`];
       const labels = this._vo2HistoryLabels || {};
@@ -2103,7 +2103,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
     const level = String(_fitnessAttr(readiness, "level") || "insufficient_data");
     const confidence = _fitnessNumber(_fitnessAttr(readiness, "confidence_percent"));
     const components = _fitnessAttr(readiness, "components") || {};
-    const ui = String((FITNESS_TV_CAST_RECEIVER ? this._profile?.language : this._hass?.language) || this._profile?.language || "en").toLowerCase().split("-")[0];
+    const ui = String(this._profile?.language || this._hass?.language || "en").toLowerCase().split("-")[0];
     const rtext = FITNESS_READINESS_TEXT[ui] || FITNESS_READINESS_TEXT.en;
     const levelText = (FITNESS_READINESS_LEVELS[ui] || FITNESS_READINESS_LEVELS.en)[level]
       || FITNESS_READINESS_LEVELS.en[level] || level;
@@ -2137,7 +2137,7 @@ class FitnessRecoveryCard extends FitnessAutoProfileCard {
     const readyAt = readyAtRaw ? new Date(readyAtRaw) : null;
     const readyAtText = (() => {
       if (!readyAt || Number.isNaN(readyAt.getTime())) return "—";
-      const language = (FITNESS_TV_CAST_RECEIVER ? this._profile?.language : this._hass.language) || this._profile?.language || undefined;
+      const language = this._profile?.language || this._hass?.language || undefined;
       const timeText = new Intl.DateTimeFormat(language, {hour:"2-digit", minute:"2-digit"}).format(readyAt);
       const now = new Date();
       const sameDay = (a,b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -2667,7 +2667,7 @@ class FitnessCompositeCard extends FitnessAutoProfileCard {
   set hass(hass) {
     this._hass = hass;
     const key = this.config?.profile_entry_id || "";
-    const language = String((FITNESS_TV_CAST_RECEIVER ? this._profile?.language : hass?.language) || this._profile?.language || "en").toLowerCase().split("-")[0];
+    const language = String(this._profile?.language || hass?.language || "en").toLowerCase().split("-")[0];
 
     if (key !== this._resolvedKey && !this._resolving) {
       this._resolvedKey = key;
@@ -2795,7 +2795,7 @@ class FitnessCompositeCard extends FitnessAutoProfileCard {
     this._compositeChildren = children.filter(Boolean);
     for (const child of this._compositeChildren) body.appendChild(child);
     this._compositeBuilt = true;
-    this._compositeLanguage = String((FITNESS_TV_CAST_RECEIVER ? this._profile?.language : this._hass?.language) || this._profile?.language || "en").toLowerCase().split("-")[0];
+    this._compositeLanguage = String(this._profile?.language || this._hass?.language || "en").toLowerCase().split("-")[0];
     this._compositeSignatureValue = this._compositeSignature();
   }
 }
@@ -2825,7 +2825,7 @@ class FitnessLiveWorkoutCard extends FitnessAutoProfileCard {
       ...(this._profile?.entities || {}),
       ..._fitnessProfileDataEntities(this._profile, hass, "live"),
     };
-    const parts = [String((FITNESS_TV_CAST_RECEIVER ? this._profile?.language : hass?.language) || this._profile?.language || "")];
+    const parts = [String(this._profile?.language || hass?.language || "")];
     for (const key of this._relevantEntityKeys()) {
       const entityId = entities[key];
       const state = entityId ? hass?.states?.[entityId] : null;
@@ -3218,7 +3218,7 @@ class FitnessDashboardStrategy extends HTMLElement {
 
   static _profileViews(hass, profile, multi) {
     const e = profile.entities || {};
-    const ui = String(hass?.language || "en").toLowerCase().split("-")[0];
+    const ui = String(labelProfile?.language || hass?.language || "en").toLowerCase().split("-")[0];
     const l = profile.labels_by_language?.[ui]
       || profile.labels_by_language?.en
       || profile.labels
@@ -4129,6 +4129,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     this._clearCastRemoteSectionMarks();
     section.classList.add(active ? "fitness-remote-section-active" : "fitness-remote-section-selected");
     section.scrollIntoView?.({block:"nearest", inline:"nearest"});
+    this._animateRemoteSectionInterior(section, active);
   }
 
   _clearCastRemoteFocus() {
@@ -4669,7 +4670,7 @@ class FitnessTvDashboardCard extends HTMLElement {
 
   _labels(profile = this._profile || this._fallbackProfile) {
     if (!profile) return {};
-    const language = String((FITNESS_TV_CAST_RECEIVER ? profile?.language : this._hass?.language) || profile?.language || "en").toLowerCase().split("-")[0];
+    const language = String(profile?.language || this._access?.language || this._hass?.language || "en").toLowerCase().split("-")[0];
     return profile.labels_by_language?.[language]
       || profile.labels_by_language?.en
       || profile.labels
@@ -4935,6 +4936,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     this.style.setProperty("--fitness-tv-card-scale", String(scale));
     this.toggleAttribute("oled-protection", Boolean(this._oledProtection));
     this.toggleAttribute("fitness-animations", Boolean(this._animationsEnabled));
+    if (!this._motionEnabled()) this._cancelDashboardMotion();
     if (FITNESS_TV_CAST_RECEIVER && this._oledProtection) this._startOledProtection();
     else this._stopOledProtection();
     this.shadowRoot?.querySelectorAll(".tv-card-slot").forEach((wrapper, index) => {
@@ -6454,12 +6456,12 @@ class FitnessTvDashboardCard extends HTMLElement {
     const [r,g,b] = (tone?.rgb || [3,169,244]).map((value) => Math.max(0, Math.min(255, Number(value) || 0)));
     const alpha = tone?.live ? 0.44 : 0.27;
     const motion = {
-      very_light:{speed:8.8,lift:1.2,energy:.18},
-      light:{speed:7.4,lift:1.45,energy:.22},
-      moderate:{speed:5.9,lift:1.8,energy:.28},
-      vigorous:{speed:4.5,lift:2.25,energy:.36},
-      near_maximal:{speed:3.35,lift:2.7,energy:.46},
-    }[tone?.intensity] || {speed:7.4,lift:1.45,energy:.22};
+      very_light:{speed:8.8,lift:1.8,energy:.18,breath:1.005,flow:.82},
+      light:{speed:7.4,lift:2.1,energy:.22,breath:1.006,flow:.90},
+      moderate:{speed:5.9,lift:2.6,energy:.28,breath:1.008,flow:1.00},
+      vigorous:{speed:4.5,lift:3.2,energy:.36,breath:1.010,flow:1.12},
+      near_maximal:{speed:3.35,lift:3.8,energy:.46,breath:1.012,flow:1.24},
+    }[tone?.intensity] || {speed:7.4,lift:2.1,energy:.22,breath:1.006,flow:.90};
     this.style.setProperty("--fitness-tv-ambient-rgb", `${r},${g},${b}`);
     this.style.setProperty("--fitness-tv-ambient-alpha", String(alpha));
     this.style.setProperty("--fitness-tv-ambient-core-alpha", String(alpha * 0.82));
@@ -6467,16 +6469,19 @@ class FitnessTvDashboardCard extends HTMLElement {
     this.style.setProperty("--fitness-motion-speed", `${tone?.live ? motion.speed : 10.5}s`);
     this.style.setProperty("--fitness-motion-lift", `${tone?.live ? motion.lift : 1.05}px`);
     this.style.setProperty("--fitness-energy-alpha", String(tone?.live ? motion.energy : .14));
+    this.style.setProperty("--fitness-card-breath-scale", String(tone?.live ? motion.breath : 1.0055));
+    this.style.setProperty("--fitness-ambient-flow", String(tone?.live ? motion.flow : .82));
     this.style.setProperty(
       "--fitness-tv-ambient",
       `linear-gradient(145deg, rgba(${r},${g},${b},${alpha}) 0%, var(--primary-background-color) 78%)`
     );
     this.toggleAttribute("fitness-live-ambient", Boolean(tone?.live));
     this.setAttribute("fitness-workout-zone", String(tone?.intensity || "light"));
-    this.shadowRoot?.querySelectorAll(".tv-card-slot>.tv-mounted-card").forEach((card) => {
+    this.shadowRoot?.querySelectorAll(".tv-card-slot>.tv-mounted-card").forEach((card, index) => {
       card.toggleAttribute("fitness-animations", Boolean(this._animationsEnabled));
       card.toggleAttribute("fitness-live-workout", Boolean(tone?.live));
       card.setAttribute("fitness-workout-zone", String(tone?.intensity || "light"));
+      if (this._motionEnabled()) this._ensureCardLivingMotion(card, index);
     });
   }
 
@@ -6510,7 +6515,13 @@ class FitnessTvDashboardCard extends HTMLElement {
       ? `<div class="tv-profile-identity" title="${_fitnessEscape(this._profile.profile_name)}"><ha-icon icon="mdi:account-circle-outline"></ha-icon><span>${_fitnessEscape(this._profile.profile_name)}</span>${accessBadge}</div>`
       : `<label class="profile-control"><span>${_fitnessEscape(l.tv_profile || "Profile")}</span><select id="profile">${profileOptions}</select></label>`;
     const profileActions = FITNESS_TV_CAST_RECEIVER
-      ? (canControl ? `<button class="tool cast-receiver-action" id="stop-cast" title="${_fitnessEscape(l.cast_stop || "Stop Cast")}"><ha-icon icon="mdi:cast-off"></ha-icon><span>${_fitnessEscape(l.cast_stop || "Stop Cast")}</span></button>` : "")
+      ? (canControl ? [
+          `<button class="tool backend-tool" id="backend-config" title="${_fitnessEscape(l.configure_account || l.backend_settings || "Fitness settings")}"><ha-icon icon="mdi:account-cog-outline"></ha-icon><span>${_fitnessEscape(l.configure_account || l.backend_settings || "Fitness settings")}</span></button>`,
+          `<button class="tool configure-tool" id="configure" title="${_fitnessEscape(l.configure_tv || l.reconfigure || "Configure Fitness TV")}"><ha-icon icon="mdi:television-cog"></ha-icon><span>${_fitnessEscape(l.configure_tv || l.reconfigure || "Configure Fitness TV")}</span></button>`,
+          `<button class="tool cast-profile-toggle ${this._profile?.tv_dashboard?.light_feedback_enabled !== false ? "active" : ""}" id="light-feedback-toggle" aria-pressed="${this._profile?.tv_dashboard?.light_feedback_enabled !== false ? "true" : "false"}" title="${_fitnessEscape(this._profile?.tv_dashboard?.light_feedback_enabled !== false ? (l.light_feedback_on || "Light feedback on") : (l.light_feedback_off || "Light feedback off"))}"><ha-icon icon="${this._profile?.tv_dashboard?.light_feedback_enabled !== false ? "mdi:lightbulb-on-outline" : "mdi:lightbulb-off-outline"}"></ha-icon><span>${_fitnessEscape(this._profile?.tv_dashboard?.light_feedback_enabled !== false ? (l.light_feedback_on || "Light feedback on") : (l.light_feedback_off || "Light feedback off"))}</span></button>`,
+          `<button class="tool cast-profile-toggle ${this._profile?.tv_dashboard?.tts_announcements_enabled !== false ? "active" : ""}" id="tts-announcements-toggle" aria-pressed="${this._profile?.tv_dashboard?.tts_announcements_enabled !== false ? "true" : "false"}" title="${_fitnessEscape(this._profile?.tv_dashboard?.tts_announcements_enabled !== false ? (l.tts_announcements_on || "TTS announcements on") : (l.tts_announcements_off || "TTS announcements off"))}"><ha-icon icon="${this._profile?.tv_dashboard?.tts_announcements_enabled !== false ? "mdi:account-voice" : "mdi:account-voice-off"}"></ha-icon><span>${_fitnessEscape(this._profile?.tv_dashboard?.tts_announcements_enabled !== false ? (l.tts_announcements_on || "TTS announcements on") : (l.tts_announcements_off || "TTS announcements off"))}</span></button>`,
+          `<button class="tool cast-receiver-action" id="stop-cast" title="${_fitnessEscape(l.cast_stop || "Stop Cast")}"><ha-icon icon="mdi:cast-off"></ha-icon><span>${_fitnessEscape(l.cast_stop || "Stop Cast")}</span></button>`,
+        ].join("") : "")
       : [
           fixedProfile && canNavigateProfiles ? `<button class="tool profile-tool" id="profiles" title="${_fitnessEscape(l.tv_profiles || "Profiles")}"><ha-icon icon="mdi:account-multiple-outline"></ha-icon><span>${_fitnessEscape(l.tv_profiles || "Profiles")}</span></button>` : "",
           canControl ? `<button class="tool backend-tool" id="backend-config" title="${_fitnessEscape(l.backend_settings || "Fitness settings")}"><ha-icon icon="mdi:account-cog-outline"></ha-icon><span>${_fitnessEscape(l.backend_settings || "Fitness settings")}</span></button>` : "",
@@ -6532,7 +6543,7 @@ class FitnessTvDashboardCard extends HTMLElement {
             <button class="icon-tool playlist-control" id="playlist-open" title="${_fitnessEscape(l.music_open_playlist || "Open playlist")}" hidden><ha-icon icon="mdi:playlist-edit"></ha-icon></button>` : "";
     this.shadowRoot.innerHTML = `
       <ha-card class="tv-shell ${canControl ? "" : "view-only-shell"}">
-        <div class="fitness-ambient-layer" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="fitness-ambient-layer" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
         <div class="tv-oled-stage">
         <div class="tv-toolbar ${fixedProfile ? "fixed-profile" : ""}">
           <div class="tv-brand"><img class="fitness-brand-icon" src="${_fitnessEscape(_fitnessBrandIconUrl(this._hass))}" alt=""><strong>${_fitnessEscape(l.tv_dashboard || "Fitness TV")}</strong></div>
@@ -6564,12 +6575,19 @@ class FitnessTvDashboardCard extends HTMLElement {
     this.shadowRoot.getElementById("profiles")?.addEventListener("click", () => this._navigateTv("/fitness-tv/main"));
     this.shadowRoot.getElementById("backend-config")?.addEventListener("click", () => this._openBackendFlow("options", this._profile.entry_id, this._profile.profile_name));
     this.shadowRoot.getElementById("configure")?.addEventListener("click", () => this._openProfileConfigure());
+    this.shadowRoot.getElementById("light-feedback-toggle")?.addEventListener("click", () => void this._toggleProfileTvPreference("light_feedback_enabled"));
+    this.shadowRoot.getElementById("tts-announcements-toggle")?.addEventListener("click", () => void this._toggleProfileTvPreference("tts_announcements_enabled"));
     this.shadowRoot.getElementById("cards")?.addEventListener("click", () => this._openCardPicker());
     this.shadowRoot.getElementById("arrange")?.addEventListener("click", () => this._setLayoutEditing(!this._layoutEditing));
     this.shadowRoot.getElementById("remote-sensors")?.addEventListener("click", () => this._openRemoteGateway());
     this.shadowRoot.getElementById("fullscreen")?.addEventListener("click", () => this._toggleFullscreen());
     this._updateFullscreenButton();
-    this.shadowRoot.getElementById("cast")?.addEventListener("click", () => this._openCastPicker());
+    this.shadowRoot.getElementById("cast")?.addEventListener("click", () => {
+      if (this._localCastActive || this._localCastServerActive || this._localCastSessionActive()) { void this._stopLocalCast(); return; }
+      const activeTarget = String(this._activeCastTarget || "");
+      if (this._serverCastActive && activeTarget) { void this._stopCastDashboard(activeTarget); return; }
+      this._openCastPicker();
+    });
     this.shadowRoot.getElementById("stop-cast")?.addEventListener("click", () => {
       if (FITNESS_TV_CAST_RECEIVER) { void this._quitCastFromRemote("toolbar stop"); return; }
       if (this._localCastActive || this._localCastServerActive || this._localCastSessionActive()) { void this._stopLocalCast(); return; }
@@ -6831,6 +6849,631 @@ class FitnessTvDashboardCard extends HTMLElement {
       this._wireCardReorder(wrapper, item.id);
       this._mountedCards.push(card);
     }
+    this._scheduleDashboardEntryMotion();
+  }
+
+  _motionEnabled() {
+    return Boolean(this._animationsEnabled)
+      && !globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  }
+
+  _cancelDashboardMotion() {
+    for (const animation of this._livingAnimations || []) {
+      try { animation?.cancel?.(); } catch (_err) {}
+    }
+    this._livingAnimations = [];
+    for (const card of this._mountedCards || []) {
+      card.__fitnessLivingMotion = false;
+      card.__fitnessLivingMode = "";
+      for (const animation of card.__fitnessLivingAnimations || []) { try { animation?.cancel?.(); } catch (_err) {} }
+      card.__fitnessLivingAnimations = [];
+      for (const observer of card.__fitnessMotionObservers || []) { try { observer?.disconnect?.(); } catch (_err) {} }
+      card.__fitnessMotionObservers = [];
+      if (card.__fitnessMotionRebindTimer) clearTimeout(card.__fitnessMotionRebindTimer);
+      card.__fitnessMotionRebindTimer = null;
+    }
+    if (this._dashboardEntryTimer) clearTimeout(this._dashboardEntryTimer);
+    this._dashboardEntryTimer = null;
+  }
+
+  _rememberLivingAnimation(animation) {
+    if (!animation) return animation;
+    this._livingAnimations ||= [];
+    this._livingAnimations.push(animation);
+    return animation;
+  }
+
+  _scheduleDashboardEntryMotion() {
+    this._cancelDashboardMotion();
+    if (!this._motionEnabled()) return;
+    this._dashboardEntryTimer = setTimeout(() => this._startDashboardEntryMotion(), 45);
+  }
+
+  _startDashboardEntryMotion() {
+    if (!this._motionEnabled()) return;
+    const wrappers = Array.from(this.shadowRoot?.querySelectorAll?.(".tv-card-slot") || []);
+    if (!wrappers.length) return;
+    // Card frames are intentionally stationary. Modern motion happens inside
+    // each card: title -> charts -> values/entities. This avoids the whole
+    // dashboard looking as if its layout is floating or stalling.
+    this._dashboardEntryTimer = setTimeout(() => {
+      wrappers.forEach((wrapper, index) => {
+        const card = wrapper.querySelector?.(".tv-mounted-card");
+        if (card) this._animateCardContents(card, index, "entry");
+      });
+    }, 90);
+  }
+
+  _cardMotionRoot(card) {
+    return card?.shadowRoot || card || null;
+  }
+
+  _cardMotionRoots(card) {
+    const first = this._cardMotionRoot(card);
+    if (!first?.querySelectorAll) return first ? [first] : [];
+    const roots = [];
+    const seen = new Set();
+    const visit = (root, depth = 0) => {
+      if (!root?.querySelectorAll || seen.has(root) || depth > 3) return;
+      seen.add(root);
+      roots.push(root);
+      for (const element of root.querySelectorAll("*")) {
+        const tag = String(element?.localName || "");
+        if (element?.shadowRoot && tag.startsWith("fitness-")) visit(element.shadowRoot, depth + 1);
+      }
+    };
+    visit(first, 0);
+    return roots;
+  }
+
+  _cardMotionElements(card, selector) {
+    const elements = [];
+    const seen = new Set();
+    for (const root of this._cardMotionRoots(card)) {
+      for (const element of root.querySelectorAll?.(selector) || []) {
+        if (seen.has(element)) continue;
+        seen.add(element);
+        elements.push(element);
+      }
+    }
+    return elements;
+  }
+
+  _trackCardAnimation(card, animation) {
+    if (!animation) return animation;
+    card.__fitnessLivingAnimations ||= [];
+    card.__fitnessLivingAnimations.push(animation);
+    this._rememberLivingAnimation(animation);
+    return animation;
+  }
+
+  _finishTransientMotion(animation) {
+    if (!animation) return;
+    animation.finished?.finally?.(() => {
+      try { animation.cancel(); } catch (_err) {}
+    });
+  }
+
+  _animateChartReveal(root, delay = 0) {
+    if (!root || !this._motionEnabled()) return;
+    const transient = (animation) => { this._finishTransientMotion(animation); return animation; };
+    const lineSelector = [
+      "svg polyline:not(.cursor-line)",
+      "svg path.actual-line", "svg path.trend-line",
+      "svg .actual-line", "svg .trend-line",
+    ].join(",");
+    let lineIndex = 0;
+    for (const line of root.querySelectorAll?.(lineSelector) || []) {
+      try {
+        const length = Number(line.getTotalLength?.() || 0);
+        if (!(length > 0)) continue;
+        const animation = line.animate([
+          {strokeDasharray:`${length} ${length}`, strokeDashoffset:length, opacity:.08, filter:"drop-shadow(0 0 0 transparent)"},
+          {strokeDasharray:`${length} ${length}`, strokeDashoffset:length * .58, opacity:.68, offset:.42},
+          {strokeDasharray:`${length} ${length}`, strokeDashoffset:0, opacity:1, filter:"drop-shadow(0 0 3px color-mix(in srgb,var(--primary-color) 44%,transparent))"},
+        ], {duration:980, delay:delay + lineIndex * 90, easing:"cubic-bezier(.16,1,.3,1)", fill:"both"});
+        transient(animation);
+        lineIndex += 1;
+      } catch (_err) {}
+    }
+    let barIndex = 0;
+    const bars = root.querySelectorAll?.([
+      ".axis .bar", ".bar-chart .bar", "[class*='bar-value']", "[data-fitness-bar]",
+      ".load-fill", ".progress-fill", ".score-fill", ".zone-fill",
+    ].join(",")) || [];
+    for (const bar of bars) {
+      const rect = bar.getBoundingClientRect?.();
+      const vertical = Number(rect?.height || 0) > Number(rect?.width || 0) * 1.15;
+      bar.style.transformOrigin = vertical ? "center bottom" : "left center";
+      const animation = bar.animate(vertical
+        ? [
+            {transform:"scaleY(0)", opacity:.12, filter:"brightness(.82)"},
+            {transform:"scaleY(1.045)", opacity:1, filter:"brightness(1.12)", offset:.82},
+            {transform:"scaleY(1)", opacity:1, filter:"brightness(1)"},
+          ]
+        : [
+            {transform:"scaleX(0)", opacity:.12, filter:"brightness(.82)"},
+            {transform:"scaleX(1.025)", opacity:1, filter:"brightness(1.12)", offset:.84},
+            {transform:"scaleX(1)", opacity:1, filter:"brightness(1)"},
+          ],
+        {duration:760, delay:delay + 110 + barIndex * 72, easing:"cubic-bezier(.16,1,.3,1)", fill:"both"});
+      transient(animation);
+      barIndex += 1;
+    }
+    let pieIndex = 0;
+    for (const pie of root.querySelectorAll?.(".donut,.pie,.pie-chart,[class*='donut'],[data-fitness-pie]") || []) {
+      const animation = pie.animate([
+        {clipPath:"circle(0% at 50% 50%)", transform:"rotate(-24deg) scale(.74)", opacity:.05, filter:"brightness(.78)"},
+        {clipPath:"circle(47% at 50% 50%)", transform:"rotate(-5deg) scale(.97)", opacity:.8, offset:.64},
+        {clipPath:"circle(72% at 50% 50%)", transform:"rotate(0deg) scale(1)", opacity:1, filter:"brightness(1)"},
+      ], {duration:900, delay:delay + 80 + pieIndex * 110, easing:"cubic-bezier(.16,1,.3,1)", fill:"both"});
+      transient(animation);
+      pieIndex += 1;
+    }
+    for (const marker of root.querySelectorAll?.(".current-marker,.baseline-marker,.vo2-marker,.cursor-dot") || []) {
+      const animation = marker.animate([
+        {opacity:0, scale:.35, filter:"brightness(.8)"},
+        {opacity:1, scale:1.28, filter:"brightness(1.3)", offset:.72},
+        {opacity:1, scale:1, filter:"brightness(1)"},
+      ], {duration:520, delay:delay + 620, easing:"cubic-bezier(.16,1,.3,1)", fill:"both"});
+      transient(animation);
+    }
+  }
+
+  _cardRevealElements(root) {
+    if (!root?.querySelectorAll) return [];
+    const selector = [
+      ".entity-link", ".live-metric", ".sleep-summary-metric", ".legend-row",
+      ".strength-row", ".metric", ".metric-row", ".stat", ".row", ".signal",
+      ".summary-item", ".chip", ".tile", ".value", ".hero-metric", ".rpe-choice",
+      ".score", ".hero", ".current", ".recovery-signal", ".adaptation-item",
+    ].join(",");
+    const candidates = Array.from(root.querySelectorAll(selector)).filter((element) => {
+      if (element.closest?.("button") && !element.matches?.("button,.rpe-choice")) return false;
+      const rect = element.getBoundingClientRect?.();
+      return !rect || (rect.width > 0 && rect.height > 0);
+    });
+    const selected = [];
+    for (const element of candidates) {
+      if (selected.some((parent) => parent.contains?.(element))) continue;
+      selected.push(element);
+      if (selected.length >= 24) break;
+    }
+    return selected;
+  }
+
+  _animateCardContents(card, index = 0, mode = "entry") {
+    if (!this._motionEnabled()) return;
+    const attempt = Number(card.__fitnessMotionAttempt || 0);
+    const roots = this._cardMotionRoots(card);
+    if ((!roots.length || !roots.some((root) => root.querySelector?.("ha-card"))) && attempt < 10) {
+      card.__fitnessMotionAttempt = attempt + 1;
+      setTimeout(() => this._animateCardContents(card, index, mode), 70);
+      return;
+    }
+    card.__fitnessMotionAttempt = 0;
+    for (const root of roots) this._installCardMotionSkin(card, root);
+    const baseDelay = mode === "entry" ? index * 38 : 0;
+    const title = this._cardMotionElements(card, ".title,.card-title,.composite-head,.live-head,.head,h2,h3")[0];
+    if (title) {
+      const titleAnimation = title.animate([
+        {opacity:0, transform:"translate3d(-12px,8px,0) scale(.94)"},
+        {opacity:1, transform:"translate3d(2px,-1px,0) scale(1.018)", offset:.72},
+        {opacity:1, transform:"translate3d(0,0,0) scale(1)"},
+      ], {duration:460, delay:baseDelay, easing:"cubic-bezier(.16,1,.3,1)", fill:"both"});
+      this._finishTransientMotion(titleAnimation);
+    }
+    roots.forEach((root, rootIndex) => this._animateChartReveal(root, baseDelay + 50 + rootIndex * 26));
+    const reveal = [];
+    const seen = new Set();
+    for (const root of roots) {
+      for (const element of this._cardRevealElements(root)) {
+        if (seen.has(element)) continue;
+        seen.add(element);
+        reveal.push(element);
+      }
+    }
+    reveal.slice(0, 32).forEach((element, elementIndex) => {
+      const animation = element.animate([
+        {opacity:0, transform:"translate3d(0,18px,0) scale(.68)", filter:"blur(3px) brightness(.88)"},
+        {opacity:1, transform:"translate3d(0,-2px,0) scale(1.055)", filter:"blur(0) brightness(1.08)", offset:.72},
+        {opacity:1, transform:"translate3d(0,0,0) scale(1)", filter:"blur(0) brightness(1)"},
+      ], {duration:500, delay:baseDelay + 120 + elementIndex * 42, easing:"cubic-bezier(.16,1,.3,1)", fill:"both"});
+      this._finishTransientMotion(animation);
+    });
+    this._ensureCardLivingMotion(card, index);
+  }
+
+  _installCardMotionSkin(card, root) {
+    if (!root?.querySelector) return;
+    root.host?.toggleAttribute?.("fitness-motion", true);
+    root.host?.toggleAttribute?.("fitness-motion-live", this.hasAttribute("fitness-live-ambient"));
+    if (root.querySelector("style[data-fitness-motion-skin]")) return;
+    const style = document.createElement("style");
+    style.dataset.fitnessMotionSkin = "1";
+    style.textContent = `
+      :host([fitness-motion]) .entity-link:not(button),
+      :host([fitness-motion]) .live-metric,
+      :host([fitness-motion]) .metric,
+      :host([fitness-motion]) .sleep-summary-metric,
+      :host([fitness-motion]) .summary-item,
+      :host([fitness-motion]) .strength-row,
+      :host([fitness-motion]) .signal,
+      :host([fitness-motion]) .legend-row{
+        transform-origin:center;will-change:transform,filter,box-shadow;
+      }
+      :host([fitness-motion]) .axis,
+      :host([fitness-motion]) .progress,
+      :host([fitness-motion]) .baseline-scale,
+      :host([fitness-motion]) .load-scale{
+        position:relative;overflow-x:clip;overflow-y:visible;
+      }
+      :host([fitness-motion]) .axis::after,
+      :host([fitness-motion]) .progress::after,
+      :host([fitness-motion]) .baseline-scale::after,
+      :host([fitness-motion]) .load-scale::after{
+        content:"";position:absolute;inset:-55% auto -55% -34%;width:26%;pointer-events:none;
+        background:linear-gradient(100deg,transparent,rgba(255,255,255,.20),transparent);
+        transform:skewX(-16deg);opacity:0;
+      }
+      :host([fitness-motion]) .donut{will-change:transform,filter}
+      :host([fitness-motion]) .actual-line,
+      :host([fitness-motion]) .trend-line,
+      :host([fitness-motion]) svg polyline{will-change:filter,opacity}
+      :host([fitness-motion]) .current-marker,
+      :host([fitness-motion]) .baseline-marker,
+      :host([fitness-motion]) .vo2-marker{will-change:filter,opacity}
+      :host([fitness-motion]) .axis::after,
+      :host([fitness-motion]) .progress::after,
+      :host([fitness-motion]) .baseline-scale::after,
+      :host([fitness-motion]) .load-scale::after{
+        animation:fitness-data-sheen 2.75s cubic-bezier(.4,0,.2,1) infinite;
+        animation-delay:var(--fitness-motion-sheen-delay,-.6s);
+      }
+      :host([fitness-motion-live]) .axis::after,
+      :host([fitness-motion-live]) .progress::after,
+      :host([fitness-motion-live]) .baseline-scale::after,
+      :host([fitness-motion-live]) .load-scale::after{animation-duration:1.65s}
+      @keyframes fitness-data-sheen{
+        0%,14%{left:-34%;opacity:0}
+        24%{opacity:.08}
+        50%{opacity:.5}
+        74%{opacity:.10}
+        86%,100%{left:116%;opacity:0}
+      }
+      @media(prefers-reduced-motion:reduce){
+        :host([fitness-motion]) *{animation:none!important}
+      }
+    `;
+    root.appendChild(style);
+  }
+
+  _ensureChartTracer(card, root, index = 0) {
+    const svgLines = Array.from(root?.querySelectorAll?.("svg polyline.actual-line,svg .actual-line,svg polyline:not(.trend-line):not(.cursor-line)") || []);
+    const line = svgLines.find((candidate) => Number(candidate.getTotalLength?.() || 0) > 10);
+    if (!line) return;
+    const svg = line.ownerSVGElement;
+    if (!svg || svg.querySelector(".fitness-motion-tracer")) return;
+    // A moving SVG marker must never enlarge the browser's scrollable area at
+    // the final data point. Keep the tracer painted inside the chart viewport.
+    svg.style.overflow = "hidden";
+    svg.style.overflowClipMargin = "0px";
+    let motionPath = "";
+    if (String(line.tagName || "").toLowerCase() === "polyline") {
+      const points = String(line.getAttribute("points") || "").trim().split(/\s+/).filter(Boolean);
+      if (points.length > 1) motionPath = `M ${points[0]} L ${points.slice(1).join(" L ")}`;
+    } else {
+      motionPath = String(line.getAttribute("d") || "");
+    }
+    if (!motionPath) return;
+    const live = this.hasAttribute("fitness-live-ambient");
+    const duration = (live ? 1.8 + (index % 3) * .17 : 3.2 + (index % 4) * .26).toFixed(2);
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("class", "fitness-motion-tracer");
+    circle.setAttribute("r", live ? "2.1" : "1.7");
+    circle.setAttribute("fill", "var(--primary-color)");
+    circle.setAttribute("stroke", "var(--card-background-color)");
+    circle.setAttribute("stroke-width", ".8");
+    circle.setAttribute("opacity", ".95");
+    circle.style.filter = "drop-shadow(0 0 3px color-mix(in srgb,var(--primary-color) 72%,transparent))";
+    circle.style.pointerEvents = "none";
+    const animateMotion = document.createElementNS("http://www.w3.org/2000/svg", "animateMotion");
+    animateMotion.setAttribute("path", motionPath);
+    animateMotion.setAttribute("dur", `${duration}s`);
+    animateMotion.setAttribute("repeatCount", "indefinite");
+    animateMotion.setAttribute("calcMode", "linear");
+    circle.appendChild(animateMotion);
+    svg.appendChild(circle);
+  }
+
+  _animateCardStateRefresh(card) {
+    if (!this._motionEnabled()) return;
+    const values = this._cardMotionElements(card, ".live-metric strong,.metric strong,.score strong,.hero strong,.value strong,.current strong").slice(0, 10);
+    values.forEach((value, index) => {
+      const animation = value.animate([
+        {transform:"translateY(2px) scale(.94)", opacity:.58, filter:"brightness(.94)"},
+        {transform:"translateY(-1px) scale(1.055)", opacity:1, filter:"brightness(1.16)", offset:.68},
+        {transform:"translateY(0) scale(1)", opacity:1, filter:"brightness(1)"},
+      ], {duration:320, delay:index * 24, easing:"cubic-bezier(.16,1,.3,1)"});
+      this._finishTransientMotion(animation);
+    });
+  }
+
+  _armCardMotionObservers(card, index = 0) {
+    for (const observer of card.__fitnessMotionObservers || []) { try { observer?.disconnect?.(); } catch (_err) {} }
+    card.__fitnessMotionObservers = [];
+    if (!this._motionEnabled() || typeof MutationObserver === "undefined") return;
+    const rebind = () => {
+      if (!this._motionEnabled()) return;
+      if (card.__fitnessMotionRebindTimer) clearTimeout(card.__fitnessMotionRebindTimer);
+      card.__fitnessMotionRebindTimer = setTimeout(() => {
+        for (const observer of card.__fitnessMotionObservers || []) { try { observer?.disconnect?.(); } catch (_err) {} }
+        card.__fitnessMotionObservers = [];
+        for (const animation of card.__fitnessLivingAnimations || []) { try { animation?.cancel?.(); } catch (_err) {} }
+        card.__fitnessLivingAnimations = [];
+        card.__fitnessLivingMotion = false;
+        card.__fitnessLivingMode = "";
+        this._ensureCardLivingMotion(card, index);
+        this._animateCardStateRefresh(card);
+      }, 72);
+    };
+    for (const root of this._cardMotionRoots(card)) {
+      const observer = new MutationObserver((mutations) => {
+        const meaningful = mutations.some((mutation) => {
+          const changed = [...(mutation.addedNodes || []), ...(mutation.removedNodes || [])];
+          return changed.some((node) => {
+            if (node?.nodeType !== 1) return true;
+            if (node.matches?.("style[data-fitness-motion-skin],.fitness-motion-tracer")) return false;
+            return true;
+          });
+        });
+        if (meaningful) rebind();
+      });
+      observer.observe(root, {childList:true, subtree:false});
+      card.__fitnessMotionObservers.push(observer);
+    }
+  }
+
+  _ensureCardLivingMotion(card, index = 0) {
+    if (!this._motionEnabled()) return;
+    const roots = this._cardMotionRoots(card);
+    if (!roots.length) return;
+    const live = this.hasAttribute("fitness-live-ambient");
+    const mode = live ? `live:${this.getAttribute("fitness-workout-zone") || "light"}` : "idle";
+    const skinPresent = roots.every((root) => root.querySelector?.("style[data-fitness-motion-skin]"));
+    const activeAnimations = (card.__fitnessLivingAnimations || []).some((animation) => animation?.playState === "running");
+    if (card.__fitnessLivingMotion && card.__fitnessLivingMode === mode && skinPresent && activeAnimations) return;
+    for (const animation of card.__fitnessLivingAnimations || []) { try { animation?.cancel?.(); } catch (_err) {} }
+    card.__fitnessLivingAnimations = [];
+    card.__fitnessLivingMotion = true;
+    card.__fitnessLivingMode = mode;
+    card.toggleAttribute("fitness-motion", true);
+    card.toggleAttribute("fitness-motion-live", live);
+    for (const root of roots) this._installCardMotionSkin(card, root);
+
+    const icons = this._cardMotionElements(card, ".title ha-icon,.card-title ha-icon,.composite-icon ha-icon,.live-head>ha-icon,.icon ha-icon,.entity-link ha-icon,.metric ha-icon,.summary-item ha-icon,ha-icon").slice(0, 12);
+    icons.forEach((icon, iconIndex) => {
+      const name = String(icon.getAttribute?.("icon") || "").toLowerCase();
+      const duration = (live ? 1350 : 2600) + (iconIndex % 5) * 130;
+      let frames;
+      if (/heart|pulse|cardio/.test(name)) {
+        frames = [
+          {transform:"scale(1)",filter:"brightness(1)"},
+          {transform:"scale(1.16)",filter:"brightness(1.26)",offset:.18},
+          {transform:"scale(.98)",filter:"brightness(1.04)",offset:.34},
+          {transform:"scale(1.08)",filter:"brightness(1.16)",offset:.48},
+          {transform:"scale(1)",filter:"brightness(1)"},
+        ];
+      } else if (/run|walk|shoe|bike|bicycle|rowing|swim|motion/.test(name)) {
+        frames = [
+          {transform:"translate3d(-1px,0,0) rotate(-2deg) scale(1)"},
+          {transform:`translate3d(${live ? 4 : 2.5}px,-2px,0) rotate(3deg) scale(${live ? 1.11 : 1.07})`,filter:"brightness(1.16)",offset:.5},
+          {transform:"translate3d(-1px,0,0) rotate(-2deg) scale(1)",filter:"brightness(1)"},
+        ];
+      } else if (/sleep|bed|moon|weather-night/.test(name)) {
+        frames = [
+          {transform:"translate3d(0,1px,0) rotate(-1deg) scale(1)",opacity:.92},
+          {transform:"translate3d(0,-3px,0) rotate(2deg) scale(1.07)",opacity:1,filter:"brightness(1.12)",offset:.5},
+          {transform:"translate3d(0,1px,0) rotate(-1deg) scale(1)",opacity:.92,filter:"brightness(1)"},
+        ];
+      } else if (/flash|lightning|fire|battery|power/.test(name)) {
+        frames = [
+          {transform:"scale(.98)",filter:"brightness(.94) drop-shadow(0 0 0 transparent)",opacity:.85},
+          {transform:"scale(1.11)",filter:"brightness(1.32) drop-shadow(0 0 5px currentColor)",opacity:1,offset:.42},
+          {transform:"scale(1)",filter:"brightness(1) drop-shadow(0 0 0 transparent)",opacity:.92},
+        ];
+      } else {
+        frames = [
+          {transform:"translate3d(0,0,0) scale(1)",filter:"brightness(1)"},
+          {transform:`translate3d(0,${live ? -2.6 : -1.5}px,0) scale(${live ? 1.095 : 1.055})`,filter:"brightness(1.12)",offset:.5},
+          {transform:"translate3d(0,0,0) scale(1)",filter:"brightness(1)"},
+        ];
+      }
+      const animation = icon.animate(frames, {duration,delay:-(index * 130 + iconIndex * 270),iterations:Infinity,easing:"cubic-bezier(.45,.05,.55,.95)"});
+      this._trackCardAnimation(card, animation);
+    });
+
+    // Values are the primary living surface. Each gets a staggered micro-motion
+    // instead of moving the entity row/card that contains it.
+    const values = this._cardMotionElements(card, [
+      ".live-metric strong", ".metric strong", ".sleep-summary-metric strong",
+      ".summary-item strong", ".strength-row strong", ".signal strong",
+      ".legend-row strong", ".legend-row .pct", ".score strong", ".hero strong",
+      ".current strong", ".value strong", ".hi-value", ".metric-value",
+      "[data-fitness-value]",
+    ].join(",")).slice(0, 30);
+    values.forEach((value, valueIndex) => {
+      const owner = value.closest?.(".entity-link,.live-metric,.metric,.sleep-summary-metric,.summary-item,.strength-row,.signal,.legend-row,.score,.hero,.current,.value") || value.parentElement;
+      const iconName = String(owner?.querySelector?.("ha-icon")?.getAttribute?.("icon") || "").toLowerCase();
+      const stateText = String(owner?.textContent || value.textContent || "").trim().toLowerCase();
+      const rawValue = String(value.textContent || "").trim().toLowerCase();
+      const numeric = Number.parseFloat(rawValue.replace(",", "."));
+      const dormant = Number.isFinite(numeric) && Math.abs(numeric) < .0001 && !live;
+      let semantic = "value";
+      if (/heart|pulse|cardio|bpm|heart rate|heartrate/.test(`${iconName} ${stateText}`)) semantic = "heart";
+      else if (/run|walk|shoe|bike|bicycle|rowing|swim|speed|pace|cadence|km\/h|min\/km/.test(`${iconName} ${stateText}`)) semantic = "motion";
+      else if (/sleep|bed|moon|recovery|rest|hrv/.test(`${iconName} ${stateText}`)) semantic = "recovery";
+      else if (/flash|lightning|fire|battery|power|load|calor|energy|watt/.test(`${iconName} ${stateText}`)) semantic = "energy";
+      else if (/%|score|vo2|max|readiness|fitness|progress/.test(stateText)) semantic = "score";
+      else if (/time|duration|timer|hour|minute|second|\bms\b/.test(`${iconName} ${stateText}`)) semantic = "time";
+      else if (/ready|active|connected|on\b|available|good|optimal/.test(stateText)) semantic = "status";
+      const duration = (live ? 1500 : 2850) + (valueIndex % 5) * 125;
+      let frames;
+      if (dormant) {
+        frames = [
+          {transform:"scale(1)",opacity:.82,filter:"brightness(.94)"},
+          {transform:"scale(1.012)",opacity:.92,filter:"brightness(1.01)",offset:.5},
+          {transform:"scale(1)",opacity:.82,filter:"brightness(.94)"},
+        ];
+      } else if (semantic === "heart") {
+        frames = [
+          {transform:"scale(1)",filter:"brightness(1)"},
+          {transform:`scale(${live ? 1.085 : 1.052})`,filter:"brightness(1.22)",offset:.16},
+          {transform:"scale(.992)",filter:"brightness(1.04)",offset:.29},
+          {transform:`scale(${live ? 1.045 : 1.026})`,filter:"brightness(1.12)",offset:.42},
+          {transform:"scale(1)",filter:"brightness(1)"},
+        ];
+      } else if (semantic === "motion") {
+        frames = [
+          {transform:"translate3d(-.8px,0,0) scale(.997)",filter:"brightness(.98)"},
+          {transform:`translate3d(${live ? 2.8 : 1.5}px,-1px,0) scale(${live ? 1.04 : 1.022})`,filter:"brightness(1.14)",offset:.5},
+          {transform:"translate3d(-.8px,0,0) scale(.997)",filter:"brightness(.98)"},
+        ];
+      } else if (semantic === "recovery") {
+        frames = [
+          {transform:"translateY(.7px) scale(.994)",opacity:.9,filter:"brightness(.97)"},
+          {transform:`translateY(${live ? -1.8 : -1.15}px) scale(${live ? 1.035 : 1.018})`,opacity:1,filter:"brightness(1.09)",offset:.5},
+          {transform:"translateY(.7px) scale(.994)",opacity:.9,filter:"brightness(.97)"},
+        ];
+      } else if (semantic === "energy") {
+        frames = [
+          {transform:"scale(.992)",filter:"brightness(.94) saturate(.98) drop-shadow(0 0 0 transparent)",opacity:.9},
+          {transform:`scale(${live ? 1.055 : 1.03})`,filter:"brightness(1.24) saturate(1.12) drop-shadow(0 0 4px color-mix(in srgb,var(--primary-color) 48%,transparent))",opacity:1,offset:.43},
+          {transform:"scale(1)",filter:"brightness(1) saturate(1) drop-shadow(0 0 0 transparent)",opacity:.95},
+        ];
+      } else if (semantic === "score") {
+        frames = [
+          {transform:"translateY(0) scale(.996)",filter:"brightness(.98)"},
+          {transform:`translateY(${live ? -2 : -1.15}px) scale(${live ? 1.052 : 1.026})`,filter:"brightness(1.15) saturate(1.08)",offset:.48},
+          {transform:"translateY(0) scale(1)",filter:"brightness(1) saturate(1)"},
+        ];
+      } else if (semantic === "time") {
+        frames = [
+          {transform:"translateY(0)",opacity:.9},
+          {transform:`translateY(${live ? -1.6 : -.8}px)`,opacity:1,filter:"brightness(1.12)",offset:.46},
+          {transform:"translateY(0)",opacity:.9,filter:"brightness(1)"},
+        ];
+      } else if (semantic === "status") {
+        frames = [
+          {transform:"scale(.995)",filter:"brightness(.98) drop-shadow(0 0 0 transparent)",opacity:.88},
+          {transform:`scale(${live ? 1.045 : 1.022})`,filter:"brightness(1.16) drop-shadow(0 0 4px color-mix(in srgb,var(--primary-color) 38%,transparent))",opacity:1,offset:.5},
+          {transform:"scale(.995)",filter:"brightness(.98) drop-shadow(0 0 0 transparent)",opacity:.88},
+        ];
+      } else {
+        const variant = valueIndex % 3;
+        frames = variant === 0 ? [
+          {transform:"translateY(0) scale(1)",filter:"brightness(1)",opacity:.94},
+          {transform:`translateY(${live ? -1.9 : -1}px) scale(${live ? 1.045 : 1.023})`,filter:"brightness(1.13)",opacity:1,offset:.5},
+          {transform:"translateY(0) scale(1)",filter:"brightness(1)",opacity:.94},
+        ] : variant === 1 ? [
+          {transform:"scale(1)",filter:"brightness(.98) saturate(.98)"},
+          {transform:`scale(${live ? 1.042 : 1.021})`,filter:"brightness(1.11) saturate(1.06)",offset:.54},
+          {transform:"scale(1)",filter:"brightness(.98) saturate(.98)"},
+        ] : [
+          {transform:"translateX(0)",filter:"drop-shadow(0 0 0 transparent) brightness(1)"},
+          {transform:`translateX(${live ? 1.5 : .8}px)`,filter:"drop-shadow(0 0 3px color-mix(in srgb,var(--primary-color) 34%,transparent)) brightness(1.1)",offset:.5},
+          {transform:"translateX(0)",filter:"drop-shadow(0 0 0 transparent) brightness(1)"},
+        ];
+      }
+      const animation = value.animate(frames, {duration,delay:-(valueIndex * 223 + index * 137),iterations:Infinity,easing:"ease-in-out"});
+      this._trackCardAnimation(card, animation);
+    });
+
+    // Bar/fill elements get a subtle charge motion of their own. The container
+    // never moves, so this reads as live data rather than a floating section.
+    const fills = this._cardMotionElements(card, ".bar,.load-fill,.progress-fill,.score-fill,.zone-fill,[data-fitness-bar]").slice(0, 18);
+    fills.forEach((fill, fillIndex) => {
+      const rect = fill.getBoundingClientRect?.();
+      const vertical = Number(rect?.height || 0) > Number(rect?.width || 0) * 1.15;
+      fill.style.transformOrigin = vertical ? "center bottom" : "left center";
+      const animation = fill.animate(vertical ? [
+        {transform:"scaleY(1)",filter:"brightness(.98)"},
+        {transform:`scaleY(${live ? 1.055 : 1.025})`,filter:"brightness(1.14)",offset:.48},
+        {transform:"scaleY(1)",filter:"brightness(.98)"},
+      ] : [
+        {transform:"scaleX(1)",filter:"brightness(.98)"},
+        {transform:`scaleX(${live ? 1.025 : 1.012})`,filter:"brightness(1.14)",offset:.48},
+        {transform:"scaleX(1)",filter:"brightness(.98)"},
+      ], {duration:(live ? 1500 : 2850)+(fillIndex%4)*160,delay:-(fillIndex*251),iterations:Infinity,easing:"ease-in-out"});
+      this._trackCardAnimation(card, animation);
+    });
+
+    const sheenTargets = this._cardMotionElements(card, ".axis,.progress,.baseline-scale,.load-scale").slice(0, 12);
+    sheenTargets.forEach((element, targetIndex) => {
+      element.style.setProperty("--fitness-motion-sheen-delay", `${-(targetIndex * .31 + index * .17).toFixed(2)}s`);
+      const pulse = element.animate([
+        {filter:"brightness(.96) saturate(.98)", opacity:.94},
+        {filter:`brightness(${live ? 1.17 : 1.09}) saturate(${live ? 1.12 : 1.04})`, opacity:1, offset:.48},
+        {filter:"brightness(.96) saturate(.98)", opacity:.94},
+      ], {duration:(live ? 1450 : 2250) + targetIndex * 80, delay:-(targetIndex * 280), iterations:Infinity, easing:"ease-in-out"});
+      this._trackCardAnimation(card, pulse);
+    });
+
+    for (const marker of this._cardMotionElements(card, ".current-marker,.baseline-marker,.vo2-marker,.cursor-dot")) {
+      const markerPulse = marker.animate([
+        {filter:"brightness(1) drop-shadow(0 0 0 transparent)", opacity:.84},
+        {filter:"brightness(1.42) drop-shadow(0 0 5px currentColor)", opacity:1, offset:.44},
+        {filter:"brightness(1) drop-shadow(0 0 0 transparent)", opacity:.84},
+      ], {duration:live ? 1100 : 1850, delay:-(index * 220), iterations:Infinity, easing:"ease-in-out"});
+      this._trackCardAnimation(card, markerPulse);
+    }
+
+    for (const pie of this._cardMotionElements(card, ".donut,.pie,.pie-chart,[class*='donut']")) {
+      const pieBreath = pie.animate([
+        {transform:"scale(1)", filter:"brightness(1) saturate(1)"},
+        {transform:`scale(${live ? 1.04 : 1.024})`, filter:`brightness(${live ? 1.12 : 1.06}) saturate(${live ? 1.14 : 1.06})`, offset:.5},
+        {transform:"scale(1)", filter:"brightness(1) saturate(1)"},
+      ], {duration:live ? 1650 : 2550, delay:-(index * 250), iterations:Infinity, easing:"ease-in-out"});
+      this._trackCardAnimation(card, pieBreath);
+    }
+
+    for (const line of this._cardMotionElements(card, "svg .actual-line,svg .trend-line,svg polyline:not(.cursor-line)")) {
+      const linePulse = line.animate([
+        {filter:"drop-shadow(0 0 0 transparent)", opacity:.82},
+        {filter:`drop-shadow(0 0 ${live ? 4.5 : 2.5}px color-mix(in srgb,var(--primary-color) ${live ? 78 : 50}%,transparent))`, opacity:1, offset:.5},
+        {filter:"drop-shadow(0 0 0 transparent)", opacity:.82},
+      ], {duration:live ? 1350 : 2150, delay:-(index * 290), iterations:Infinity, easing:"ease-in-out"});
+      this._trackCardAnimation(card, linePulse);
+    }
+    roots.forEach((root, rootIndex) => this._ensureChartTracer(card, root, index + rootIndex));
+    this._armCardMotionObservers(card, index);
+  }
+
+  _animateRemoteSectionInterior(section, active = false) {
+    if (!section || !this._motionEnabled()) return;
+    const card = section.querySelector?.(".tv-mounted-card");
+    if (card) {
+      this._animateCardContents(card, 0, active ? "remote-active" : "remote-select");
+      const accents = this._cardMotionElements(card, ".live-metric strong,.metric strong,.sleep-summary-metric strong,.summary-item strong,.strength-row strong,.signal strong,.legend-row strong,.legend-row .pct,.hero strong,.score strong,.current-marker,.baseline-marker,.vo2-marker,.donut,.pie,.progress-fill,.load-fill,ha-icon").slice(0, 16);
+      accents.forEach((element, index) => {
+        const animation = element.animate([
+          {transform:"translate3d(0,0,0) scale(1)", filter:"brightness(1)"},
+          {transform:`translate3d(0,-${active ? 2.5 : 1.5}px,0) scale(${active ? 1.09 : 1.055})`, filter:"brightness(1.18)", offset:.58},
+          {transform:"translate3d(0,0,0) scale(1)", filter:"brightness(1)"},
+        ], {duration:360, delay:index * 28, easing:"cubic-bezier(.16,1,.3,1)"});
+        this._finishTransientMotion(animation);
+      });
+      return;
+    }
+    const targets = Array.from(section.querySelectorAll?.("button,.tv-brand,.tv-profile-identity,.media-art,.media-copy,.media-progress-wrap") || []).filter((element) => !element.hidden).slice(0, 10);
+    targets.forEach((element, index) => {
+      const animation = element.animate([
+        {opacity:.72, transform:"translateY(7px) scale(.92)", filter:"brightness(.92)"},
+        {opacity:1, transform:"translateY(-2px) scale(1.06)", filter:"brightness(1.13)", offset:.7},
+        {opacity:1, transform:"translateY(0) scale(1)", filter:"brightness(1)"},
+      ], {duration:360, delay:index * 34, easing:"cubic-bezier(.16,1,.3,1)"});
+      this._finishTransientMotion(animation);
+    });
   }
 
   _previewTvScale(value) {
@@ -6846,6 +7489,24 @@ class FitnessTvDashboardCard extends HTMLElement {
         tv_scale_percent:scale,
       }).catch(() => {});
     }, 140);
+  }
+
+  async _toggleProfileTvPreference(key) {
+    if (!this._profile?.entry_id || !this._hass || !this._canControlProfile) return;
+    if (!["light_feedback_enabled", "tts_announcements_enabled"].includes(String(key))) return;
+    const current = this._profile?.tv_dashboard?.[key] !== false;
+    try {
+      const result = await this._hass.callWS({
+        type:"fitness/tv/preferences/save",
+        profile_entry_id:this._profile.entry_id,
+        [key]:!current,
+      });
+      this._profile.tv_dashboard ||= {};
+      this._profile.tv_dashboard[key] = Boolean(result?.[key] ?? !current);
+      this._render();
+    } catch (err) {
+      console.error("[Fitness TV] preference toggle failed", key, err);
+    }
   }
 
   async _openProfileConfigure() {
@@ -6904,7 +7565,7 @@ class FitnessTvDashboardCard extends HTMLElement {
           <label class="setting-range"><span><strong>${_fitnessEscape(l.tts_ducking || "TTS music ducking")}</strong><small>${_fitnessEscape(l.tts_ducking_hint || "Music volume while Fitness speaks.")}</small></span><input id="cfg-duck" type="range" min="0" max="100" step="5" value="${duck}"><output id="cfg-duck-value">${duck}%</output></label>
           <label class="setting-range"><span><strong>${_fitnessEscape(l.tv_scale || "TV card scale")}</strong><small>${_fitnessEscape(l.tv_scale_hint || "Smaller values fit more information on the TV.")}</small></span><input id="cfg-scale" type="range" min="10" max="150" step="5" value="${scale}"><output id="cfg-scale-value">${scale}%</output></label>
           <label class="setting-toggle"><span><strong>${_fitnessEscape(l.ignore_lights_when_cast_active || "Ignore workout lights while TV Cast is active")}</strong><small>${_fitnessEscape(l.ignore_lights_when_cast_active_hint || "When Fitness TV is alive, use the TV for workout feedback and leave your room lights untouched.")}</small></span><input id="cfg-ignore-lights" type="checkbox" ${ignoreLightsWhenCastActive ? "checked" : ""}></label>
-          <label class="setting-toggle"><span><strong>${_fitnessEscape(l.dashboard_animations || "Living dashboard animations")}</strong><small>${_fitnessEscape(l.dashboard_animations_hint || "Animate the background, cards and status surfaces. During live workouts the motion becomes more energetic and follows your intensity zone.")}</small></span><input id="cfg-animations" type="checkbox" ${animations ? "checked" : ""}></label>
+          <label class="setting-toggle"><span><strong>${_fitnessEscape(l.dashboard_animations || "Living dashboard animations")}</strong><small>${_fitnessEscape(l.dashboard_animations_hint || "Animate values, charts, icons and data surfaces. During live workouts the motion becomes more energetic and follows your intensity zone.")}</small></span><input id="cfg-animations" type="checkbox" ${animations ? "checked" : ""}></label>
           <label class="setting-toggle"><span><strong>${_fitnessEscape(l.oled_protection || "OLED protection")}</strong><small>${_fitnessEscape(l.oled_protection_hint || "Periodically shifts the dashboard and dims the static toolbar when idle.")}</small></span><input id="cfg-oled" type="checkbox" ${oled ? "checked" : ""}></label>
         </div>
         <div class="settings-actions"><button class="tool" id="cfg-save"><ha-icon icon="mdi:content-save-outline"></ha-icon><span>${_fitnessEscape(l.save || "Save")}</span></button><span class="settings-status" id="cfg-status"></span></div>
@@ -7498,9 +8159,17 @@ class FitnessTvDashboardCard extends HTMLElement {
     const active = Boolean(this._localCastActive || this._localCastServerActive || this._localCastSessionActive());
     const anyCastActive = FITNESS_TV_CAST_RECEIVER || active || this._refreshCastUiState();
     const toolbarStop = this.shadowRoot?.getElementById("stop-cast");
-    if (toolbarStop) { toolbarStop.hidden = !anyCastActive; toolbarStop.disabled = !anyCastActive; }
-    const modalStop = this.shadowRoot?.getElementById("modal-root")?.querySelector?.("#cast-local-stop");
-    if (modalStop) modalStop.disabled = !active;
+    if (toolbarStop) { toolbarStop.hidden = !FITNESS_TV_CAST_RECEIVER || !anyCastActive; toolbarStop.disabled = !anyCastActive; }
+    const modalRoot = this.shadowRoot?.getElementById("modal-root");
+    const localToggle = modalRoot?.querySelector?.("#cast-local");
+    if (localToggle) {
+      localToggle.querySelector("ha-icon")?.setAttribute("icon", active ? "mdi:cast-off" : "mdi:cast-connected");
+      const label = localToggle.querySelector("span");
+      const l = this._labels();
+      if (label) label.textContent = active ? (l.local_cast_stop || "Stop local Cast") : (l.local_cast_choose || "Choose local TV");
+    }
+    const modalStop = modalRoot?.querySelector?.("#cast-local-stop");
+    if (modalStop) { modalStop.hidden = true; modalStop.disabled = !active; }
   }
 
   async _armLocalCastHandoff(reason = "local_cast_started") {
@@ -7769,13 +8438,16 @@ class FitnessTvDashboardCard extends HTMLElement {
       <div class="modal-card cast-modal">
         <div class="modal-head"><strong>${_fitnessEscape(l.cast_dashboard_title || "Cast Fitness TV")}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
         <div class="cast-picker">
-          ${localCastVisible ? `<section class="cast-section local-cast-section"><div class="cast-section-copy"><ha-icon icon="mdi:wifi-marker"></ha-icon><span><strong>${_fitnessEscape(l.local_cast || "Local network TV")}</strong><small>${_fitnessEscape(l.local_cast_hint || "Use this phone/laptop to choose a Google Cast TV on its current Wi-Fi network, even when Home Assistant is elsewhere.")}</small></span></div><div class="cast-section-actions"><button class="tool cast-now" id="cast-local" disabled><ha-icon icon="mdi:cast-connected"></ha-icon><span>${_fitnessEscape(l.local_cast_choose || "Choose local TV")}</span></button><button class="tool" id="cast-local-stop" ${(this._localCastActive || this._localCastServerActive || this._localCastSessionActive()) ? "" : "disabled"}><ha-icon icon="mdi:cast-off"></ha-icon><span>${_fitnessEscape(l.local_cast_stop || "Stop local Cast")}</span></button></div></section>` : ""}
-          <section class="cast-section ha-cast-section"><div class="cast-section-copy"><ha-icon icon="mdi:home-assistant"></ha-icon><span><strong>${_fitnessEscape(l.cast_ha_devices || "Home Assistant network devices")}</strong><small>${_fitnessEscape(l.cast_ha_devices_hint || "TVs discovered by the Home Assistant server itself.")}</small></span></div>${ordered.length ? `<label class="cast-target-control"><span>${_fitnessEscape(l.cast_to || "Cast to")}</span><select id="cast-target">${options}</select></label><div class="cast-section-actions"><button class="tool cast-now" id="cast-now"><ha-icon icon="mdi:cast-connected"></ha-icon><span>${_fitnessEscape(l.cast_now || "Cast now")}</span></button><button class="tool cast-stop" id="cast-stop" ${haCastActive ? "" : "hidden"}><ha-icon icon="mdi:cast-off"></ha-icon><span>${_fitnessEscape(l.cast_stop || "Stop Cast")}</span></button></div>` : `<div class="browser-empty">${_fitnessEscape(l.cast_no_targets || "No Google Cast displays are available to Home Assistant.")}</div>`}</section>
+          ${localCastVisible ? `<section class="cast-section local-cast-section"><div class="cast-section-copy"><ha-icon icon="mdi:wifi-marker"></ha-icon><span><strong>${_fitnessEscape(l.local_cast || "Local network TV")}</strong><small>${_fitnessEscape(l.local_cast_hint || "Use this phone/laptop to choose a Google Cast TV on its current Wi-Fi network, even when Home Assistant is elsewhere.")}</small></span></div><div class="cast-section-actions"><button class="tool cast-now" id="cast-local" disabled><ha-icon icon="${(this._localCastActive || this._localCastServerActive || this._localCastSessionActive()) ? "mdi:cast-off" : "mdi:cast-connected"}"></ha-icon><span>${_fitnessEscape((this._localCastActive || this._localCastServerActive || this._localCastSessionActive()) ? (l.local_cast_stop || "Stop local Cast") : (l.local_cast_choose || "Choose local TV"))}</span></button><button class="tool" id="cast-local-stop" hidden><ha-icon icon="mdi:cast-off"></ha-icon><span>${_fitnessEscape(l.local_cast_stop || "Stop local Cast")}</span></button></div></section>` : ""}
+          <section class="cast-section ha-cast-section"><div class="cast-section-copy"><ha-icon icon="mdi:home-assistant"></ha-icon><span><strong>${_fitnessEscape(l.cast_ha_devices || "Home Assistant network devices")}</strong><small>${_fitnessEscape(l.cast_ha_devices_hint || "TVs discovered by the Home Assistant server itself.")}</small></span></div>${ordered.length ? `<label class="cast-target-control"><span>${_fitnessEscape(l.cast_to || "Cast to")}</span><select id="cast-target">${options}</select></label><div class="cast-section-actions"><button class="tool cast-now" id="cast-now"><ha-icon icon="${haCastActive && String(this._activeCastTarget || "") === String(selectedTarget?.entity_id || "") ? "mdi:cast-off" : "mdi:cast-connected"}"></ha-icon><span>${_fitnessEscape(haCastActive && String(this._activeCastTarget || "") === String(selectedTarget?.entity_id || "") ? (l.cast_stop || "Stop Cast") : (l.cast_now || "Cast now"))}</span></button><button class="tool cast-stop" id="cast-stop" hidden><ha-icon icon="mdi:cast-off"></ha-icon><span>${_fitnessEscape(l.cast_stop || "Stop Cast")}</span></button></div>` : `<div class="browser-empty">${_fitnessEscape(l.cast_no_targets || "No Google Cast displays are available to Home Assistant.")}</div>`}</section>
           <div class="cast-status" id="cast-status" aria-live="polite"></div>
         </div>
       </div>`);
     const root = this.shadowRoot?.getElementById("modal-root");
-    root?.querySelector("#cast-local")?.addEventListener("click", () => void this._castLocalDashboard());
+    root?.querySelector("#cast-local")?.addEventListener("click", () => {
+      if (this._localCastActive || this._localCastServerActive || this._localCastSessionActive()) void this._stopLocalCast();
+      else void this._castLocalDashboard();
+    });
     root?.querySelector("#cast-local-stop")?.addEventListener("click", () => void this._stopLocalCast());
     if (localCastVisible) {
       const localButton = root?.querySelector("#cast-local");
@@ -7788,7 +8460,18 @@ class FitnessTvDashboardCard extends HTMLElement {
         if (status) status.textContent = String(err?.message || err || l.local_cast_unsupported || "Google Cast is not available in this browser.");
       });
     }
-    root?.querySelector("#cast-now")?.addEventListener("click", () => this._castDashboard(root.querySelector("#cast-target")?.value || ""));
+    root?.querySelector("#cast-now")?.addEventListener("click", () => {
+      const target = String(root.querySelector("#cast-target")?.value || "");
+      if (this._serverCastActive && target && target === String(this._activeCastTarget || "")) void this._stopCastDashboard(target);
+      else void this._castDashboard(target);
+    });
+    root?.querySelector("#cast-target")?.addEventListener("change", () => {
+      const target = String(root.querySelector("#cast-target")?.value || "");
+      const button = root.querySelector("#cast-now");
+      const stopping = Boolean(this._serverCastActive && target && target === String(this._activeCastTarget || ""));
+      button?.querySelector("ha-icon")?.setAttribute("icon", stopping ? "mdi:cast-off" : "mdi:cast-connected");
+      const span = button?.querySelector("span"); if (span) span.textContent = stopping ? (l.cast_stop || "Stop Cast") : (l.cast_now || "Cast now");
+    });
     root?.querySelector("#cast-stop")?.addEventListener("click", () => this._stopCastDashboard(String(this._activeCastTarget || root.querySelector("#cast-target")?.value || "")));
   }
 
@@ -7871,7 +8554,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       this._loaded = false;
     });
     host.replaceChildren(flow);
-    flow.start({mode, entryId, profileName, uiLabels:this._labels()});
+    flow.start({mode, entryId, profileName, uiLabels:this._labels(), language:String(this._profile?.language || this._access?.language || this._hass?.language || "en")});
   }
 
   _openCardPicker() {
@@ -8069,7 +8752,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     const region = String(code || "").trim().toUpperCase();
     if (!region) return "";
     try {
-      const language = String(this._hass?.language || navigator.language || "en").replace("_", "-");
+      const language = String(this._profile?.language || this._access?.language || this._hass?.language || navigator.language || "en").replace("_", "-");
       const names = new Intl.DisplayNames([language], {type:"region"});
       return names.of(region) || region;
     } catch (_err) {
@@ -8078,7 +8761,7 @@ class FitnessTvDashboardCard extends HTMLElement {
   }
 
   _sortedRadioCountries() {
-    const language = String(this._hass?.language || navigator.language || "en").replace("_", "-");
+    const language = String(this._profile?.language || this._access?.language || this._hass?.language || navigator.language || "en").replace("_", "-");
     let collator = null;
     try { collator = new Intl.Collator([language], {sensitivity:"base", numeric:true}); } catch (_err) {}
     return [...(this._radioCountries || [])]
@@ -9045,10 +9728,17 @@ class FitnessTvDashboardCard extends HTMLElement {
     if (pause) pause.disabled = !playing;
     const serverCastActive = this._refreshCastUiState();
     const localCastActive = Boolean(this._localCastActive || this._localCastServerActive || this._localCastSessionActive());
+    const anyCastActive = serverCastActive || localCastActive;
+    const castToggle = this.shadowRoot?.getElementById("cast");
+    if (castToggle) {
+      castToggle.querySelector("ha-icon")?.setAttribute("icon", anyCastActive ? "mdi:cast-off" : "mdi:cast");
+      const castLabel = castToggle.querySelector("span");
+      if (castLabel) castLabel.textContent = anyCastActive ? (l.cast_stop || "Stop Cast") : (l.cast_dashboard || "Cast");
+      castToggle.title = anyCastActive ? (l.cast_stop || "Stop Cast") : (l.cast_dashboard || "Cast");
+    }
     const stopCast = this.shadowRoot?.getElementById("stop-cast");
     if (stopCast) {
-      const anyCastActive = serverCastActive || localCastActive;
-      stopCast.hidden = !anyCastActive;
+      stopCast.hidden = !FITNESS_TV_CAST_RECEIVER || !anyCastActive;
       stopCast.disabled = !anyCastActive;
     }
     const modalHaStop = this.shadowRoot?.getElementById("modal-root")?.querySelector?.("#cast-stop");
@@ -9065,7 +9755,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       :host([fitness-cast-receiver]) ha-card.tv-shell{width:100%;min-height:100%;margin:0}
       *{box-sizing:border-box}
       ha-card.tv-shell{min-height:0;width:100%;border:0;border-radius:0;box-shadow:none;background:var(--fitness-tv-ambient,var(--primary-background-color));padding:14px;overflow:visible;transition:background .8s ease;position:relative;isolation:isolate}
-      .fitness-ambient-layer{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;opacity:.86;transition:opacity .8s ease,filter .8s ease}.fitness-ambient-layer i{position:absolute;width:66vmax;height:66vmax;border-radius:50%;filter:blur(48px);background:radial-gradient(circle,rgba(var(--fitness-tv-ambient-rgb,3,169,244),var(--fitness-tv-ambient-core-alpha,.22)) 0%,rgba(var(--fitness-tv-ambient-rgb,3,169,244),var(--fitness-tv-ambient-soft-alpha,.10)) 40%,transparent 72%);will-change:transform}.fitness-ambient-layer i:nth-child(1){left:-24vmax;top:-29vmax}.fitness-ambient-layer i:nth-child(2){right:-30vmax;bottom:-35vmax;opacity:.84}.fitness-ambient-layer i:nth-child(3){left:34%;top:28%;width:46vmax;height:46vmax;opacity:.54}:host([fitness-animations]) .fitness-ambient-layer i:nth-child(1){animation:fitness-ambient-drift-a 14s ease-in-out infinite alternate}:host([fitness-animations]) .fitness-ambient-layer i:nth-child(2){animation:fitness-ambient-drift-b 18s ease-in-out infinite alternate}:host([fitness-animations]) .fitness-ambient-layer i:nth-child(3){animation:fitness-ambient-breathe 9s ease-in-out infinite alternate}:host([fitness-live-ambient]) .fitness-ambient-layer{opacity:1;filter:saturate(1.08)}:host([fitness-live-ambient][fitness-animations]) .fitness-ambient-layer i{animation-duration:calc(var(--fitness-motion-speed,6s) * 1.7)}:host([fitness-live-ambient][fitness-animations]) .fitness-ambient-layer i:nth-child(2){animation-duration:calc(var(--fitness-motion-speed,6s) * 2.1)}:host([fitness-live-ambient][fitness-animations]) .fitness-ambient-layer i:nth-child(3){animation-duration:var(--fitness-motion-speed,6s)}@keyframes fitness-ambient-drift-a{from{transform:translate3d(-4%,-2%,0) scale(.94)}to{transform:translate3d(22%,17%,0) scale(1.12)}}@keyframes fitness-ambient-drift-b{from{transform:translate3d(7%,10%,0) scale(1.04)}to{transform:translate3d(-22%,-15%,0) scale(.91)}}@keyframes fitness-ambient-breathe{from{transform:translate3d(-9%,-5%,0) scale(.84)}to{transform:translate3d(13%,10%,0) scale(1.18)}}
+      .fitness-ambient-layer{position:absolute;inset:-8%;z-index:0;overflow:hidden;pointer-events:none;opacity:.94;transition:opacity .8s ease,filter .8s ease}.fitness-ambient-layer i{position:absolute;border-radius:50%;filter:blur(62px);background:radial-gradient(circle at 44% 40%,rgba(var(--fitness-tv-ambient-rgb,3,169,244),calc(var(--fitness-tv-ambient-core-alpha,.22) * var(--fitness-ambient-flow,.82))) 0%,rgba(var(--fitness-tv-ambient-rgb,3,169,244),var(--fitness-tv-ambient-soft-alpha,.10)) 42%,transparent 74%);will-change:transform,opacity}.fitness-ambient-layer i:nth-child(1){width:74vmax;height:74vmax;left:-31vmax;top:-35vmax}.fitness-ambient-layer i:nth-child(2){width:70vmax;height:70vmax;right:-32vmax;bottom:-38vmax;opacity:.88}.fitness-ambient-layer i:nth-child(3){left:27%;top:18%;width:54vmax;height:54vmax;opacity:.52;background:radial-gradient(circle,rgba(var(--fitness-tv-ambient-rgb,3,169,244),calc(var(--fitness-tv-ambient-soft-alpha,.10) * .88)) 0%,rgba(255,255,255,.025) 44%,transparent 73%)}.fitness-ambient-layer i:nth-child(4){left:9%;bottom:-12vmax;width:72vmax;height:30vmax;border-radius:48%;opacity:.34;filter:blur(78px);background:linear-gradient(108deg,transparent 4%,rgba(var(--fitness-tv-ambient-rgb,3,169,244),calc(var(--fitness-tv-ambient-soft-alpha,.10) * 1.4)) 42%,rgba(255,255,255,.024) 61%,transparent 95%)}:host([fitness-animations]) .fitness-ambient-layer i:nth-child(1){animation:fitness-ambient-drift-a 16s cubic-bezier(.45,.05,.3,.96) infinite alternate}:host([fitness-animations]) .fitness-ambient-layer i:nth-child(2){animation:fitness-ambient-drift-b 20s cubic-bezier(.45,.05,.3,.96) infinite alternate}:host([fitness-animations]) .fitness-ambient-layer i:nth-child(3){animation:fitness-ambient-breathe 10.5s ease-in-out infinite alternate}:host([fitness-animations]) .fitness-ambient-layer i:nth-child(4){animation:fitness-ambient-ribbon 19s ease-in-out infinite alternate}:host([fitness-live-ambient]) .fitness-ambient-layer{opacity:1;filter:saturate(1.1) contrast(1.02)}:host([fitness-live-ambient][fitness-animations]) .fitness-ambient-layer i:nth-child(1){animation-duration:calc(var(--fitness-motion-speed,6s) * 1.85)}:host([fitness-live-ambient][fitness-animations]) .fitness-ambient-layer i:nth-child(2){animation-duration:calc(var(--fitness-motion-speed,6s) * 2.25)}:host([fitness-live-ambient][fitness-animations]) .fitness-ambient-layer i:nth-child(3){animation-duration:calc(var(--fitness-motion-speed,6s) * 1.18)}:host([fitness-live-ambient][fitness-animations]) .fitness-ambient-layer i:nth-child(4){animation-duration:calc(var(--fitness-motion-speed,6s) * 2);opacity:.48}@keyframes fitness-ambient-drift-a{0%{transform:translate3d(-3%,-3%,0) scale(.94);opacity:.72}55%{opacity:1}100%{transform:translate3d(24%,18%,0) scale(1.13);opacity:.82}}@keyframes fitness-ambient-drift-b{0%{transform:translate3d(8%,11%,0) scale(1.05);opacity:.82}100%{transform:translate3d(-25%,-17%,0) scale(.91);opacity:1}}@keyframes fitness-ambient-breathe{0%{transform:translate3d(-10%,-6%,0) scale(.82);opacity:.34}50%{opacity:.62}100%{transform:translate3d(14%,11%,0) scale(1.2);opacity:.4}}@keyframes fitness-ambient-ribbon{0%{transform:translate3d(-12%,4%,0) rotate(-4deg) scaleX(.9);opacity:.22}48%{opacity:.44}100%{transform:translate3d(18%,-12%,0) rotate(5deg) scaleX(1.14);opacity:.3}}
       .tv-toolbar{position:sticky;top:0;z-index:60;display:grid;grid-template-columns:auto minmax(140px,220px) auto minmax(260px,1fr);gap:10px;align-items:center;margin-bottom:12px;padding:10px 12px;border-radius:18px;background:var(--card-background-color);box-shadow:var(--ha-card-box-shadow,0 2px 8px rgba(0,0,0,.12));min-width:0}
       .tv-brand{display:flex;align-items:center;gap:8px;font-size:20px;white-space:nowrap}.tv-brand .fitness-brand-icon{width:30px;height:30px;flex:0 0 30px;object-fit:contain}.tv-brand ha-icon{color:var(--primary-color)}
       :host(:not([fitness-cast-receiver])) .tv-toolbar.fixed-profile{grid-template-columns:auto auto minmax(0,1fr);grid-template-areas:"brand identity actions" "music music music";align-items:center;row-gap:8px}
@@ -9092,17 +9782,24 @@ class FitnessTvDashboardCard extends HTMLElement {
       /* Modern Fitness TV surface: every mounted dashboard card gets the same rounded visual language. */
       .tv-toolbar{border-radius:24px;border:1px solid color-mix(in srgb,var(--divider-color) 74%,transparent);background:color-mix(in srgb,var(--card-background-color) 94%,transparent);box-shadow:0 12px 34px rgba(0,0,0,.14);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
       .tv-card-slot{border-radius:22px;--ha-card-border-radius:22px;--ha-card-border-width:0px;filter:drop-shadow(0 8px 18px rgba(0,0,0,.08))}.tv-card-slot>.tv-mounted-card{border-radius:22px;--ha-card-border-radius:22px;--ha-card-border-width:0px;overflow:hidden}
-      :host([fitness-animations]) .tv-card-slot:not(.fitness-remote-section-selected):not(.fitness-remote-section-active){animation:fitness-card-float 10.5s ease-in-out infinite;animation-delay:var(--fitness-card-delay,0s);will-change:translate,filter}
-      :host([fitness-animations]) .tv-card-slot::after{content:"";position:absolute;inset:-2px;z-index:3;border-radius:24px;pointer-events:none;opacity:.32;box-shadow:0 0 0 1px rgba(var(--fitness-tv-ambient-rgb,3,169,244),.13),0 0 18px rgba(var(--fitness-tv-ambient-rgb,3,169,244),.10);animation:fitness-card-aura 8.5s ease-in-out infinite;animation-delay:var(--fitness-card-delay,0s)}
-      :host([fitness-live-ambient][fitness-animations]) .tv-card-slot:not(.fitness-remote-section-selected):not(.fitness-remote-section-active){animation-duration:var(--fitness-motion-speed,6s)}
-      :host([fitness-live-ambient][fitness-animations]) .tv-card-slot::after{opacity:.72;animation-duration:calc(var(--fitness-motion-speed,6s) * .9);box-shadow:0 0 0 1px rgba(var(--fitness-tv-ambient-rgb,3,169,244),calc(var(--fitness-energy-alpha,.28) * .65)),0 0 25px rgba(var(--fitness-tv-ambient-rgb,3,169,244),var(--fitness-energy-alpha,.28))}
-      :host([fitness-animations]) .tv-toolbar{animation:fitness-toolbar-alive 9s ease-in-out infinite}
-      :host([fitness-live-ambient][fitness-animations]) .tv-toolbar{animation-duration:calc(var(--fitness-motion-speed,6s) * 1.2);box-shadow:0 12px 34px rgba(0,0,0,.14),0 0 22px rgba(var(--fitness-tv-ambient-rgb,3,169,244),calc(var(--fitness-energy-alpha,.28) * .6))}
-      :host([fitness-animations]) .media-art{animation:fitness-media-alive 6.8s ease-in-out infinite}
+      
+      
+      
+      
+      
+      
+      
+      
+      :host([fitness-animations]) .tv-toolbar .tool ha-icon,:host([fitness-animations]) .tv-toolbar .icon-tool ha-icon{animation:fitness-tool-icon-alive 3.9s ease-in-out infinite;transform-origin:center}
+      :host([fitness-animations]) .tv-actions .tool:nth-child(2n) ha-icon,:host([fitness-animations]) .music-button-strip>*:nth-child(2n) ha-icon{animation-delay:-2.1s}
+      :host([fitness-animations]) .tv-actions .tool:nth-child(3n) ha-icon,:host([fitness-animations]) .music-button-strip>*:nth-child(3n) ha-icon{animation-delay:-4.0s}
+      :host([fitness-live-ambient][fitness-animations]) .tv-toolbar .tool ha-icon,:host([fitness-live-ambient][fitness-animations]) .tv-toolbar .icon-tool ha-icon{animation-duration:calc(var(--fitness-motion-speed,6s) * 1.04)}
+      :host([fitness-animations]) .fitness-brand-icon{animation:fitness-brand-breathe 5.4s ease-in-out infinite;transform-origin:center}
+      :host([fitness-animations]) .media-art{animation:fitness-media-alive 4.5s ease-in-out infinite}
       :host([fitness-live-ambient][fitness-animations]) .media-art{animation-duration:calc(var(--fitness-motion-speed,6s) * .82);box-shadow:0 0 16px rgba(var(--fitness-tv-ambient-rgb,3,169,244),var(--fitness-energy-alpha,.28))}
       :host([fitness-live-ambient][fitness-animations]) .media-progress-wrap input{filter:drop-shadow(0 0 5px rgba(var(--fitness-tv-ambient-rgb,3,169,244),.45));animation:fitness-progress-energy calc(var(--fitness-motion-speed,6s) * .74) ease-in-out infinite}
-      @keyframes fitness-card-float{0%,100%{translate:0 0}50%{translate:0 calc(-1 * var(--fitness-motion-lift,1px))}}@keyframes fitness-card-aura{0%,100%{opacity:.18;filter:saturate(.92)}50%{opacity:.54;filter:saturate(1.16)}}@keyframes fitness-toolbar-alive{0%,100%{translate:0 0;filter:brightness(1)}50%{translate:0 -.65px;filter:brightness(1.018)}}@keyframes fitness-media-alive{0%,100%{scale:1;filter:brightness(1)}50%{scale:1.025;filter:brightness(1.05)}}@keyframes fitness-progress-energy{0%,100%{opacity:.88}50%{opacity:1}}
-      @media(prefers-reduced-motion:reduce){.fitness-ambient-layer i{animation:none!important}:host([fitness-animations]) .tv-card-slot,:host([fitness-animations]) .tv-card-slot::after,:host([fitness-animations]) .tv-toolbar,:host([fitness-animations]) .media-art,:host([fitness-animations]) .media-progress-wrap input{animation:none!important;translate:none!important;scale:1!important}}
+      @keyframes fitness-card-breathe{0%,100%{translate:0 0;scale:1}42%{translate:0 calc(-.72 * var(--fitness-motion-lift,2px));scale:calc(1 + ((var(--fitness-card-breath-scale,1.009) - 1) * .64))}56%{translate:0 calc(-1 * var(--fitness-motion-lift,2px));scale:var(--fitness-card-breath-scale,1.009)}74%{translate:0 calc(-.28 * var(--fitness-motion-lift,2px));scale:calc(1 + ((var(--fitness-card-breath-scale,1.009) - 1) * .28))}}@keyframes fitness-card-life-pulse{0%,9%{transform:translateX(-55%) scaleX(.4);opacity:0}20%{opacity:.18}49%{opacity:.56}77%{opacity:.17}91%,100%{transform:translateX(390%) scaleX(.78);opacity:0}}@keyframes fitness-card-aura{0%,100%{opacity:.18;filter:saturate(.92)}50%{opacity:.54;filter:saturate(1.16)}}@keyframes fitness-toolbar-alive{0%,100%{translate:0 0;scale:1;filter:brightness(1)}50%{translate:0 -1px;scale:1.001;filter:brightness(1.022)}}@keyframes fitness-tool-icon-alive{0%,100%{transform:translateY(0) scale(1);filter:brightness(1)}48%{transform:translateY(-1px) scale(1.045);filter:brightness(1.07)}60%{transform:translateY(-.35px) scale(1.018);filter:brightness(1.025)}}@keyframes fitness-brand-breathe{0%,100%{transform:scale(1);filter:brightness(1)}50%{transform:scale(1.035);filter:brightness(1.055)}}@keyframes fitness-media-alive{0%,100%{scale:1;translate:0 0;filter:brightness(1)}50%{scale:1.028;translate:0 -1px;filter:brightness(1.055)}}@keyframes fitness-progress-energy{0%,100%{opacity:.88}50%{opacity:1}}
+      @media(prefers-reduced-motion:reduce){.fitness-ambient-layer i{animation:none!important}:host([fitness-animations]) .tv-toolbar ha-icon,:host([fitness-animations]) .fitness-brand-icon,:host([fitness-animations]) .media-art,:host([fitness-animations]) .media-progress-wrap input{animation:none!important;translate:none!important;scale:1!important;transform:none!important}}
       .tool,.icon-tool,.media-tool,.adapter-setup,.cast-now,.cast-stop{border-radius:15px;transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease}.tool:hover,.icon-tool:hover,.media-tool:hover,.adapter-setup:hover,.cast-now:hover,.cast-stop:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--primary-color) 40%,var(--divider-color));box-shadow:0 6px 16px rgba(0,0,0,.10)}
       .modal-backdrop{background:rgba(0,0,0,.54);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}.modal-card{border-radius:28px;border-color:color-mix(in srgb,var(--divider-color) 72%,transparent);box-shadow:0 28px 90px rgba(0,0,0,.48)}.modal-head{padding:16px 18px;background:color-mix(in srgb,var(--card-background-color) 96%,transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
       .picker-row,.media-open,.provider-catalog-row,.music-adapter-row,.setting-toggle,.setting-field,.setting-range,.setting-info,.setting-adapters,.browser-working,.browser-warning{border-radius:18px;border:1px solid color-mix(in srgb,var(--divider-color) 72%,transparent);background:color-mix(in srgb,var(--secondary-background-color) 94%,var(--card-background-color));transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease}.picker-row:hover,.media-open:not(:disabled):hover,.provider-catalog-row:hover,.music-adapter-row:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--primary-color) 34%,var(--divider-color));box-shadow:0 8px 20px rgba(0,0,0,.09)}
@@ -9154,7 +9851,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       @media(max-width:1500px){:host(:not([fitness-cast-receiver])) .tv-grid{--tv-columns:3}}
       @media(max-width:1250px){:host(:not([fitness-cast-receiver])) .tv-toolbar:not(.fixed-profile){grid-template-columns:auto minmax(180px,260px) 1fr}:host(:not([fitness-cast-receiver])) .tv-toolbar.fixed-profile{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"brand identity" "actions actions" "music music"}:host(:not([fitness-cast-receiver])) .tv-toolbar.fixed-profile .tv-actions{justify-content:flex-start}.music-controls{grid-column:1/-1}:host(:not([fitness-cast-receiver])) .tv-grid{--tv-columns:2}}
       @media(max-width:900px){:host([fitness-cast-receiver]) .tv-grid{--tv-columns:2}:host([fitness-cast-receiver]) .tv-toolbar{grid-template-columns:auto minmax(110px,160px) 1fr}}
-      @media(max-width:760px){:host(:not([fitness-cast-receiver])) .tv-grid{--tv-columns:1}:host(:not([fitness-cast-receiver])) .tv-toolbar{grid-template-columns:1fr;gap:8px}.profile-control,.tv-actions,.music-controls{grid-column:1}.music-controls{grid-template-columns:1fr}.music-button-strip{grid-column:1;flex-wrap:wrap}.media-now{grid-column:1}.picker-list{grid-template-columns:1fr}.cast-picker{grid-template-columns:1fr}.cast-now,.cast-stop{width:100%}.setting-field,.setting-range{grid-template-columns:1fr}.setting-range output{text-align:left}.access-intro{align-items:stretch;flex-direction:column}.access-domain-row,.access-user-row{grid-template-columns:1fr}.access-user-actions,.access-url{grid-column:1}.access-profile-row{align-items:stretch;flex-direction:column}}
+      @media(max-width:760px){:host(:not([fitness-cast-receiver])) .tv-grid{--tv-columns:1}:host(:not([fitness-cast-receiver])) .tv-toolbar{grid-template-columns:1fr;gap:8px}.profile-control,.tv-actions,.music-controls{grid-column:1}.music-controls{grid-template-columns:1fr}.music-button-strip{grid-column:1;flex-wrap:wrap}.media-now{grid-column:1}.picker-list{grid-template-columns:1fr}.cast-picker{grid-template-columns:1fr}.cast-now,.cast-stop{width:100%}.setting-field,.setting-range{grid-template-columns:1fr}.setting-range output{text-align:left}.access-intro{align-items:stretch;flex-direction:column}.access-domain-row,.access-user-row{grid-template-columns:1fr}.access-user-actions,.access-url{grid-column:1}}
     </style>`;
   }
 }
@@ -9185,7 +9882,7 @@ class FitnessBackendFlow extends HTMLElement {
 
   set hass(hass) { this._hass = hass; }
 
-  async start({mode = "options", entryId = "", profileName = "", uiLabels = {}} = {}) {
+  async start({mode = "options", entryId = "", profileName = "", uiLabels = {}, language = ""} = {}) {
     this._mode = mode;
     this._entryId = entryId;
     this._profileName = profileName;
@@ -9195,7 +9892,7 @@ class FitnessBackendFlow extends HTMLElement {
       try {
         this._flowTranslations = await this._hass.callWS({
           type:"fitness/dashboard/flow_translations",
-          language:String(this._hass?.language || "en"),
+          language:String(language || this._hass?.language || "en"),
         });
       } catch (_err) {
         this._flowTranslations = {};
@@ -9570,7 +10267,7 @@ class FitnessTvSetupCard extends HTMLElement {
 
   _labels(profile = this._profiles?.[0]) {
     if (!profile) return {};
-    const language = String(this._hass?.language || "en").toLowerCase().split("-")[0];
+    const language = String(profile?.language || this._access?.language || this._hass?.language || "en").toLowerCase().split("-")[0];
     return profile.labels_by_language?.[language] || profile.labels_by_language?.en || profile.labels || {};
   }
 
@@ -9595,6 +10292,7 @@ class FitnessTvSetupCard extends HTMLElement {
       this._profiles = data?.profiles || [];
       this._access = data?.access || {role:"none",is_admin:false,session_allowed:false};
       this._castTargets = data?.cast_targets || [];
+      this._overviewCast = data?.overview_cast || {active:false,target:null};
       this._audioOutputs = data?.audio_outputs || [];
       this._error = "";
     } catch (err) {
@@ -9652,11 +10350,9 @@ class FitnessTvSetupCard extends HTMLElement {
       const tv = profile.tv_dashboard || {};
       const enabled = Boolean(tv.enabled);
       const target = this._targetName(tv.cast_media_player_id);
-      const lastMedia = tv.last_media || {};
-      const lastMediaTitle = String(lastMedia.title || "");
       return `<div class="profile-row ${enabled ? "tv-enabled" : "tv-disabled"}" data-entry="${_fitnessEscape(profile.entry_id)}">
         <div class="profile-avatar"><ha-icon icon="mdi:account-circle-outline"></ha-icon></div>
-        <div class="profile-copy"><strong>${_fitnessEscape(profile.profile_name)}</strong><span>${_fitnessEscape(enabled ? (target || l.no_default_tv || "No default TV") : (l.tv_view_disabled || "Fitness TV disabled"))}</span>${enabled ? `<small>${_fitnessEscape(l.last_music || "Last music")}: ${_fitnessEscape(lastMediaTitle || l.last_music_none || "No saved music")}</small><small class="profile-process-status" aria-live="polite"></small>` : ""}</div>
+        <div class="profile-copy"><strong>${_fitnessEscape(profile.profile_name)}</strong><span>${_fitnessEscape(enabled ? (target || l.no_default_tv || "No default TV") : (l.tv_view_disabled || "Fitness TV disabled"))}</span>${enabled ? `<small class="profile-process-status" aria-live="polite"></small>` : ""}</div>
         <div class="profile-badges">
           ${enabled ? `<span>${_fitnessEscape(l.tts_ducking_short || "Duck")} ${Number(tv.ducking_percent ?? 25)}%</span><span>${_fitnessEscape(l.tv_scale_short || "Scale")} ${Number(tv.tv_scale_percent ?? 70)}%</span>${tv.oled_protection ? `<span><ha-icon icon="mdi:television-shimmer"></ha-icon>${_fitnessEscape(l.oled_short || "OLED")}</span>` : ""}` : `<span>${_fitnessEscape(l.backend_profile || "Fitness TV disabled")}</span>`}
         </div>
@@ -9670,11 +10366,12 @@ class FitnessTvSetupCard extends HTMLElement {
     this.shadowRoot.innerHTML = `<ha-card class="setup-shell">
       <div class="setup-head">
         <div><div class="setup-title"><img class="fitness-brand-icon" src="${_fitnessEscape(_fitnessBrandIconUrl(this._hass))}" alt=""><strong>${_fitnessEscape(l.tv_setup || "Fitness TV setup")}</strong></div><p>${_fitnessEscape(l.tv_setup_hint || "Choose which Fitness profiles have their own TV page and configure each TV, music and TTS experience independently.")}</p></div>
-        <div class="setup-actions"><button class="tool" id="manage-access"><ha-icon icon="mdi:account-lock-outline"></ha-icon><span>${_fitnessEscape(l.fitness_accounts || "Fitness accounts")}</span></button><button class="tool" id="add-profile"><ha-icon icon="mdi:plus-circle-outline"></ha-icon><span>${_fitnessEscape(l.add_tv_profile || "Enable TV profile")}</span></button><button class="tool" id="add-backend-profile"><ha-icon icon="mdi:account-plus-outline"></ha-icon><span>${_fitnessEscape(l.add_fitness_user || "Add Fitness user")}</span></button><button class="tool" id="manage-profiles"><ha-icon icon="mdi:account-cog-outline"></ha-icon><span>${_fitnessEscape(l.manage_profiles || "Manage Fitness profiles")}</span></button></div>
+        <div class="setup-actions"><button class="tool overview-cast-toggle ${this._overviewCast?.active ? "active" : ""}" id="overview-cast-toggle" title="${_fitnessEscape(this._overviewCast?.active ? (l.cast_stop || "Stop Cast") : (l.cast_dashboard || "Cast Fitness TV overview"))}"><ha-icon icon="${this._overviewCast?.active ? "mdi:cast-off" : "mdi:cast"}"></ha-icon><span>${_fitnessEscape(this._overviewCast?.active ? (l.cast_stop || "Stop Cast") : (l.cast_dashboard || "Cast"))}</span></button><button class="tool" id="manage-access"><ha-icon icon="mdi:account-lock-outline"></ha-icon><span>${_fitnessEscape(l.fitness_accounts || "Fitness accounts")}</span></button><button class="tool" id="add-profile"><ha-icon icon="mdi:plus-circle-outline"></ha-icon><span>${_fitnessEscape(l.add_tv_profile || "Enable TV profile")}</span></button><button class="tool" id="add-backend-profile"><ha-icon icon="mdi:account-plus-outline"></ha-icon><span>${_fitnessEscape(l.add_fitness_user || "Add Fitness user")}</span></button><button class="tool" id="manage-profiles"><ha-icon icon="mdi:account-cog-outline"></ha-icon><span>${_fitnessEscape(l.manage_profiles || "Manage Fitness profiles")}</span></button></div>
       </div>
       <div class="profiles-list">${rows || `<div class="empty">${_fitnessEscape(l.no_fitness_profiles || "No Fitness users exist yet. Add one in the Fitness backend.")}</div>`}</div>
       <div id="setup-modal"></div>
     </ha-card>${this._style()}`;
+    this.shadowRoot.getElementById("overview-cast-toggle")?.addEventListener("click", () => void this._toggleOverviewCast());
     this.shadowRoot.getElementById("manage-access")?.addEventListener("click", () => this._openAccessAdmin());
     this.shadowRoot.getElementById("add-profile")?.addEventListener("click", () => this._openAddProfile());
     this.shadowRoot.getElementById("add-backend-profile")?.addEventListener("click", () => this._openBackendFlow("add"));
@@ -9689,6 +10386,60 @@ class FitnessTvSetupCard extends HTMLElement {
       row.querySelector(".backend-profile")?.addEventListener("click", () => this._openBackendFlow("options", entryId, profile?.profile_name || ""));
       row.querySelector(".remove-profile")?.addEventListener("click", () => this._saveProfile(profile, {...profile.tv_dashboard, enabled:false}));
     });
+  }
+
+  async _toggleOverviewCast() {
+    if (!this._hass || !this._access?.is_admin) return;
+    const l = this._labels();
+    if (this._overviewCast?.active) {
+      const button = this.shadowRoot?.getElementById("overview-cast-toggle");
+      if (button) button.disabled = true;
+      try {
+        this._overviewCast = await this._hass.callWS({
+          type:"fitness/tv/overview/stop",
+          entity_id:String(this._overviewCast?.target || ""),
+        });
+        this._loaded = false;
+        await this._load();
+      } catch (err) {
+        if (button) button.disabled = false;
+        this._showOverviewCastError(String(err?.message || err || l.cast_failed || "Unable to stop Cast."));
+      }
+      return;
+    }
+    this._openOverviewCastPicker();
+  }
+
+  _openOverviewCastPicker() {
+    const l = this._labels();
+    const rows = (this._castTargets || []).map((target) => `<button class="add-profile-row overview-cast-target" data-cast-target="${_fitnessEscape(target.entity_id)}"><ha-icon icon="mdi:television"></ha-icon><span><strong>${_fitnessEscape(target.name || target.entity_id)}</strong><small>${_fitnessEscape(target.state || "")}</small></span><ha-icon icon="mdi:cast"></ha-icon></button>`).join("");
+    this._modal(`<div class="modal-card"><div class="modal-head"><strong class="modal-title-with-icon"><ha-icon icon="mdi:cast"></ha-icon>${_fitnessEscape(l.cast_dashboard || "Cast Fitness TV overview")}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="add-profile-list">${rows || `<div class="empty">${_fitnessEscape(l.cast_no_devices || "No Home Assistant Cast devices are available.")}</div>`}<div class="access-status overview-cast-status" aria-live="polite"></div></div></div>`);
+    const root = this.shadowRoot?.getElementById("setup-modal");
+    root?.querySelectorAll(".overview-cast-target").forEach((button) => button.addEventListener("click", () => void this._castOverviewToTarget(String(button.dataset.castTarget || ""), root)));
+  }
+
+  async _castOverviewToTarget(target, root) {
+    if (!this._hass || !target) return;
+    const l = this._labels();
+    const status = root?.querySelector?.(".overview-cast-status");
+    const buttons = [...(root?.querySelectorAll?.(".overview-cast-target") || [])];
+    buttons.forEach((button) => { button.disabled = true; });
+    if (status) status.textContent = l.cast_connecting || "Connecting to TV…";
+    try {
+      this._overviewCast = await this._hass.callWS({type:"fitness/tv/overview/cast",entity_id:target});
+      root?.replaceChildren();
+      this._loaded = false;
+      await this._load();
+    } catch (err) {
+      buttons.forEach((button) => { button.disabled = false; });
+      if (status) { status.textContent = String(err?.message || err || l.cast_failed || "Unable to start Cast."); status.classList.add("error"); }
+    }
+  }
+
+  _showOverviewCastError(message) {
+    const root = this.shadowRoot?.getElementById("setup-modal");
+    if (!root) return;
+    this._modal(`<div class="modal-card"><div class="modal-head"><strong>${_fitnessEscape(this._labels().cast_dashboard || "Cast")}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="modal-scroll-body"><div class="empty">${_fitnessEscape(message)}</div></div></div>`);
   }
 
   _modal(content) {
@@ -9739,7 +10490,8 @@ class FitnessTvSetupCard extends HTMLElement {
       this._loaded = false;
     });
     host.replaceChildren(flow);
-    flow.start({mode, entryId, profileName, uiLabels:this._labels()});
+    const profile = this._profiles?.find?.((item) => String(item.entry_id) === String(entryId)) || this._profiles?.[0];
+    flow.start({mode, entryId, profileName, uiLabels:this._labels(profile), language:String(profile?.language || this._access?.language || this._hass?.language || "en")});
   }
 
   _openAddProfile() {
@@ -10001,7 +10753,9 @@ class FitnessTvSetupCard extends HTMLElement {
     const profiles = Array.isArray(snapshot?.profiles) ? snapshot.profiles : [];
     const baseDomain = String(snapshot?.remote_base_domain || "");
     const suffix = baseDomain ? `.${baseDomain}` : "";
+    const supportedLanguages = snapshot?.supported_languages && typeof snapshot.supported_languages === "object" ? snapshot.supported_languages : {en:"English"};
     const profileOptions = (selected = "") => [`<option value="">${_fitnessEscape(l.account_unassigned || "Unassigned")}</option>`, ...profiles.map((profile) => `<option value="${_fitnessEscape(profile.entry_id)}" ${String(profile.entry_id) === String(selected || "") ? "selected" : ""}>${_fitnessEscape(profile.name || profile.entry_id)}</option>`)].join("");
+    const languageOptions = (selected = "en") => Object.entries(supportedLanguages).map(([code, name]) => `<option value="${_fitnessEscape(code)}" ${String(code) === String(selected || "en") ? "selected" : ""}>${_fitnessEscape(name || code)}</option>`).join("");
     const userRows = users.map((user) => {
       const role = String(user.fitness_role || "none");
       const selectedProfile = String(user.fitness_profile_entry_id || "");
@@ -10013,7 +10767,9 @@ class FitnessTvSetupCard extends HTMLElement {
         ["local", l.role_local || "Local user", Boolean(user.is_admin)],
         ["remote", l.role_remote || "Remote user", Boolean(user.is_admin)],
       ].map(([value, text, disabled]) => `<option value="${value}" ${role === value ? "selected" : ""} ${disabled ? "disabled" : ""}>${_fitnessEscape(text)}</option>`).join("");
-      const profileName = profiles.find((profile) => String(profile.entry_id) === selectedProfile)?.name || selectedProfile;
+      const profileMeta = profiles.find((profile) => String(profile.entry_id) === selectedProfile) || null;
+      const profileName = profileMeta?.name || selectedProfile;
+      const language = String(user.language || profileMeta?.language || "en");
       const remoteUrl = role === "remote" && baseDomain && slug && selectedProfile ? `https://${slug}.${baseDomain}/fitness-tv/profile-${selectedProfile}` : "";
       const badge = user.is_owner ? " · HA owner" : (user.is_admin ? " · HA admin" : "");
       const viewOptions = profiles.filter((item) => String(item.entry_id) !== selectedProfile).map((item) => `<label class="access-view-option"><input type="checkbox" data-access-view-profile value="${_fitnessEscape(item.entry_id)}" ${selectedViewProfiles.has(String(item.entry_id)) ? "checked" : ""} ${user.is_admin ? "disabled" : ""}><span>${_fitnessEscape(item.name || item.entry_id)}</span></label>`).join("");
@@ -10021,24 +10777,18 @@ class FitnessTvSetupCard extends HTMLElement {
         <div class="access-user-head"><ha-icon icon="${role === "admin" ? "mdi:shield-account" : role === "remote" ? "mdi:web-account" : role === "local" ? "mdi:home-account" : "mdi:account-outline"}"></ha-icon><span><strong>${_fitnessEscape(user.name || user.user_id)}</strong><small>${_fitnessEscape(`${user.is_active ? "Active" : "Inactive"}${badge}`)}</small></span></div>
         <label class="access-role-field"><span>${_fitnessEscape(l.account_role || "Access role")}</span><select data-access-role>${roleOptions}</select><small data-access-role-hint></small></label>
         <label class="access-profile-field ${role === "none" ? "hidden" : ""}"><span>${_fitnessEscape(l.account_profile || "Fitness profile")}</span><select data-access-profile>${profileOptions(selectedProfile)}</select><small>${_fitnessEscape(role === "admin" ? (l.admin_own_profile || "This is the administrator's own Fitness profile; administrator access to all profiles remains unchanged.") : (l.account_profile_hint || "Assign this Home Assistant user to a Fitness profile."))}</small></label>
+        <label class="access-language-field ${role === "none" ? "hidden" : ""}"><span>${_fitnessEscape(l.account_language || "Language")}</span><select data-access-language>${languageOptions(language)}</select><small>${_fitnessEscape(l.account_language_hint || "Menus and this user's Fitness TV dashboard use this language.")}</small></label>
         <label class="access-slug-field ${role === "remote" ? "" : "hidden"}"><span>${_fitnessEscape(l.remote_slug || "Remote subdomain")}</span><div class="access-slug-input"><input data-access-slug value="${_fitnessEscape(slug)}" placeholder="${_fitnessEscape((user.name || "user").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") || "user")}"><span>${_fitnessEscape(suffix || ".fitness.example.com")}</span></div></label>
         <div class="access-view-field ${role === "none" ? "hidden" : ""}"><span>${_fitnessEscape(l.view_only_profiles || "Additional view-only profiles")}</span><small>${_fitnessEscape(user.is_admin ? (l.ha_admin_global_access || "Home Assistant administrators always have full access to all Fitness profiles.") : (l.view_only_profiles_hint || "These profiles are visible, but cannot be controlled or configured by this user."))}</small><div class="access-view-options">${viewOptions || `<em>${_fitnessEscape(l.no_other_profiles || "No other profiles")}</em>`}</div></div>
         <div class="access-url">${remoteUrl ? `${_fitnessEscape(l.remote_url || "Remote URL")}: <code>${_fitnessEscape(remoteUrl)}</code>` : (role === "local" ? _fitnessEscape(l.local_only_own_profile || "This account can access only its assigned Fitness profile and only from the local Home Assistant network.") : role === "remote" ? _fitnessEscape(l.remote_only_own_profile || "This account can access only its assigned Fitness profile and only through its own subdomain.") : profileName ? _fitnessEscape(profileName) : "")}</div>
         <div class="access-user-actions"><button class="tool" data-access-save><ha-icon icon="mdi:content-save-outline"></ha-icon><span>${_fitnessEscape(l.save_account || "Save account")}</span></button>${role !== "none" ? `<button class="tool danger" data-access-remove><ha-icon icon="mdi:account-remove-outline"></ha-icon><span>${_fitnessEscape(l.remove_account || "Remove Fitness account")}</span></button>` : ""}</div>
       </div>`;
     }).join("");
-    const userNameById = Object.fromEntries(users.map((user) => [String(user.user_id), String(user.name || user.user_id)]));
-    const ownerOptions = (profile) => {
-      const current = String(profile.bound_user_id || "");
-      return [`<option value="">${_fitnessEscape(l.account_unassigned || "Unassigned")}</option>`, ...users.map((user) => `<option value="${_fitnessEscape(user.user_id)}" ${String(user.user_id) === current ? "selected" : ""}>${_fitnessEscape(user.name || user.user_id)}${user.is_admin ? " · HA admin" : ""}</option>`)].join("");
-    };
-    const profileRows = profiles.map((profile) => `<div class="access-profile-row" data-profile-entry="${_fitnessEscape(profile.entry_id)}" data-profile-owner-current="${_fitnessEscape(profile.bound_user_id || "")}"><span class="access-profile-copy"><strong>${_fitnessEscape(profile.name || profile.entry_id)}</strong><small>${_fitnessEscape(profile.bound_user_id ? `Assigned to ${userNameById[String(profile.bound_user_id)] || profile.bound_user_id}` : (l.account_unassigned || "Unassigned"))}</small></span><label class="access-profile-owner"><span>${_fitnessEscape(l.assign_ha_user || "Assign to Home Assistant user")}</span><select data-profile-owner>${ownerOptions(profile)}</select></label><button class="tool" data-assign-profile><ha-icon icon="mdi:account-check-outline"></ha-icon><span>${_fitnessEscape(l.assign || "Assign")}</span></button><button class="tool danger" data-delete-profile><ha-icon icon="mdi:account-minus-outline"></ha-icon><span>${_fitnessEscape(l.delete_backend_profile || "Delete backend Fitness user")}</span></button></div>`).join("");
 
     this._modal(`<div class="modal-card access-admin-modal"><div class="modal-head"><strong class="modal-title-with-icon"><ha-icon icon="mdi:account-lock-outline"></ha-icon>${_fitnessEscape(l.fitness_accounts || "Fitness accounts")}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="access-admin-body">
       <div class="access-intro"><div><strong>${_fitnessEscape(l.fitness_accounts || "Fitness accounts")}</strong><p>${_fitnessEscape(l.fitness_accounts_hint || "Only the local Fitness administrator can assign Home Assistant users to Fitness profiles. Local and remote users never see other Fitness profiles.")}</p></div><a class="tool" id="access-ha-users" href="/config/person"><ha-icon icon="mdi:account-cog-outline"></ha-icon><span>${_fitnessEscape(l.manage_ha_users || "Manage Home Assistant users")}</span></a></div>
       <section class="access-section"><div class="access-section-title"><ha-icon icon="mdi:web"></ha-icon><span><strong>${_fitnessEscape(l.remote_base_domain || "Remote Fitness base domain")}</strong><small>${_fitnessEscape(l.remote_base_domain_hint || "Configure wildcard DNS/TLS once. Fitness then assigns one logical subdomain per remote account.")}</small></span></div><div class="access-domain-row"><input id="access-base-domain" value="${_fitnessEscape(baseDomain)}" placeholder="fitness.example.com"><button class="tool" id="access-save-domain"><ha-icon icon="mdi:content-save-outline"></ha-icon><span>${_fitnessEscape(l.save_domain || "Save domain")}</span></button></div><div class="setting-info"><ha-icon icon="mdi:certificate-outline"></ha-icon><span><strong>${_fitnessEscape(l.wildcard_setup || "Wildcard DNS/TLS required")}</strong><small>${_fitnessEscape(l.wildcard_setup_hint || "Fitness manages users, profile bindings and subdomain slugs. Outside Fitness, point *.your-domain to the same Home Assistant HTTPS/reverse-proxy endpoint, use wildcard-valid TLS, preserve the original Host header, and configure Home Assistant to trust that proxy. Removing a Fitness remote account blocks that slug immediately even though wildcard DNS may still resolve.")}</small></span></div></section>
       <section class="access-section"><div class="access-section-title"><ha-icon icon="mdi:account-multiple-outline"></ha-icon><span><strong>${_fitnessEscape(l.fitness_accounts || "Fitness accounts")}</strong><small>${_fitnessEscape(l.fitness_accounts_hint || "Assign existing Home Assistant users. Users cannot enroll themselves.")}</small></span></div><div class="access-user-list">${userRows || `<div class="empty">${_fitnessEscape(l.no_users || "No Home Assistant users found.")}</div>`}</div></section>
-      <section class="access-section"><div class="access-section-title"><ha-icon icon="mdi:account-box-multiple-outline"></ha-icon><span><strong>${_fitnessEscape(l.manage_profiles || "Backend Fitness users")}</strong><small>${_fitnessEscape(l.account_profile || "Fitness profile")}</small></span></div><div class="access-profile-list">${profileRows || `<div class="empty">${_fitnessEscape(l.no_fitness_profiles || "No Fitness users exist yet.")}</div>`}</div></section>
       <div class="access-status" id="access-status" aria-live="polite"></div>
     </div></div>`);
 
@@ -10065,7 +10815,9 @@ class FitnessTvSetupCard extends HTMLElement {
       const role = row.querySelector("[data-access-role]");
       const profile = row.querySelector("[data-access-profile]");
       const slug = row.querySelector("[data-access-slug]");
+      const language = row.querySelector("[data-access-language]");
       const profileField = row.querySelector(".access-profile-field");
+      const languageField = row.querySelector(".access-language-field");
       const viewField = row.querySelector(".access-view-field");
       const roleHint = row.querySelector("[data-access-role-hint]");
       const slugField = row.querySelector(".access-slug-field");
@@ -10075,6 +10827,7 @@ class FitnessTvSetupCard extends HTMLElement {
         const withoutProfile = current === "none";
         if (profile) profile.disabled = withoutProfile;
         profileField?.classList.toggle("hidden", withoutProfile);
+        languageField?.classList.toggle("hidden", withoutProfile);
         viewField?.classList.toggle("hidden", withoutProfile);
         slugField?.classList.toggle("hidden", current !== "remote");
         if (roleHint) roleHint.textContent = current === "admin"
@@ -10118,6 +10871,7 @@ class FitnessTvSetupCard extends HTMLElement {
               role:selectedRole,
               profile_entry_id:String(profile?.value || ""),
               remote_slug:String(slug?.value || "").trim(),
+              language:String(language?.value || "en"),
               view_profile_entry_ids:Array.from(row.querySelectorAll("[data-access-view-profile]:checked")).map((input) => String(input.value || "")).filter(Boolean),
             });
           }
@@ -10138,80 +10892,11 @@ class FitnessTvSetupCard extends HTMLElement {
       });
     });
 
-    root.querySelectorAll("[data-profile-entry]").forEach((row) => {
-      row.querySelector("[data-assign-profile]")?.addEventListener("click", async () => {
-        const profileEntryId = String(row.dataset.profileEntry || "");
-        const owner = String(row.querySelector("[data-profile-owner]")?.value || "");
-        const currentOwner = String(row.dataset.profileOwnerCurrent || "");
-        const button = row.querySelector("[data-assign-profile]");
-        if (button) button.disabled = true;
-        setStatus(l.saving || "Saving…");
-        try {
-          let next = snapshot;
-          if (!owner) {
-            if (!currentOwner) { setStatus(""); if (button) button.disabled = false; return; }
-            const currentUser = users.find((user) => String(user.user_id) === currentOwner);
-            if (String(currentUser?.fitness_role || "") !== "admin") {
-              throw new Error(l.profile_unassign_requires_account_change || "Local/remote Fitness users require a profile. Change or remove that Fitness account first.");
-            }
-            next = await this._hass.callWS({
-              type:"fitness/access/account/save",
-              user_id:currentOwner,
-              role:"admin",
-              profile_entry_id:"",
-              remote_slug:String(currentUser?.remote_slug || ""),
-            });
-          } else {
-            if (currentOwner && currentOwner !== owner) {
-              const currentUser = users.find((user) => String(user.user_id) === currentOwner);
-              if (String(currentUser?.fitness_role || "") !== "admin") {
-                throw new Error(l.profile_reassign_requires_account_change || "This profile belongs to a local/remote Fitness account. Change or remove that account first.");
-              }
-              next = await this._hass.callWS({
-                type:"fitness/access/account/save",
-                user_id:currentOwner,
-                role:"admin",
-                profile_entry_id:"",
-                remote_slug:String(currentUser?.remote_slug || ""),
-              });
-            }
-            const selectedUser = users.find((user) => String(user.user_id) === owner);
-            if (!selectedUser) throw new Error("Home Assistant user not found");
-            const existingRole = String(selectedUser.fitness_role || "");
-            const assignedRole = selectedUser.is_admin
-              ? "admin"
-              : (["local","remote"].includes(existingRole) ? existingRole : "local");
-            next = await this._hass.callWS({
-              type:"fitness/access/account/save",
-              user_id:owner,
-              role:assignedRole,
-              profile_entry_id:profileEntryId,
-              remote_slug:String(selectedUser.remote_slug || ""),
-            });
-          }
-          refresh(next);
-        } catch (err) {
-          if (button) button.disabled = false;
-          setStatus(String(err?.message || err || l.access_save_failed || "Unable to assign Fitness profile."), true);
-        }
-      });
-    });
-
-    root.querySelectorAll("[data-profile-entry]").forEach((row) => row.querySelector("[data-delete-profile]")?.addEventListener("click", async () => {
-      if (!confirm(l.delete_backend_profile_confirm || "Delete this backend Fitness user and its Fitness TV account binding?")) return;
-      try {
-        const next = await this._hass.callWS({type:"fitness/access/profile/delete",profile_entry_id:String(row.dataset.profileEntry || "")});
-        this._loaded = false;
-        refresh(next);
-      } catch (err) {
-        setStatus(String(err?.message || err || l.access_save_failed || "Unable to delete backend Fitness user."), true);
-      }
-    }));
   }
 
   _style() {
     return `<style>
-      :host{display:block;width:100%;max-width:none;background:var(--primary-background-color);color:var(--primary-text-color)}*{box-sizing:border-box}.setup-shell{border:0;border-radius:0;box-shadow:none;background:var(--primary-background-color);padding:20px;min-height:100vh}.setup-head{display:flex;justify-content:space-between;gap:18px;align-items:center;padding:20px;border-radius:26px;background:var(--card-background-color);margin-bottom:16px;border:1px solid color-mix(in srgb,var(--divider-color) 72%,transparent);box-shadow:0 12px 34px rgba(0,0,0,.12)}.setup-title{display:flex;align-items:center;gap:9px;font-size:23px}.setup-title .fitness-brand-icon{width:30px;height:30px;object-fit:contain;flex:0 0 30px}.setup-head p{margin:6px 0 0;color:var(--secondary-text-color);max-width:760px}.setup-actions,.profile-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.profiles-list{display:grid;gap:10px}.profile-row{display:grid;grid-template-columns:46px minmax(170px,1fr) auto auto;gap:12px;align-items:center;padding:15px 17px;border-radius:22px;background:var(--card-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 74%,transparent);box-shadow:0 8px 24px rgba(0,0,0,.08);transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}.profile-row:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--primary-color) 32%,var(--divider-color));box-shadow:0 12px 30px rgba(0,0,0,.11)}.profile-row.tv-disabled{opacity:.78}.profile-row.tv-disabled .profile-avatar{filter:saturate(.35)}.profile-avatar{width:42px;height:42px;display:grid;place-items:center;border-radius:16px;background:color-mix(in srgb,var(--primary-color) 14%,transparent);color:var(--primary-color)}.profile-avatar ha-icon{--mdc-icon-size:25px}.profile-copy{min-width:0}.profile-copy strong,.profile-copy span,.profile-copy small{display:block}.profile-copy strong{font-size:17px}.profile-copy span{font-size:12px;color:var(--secondary-text-color);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.profile-copy small{font-size:10px;color:var(--secondary-text-color);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.profile-process-status:not(:empty){color:var(--primary-color);font-weight:600}.profile-badges{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.profile-badges span{display:inline-flex;align-items:center;gap:3px;padding:5px 7px;border-radius:9px;background:var(--secondary-background-color);font-size:10px;color:var(--secondary-text-color)}.profile-badges ha-icon{--mdc-icon-size:13px}.tool,.icon-tool,select{font:inherit;color:var(--primary-text-color);background:var(--secondary-background-color);border:1px solid var(--divider-color);border-radius:15px;min-height:40px}.tool,.icon-tool{cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 11px}.icon-tool{width:40px;padding:0}.empty{padding:28px;text-align:center;color:var(--secondary-text-color);border-radius:16px;background:var(--card-background-color)}.modal-backdrop{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.54);display:grid;place-items:center;padding:24px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}.modal-card{width:min(820px,96vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;min-height:0;border-radius:28px;background:var(--card-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 72%,transparent);box-shadow:0 28px 90px rgba(0,0,0,.48)}.modal-auto-scroll-body{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.add-profile-list,#backend-flow-host{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.configure-modal{overflow:hidden!important;display:flex;flex-direction:column;height:min(860px,calc(100dvh - 32px));max-height:calc(100dvh - 32px)}.configure-modal .profile-settings{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch;flex:1 1 auto}.configure-modal>.settings-actions{flex:0 0 auto;position:relative;bottom:auto;z-index:4;padding:11px 15px;background:color-mix(in srgb,var(--card-background-color) 97%,transparent);border-top:1px solid color-mix(in srgb,var(--divider-color) 68%,transparent)}.modal-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 15px;background:var(--card-background-color);border-bottom:1px solid var(--divider-color)}.add-profile-list{display:grid;gap:7px;padding:12px}.add-profile-row{display:grid;grid-template-columns:30px 1fr 24px;gap:9px;align-items:center;padding:13px;border:1px solid color-mix(in srgb,var(--divider-color) 70%,transparent);border-radius:18px;background:var(--secondary-background-color);color:var(--primary-text-color);text-align:left;cursor:pointer}.profile-settings{display:grid;gap:12px;padding:15px}.setting-toggle,.setting-field,.setting-range{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:13px;border-radius:18px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 70%,transparent)}.setting-field{grid-template-columns:180px minmax(0,1fr)}.setting-field select{width:100%;padding:0 10px}.setting-range{grid-template-columns:minmax(0,1fr) minmax(180px,280px) 48px}.setting-toggle small,.setting-range small,.setting-info small{display:block;margin-top:3px;color:var(--secondary-text-color);font-size:10px}.setting-title,.modal-title-with-icon{display:inline-flex;align-items:center;gap:7px}.setting-title ha-icon,.modal-title-with-icon ha-icon{--mdc-icon-size:20px;color:var(--primary-color)}.setting-info{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:center;padding:12px;border-radius:13px;background:var(--secondary-background-color)}.setting-info ha-icon{color:var(--primary-color)}.setting-adapters{display:grid;gap:10px;padding:12px;border-radius:13px;background:var(--secondary-background-color)}.setting-adapters>div>small{display:block;margin-top:3px;color:var(--secondary-text-color);font-size:10px}.music-adapter-list,.music-adapter-picker{display:grid;gap:7px}.music-adapter-row{display:grid;grid-template-columns:22px 24px minmax(0,1fr) auto;gap:9px;align-items:center;padding:9px;border-radius:10px;background:color-mix(in srgb,var(--card-background-color) 65%,transparent)}.music-adapter-row input{width:18px;height:18px}.music-adapter-row ha-icon{--mdc-icon-size:20px}.music-adapter-row img{width:20px;height:20px;object-fit:contain}.music-adapter-row small,.music-adapter-row strong{display:block}.music-adapter-row small{color:var(--secondary-text-color);font-size:10px;margin-top:2px}.music-adapter-row.unavailable{opacity:.58}.adapter-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap}.adapter-account{font:inherit;max-width:190px;min-height:32px;padding:0 6px;color:var(--primary-text-color);background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:9px}.adapter-setup{font:inherit;font-size:11px;color:var(--primary-color);background:transparent;border:1px solid var(--divider-color);border-radius:9px;padding:6px 8px;cursor:pointer}.music-adapter-picker .music-adapter-row{grid-template-columns:22px 24px minmax(0,1fr)}.music-search-modal{overflow:hidden!important;display:flex;flex-direction:column;height:min(820px,calc(100dvh - var(--modal-top,68px) - 26px));max-height:calc(100dvh - var(--modal-top,68px) - 26px);min-height:0}.provider-catalog-modal{overflow:hidden!important;display:flex;flex-direction:column;height:min(820px,calc(100dvh - 32px));max-height:calc(100dvh - 32px);min-height:0}.provider-catalog-list{flex:1 1 auto;min-height:0;max-height:100%;overflow-y:auto!important;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.music-search-form{display:flex;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch;flex-direction:column;gap:12px;padding:14px}.music-search-form>.field-label,.music-search-form>.music-search-status,.music-search-form>.music-search-error,.music-search-form>.modal-actions{flex:0 0 auto}.music-search-form>.music-adapter-picker{flex:0 0 auto;min-height:auto;overflow:visible}.music-type-filter{display:grid;gap:7px;padding:10px 11px;border-radius:14px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 64%,transparent)}.music-type-filter-title{font-size:11px;font-weight:700;color:var(--secondary-text-color)}.music-type-options{display:flex;gap:7px;flex-wrap:wrap}.music-type-option{display:inline-flex;align-items:center;gap:6px;padding:7px 9px;border-radius:11px;background:var(--card-background-color);border:1px solid var(--divider-color);cursor:pointer;white-space:nowrap}.music-type-option input{width:16px;height:16px;margin:0}.music-type-option ha-icon{--mdc-icon-size:18px;color:var(--primary-color)}.music-type-option span{font-size:11px}.provider-catalog-list{display:grid;gap:9px;padding:14px}.provider-catalog-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;padding:11px;border-radius:12px;background:var(--secondary-background-color)}.provider-catalog-row ha-icon{color:var(--primary-color)}.provider-catalog-row span strong,.provider-catalog-row span small{display:block}.provider-catalog-row span small{margin-top:3px;color:var(--secondary-text-color);font-size:10px}.setting-adapters-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.setting-adapters-head .adapter-setup{white-space:nowrap}.browser-working{display:flex;gap:9px;align-items:center;padding:12px;border-radius:11px;background:var(--secondary-background-color);color:var(--secondary-text-color)}.spin{animation:fitness-spin 1s linear infinite}@keyframes fitness-spin{to{transform:rotate(360deg)}}.setting-range input{width:100%}.setting-range output{text-align:right;font-weight:700}.setting-toggle input{width:20px;height:20px}.settings-actions{display:flex;align-items:center;gap:10px;justify-content:flex-end}.settings-status{font-size:12px;color:var(--secondary-text-color)}.access-admin-modal{overflow:hidden;display:flex;flex-direction:column;width:min(980px,96vw);height:min(900px,calc(100dvh - 32px));max-height:calc(100dvh - 32px)}.access-admin-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:16px;display:grid;gap:14px}.access-intro{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px;border-radius:20px;background:color-mix(in srgb,var(--primary-color) 8%,var(--secondary-background-color));border:1px solid color-mix(in srgb,var(--primary-color) 20%,var(--divider-color))}.access-intro p{margin:0;color:var(--secondary-text-color);max-width:680px}.access-section{display:grid;gap:12px;padding:15px;border-radius:22px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 72%,transparent)}.access-section-title{display:flex;gap:10px;align-items:flex-start}.access-section-title>ha-icon{color:var(--primary-color);margin-top:2px}.access-section-title strong,.access-section-title small{display:block}.access-section-title small{margin-top:3px;color:var(--secondary-text-color);font-size:11px}.access-domain-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px}.access-domain-row input,.access-user-row input,.access-user-row select{width:100%;min-height:40px;border-radius:13px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);padding:0 11px;font:inherit}.access-user-list,.access-profile-list{display:grid;gap:10px}.access-user-row{display:grid;grid-template-columns:minmax(170px,1.2fr) minmax(180px,.9fr) minmax(230px,1.15fr);gap:10px;align-items:end;padding:14px;border-radius:18px;background:var(--card-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 72%,transparent)}.access-user-head{display:flex;align-items:center;gap:9px;align-self:center}.access-user-head>ha-icon{color:var(--primary-color)}.access-user-head strong,.access-user-head small{display:block}.access-user-head small{margin-top:2px;color:var(--secondary-text-color);font-size:10px}.access-user-row label>span{display:block;margin:0 0 5px;font-size:11px;color:var(--secondary-text-color)}.access-role-field,.access-profile-field{display:block;min-width:0;align-self:stretch}.access-role-field select,.access-profile-field select{width:100%}.access-role-field small,.access-profile-field small{display:block;margin-top:5px;color:var(--secondary-text-color);font-size:10px;line-height:1.3}.access-view-field{grid-column:1/-1}.access-view-field>span{display:block;margin:0 0 4px;font-size:11px;color:var(--secondary-text-color)}.access-view-field>small{display:block;margin-bottom:7px;color:var(--secondary-text-color);font-size:10px;line-height:1.35}.access-view-options{display:flex;gap:7px;flex-wrap:wrap}.access-view-option{display:inline-flex!important;align-items:center;gap:6px;padding:7px 9px;border:1px solid var(--divider-color);border-radius:11px;background:var(--secondary-background-color)}.access-view-option input{margin:0}.access-view-option span{margin:0!important;color:var(--primary-text-color)!important}.access-view-options em{color:var(--secondary-text-color);font-size:11px}.access-slug-field{grid-column:2/4}.access-slug-input{display:flex;align-items:center;border:1px solid var(--divider-color);border-radius:13px;background:var(--card-background-color);overflow:hidden}.access-slug-input input{border:0;border-radius:0;min-width:80px}.access-slug-input span{padding:0 9px;color:var(--secondary-text-color);font-size:11px;white-space:nowrap}.access-url{grid-column:1/-1;min-height:16px;font-size:11px;color:var(--secondary-text-color);overflow-wrap:anywhere}.access-url code{color:var(--primary-text-color)}.access-user-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}.access-profile-row{display:grid;grid-template-columns:minmax(170px,1fr) minmax(220px,1fr) auto auto;align-items:end;gap:10px;padding:12px 13px;border-radius:16px;background:var(--card-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 70%,transparent)}.access-profile-row strong,.access-profile-row small{display:block}.access-profile-owner>span{display:block;margin:0 0 5px;font-size:11px;color:var(--secondary-text-color)}.access-profile-owner select{width:100%;min-height:40px;padding:0 10px}.access-profile-row small{margin-top:3px;color:var(--secondary-text-color);font-size:10px}.tool.danger{color:var(--error-color);border-color:color-mix(in srgb,var(--error-color) 35%,var(--divider-color))}.modal-card{max-height:calc(100dvh - 32px);overflow:hidden;display:flex;flex-direction:column;min-height:0;overscroll-behavior:contain}.configure-modal,.browser-modal,.picker-modal,.cast-modal,.remote-gateway-modal,.provider-catalog-modal,.music-search-modal,.ytdlp-legal-modal,.access-admin-modal{overflow:hidden!important;display:flex;flex-direction:column;min-height:0}.profile-settings,.picker-list,.media-list,.cast-picker,.remote-gateway-body,.provider-catalog-list,.music-search-form,.modal-scroll-body,.playlist-list,.playlist-edit-list,.music-source-list,.access-admin-body,.add-profile-list{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.browser-modal>.media-list,.browser-modal>.playlist-list,.browser-modal>.music-source-list,.picker-modal>.picker-list,.cast-modal>.cast-picker,.remote-gateway-modal>.remote-gateway-body,.provider-catalog-modal>.provider-catalog-list,.access-admin-modal>.access-admin-body{flex:1 1 auto}.modal-head{position:sticky!important;top:0;z-index:30;flex:0 0 auto;background:color-mix(in srgb,var(--card-background-color) 96%,transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}.modal-actions,.settings-actions{position:sticky;bottom:0;z-index:24;flex:0 0 auto;padding:12px 14px;background:color-mix(in srgb,var(--card-background-color) 96%,transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid color-mix(in srgb,var(--divider-color) 68%,transparent)}.configure-modal>.settings-actions{position:relative;bottom:auto}.modal-scroll-body{padding:14px}.hidden,[hidden]{display:none!important}.access-status{position:sticky;bottom:0;min-height:18px;padding:5px 2px;background:var(--card-background-color);color:var(--secondary-text-color);font-size:12px}.access-status.error{color:var(--error-color)}@media(max-width:800px){.setup-head{align-items:flex-start;flex-direction:column}.profile-row{grid-template-columns:42px 1fr}.profile-badges,.profile-actions{grid-column:2}.setting-field,.setting-range{grid-template-columns:1fr}.setting-range output{text-align:left}.access-intro{align-items:stretch;flex-direction:column}.access-domain-row,.access-user-row{grid-template-columns:1fr}.access-user-actions,.access-url{grid-column:1}.access-profile-row{align-items:stretch;flex-direction:column}}
+      :host{display:block;width:100%;max-width:none;background:var(--primary-background-color);color:var(--primary-text-color)}*{box-sizing:border-box}.setup-shell{border:0;border-radius:0;box-shadow:none;background:var(--primary-background-color);padding:20px;min-height:100vh}.setup-head{display:flex;justify-content:space-between;gap:18px;align-items:center;padding:20px;border-radius:26px;background:var(--card-background-color);margin-bottom:16px;border:1px solid color-mix(in srgb,var(--divider-color) 72%,transparent);box-shadow:0 12px 34px rgba(0,0,0,.12)}.setup-title{display:flex;align-items:center;gap:9px;font-size:23px}.setup-title .fitness-brand-icon{width:30px;height:30px;object-fit:contain;flex:0 0 30px}.setup-head p{margin:6px 0 0;color:var(--secondary-text-color);max-width:760px}.setup-actions,.profile-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.profiles-list{display:grid;gap:10px}.profile-row{display:grid;grid-template-columns:46px minmax(170px,1fr) auto auto;gap:12px;align-items:center;padding:15px 17px;border-radius:22px;background:var(--card-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 74%,transparent);box-shadow:0 8px 24px rgba(0,0,0,.08);transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}.profile-row:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--primary-color) 32%,var(--divider-color));box-shadow:0 12px 30px rgba(0,0,0,.11)}.profile-row.tv-disabled{opacity:.78}.profile-row.tv-disabled .profile-avatar{filter:saturate(.35)}.profile-avatar{width:42px;height:42px;display:grid;place-items:center;border-radius:16px;background:color-mix(in srgb,var(--primary-color) 14%,transparent);color:var(--primary-color)}.profile-avatar ha-icon{--mdc-icon-size:25px}.profile-copy{min-width:0}.profile-copy strong,.profile-copy span,.profile-copy small{display:block}.profile-copy strong{font-size:17px}.profile-copy span{font-size:12px;color:var(--secondary-text-color);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.profile-copy small{font-size:10px;color:var(--secondary-text-color);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.profile-process-status:not(:empty){color:var(--primary-color);font-weight:600}.profile-badges{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.profile-badges span{display:inline-flex;align-items:center;gap:3px;padding:5px 7px;border-radius:9px;background:var(--secondary-background-color);font-size:10px;color:var(--secondary-text-color)}.profile-badges ha-icon{--mdc-icon-size:13px}.tool,.icon-tool,select{font:inherit;color:var(--primary-text-color);background:var(--secondary-background-color);border:1px solid var(--divider-color);border-radius:15px;min-height:40px}.tool,.icon-tool{cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 11px}.icon-tool{width:40px;padding:0}.empty{padding:28px;text-align:center;color:var(--secondary-text-color);border-radius:16px;background:var(--card-background-color)}.modal-backdrop{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.54);display:grid;place-items:center;padding:24px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}.modal-card{width:min(820px,96vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;min-height:0;border-radius:28px;background:var(--card-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 72%,transparent);box-shadow:0 28px 90px rgba(0,0,0,.48)}.modal-auto-scroll-body{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.add-profile-list,#backend-flow-host{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.configure-modal{overflow:hidden!important;display:flex;flex-direction:column;height:min(860px,calc(100dvh - 32px));max-height:calc(100dvh - 32px)}.configure-modal .profile-settings{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch;flex:1 1 auto}.configure-modal>.settings-actions{flex:0 0 auto;position:relative;bottom:auto;z-index:4;padding:11px 15px;background:color-mix(in srgb,var(--card-background-color) 97%,transparent);border-top:1px solid color-mix(in srgb,var(--divider-color) 68%,transparent)}.modal-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 15px;background:var(--card-background-color);border-bottom:1px solid var(--divider-color)}.add-profile-list{display:grid;gap:7px;padding:12px}.add-profile-row{display:grid;grid-template-columns:30px 1fr 24px;gap:9px;align-items:center;padding:13px;border:1px solid color-mix(in srgb,var(--divider-color) 70%,transparent);border-radius:18px;background:var(--secondary-background-color);color:var(--primary-text-color);text-align:left;cursor:pointer}.profile-settings{display:grid;gap:12px;padding:15px}.setting-toggle,.setting-field,.setting-range{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:13px;border-radius:18px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 70%,transparent)}.setting-field{grid-template-columns:180px minmax(0,1fr)}.setting-field select{width:100%;padding:0 10px}.setting-range{grid-template-columns:minmax(0,1fr) minmax(180px,280px) 48px}.setting-toggle small,.setting-range small,.setting-info small{display:block;margin-top:3px;color:var(--secondary-text-color);font-size:10px}.setting-title,.modal-title-with-icon{display:inline-flex;align-items:center;gap:7px}.setting-title ha-icon,.modal-title-with-icon ha-icon{--mdc-icon-size:20px;color:var(--primary-color)}.setting-info{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:center;padding:12px;border-radius:13px;background:var(--secondary-background-color)}.setting-info ha-icon{color:var(--primary-color)}.setting-adapters{display:grid;gap:10px;padding:12px;border-radius:13px;background:var(--secondary-background-color)}.setting-adapters>div>small{display:block;margin-top:3px;color:var(--secondary-text-color);font-size:10px}.music-adapter-list,.music-adapter-picker{display:grid;gap:7px}.music-adapter-row{display:grid;grid-template-columns:22px 24px minmax(0,1fr) auto;gap:9px;align-items:center;padding:9px;border-radius:10px;background:color-mix(in srgb,var(--card-background-color) 65%,transparent)}.music-adapter-row input{width:18px;height:18px}.music-adapter-row ha-icon{--mdc-icon-size:20px}.music-adapter-row img{width:20px;height:20px;object-fit:contain}.music-adapter-row small,.music-adapter-row strong{display:block}.music-adapter-row small{color:var(--secondary-text-color);font-size:10px;margin-top:2px}.music-adapter-row.unavailable{opacity:.58}.adapter-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap}.adapter-account{font:inherit;max-width:190px;min-height:32px;padding:0 6px;color:var(--primary-text-color);background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:9px}.adapter-setup{font:inherit;font-size:11px;color:var(--primary-color);background:transparent;border:1px solid var(--divider-color);border-radius:9px;padding:6px 8px;cursor:pointer}.music-adapter-picker .music-adapter-row{grid-template-columns:22px 24px minmax(0,1fr)}.music-search-modal{overflow:hidden!important;display:flex;flex-direction:column;height:min(820px,calc(100dvh - var(--modal-top,68px) - 26px));max-height:calc(100dvh - var(--modal-top,68px) - 26px);min-height:0}.provider-catalog-modal{overflow:hidden!important;display:flex;flex-direction:column;height:min(820px,calc(100dvh - 32px));max-height:calc(100dvh - 32px);min-height:0}.provider-catalog-list{flex:1 1 auto;min-height:0;max-height:100%;overflow-y:auto!important;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.music-search-form{display:flex;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch;flex-direction:column;gap:12px;padding:14px}.music-search-form>.field-label,.music-search-form>.music-search-status,.music-search-form>.music-search-error,.music-search-form>.modal-actions{flex:0 0 auto}.music-search-form>.music-adapter-picker{flex:0 0 auto;min-height:auto;overflow:visible}.music-type-filter{display:grid;gap:7px;padding:10px 11px;border-radius:14px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 64%,transparent)}.music-type-filter-title{font-size:11px;font-weight:700;color:var(--secondary-text-color)}.music-type-options{display:flex;gap:7px;flex-wrap:wrap}.music-type-option{display:inline-flex;align-items:center;gap:6px;padding:7px 9px;border-radius:11px;background:var(--card-background-color);border:1px solid var(--divider-color);cursor:pointer;white-space:nowrap}.music-type-option input{width:16px;height:16px;margin:0}.music-type-option ha-icon{--mdc-icon-size:18px;color:var(--primary-color)}.music-type-option span{font-size:11px}.provider-catalog-list{display:grid;gap:9px;padding:14px}.provider-catalog-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;padding:11px;border-radius:12px;background:var(--secondary-background-color)}.provider-catalog-row ha-icon{color:var(--primary-color)}.provider-catalog-row span strong,.provider-catalog-row span small{display:block}.provider-catalog-row span small{margin-top:3px;color:var(--secondary-text-color);font-size:10px}.setting-adapters-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.setting-adapters-head .adapter-setup{white-space:nowrap}.browser-working{display:flex;gap:9px;align-items:center;padding:12px;border-radius:11px;background:var(--secondary-background-color);color:var(--secondary-text-color)}.spin{animation:fitness-spin 1s linear infinite}@keyframes fitness-spin{to{transform:rotate(360deg)}}.setting-range input{width:100%}.setting-range output{text-align:right;font-weight:700}.setting-toggle input{width:20px;height:20px}.settings-actions{display:flex;align-items:center;gap:10px;justify-content:flex-end}.settings-status{font-size:12px;color:var(--secondary-text-color)}.access-admin-modal{overflow:hidden;display:flex;flex-direction:column;width:min(980px,96vw);height:min(900px,calc(100dvh - 32px));max-height:calc(100dvh - 32px)}.access-admin-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:16px;display:grid;gap:14px}.access-intro{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px;border-radius:20px;background:color-mix(in srgb,var(--primary-color) 8%,var(--secondary-background-color));border:1px solid color-mix(in srgb,var(--primary-color) 20%,var(--divider-color))}.access-intro p{margin:0;color:var(--secondary-text-color);max-width:680px}.access-section{display:grid;gap:12px;padding:15px;border-radius:22px;background:var(--secondary-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 72%,transparent)}.access-section-title{display:flex;gap:10px;align-items:flex-start}.access-section-title>ha-icon{color:var(--primary-color);margin-top:2px}.access-section-title strong,.access-section-title small{display:block}.access-section-title small{margin-top:3px;color:var(--secondary-text-color);font-size:11px}.access-domain-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px}.access-domain-row input,.access-user-row input,.access-user-row select{width:100%;min-height:40px;border-radius:13px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);padding:0 11px;font:inherit}.access-user-list{display:grid;gap:10px}.access-user-row{display:grid;grid-template-columns:minmax(170px,1.2fr) minmax(180px,.9fr) minmax(230px,1.15fr);gap:10px;align-items:end;padding:14px;border-radius:18px;background:var(--card-background-color);border:1px solid color-mix(in srgb,var(--divider-color) 72%,transparent)}.access-user-head{display:flex;align-items:center;gap:9px;align-self:center}.access-user-head>ha-icon{color:var(--primary-color)}.access-user-head strong,.access-user-head small{display:block}.access-user-head small{margin-top:2px;color:var(--secondary-text-color);font-size:10px}.access-user-row label>span{display:block;margin:0 0 5px;font-size:11px;color:var(--secondary-text-color)}.access-role-field,.access-profile-field,.access-language-field{display:block;min-width:0;align-self:stretch}.access-role-field select,.access-profile-field select,.access-language-field select{width:100%;min-height:40px;border-radius:13px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);padding:0 11px;font:inherit}.access-role-field small,.access-profile-field small,.access-language-field small{display:block;margin-top:5px;color:var(--secondary-text-color);font-size:10px;line-height:1.3}.access-view-field{grid-column:1/-1}.access-view-field>span{display:block;margin:0 0 4px;font-size:11px;color:var(--secondary-text-color)}.access-view-field>small{display:block;margin-bottom:7px;color:var(--secondary-text-color);font-size:10px;line-height:1.35}.access-view-options{display:flex;gap:7px;flex-wrap:wrap}.access-view-option{display:inline-flex!important;align-items:center;gap:6px;padding:7px 9px;border:1px solid var(--divider-color);border-radius:11px;background:var(--secondary-background-color)}.access-view-option input{margin:0}.access-view-option span{margin:0!important;color:var(--primary-text-color)!important}.access-view-options em{color:var(--secondary-text-color);font-size:11px}.access-slug-field{grid-column:2/4}.access-slug-input{display:flex;align-items:center;border:1px solid var(--divider-color);border-radius:13px;background:var(--card-background-color);overflow:hidden}.access-slug-input input{border:0;border-radius:0;min-width:80px}.access-slug-input span{padding:0 9px;color:var(--secondary-text-color);font-size:11px;white-space:nowrap}.access-url{grid-column:1/-1;min-height:16px;font-size:11px;color:var(--secondary-text-color);overflow-wrap:anywhere}.access-url code{color:var(--primary-text-color)}.access-user-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}.tool.danger{color:var(--error-color);border-color:color-mix(in srgb,var(--error-color) 35%,var(--divider-color))}.modal-card{max-height:calc(100dvh - 32px);overflow:hidden;display:flex;flex-direction:column;min-height:0;overscroll-behavior:contain}.configure-modal,.browser-modal,.picker-modal,.cast-modal,.remote-gateway-modal,.provider-catalog-modal,.music-search-modal,.ytdlp-legal-modal,.access-admin-modal{overflow:hidden!important;display:flex;flex-direction:column;min-height:0}.profile-settings,.picker-list,.media-list,.cast-picker,.remote-gateway-body,.provider-catalog-list,.music-search-form,.modal-scroll-body,.playlist-list,.playlist-edit-list,.music-source-list,.access-admin-body,.add-profile-list{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.browser-modal>.media-list,.browser-modal>.playlist-list,.browser-modal>.music-source-list,.picker-modal>.picker-list,.cast-modal>.cast-picker,.remote-gateway-modal>.remote-gateway-body,.provider-catalog-modal>.provider-catalog-list,.access-admin-modal>.access-admin-body{flex:1 1 auto}.modal-head{position:sticky!important;top:0;z-index:30;flex:0 0 auto;background:color-mix(in srgb,var(--card-background-color) 96%,transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}.modal-actions,.settings-actions{position:sticky;bottom:0;z-index:24;flex:0 0 auto;padding:12px 14px;background:color-mix(in srgb,var(--card-background-color) 96%,transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid color-mix(in srgb,var(--divider-color) 68%,transparent)}.configure-modal>.settings-actions{position:relative;bottom:auto}.modal-scroll-body{padding:14px}.hidden,[hidden]{display:none!important}.access-status{position:sticky;bottom:0;min-height:18px;padding:5px 2px;background:var(--card-background-color);color:var(--secondary-text-color);font-size:12px}.access-status.error{color:var(--error-color)}@media(max-width:800px){.setup-head{align-items:flex-start;flex-direction:column}.profile-row{grid-template-columns:42px 1fr}.profile-badges,.profile-actions{grid-column:2}.setting-field,.setting-range{grid-template-columns:1fr}.setting-range output{text-align:left}.access-intro{align-items:stretch;flex-direction:column}.access-domain-row,.access-user-row{grid-template-columns:1fr}.access-user-actions,.access-url{grid-column:1}}
     </style>`;
   }
 }
@@ -10226,7 +10911,7 @@ class FitnessTvDashboardStrategy extends HTMLElement {
     const allProfiles = data?.profiles || [];
     const profiles = allProfiles.filter((profile) => profile.tv_dashboard?.enabled);
     const labelProfile = profiles[0] || allProfiles[0];
-    const ui = String(hass?.language || "en").toLowerCase().split("-")[0];
+    const ui = String(labelProfile?.language || hass?.language || "en").toLowerCase().split("-")[0];
     const labels = labelProfile?.labels_by_language?.[ui] || labelProfile?.labels_by_language?.en || labelProfile?.labels || {};
     const title = config?.title || labels.tv_dashboard || "Fitness TV";
     const views = [{

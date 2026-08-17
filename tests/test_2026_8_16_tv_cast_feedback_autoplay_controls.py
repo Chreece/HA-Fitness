@@ -84,9 +84,13 @@ def test_cast_receiver_toolbar_only_exposes_cast_relevant_action_buttons():
     ]
     assert 'id="fullscreen"' not in receiver_branch
     assert 'id="cast"' not in receiver_branch
-    assert 'id="configure"' not in receiver_branch
     assert 'id="cards"' not in receiver_branch
     assert 'id="arrange"' not in receiver_branch
+    assert 'id="remote-sensors"' not in receiver_branch
+    assert 'id="configure"' in receiver_branch
+    assert 'id="backend-config"' in receiver_branch
+    assert 'id="light-feedback-toggle"' in receiver_branch
+    assert 'id="tts-announcements-toggle"' in receiver_branch
     assert 'void this._quitCastFromRemote("toolbar stop")' in render
 
 

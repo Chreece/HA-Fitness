@@ -87,6 +87,7 @@ _RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-82"
 _SETUP_KEY = "_dashboard_frontend_setup"
 _TV_DASHBOARD_CARD_TYPE = "custom:fitness-tv-dashboard-card"
 _TV_SETUP_CARD_TYPE = "custom:fitness-tv-setup-card"
+_TV_OVERVIEW_CAST_STATE_KEY = "_tv_overview_cast_state"
 
 class FitnessDashboardResourceView(HomeAssistantView):
     """Serve the Fitness dashboard module with cross-origin access for Cast.
@@ -1674,6 +1675,15 @@ _TV_DASHBOARD_ACCESS_TEXT: dict[str, dict[str, str]] = {
         "role_local":"Local user",
         "role_remote":"Remote user",
         "account_profile":"Fitness profile",
+        "account_language":"Language",
+        "account_language_hint":"Menus and this user's Fitness TV dashboard use this language.",
+        "configure_tv":"Configure Fitness TV",
+        "configure_account":"Configure Fitness account",
+        "light_feedback_on":"Light feedback on",
+        "light_feedback_off":"Light feedback off",
+        "tts_announcements_on":"TTS announcements on",
+        "tts_announcements_off":"TTS announcements off",
+        "cast_no_default_target":"Configure a default Fitness TV before casting from the admin panel.",
         "remote_slug":"Remote subdomain",
         "remote_url":"Remote URL",
         "save_account":"Save account",
@@ -1709,6 +1719,15 @@ _TV_DASHBOARD_ACCESS_TEXT: dict[str, dict[str, str]] = {
         "role_local":"Τοπικός χρήστης",
         "role_remote":"Απομακρυσμένος χρήστης",
         "account_profile":"Προφίλ Fitness",
+        "account_language":"Γλώσσα",
+        "account_language_hint":"Τα μενού και το Fitness TV αυτού του χρήστη χρησιμοποιούν αυτή τη γλώσσα.",
+        "configure_tv":"Ρύθμιση Fitness TV",
+        "configure_account":"Ρύθμιση λογαριασμού Fitness",
+        "light_feedback_on":"Φωτεινή ανάδραση ενεργή",
+        "light_feedback_off":"Φωτεινή ανάδραση ανενεργή",
+        "tts_announcements_on":"Ανακοινώσεις TTS ενεργές",
+        "tts_announcements_off":"Ανακοινώσεις TTS ανενεργές",
+        "cast_no_default_target":"Ρύθμισε προεπιλεγμένη Fitness TV πριν ξεκινήσεις Cast από τη διαχείριση.",
         "remote_slug":"Απομακρυσμένο subdomain",
         "remote_url":"Απομακρυσμένο URL",
         "save_account":"Αποθήκευση λογαριασμού",
@@ -1744,6 +1763,15 @@ _TV_DASHBOARD_ACCESS_TEXT: dict[str, dict[str, str]] = {
         "role_local":"Lokaler Benutzer",
         "role_remote":"Remote-Benutzer",
         "account_profile":"Fitness-Profil",
+        "account_language":"Sprache",
+        "account_language_hint":"Menüs und das Fitness-TV-Dashboard dieses Benutzers verwenden diese Sprache.",
+        "configure_tv":"Fitness TV konfigurieren",
+        "configure_account":"Fitness-Konto konfigurieren",
+        "light_feedback_on":"Licht-Feedback an",
+        "light_feedback_off":"Licht-Feedback aus",
+        "tts_announcements_on":"TTS-Ansagen an",
+        "tts_announcements_off":"TTS-Ansagen aus",
+        "cast_no_default_target":"Konfiguriere zuerst einen Standard-Fitness-TV, bevor du aus der Verwaltung castest.",
         "remote_slug":"Remote-Subdomain",
         "remote_url":"Remote-URL",
         "save_account":"Konto speichern",
@@ -2406,6 +2434,25 @@ def _fitness_audio_outputs(hass: HomeAssistant, registry: er.EntityRegistry) -> 
     )
 
 
+def _tv_overview_cast_state(hass: HomeAssistant) -> dict[str, Any]:
+    """Return the server-owned state for the castable Fitness TV overview."""
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    state = domain_data.get(_TV_OVERVIEW_CAST_STATE_KEY)
+    if not isinstance(state, dict):
+        state = {"active": False, "target": ""}
+        domain_data[_TV_OVERVIEW_CAST_STATE_KEY] = state
+    return state
+
+
+def _tv_overview_cast_descriptor(hass: HomeAssistant) -> dict[str, Any]:
+    """Return dashboard-safe overview Cast state."""
+    state = _tv_overview_cast_state(hass)
+    return {
+        "active": bool(state.get("active")),
+        "target": str(state.get("target") or "") or None,
+    }
+
+
 def _tv_cast_targets(hass: HomeAssistant, registry: er.EntityRegistry) -> list[dict[str, Any]]:
     """Return enabled Google Cast media players for the TV dashboard picker."""
     targets: list[dict[str, Any]] = []
@@ -2604,6 +2651,78 @@ async def websocket_dashboard_options_flow_cancel(
     connection.send_result(msg["id"], {"aborted": True})
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/tv/overview/cast",
+        vol.Required("entity_id"): str,
+    }
+)
+@websocket_api.async_response
+async def websocket_tv_overview_cast(hass: HomeAssistant, connection, msg) -> None:
+    """Cast the complete Fitness TV user overview to one HA Cast target."""
+    access = await get_fitness_access_controller(hass).async_descriptor(connection)
+    if not access.get("is_admin"):
+        connection.send_error(msg["id"], "unauthorized", "Fitness administrator access required")
+        return
+    target = str(msg.get("entity_id") or "").strip()
+    registry = er.async_get(hass)
+    entry = registry.async_get(target)
+    if (
+        not target
+        or entry is None
+        or entry.platform != "cast"
+        or not target.startswith("media_player.")
+        or entry.disabled_by is not None
+    ):
+        connection.send_error(msg["id"], "invalid_cast_target", "Google Cast media player required")
+        return
+    if not hass.services.has_service("cast", "show_lovelace_view"):
+        connection.send_error(msg["id"], "cast_unavailable", "Home Assistant Cast service unavailable")
+        return
+    try:
+        await _async_wake_cast_target(hass, target)
+        await hass.services.async_call(
+            "cast",
+            "show_lovelace_view",
+            {
+                "entity_id": target,
+                "dashboard_path": TV_DASHBOARD_PATH,
+                "view_path": "cast-overview",
+            },
+            blocking=True,
+        )
+    except Exception as err:  # noqa: BLE001 - surface the HA Cast error to the admin UI
+        connection.send_error(msg["id"], "cast_failed", str(err))
+        return
+    state = _tv_overview_cast_state(hass)
+    state.update({"active": True, "target": target})
+    connection.send_result(msg["id"], _tv_overview_cast_descriptor(hass))
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/tv/overview/stop",
+        vol.Optional("entity_id"): str,
+    }
+)
+@websocket_api.async_response
+async def websocket_tv_overview_stop(hass: HomeAssistant, connection, msg) -> None:
+    """Stop the currently cast Fitness TV overview without touching profile Casts."""
+    access = await get_fitness_access_controller(hass).async_descriptor(connection)
+    if not access.get("is_admin"):
+        connection.send_error(msg["id"], "unauthorized", "Fitness administrator access required")
+        return
+    state = _tv_overview_cast_state(hass)
+    target = str(msg.get("entity_id") or state.get("target") or "").strip()
+    if target:
+        try:
+            await _async_stop_existing_ha_cast_receiver(hass, target)
+        except Exception:  # noqa: BLE001 - stopping the overview is best-effort
+            _LOGGER.debug("Unable to stop Fitness TV overview Cast on %s", target, exc_info=True)
+    state.update({"active": False, "target": ""})
+    connection.send_result(msg["id"], _tv_overview_cast_descriptor(hass))
+
+
 @websocket_api.websocket_command({vol.Required("type"): "fitness/dashboard/config"})
 @websocket_api.async_response
 async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> None:
@@ -2684,6 +2803,9 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                             config.get(CONF_TV_MEDIA_PLAYER_ID) or ""
                         )
                         or None,
+                        "cast_active": tv_hub.is_cast_active(entry.entry_id),
+                        "local_cast_active": tv_hub.is_local_cast_active(entry.entry_id),
+                        "cast_target": tv_hub.cast_target(entry.entry_id),
                         "ducking_percent": max(
                             0,
                             min(
@@ -2713,6 +2835,8 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                             )
                         ),
                         "animations_enabled": bool(tv_preferences.get("animations_enabled", True)),
+                        "light_feedback_enabled": bool(tv_preferences.get("light_feedback_enabled", True)),
+                        "tts_announcements_enabled": bool(tv_preferences.get("tts_announcements_enabled", True)),
                         "music_search_limit": int(
                             tv_preferences.get("music_search_limit", 50)
                         ),
@@ -2867,6 +2991,9 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                     "enabled": bool(manager.config.get(CONF_TV_DASHBOARD_ENABLED, False)),
                     "ytdlp_enabled": bool(manager.config.get(CONF_TV_YTDLP_ENABLED, False)),
                     "cast_media_player_id": str(manager.config.get(CONF_TV_MEDIA_PLAYER_ID) or "") or None,
+                    "cast_active": get_tv_dashboard_hub(hass).is_cast_active(entry.entry_id),
+                    "local_cast_active": get_tv_dashboard_hub(hass).is_local_cast_active(entry.entry_id),
+                    "cast_target": get_tv_dashboard_hub(hass).cast_target(entry.entry_id),
                     "ducking_percent": max(
                         0,
                         min(
@@ -2887,6 +3014,8 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                         tv_preferences.get("oled_protection", DEFAULT_TV_OLED_PROTECTION)
                     ),
                     "animations_enabled": bool(tv_preferences.get("animations_enabled", True)),
+                    "light_feedback_enabled": bool(tv_preferences.get("light_feedback_enabled", True)),
+                    "tts_announcements_enabled": bool(tv_preferences.get("tts_announcements_enabled", True)),
                     "music_search_limit": int(tv_preferences.get("music_search_limit", 50)),
                     "last_media": dict(tv_preferences.get("last_media") or {}),
                     "audio_output_id": str(tv_preferences.get("audio_output_id") or "__fitness_browser__"),
@@ -2901,6 +3030,7 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
             "profiles": profiles,
             "access": access,
             "cast_targets": _tv_cast_targets(hass, registry) if access.get("is_admin") else [],
+            "overview_cast": _tv_overview_cast_descriptor(hass) if access.get("is_admin") else {"active": False, "target": None},
             "audio_outputs": _fitness_audio_outputs(hass, registry),
             "intensity_colors": {
                 key: list(rgb)
@@ -3004,7 +3134,10 @@ def _tv_dashboard_expected_config(hass: HomeAssistant) -> dict[str, object]:
     views: list[dict[str, object]] = [
         _tv_dashboard_view(
             title="Fitness TV", path="main", panel=True, setup=True
-        )
+        ),
+        _tv_dashboard_view(
+            title="Fitness TV Overview Cast", path="cast-overview", setup=True
+        ),
     ]
     for entry in entries:
         # The normal HA profile page is a full-width panel so the Fitness TV
@@ -3053,7 +3186,7 @@ def _is_managed_tv_dashboard_config(config: object) -> bool:
         path = str(view.get("path") or "")
         if path == "main":
             found_main = True
-        elif not (path.startswith("profile-") or path.startswith("cast-")):
+        elif path != "cast-overview" and not (path.startswith("profile-") or path.startswith("cast-")):
             return False
 
         cards: list[object] = []
@@ -3087,7 +3220,7 @@ def _is_managed_tv_dashboard_config(config: object) -> bool:
         # the dashboard card internally. Older releases used a direct dashboard
         # card there, so both remain valid migration inputs. Cast views only use
         # dashboard cards.
-        if path == "main" or path.startswith("profile-"):
+        if path in {"main", "cast-overview"} or path.startswith("profile-"):
             if not (is_setup_type or is_dashboard_type):
                 return False
         elif not is_dashboard_type:
@@ -3699,6 +3832,8 @@ async def async_setup_dashboard(hass: HomeAssistant) -> None:
 
     frontend_path = Path(__file__).parent / "frontend"
     websocket_api.async_register_command(hass, websocket_dashboard_config)
+    websocket_api.async_register_command(hass, websocket_tv_overview_cast)
+    websocket_api.async_register_command(hass, websocket_tv_overview_stop)
     websocket_api.async_register_command(hass, websocket_dashboard_flow_translations)
     websocket_api.async_register_command(hass, websocket_dashboard_options_flow_start)
     websocket_api.async_register_command(hass, websocket_dashboard_options_flow_step)

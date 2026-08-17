@@ -486,6 +486,16 @@ class FitnessTVDashboardHub:
         prefs = await self.async_preferences(profile_entry_id)
         return self._sanitize_audio_output_id(prefs.get("audio_output_id"))
 
+    def light_feedback_enabled(self, profile_entry_id: str) -> bool:
+        """Return the per-profile optical feedback switch without blocking."""
+        profile = self._data.get("profiles", {}).get(str(profile_entry_id))
+        return bool(profile.get("light_feedback_enabled", True)) if isinstance(profile, dict) else True
+
+    def tts_announcements_enabled(self, profile_entry_id: str) -> bool:
+        """Return the per-profile automatic TTS switch without blocking."""
+        profile = self._data.get("profiles", {}).get(str(profile_entry_id))
+        return bool(profile.get("tts_announcements_enabled", True)) if isinstance(profile, dict) else True
+
     async def async_preferences(self, profile_entry_id: str) -> dict[str, Any]:
         await self.async_load()
         profile = self._data["profiles"].get(profile_entry_id)
@@ -509,6 +519,8 @@ class FitnessTVDashboardHub:
                 profile.get("oled_protection", DEFAULT_TV_OLED_PROTECTION)
             ),
             "animations_enabled": bool(profile.get("animations_enabled", True)),
+            "light_feedback_enabled": bool(profile.get("light_feedback_enabled", True)),
+            "tts_announcements_enabled": bool(profile.get("tts_announcements_enabled", True)),
             "audio_output_id": self._sanitize_audio_output_id(profile.get("audio_output_id")),
             "music_adapters": self._sanitize_music_adapters(profile.get("music_adapters")),
             "music_adapters_configured": "music_adapters" in profile,
@@ -536,6 +548,8 @@ class FitnessTVDashboardHub:
         tv_scale_percent: int | None = None,
         oled_protection: bool | None = None,
         animations_enabled: bool | None = None,
+        light_feedback_enabled: bool | None = None,
+        tts_announcements_enabled: bool | None = None,
         audio_output_id: str | None = None,
         music_adapters: list[str] | None = None,
         music_adapter_options: dict[str, Any] | None = None,
@@ -566,6 +580,10 @@ class FitnessTVDashboardHub:
             updated["oled_protection"] = bool(oled_protection)
         if animations_enabled is not None:
             updated["animations_enabled"] = bool(animations_enabled)
+        if light_feedback_enabled is not None:
+            updated["light_feedback_enabled"] = bool(light_feedback_enabled)
+        if tts_announcements_enabled is not None:
+            updated["tts_announcements_enabled"] = bool(tts_announcements_enabled)
         if audio_output_id is not None:
             updated["audio_output_id"] = self._sanitize_audio_output_id(audio_output_id)
         if music_adapters is not None:
@@ -2386,6 +2404,8 @@ async def websocket_tv_preferences(hass: HomeAssistant, connection, msg) -> None
         vol.Optional("tv_scale_percent"): vol.All(vol.Coerce(int), vol.Range(min=10, max=150)),
         vol.Optional("oled_protection"): bool,
         vol.Optional("animations_enabled"): bool,
+        vol.Optional("light_feedback_enabled"): bool,
+        vol.Optional("tts_announcements_enabled"): bool,
         vol.Optional("audio_output_id"): str,
         vol.Optional("music_adapters"): [str],
         vol.Optional("music_adapter_options"): dict,
@@ -2413,6 +2433,8 @@ async def websocket_tv_preferences_save(hass: HomeAssistant, connection, msg) ->
         tv_scale_percent=msg.get("tv_scale_percent"),
         oled_protection=msg.get("oled_protection"),
         animations_enabled=msg.get("animations_enabled"),
+        light_feedback_enabled=msg.get("light_feedback_enabled"),
+        tts_announcements_enabled=msg.get("tts_announcements_enabled"),
         audio_output_id=msg.get("audio_output_id"),
         music_adapters=list(msg["music_adapters"]) if "music_adapters" in msg else None,
         music_adapter_options=dict(msg["music_adapter_options"]) if "music_adapter_options" in msg else None,
@@ -2421,13 +2443,15 @@ async def websocket_tv_preferences_save(hass: HomeAssistant, connection, msg) ->
         music_search_scopes=dict(msg["music_search_scopes"]) if "music_search_scopes" in msg else None,
         music_search_types=list(msg["music_search_types"]) if "music_search_types" in msg else None,
     )
-    if "tv_scale_percent" in msg or "oled_protection" in msg or "animations_enabled" in msg:
+    if any(key in msg for key in ("tv_scale_percent", "oled_protection", "animations_enabled", "light_feedback_enabled", "tts_announcements_enabled")):
         hub.broadcast_settings(
             profile_entry_id,
             {
                 "tv_scale_percent": result["tv_scale_percent"],
                 "oled_protection": result["oled_protection"],
                 "animations_enabled": result["animations_enabled"],
+                "light_feedback_enabled": result["light_feedback_enabled"],
+                "tts_announcements_enabled": result["tts_announcements_enabled"],
             },
         )
     connection.send_result(msg["id"], result)

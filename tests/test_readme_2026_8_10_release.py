@@ -32,11 +32,13 @@ def test_readme_has_science_and_health_boundaries():
     assert "[LICENSE](LICENSE)" in README
 
 
-def test_changelog_is_unreleased_until_first_public_release():
+def test_changelog_tracks_unreleased_work_and_public_alpha_release():
     assert "## Unreleased" in CHANGELOG
-    assert "has **not had a public release yet**" in CHANGELOG
-    assert "`YYYY.MM.RR-betaXX`" in CHANGELOG
-    assert "`YYYY.MM.RR`" in CHANGELOG
+    assert "## 2026.8.01a01" in CHANGELOG
+    assert "First public alpha release of HA-Fitness" in CHANGELOG
+    assert "`YYYY.M.RRaXX`" in CHANGELOG
+    assert "`YYYY.M.RR-betaXX`" in CHANGELOG
+    assert "`YYYY.M.RR`" in CHANGELOG
     assert "### Internal development checkpoint: 2026.8.10" in CHANGELOG
     assert "### Internal development checkpoint: 2026.8.11" in CHANGELOG
     assert "[Science & methods](docs/SCIENCE.md)" in CHANGELOG

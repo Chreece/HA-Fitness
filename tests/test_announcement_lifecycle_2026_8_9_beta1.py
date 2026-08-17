@@ -22,7 +22,7 @@ def test_beta1_version():
     )
 
     assert manifest["version"] == "0.0.0" or re.fullmatch(
-        r"\d{4}\.\d{1,2}\.\d+(?:(?:a\d+)|-(?:alpha|beta)\d+)?",
+        r"\d{4}\.\d{1,2}\.\d+(?:a\d+|-beta\d+)?",
         manifest["version"],
     )
 

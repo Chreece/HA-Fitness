@@ -559,7 +559,7 @@ def test_unreleased_44_cast_lifecycle_tracks_real_tv_receiver_and_pauses_phantom
     assert '"cast_active": hub.is_cast_active(profile_entry_id)' in TV
     assert 'this._serverCastActive = Boolean(result?.cast_active)' in FRONTEND
     assert '["off", "standby", "unknown", "unavailable"].includes(String(state.state || ""))' in FRONTEND
-    assert 'stopCast.hidden = !anyCastActive' in FRONTEND
+    assert 'stopCast.hidden = !FITNESS_TV_CAST_RECEIVER || !anyCastActive' in FRONTEND
     assert 'stopCast.disabled = !anyCastActive' in FRONTEND
     assert 'reason="manual_cast_stop"' in DASHBOARD
     assert 'return True' in DASHBOARD
@@ -658,8 +658,8 @@ def test_unreleased_46_setup_has_one_touch_profile_tv_workout_flow():
 
 
 def test_unreleased_46_cast_uses_profile_language_and_tv_safe_recovery_bar_fallbacks():
-    assert 'FITNESS_TV_CAST_RECEIVER ? profile?.language : this._hass?.language' in FRONTEND
-    assert 'FITNESS_TV_CAST_RECEIVER ? this._profile?.language : this._hass?.language' in FRONTEND
+    assert 'profile?.language || this._access?.language || this._hass?.language || "en"' in FRONTEND
+    assert 'String(this._profile?.language || this._hass?.language || "en")' in FRONTEND
     assert 'background:var(--divider-color);background:color-mix' in FRONTEND
     assert 'background:var(--score-tone);background:linear-gradient' in FRONTEND
     assert '"start_tv_workout":"Έναρξη στην TV"' in DASHBOARD

@@ -1554,6 +1554,17 @@ class FitnessManager:
         - when the TV option is enabled and a confirmed Fitness Cast receiver
           is alive, the TV replaces optical light feedback completely
         """
+        try:
+            from .tv_dashboard import get_tv_dashboard_hub  # noqa: PLC0415
+
+            if not get_tv_dashboard_hub(self.hass).light_feedback_enabled(
+                self.entry.entry_id
+            ):
+                self.last_feedback_light_result = "disabled_by_profile"
+                return []
+        except Exception:  # noqa: BLE001 - preference lookup must remain fail-safe
+            pass
+
         if self._tv_cast_suppresses_feedback_lights():
             self.last_feedback_light_result = "suppressed_by_tv_cast"
             return []
@@ -2817,7 +2828,7 @@ class FitnessManager:
             language, _TTS_TEST_MESSAGES["en"]
         )
         self.last_feedback_message = spoken
-        await self._async_speak(spoken)
+        await self._async_speak(spoken, force=True)
         self._notify()
         return self.last_feedback_tts_result
 
@@ -2847,12 +2858,24 @@ class FitnessManager:
             return "ai_failed"
 
         self.last_feedback_message = spoken
-        await self._async_speak(spoken)
+        await self._async_speak(spoken, force=True)
         self._notify()
         return self.last_feedback_tts_result
 
-    async def _async_speak(self, message: str):
+    async def _async_speak(self, message: str, *, force: bool = False):
         """Speak one Fitness message at a time and wait for playback to end."""
+        if not force:
+            try:
+                from .tv_dashboard import get_tv_dashboard_hub  # noqa: PLC0415
+
+                if not get_tv_dashboard_hub(self.hass).tts_announcements_enabled(
+                    self.entry.entry_id
+                ):
+                    self.last_feedback_tts_result = "disabled_by_profile"
+                    return
+            except Exception:  # noqa: BLE001 - preference lookup must remain fail-safe
+                pass
+
         async with self._tts_playback_lock:
             configured_tts_entity = str(
                 self.config.get(CONF_TTS_ENTITY_ID) or ""

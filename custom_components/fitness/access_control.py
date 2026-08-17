@@ -29,7 +29,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import Unauthorized
 from homeassistant.helpers.storage import Store
 
-from .const import DOMAIN
+from .const import CONF_LANGUAGE, DOMAIN, SUPPORTED_LANGUAGES
 
 ACCESS_STORE_VERSION = 1
 ACCESS_STORE_KEY = "fitness.access_control"
@@ -62,6 +62,13 @@ def _normalize_domain(value: Any) -> str:
 def _normalize_slug(value: Any) -> str:
     slug = str(value or "").strip().lower()
     return slug if _SLUG_RE.fullmatch(slug) else ""
+
+
+def _normalize_language(value: Any) -> str:
+    """Return one Fitness-supported language code."""
+    raw = str(value or "en").strip().lower()
+    code = raw.split("-", 1)[0].split("_", 1)[0]
+    return code if code in SUPPORTED_LANGUAGES else "en"
 
 
 def _is_local_remote(remote: Any) -> bool:
@@ -200,6 +207,20 @@ class FitnessAccessController:
         }
 
     @staticmethod
+    def _profile_language(entry) -> str:
+        if entry is None:
+            return "en"
+        config = {**entry.data, **entry.options}
+        return _normalize_language(config.get(CONF_LANGUAGE) or "en")
+
+    def _account_language(self, account: dict[str, Any] | None) -> str:
+        if isinstance(account, dict) and account.get("language"):
+            return _normalize_language(account.get("language"))
+        profile_id = str((account or {}).get("profile_entry_id") or "")
+        entry = self.hass.config_entries.async_get_entry(profile_id) if profile_id else None
+        return self._profile_language(entry) if entry is not None else _normalize_language(getattr(self.hass.config, "language", "en"))
+
+    @staticmethod
     def _view_profile_ids(account: dict[str, Any] | None) -> set[str]:
         if not isinstance(account, dict):
             return set()
@@ -234,6 +255,7 @@ class FitnessAccessController:
                 "view_profile_entry_ids": sorted(self._view_profile_ids(account)),
                 "remote_slug": None,
                 "remote_url": None,
+                "language": self._account_language(account),
                 "session_allowed": True,
             }
 
@@ -247,6 +269,7 @@ class FitnessAccessController:
                 "view_profile_entry_ids": [],
                 "remote_slug": None,
                 "remote_url": None,
+                "language": _normalize_language(getattr(self.hass.config, "language", "en")),
                 "session_allowed": False,
             }
 
@@ -266,6 +289,7 @@ class FitnessAccessController:
                 if expected_host and account.get("profile_entry_id")
                 else None
             ),
+            "language": self._account_language(account),
             "session_allowed": session_allowed,
         }
 
@@ -350,12 +374,52 @@ class FitnessAccessController:
 
     async def async_admin_snapshot(self, connection) -> dict[str, Any]:
         await self.async_require_admin(connection)
+        # Imported lazily to avoid an access_control <-> tv_dashboard import cycle.
+        from .tv_dashboard import get_tv_dashboard_hub
+
+        hub = get_tv_dashboard_hub(self.hass)
+        await hub.async_load()
+        profile_rows: list[dict[str, Any]] = []
+        profile_by_id: dict[str, dict[str, Any]] = {}
+        for entry in self.hass.config_entries.async_entries(DOMAIN):
+            if entry.data.get("entry_type") == "live_hub":
+                continue
+            config = {**entry.data, **entry.options}
+            prefs = await hub.async_preferences(entry.entry_id)
+            row = {
+                "entry_id": entry.entry_id,
+                "name": str(config.get("profile_name") or entry.title or entry.entry_id),
+                "language": self._profile_language(entry),
+                "bound_user_id": next(
+                    (uid for uid, account in self._data["accounts"].items()
+                     if isinstance(account, dict) and account.get("enabled", True)
+                     and account.get("profile_entry_id") == entry.entry_id),
+                    None,
+                ),
+                "viewer_user_ids": sorted(
+                    uid for uid, account in self._data["accounts"].items()
+                    if isinstance(account, dict) and account.get("enabled", True)
+                    and entry.entry_id in self._view_profile_ids(account)
+                ),
+                "tv_dashboard_enabled": bool(config.get("tv_dashboard_enabled", False)),
+                "cast_media_player_id": str(config.get("tv_dashboard_media_player_id") or "") or None,
+                "cast_target": hub.cast_target(entry.entry_id),
+                "cast_active": hub.is_any_cast_active(entry.entry_id),
+                "local_cast_active": hub.is_local_cast_active(entry.entry_id),
+                "light_feedback_enabled": bool(prefs.get("light_feedback_enabled", True)),
+                "tts_announcements_enabled": bool(prefs.get("tts_announcements_enabled", True)),
+            }
+            profile_rows.append(row)
+            profile_by_id[entry.entry_id] = row
+
         users = []
         for user in await self.hass.auth.async_get_users():
             if getattr(user, "system_generated", False):
                 continue
             bound = self._account(user.id)
             effective_role = ROLE_ADMIN if bool(user.is_admin) else (str(bound.get("role")) if bound else None)
+            bound_profile_id = str(bound.get("profile_entry_id") or "") if bound else ""
+            bound_profile = profile_by_id.get(bound_profile_id)
             users.append({
                 "user_id": user.id,
                 "name": str(user.name or user.id),
@@ -364,43 +428,20 @@ class FitnessAccessController:
                 "is_active": bool(user.is_active),
                 "local_only": bool(user.local_only),
                 "fitness_role": effective_role,
-                "fitness_profile_entry_id": str(bound.get("profile_entry_id") or "") if bound else None,
+                "fitness_profile_entry_id": bound_profile_id or None,
                 "view_profile_entry_ids": sorted(self._view_profile_ids(bound)),
                 "remote_slug": str(bound.get("remote_slug") or "") if bound else None,
+                "language": _normalize_language(
+                    (bound or {}).get("language")
+                    or (bound_profile or {}).get("language")
+                    or getattr(self.hass.config, "language", "en")
+                ),
             })
-        profiles = [
-            {
-                "entry_id": entry.entry_id,
-                "name": str(
-                    ({**entry.data, **entry.options}.get("profile_name"))
-                    or entry.title
-                    or entry.entry_id
-                ),
-                "bound_user_id": next(
-                    (
-                        uid
-                        for uid, row in self._data["accounts"].items()
-                        if isinstance(row, dict)
-                        and row.get("enabled", True)
-                        and row.get("profile_entry_id") == entry.entry_id
-                    ),
-                    None,
-                ),
-                "viewer_user_ids": sorted(
-                    uid
-                    for uid, row in self._data["accounts"].items()
-                    if isinstance(row, dict)
-                    and row.get("enabled", True)
-                    and entry.entry_id in self._view_profile_ids(row)
-                ),
-            }
-            for entry in self.hass.config_entries.async_entries(DOMAIN)
-            if entry.data.get("entry_type") != "live_hub"
-        ]
         return {
             "remote_base_domain": self._data.get("remote_base_domain") or "",
+            "supported_languages": dict(SUPPORTED_LANGUAGES),
             "users": sorted(users, key=lambda item: item["name"].casefold()),
-            "profiles": sorted(profiles, key=lambda item: item["name"].casefold()),
+            "profiles": sorted(profile_rows, key=lambda item: item["name"].casefold()),
         }
 
     async def async_set_remote_base_domain(self, connection, domain: str) -> dict[str, Any]:
@@ -452,6 +493,7 @@ class FitnessAccessController:
         profile_entry_id: str | None = None,
         remote_slug: str | None = None,
         view_profile_entry_ids: list[str] | None = None,
+        language: str | None = None,
     ) -> dict[str, Any]:
         await self.async_require_admin(connection)
         role = str(role or "").strip().lower()
@@ -464,11 +506,16 @@ class FitnessAccessController:
             raise ValueError("user_inactive")
 
         current = self._account(user.id)
+        selected_language = _normalize_language(
+            language if language is not None
+            else (current or {}).get("language") or getattr(self.hass.config, "language", "en")
+        )
 
         row: dict[str, Any] = {
             "role": role,
             "ha_user_id": user.id,
             "enabled": True,
+            "language": selected_language,
         }
         previous_local_only = (
             current.get("previous_local_only")
@@ -509,6 +556,17 @@ class FitnessAccessController:
             row["profile_entry_id"] = requested_profile_id
         elif role in {ROLE_LOCAL, ROLE_REMOTE}:
             raise ValueError("profile_not_found")
+
+        if profile_entry is not None:
+            # The backend user's language is authoritative for profile menus,
+            # Fitness TV and language-aware local TTS. Update in place so an
+            # active workout is not interrupted by a config-entry reload.
+            options = dict(profile_entry.options)
+            options[CONF_LANGUAGE] = selected_language
+            self.hass.config_entries.async_update_entry(profile_entry, options=options)
+            manager = self.hass.data.get(DOMAIN, {}).get(profile_entry.entry_id)
+            if manager is not None and isinstance(getattr(manager, "config", None), dict):
+                manager.config[CONF_LANGUAGE] = selected_language
 
         if view_profile_entry_ids is None and isinstance(current, dict):
             requested_view_ids = self._view_profile_ids(current)
@@ -655,6 +713,7 @@ async def websocket_fitness_access_settings_save(hass: HomeAssistant, connection
     vol.Optional("profile_entry_id"): str,
     vol.Optional("remote_slug"): str,
     vol.Optional("view_profile_entry_ids"): [str],
+    vol.Optional("language"): vol.In(sorted(SUPPORTED_LANGUAGES)),
 })
 @websocket_api.async_response
 async def websocket_fitness_access_account_save(hass: HomeAssistant, connection, msg) -> None:
@@ -675,6 +734,7 @@ async def websocket_fitness_access_account_save(hass: HomeAssistant, connection,
                 if "view_profile_entry_ids" in msg
                 else None
             ),
+            language=(str(msg.get("language") or "") if "language" in msg else None),
         )
     except ValueError as err:
         connection.send_error(msg["id"], str(err), str(err))

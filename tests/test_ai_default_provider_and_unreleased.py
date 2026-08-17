@@ -1,8 +1,8 @@
-import re
 """AI-provider default/fallback and pre-release repository contracts."""
 
 from pathlib import Path
 import json
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = ROOT / "custom_components/fitness"
@@ -79,16 +79,21 @@ def test_ai_provider_guidance_and_repair_are_localized_everywhere():
         assert "{entity_id}" in issue["description"]
 
 
-def test_repository_remains_unreleased_until_first_public_release():
+def test_repository_release_metadata_supports_alpha_beta_and_stable():
     manifest = json.loads((BASE / "manifest.json").read_text(encoding="utf-8"))
-    assert manifest["version"] == "0.0.0" or re.fullmatch(r"\d{4}\.\d{1,2}\.\d+(?:(?:a\d+)|-(?:alpha|beta)\d+)?", manifest["version"])
+    assert manifest["version"] == "0.0.0" or re.fullmatch(
+        r"\d{4}\.\d{1,2}\.\d+(?:a\d+|-beta\d+)?",
+        manifest["version"],
+    )
     assert "## Unreleased" in CHANGELOG
-    assert "has **not had a public release yet**" in CHANGELOG
-    assert "`YYYY.MM.RR-betaXX`" in CHANGELOG
-    assert "`YYYY.MM.RR`" in CHANGELOG
+    assert "## 2026.8.01a01" in CHANGELOG
+    assert "`YYYY.M.RRaXX`" in CHANGELOG
+    assert "`YYYY.M.RR-betaXX`" in CHANGELOG
+    assert "`YYYY.M.RR`" in CHANGELOG
     assert 'FITNESS_DASHBOARD_VERSION = "unreleased-82"' in FRONTEND
     assert '?v=unreleased-82' in DASHBOARD
-    assert "2026.08.01-beta01" in CONTRIBUTING
-    assert "2026.08.01" in CONTRIBUTING
-    assert "YYYY.MM.RR-betaXX" in RELEASE_CHECKLIST
-    assert "Unreleased (commit SHA) or 2026.08.01-beta01" in BUG_REPORT
+    assert "2026.8.01a01" in CONTRIBUTING
+    assert "2026.8.01-beta01" in CONTRIBUTING
+    assert "2026.8.01" in CONTRIBUTING
+    assert "YYYY.M.RRaXX" in RELEASE_CHECKLIST
+    assert "2026.8.01a01" in BUG_REPORT

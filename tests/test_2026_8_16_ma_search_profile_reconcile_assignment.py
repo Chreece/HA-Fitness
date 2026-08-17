@@ -45,16 +45,15 @@ def test_dashboard_config_reconciles_managed_fitness_tv_views_before_open():
     assert 'row.querySelector(".open-profile")?.addEventListener("click", () => this._navigate(`/fitness-tv/profile-${entryId}`))' in FRONTEND
 
 
-def test_admin_profile_can_be_assigned_directly_to_an_ha_admin_user():
+def test_admin_profile_assignment_uses_the_account_row_without_duplicate_profile_manager():
     assert 'class="access-profile-field ${role === "none" ? "hidden" : ""}"' in FRONTEND
     assert 'profileField?.classList.toggle("hidden", withoutProfile)' in FRONTEND
-    assert '.access-role-field,.access-profile-field{display:block;min-width:0;align-self:stretch}' in FRONTEND
-    assert 'data-profile-owner' in FRONTEND
-    assert 'data-assign-profile' in FRONTEND
-    assert 'const assignedRole = selectedUser.is_admin' in FRONTEND
-    assert '? "admin"' in FRONTEND
-    assert 'profile_entry_id:profileEntryId' in FRONTEND
-    # Explicit empty string now clears an admin's optional own-profile binding;
+    assert '.access-role-field,.access-profile-field,.access-language-field{display:block;min-width:0;align-self:stretch}' in FRONTEND
+    assert 'profile_entry_id:String(profile?.value || "")' in FRONTEND
+    assert 'data-profile-owner' not in FRONTEND
+    assert 'data-assign-profile' not in FRONTEND
+    assert 'data-profile-entry' not in FRONTEND
+    # Explicit empty string still clears an admin's optional own-profile binding;
     # omitting the key still means preserve the existing binding.
     assert 'if "profile_entry_id" in msg' in ACCESS
     assert 'profile_entry_id is None' in ACCESS
