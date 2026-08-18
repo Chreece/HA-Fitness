@@ -12,6 +12,7 @@ from typing import Any, Iterable
 GARMIN_COMPANY_ID = 0x0087
 GARMIN_ADVERTISEMENT_SERVICE_UUID = "0000fe1f-0000-1000-8000-00805f9b34fb"
 GARMIN_UUID_SUFFIX = "-667b-11e3-949a-0800200c9a66"
+BLUETOOTH_BASE_UUID_SUFFIX = "-0000-1000-8000-00805f9b34fb"
 GARMIN_GFDI_V2_SERVICE_UUID = f"6a4e2800{GARMIN_UUID_SUFFIX}"
 GARMIN_GFDI_V1_SERVICE_UUID = f"6a4e2401{GARMIN_UUID_SUFFIX}"
 GARMIN_GFDI_V1_SEND_UUID = f"6a4e4c80{GARMIN_UUID_SUFFIX}"
@@ -40,13 +41,143 @@ STATUS_NAK = 1
 STATUS_UNSUPPORTED = 2
 
 # Resource ceilings are deliberately protocol-level, not device-model-specific.
-MAX_GFDI_FRAME_BYTES = 256 * 1024
-MAX_COBS_BUFFER_BYTES = 512 * 1024
+# GFDI carries total frame length in an unsigned 16-bit field.  Keeping the
+# receive ceiling at the protocol maximum avoids spending event-loop CPU on a
+# malicious oversized CRC/COBS frame that can never be valid.
+MAX_GFDI_FRAME_BYTES = 0xFFFF
+# COBS adds only a small amount of framing overhead to a valid 16-bit GFDI
+# frame.  Leave headroom for malformed input, but never buffer megabytes while
+# waiting for a delimiter.
+MAX_COBS_BUFFER_BYTES = 96 * 1024
 MAX_PROTOBUF_BYTES = 4 * 1024 * 1024
 MAX_PROTOBUF_FIELDS = 20_000
 MAX_FILE_LIST_ITEMS = 2_000
 
 GARMIN_EPOCH_OFFSET = 631065600
+
+
+
+
+def normalize_bluetooth_uuid(value: Any) -> str:
+    """Normalize Bluetooth UUID aliases without trusting input formatting.
+
+    Home Assistant normally supplies canonical 128-bit UUIDs, while browser,
+    proxy and test routes can surface 16/32-bit aliases.  Normalizing at the
+    protocol boundary keeps Garmin matching independent from the scanner route.
+    """
+    text = str(value or "").strip().lower().strip("{}")
+    if len(text) == 4:
+        try:
+            int(text, 16)
+        except ValueError:
+            return text
+        return f"0000{text}{BLUETOOTH_BASE_UUID_SUFFIX}"
+    if len(text) == 8 and "-" not in text:
+        try:
+            int(text, 16)
+        except ValueError:
+            return text
+        return f"{text}{BLUETOOTH_BASE_UUID_SUFFIX}"
+    return text
+
+
+def _safe_company_ids(manufacturer_data: Any) -> frozenset[int]:
+    """Return bounded integer company IDs from untrusted advertisement input."""
+    if isinstance(manufacturer_data, dict):
+        raw_values = manufacturer_data.keys()
+    elif isinstance(manufacturer_data, (list, tuple, set, frozenset)):
+        raw_values = manufacturer_data
+    else:
+        raw_values = ()
+    result: set[int] = set()
+    for index, raw in enumerate(raw_values):
+        if index >= 64:
+            break
+        try:
+            if isinstance(raw, str):
+                value = int(raw.strip(), 0)
+            else:
+                value = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if 0 <= value <= 0xFFFF:
+            result.add(value)
+    return frozenset(result)
+
+
+def garmin_advertisement_evidence(
+    service_uuids: Iterable[Any] | None,
+    manufacturer_data: Any = None,
+) -> tuple[frozenset[str], str]:
+    """Return Garmin identity evidence and a diagnostic-only protocol hint.
+
+    The result intentionally never consults a product/model/local-name list.
+    The hint is not used to choose a transport; connected GATT capabilities are
+    authoritative.
+    """
+    services: set[str] = set()
+    for index, value in enumerate(service_uuids or ()):
+        if index >= 64:
+            break
+        if value not in (None, ""):
+            services.add(normalize_bluetooth_uuid(value))
+    company_ids = _safe_company_ids(manufacturer_data)
+    evidence: set[str] = set()
+    if GARMIN_COMPANY_ID in company_ids:
+        evidence.add("company_id")
+    if GARMIN_ADVERTISEMENT_SERVICE_UUID in services:
+        evidence.add("service_fe1f")
+    if GARMIN_GFDI_V2_SERVICE_UUID in services:
+        evidence.add("gfdi_v2_service")
+    if GARMIN_GFDI_V1_SERVICE_UUID in services:
+        evidence.add("gfdi_v1_service")
+    if GARMIN_GFDI_V0_SERVICE_UUID in services:
+        evidence.add("gfdi_v0_service")
+
+    if "gfdi_v2_service" in evidence:
+        hint = "gfdi_v2"
+    elif "gfdi_v1_service" in evidence:
+        hint = "gfdi_v1"
+    elif "gfdi_v0_service" in evidence:
+        hint = "gfdi_v0"
+    else:
+        hint = "auto"
+    return frozenset(evidence), hint
+
+
+def garmin_advertisement_identity(
+    name: str | None,
+    service_uuids: Iterable[Any] | None,
+    manufacturer_data: Any = None,
+) -> dict[str, Any] | None:
+    """Recognize a Garmin archive candidate without model-specific logic.
+
+    Company ID, Garmin's assigned advertisement service, or a known GFDI
+    protocol service are strong enough to surface a user-visible candidate.
+    Actual V2/V1/V0 selection happens only after a bounded GATT connection.
+    """
+    evidence, hint = garmin_advertisement_evidence(service_uuids, manufacturer_data)
+    if not evidence:
+        return None
+    result: dict[str, Any] = {
+        "manufacturer": "Garmin",
+        "archive_adapter": "garmin_local",
+        "garmin_local": True,
+        "garmin_protocol": "auto",
+        "garmin_protocol_hint": hint,
+        "garmin_identity_evidence": sorted(evidence),
+        "garmin_identity_confidence": (
+            "protocol" if any(item.startswith("gfdi_") for item in evidence) else "vendor"
+        ),
+        "garmin_advertised_service": "service_fe1f" in evidence,
+        "garmin_advertised_gfdi": any(item.startswith("gfdi_") for item in evidence),
+        "garmin_company_id": GARMIN_COMPANY_ID if "company_id" in evidence else None,
+    }
+    # The local name is display metadata only.  It is deliberately not called a
+    # model and must never participate in protocol selection.
+    if name not in (None, ""):
+        result["bluetooth_name"] = str(name)[:128]
+    return result
 
 
 class GarminProtocolError(RuntimeError):

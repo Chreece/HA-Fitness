@@ -23,15 +23,23 @@ The adapter currently has these protocol-family backends:
 
 The architecture is therefore universal across those protocol families, but no implementation can promise that every Garmin product or firmware exposes one of them. Modern V2 Multi-Link has been validated end-to-end during HA-Fitness development. V0/V1 support uses the same capability-driven adapter and legacy Garmin file protocol, but real-device behavior can still vary by firmware.
 
+### Smart discovery without a model whitelist
+
+Automatic discovery requires Garmin **vendor/protocol evidence**, not a Bluetooth name. HA-Fitness can recognize a candidate from Garmin's Bluetooth company identifier, Garmin's assigned FE1F advertisement service, or a known GFDI V0/V1/V2 service UUID. A local name such as `Forerunner`, `Fenix`, `Venu`, `Garmin` or any future product name is display text only and is never sufficient to select support or a transport. This avoids probing arbitrary nearby devices merely because their name looks Garmin-like.
+
+At startup, Fitness registers its narrow Bluetooth matchers with history replay disabled and then performs **one bounded replay** of the relevant entries already present in Home Assistant's Bluetooth cache. Opening **Smart workout devices** requests one short on-demand active scan and then replays the cache again. Concurrent guide scans are coalesced, repeated requests are rate-limited, cache traversal is bounded, and this discovery step never opens GATT.
+
+After the user accepts a Garmin candidate, the connected GATT surface is authoritative. V2 Multi-Link channel pairs are discovered from the actual `281x`/`282x` characteristic pairs exposed by the device rather than from a fixed channel table. Candidate transports are bounded and tried in capability order: V2 Multi-Link first, then V1, then V0. Each candidate handshake and the total negotiation have hard deadlines; a failed candidate is cleaned up before the next one is attempted.
+
 Some Garmin V2 devices can request **reliable MLR mode** for a service. HA-Fitness does not guess at unverified MLR flow control. If that mode is required, the sync is rejected as unsupported, the connection is cleaned up, and retries are heavily backed off instead of leaving a Bluetooth task hanging.
 
 ## Setup in HA-Fitness
 
 1. Make sure Home Assistant has a **connectable** Bluetooth route that can reach the Garmin wearable. A local Bluetooth adapter is the simplest route. A Bluetooth proxy may work only when the route supports the required connectable GATT operations; bonding/pairing support depends on the route.
 2. Keep the Garmin wearable powered on and nearby. You do not normally need to disable Bluetooth on your phone.
-3. Open the HA-Fitness hub/options and go to **Local Sensors**. When the Garmin advertisement is detected, accept the Garmin sensor.
-4. Assign that physical Garmin sensor to one or more Fitness profiles. Assignment controls which profile histories receive imported workouts.
-5. Open **Garmin local setup guide** in the Fitness options to see the detected Garmin devices and current assignment status.
+3. Open **Smart workout devices** in the Fitness profile options. Opening the guide performs one short, bounded Bluetooth discovery sweep and lists Garmin candidates already visible to Home Assistant. Reopen the guide later to request another sweep; the provider enforces a cooldown.
+4. Go to **Local Sensors**, accept the Garmin device, and assign that physical sensor to one or more Fitness profiles. Assignment controls which profile histories receive imported workouts.
+5. Return to **Smart workout devices** if you want to confirm detection and assignment status.
 6. Synchronization starts automatically when the accepted, assigned Garmin is reachable. Use the device's **Sync workouts now** button for an immediate retry.
 
 ### First-time Bluetooth pairing
@@ -51,8 +59,8 @@ advertisement detected
   -> wait for the per-device sync interval
   -> acquire the device Bluetooth connection lock
   -> connect with a hard timeout
-  -> select GFDI backend from GATT capabilities
-  -> perform a bounded handshake
+  -> discover a bounded set of GFDI candidates from GATT capabilities
+  -> try V2 -> V1 -> V0 with per-candidate and total negotiation deadlines
   -> list a bounded activity catalogue
   -> download at most a small batch of unseen FIT activities
   -> validate/decode FIT data off the Home Assistant event loop
@@ -61,7 +69,9 @@ advertisement detected
   -> disconnect
 ```
 
-HA-Fitness does **not** keep Garmin GATT open while idle.
+HA-Fitness does **not** keep Garmin GATT open while idle. After an up-to-date cycle it keeps only one tracked 30-minute timer per accepted/assigned Garmin. If the connectable route has disappeared, retries fall back to one sparse 30-minute presence check; a fresh verified Garmin advertisement can wake that sleeping presence check early without bypassing the normal sync interval or an error backoff. If a live workout owns the BLE device, archive retry waits five minutes rather than polling the live session continuously.
+
+After a real GATT session closes, Fitness clears only Home Assistant's cached advertisement-history entry for that address. This follows Home Assistant's Bluetooth guidance for devices that need the next identical wake advertisement delivered after a GATT session; it does not start a scanner or connection by itself.
 
 ## Read-only policy
 
@@ -81,13 +91,15 @@ The local adapter is designed so a slow, busy, disconnected or malformed Garmin 
 - one connection lock is used per physical Bluetooth sensor;
 - whole sync sessions and every major BLE/protocol stage have hard timeouts;
 - notification, management and protocol queues are bounded;
-- COBS/GFDI/protobuf messages, file lists, compressed downloads, inflated FIT files and decoded record counts all have explicit size/count ceilings;
+- COBS/GFDI/protobuf messages, file lists, compressed downloads, inflated FIT files and decoded record counts all have explicit size/count ceilings; the GFDI receive ceiling matches its 16-bit wire length and the COBS buffer has only bounded framing headroom;
 - only a small number of activities are downloaded per connection;
 - compressed FIT inflation and FIT decoding run in an executor rather than on the HA event loop;
 - every complete FIT is checkpointed before profile-history import;
-- failed sessions use bounded exponential retry delays;
-- unsupported MLR transport is backed off for hours rather than retried on every advertisement;
-- repeated Garmin advertisements use a rate-limited control path and cannot defeat retry backoff;
+- failed sessions use bounded exponential retry delays; after repeated ordinary failures the device enters a sparse two-hour degraded retry cadence instead of waking Bluetooth every 30 minutes forever;
+- pairing-required and unsupported transport states use a six-hour retry delay, including unsupported MLR, rather than retrying on every advertisement;
+- repeated Garmin advertisements use a rate-limited control path and cannot defeat the 30-minute sync interval, backlog cooldown or error backoff;
+- stable advertisement payloads do not have to change for automatic sync: one tracked periodic timer provides the normal cadence, while Home Assistant advertisement history is cleared only after a completed GATT session so the next identical wake advertisement can be delivered;
+- an unreachable Garmin falls back to a sparse 30-minute presence retry, and a live BLE owner is rechecked no faster than every five minutes;
 - cancellation, unassignment, sensor removal and Home Assistant shutdown all use bounded cleanup;
 - a Garmin sync will wait instead of stealing a BLE client currently owned by a live workout.
 

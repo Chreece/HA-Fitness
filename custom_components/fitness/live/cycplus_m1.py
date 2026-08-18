@@ -144,6 +144,33 @@ def cycplus_m1_serial_identity(serial_number: str | None) -> dict[str, str] | No
     }
 
 
+def cycplus_m1_route_identity(
+    name: str | None,
+    serial_number: str | None = None,
+    service_uuids: Iterable[str] = (),
+) -> dict[str, str] | None:
+    """Correlate an M1 route from the strongest facts that route exposes.
+
+    A local HA scanner proves the device through the archive service. Web
+    Bluetooth normally exposes only the selected fitness service plus Device
+    Information, so its equivalent proof is the strict M1 name family together
+    with the documented long ``M1...XXXX`` serial. A suffixed ``M1_XXXX`` name
+    remains independently sufficient because the server derives that token.
+    """
+    name_identity = cycplus_m1_name_identity(name) or {}
+    if name_identity.get("fitness_physical_identity"):
+        return name_identity
+
+    serial_identity = cycplus_m1_serial_identity(serial_number)
+    services = {str(value).lower() for value in service_uuids}
+    if serial_identity and (
+        CYCPLUS_M1_SERVICE_UUID in services
+        or name_identity.get("cycplus_model_id") == "M1"
+    ):
+        return {**name_identity, **serial_identity}
+    return name_identity or None
+
+
 def cycplus_m1_identity(
     name: str | None, service_uuids: Iterable[str]
 ) -> dict[str, str] | None:
@@ -1109,17 +1136,11 @@ class CycplusM1Coordinator:
                     + list(metadata.get("gatt_services") or [])
                 )
             }
-            if CYCPLUS_M1_SERVICE_UUID not in services:
-                continue
-
-            route_identity = cycplus_m1_name_identity(
-                metadata.get("advertised_name") or sensor.name
+            route_identity = cycplus_m1_route_identity(
+                metadata.get("advertised_name") or sensor.name,
+                metadata.get("serial_number"),
+                services,
             ) or {}
-            serial_identity = cycplus_m1_serial_identity(
-                metadata.get("serial_number")
-            )
-            if serial_identity:
-                route_identity.update(serial_identity)
 
             state = devices.get(restored.sensor_id)
             if not isinstance(state, dict):
@@ -1161,6 +1182,29 @@ class CycplusM1Coordinator:
                 metadata=metadata,
             )
             self._migrate_sensor_state(restored.sensor_id, merged.sensor_id)
+
+        # This migration runs on the provider's control-plane setup task, after
+        # the hub restored its HA device links. Materialize the canonical side
+        # immediately and remove every now-resolvable discarded alias instead of
+        # depending solely on the delayed radio-path cleanup callback.
+        for sensor in tuple(self.runtime.sensors.values()):
+            physical_identity = str(
+                sensor.metadata.get("fitness_physical_identity")
+                or next(
+                    (
+                        endpoint.metadata.get("fitness_physical_identity")
+                        for endpoint in sensor.endpoints.values()
+                        if endpoint.metadata.get("fitness_physical_identity")
+                    ),
+                    "",
+                )
+            ).lower()
+            if (
+                physical_identity.startswith("cycplus:m1:")
+                and self.runtime.sensor_is_accepted(sensor.sensor_id)
+            ):
+                self.runtime.ensure_sensor_device(sensor.sensor_id)
+        self.runtime._cleanup_persisted_sensor_alias_devices()
 
     def _device(self, sensor_id: str) -> dict[str, Any]:
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
@@ -1258,7 +1302,7 @@ class CycplusM1Coordinator:
 
     def assignment_changed(self, sensor_id: str) -> None:
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
-        if not self.runtime.sensor_assigned_profile_ids(sensor_id):
+        if not self.runtime.sensor_archive_profile_ids(sensor_id):
             task = self._tasks.pop(sensor_id, None)
             self._queued_after_task.pop(sensor_id, None)
             if task is not None and not task.done():
@@ -1510,7 +1554,7 @@ class CycplusM1Coordinator:
             or not self.runtime.sensor_is_accepted(sensor_id)
         ):
             return
-        profile_ids = self.runtime.sensor_assigned_profile_ids(sensor_id)
+        profile_ids = self.runtime.sensor_archive_profile_ids(sensor_id)
         state = self._device(sensor_id)
         if not profile_ids:
             state.update(
@@ -1646,7 +1690,7 @@ class CycplusM1Coordinator:
 
                 batch_bytes = 0
                 for filename in queue[:download_slots]:
-                    if not self.runtime.sensor_assigned_profile_ids(sensor_id):
+                    if not self.runtime.sensor_archive_profile_ids(sensor_id):
                         return
                     state.update(
                         pending_file=filename,

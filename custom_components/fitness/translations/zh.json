@@ -156,7 +156,8 @@
     "error": {
       "invalid_date": "请输入有效且早于今天的出生日期。",
       "invalid_number_or_entity": "请输入有效数值或 Home Assistant 实体 ID。",
-      "select_profile": "请至少选择一个 Fitness 用户。"
+      "select_profile": "请至少选择一个 Fitness 用户。",
+      "select_smart_device_owner": "请选择恰好一个 Fitness 配置文件作为已保存训练的所有者。实时传感器能力之后仍可共享给其他配置文件。"
     },
     "abort": {
       "already_configured": "已存在同名的 Fitness 个人资料。",
@@ -182,7 +183,7 @@
           "sleep_devices": "睡眠设备",
           "sensor_assignments": "传感器分配",
           "tv_dashboard": "Fitness TV 仪表板",
-          "garmin_local_guide": "Garmin 本地设置指南"
+          "smart_workout_devices": "智能训练设备"
         }
       },
       "profile": {
@@ -337,7 +338,51 @@
       },
       "garmin_local_guide": {
         "title": "Garmin 本地训练同步",
-        "description": "Garmin 手表通过蓝牙直接连接 Home Assistant；不需要手机，Garmin Connect 也可以保持配对。1) 将手表放在附近，等待它出现在“本地传感器”中。2) 接受 Garmin 传感器并分配给一个或多个 Fitness 配置文件。3) HA-Fitness 会短暂连接，只导入尚未见过的训练 FIT 文件，然后断开。如果诊断显示需要配对，请先将手表与 Home Assistant 蓝牙主机配对一次，再按“立即同步 Garmin 训练”。同步为只读：不会将 Garmin 文件标记为已同步、归档或删除。适配器根据设备能力选择 GFDI V0/V1 或 V2 Multi-Link，而不是按型号列表。未经验证的仅 MLR 传输会安全拒绝并采用有限退避，不会无限等待。已发现的 Garmin：{garmin_devices}"
+        "description": "打开此指南时会请求一次短时且有严格限制的蓝牙扫描，不会建立 GATT 连接。Garmin 手表通过蓝牙直接连接 Home Assistant；不需要手机，Garmin Connect 也可以保持配对。1) 将手表放在附近，等待它出现在“本地传感器”中。2) 接受 Garmin 传感器并分配给一个或多个 Fitness 配置文件。3) HA-Fitness 会短暂连接，只导入尚未见过的训练 FIT 文件，然后断开。如果诊断显示需要配对，请先将手表与 Home Assistant 蓝牙主机配对一次，再按“立即同步 Garmin 训练”。同步为只读：不会将 Garmin 文件标记为已同步、归档或删除。适配器根据设备能力选择 GFDI V0/V1 或 V2 Multi-Link，而不是按型号列表。未经验证的仅 MLR 传输会安全拒绝并采用有限退避，不会无限等待。已发现的 Garmin：{garmin_devices}"
+      },
+      "smart_workout_devices": {
+        "title": "智能训练设备",
+        "description": "Fitness 会自动发现智能训练设备。打开此页面只会请求一次短时且受限的蓝牙扫描，并显示已发现的训练存档设备和支持的设置指南。发现过程不会打开 GATT。",
+        "data": {
+          "smart_workout_device": "已发现设备或设置指南"
+        },
+        "data_description": {
+          "smart_workout_device": "选择已发现的物理训练设备，或打开厂商设置指南以扫描和准备设备。"
+        }
+      },
+      "smart_workout_device_setup": {
+        "title": "设置智能训练设备",
+        "description": "物理设备：{device}。厂商：{vendor}。检测到的型号：{model}。能力：{capabilities}。当前存档所有者：{owner}。设备类型和型号仅用于显示/设置，从不用于选择协议。",
+        "data": {
+          "smart_device_type": "设备类型",
+          "smart_device_model": "型号 / 显示名称",
+          "transfer_smart_device_owner": "将已保存训练的所有权转移到此 Fitness 配置文件"
+        },
+        "data_description": {
+          "smart_device_type": "仅用于显示和设置说明的大类，不会选择协议。",
+          "smart_device_model": "可选的型号/显示标签。从不作为支持或协议证据。",
+          "transfer_smart_device_owner": "仅将已保存训练的导入所有权转移到此配置文件。现有实时传感器分配保持不变。"
+        }
+      },
+      "smart_workout_device_ready": {
+        "title": "智能训练设备已就绪",
+        "description": "{device} 现在由 {owner} 用于导入已保存训练。实时能力仍可通过现有物理传感器分配规则共享。{vendor} 协议仍按能力选择。如果 Garmin 之后显示 Pairing required，请仅与 Home Assistant 蓝牙主机配对一次，然后使用 Sync workouts now。"
+      },
+      "smart_workout_vendor_setup": {
+        "title": "{vendor} 设置指南",
+        "description": "为设置指南选择设备类型，并可选填写型号标签。这些值仅用于说明；Fitness 从不根据消费型号名称决定协议支持。",
+        "data": {
+          "smart_device_type": "设备类型",
+          "smart_device_model": "型号 / 显示名称"
+        },
+        "data_description": {
+          "smart_device_type": "仅用于显示和设置说明的大类，不会选择协议。",
+          "smart_device_model": "可选的型号/显示标签。从不作为支持或协议证据。"
+        }
+      },
+      "smart_workout_vendor_guide": {
+        "title": "{vendor} 连接步骤",
+        "description": "对于 {vendor} {device_type} {model}：将设备保持在附近并启用 Fitness 蓝牙适配器。Fitness 使用经过验证的协议/厂商证据进行发现，而不是型号名称。仅当同步诊断要求时才配对 Garmin。检测到的设备：{detected_devices}。提交后再次执行受限扫描。"
       }
     },
     "abort": {
@@ -346,7 +391,8 @@
       "no_fitness_profiles": "分配此传感器前，请先创建 Fitness 用户。"
     },
     "error": {
-      "sensor_unavailable": "发现的健身传感器已不可用。"
+      "sensor_unavailable": "发现的健身传感器已不可用。",
+      "smart_device_owned_elsewhere": "此物理设备已属于另一个 Fitness 配置文件。启用所有权转移以将已保存训练移到此配置文件。"
     }
   },
   "entity": {

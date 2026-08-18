@@ -53,7 +53,7 @@ def test_unassignment_and_shutdown_cannot_leave_an_unbounded_ble_job():
     assignment = CYCPLUS.split("    def assignment_changed", 1)[1].split(
         "    def forget_sensor", 1
     )[0]
-    assert "sensor_assigned_profile_ids" in assignment
+    assert "sensor_archive_profile_ids" in assignment
     assert "task.cancel()" in assignment
     assert 'sync_state="idle"' in assignment
     assert "asyncio.timeout(SHUTDOWN_TIMEOUT)" in CYCPLUS

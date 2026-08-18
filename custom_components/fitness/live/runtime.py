@@ -2295,9 +2295,20 @@ class LiveRuntime:
             self.endpoint_aliases[endpoint.endpoint_id] = primary.sensor_id
         self.endpoint_aliases[secondary.sensor_id] = primary.sensor_id
         primary.capabilities.update(secondary.capabilities)
-        primary.metadata.update(
-            {k: v for k, v in secondary.metadata.items() if v not in (None, "", {}, [])}
-        )
+        primary_owner = str(primary.metadata.get("smart_device_owner_profile_id") or "").strip()
+        secondary_owner = str(secondary.metadata.get("smart_device_owner_profile_id") or "").strip()
+        merged_metadata = {
+            k: v for k, v in secondary.metadata.items() if v not in (None, "", {}, [])
+        }
+        if primary_owner and secondary_owner and primary_owner != secondary_owner:
+            # Strong identity can prove two routes are one physical device after
+            # both provisional surfaces were configured. Never let merge order
+            # silently reassign stored workouts to another person. Keep the
+            # canonical side's owner and expose a conflict until a user explicitly
+            # transfers ownership in Smart workout devices.
+            merged_metadata.pop("smart_device_owner_profile_id", None)
+            primary.metadata["smart_device_owner_conflict"] = True
+        primary.metadata.update(merged_metadata)
 
         self._migrate_workout_state_for_sensor_merge(
             primary.sensor_id, secondary.sensor_id
@@ -3269,6 +3280,11 @@ class LiveRuntime:
 
         bluetooth = sensor.endpoints.get("bluetooth")
         if bluetooth is not None:
+            # Direct workout archives may have a blank/generic BLE local name. A
+            # verified archive adapter marker is stronger discovery evidence than
+            # a consumer model string and keeps smart-device discovery universal.
+            if bluetooth.metadata.get("archive_adapter"):
+                return True
             advertised = str(
                 bluetooth.metadata.get("advertised_name") or sensor.name or ""
             ).strip()
@@ -3869,6 +3885,88 @@ class LiveRuntime:
             for entry in self.profile_entries.values()
             if sensor_id in self.selected_sensor_ids(entry)
         ]
+
+    def smart_device_owner_profile_id(self, sensor_id: str) -> str | None:
+        """Return the primary profile that owns a local workout archive.
+
+        Live sensor assignment may intentionally remain many-to-many, but stored
+        workouts belong to one person.  The explicit owner therefore controls
+        archive imports while live HR/power/etc. can still be shared or handed off
+        by the existing workout-ownership rules.
+        """
+        sensor_id = self.resolve_sensor_id(sensor_id)
+        sensor = self.sensors.get(sensor_id)
+        if sensor is None:
+            return None
+        owner = str(sensor.metadata.get("smart_device_owner_profile_id") or "").strip()
+        if owner and owner in self.profile_entries:
+            return owner
+        assigned = self.sensor_assigned_profile_ids(sensor_id)
+        return assigned[0] if len(assigned) == 1 else None
+
+    def sensor_archive_profile_ids(self, sensor_id: str) -> list[str]:
+        """Return the profile target for direct-device workout archives."""
+        sensor_id = self.resolve_sensor_id(sensor_id)
+        owner = self.smart_device_owner_profile_id(sensor_id)
+        if owner is not None:
+            return [owner]
+        # Backward compatibility for devices accepted before smart-device
+        # ownership existed: one unambiguous assignment can act as owner. Never
+        # fan a stored workout into several people merely because live telemetry
+        # was shared; ambiguous devices wait for an explicit Smart-device owner.
+        assigned = self.sensor_assigned_profile_ids(sensor_id)
+        return assigned if len(assigned) == 1 else []
+
+    def configure_smart_workout_device(
+        self,
+        sensor_id: str,
+        *,
+        owner_profile_id: str | None = None,
+        device_type: str | None = None,
+        model_label: str | None = None,
+    ) -> bool:
+        """Persist bounded display/ownership metadata on one physical device.
+
+        These values are control-plane metadata only.  In particular device type
+        and model text are never consumed by Bluetooth/GFDI protocol selection.
+        """
+        sensor_id = self.resolve_sensor_id(sensor_id)
+        sensor = self.sensors.get(sensor_id)
+        if sensor is None:
+            return False
+        changed = False
+        if owner_profile_id is not None:
+            owner = str(owner_profile_id).strip()
+            if owner not in self.profile_entries:
+                return False
+            if sensor.metadata.get("smart_device_owner_profile_id") != owner:
+                sensor.metadata["smart_device_owner_profile_id"] = owner
+                changed = True
+            if sensor.metadata.pop("smart_device_owner_conflict", None) is not None:
+                changed = True
+        if device_type is not None:
+            allowed = {"auto", "sport_watch", "bike_computer", "fitness_equipment", "other"}
+            value = str(device_type).strip()
+            if value not in allowed:
+                value = "auto"
+            if sensor.metadata.get("smart_device_type") != value:
+                sensor.metadata["smart_device_type"] = value
+                changed = True
+        if model_label is not None:
+            value = str(model_label).strip()[:96]
+            if value:
+                if sensor.metadata.get("smart_device_model_label") != value:
+                    sensor.metadata["smart_device_model_label"] = value
+                    changed = True
+            elif "smart_device_model_label" in sensor.metadata:
+                sensor.metadata.pop("smart_device_model_label", None)
+                changed = True
+        if changed:
+            self._schedule_save()
+            if self.sensor_is_accepted(sensor_id):
+                self._schedule_sensor_device_refresh(sensor_id)
+                self._notify_structure_throttled()
+        return changed
 
     def sensor_live_assigned_profile_ids(self, sensor_id: str) -> list[str]:
         """Return assigned profiles which currently have a live workout session."""

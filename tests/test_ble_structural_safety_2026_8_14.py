@@ -142,7 +142,12 @@ def test_bluetooth_callback_is_filtered_by_standard_fitness_services():
     setup = _method_source(BT, "async_setup")
     assert "for service_uuid in SERVICE_CAPABILITIES" in setup
     assert "service_uuid=service_uuid" in setup
+    # Registering several narrow matchers with NEWEST_FIRST would replay the same
+    # HA cache once per matcher. Fitness now disables per-matcher replay and does
+    # one bounded relevant cache replay after every matcher is registered.
     assert "replay=bluetooth.BluetoothCallbackReplay.DISABLED" in setup
+    assert "self._replay_cached_discovery()" in setup
+    assert "BluetoothCallbackReplay.NEWEST_FIRST" not in setup
     assert "BluetoothCallbackMatcher(connectable=False)" not in setup
     discovered = _method_source(BT, "_async_discovered")
     assert "_provisional_identity_signature" in discovered

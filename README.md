@@ -49,7 +49,7 @@ Only the first row is always required. Add the optional hardware for the feature
 | **Core** | A supported Home Assistant installation and at least one compatible workout, sleep or live-data entity | Fitness reads data already exposed to Home Assistant. Browse the [Home Assistant integration directory](https://www.home-assistant.io/integrations/) and see [Getting started](#getting-started). |
 | **Local Bluetooth live sensors** | A Bluetooth adapter or Bluetooth proxy reachable by Home Assistant | Standard BLE fitness services are decoded by Fitness. See the [Home Assistant Bluetooth documentation](https://www.home-assistant.io/integrations/bluetooth/) and [supported live sensors](#live-sensor-protocols). |
 | **CYCPLUS M1 workout import** | A CYCPLUS M1 powered on and within range of a connectable Home Assistant Bluetooth adapter or proxy | Fitness connects locally, downloads completed FIT files and imports them into each assigned profile. No CYCPLUS cloud account is used. See [CYCPLUS M1 workout archive](docs/LIVE_SENSORS.md#cycplus-m1-workout-archive). |
-| **Local Garmin workout import** | A compatible Garmin wearable and a connectable Home Assistant Bluetooth route | Fitness detects Garmin protocol capabilities, reads completed FIT activities locally in short bounded sessions and disconnects again. The phone is not required and Garmin Connect can remain paired. See [Local Garmin workout synchronization](docs/GARMIN_LOCAL.md). |
+| **Local Garmin workout import** | A compatible Garmin GFDI device and a connectable Home Assistant Bluetooth route | Fitness recognizes Garmin vendor/protocol evidence, selects transport from the connected GATT capabilities, reads completed FIT activities locally in short bounded sessions and disconnects again. The Bluetooth name/model is never used for protocol selection; the phone is not required and Garmin Connect can remain paired. See [Local Garmin workout synchronization](docs/GARMIN_LOCAL.md). |
 | **Local ANT+ live sensors** | A Dynastream/Garmin ANTUSB2 (`0FCF:1008`) or ANTUSB-m (`0FCF:1009`) stick attached to the Home Assistant host | ANT+ support is optional. Containers must expose the USB device to Home Assistant. |
 | **Remote browser sensors** | A laptop or compatible mobile device beside the athlete, HTTPS access to Home Assistant, and browser support for Web Bluetooth or WebUSB | Browser support varies. Check [Web Bluetooth](https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API), [WebUSB](https://developer.mozilla.org/en-US/docs/Web/API/WebUSB_API), and the [remote gateway guide](docs/REMOTE_GATEWAY_PROTOCOL.md). |
 | **Fitness TV / Cast** | A browser display or a Google Cast display visible to Home Assistant or the local sender | See [Fitness TV dashboard](#fitness-tv-dashboard) and Home Assistant's [Google Cast documentation](https://www.home-assistant.io/integrations/cast/). |
@@ -76,7 +76,7 @@ A physical sensor may be assigned to more than one Fitness profile, but during o
 
 The **CYCPLUS M1** is a completed-workout archive source rather than a live measurement source. Once added and assigned, Fitness automatically reconnects when the device is reachable, validates each FIT file, checkpoints completed files and imports the workouts into the assigned profiles' canonical calendars. Interrupted transfers restart only the unfinished file because the M1 protocol has no safe byte-offset command.
 
-Compatible **Garmin wearables** can also act as direct local workout archives. Fitness selects GFDI V0/V1 or V2 Multi-Link from discovered GATT capabilities rather than a model whitelist, downloads only unseen activity FIT files, checkpoints them locally and disconnects. Garmin files are never marked synced, archived or deleted by Fitness. See the [local Garmin guide](docs/GARMIN_LOCAL.md) for pairing, safety limits and compatibility details.
+Compatible **Garmin GFDI devices** can also act as direct local workout archives. Fitness auto-discovers candidates from Garmin vendor/protocol evidence (not the Bluetooth model name), dynamically discovers V2 Multi-Link channels, and negotiates bounded V2 -> V1 -> V0 fallbacks from the connected GATT capabilities. It downloads only unseen activity FIT files, checkpoints them locally and disconnects. Garmin files are never marked synced, archived or deleted by Fitness. See the [local Garmin guide](docs/GARMIN_LOCAL.md) for pairing, discovery, safety limits and compatibility details.
 
 ## What Fitness does
 
@@ -240,3 +240,8 @@ Fitness is distributed under the **[MIT License](LICENSE)**.
 **Your devices collect the pieces. Fitness helps Home Assistant put them together.**
 
 </div>
+
+
+### Smart workout devices
+
+Local workout-storage hardware is managed as one physical device with merged live/archive capabilities and a single stored-workout owner. See [`docs/SMART_WORKOUT_DEVICES.md`](docs/SMART_WORKOUT_DEVICES.md).

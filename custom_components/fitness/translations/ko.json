@@ -156,7 +156,8 @@
     "error": {
       "invalid_date": "과거의 올바른 생년월일을 입력하세요.",
       "invalid_number_or_entity": "올바른 숫자 값 또는 Home Assistant 엔티티 ID를 입력하세요.",
-      "select_profile": "Fitness 사용자를 한 명 이상 선택하세요."
+      "select_profile": "Fitness 사용자를 한 명 이상 선택하세요.",
+      "select_smart_device_owner": "저장된 운동의 소유자로 Fitness 프로필 하나만 선택하세요. 라이브 센서 기능은 나중에 다른 프로필과 공유할 수 있습니다."
     },
     "abort": {
       "already_configured": "같은 이름의 Fitness 프로필이 이미 있습니다.",
@@ -182,7 +183,7 @@
           "sleep_devices": "수면 기기",
           "sensor_assignments": "센서 할당",
           "tv_dashboard": "Fitness TV 대시보드",
-          "garmin_local_guide": "Garmin 로컬 설정 가이드"
+          "smart_workout_devices": "스마트 운동 기기"
         }
       },
       "profile": {
@@ -337,7 +338,51 @@
       },
       "garmin_local_guide": {
         "title": "Garmin 로컬 운동 동기화",
-        "description": "Garmin 시계는 Bluetooth로 Home Assistant에 직접 연결됩니다. 휴대폰은 필요하지 않으며 Garmin Connect는 계속 페어링된 상태로 둘 수 있습니다. 1) 시계를 가까이 두고 로컬 센서에 나타날 때까지 기다립니다. 2) Garmin 센서를 승인하고 하나 이상의 Fitness 프로필에 할당합니다. 3) HA-Fitness가 잠시 연결하여 아직 가져오지 않은 FIT 운동만 가져온 뒤 연결을 끊습니다. 진단에 페어링 필요가 표시되면 시계를 Home Assistant Bluetooth 호스트와 한 번 페어링한 후 Garmin 운동 지금 동기화를 누르세요. 동기화는 읽기 전용이며 Garmin 파일을 동기화됨으로 표시하거나 보관·삭제하지 않습니다. 어댑터는 모델 목록이 아니라 장치 기능에 따라 GFDI V0/V1 또는 V2 Multi-Link를 선택합니다. 검증되지 않은 MLR-only 전송은 무기한 대기하지 않고 제한된 백오프로 안전하게 거부합니다. 감지된 Garmin: {garmin_devices}"
+        "description": "이 가이드를 열면 GATT 연결을 열지 않고 짧고 엄격히 제한된 Bluetooth 스캔을 한 번 요청합니다. Garmin 시계는 Bluetooth로 Home Assistant에 직접 연결됩니다. 휴대폰은 필요하지 않으며 Garmin Connect는 계속 페어링된 상태로 둘 수 있습니다. 1) 시계를 가까이 두고 로컬 센서에 나타날 때까지 기다립니다. 2) Garmin 센서를 승인하고 하나 이상의 Fitness 프로필에 할당합니다. 3) HA-Fitness가 잠시 연결하여 아직 가져오지 않은 FIT 운동만 가져온 뒤 연결을 끊습니다. 진단에 페어링 필요가 표시되면 시계를 Home Assistant Bluetooth 호스트와 한 번 페어링한 후 Garmin 운동 지금 동기화를 누르세요. 동기화는 읽기 전용이며 Garmin 파일을 동기화됨으로 표시하거나 보관·삭제하지 않습니다. 어댑터는 모델 목록이 아니라 장치 기능에 따라 GFDI V0/V1 또는 V2 Multi-Link를 선택합니다. 검증되지 않은 MLR-only 전송은 무기한 대기하지 않고 제한된 백오프로 안전하게 거부합니다. 감지된 Garmin: {garmin_devices}"
+      },
+      "smart_workout_devices": {
+        "title": "스마트 운동 기기",
+        "description": "Fitness는 스마트 운동 기기를 자동으로 검색합니다. 이 페이지를 열면 짧고 제한된 Bluetooth 스캔을 한 번만 요청하고 검색된 운동 보관 기기와 지원 설정 가이드를 표시합니다. 검색 단계에서는 GATT를 열지 않습니다.",
+        "data": {
+          "smart_workout_device": "검색된 기기 또는 설정 가이드"
+        },
+        "data_description": {
+          "smart_workout_device": "검색된 물리 운동 기기를 선택하거나 제조사 가이드를 열어 검색하고 준비하세요."
+        }
+      },
+      "smart_workout_device_setup": {
+        "title": "스마트 운동 기기 설정",
+        "description": "물리 기기: {device}. 제조사: {vendor}. 감지된 모델: {model}. 기능: {capabilities}. 현재 보관 소유자: {owner}. 기기 유형과 모델은 표시/설정 정보일 뿐 프로토콜 선택에는 사용되지 않습니다.",
+        "data": {
+          "smart_device_type": "기기 유형",
+          "smart_device_model": "모델 / 표시 이름",
+          "transfer_smart_device_owner": "저장된 운동의 소유권을 이 Fitness 프로필로 이전"
+        },
+        "data_description": {
+          "smart_device_type": "표시와 안내에만 쓰는 일반 기기 분류이며 프로토콜을 선택하지 않습니다.",
+          "smart_device_model": "선택적인 모델/표시 이름입니다. 지원 또는 프로토콜 증거로 사용되지 않습니다.",
+          "transfer_smart_device_owner": "저장된 운동 가져오기 소유권만 이 프로필로 옮깁니다. 라이브 센서 할당은 바뀌지 않습니다."
+        }
+      },
+      "smart_workout_device_ready": {
+        "title": "스마트 운동 기기 준비 완료",
+        "description": "{device}는 이제 저장된 운동 가져오기에 대해 {owner}가 소유합니다. 라이브 기능은 기존 물리 센서 할당 규칙으로 계속 공유할 수 있습니다. {vendor} 프로토콜은 기능 기반으로 선택됩니다. Garmin이 Pairing required를 표시할 때만 Home Assistant Bluetooth 호스트와 한 번 페어링하고 Sync workouts now를 사용하세요."
+      },
+      "smart_workout_vendor_setup": {
+        "title": "{vendor} 설정 가이드",
+        "description": "설정 가이드용 기기 유형과 선택적인 모델 표시 이름을 고르세요. 이 값은 정보용이며 Fitness는 모델 이름으로 프로토콜 지원을 결정하지 않습니다.",
+        "data": {
+          "smart_device_type": "기기 유형",
+          "smart_device_model": "모델 / 표시 이름"
+        },
+        "data_description": {
+          "smart_device_type": "표시와 안내에만 쓰는 일반 기기 분류이며 프로토콜을 선택하지 않습니다.",
+          "smart_device_model": "선택적인 모델/표시 이름입니다. 지원 또는 프로토콜 증거로 사용되지 않습니다."
+        }
+      },
+      "smart_workout_vendor_guide": {
+        "title": "{vendor} 연결 절차",
+        "description": "{vendor} {device_type} {model}: 기기를 가까이 두고 Fitness Bluetooth 어댑터를 켜세요. 검색은 모델명이 아니라 검증된 프로토콜/제조사 증거를 사용합니다. Garmin은 동기화 진단이 요구할 때만 페어링합니다. 검색된 기기: {detected_devices}. 제출하면 제한된 스캔을 다시 실행합니다."
       }
     },
     "abort": {
@@ -346,7 +391,8 @@
       "no_fitness_profiles": "이 센서를 할당하기 전에 Fitness 사용자를 만드세요."
     },
     "error": {
-      "sensor_unavailable": "검색된 피트니스 센서를 더 이상 사용할 수 없습니다."
+      "sensor_unavailable": "검색된 피트니스 센서를 더 이상 사용할 수 없습니다.",
+      "smart_device_owned_elsewhere": "이 물리 기기는 이미 다른 Fitness 프로필에 속해 있습니다. 저장된 운동을 이 프로필로 옮기려면 소유권 이전을 활성화하세요."
     }
   },
   "entity": {

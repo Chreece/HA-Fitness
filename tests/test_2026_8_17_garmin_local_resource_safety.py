@@ -30,11 +30,15 @@ def test_garmin_sync_has_hard_session_stage_cleanup_and_shutdown_bounds():
     assert "SESSION_TIMEOUT = 100.0" in COORD
     assert "CONNECT_TIMEOUT = 35.0" in COORD
     assert "CLEANUP_TIMEOUT = 6.0" in COORD
+    assert "IMPORT_TIMEOUT = 20.0" in COORD
+    assert "TRANSPORT_NEGOTIATION_TIMEOUT = 40.0" in COORD
+    assert "TRANSPORT_CANDIDATE_TIMEOUT = 12.0" in COORD
     assert "SHUTDOWN_TIMEOUT = 12.0" in COORD
     sync = _method(COORD, "_async_sync")
     assert "async with asyncio.timeout(SESSION_TIMEOUT)" in sync
     assert "async with asyncio.timeout(CONNECT_TIMEOUT)" in sync
     assert "async with asyncio.timeout(CLEANUP_TIMEOUT)" in sync
+    assert "async with asyncio.timeout(IMPORT_TIMEOUT)" in sync
     shutdown = _method(COORD, "async_shutdown")
     assert "asyncio.timeout(SHUTDOWN_TIMEOUT)" in shutdown
     assert "task.cancel()" in shutdown
@@ -45,8 +49,8 @@ def test_every_protocol_loop_is_backstopped_and_input_is_bounded():
     assert "MANAGEMENT_QUEUE_LIMIT = 32" in GFDI
     assert "MAX_COMPRESSED_FILE_BYTES = 16 * 1024 * 1024" in GFDI
     assert "MAX_FILES_PER_LISTING = 1_000" in GFDI
-    assert "MAX_GFDI_FRAME_BYTES = 256 * 1024" in PROTO
-    assert "MAX_COBS_BUFFER_BYTES = 512 * 1024" in PROTO
+    assert "MAX_GFDI_FRAME_BYTES = 0xFFFF" in PROTO
+    assert "MAX_COBS_BUFFER_BYTES = 96 * 1024" in PROTO
     assert "MAX_PROTOBUF_BYTES = 4 * 1024 * 1024" in PROTO
     assert "MAX_PROTOBUF_FIELDS = 20_000" in PROTO
     assert "MAX_FILE_LIST_ITEMS = 2_000" in PROTO
@@ -87,6 +91,9 @@ def test_advertisements_are_rate_limited_and_cannot_defeat_retry_backoff():
     failure = _method(COORD, "_async_sync")
     assert 'next_attempt=retry_at.isoformat()' in failure
     assert "UNSUPPORTED_RETRY_DELAY = 6 * 60 * 60.0" in COORD
+    assert "DEGRADED_RETRY_DELAY = 2 * 60 * 60.0" in COORD
+    assert "BUSY_RETRY_DELAY = 5 * 60.0" in COORD
+    assert "UNREACHABLE_RETRY_DELAY = 30 * 60.0" in COORD
 
 
 def test_garmin_does_not_compete_with_live_ble_and_uses_same_device_lock():
@@ -100,15 +107,23 @@ def test_garmin_does_not_compete_with_live_ble_and_uses_same_device_lock():
 
 def test_transport_selection_is_capability_based_without_test_watch_special_cases():
     transport = _method(GFDI, "transport_from_client")
-    assert "GarminV2Transport.from_client" in transport
-    assert "GarminV1Transport.from_client" in transport
+    candidates = _method(GFDI, "transport_candidates_from_client")
+    negotiation = _method(COORD, "_start_best_session")
+    assert "GarminV2Transport.candidates_from_client" in candidates
+    assert "GarminV1Transport.candidates_from_client" in candidates
+    assert "transport_candidates_from_client" in transport
+    assert "transport_candidates_from_client" in negotiation
+    assert "TRANSPORT_CANDIDATE_TIMEOUT" in negotiation
+    assert "await session.async_stop()" in negotiation
     combined = (COORD + GFDI + PROTO).lower()
-    assert "forerunner 965" not in combined
-    assert "fr965" not in combined
-    assert "e0:48:24:67:85:64" not in combined
-    assert "if model" not in transport.lower()
-    # Informational advertised names are allowed; they never select a backend.
-    assert '"model": str(name or "Garmin wearable")' in COORD
+    for forbidden in (
+        "forerunner 965", "fr965", "e0:48:24:67:85:64",
+        "if model", "fenix", "fēnix", "instinct", "vivoactive", "venu",
+    ):
+        assert forbidden not in combined
+    # Local names are display metadata only and are not labeled as a model.
+    assert 'result["bluetooth_name"]' in PROTO
+    assert 'result["model"]' not in PROTO
 
 
 def test_unverified_mlr_fails_fast_instead_of_entering_a_transfer_loop():
@@ -144,10 +159,12 @@ def test_manual_sync_button_only_schedules_background_work():
     assert "await coordinator" not in block
 
 
-def test_integration_contains_user_visible_garmin_setup_guide_and_docs():
-    assert "async_step_garmin_local_guide" in FLOW
+def test_integration_contains_user_visible_smart_workout_device_guide_and_docs():
+    assert "async_step_smart_workout_devices" in FLOW
+    assert "async_step_garmin_local_guide" in FLOW  # backward-compatible alias only
     assert 'menu.extend(["workout_devices", "sleep_devices", "ai", "feedback", "tv_dashboard"])' in FLOW
-    assert 'menu.insert(menu.index("workout_devices") + 1, "garmin_local_guide")' in FLOW
+    assert 'menu.insert(menu.index("workout_devices") + 1, "smart_workout_devices")' in FLOW
+    assert (ROOT / "docs" / "SMART_WORKOUT_DEVICES.md").is_file()
     assert (ROOT / "docs" / "GARMIN_LOCAL.md").is_file()
     guide = (ROOT / "docs" / "GARMIN_LOCAL.md").read_text(encoding="utf-8")
     assert "phone does **not** connect to HA-Fitness" in guide
@@ -174,8 +191,62 @@ def test_manual_retry_can_replace_sleeping_backoff_but_not_cancel_active_ble():
     schedule = _method(COORD, "schedule")
     assert "self._active_sync" in schedule
     assert "current.cancel()" in schedule
-    assert "if sensor_id not in self._active_sync" in schedule
+    assert "self._active_sync" in schedule
+    assert "wake_if_sleeping" in schedule
     assert "self._queued[sensor_id]" in schedule
     assert "UNSUPPORTED_RETRY_DELAY" in COORD
     # Pairing requires user action, so background retry is intentionally sparse.
     assert 'if error_code == "pairing_required"' in COORD
+
+
+def test_garmin_discovery_replays_cache_once_and_guide_scan_is_bounded():
+    setup = _method(BT, "async_setup")
+    assert "BluetoothCallbackReplay.DISABLED" in setup
+    assert "self._replay_cached_discovery()" in setup
+    replay = _method(BT, "_replay_cached_discovery")
+    assert "DISCOVERY_CACHE_REPLAY_LIMIT" in replay
+    assert "DISCOVERY_CACHE_SCAN_LIMIT" in replay
+    assert "_cached_discovery_relevant" in replay
+    refresh = _method(BT, "async_refresh_discovery")
+    assert "async_request_active_scan" in refresh
+    assert "DISCOVERY_ACTIVE_SCAN_TIMEOUT" in refresh
+    assert "DISCOVERY_REFRESH_MIN_INTERVAL" in refresh
+    assert "_discovery_refresh_lock" in refresh
+    assert "self._replay_cached_discovery()" in refresh
+    refresh_guide = _method(FLOW, "_async_refresh_smart_workout_discovery")
+    assert "async_refresh_discovery" in refresh_guide
+    assert "asyncio.timeout(15.0)" in refresh_guide
+    guide = _method(FLOW, "async_step_smart_workout_devices")
+    assert "_async_refresh_smart_workout_discovery" in guide
+
+
+def test_v2_channel_discovery_is_bounded_but_not_hardcoded_to_five_channels():
+    candidates = _method(GFDI, "candidates_from_client")
+    # AST helper returns the first candidates_from_client method (legacy), so use
+    # source-level invariants for the V2 class block.
+    v2 = GFDI.split("class GarminV2Transport", 1)[1].split("def transport_candidates_from_client", 1)[0]
+    assert "MAX_V2_CHANNEL_CANDIDATES = 4" in GFDI
+    assert 'short.startswith("6a4e281")' in v2
+    assert 'short[-1] not in "0123456789abcdef"' in v2
+    assert "range(5)" not in v2
+    assert "pairs[:MAX_V2_CHANNEL_CANDIDATES]" in v2
+
+
+def test_automatic_sync_is_timer_backed_and_does_not_poll_unreachable_devices_hot():
+    advertise = _method(COORD, "advertise")
+    schedule = _method(COORD, "schedule")
+    sync = _method(COORD, "_async_sync")
+    assert "wake_if_sleeping=True" in advertise
+    assert "if not (force or wake_if_sleeping)" in schedule
+    assert "UNREACHABLE_RETRY_DELAY" in sync
+    assert "SYNC_INTERVAL.total_seconds()" in sync
+    assert "BATCH_CONTINUE_DELAY" in sync
+    # After a GATT session, ask HA to deliver the next identical wake advert;
+    # this is a cache-history operation, not a scanner or connection loop.
+    assert "async_clear_advertisement_history" in sync
+
+
+def test_gfdi_frame_ceiling_matches_wire_length_field_and_cobs_headroom_is_small():
+    assert "MAX_GFDI_FRAME_BYTES = 0xFFFF" in PROTO
+    assert "MAX_COBS_BUFFER_BYTES = 96 * 1024" in PROTO
+    assert 'struct.unpack_from("<H"' in PROTO

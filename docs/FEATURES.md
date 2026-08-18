@@ -12,7 +12,7 @@ The Live workout device exposes the measurements and Fitness calculations that a
 
 Completed workout adapters normalize provider-specific fields into a common Fitness workout model. Representations of the same physical workout can be merged so a later watch sync does not erase useful data collected live. Field provenance is retained where relevant.
 
-Direct archive adapters can also obtain completed workouts locally from supported hardware. The Garmin local adapter selects GFDI transport from device capabilities, downloads FIT activities read-only in bounded background sessions and feeds them through the same canonical workout merge. See [Local Garmin workout synchronization](GARMIN_LOCAL.md).
+Direct archive adapters can also obtain completed workouts locally from supported hardware. The Garmin local adapter recognizes vendor/protocol evidence rather than model names, dynamically discovers the connected GFDI capabilities, tries bounded V2 -> V1 -> V0 candidates, downloads FIT activities read-only in bounded background sessions and feeds them through the same canonical workout merge. See [Local Garmin workout synchronization](GARMIN_LOCAL.md).
 
 Provider placeholder values such as meaningless zero distance/power are treated as missing when they do not make sense for the activity.
 
@@ -43,3 +43,8 @@ Optional TTS and AI announcements can describe live progress, pause/resume, HR r
 ## Data-quality rules
 
 Fitness calculations are based on normalized Fitness-owned data. Historical calculations validate timestamps, plausible ranges, completeness and duplicate/merge behavior before using records. A result is left unavailable when its evidence requirements are not met.
+
+
+## Smart workout devices
+
+Direct archive devices are discovered automatically and managed through **Smart workout devices**. Fitness merges verified live/archive transports into one physical device, keeps one primary profile for stored-workout imports, and never uses consumer model names for protocol routing. See [Smart workout devices](SMART_WORKOUT_DEVICES.md).

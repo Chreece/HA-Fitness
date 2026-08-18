@@ -96,6 +96,11 @@ RAW_DIAGNOSTIC_MIN_INTERVAL = 10.0
 PASSIVE_DECODE_MIN_INTERVAL = 5.0
 DISCOVERY_DEDUPE_WINDOW = 0.5
 BLE_DISCONNECT_TIMEOUT = 5.0
+DISCOVERY_CACHE_REPLAY_LIMIT = 512
+DISCOVERY_CACHE_SCAN_LIMIT = 2048
+DISCOVERY_REFRESH_MIN_INTERVAL = 20.0
+DISCOVERY_ACTIVE_SCAN_DURATION = 8.0
+DISCOVERY_ACTIVE_SCAN_TIMEOUT = 12.0
 
 
 def _battery_metadata() -> dict[str, object]:
@@ -172,6 +177,11 @@ class BluetoothFitnessProvider:
         self._provisional_passive_last_decode: dict[str, float] = {}
         self._identity_probe_tasks: dict[str, asyncio.Task] = {}
         self._identity_probe_last_attempt: dict[str, float] = {}
+        # Setup/config-flow discovery is control-plane work.  Coalesce concurrent
+        # requests and enforce a short cooldown so opening the guide repeatedly
+        # cannot force the Bluetooth stack into continuous active scanning.
+        self._discovery_refresh_lock = asyncio.Lock()
+        self._last_discovery_refresh = -DISCOVERY_REFRESH_MIN_INTERVAL
         self.cycplus_m1 = CycplusM1Coordinator(self)
         self.device_archives = DeviceArchiveRegistry(self)
         # Raw BLE fitness measurements require an active GATT subscription, but
@@ -229,9 +239,92 @@ class BluetoothFitnessProvider:
         self._refresh_available()
         self.runtime.set_adapter_presence("bluetooth", self.available)
 
-        # Include already-cached advertisements, including ESPHome proxy paths.
-        for info in bluetooth.async_discovered_service_info(self.hass, False):
+        # Register all matchers first, then replay the HA cache exactly once.
+        # This avoids N matcher registrations each replaying the same cache while
+        # still discovering devices that were already present before Fitness.
+        self._replay_cached_discovery()
+
+    def _cached_discovery_relevant(self, info) -> bool:
+        """Cheaply reject unrelated cached BLE devices before runtime work."""
+        manufacturer_data = getattr(info, "manufacturer_data", {}) or {}
+        uuids = {str(value).lower() for value in (getattr(info, "service_uuids", None) or [])}
+        cycplus_identity = cycplus_m1_identity(getattr(info, "name", None), uuids)
+        for service_uuid in SERVICE_CAPABILITIES:
+            if service_uuid not in uuids:
+                continue
+            if service_uuid == CYCPLUS_M1_SERVICE_UUID and cycplus_identity is None:
+                continue
+            return True
+        return self.device_archives.match_bluetooth(
+            getattr(info, "name", None), uuids, manufacturer_data
+        ) is not None
+
+    def _replay_cached_discovery(self) -> int:
+        """Replay a bounded relevant subset of Home Assistant's current cache."""
+        try:
+            infos = bluetooth.async_discovered_service_info(self.hass, connectable=False)
+        except TypeError:
+            infos = bluetooth.async_discovered_service_info(self.hass, False)
+        except Exception:
+            _LOGGER.debug("Unable to read Home Assistant Bluetooth discovery cache", exc_info=True)
+            return 0
+
+        processed = 0
+        seen: set[tuple[str, str]] = set()
+        for cache_index, info in enumerate(infos):
+            if cache_index >= DISCOVERY_CACHE_SCAN_LIMIT:
+                _LOGGER.debug(
+                    "Fitness Bluetooth cache scan reached safety limit %s",
+                    DISCOVERY_CACHE_SCAN_LIMIT,
+                )
+                break
+            key = (
+                str(getattr(info, "address", "")).upper(),
+                str(getattr(info, "source", None) or ""),
+            )
+            if key in seen or not key[0] or not self._cached_discovery_relevant(info):
+                continue
+            seen.add(key)
             self._async_discovered(info, None)
+            processed += 1
+            if processed >= DISCOVERY_CACHE_REPLAY_LIMIT:
+                _LOGGER.debug(
+                    "Fitness Bluetooth cache replay reached safety limit %s",
+                    DISCOVERY_CACHE_REPLAY_LIMIT,
+                )
+                break
+        return processed
+
+    async def async_refresh_discovery(self) -> None:
+        """Perform one bounded control-plane scan and replay relevant cache.
+
+        No GATT client is opened here.  Home Assistant deduplicates concurrent
+        one-shot active scans globally; Fitness additionally coalesces its own UI
+        requests and rate-limits repeated guide opens.
+        """
+        async with self._discovery_refresh_lock:
+            now = self.hass.loop.time()
+            if now - self._last_discovery_refresh >= DISCOVERY_REFRESH_MIN_INTERVAL:
+                self._last_discovery_refresh = now
+                request_scan = getattr(bluetooth, "async_request_active_scan", None)
+                if request_scan is not None:
+                    try:
+                        async with asyncio.timeout(DISCOVERY_ACTIVE_SCAN_TIMEOUT):
+                            try:
+                                await request_scan(
+                                    self.hass, duration=DISCOVERY_ACTIVE_SCAN_DURATION
+                                )
+                            except TypeError:
+                                # Compatibility with the first HA API shape.
+                                await request_scan(self.hass)
+                    except TimeoutError:
+                        _LOGGER.debug("Timed out requesting Fitness Bluetooth discovery sweep")
+                    except Exception:
+                        _LOGGER.debug(
+                            "Unable to request Fitness Bluetooth discovery sweep",
+                            exc_info=True,
+                        )
+            self._replay_cached_discovery()
 
     def _refresh_available(self) -> None:
         scanner_count = getattr(bluetooth, "async_scanner_count", None)

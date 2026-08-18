@@ -156,7 +156,8 @@
     "error": {
       "invalid_date": "Geçmişte olan geçerli bir doğum tarihi gir.",
       "invalid_number_or_entity": "Geçerli bir sayı veya Home Assistant varlık kimliği gir.",
-      "select_profile": "En az bir Fitness kullanıcısı seç."
+      "select_profile": "En az bir Fitness kullanıcısı seç.",
+      "select_smart_device_owner": "Kayıtlı antrenmanların sahibi olarak tam bir Fitness profili seçin. Canlı sensör özellikleri daha sonra başka profillerle paylaşılabilir."
     },
     "abort": {
       "already_configured": "Bu ada sahip bir Fitness profili zaten var.",
@@ -182,7 +183,7 @@
           "sleep_devices": "Uyku cihazları",
           "sensor_assignments": "Sensör atamaları",
           "tv_dashboard": "Fitness TV paneli",
-          "garmin_local_guide": "Yerel Garmin kurulum kılavuzu"
+          "smart_workout_devices": "Akıllı antrenman cihazları"
         }
       },
       "profile": {
@@ -337,7 +338,51 @@
       },
       "garmin_local_guide": {
         "title": "Yerel Garmin antrenman senkronizasyonu",
-        "description": "Garmin saatleri Bluetooth üzerinden doğrudan Home Assistant'a bağlanır; telefon gerekmez ve Garmin Connect eşleşmiş kalabilir. 1) Saat Yerel Sensörler altında görünene kadar yakında tutun. 2) Garmin sensörünü kabul edip bir veya daha fazla Fitness profiline atayın. 3) HA-Fitness kısa süre bağlanır, yalnızca daha önce görülmemiş FIT antrenmanlarını içe aktarır ve bağlantıyı keser. Tanı Eşleştirme gerekli gösterirse saati bir kez Home Assistant Bluetooth hostuyla eşleştirip Garmin antrenmanlarını şimdi senkronize et düğmesine basın. Senkronizasyon salt okunurdur: dosyalar senkronize işaretlenmez, arşivlenmez veya silinmez. Adaptör GFDI V0/V1 ya da V2 Multi-Link'i model listesiyle değil cihaz yetenekleriyle seçer. Doğrulanmamış yalnızca MLR aktarımı sonsuza kadar beklemek yerine sınırlı geri çekilme ile reddedilir. Algılanan Garmin cihazları: {garmin_devices}"
+        "description": "Bu kılavuz açıldığında GATT bağlantısı açmadan kısa ve sıkı biçimde sınırlandırılmış bir Bluetooth taraması istenir. Garmin saatleri Bluetooth üzerinden doğrudan Home Assistant'a bağlanır; telefon gerekmez ve Garmin Connect eşleşmiş kalabilir. 1) Saat Yerel Sensörler altında görünene kadar yakında tutun. 2) Garmin sensörünü kabul edip bir veya daha fazla Fitness profiline atayın. 3) HA-Fitness kısa süre bağlanır, yalnızca daha önce görülmemiş FIT antrenmanlarını içe aktarır ve bağlantıyı keser. Tanı Eşleştirme gerekli gösterirse saati bir kez Home Assistant Bluetooth hostuyla eşleştirip Garmin antrenmanlarını şimdi senkronize et düğmesine basın. Senkronizasyon salt okunurdur: dosyalar senkronize işaretlenmez, arşivlenmez veya silinmez. Adaptör GFDI V0/V1 ya da V2 Multi-Link'i model listesiyle değil cihaz yetenekleriyle seçer. Doğrulanmamış yalnızca MLR aktarımı sonsuza kadar beklemek yerine sınırlı geri çekilme ile reddedilir. Algılanan Garmin cihazları: {garmin_devices}"
+      },
+      "smart_workout_devices": {
+        "title": "Akıllı antrenman cihazları",
+        "description": "Fitness akıllı antrenman cihazlarını otomatik olarak keşfeder. Bu sayfa açıldığında tek bir kısa ve sınırlı Bluetooth taraması istenir; bulunan arşiv cihazları ve desteklenen kılavuzlar gösterilir. Keşif GATT açmaz.",
+        "data": {
+          "smart_workout_device": "Algılanan cihaz veya kurulum kılavuzu"
+        },
+        "data_description": {
+          "smart_workout_device": "Algılanan fiziksel cihazı seçin veya aramak ve hazırlamak için üretici kılavuzunu açın."
+        }
+      },
+      "smart_workout_device_setup": {
+        "title": "Akıllı antrenman cihazını ayarla",
+        "description": "Fiziksel cihaz: {device}. Üretici: {vendor}. Algılanan model: {model}. Yetenekler: {capabilities}. Geçerli arşiv sahibi: {owner}. Cihaz türü ve model yalnızca görüntüleme/kurulum bilgisidir ve protokolü asla seçmez.",
+        "data": {
+          "smart_device_type": "Cihaz türü",
+          "smart_device_model": "Model / görünen ad",
+          "transfer_smart_device_owner": "Kayıtlı antrenman sahipliğini bu Fitness profiline aktar"
+        },
+        "data_description": {
+          "smart_device_type": "Yalnızca görüntüleme ve yönergeler için genel cihaz sınıfı; protokolü asla seçmez.",
+          "smart_device_model": "İsteğe bağlı model etiketi. Destek veya protokol kanıtı olarak kullanılmaz.",
+          "transfer_smart_device_owner": "Yalnızca kayıtlı antrenman içe aktarma sahipliğini bu profile taşır. Canlı atamalar değişmez."
+        }
+      },
+      "smart_workout_device_ready": {
+        "title": "Akıllı antrenman cihazı hazır",
+        "description": "{device} artık kayıtlı antrenman içe aktarımları için {owner} profiline aittir. Canlı özellikler mevcut atamalarla paylaşılmaya devam edebilir. {vendor} protokolü yeteneklere göre seçilir. Garmin Pairing required bildirirse Home Assistant Bluetooth ana bilgisayarıyla bir kez eşleştirip Sync workouts now kullanın."
+      },
+      "smart_workout_vendor_setup": {
+        "title": "{vendor} kurulum kılavuzu",
+        "description": "Kılavuz için cihaz türünü ve isteğe bağlı model adını seçin. Bunlar yalnızca bilgi amaçlıdır; Fitness protokolü model adına göre seçmez.",
+        "data": {
+          "smart_device_type": "Cihaz türü",
+          "smart_device_model": "Model / görünen ad"
+        },
+        "data_description": {
+          "smart_device_type": "Yalnızca görüntüleme ve yönergeler için genel cihaz sınıfı; protokolü asla seçmez.",
+          "smart_device_model": "İsteğe bağlı model etiketi. Destek veya protokol kanıtı olarak kullanılmaz."
+        }
+      },
+      "smart_workout_vendor_guide": {
+        "title": "{vendor} bağlantı işlemi",
+        "description": "{vendor} {device_type} {model} için cihazı yakında tutun ve Fitness Bluetooth adaptörünü etkinleştirin. Keşif model adları yerine doğrulanmış protokol/üretici kanıtlarını kullanır. Garmin’i yalnızca senkronizasyon tanısı isterse eşleştirin. Algılanan cihazlar: {detected_devices}. Sınırlı taramayı yinelemek için gönderin."
       }
     },
     "abort": {
@@ -346,7 +391,8 @@
       "no_fitness_profiles": "Bu sensörü atamadan önce bir Fitness kullanıcısı oluştur."
     },
     "error": {
-      "sensor_unavailable": "Keşfedilen fitness sensörü artık kullanılamıyor."
+      "sensor_unavailable": "Keşfedilen fitness sensörü artık kullanılamıyor.",
+      "smart_device_owned_elsewhere": "Bu fiziksel cihaz zaten başka bir Fitness profiline ait. Kayıtlı antrenmanları bu profile taşımak için sahipliği aktarın."
     }
   },
   "entity": {

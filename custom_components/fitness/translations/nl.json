@@ -156,7 +156,8 @@
     "error": {
       "invalid_date": "Voer een geldige geboortedatum in het verleden in.",
       "invalid_number_or_entity": "Voer een geldige numerieke waarde of Home Assistant-entiteits-ID in.",
-      "select_profile": "Selecteer minstens één Fitness-gebruiker."
+      "select_profile": "Selecteer minstens één Fitness-gebruiker.",
+      "select_smart_device_owner": "Kies precies één Fitness-profiel als eigenaar van opgeslagen trainingen. Livefuncties kunnen later met meer profielen worden gedeeld."
     },
     "abort": {
       "already_configured": "Er bestaat al een Fitness-profiel met deze naam.",
@@ -182,7 +183,7 @@
           "sleep_devices": "Slaapapparaten",
           "sensor_assignments": "Sensortoewijzingen",
           "tv_dashboard": "Fitness TV-dashboard",
-          "garmin_local_guide": "Handleiding lokale Garmin-instelling"
+          "smart_workout_devices": "Slimme trainingsapparaten"
         }
       },
       "profile": {
@@ -337,7 +338,51 @@
       },
       "garmin_local_guide": {
         "title": "Lokale Garmin-workoutsynchronisatie",
-        "description": "Garmin-horloges maken rechtstreeks via Bluetooth verbinding met Home Assistant; een telefoon is niet nodig en Garmin Connect kan gekoppeld blijven. 1) Houd het horloge in de buurt tot het onder Lokale sensoren verschijnt. 2) Accepteer de Garmin-sensor en wijs hem toe aan een of meer Fitness-profielen. 3) HA-Fitness maakt kort verbinding, importeert alleen nog onbekende FIT-workouts en verbreekt de verbinding. Als de diagnose Koppeling vereist toont, koppel het horloge één keer met de Bluetooth-host van Home Assistant en druk daarna op Garmin-workouts nu synchroniseren. Synchronisatie is alleen-lezen: bestanden worden niet als gesynchroniseerd gemarkeerd, gearchiveerd of verwijderd. De adapter kiest GFDI V0/V1 of V2 Multi-Link op basis van mogelijkheden, nooit via een modellijst. Niet-geverifieerd MLR-only transport wordt met begrensde backoff geweigerd in plaats van onbeperkt te wachten. Gedetecteerde Garmin-apparaten: {garmin_devices}"
+        "description": "Bij het openen van deze handleiding wordt één korte, begrensde Bluetooth-scan aangevraagd zonder een GATT-verbinding te openen. Garmin-horloges maken rechtstreeks via Bluetooth verbinding met Home Assistant; een telefoon is niet nodig en Garmin Connect kan gekoppeld blijven. 1) Houd het horloge in de buurt tot het onder Lokale sensoren verschijnt. 2) Accepteer de Garmin-sensor en wijs hem toe aan een of meer Fitness-profielen. 3) HA-Fitness maakt kort verbinding, importeert alleen nog onbekende FIT-workouts en verbreekt de verbinding. Als de diagnose Koppeling vereist toont, koppel het horloge één keer met de Bluetooth-host van Home Assistant en druk daarna op Garmin-workouts nu synchroniseren. Synchronisatie is alleen-lezen: bestanden worden niet als gesynchroniseerd gemarkeerd, gearchiveerd of verwijderd. De adapter kiest GFDI V0/V1 of V2 Multi-Link op basis van mogelijkheden, nooit via een modellijst. Niet-geverifieerd MLR-only transport wordt met begrensde backoff geweigerd in plaats van onbeperkt te wachten. Gedetecteerde Garmin-apparaten: {garmin_devices}"
+      },
+      "smart_workout_devices": {
+        "title": "Slimme trainingsapparaten",
+        "description": "Fitness ontdekt slimme trainingsapparaten automatisch. Bij openen wordt één korte, begrensde Bluetooth-scan aangevraagd en worden gevonden archiefapparaten en ondersteunde gidsen getoond. De ontdekking opent geen GATT.",
+        "data": {
+          "smart_workout_device": "Gedetecteerd apparaat of installatiegids"
+        },
+        "data_description": {
+          "smart_workout_device": "Kies een gevonden fysiek trainingsapparaat of open een fabrikantsgids om het te zoeken en voor te bereiden."
+        }
+      },
+      "smart_workout_device_setup": {
+        "title": "Slim trainingsapparaat instellen",
+        "description": "Fysiek apparaat: {device}. Fabrikant: {vendor}. Gedetecteerd model: {model}. Mogelijkheden: {capabilities}. Huidige archiefeigenaar: {owner}. Type en model zijn alleen weergave-/setupgegevens en kiezen nooit het protocol.",
+        "data": {
+          "smart_device_type": "Apparaattype",
+          "smart_device_model": "Model / weergavenaam",
+          "transfer_smart_device_owner": "Eigendom van opgeslagen trainingen naar dit Fitness-profiel overdragen"
+        },
+        "data_description": {
+          "smart_device_type": "Algemene apparaatklasse alleen voor weergave en instructies; kiest nooit het protocol.",
+          "smart_device_model": "Optionele modelnaam. Wordt nooit gebruikt als bewijs voor ondersteuning of protocol.",
+          "transfer_smart_device_owner": "Verplaatst alleen het eigendom van opgeslagen trainingsimports naar dit profiel. Live-toewijzingen blijven ongewijzigd."
+        }
+      },
+      "smart_workout_device_ready": {
+        "title": "Slim trainingsapparaat gereed",
+        "description": "{device} is nu eigendom van {owner} voor import van opgeslagen trainingen. Livefuncties kunnen via bestaande toewijzingen gedeeld blijven. De {vendor}-protocolkeuze blijft op mogelijkheden gebaseerd. Als Garmin later Pairing required meldt, koppel één keer met de Bluetooth-host van Home Assistant en gebruik Sync workouts now."
+      },
+      "smart_workout_vendor_setup": {
+        "title": "{vendor}-installatiegids",
+        "description": "Kies een apparaattype en eventueel een modelnaam voor de gids. Deze waarden zijn alleen informatief; Fitness kiest nooit een protocol op basis van de modelnaam.",
+        "data": {
+          "smart_device_type": "Apparaattype",
+          "smart_device_model": "Model / weergavenaam"
+        },
+        "data_description": {
+          "smart_device_type": "Algemene apparaatklasse alleen voor weergave en instructies; kiest nooit het protocol.",
+          "smart_device_model": "Optionele modelnaam. Wordt nooit gebruikt als bewijs voor ondersteuning of protocol."
+        }
+      },
+      "smart_workout_vendor_guide": {
+        "title": "{vendor}-verbindingsprocedure",
+        "description": "Voor {vendor} {device_type} {model}: houd het apparaat dichtbij en schakel de Fitness Bluetooth-adapter in. Detectie gebruikt geverifieerde protocol-/fabrikantgegevens, niet modelnamen. Koppel Garmin alleen als de synchronisatiediagnose dit vraagt. Gevonden apparaten: {detected_devices}. Bevestig om de begrensde scan opnieuw uit te voeren."
       }
     },
     "abort": {
@@ -346,7 +391,8 @@
       "no_fitness_profiles": "Maak een Fitness-gebruiker voordat je deze sensor toewijst."
     },
     "error": {
-      "sensor_unavailable": "De gevonden fitnesssensor is niet meer beschikbaar."
+      "sensor_unavailable": "De gevonden fitnesssensor is niet meer beschikbaar.",
+      "smart_device_owned_elsewhere": "Dit fysieke apparaat hoort al bij een ander Fitness-profiel. Schakel eigendomsoverdracht in om opgeslagen trainingen naar dit profiel te verplaatsen."
     }
   },
   "entity": {

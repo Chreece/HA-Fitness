@@ -19,14 +19,14 @@ from ...const import (
 )
 from ...providers.workouts import Workout, _dt
 from .fit import MAX_FIT_BYTES, workout_from_fit
-from .gfdi import GarminGfdiSession, GarminUnsupportedTransport, transport_from_client
+from .gfdi import (
+    GarminGfdiSession,
+    GarminUnsupportedTransport,
+    transport_candidates_from_client,
+)
 from .protocol import (
-    GARMIN_ADVERTISEMENT_SERVICE_UUID,
-    GARMIN_COMPANY_ID,
-    GARMIN_GFDI_V0_SERVICE_UUID,
-    GARMIN_GFDI_V1_SERVICE_UUID,
-    GARMIN_GFDI_V2_SERVICE_UUID,
     GarminDirectoryEntry,
+    garmin_advertisement_identity,
     GarminSyncFile,
 )
 
@@ -35,15 +35,25 @@ _LOGGER = logging.getLogger(__name__)
 SYNC_INTERVAL = timedelta(minutes=30)
 CONNECT_TIMEOUT = 35.0
 SESSION_TIMEOUT = 100.0
+TRANSPORT_NEGOTIATION_TIMEOUT = 40.0
+TRANSPORT_CANDIDATE_TIMEOUT = 12.0
 CLEANUP_TIMEOUT = 6.0
+IMPORT_TIMEOUT = 20.0
 SHUTDOWN_TIMEOUT = 12.0
 MAX_FILES_PER_SYNC = 2
 MAX_BYTES_PER_SYNC = 16 * 1024 * 1024
 MAX_CACHED_FILE_RECORDS = 2_000
 BATCH_CONTINUE_DELAY = 120.0
 MAX_RETRIES = 6
+DEGRADED_RETRY_DELAY = 2 * 60 * 60.0
 UNSUPPORTED_RETRY_DELAY = 6 * 60 * 60.0
-BUSY_RETRY_DELAY = 90.0
+# A live BLE owner should not be polled every few seconds; manual retry can
+# still override this waiting state when the user explicitly asks.
+BUSY_RETRY_DELAY = 5 * 60.0
+# If the connectable route disappears, use a very sparse safety wake-up. A fresh
+# Garmin advertisement can replace the sleeping task immediately without
+# bypassing protocol/error backoff.
+UNREACHABLE_RETRY_DELAY = 30 * 60.0
 ADVERTISEMENT_ACTION_MIN_INTERVAL = 30.0
 
 _ERROR_CODE = {
@@ -84,37 +94,6 @@ _DETAIL_META: dict[str, dict[str, Any]] = {
 }
 for _key, _meta in _DETAIL_META.items():
     _meta.update(translation_key=_key, entity_category="diagnostic")
-
-
-def garmin_advertisement_identity(
-    name: str | None,
-    service_uuids,
-    manufacturer_data: dict[int, bytes] | None,
-) -> dict[str, Any] | None:
-    """Return conservative Garmin identity without any model whitelist."""
-    services = {str(value).lower() for value in (service_uuids or [])}
-    company_ids = {int(value) for value in (manufacturer_data or {})}
-    protocol_services = {
-        GARMIN_GFDI_V2_SERVICE_UUID,
-        GARMIN_GFDI_V1_SERVICE_UUID,
-        GARMIN_GFDI_V0_SERVICE_UUID,
-    }
-    if (
-        GARMIN_COMPANY_ID not in company_ids
-        and GARMIN_ADVERTISEMENT_SERVICE_UUID not in services
-        and not (services & protocol_services)
-    ):
-        return None
-    return {
-        "manufacturer": "Garmin",
-        "archive_adapter": "garmin_local",
-        "garmin_local": True,
-        "garmin_protocol": "auto",
-        "garmin_advertised_service": GARMIN_ADVERTISEMENT_SERVICE_UUID in services,
-        "garmin_advertised_gfdi": bool(services & protocol_services),
-        "garmin_company_id": GARMIN_COMPANY_ID if GARMIN_COMPANY_ID in company_ids else None,
-        "model": str(name or "Garmin wearable")[:128],
-    }
 
 
 def _inflate_bounded(data: bytes) -> bytes:
@@ -160,6 +139,42 @@ def _decode_downloaded_file(
         source_label=source_label,
     )
     return workout, len(fit)
+
+
+async def _start_best_session(client) -> tuple[GarminGfdiSession, tuple[str, ...]]:
+    """Start the first working GFDI transport using connected capabilities only.
+
+    A device can expose more than one Garmin transport/channel.  Each candidate
+    gets a short independent deadline and failed candidates are fully stopped
+    before trying the next one.  Model/local-name strings never participate.
+    """
+    candidates = transport_candidates_from_client(client)
+    if not candidates:
+        raise GarminUnsupportedTransport(
+            "no supported Garmin GFDI V0/V1/V2 characteristics"
+        )
+    backend_names = tuple(candidate.backend for candidate in candidates)
+    failures: list[str] = []
+    async with asyncio.timeout(TRANSPORT_NEGOTIATION_TIMEOUT):
+        for transport in candidates:
+            session = GarminGfdiSession(transport)
+            try:
+                async with asyncio.timeout(TRANSPORT_CANDIDATE_TIMEOUT):
+                    await session.async_start()
+                return session, backend_names
+            except asyncio.CancelledError:
+                raise
+            except Exception as err:
+                failures.append(f"{transport.backend}:{type(err).__name__}")
+                try:
+                    async with asyncio.timeout(CLEANUP_TIMEOUT):
+                        await session.async_stop()
+                except Exception:
+                    pass
+    raise RuntimeError(
+        "Garmin GFDI capability candidates did not handshake: "
+        + ", ".join(failures[:6])
+    )
 
 
 class GarminLocalCoordinator:
@@ -221,9 +236,13 @@ class GarminLocalCoordinator:
         if previous is not None and now - previous < ADVERTISEMENT_ACTION_MIN_INTERVAL:
             return
         self._last_advertisement_action[sensor_id] = now
+        state = self._device(sensor_id)
+        evidence = identity.get("garmin_identity_evidence") or []
+        state["protocol_hint"] = identity.get("garmin_protocol_hint") or "auto"
+        state["identity_evidence"] = list(evidence)[:8]
         self.runtime.publish_details(
             sensor_id,
-            {"garmin_local_backend": self._device(sensor_id).get("backend") or "auto"},
+            {"garmin_local_backend": state.get("backend") or "auto"},
             transport="garmin_local_advertisement",
             metadata=_DETAIL_META,
             priority=80,
@@ -231,21 +250,24 @@ class GarminLocalCoordinator:
         self._publish(sensor_id)
         if (
             self.runtime.sensor_is_accepted(sensor_id)
-            and self.runtime.sensor_assigned_profile_ids(sensor_id)
+            and self.runtime.sensor_archive_profile_ids(sensor_id)
         ):
-            self.schedule(sensor_id, delay=3.0)
+            # A fresh Garmin advertisement may wake a task that is merely
+            # sleeping because the device was unreachable. It must not bypass
+            # SYNC_INTERVAL or an error next_attempt backoff.
+            self.schedule(sensor_id, delay=3.0, wake_if_sleeping=True)
 
     def acceptance_changed(self, sensor_id: str, accepted: bool) -> None:
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
         if accepted:
-            if self.runtime.sensor_assigned_profile_ids(sensor_id):
+            if self.runtime.sensor_archive_profile_ids(sensor_id):
                 self.schedule(sensor_id, delay=1.0, force=True)
             return
         self._cancel(sensor_id)
 
     def assignment_changed(self, sensor_id: str) -> None:
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
-        if not self.runtime.sensor_assigned_profile_ids(sensor_id):
+        if not self.runtime.sensor_archive_profile_ids(sensor_id):
             self._cancel(sensor_id)
             state = self._device(sensor_id)
             state.update(sync_state="idle", pending_file_count=0)
@@ -269,7 +291,14 @@ class GarminLocalCoordinator:
         if task is not None and not task.done():
             task.cancel()
 
-    def schedule(self, sensor_id: str, *, delay: float, force: bool = False) -> None:
+    def schedule(
+        self,
+        sensor_id: str,
+        *,
+        delay: float,
+        force: bool = False,
+        wake_if_sleeping: bool = False,
+    ) -> None:
         if self._stopping or not self._initialized:
             return
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
@@ -283,17 +312,20 @@ class GarminLocalCoordinator:
                 return
         current = self._tasks.get(sensor_id)
         if current is not None and not current.done():
-            if not force:
-                return
             if sensor_id not in self._active_sync:
-                # A manual retry must be able to replace a sleeping backoff task.
-                # Never cancel an active BLE transfer just because the button was
-                # pressed; active work is coalesced below instead.
+                if not (force or wake_if_sleeping):
+                    return
+                # Manual retry can replace a sleeping backoff task. A live
+                # advertisement may replace only ordinary sleeping work because
+                # the interval/next_attempt checks above still apply. Never
+                # cancel an active BLE transfer.
                 current.cancel()
                 if self._tasks.get(sensor_id) is current:
                     self._tasks.pop(sensor_id, None)
                 self._queued.pop(sensor_id, None)
             else:
+                if not force:
+                    return
                 previous = self._queued.get(sensor_id)
                 self._queued[sensor_id] = (
                     current,
@@ -430,14 +462,20 @@ class GarminLocalCoordinator:
             or not self.runtime.sensor_is_accepted(sensor_id)
         ):
             return
-        identity = garmin_advertisement_identity(
-            endpoint.metadata.get("advertised_name") or sensor.name,
-            endpoint.metadata.get("service_uuids") or [],
-            {int(value): b"" for value in endpoint.metadata.get("manufacturer_data_ids") or []},
-        )
+        # Once a user has accepted a Garmin archive endpoint, preserve that
+        # protocol identity even if a later advertisement omits manufacturer or
+        # service fields.  Initial discovery still requires strong Garmin evidence.
+        if endpoint.metadata.get("archive_adapter") == "garmin_local":
+            identity = dict(endpoint.metadata)
+        else:
+            identity = garmin_advertisement_identity(
+                endpoint.metadata.get("advertised_name") or sensor.name,
+                endpoint.metadata.get("service_uuids") or [],
+                endpoint.metadata.get("manufacturer_data_ids") or [],
+            )
         if identity is None:
             return
-        profile_ids = self.runtime.sensor_assigned_profile_ids(sensor_id)
+        profile_ids = self.runtime.sensor_archive_profile_ids(sensor_id)
         state = self._device(sensor_id)
         if not profile_ids:
             state.update(sync_state="idle", pending_file_count=0, last_error_code="none")
@@ -448,16 +486,24 @@ class GarminLocalCoordinator:
             if last is not None and datetime.now(timezone.utc) - last < SYNC_INTERVAL:
                 return
         if self.provider.sensor_users(sensor_id) or self.provider.sensor_connected(sensor_id):
-            state.update(sync_state="waiting", last_error_code="none")
+            retry_at = datetime.now(timezone.utc) + timedelta(seconds=BUSY_RETRY_DELAY)
+            state.update(
+                sync_state="waiting",
+                last_error_code="none",
+                next_attempt=retry_at.isoformat(),
+            )
             self._publish(sensor_id)
             self._schedule_after_current(sensor_id, BUSY_RETRY_DELAY)
             return
 
         ble_device = bluetooth.async_ble_device_from_address(self.hass, endpoint.address, connectable=True)
         if ble_device is None:
-            state.update(sync_state="waiting", last_error_code="none")
+            # Do not spin every 90 seconds when the watch has left the house or
+            # only a non-connectable route can see it. Keep one sparse wake-up; a
+            # fresh matching advertisement can safely replace the sleeping task.
+            state.update(sync_state="waiting", last_error_code="none", next_attempt=None)
             self._publish(sensor_id)
-            self._schedule_after_current(sensor_id, BUSY_RETRY_DELAY)
+            self._schedule_after_current(sensor_id, UNREACHABLE_RETRY_DELAY)
             return
 
         lock = self.provider._connect_lock(sensor_id)
@@ -470,7 +516,12 @@ class GarminLocalCoordinator:
             async with asyncio.timeout(SESSION_TIMEOUT):
                 async with lock:
                     if self.provider.sensor_connected(sensor_id) or self.provider.sensor_users(sensor_id):
-                        state.update(sync_state="waiting", last_error_code="none")
+                        retry_at = datetime.now(timezone.utc) + timedelta(seconds=BUSY_RETRY_DELAY)
+                        state.update(
+                            sync_state="waiting",
+                            last_error_code="none",
+                            next_attempt=retry_at.isoformat(),
+                        )
                         self._publish(sensor_id)
                         self._schedule_after_current(sensor_id, BUSY_RETRY_DELAY)
                         return
@@ -486,11 +537,10 @@ class GarminLocalCoordinator:
                             ble_device, sensor.name or endpoint.address, max_attempts=2
                         )
                     stage = "handshake"
-                    transport = transport_from_client(client)
-                    state["backend"] = transport.backend
+                    session, candidate_backends = await _start_best_session(client)
+                    state["transport_candidates"] = list(candidate_backends)[:8]
+                    state["backend"] = session.transport.backend
                     self._publish(sensor_id)
-                    session = GarminGfdiSession(transport)
-                    await session.async_start()
                     state["protocol_version"] = session.protocol_version
                     state["sync_state"] = "syncing"
                     self._publish(sensor_id)
@@ -519,7 +569,7 @@ class GarminLocalCoordinator:
                     batch_bytes = 0
 
                     for item in pending_items[:slots]:
-                        if not self.runtime.sensor_assigned_profile_ids(sensor_id):
+                        if not self.runtime.sensor_archive_profile_ids(sensor_id):
                             return
                         expected_size = max(0, int(getattr(item, "size", 0) or 0))
                         if expected_size > MAX_BYTES_PER_SYNC:
@@ -576,7 +626,8 @@ class GarminLocalCoordinator:
                             break
 
                     stage = "import"
-                    await self._import_records(records_to_import, profile_ids)
+                    async with asyncio.timeout(IMPORT_TIMEOUT):
+                        await self._import_records(records_to_import, profile_ids)
                     self._prune_file_records(files, set(keys))
                     remaining = [candidate for candidate in keys if candidate not in files]
                     cached_pending = any(
@@ -588,20 +639,31 @@ class GarminLocalCoordinator:
                         for record in files.values()
                     )
                     more_work = bool(remaining or cached_pending)
+                    now_utc = datetime.now(timezone.utc)
                     state.update(
                         sync_state="waiting" if more_work else "ready",
                         last_error_code="none",
                         retry_count=0,
-                        next_attempt=None,
+                        next_attempt=(
+                            (now_utc + timedelta(seconds=BATCH_CONTINUE_DELAY)).isoformat()
+                            if more_work
+                            else None
+                        ),
                         active_file=None,
                         pending_file_count=len(remaining),
                     )
                     if not more_work:
-                        state["last_successful_sync"] = datetime.now(timezone.utc).isoformat()
+                        state["last_successful_sync"] = now_utc.isoformat()
                     await self._save()
                     self._publish(sensor_id)
                     if more_work:
                         self._schedule_after_current(sensor_id, BATCH_CONTINUE_DELAY)
+                    else:
+                        # Do not depend on advertisement payload changes for the
+                        # next archive poll; HA intentionally deduplicates stable
+                        # BLE advertisements. One tracked timer per accepted Garmin
+                        # keeps automatic sync reliable without continuous radio work.
+                        self._schedule_after_current(sensor_id, SYNC_INTERVAL.total_seconds())
         except asyncio.CancelledError:
             raise
         except GarminUnsupportedTransport as err:
@@ -622,13 +684,19 @@ class GarminLocalCoordinator:
             retries = int(state.get("retry_count") or 0) + 1
             text = str(err).lower()
             error_code = _ERROR_CODE.get(stage, "unknown")
-            if stage == "connection" and any(token in text for token in ("pair", "bond", "authentication", "not authorized")):
+            if stage in {"connection", "handshake"} and any(
+                token in text
+                for token in ("pair", "bond", "authentication", "not authorized")
+            ):
                 error_code = "pairing_required"
-            delay = (
-                UNSUPPORTED_RETRY_DELAY
-                if error_code == "pairing_required"
-                else min(30 * 60.0, 60.0 * (2 ** min(retries - 1, 5)))
-            )
+            if error_code == "pairing_required":
+                delay = UNSUPPORTED_RETRY_DELAY
+            elif retries >= MAX_RETRIES:
+                # Repeated background failures must become progressively cheaper
+                # instead of waking the Bluetooth stack every 30 minutes forever.
+                delay = DEGRADED_RETRY_DELAY
+            else:
+                delay = min(30 * 60.0, 60.0 * (2 ** min(retries - 1, 5)))
             retry_at = datetime.now(timezone.utc) + timedelta(seconds=delay)
             state.update(
                 sync_state="error" if retries >= MAX_RETRIES else "retrying",
@@ -650,6 +718,16 @@ class GarminLocalCoordinator:
                     pass
             if client is not None:
                 await self.provider._async_disconnect_client(client, reason="Garmin local sync cleanup")
+                clear_history = getattr(bluetooth, "async_clear_advertisement_history", None)
+                if clear_history is not None:
+                    try:
+                        clear_history(self.hass, endpoint.address)
+                    except Exception:
+                        _LOGGER.debug(
+                            "Unable to clear Garmin Bluetooth advertisement history for %s",
+                            sensor_id,
+                            exc_info=True,
+                        )
             self.runtime._notify_values_throttled({
                 (self.runtime.resolve_sensor_id(sensor_id), "gatt_connection", None)
             })

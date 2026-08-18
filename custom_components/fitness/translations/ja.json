@@ -156,7 +156,8 @@
     "error": {
       "invalid_date": "過去の有効な生年月日を入力してください。",
       "invalid_number_or_entity": "有効な数値または Home Assistant エンティティ ID を入力してください。",
-      "select_profile": "Fitness ユーザーを1人以上選択してください。"
+      "select_profile": "Fitness ユーザーを1人以上選択してください。",
+      "select_smart_device_owner": "保存済みワークアウトの所有者として Fitness プロファイルを1つだけ選んでください。ライブセンサー機能は後から他のプロファイルと共有できます。"
     },
     "abort": {
       "already_configured": "同じ名前の Fitness プロフィールがすでに存在します。",
@@ -182,7 +183,7 @@
           "sleep_devices": "睡眠デバイス",
           "sensor_assignments": "センサー割り当て",
           "tv_dashboard": "Fitness TV ダッシュボード",
-          "garmin_local_guide": "Garmin ローカル設定ガイド"
+          "smart_workout_devices": "スマートワークアウトデバイス"
         }
       },
       "profile": {
@@ -337,7 +338,51 @@
       },
       "garmin_local_guide": {
         "title": "Garmin ローカルワークアウト同期",
-        "description": "Garmin ウォッチは Bluetooth で Home Assistant に直接接続します。スマートフォンは不要で、Garmin Connect のペアリングは維持できます。1) ウォッチを近くに置き、ローカルセンサーに表示されるのを待ちます。2) Garmin センサーを承認し、1つ以上の Fitness プロファイルに割り当てます。3) HA-Fitness は短時間だけ接続し、未取り込みの FIT ワークアウトのみをインポートして切断します。診断が「ペアリングが必要」を示す場合は、ウォッチを Home Assistant の Bluetooth ホストと一度ペアリングしてから「Garmin ワークアウトを今すぐ同期」を押してください。同期は読み取り専用で、ファイルを同期済みにしたり、アーカイブや削除を行いません。アダプターはモデル一覧ではなく機能に基づいて GFDI V0/V1 または V2 Multi-Link を選択します。未検証の MLR-only 転送は無期限に待たず、制限付きバックオフで安全に拒否します。検出された Garmin: {garmin_devices}"
+        "description": "このガイドを開くと、GATT 接続を開始せずに、時間と処理量を制限した短い Bluetooth スキャンを1回要求します。Garmin ウォッチは Bluetooth で Home Assistant に直接接続します。スマートフォンは不要で、Garmin Connect のペアリングは維持できます。1) ウォッチを近くに置き、ローカルセンサーに表示されるのを待ちます。2) Garmin センサーを承認し、1つ以上の Fitness プロファイルに割り当てます。3) HA-Fitness は短時間だけ接続し、未取り込みの FIT ワークアウトのみをインポートして切断します。診断が「ペアリングが必要」を示す場合は、ウォッチを Home Assistant の Bluetooth ホストと一度ペアリングしてから「Garmin ワークアウトを今すぐ同期」を押してください。同期は読み取り専用で、ファイルを同期済みにしたり、アーカイブや削除を行いません。アダプターはモデル一覧ではなく機能に基づいて GFDI V0/V1 または V2 Multi-Link を選択します。未検証の MLR-only 転送は無期限に待たず、制限付きバックオフで安全に拒否します。検出された Garmin: {garmin_devices}"
+      },
+      "smart_workout_devices": {
+        "title": "スマートワークアウトデバイス",
+        "description": "Fitness はスマートワークアウトデバイスを自動検出します。このページを開くと、短時間で上限付きの Bluetooth スキャンを1回だけ要求し、検出済みのワークアウト保存デバイスと対応ガイドを表示します。検出では GATT を開きません。",
+        "data": {
+          "smart_workout_device": "検出されたデバイスまたはセットアップガイド"
+        },
+        "data_description": {
+          "smart_workout_device": "検出済みの物理デバイスを選ぶか、メーカーガイドを開いて検索と準備を行います。"
+        }
+      },
+      "smart_workout_device_setup": {
+        "title": "スマートワークアウトデバイスの設定",
+        "description": "物理デバイス: {device}。メーカー: {vendor}。検出モデル: {model}。機能: {capabilities}。現在のアーカイブ所有者: {owner}。デバイスタイプとモデルは表示/設定情報のみで、プロトコル選択には使いません。",
+        "data": {
+          "smart_device_type": "デバイスタイプ",
+          "smart_device_model": "モデル / 表示名",
+          "transfer_smart_device_owner": "保存済みワークアウトの所有権をこの Fitness プロファイルへ移す"
+        },
+        "data_description": {
+          "smart_device_type": "表示と手順のためだけの大分類で、プロトコルは選択しません。",
+          "smart_device_model": "任意のモデル表示名。対応可否やプロトコルの根拠には使いません。",
+          "transfer_smart_device_owner": "保存済みワークアウトのインポート所有権だけをこのプロファイルへ移します。ライブ割り当ては変わりません。"
+        }
+      },
+      "smart_workout_device_ready": {
+        "title": "スマートワークアウトデバイスの準備完了",
+        "description": "{device} は保存済みワークアウトのインポート用として {owner} の所有になりました。ライブ機能は既存の物理センサー割り当てで共有できます。{vendor} のプロトコルは機能に基づいて選択されます。Garmin が Pairing required を示した場合のみ Home Assistant の Bluetooth ホストと一度ペアリングし、Sync workouts now を使用してください。"
+      },
+      "smart_workout_vendor_setup": {
+        "title": "{vendor} セットアップガイド",
+        "description": "ガイド用のデバイスタイプと任意のモデル表示名を選びます。これらは情報用で、Fitness はモデル名でプロトコル対応を判断しません。",
+        "data": {
+          "smart_device_type": "デバイスタイプ",
+          "smart_device_model": "モデル / 表示名"
+        },
+        "data_description": {
+          "smart_device_type": "表示と手順のためだけの大分類で、プロトコルは選択しません。",
+          "smart_device_model": "任意のモデル表示名。対応可否やプロトコルの根拠には使いません。"
+        }
+      },
+      "smart_workout_vendor_guide": {
+        "title": "{vendor} 接続手順",
+        "description": "{vendor} {device_type} {model} の場合、デバイスを近くに置き Fitness Bluetooth アダプターを有効にしてください。検出はモデル名ではなく検証済みのプロトコル/メーカー情報を使います。Garmin は同期診断が要求した場合だけペアリングします。検出デバイス: {detected_devices}。送信すると上限付きスキャンを再実行します。"
       }
     },
     "abort": {
@@ -346,7 +391,8 @@
       "no_fitness_profiles": "このセンサーを割り当てる前に Fitness ユーザーを作成してください。"
     },
     "error": {
-      "sensor_unavailable": "検出したフィットネスセンサーは利用できなくなりました。"
+      "sensor_unavailable": "検出したフィットネスセンサーは利用できなくなりました。",
+      "smart_device_owned_elsewhere": "この物理デバイスは別の Fitness プロファイルに所有されています。保存済みワークアウトをこのプロファイルへ移すには所有権を移してください。"
     }
   },
   "entity": {

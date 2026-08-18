@@ -127,3 +127,43 @@ def test_legacy_directory_activity_detection_is_protocol_based():
     assert entries[0].is_activity is True
     assert entries[1].is_activity is False
     assert entries[0].key.startswith("legacy:207:128:4:")
+
+
+def test_garmin_advertisement_identity_is_protocol_vendor_based_not_name_based():
+    names = [None, "Random Watch", "GARMIN", "Future Garmin 9999", "Forerunner 965"]
+    identities = [
+        p.garmin_advertisement_identity(name, [], {p.GARMIN_COMPANY_ID: b"\x01"})
+        for name in names
+    ]
+    assert all(identity is not None for identity in identities)
+    for identity in identities:
+        assert identity["archive_adapter"] == "garmin_local"
+        assert identity["garmin_protocol"] == "auto"
+        assert identity["garmin_protocol_hint"] == "auto"
+        assert identity["garmin_identity_evidence"] == ["company_id"]
+        assert "model" not in identity
+
+    # A name by itself is deliberately insufficient, even if it sounds Garmin-like.
+    assert p.garmin_advertisement_identity("Forerunner 965", [], {}) is None
+    assert p.garmin_advertisement_identity("Garmin Future Device", [], {}) is None
+
+
+def test_garmin_advertisement_matching_normalizes_uuid_aliases_and_bad_input_safely():
+    by_short_service = p.garmin_advertisement_identity(None, ["FE1F"], {"not-an-id": b"x"})
+    assert by_short_service is not None
+    assert by_short_service["garmin_advertised_service"] is True
+    assert by_short_service["garmin_protocol_hint"] == "auto"
+
+    by_v2 = p.garmin_advertisement_identity(
+        "anything",
+        [p.GARMIN_GFDI_V2_SERVICE_UUID.upper()],
+        {"0x0087": b""},
+    )
+    assert by_v2 is not None
+    assert by_v2["garmin_protocol_hint"] == "gfdi_v2"
+    assert set(by_v2["garmin_identity_evidence"]) == {"company_id", "gfdi_v2_service"}
+
+    # 16/32-bit Bluetooth aliases normalize without changing proprietary UUIDs.
+    assert p.normalize_bluetooth_uuid("180D") == "0000180d-0000-1000-8000-00805f9b34fb"
+    assert p.normalize_bluetooth_uuid("0000180D") == "0000180d-0000-1000-8000-00805f9b34fb"
+    assert p.normalize_bluetooth_uuid(p.GARMIN_GFDI_V1_SERVICE_UUID.upper()) == p.GARMIN_GFDI_V1_SERVICE_UUID

@@ -48,6 +48,7 @@ from .protocol import (
     build_protobuf_message,
     crc16,
     garmin_cobs_encode,
+    normalize_bluetooth_uuid,
     parse_directory,
     parse_download_status,
     parse_file_list_response,
@@ -77,6 +78,8 @@ SAFE_GATT_WRITE = 20
 V2_CLIENT_ID = 2
 V2_GFDI_SERVICE = 1
 V2_FILE_SERVICES = (0x2018, 0x4018, 0x6018, 0xA018, 0xC018, 0xE018)
+MAX_TRANSPORT_CANDIDATES = 6
+MAX_V2_CHANNEL_CANDIDATES = 4
 
 
 @dataclass(slots=True)
@@ -99,7 +102,7 @@ def _all_characteristics(client) -> dict[str, Any]:
         service_iter = list(getattr(services, "services", {}).values())
     for service in service_iter:
         for char in getattr(service, "characteristics", []) or []:
-            uuid = str(getattr(char, "uuid", "")).lower()
+            uuid = normalize_bluetooth_uuid(getattr(char, "uuid", ""))
             if uuid:
                 result[uuid] = char
     return result
@@ -181,13 +184,24 @@ class GarminV1Transport(BaseGarminTransport):
         self.backend = backend
 
     @classmethod
-    def from_client(cls, client) -> "GarminV1Transport | None":
+    def candidates_from_client(cls, client) -> tuple["GarminV1Transport", ...]:
+        """Return every direct V1/V0 transport exposed by connected GATT."""
         chars = _all_characteristics(client)
+        result: list[GarminV1Transport] = []
         if GARMIN_GFDI_V1_SEND_UUID in chars and GARMIN_GFDI_V1_RECEIVE_UUID in chars:
-            return cls(client, GARMIN_GFDI_V1_SEND_UUID, GARMIN_GFDI_V1_RECEIVE_UUID, "gfdi_v1")
+            result.append(
+                cls(client, GARMIN_GFDI_V1_SEND_UUID, GARMIN_GFDI_V1_RECEIVE_UUID, "gfdi_v1")
+            )
         if GARMIN_GFDI_V0_SEND_UUID in chars and GARMIN_GFDI_V0_RECEIVE_UUID in chars:
-            return cls(client, GARMIN_GFDI_V0_SEND_UUID, GARMIN_GFDI_V0_RECEIVE_UUID, "gfdi_v0")
-        return None
+            result.append(
+                cls(client, GARMIN_GFDI_V0_SEND_UUID, GARMIN_GFDI_V0_RECEIVE_UUID, "gfdi_v0")
+            )
+        return tuple(result)
+
+    @classmethod
+    def from_client(cls, client) -> "GarminV1Transport | None":
+        candidates = cls.candidates_from_client(client)
+        return candidates[0] if candidates else None
 
     async def async_start(self) -> None:
         async with asyncio.timeout(BLE_IO_TIMEOUT):
@@ -242,23 +256,47 @@ class GarminV2Transport(BaseGarminTransport):
         self._collector: _ServiceCollector | None = None
 
     @classmethod
-    def from_client(cls, client) -> "GarminV2Transport | None":
+    def candidates_from_client(cls, client) -> tuple["GarminV2Transport", ...]:
+        """Return bounded Multi-Link channel pairs discovered from GATT.
+
+        Garmin channel selection is derived from the 281x/282x characteristic
+        pair actually exposed by the device.  The full hexadecimal channel nibble
+        is accepted; there is no product generation or model-name table.
+        """
         chars = _all_characteristics(client)
-        for index in range(5):
-            receive = f"6a4e281{index}{GARMIN_UUID_SUFFIX}"
-            send = f"6a4e282{index}{GARMIN_UUID_SUFFIX}"
-            receive_char = chars.get(receive)
+        pairs: list[tuple[int, str, str]] = []
+        for receive, receive_char in chars.items():
+            short = receive.split("-", 1)[0]
+            if (
+                len(short) != 8
+                or not short.startswith("6a4e281")
+                or short[-1] not in "0123456789abcdef"
+                or not receive.endswith(GARMIN_UUID_SUFFIX)
+            ):
+                continue
+            channel = short[-1]
+            send = f"6a4e282{channel}{GARMIN_UUID_SUFFIX}"
             send_char = chars.get(send)
-            if receive_char is None or send_char is None:
+            if send_char is None:
                 continue
             receive_props = _properties(receive_char)
             send_props = _properties(send_char)
-            if receive_props and "notify" not in receive_props and "indicate" not in receive_props:
+            if receive_props and not ({"notify", "indicate"} & receive_props):
                 continue
             if send_props and not ({"write", "write-without-response"} & send_props):
                 continue
-            return cls(client, receive, send)
-        return None
+            pairs.append((int(channel, 16), receive, send))
+
+        pairs.sort(key=lambda item: item[0])
+        return tuple(
+            cls(client, receive, send)
+            for _index, receive, send in pairs[:MAX_V2_CHANNEL_CANDIDATES]
+        )
+
+    @classmethod
+    def from_client(cls, client) -> "GarminV2Transport | None":
+        candidates = cls.candidates_from_client(client)
+        return candidates[0] if candidates else None
 
     def _on_notify(self, _sender, data: bytearray) -> None:
         payload = bytes(data)
@@ -472,14 +510,33 @@ class GarminV2Transport(BaseGarminTransport):
         await super().async_stop()
 
 
+def transport_candidates_from_client(client) -> tuple[BaseGarminTransport, ...]:
+    """Return bounded protocol candidates ordered by capability preference.
+
+    V2 is tried first, followed by direct V1 then V0.  Multiple advertised V2
+    Multi-Link channels can be tried safely by the coordinator if an earlier
+    channel does not complete the bounded handshake.
+    """
+    candidates: list[BaseGarminTransport] = []
+    candidates.extend(GarminV2Transport.candidates_from_client(client))
+    candidates.extend(GarminV1Transport.candidates_from_client(client))
+    return tuple(candidates[:MAX_TRANSPORT_CANDIDATES])
+
+
+def transport_capabilities_from_client(client) -> tuple[str, ...]:
+    """Return unique backend names for diagnostics without starting a session."""
+    result: list[str] = []
+    for candidate in transport_candidates_from_client(client):
+        if candidate.backend not in result:
+            result.append(candidate.backend)
+    return tuple(result)
+
+
 def transport_from_client(client) -> BaseGarminTransport:
-    """Select transport by discovered GATT capabilities, never model name."""
-    v2 = GarminV2Transport.from_client(client)
-    if v2 is not None:
-        return v2
-    v1 = GarminV1Transport.from_client(client)
-    if v1 is not None:
-        return v1
+    """Select the preferred transport by GATT capability, never model name."""
+    candidates = transport_candidates_from_client(client)
+    if candidates:
+        return candidates[0]
     raise GarminUnsupportedTransport("no supported Garmin GFDI V0/V1/V2 characteristics")
 
 
