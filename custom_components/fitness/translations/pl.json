@@ -338,7 +338,7 @@
       },
       "garmin_local_guide": {
         "title": "Lokalna synchronizacja treningów Garmin",
-        "description": "Otwarcie tego przewodnika uruchamia krótki, ściśle ograniczony skan Bluetooth bez otwierania połączenia GATT. Zegarki Garmin łączą się bezpośrednio z Home Assistant przez Bluetooth; telefon nie jest wymagany, a Garmin Connect może pozostać sparowany. 1) Trzymaj zegarek w pobliżu, aż pojawi się w Lokalnych czujnikach. 2) Zaakceptuj czujnik Garmin i przypisz go do jednego lub kilku profili Fitness. 3) HA-Fitness łączy się na krótko, importuje tylko nowe pliki FIT i rozłącza się. Jeśli diagnostyka pokazuje Wymagane parowanie, sparuj zegarek raz z hostem Bluetooth Home Assistant, a potem wybierz Synchronizuj treningi Garmin. Synchronizacja jest tylko do odczytu: pliki nie są oznaczane jako zsynchronizowane, archiwizowane ani usuwane. Adapter wybiera GFDI V0/V1 lub V2 Multi-Link według możliwości urządzenia, nigdy z listy modeli. Niezweryfikowany transport tylko MLR jest odrzucany z ograniczonym backoffem zamiast czekać bez końca. Wykryte Garmin: {garmin_devices}"
+        "description": "Zgodne urządzenia Garmin łączą się bezpośrednio z Home Assistant przez Bluetooth; telefon nie jest wymagany, a Garmin Connect może pozostać sparowany. Otwarcie tego przewodnika uruchamia jeden krótki, ograniczony skan Bluetooth i odtwarza tylko ograniczoną istotną część pamięci Bluetooth Home Assistant; wykrywanie nigdy nie otwiera GATT. 1) Trzymaj Garmin w pobliżu. 2) Wybierz wykryte urządzenie fizyczne w Inteligentnych urządzeniach treningowych i zakończ konfigurację, aby ten profil Fitness był właścicielem zapisanych treningów. 3) HA-Fitness natychmiast uruchamia ten sam ograniczony worker archiwum, automatycznie żąda parowania przez trasę Bluetooth Home Assistant, jeśli brak bond, wykrywa rzeczywiste możliwości GATT, importuje nowe pliki FIT i rozłącza się. Jeśli Garmin pokaże potwierdzenie, numer, passkey lub pozwolenie, zaakceptuj je na Garminie. Jeśli nie pojawi się prompt i Garmin last error zmieni się na Pairing required, przełącz Garmin w tryb parowania Bluetooth i naciśnij Sync workouts now; SSH ani bluetoothctl nie są częścią normalnej konfiguracji. Nazwy Bluetooth/model są tylko do wyświetlania. Synchronizacja jest tylko do odczytu: bez mark synced, archiwizacji i usuwania. Niezweryfikowany MLR-only kończy się bezpiecznie z rzadkimi ponowieniami. Wykryte Garmin: {garmin_devices}"
       },
       "smart_workout_devices": {
         "title": "Inteligentne urządzenia treningowe",
@@ -354,35 +354,39 @@
         "title": "Konfiguracja urządzenia treningowego",
         "description": "Urządzenie fizyczne: {device}. Producent: {vendor}. Wykryty model: {model}. Możliwości: {capabilities}. Obecny właściciel archiwum: {owner}. Typ i model służą tylko do wyświetlania/konfiguracji i nigdy nie wybierają protokołu.",
         "data": {
-          "smart_device_type": "Typ urządzenia",
-          "smart_device_model": "Model / nazwa wyświetlana",
-          "transfer_smart_device_owner": "Przenieś własność zapisanych treningów do tego profilu Fitness"
+          "smart_device_owner_action": "Przenieś własność zapisanych treningów do tego profilu Fitness"
         },
         "data_description": {
-          "smart_device_type": "Ogólna klasa urządzenia używana tylko do wyświetlania i instrukcji; nigdy nie wybiera protokołu.",
-          "smart_device_model": "Opcjonalna etykieta modelu. Nigdy nie jest używana jako dowód obsługi lub protokołu.",
-          "transfer_smart_device_owner": "Przenosi tylko własność importu zapisanych treningów do tego profilu. Przypisania na żywo pozostają bez zmian."
+          "smart_device_owner_action": "Przenosi tylko własność importu zapisanych treningów do tego profilu. Przypisania na żywo pozostają bez zmian."
         }
       },
       "smart_workout_device_ready": {
         "title": "Urządzenie treningowe gotowe",
-        "description": "{device} należy teraz do {owner} dla importu zapisanych treningów. Funkcje na żywo mogą nadal być współdzielone przez istniejące przypisania. Protokół {vendor} jest wybierany według możliwości. Jeśli Garmin zgłosi Pairing required, sparuj raz z hostem Bluetooth Home Assistant i użyj Sync workouts now."
+        "description": "{device} należy teraz do {owner} dla importu zapisanych treningów. Funkcje live mogą nadal być współdzielone zgodnie z istniejącymi zasadami fizycznych sensorów. Wybór protokołu {vendor} pozostaje oparty na możliwościach. Jeśli potrzebny jest bond Bluetooth, Fitness automatycznie uruchamia parowanie przy pierwszej synchronizacji archiwum. Trzymaj urządzenie blisko i zaakceptuj każde potwierdzenie/kod. Jeśli parowanie nie zakończy się automatycznie, postępuj według przewodnika producenta i użyj Sync workouts now; ręczne parowanie na hoście nie jest normalną procedurą. Status: {status}."
       },
       "smart_workout_vendor_setup": {
         "title": "Instrukcja konfiguracji {vendor}",
         "description": "Wybierz typ urządzenia i opcjonalną nazwę modelu dla instrukcji. Są to tylko informacje; Fitness nigdy nie wybiera protokołu na podstawie nazwy modelu.",
         "data": {
-          "smart_device_type": "Typ urządzenia",
-          "smart_device_model": "Model / nazwa wyświetlana"
+          "smart_device_type": "Typ urządzenia"
         },
         "data_description": {
-          "smart_device_type": "Ogólna klasa urządzenia używana tylko do wyświetlania i instrukcji; nigdy nie wybiera protokołu.",
-          "smart_device_model": "Opcjonalna etykieta modelu. Nigdy nie jest używana jako dowód obsługi lub protokołu."
+          "smart_device_type": "Ogólna klasa urządzenia używana tylko do wyświetlania i instrukcji; nigdy nie wybiera protokołu."
         }
       },
       "smart_workout_vendor_guide": {
         "title": "Procedura połączenia {vendor}",
-        "description": "Dla {vendor} {device_type} {model}: trzymaj urządzenie blisko i włącz adapter Bluetooth Fitness. Wykrywanie używa zweryfikowanych danych protokołu/producenta, nie nazw modeli. Paruj Garmin tylko gdy diagnostyka synchronizacji tego zażąda. Wykryte urządzenia: {detected_devices}. Zatwierdź, aby ponowić ograniczony skan."
+        "description": "Dla {vendor} {device_type} {model}: trzymaj urządzenie blisko i włącz adapter Bluetooth Fitness. Fitness wykrywa na podstawie zweryfikowanych danych protokołu/vendor, nie nazw modelu. Po konfiguracji Fitness automatycznie uruchamia ograniczony sync archiwum i żąda parowania Bluetooth, jeśli urządzenie nie jest bonded. Jeśli pojawi się potwierdzenie, kod lub passkey, zaakceptuj je. Jeśli później pojawi się Pairing required bez promptu, włącz tryb parowania Bluetooth i naciśnij Sync workouts now. Wykryte urządzenia: {detected_devices}. Wyślij, aby ponowić ograniczony skan."
+      },
+      "smart_workout_pairing_help": {
+        "title": "Parowanie wymaga Twojej pomocy",
+        "description": "Fitness nie zdołał automatycznie zakończyć parowania Bluetooth z {device}. Pozostaw Garmin sparowany z telefonem. Otwórz na Garmin ekran parowania Bluetooth/Telefon, aby zaakceptować dodatkowy host bez usuwania Garmin Connect ani istniejącego parowania telefonu. Potwierdź kod/passkey na Garmin. Jeśli Garmin ostrzega, że istniejące parowanie telefonu zostanie zastąpione lub usunięte, anuluj i wybierz później. Gdy Garmin będzie gotowy, wybierz Spróbuj ponownie.",
+        "data": {
+          "smart_pairing_action": "Co chcesz zrobić?"
+        },
+        "data_description": {
+          "smart_pairing_action": "Retry starts one bounded automatic pairing/sync attempt."
+        }
       }
     },
     "abort": {
@@ -3450,6 +3454,10 @@
     "ai_provider_unavailable": {
       "title": "Wybrany dostawca AI Fitness jest niedostępny",
       "description": "Fitness jest skonfigurowany do używania `{entity_id}`, ale ten dostawca jest obecnie niedostępny. Fitness tymczasowo używa domyślnego zadania AI Home Assistant i automatycznie wróci do wybranego dostawcy, gdy znów będzie dostępny. Dostawcę AI można również zmienić w opcjach Fitness."
+    },
+    "garmin_pairing_required": {
+      "title": "Garmin wymaga potwierdzenia parowania",
+      "description": "Fitness nie zdołał automatycznie sparować `{device}`. Pozostaw Garmin sparowany z telefonem. Włącz tryb parowania Bluetooth/Telefon, otwórz Fitness > Inteligentne urządzenia treningowe > `{device}` i wybierz Spróbuj ponownie. Potwierdź na Garmin. Jeśli parowanie telefonu ma zostać zastąpione/usunięte, anuluj."
     }
   },
   "services": {

@@ -12,6 +12,8 @@ SMART = (FIT / "smart_workout_devices.py").read_text(encoding="utf-8")
 GARMIN = (FIT / "device_adapters" / "garmin" / "coordinator.py").read_text(encoding="utf-8")
 CYCPLUS = (FIT / "live" / "cycplus_m1.py").read_text(encoding="utf-8")
 BT = (FIT / "live" / "bluetooth.py").read_text(encoding="utf-8")
+STRINGS = (FIT / "strings.json").read_text(encoding="utf-8")
+GARMIN_DOC = (ROOT / "docs" / "GARMIN_LOCAL.md").read_text(encoding="utf-8")
 
 
 def _method(source: str, name: str) -> str:
@@ -38,8 +40,12 @@ def test_smart_device_setup_scan_and_selector_are_strictly_bounded():
     assert "asyncio.timeout(15.0)" in refresh
     assert "async_refresh_discovery" in refresh
     assert "MAX_SMART_WORKOUT_DEVICE_CHOICES" in choices
-    assert "MAX_SMART_DEVICE_MODEL_LABEL" in FLOW
-    assert "vol.Length(max=MAX_SMART_DEVICE_MODEL_LABEL)" in FLOW
+    # Detected model information is display-only; the setup flow must not ask
+    # users to type a model name that Fitness can already discover.
+    setup = _method(FLOW, "async_step_smart_workout_device_setup")
+    vendor_setup = _method(FLOW, "async_step_smart_workout_vendor_setup")
+    assert "smart_device_model" not in setup
+    assert "smart_device_model" not in vendor_setup
     # The UI reuses the Bluetooth provider's bounded one-shot scan. It must never
     # establish a GATT client itself.
     assert "establish_connection" not in refresh
@@ -103,12 +109,17 @@ def test_owner_metadata_survives_physical_sensor_merge_without_silent_reassignme
 
 def test_smart_device_flow_assigns_current_profile_without_reloading_hot_path():
     setup = _method(FLOW, "async_step_smart_workout_device_setup")
+    commit = _method(FLOW, "_async_commit_smart_workout_device")
     assert "self.config_entry.entry_id" in setup
-    assert "runtime.configure_smart_workout_device" in setup
-    assert "runtime.mark_sensor_accepted" in setup
-    assert "runtime.suppress_entry_reload_once" in setup
-    assert "asyncio.sleep(0.5)" in setup
-    assert "async_create_background_task" in setup
+    assert "runtime.configure_smart_workout_device" in commit
+    assert "runtime.mark_sensor_accepted" in commit
+    assert "runtime.suppress_entry_reload_once" in commit
+    assert "asyncio.sleep(0.5)" in commit
+    assert "async_create_background_task" in commit
+    # No meaningless technical form when ownership is unambiguous.
+    assert "await self._async_commit_smart_workout_device" in setup
+    assert "smart_device_owner_action" in setup
+    assert "smart_device_model" not in setup
 
 
 def test_manual_vendor_guide_is_model_agnostic_and_currently_exposes_garmin():
@@ -127,3 +138,41 @@ def test_automatic_discovery_requires_one_archive_owner_but_can_share_live_later
     assert 'errors={"base": "select_smart_device_owner"}' in assign
     assert "runtime.configure_smart_workout_device" in assign
     assert "owner_profile_id=owner_profile_id" in assign
+
+
+def test_smart_garmin_setup_auto_pairs_and_only_requires_device_side_confirmation():
+    sync = _method(GARMIN, "_async_sync")
+    helper = _method(BT, "establish_connection")
+    assert "pair=True" in sync
+    assert "pair: bool = False" in helper
+    assert "pair=pair" in helper
+    assert "automatically" in STRINGS.lower()
+    assert "approve" in STRINGS.lower()
+    assert "bluetoothctl" in GARMIN_DOC  # explicitly documented as not required
+    assert "should not need ssh" in GARMIN_DOC.lower()
+
+
+
+def test_pairing_help_is_only_shown_on_action_needed_and_uses_choices_not_text():
+    ready = _method(FLOW, "async_step_smart_workout_device_ready")
+    help_step = _method(FLOW, "async_step_smart_workout_pairing_help")
+    status = _method(FLOW, "_smart_workout_status")
+    assert 'error == "pairing_required"' in ready
+    assert 'return "action_needed"' in status
+    assert 'smart_pairing_action' in help_step
+    assert '"retry"' in help_step and '"later"' in help_step
+    assert "SelectSelector" in help_step
+    assert "TextSelector" not in help_step
+    assert "async_sync_now" in help_step
+
+
+def test_pairing_required_creates_one_repairs_prompt_and_clears_when_resolved():
+    assert "issue_registry as ir" in GARMIN
+    assert "_report_pairing_required" in GARMIN
+    assert 'translation_key="garmin_pairing_required"' in GARMIN
+    assert "_clear_pairing_issue" in GARMIN
+    assert "hashlib.sha256" in GARMIN
+    assert "garmin_pairing_required" in STRINGS
+    # Pairing remains bounded; a Repairs prompt must not change retry policy.
+    assert 'if error_code == "pairing_required"' in GARMIN
+    assert "UNSUPPORTED_RETRY_DELAY" in GARMIN

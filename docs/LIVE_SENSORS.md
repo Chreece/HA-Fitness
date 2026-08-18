@@ -119,11 +119,11 @@ may exist inside completed FIT workouts.
 
 ## Garmin local workout archive
 
-Compatible Garmin GFDI devices can be accepted as Local Sensors and assigned to Fitness profiles for direct completed-workout import. The phone is not part of this data path: Fitness connects from Home Assistant to the Garmin device, selects a backend from GATT capabilities, reads only unseen activity files in a bounded batch and disconnects again. Garmin Connect can remain paired and is not replaced.
+Compatible Garmin GFDI devices can be accepted as Local Sensors and assigned to Fitness profiles for direct completed-workout import. The phone is not part of this data path: Fitness connects from Home Assistant to the Garmin device, automatically requests first-time Bluetooth pairing when needed, selects a backend from GATT capabilities, reads only unseen activity files in a bounded batch and disconnects again. Garmin Connect can remain paired and is not replaced.
 
 Discovery is model-independent: Garmin company/service evidence surfaces the candidate, while the Bluetooth name is display-only. Fitness performs one bounded startup cache replay and the Garmin setup guide can request a short, rate-limited active scan without opening GATT. The connected adapter dynamically discovers V2 `281x`/`282x` Multi-Link channel pairs and can fall back through bounded V2 -> V1 -> V0 handshake candidates. Unverified reliable MLR transfer mode is rejected and backed off instead of guessed. The adapter uses hard discovery/negotiation/stage/session/import timeouts, bounded queues and file/message limits, sparse retry after repeated failures, moves FIT inflation/decoding off the event loop, checkpoints each completed activity before profile import, and never sends Garmin mark-synced/archive/delete operations.
 
-See **[Local Garmin workout synchronization](GARMIN_LOCAL.md)** for setup, one-time pairing guidance, diagnostics, compatibility details and troubleshooting.
+See **[Local Garmin workout synchronization](GARMIN_LOCAL.md)** for automatic first-time pairing, the only possible device-side confirmation step, diagnostics, compatibility details and troubleshooting.
 
 ## Information entities
 

@@ -338,7 +338,7 @@
       },
       "garmin_local_guide": {
         "title": "Garmin 本地训练同步",
-        "description": "打开此指南时会请求一次短时且有严格限制的蓝牙扫描，不会建立 GATT 连接。Garmin 手表通过蓝牙直接连接 Home Assistant；不需要手机，Garmin Connect 也可以保持配对。1) 将手表放在附近，等待它出现在“本地传感器”中。2) 接受 Garmin 传感器并分配给一个或多个 Fitness 配置文件。3) HA-Fitness 会短暂连接，只导入尚未见过的训练 FIT 文件，然后断开。如果诊断显示需要配对，请先将手表与 Home Assistant 蓝牙主机配对一次，再按“立即同步 Garmin 训练”。同步为只读：不会将 Garmin 文件标记为已同步、归档或删除。适配器根据设备能力选择 GFDI V0/V1 或 V2 Multi-Link，而不是按型号列表。未经验证的仅 MLR 传输会安全拒绝并采用有限退避，不会无限等待。已发现的 Garmin：{garmin_devices}"
+        "description": "兼容的 Garmin 设备通过 Bluetooth 直接连接 Home Assistant；不需要手机，Garmin Connect 也可以保持配对。打开此指南只会请求一次短时、有界的 Bluetooth 扫描，并仅重放 Home Assistant Bluetooth 缓存中有界的相关部分；发现阶段绝不会打开 GATT。1) 将 Garmin 保持在附近。2) 在“智能训练设备”中选择检测到的物理设备并完成设置，使此 Fitness 配置成为存储训练的所有者。3) HA-Fitness 会立即启动同一个有界 archive worker；如果尚未建立 bond，会通过 Home Assistant Bluetooth 路径自动请求 pairing，随后检测真实 GATT 能力、导入未见过的 FIT 训练并断开连接。如果 Garmin 显示确认、数字、passkey 或权限提示，请在 Garmin 上确认。如果没有提示，而 Garmin last error 变为 Pairing required，请让 Garmin 进入 Bluetooth pairing mode，然后按 Sync workouts now；正常设置不需要 SSH 或 bluetoothctl。Bluetooth/型号名称仅用于显示，绝不用于选择协议。同步只读：不会 mark synced、archive 或 delete。未验证的 MLR-only transport 会安全停止并使用稀疏退避。检测到的 Garmin：{garmin_devices}"
       },
       "smart_workout_devices": {
         "title": "智能训练设备",
@@ -354,35 +354,39 @@
         "title": "设置智能训练设备",
         "description": "物理设备：{device}。厂商：{vendor}。检测到的型号：{model}。能力：{capabilities}。当前存档所有者：{owner}。设备类型和型号仅用于显示/设置，从不用于选择协议。",
         "data": {
-          "smart_device_type": "设备类型",
-          "smart_device_model": "型号 / 显示名称",
-          "transfer_smart_device_owner": "将已保存训练的所有权转移到此 Fitness 配置文件"
+          "smart_device_owner_action": "将已保存训练的所有权转移到此 Fitness 配置文件"
         },
         "data_description": {
-          "smart_device_type": "仅用于显示和设置说明的大类，不会选择协议。",
-          "smart_device_model": "可选的型号/显示标签。从不作为支持或协议证据。",
-          "transfer_smart_device_owner": "仅将已保存训练的导入所有权转移到此配置文件。现有实时传感器分配保持不变。"
+          "smart_device_owner_action": "仅将已保存训练的导入所有权转移到此配置文件。现有实时传感器分配保持不变。"
         }
       },
       "smart_workout_device_ready": {
         "title": "智能训练设备已就绪",
-        "description": "{device} 现在由 {owner} 用于导入已保存训练。实时能力仍可通过现有物理传感器分配规则共享。{vendor} 协议仍按能力选择。如果 Garmin 之后显示 Pairing required，请仅与 Home Assistant 蓝牙主机配对一次，然后使用 Sync workouts now。"
+        "description": "{device} 现在由 {owner} 拥有，用于导入存储的训练。Live 能力仍可按现有物理传感器规则共享。{vendor} 协议选择仍基于能力。如果需要 Bluetooth bond，Fitness 会在第一次 archive sync 时自动启动 pairing。请将设备保持在附近并确认设备上显示的任何确认/代码。如果自动 pairing 无法完成，请按 vendor 指南操作并使用 Sync workouts now；在主机上手动 pairing 不是正常流程。 Status: {status}."
       },
       "smart_workout_vendor_setup": {
         "title": "{vendor} 设置指南",
         "description": "为设置指南选择设备类型，并可选填写型号标签。这些值仅用于说明；Fitness 从不根据消费型号名称决定协议支持。",
         "data": {
-          "smart_device_type": "设备类型",
-          "smart_device_model": "型号 / 显示名称"
+          "smart_device_type": "设备类型"
         },
         "data_description": {
-          "smart_device_type": "仅用于显示和设置说明的大类，不会选择协议。",
-          "smart_device_model": "可选的型号/显示标签。从不作为支持或协议证据。"
+          "smart_device_type": "仅用于显示和设置说明的大类，不会选择协议。"
         }
       },
       "smart_workout_vendor_guide": {
         "title": "{vendor} 连接步骤",
-        "description": "对于 {vendor} {device_type} {model}：将设备保持在附近并启用 Fitness 蓝牙适配器。Fitness 使用经过验证的协议/厂商证据进行发现，而不是型号名称。仅当同步诊断要求时才配对 Garmin。检测到的设备：{detected_devices}。提交后再次执行受限扫描。"
+        "description": "对于 {vendor} {device_type} {model}：将设备保持在附近并启用 Fitness Bluetooth 适配器。Fitness 根据经过验证的 protocol/vendor evidence 发现设备，而不是型号名称。完成设置后，Fitness 会自动启动有界 archive sync，如果设备尚未 bonded 会请求 Bluetooth pairing。若显示确认/代码/passkey，请在设备上确认。如果之后没有提示却出现 Pairing required，请让设备进入 Bluetooth pairing mode，然后按 Sync workouts now。检测到的设备：{detected_devices}。提交可再次运行有界 scan。"
+      },
+      "smart_workout_pairing_help": {
+        "title": "配对需要你的操作",
+        "description": "Fitness 无法完成与 {device} 的自动蓝牙配对。请保持 Garmin 与手机的现有配对。在 Garmin 上打开蓝牙/手机配对界面，让它接受额外的主机，但不要删除 Garmin Connect 或现有手机配对。在 Garmin 上确认任何代码或通行密钥。如果 Garmin 警告现有手机配对将被替换或删除，请取消并选择稍后处理。设备准备好后选择“立即重试”。",
+        "data": {
+          "smart_pairing_action": "你想做什么？"
+        },
+        "data_description": {
+          "smart_pairing_action": "Retry starts one bounded automatic pairing/sync attempt."
+        }
       }
     },
     "abort": {
@@ -3450,6 +3454,10 @@
     "ai_provider_unavailable": {
       "title": "所选 Fitness AI 提供方不可用",
       "description": "Fitness 已配置为使用 `{entity_id}`，但该提供方当前不可用。Fitness 会临时使用 Home Assistant 的默认 AI Task，并在所选提供方恢复可用后自动切回。你也可以在 Fitness 选项中更改 AI 提供方。"
+    },
+    "garmin_pairing_required": {
+      "title": "Garmin 需要配对确认",
+      "description": "Fitness 无法自动完成与 `{device}` 的蓝牙配对。保持 Garmin 与手机配对，打开 Garmin 的蓝牙/手机配对模式，然后进入 Fitness > 智能训练设备 > `{device}` 并选择“立即重试”。在 Garmin 上确认提示。如果现有手机配对将被替换/删除，请取消。"
     }
   },
   "services": {

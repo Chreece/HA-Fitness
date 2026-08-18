@@ -338,7 +338,7 @@
       },
       "garmin_local_guide": {
         "title": "Synchronisation locale des entraînements Garmin",
-        "description": "L’ouverture de ce guide déclenche un court scan Bluetooth strictement limité, sans ouvrir de connexion GATT. Les montres Garmin se connectent directement à Home Assistant en Bluetooth ; le téléphone n'est pas requis et Garmin Connect peut rester appairé. 1) Gardez la montre à proximité jusqu'à son apparition dans Capteurs locaux. 2) Acceptez le capteur Garmin et assignez-le à un ou plusieurs profils Fitness. 3) HA-Fitness se connecte brièvement, importe uniquement les fichiers FIT d'entraînement inconnus puis se déconnecte. Si le diagnostic indique Appairage requis, appairez une fois la montre avec l'hôte Bluetooth Home Assistant puis utilisez Synchroniser les entraînements Garmin. La synchronisation est en lecture seule : aucun fichier Garmin n'est marqué synchronisé, archivé ou supprimé. L'adaptateur choisit GFDI V0/V1 ou V2 Multi-Link selon les capacités, jamais selon une liste de modèles. Un transport MLR-only non vérifié est refusé avec temporisation bornée au lieu d'attendre indéfiniment. Appareils Garmin détectés : {garmin_devices}"
+        "description": "Les appareils Garmin compatibles se connectent directement à Home Assistant en Bluetooth ; le téléphone n'est pas nécessaire et Garmin Connect peut rester appairé. L'ouverture de ce guide lance un seul scan Bluetooth court et borné et ne rejoue qu'une partie pertinente et bornée du cache Bluetooth de Home Assistant ; la découverte n'ouvre jamais GATT. 1) Gardez le Garmin à proximité. 2) Sélectionnez l'appareil physique détecté dans Appareils d'entraînement intelligents et terminez la configuration afin que ce profil Fitness possède les entraînements stockés. 3) HA-Fitness démarre immédiatement le même worker d'archive borné, demande automatiquement l'appairage via la route Bluetooth Home Assistant si aucun lien n'existe, détecte les capacités GATT réelles, importe les entraînements FIT inconnus puis se déconnecte. Si Garmin affiche une confirmation, un numéro, un passkey ou une autorisation, acceptez-la sur le Garmin. Si aucune invite n'apparaît et que Garmin last error devient Pairing required, placez Garmin en mode d'appairage Bluetooth puis appuyez sur Sync workouts now ; SSH ou bluetoothctl ne font pas partie de la procédure normale. Les noms Bluetooth/modèle sont uniquement affichés et ne choisissent jamais le protocole. La synchronisation est en lecture seule : aucun mark synced, archivage ou suppression. Un transport MLR-only non vérifié échoue proprement avec un backoff espacé. Garmin détectés : {garmin_devices}"
       },
       "smart_workout_devices": {
         "title": "Appareils d’entraînement intelligents",
@@ -354,35 +354,39 @@
         "title": "Configurer l’appareil d’entraînement",
         "description": "Appareil physique : {device}. Fabricant : {vendor}. Modèle détecté : {model}. Capacités : {capabilities}. Propriétaire actuel de l’archive : {owner}. Le type et le modèle servent uniquement à l’affichage et au guide, jamais au choix du protocole.",
         "data": {
-          "smart_device_type": "Type d’appareil",
-          "smart_device_model": "Modèle / nom affiché",
-          "transfer_smart_device_owner": "Transférer la propriété des entraînements stockés à ce profil Fitness"
+          "smart_device_owner_action": "Transférer la propriété des entraînements stockés à ce profil Fitness"
         },
         "data_description": {
-          "smart_device_type": "Classe générale utilisée uniquement pour l’affichage et les instructions ; elle ne choisit jamais le protocole.",
-          "smart_device_model": "Libellé de modèle facultatif. Il n’est jamais utilisé comme preuve de prise en charge ou de protocole.",
-          "transfer_smart_device_owner": "Transfère uniquement la propriété des imports d’entraînements stockés vers ce profil. Les affectations en direct ne changent pas."
+          "smart_device_owner_action": "Transfère uniquement la propriété des imports d’entraînements stockés vers ce profil. Les affectations en direct ne changent pas."
         }
       },
       "smart_workout_device_ready": {
         "title": "Appareil d’entraînement prêt",
-        "description": "{device} appartient maintenant à {owner} pour l’import des entraînements stockés. Les fonctions en direct peuvent toujours être partagées via les affectations existantes. Le protocole {vendor} reste choisi selon les capacités. Si Garmin indique Pairing required, effectuez une seule association avec l’hôte Bluetooth Home Assistant puis utilisez Sync workouts now."
+        "description": "{device} appartient maintenant à {owner} pour l'import des entraînements stockés. Les capacités live peuvent toujours être partagées selon les règles existantes du capteur physique. Le protocole {vendor} reste choisi par capacités. Si l'appareil nécessite un lien Bluetooth, Fitness lance automatiquement l'appairage lors de la première synchronisation d'archive. Gardez l'appareil proche et acceptez toute confirmation/code affiché. Si l'appairage ne peut pas se terminer automatiquement, suivez le guide du fournisseur et utilisez Sync workouts now ; l'appairage manuel sur l'hôte n'est pas la procédure normale. Status: {status}."
       },
       "smart_workout_vendor_setup": {
         "title": "Guide de configuration {vendor}",
         "description": "Choisissez un type d’appareil et éventuellement un libellé de modèle pour le guide. Ces valeurs sont informatives ; Fitness ne détermine jamais le protocole à partir du nom du modèle.",
         "data": {
-          "smart_device_type": "Type d’appareil",
-          "smart_device_model": "Modèle / nom affiché"
+          "smart_device_type": "Type d’appareil"
         },
         "data_description": {
-          "smart_device_type": "Classe générale utilisée uniquement pour l’affichage et les instructions ; elle ne choisit jamais le protocole.",
-          "smart_device_model": "Libellé de modèle facultatif. Il n’est jamais utilisé comme preuve de prise en charge ou de protocole."
+          "smart_device_type": "Classe générale utilisée uniquement pour l’affichage et les instructions ; elle ne choisit jamais le protocole."
         }
       },
       "smart_workout_vendor_guide": {
         "title": "Procédure de connexion {vendor}",
-        "description": "Pour {vendor} {device_type} {model} : gardez l’appareil à proximité et activez l’adaptateur Bluetooth Fitness. La détection utilise des preuves de protocole/fabricant vérifiées, pas les noms de modèles. Associez Garmin uniquement si le diagnostic de synchronisation le demande. Appareils détectés : {detected_devices}. Validez pour relancer le balayage limité."
+        "description": "Pour {vendor} {device_type} {model} : gardez l'appareil proche et activez l'adaptateur Bluetooth Fitness. Fitness détecte à partir de preuves vérifiées de protocole/fournisseur, pas du nom du modèle. Après la configuration, Fitness lance automatiquement la synchronisation bornée de l'archive et demande l'appairage Bluetooth si l'appareil n'est pas déjà lié. Si l'appareil affiche une confirmation, un code ou un passkey, acceptez-le. Si Pairing required apparaît ensuite sans invite, placez l'appareil en mode d'appairage Bluetooth et appuyez sur Sync workouts now. Appareils détectés : {detected_devices}. Validez pour relancer le scan borné."
+      },
+      "smart_workout_pairing_help": {
+        "title": "L’appairage a besoin de votre aide",
+        "description": "Fitness n’a pas pu terminer l’appairage Bluetooth automatique avec {device}. Gardez Garmin appairé au téléphone. Ouvrez sur Garmin l’écran d’appairage Bluetooth/Téléphone pour accepter un hôte supplémentaire sans supprimer Garmin Connect ni l’appairage existant. Validez tout code/passkey sur Garmin. Si Garmin indique que l’appairage téléphone existant sera remplacé ou supprimé, annulez et choisissez de le faire plus tard. Quand Garmin est prêt, choisissez Réessayer maintenant.",
+        "data": {
+          "smart_pairing_action": "Que voulez-vous faire ?"
+        },
+        "data_description": {
+          "smart_pairing_action": "Retry starts one bounded automatic pairing/sync attempt."
+        }
       }
     },
     "abort": {
@@ -3450,6 +3454,10 @@
     "ai_provider_unavailable": {
       "title": "Le fournisseur d’IA Fitness sélectionné est indisponible",
       "description": "Fitness est configuré pour utiliser `{entity_id}`, mais ce fournisseur est actuellement indisponible. Fitness utilise temporairement la tâche IA par défaut de Home Assistant et reviendra automatiquement au fournisseur sélectionné lorsqu’il sera de nouveau disponible. Vous pouvez aussi modifier le fournisseur d’IA dans les options Fitness."
+    },
+    "garmin_pairing_required": {
+      "title": "Garmin demande une confirmation d’appairage",
+      "description": "Fitness n’a pas pu terminer l’appairage Bluetooth automatique avec `{device}`. Gardez Garmin appairé au téléphone. Activez le mode d’appairage Bluetooth/Téléphone, puis ouvrez Fitness > Appareils d’entraînement intelligents > `{device}` et choisissez Réessayer maintenant. Validez la demande sur Garmin. Si l’appairage téléphone doit être remplacé/supprimé, annulez."
     }
   },
   "services": {

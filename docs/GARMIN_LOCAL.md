@@ -38,17 +38,17 @@ Some Garmin V2 devices can request **reliable MLR mode** for a service. HA-Fitne
 1. Make sure Home Assistant has a **connectable** Bluetooth route that can reach the Garmin wearable. A local Bluetooth adapter is the simplest route. A Bluetooth proxy may work only when the route supports the required connectable GATT operations; bonding/pairing support depends on the route.
 2. Keep the Garmin wearable powered on and nearby. You do not normally need to disable Bluetooth on your phone.
 3. Open **Smart workout devices** in the Fitness profile options. Opening the guide performs one short, bounded Bluetooth discovery sweep and lists Garmin candidates already visible to Home Assistant. Reopen the guide later to request another sweep; the provider enforces a cooldown.
-4. Go to **Local Sensors**, accept the Garmin device, and assign that physical sensor to one or more Fitness profiles. Assignment controls which profile histories receive imported workouts.
-5. Return to **Smart workout devices** if you want to confirm detection and assignment status.
-6. Synchronization starts automatically when the accepted, assigned Garmin is reachable. Use the device's **Sync workouts now** button for an immediate retry.
+4. Select the detected Garmin under **Smart workout devices** (or accept the same physical sensor from Local Sensors). Fitness does not ask you to retype its model or Bluetooth information. If another Fitness profile already owns stored-workout imports, you get an explicit keep/transfer choice; otherwise the current profile becomes the archive owner immediately.
+5. Fitness immediately schedules the bounded archive worker. It automatically requests Bluetooth pairing if no Home Assistant bond exists. Keep Garmin Connect and the phone pairing in place. Approve any confirmation/code/passkey shown on the Garmin.
+6. After pairing, capability discovery and unseen-workout import continue automatically in the same session and the device disconnects when finished. If everything works, there is nothing else to answer. If pairing needs help, Fitness raises one Repairs warning and the device setup screen tells you exactly what to do and offers a bounded **Retry now** action.
 
 ### First-time Bluetooth pairing
 
-Some Garmin firmware allows the local session immediately after the device is known to BlueZ; other devices require a Bluetooth bond before GFDI services resolve or accept authentication.
+Pairing is automatic. When an accepted Garmin starts its first archive synchronization, HA-Fitness asks Home Assistant's normal proxy-aware Bluetooth connector to establish the connection with **pairing enabled**. If BlueZ/the selected Bluetooth route already has a bond, pairing is a no-op and synchronization continues immediately. If no bond exists, the Bluetooth stack starts the one-time pairing before Garmin service discovery.
 
-HA-Fitness deliberately does not run an unbounded interactive pairing loop in the background. If the diagnostic **Garmin last error** becomes `pairing_required`, pair/bond the wearable once with the Bluetooth host used by Home Assistant, confirm any number or prompt shown on the wearable, and then press **Sync workouts now** again.
+The user should not need SSH, `bluetoothctl`, or a separate host-side setup procedure. Keep the Garmin nearby during the first sync. If the Garmin displays a confirmation, numeric comparison, passkey, or permission prompt, approve it **on the Garmin**. After the bond succeeds, the same bounded connection proceeds directly into capability discovery and workout import.
 
-On installations where Home Assistant runs on a normal Linux/BlueZ host, use the host's supported Bluetooth pairing mechanism. On appliances/proxy-only installations, pairing availability depends on the Bluetooth route. HA-Fitness will report the failure rather than continuously retrying an interaction that requires a person.
+Pairing is still bounded by the Garmin session deadline: HA-Fitness makes one pairing-enabled connection attempt, never loops on interactive prompts, and cleans up on timeout/cancellation. If **Garmin last error** becomes `pairing_required`, Fitness also creates a Home Assistant Repairs warning. Open **Fitness > Smart workout devices**, select the Garmin, and follow the dedicated pairing-help screen. Keep the Garmin paired with the phone; put the Garmin into its Bluetooth/Phone pairing mode only so that it can accept Home Assistant as an additional host, approve any prompt on the Garmin, then choose **Retry now**. If Garmin warns that the existing phone pairing will be replaced or removed, cancel that device-side action and choose **Do this later**. The retry is still one bounded automatic pairing/sync attempt, not an interactive loop. On a Bluetooth route that cannot support bonding/pairing, HA-Fitness reports the failure and backs off instead of repeatedly waking the radio.
 
 ## Normal synchronization behavior
 
@@ -151,7 +151,7 @@ If a Garmin is discovered but does not synchronize:
 1. Confirm it is accepted under Local Sensors and assigned to at least one Fitness profile.
 2. Check **Garmin last error** and **Garmin sync state**.
 3. Bring the wearable close to a connectable Home Assistant Bluetooth route and press **Sync workouts now**.
-4. If the error is `pairing_required`, complete the one-time Bluetooth bond on the Home Assistant Bluetooth host and retry.
+4. If the error is `pairing_required`, put the Garmin in Bluetooth pairing mode if needed, keep it close, press **Sync workouts now**, and approve any confirmation/code on the Garmin. HA-Fitness performs the host-side pairing automatically.
 5. If Garmin Connect is actively synchronizing at that exact moment, wait for it to finish and retry. Turning off phone Bluetooth should be a troubleshooting step, not a normal requirement.
 6. If the state is `unsupported`, leave the device connected normally to Garmin Connect. HA-Fitness has deliberately stopped rather than attempting an unverified transport that could stall or corrupt the session.
 

@@ -8,15 +8,15 @@ HA-Fitness treats a smart workout device as **one physical device with multiple 
 2. Open the Fitness profile that should own the device's stored workouts.
 3. Open **Smart workout devices**.
 4. Fitness requests one short, bounded Bluetooth discovery sweep and lists detected physical workout-archive devices. Devices can also appear automatically through normal Home Assistant Bluetooth discovery, just like other Fitness sensors.
-5. Select the detected physical device. Choose a device type if useful for display and optionally adjust its display model label. These values are **never used to select a protocol backend**.
-6. Finish setup. The current Fitness profile becomes the primary owner for stored-workout imports. Existing live-sensor assignment remains independent, so the same physical device can still be shared for live metrics when appropriate.
-7. If a vendor requires pairing, follow the vendor-specific instructions shown after setup. Garmin, for example, only needs a one-time Bluetooth bond if the later sync diagnostic reports **Pairing required**.
+5. Select the detected physical device. Fitness uses the detected model/name only as display metadata and does **not** ask you to type it again. If no other Fitness profile owns its stored-workout archive, selecting the device assigns it immediately to the current profile and starts the safe automatic setup.
+6. Fitness performs host-side Bluetooth pairing, capability detection, workout download and disconnect automatically. Keep normal phone/vendor-app pairing in place. If the device itself shows a confirmation/code/passkey, approve it there.
+7. Fitness asks a question only when there is a real decision or required action: an existing stored-workout owner must be kept/transferred, or automatic Bluetooth pairing needs the device put into pairing mode. These are presented as explicit choices rather than free-text fields.
 
 ## Automatic discovery and manual guides
 
-The Smart workout devices page contains both detected physical devices and supported setup guides. For now the manual guided vendor flow includes Garmin. The guide can collect a broad device type such as sport watch or bike computer and an optional model label, but those are setup/display hints only. Actual support is always determined from verified manufacturer/protocol evidence and connected capabilities.
+The Smart workout devices page contains both detected physical devices and supported setup guides. For now the manual guided vendor flow includes Garmin. A guide may ask for a broad device type such as sport watch or bike computer when that changes the instructions, but it does not ask for a manually typed model name. The detected model is shown automatically after discovery. Actual support is always determined from verified manufacturer/protocol evidence and connected capabilities.
 
-A blank or unfamiliar consumer model name does not make a device unsupported when its protocol capabilities are known.
+A blank or unfamiliar consumer model name does not make a device unsupported when its protocol capabilities are known. Vendor adapters may request pairing through the generic Bluetooth connection helper, but pairing remains bounded and never becomes an unbounded background interaction loop.
 
 ## Physical-device merging
 
@@ -47,3 +47,13 @@ Vendor adapters must remain read-only unless a future feature explicitly documen
 ## Garmin
 
 See [Local Garmin workout synchronization](GARMIN_LOCAL.md) for Garmin-specific pairing, GFDI capability detection, diagnostics and troubleshooting.
+
+## Interaction policy
+
+The setup flow follows a **no needless questions** rule:
+
+- information Fitness can detect is displayed, not requested as text input;
+- a healthy automatic connection continues without asking the user to confirm technical details;
+- if the device requires a confirmation/passkey, the user is told exactly what to approve on the device;
+- if automatic pairing fails because the device is not currently pairable, Fitness creates one Home Assistant Repairs warning and the Smart workout device screen offers **Retry now** or **Do this later**;
+- repeated radio failures do not create repeated prompts or pairing loops. The existing bounded retry/backoff policy remains authoritative.

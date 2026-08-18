@@ -70,7 +70,6 @@ from .providers.capabilities import (
 from .smart_workout_devices import (
     DEVICE_TYPE_AUTO,
     DEVICE_TYPES,
-    MAX_SMART_DEVICE_MODEL_LABEL,
     MAX_SMART_WORKOUT_DEVICE_CHOICES,
     SUPPORTED_SETUP_VENDORS,
     is_smart_workout_sensor,
@@ -967,6 +966,24 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
         except TimeoutError:
             pass
 
+    def _smart_workout_status(self, runtime, sensor) -> tuple[str, str]:
+        """Return one cheap control-plane status without opening Bluetooth."""
+        sensor_id = runtime.resolve_sensor_id(sensor.sensor_id)
+        details = runtime.sensor_detail_values.get(sensor_id, {}) or {}
+        error = str(details.get("garmin_last_error") or "none")
+        state = str(details.get("garmin_sync_state") or "idle")
+        if error == "pairing_required":
+            return "action_needed", error
+        if error == "unsupported_transport" or state == "unsupported":
+            return "unsupported", error
+        if state in {"connecting", "syncing", "waiting", "retrying"}:
+            return state, error
+        if state == "ready" or details.get("garmin_last_successful_sync"):
+            return "ready", error
+        if runtime.sensor_is_accepted(sensor_id):
+            return "configured", error
+        return "discovered", error
+
     def _smart_workout_choices(self, runtime) -> list[dict[str, str]]:
         """Build a bounded list of physical devices plus setup recipes."""
         choices: list[dict[str, str]] = []
@@ -981,13 +998,12 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
             owner_label = owner.title if owner is not None else "unowned"
             vendor = smart_workout_vendor(sensor).title()
             model = smart_workout_model_label(sensor)
-            status = "configured" if runtime.sensor_is_accepted(sensor_id) else "discovered"
+            status, _error = self._smart_workout_status(runtime, sensor)
             choices.append({
                 "value": f"sensor:{sensor_id}",
-                "label": f"{vendor} · {model} · {status} · {owner_label}",
+                "label": f"{vendor} · {model} · {status.replace('_', ' ')} · {owner_label}",
             })
-        # Manual recipes are control-plane guides only; model text never affects
-        # protocol support. Keep them after actual detected devices.
+        # Vendor entries are fallback guides, never runtime protocol routing.
         for vendor in SUPPORTED_SETUP_VENDORS:
             choices.append({
                 "value": f"vendor:{vendor.vendor_id}",
@@ -1036,8 +1052,49 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
         """Backward-compatible entry point for pre-smart-device links."""
         return await self.async_step_smart_workout_devices(user_input)
 
+    async def _async_commit_smart_workout_device(self, runtime, sensor_id: str) -> None:
+        """Assign one physical archive device using detected metadata only."""
+        sensor_id = runtime.resolve_sensor_id(sensor_id)
+        sensor = runtime.sensors[sensor_id]
+        current = self._current()
+        ids = list(current.get(CONF_LIVE_SENSOR_IDS) or [])
+        ids = [item for item in ids if runtime.resolve_sensor_id(str(item)) != sensor_id]
+        ids.append(sensor_id)
+        options = dict(self.config_entry.options)
+        options[CONF_LIVE_SENSOR_IDS] = ids
+        if getattr(getattr(self.config_entry, "state", None), "value", None) == "loaded":
+            runtime.suppress_entry_reload_once(self.config_entry.entry_id)
+        self.hass.config_entries.async_update_entry(self.config_entry, options=options)
+
+        # Device type/model remain display metadata. Automatic detection is kept
+        # unless the user previously chose a broad type in a vendor guide.
+        requested_type = str(getattr(self, "_smart_workout_manual_type", "") or "")
+        if requested_type not in DEVICE_TYPES:
+            requested_type = smart_workout_device_type(sensor)
+        runtime.configure_smart_workout_device(
+            sensor_id,
+            owner_profile_id=self.config_entry.entry_id,
+            device_type=requested_type,
+            model_label=smart_workout_model_label(sensor),
+        )
+        if not runtime.sensor_is_accepted(sensor_id):
+            runtime.mark_sensor_accepted(sensor_id)
+
+        async def _finalize() -> None:
+            await asyncio.sleep(0.5)
+            canonical = runtime.resolve_sensor_id(sensor_id)
+            runtime.finalize_sensor_acceptance(canonical)
+            runtime.schedule_profile_assignment_refresh([self.config_entry.entry_id])
+            runtime.notify_sensor_assignment_changed(canonical)
+
+        self.hass.async_create_background_task(
+            _finalize(),
+            f"fitness finalize smart workout device {sensor_id}",
+            eager_start=False,
+        )
+
     async def async_step_smart_workout_device_setup(self, user_input=None):
-        """Assign one detected physical smart device to this Fitness profile."""
+        """Assign a detected device automatically; ask only for real decisions."""
         from .live import get_live_runtime
 
         runtime = get_live_runtime(self.hass)
@@ -1047,100 +1104,67 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
         if sensor is None or not is_smart_workout_sensor(sensor):
             return self.async_abort(reason="sensor_unavailable")
 
-        vendor_id = smart_workout_vendor(sensor)
-        vendor = setup_vendor(vendor_id)
-        detected_model = smart_workout_model_label(sensor)
-        detected_type = smart_workout_device_type(sensor)
         owner_id = runtime.smart_device_owner_profile_id(sensor_id)
         owner_entry = runtime.profile_entries.get(owner_id) if owner_id else None
         owner_label = owner_entry.title if owner_entry is not None else "—"
+        vendor_id = smart_workout_vendor(sensor)
+        detected_model = smart_workout_model_label(sensor)
         capabilities = ", ".join(smart_workout_capability_labels(sensor)) or "workout archive"
 
-        device_type_options = [
-            {"value": value, "label": value.replace("_", " ").title()}
-            for value in (vendor.device_types if vendor is not None else DEVICE_TYPES)
-        ]
-        if user_input is not None:
-            device_type = str(user_input.get("smart_device_type") or DEVICE_TYPE_AUTO)
-            model_label = str(user_input.get("smart_device_model") or detected_model).strip()[:MAX_SMART_DEVICE_MODEL_LABEL]
-            transfer = bool(user_input.get("transfer_smart_device_owner", False))
-            if owner_id and owner_id != self.config_entry.entry_id and not transfer:
+        # Reopening an already-owned device is a status/action view, not a form
+        # asking the user to retype metadata Fitness already knows.
+        if owner_id == self.config_entry.entry_id and runtime.sensor_is_accepted(sensor_id):
+            status, error = self._smart_workout_status(runtime, sensor)
+            if error == "pairing_required":
+                return await self.async_step_smart_workout_pairing_help()
+            return await self.async_step_smart_workout_device_ready()
+
+        # The only normal setup choice is a real ownership conflict. Use a
+        # dropdown instead of a boolean/text field so the consequence is clear.
+        if owner_id and owner_id != self.config_entry.entry_id:
+            if user_input is None:
                 return self.async_show_form(
                     step_id="smart_workout_device_setup",
                     data_schema=vol.Schema({
-                        vol.Required("smart_device_type", default=device_type): selector.SelectSelector(
-                            selector.SelectSelectorConfig(options=device_type_options, mode=selector.SelectSelectorMode.DROPDOWN)
-                        ),
-                        vol.Optional("smart_device_model", default=model_label): vol.All(str, vol.Length(max=MAX_SMART_DEVICE_MODEL_LABEL)),
-                        vol.Optional("transfer_smart_device_owner", default=False): bool,
+                        vol.Required("smart_device_owner_action", default="keep_current"): selector.SelectSelector(
+                            selector.SelectSelectorConfig(
+                                options=[
+                                    {"value": "keep_current", "label": f"Keep stored workouts with {owner_label}"},
+                                    {"value": "transfer_here", "label": f"Transfer stored workouts to {self.config_entry.title}"},
+                                ],
+                                mode=selector.SelectSelectorMode.DROPDOWN,
+                            )
+                        )
                     }),
-                    errors={"base": "smart_device_owned_elsewhere"},
                     description_placeholders={
                         "device": sensor.label(), "vendor": vendor_id.title(), "model": detected_model,
                         "capabilities": capabilities, "owner": owner_label,
                     },
                 )
+            action = str(user_input.get("smart_device_owner_action") or "keep_current")
+            if action != "transfer_here":
+                return await self.async_step_smart_workout_devices()
 
-            current = self._current()
-            ids = list(current.get(CONF_LIVE_SENSOR_IDS) or [])
-            ids = [item for item in ids if runtime.resolve_sensor_id(str(item)) != sensor_id]
-            ids.append(sensor_id)
-            options = dict(self.config_entry.options)
-            options[CONF_LIVE_SENSOR_IDS] = ids
-            if getattr(getattr(self.config_entry, "state", None), "value", None) == "loaded":
-                runtime.suppress_entry_reload_once(self.config_entry.entry_id)
-            self.hass.config_entries.async_update_entry(self.config_entry, options=options)
-
-            runtime.configure_smart_workout_device(
-                sensor_id,
-                owner_profile_id=self.config_entry.entry_id,
-                device_type=device_type,
-                model_label=model_label,
-            )
-            was_accepted = runtime.sensor_is_accepted(sensor_id)
-            if not was_accepted:
-                runtime.mark_sensor_accepted(sensor_id)
-
-            async def _finalize() -> None:
-                await asyncio.sleep(0.5)
-                canonical = runtime.resolve_sensor_id(sensor_id)
-                runtime.finalize_sensor_acceptance(canonical)
-                runtime.schedule_profile_assignment_refresh([self.config_entry.entry_id])
-                runtime.notify_sensor_assignment_changed(canonical)
-
-            self.hass.async_create_background_task(
-                _finalize(),
-                f"fitness finalize smart workout device {sensor_id}",
-                eager_start=False,
-            )
-            self._smart_workout_sensor_id = runtime.resolve_sensor_id(sensor_id)
-            return await self.async_step_smart_workout_device_ready()
-
-        return self.async_show_form(
-            step_id="smart_workout_device_setup",
-            data_schema=vol.Schema({
-                vol.Required("smart_device_type", default=detected_type): selector.SelectSelector(
-                    selector.SelectSelectorConfig(options=device_type_options, mode=selector.SelectSelectorMode.DROPDOWN)
-                ),
-                vol.Optional("smart_device_model", default=detected_model): vol.All(str, vol.Length(max=MAX_SMART_DEVICE_MODEL_LABEL)),
-                **({vol.Optional("transfer_smart_device_owner", default=False): bool} if owner_id and owner_id != self.config_entry.entry_id else {}),
-            }),
-            description_placeholders={
-                "device": sensor.label(), "vendor": vendor_id.title(), "model": detected_model,
-                "capabilities": capabilities, "owner": owner_label,
-            },
-        )
+        await self._async_commit_smart_workout_device(runtime, sensor_id)
+        self._smart_workout_sensor_id = runtime.resolve_sensor_id(sensor_id)
+        return await self.async_step_smart_workout_device_ready()
 
     async def async_step_smart_workout_device_ready(self, user_input=None):
-        """Show the bounded vendor procedure after ownership is configured."""
+        """Show automatic setup status and route to help only when needed."""
         from .live import get_live_runtime
 
         runtime = get_live_runtime(self.hass)
         await runtime.async_initialize()
         sensor_id = runtime.resolve_sensor_id(str(getattr(self, "_smart_workout_sensor_id", "")))
         sensor = runtime.sensors.get(sensor_id)
-        if user_input is not None or sensor is None:
+        if sensor is None:
+            return await self.async_step_smart_workout_devices()
+        _status, error = self._smart_workout_status(runtime, sensor)
+        if error == "pairing_required":
+            return await self.async_step_smart_workout_pairing_help()
+        if user_input is not None:
             return await self.async_step_init()
+        status, _error = self._smart_workout_status(runtime, sensor)
         return self.async_show_form(
             step_id="smart_workout_device_ready",
             data_schema=vol.Schema({}),
@@ -1148,11 +1172,62 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 "device": sensor.label(),
                 "owner": self.config_entry.title,
                 "vendor": smart_workout_vendor(sensor).title(),
+                "status": status.replace("_", " "),
+            },
+        )
+
+    async def async_step_smart_workout_pairing_help(self, user_input=None):
+        """Ask for the minimum device-side action only after pairing failed."""
+        from .live import get_live_runtime
+
+        runtime = get_live_runtime(self.hass)
+        await runtime.async_initialize()
+        sensor_id = runtime.resolve_sensor_id(str(getattr(self, "_smart_workout_sensor_id", "")))
+        sensor = runtime.sensors.get(sensor_id)
+        if sensor is None:
+            return await self.async_step_smart_workout_devices()
+        vendor = smart_workout_vendor(sensor)
+        if user_input is not None:
+            action = str(user_input.get("smart_pairing_action") or "later")
+            if action == "retry":
+                provider = runtime.providers.get("bluetooth")
+                archives = getattr(provider, "device_archives", None) if provider else None
+                endpoint = sensor.endpoints.get("bluetooth")
+                metadata = endpoint.metadata if endpoint is not None else sensor.metadata
+                coordinator = archives.coordinator_for_metadata(metadata) if archives is not None else None
+                retry = getattr(coordinator, "async_sync_now", None) if coordinator is not None else None
+                if retry is not None:
+                    await retry(sensor_id)
+                return self.async_show_form(
+                    step_id="smart_workout_device_ready",
+                    data_schema=vol.Schema({}),
+                    description_placeholders={
+                        "device": sensor.label(), "owner": self.config_entry.title,
+                        "vendor": vendor.title(), "status": "pairing retry started",
+                    },
+                )
+            return await self.async_step_init()
+
+        return self.async_show_form(
+            step_id="smart_workout_pairing_help",
+            data_schema=vol.Schema({
+                vol.Required("smart_pairing_action", default="retry"): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            {"value": "retry", "label": "Device is ready for pairing — retry now"},
+                            {"value": "later", "label": "I'll do this later"},
+                        ],
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                )
+            }),
+            description_placeholders={
+                "device": sensor.label(), "vendor": vendor.title(), "owner": self.config_entry.title,
             },
         )
 
     async def async_step_smart_workout_vendor_setup(self, user_input=None):
-        """Show a model-independent setup recipe before a device is discovered."""
+        """Ask only for a useful broad device type before vendor instructions."""
         vendor = setup_vendor(str(getattr(self, "_smart_workout_vendor_id", "")))
         if vendor is None:
             return await self.async_step_smart_workout_devices()
@@ -1162,7 +1237,6 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
         ]
         if user_input is not None:
             self._smart_workout_manual_type = str(user_input.get("smart_device_type") or DEVICE_TYPE_AUTO)
-            self._smart_workout_manual_model = str(user_input.get("smart_device_model") or "").strip()[:MAX_SMART_DEVICE_MODEL_LABEL]
             return await self.async_step_smart_workout_vendor_guide()
         return self.async_show_form(
             step_id="smart_workout_vendor_setup",
@@ -1170,7 +1244,6 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 vol.Required("smart_device_type", default=DEVICE_TYPE_AUTO): selector.SelectSelector(
                     selector.SelectSelectorConfig(options=type_options, mode=selector.SelectSelectorMode.DROPDOWN)
                 ),
-                vol.Optional("smart_device_model"): vol.All(str, vol.Length(max=MAX_SMART_DEVICE_MODEL_LABEL)),
             }),
             description_placeholders={"vendor": vendor.label},
         )
@@ -1199,7 +1272,7 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
             description_placeholders={
                 "vendor": vendor.label,
                 "device_type": str(getattr(self, "_smart_workout_manual_type", DEVICE_TYPE_AUTO)).replace("_", " "),
-                "model": str(getattr(self, "_smart_workout_manual_model", "")) or "automatic / unknown",
+                "model": "automatic after discovery",
                 "detected_devices": "; ".join(matching) if matching else "—",
             },
         )

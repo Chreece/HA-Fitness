@@ -338,51 +338,55 @@
       },
       "garmin_local_guide": {
         "title": "Garmin local workout sync",
-        "description": "Compatible Garmin devices connect directly to Home Assistant over Bluetooth; your phone is not required and Garmin Connect can remain paired. Opening this guide requests one short, bounded Bluetooth scan and replays only a bounded relevant part of Home Assistant's Bluetooth cache; it never opens GATT. 1) Keep the Garmin device nearby. 2) Accept the detected Garmin sensor under Local Sensors and assign it to one or more Fitness profiles. 3) HA-Fitness then connects briefly, discovers the actual GATT capabilities, tries bounded GFDI V2 Multi-Link then V1/V0 candidates, imports unseen workout FIT files, and disconnects. Bluetooth names and model names are display-only and never select support or protocol behavior. If the diagnostic shows Pairing required, pair the Garmin device with the Home Assistant Bluetooth host once, then press Sync workouts now. Sync is read-only: HA-Fitness does not mark Garmin files synced, archive them, or delete them. Unverified MLR-only transport fails safely with sparse backoff instead of waiting indefinitely. Detected Garmin devices: {garmin_devices}"
+        "description": "Compatible Garmin devices connect directly to Home Assistant over Bluetooth while Garmin Connect and the phone can remain paired. Fitness discovers the device automatically, and after you assign the physical device to a Fitness profile it performs host-side pairing, capability detection, read-only FIT workout import and disconnect automatically. You do not need SSH, bluetoothctl, model text entry, or to turn off phone Bluetooth. If Garmin itself asks for confirmation/code/passkey, approve it. If automatic pairing cannot finish, Fitness shows an action-needed state and tells you to open the Garmin Bluetooth/Phone pairing screen, then offers a bounded Retry now option. If Garmin warns that doing so will replace/remove the existing phone pairing, cancel that action. Sync remains read-only: Fitness does not mark Garmin files synced, archive them or delete them. Detected Garmin devices: {garmin_devices}"
       },
       "smart_workout_devices": {
         "title": "Smart workout devices",
-        "description": "Fitness discovers smart workout devices automatically. Opening this page requests one short, bounded Bluetooth scan and shows detected physical workout-archive devices plus supported setup guides. Discovery does not open GATT.",
+        "description": "Fitness discovers compatible smart workout devices automatically with bounded Bluetooth work. Choose a detected physical device only to assign it to this Fitness profile, review status, or respond when Fitness says action is required. You do not need to enter model names or technical Bluetooth details.",
         "data": {
           "smart_workout_device": "Detected device or setup guide"
         },
         "data_description": {
-          "smart_workout_device": "Choose a detected physical workout device, or open a vendor setup guide to scan and prepare one."
+          "smart_workout_device": "Choose a detected physical workout device, or a vendor guide when you need setup instructions."
         }
       },
       "smart_workout_device_setup": {
-        "title": "Set up smart workout device",
-        "description": "Physical device: {device}. Vendor: {vendor}. Detected model: {model}. Capabilities: {capabilities}. Current archive owner: {owner}. Device type and model are display/setup metadata only and never select the protocol backend.",
+        "title": "Use this smart workout device",
+        "description": "Physical device: {device}. Vendor: {vendor}. Detected model: {model}. Capabilities: {capabilities}. Stored-workout owner: {owner}. Fitness already detected the useful device information; there are no manual model or Bluetooth fields. If another profile owns the archive, choose only whether to keep that owner or transfer stored workouts to this profile.",
         "data": {
-          "smart_device_type": "Device type",
-          "smart_device_model": "Model / display label",
-          "transfer_smart_device_owner": "Transfer stored-workout ownership to this Fitness profile"
+          "smart_device_owner_action": "Stored-workout ownership"
         },
         "data_description": {
-          "smart_device_type": "Broad device class used only for display and setup instructions; it never chooses the protocol.",
-          "smart_device_model": "Optional display/model label. It is never used as support or protocol evidence.",
-          "transfer_smart_device_owner": "Move only stored-workout import ownership to this profile. Existing live sensor assignments remain unchanged."
+          "smart_device_owner_action": "This changes only stored-workout imports. Existing live sensor assignments remain unchanged."
         }
       },
       "smart_workout_device_ready": {
-        "title": "Smart workout device ready",
-        "description": "{device} is now owned by {owner} for stored workout imports. Live capabilities can still be shared through the existing physical-sensor assignment rules. {vendor} protocol selection remains capability-based. If Garmin later reports Pairing required, bond it once with the Home Assistant Bluetooth host and use Sync workouts now."
+        "title": "Smart workout device setup",
+        "description": "{device} is assigned to {owner} for stored workouts. Current status: {status}. Fitness handles {vendor} Bluetooth pairing, capability detection, workout download and disconnect automatically. Keep the device nearby and keep Garmin Connect/your phone paired normally. No action is required unless the device itself shows a confirmation/code or Fitness explicitly reports that pairing needs your help."
       },
       "smart_workout_vendor_setup": {
         "title": "{vendor} setup guide",
-        "description": "Choose a device type and optional model label for the setup guide. These values are informational only; Fitness never uses a consumer model name to decide protocol support.",
+        "description": "Choose only the broad device type if it helps show the right instructions. Fitness detects the actual model automatically after discovery and never uses the model name to select protocol support.",
         "data": {
-          "smart_device_type": "Device type",
-          "smart_device_model": "Model / display label"
+          "smart_device_type": "Device type"
         },
         "data_description": {
-          "smart_device_type": "Broad device class used only for display and setup instructions; it never chooses the protocol.",
-          "smart_device_model": "Optional display/model label. It is never used as support or protocol evidence."
+          "smart_device_type": "Broad display/setup class only; protocol support still comes from verified capabilities."
         }
       },
       "smart_workout_vendor_guide": {
         "title": "{vendor} connection procedure",
-        "description": "For {vendor} {device_type} {model}: keep the device nearby and enable the Fitness Bluetooth adapter. Fitness discovers devices from verified protocol/vendor evidence, not model names. Garmin pairing is only required if the later sync diagnostic says Pairing required. Detected matching devices: {detected_devices}. Submit to run the bounded scan again."
+        "description": "For {vendor} {device_type} ({model}): keep the device nearby and enable the Fitness Bluetooth adapter. Fitness discovers verified vendor/protocol evidence automatically. After you select a detected physical device for this profile, Fitness pairs the Home Assistant host automatically when needed, detects the actual GATT capabilities, imports unseen workouts and disconnects. Keep any existing phone/Garmin Connect pairing. If the device asks for confirmation, approve it. Fitness will show a dedicated action screen only if automatic pairing needs your help. Detected matching devices: {detected_devices}. Submit to run the bounded scan again."
+      },
+      "smart_workout_pairing_help": {
+        "title": "Pairing needs your help",
+        "description": "Fitness could not finish automatic Bluetooth pairing with {device}. Keep the Garmin paired with your phone. On the Garmin, open its Bluetooth/Phone pairing screen so it can accept an additional host, but do not remove Garmin Connect or the existing phone pairing. Approve any confirmation/code/passkey shown on the Garmin. If the Garmin warns that the existing phone pairing will be replaced or removed, cancel that action and choose to do this later. When the Garmin is ready, choose Retry now.",
+        "data": {
+          "smart_pairing_action": "What do you want to do?"
+        },
+        "data_description": {
+          "smart_pairing_action": "Retry starts one bounded automatic pairing/sync attempt. It never starts an unlimited retry loop."
+        }
       }
     },
     "abort": {
@@ -3450,6 +3454,10 @@
     "ai_provider_unavailable": {
       "title": "Selected Fitness AI provider is unavailable",
       "description": "Fitness is configured to use `{entity_id}`, but that provider is currently unavailable. Fitness is temporarily using Home Assistant's default AI Task and will use the selected provider again when it becomes available. You can also change the AI provider in the Fitness options."
+    },
+    "garmin_pairing_required": {
+      "title": "Garmin needs pairing confirmation",
+      "description": "Fitness could not finish automatic Bluetooth pairing with `{device}`. Keep the Garmin paired with your phone. Put the Garmin in its Bluetooth/Phone pairing mode so it can accept Home Assistant as an additional host, then open Fitness > Smart workout devices > `{device}` and choose Retry now. Approve any prompt on the Garmin. If Garmin warns that the current phone pairing will be replaced or removed, cancel that action instead."
     }
   },
   "services": {

@@ -4,11 +4,13 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timedelta, timezone
 from functools import partial
+import hashlib
 import logging
 import zlib
 from typing import Any
 
 from homeassistant.components import bluetooth
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.storage import Store
 
 from ...const import (
@@ -34,6 +36,8 @@ _LOGGER = logging.getLogger(__name__)
 
 SYNC_INTERVAL = timedelta(minutes=30)
 CONNECT_TIMEOUT = 35.0
+PAIR_CONNECT_TIMEOUT = 65.0
+PAIR_CONNECT_ATTEMPTS = 1
 SESSION_TIMEOUT = 100.0
 TRANSPORT_NEGOTIATION_TIMEOUT = 40.0
 TRANSPORT_CANDIDATE_TIMEOUT = 12.0
@@ -216,6 +220,35 @@ class GarminLocalCoordinator:
             state = devices[sensor_id] = {"files": {}, "retry_count": 0}
         return state
 
+    def _pairing_issue_id(self, sensor_id: str) -> str:
+        """Return a stable opaque Repairs id across physical-device merges."""
+        canonical = self.runtime.resolve_sensor_id(sensor_id)
+        sensor = self.runtime.sensors.get(canonical)
+        endpoint = sensor.endpoints.get("bluetooth") if sensor is not None else None
+        identity = str(getattr(endpoint, "address", None) or canonical)
+        digest = hashlib.sha256(identity.encode("utf-8", errors="ignore")).hexdigest()[:16]
+        return f"garmin_pairing_required_{digest}"
+
+    def _report_pairing_required(self, sensor_id: str) -> None:
+        """Ask for device-side interaction only after automatic pairing failed."""
+        canonical = self.runtime.resolve_sensor_id(sensor_id)
+        sensor = self.runtime.sensors.get(canonical)
+        device = sensor.label() if sensor is not None else "Garmin device"
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            self._pairing_issue_id(canonical),
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="garmin_pairing_required",
+            translation_placeholders={"device": device},
+        )
+
+    def _clear_pairing_issue(self, sensor_id: str) -> None:
+        ir.async_delete_issue(
+            self.hass, DOMAIN, self._pairing_issue_id(sensor_id)
+        )
+
     async def _save(self) -> None:
         if not self._initialized:
             return
@@ -263,11 +296,13 @@ class GarminLocalCoordinator:
             if self.runtime.sensor_archive_profile_ids(sensor_id):
                 self.schedule(sensor_id, delay=1.0, force=True)
             return
+        self._clear_pairing_issue(sensor_id)
         self._cancel(sensor_id)
 
     def assignment_changed(self, sensor_id: str) -> None:
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
         if not self.runtime.sensor_archive_profile_ids(sensor_id):
+            self._clear_pairing_issue(sensor_id)
             self._cancel(sensor_id)
             state = self._device(sensor_id)
             state.update(sync_state="idle", pending_file_count=0)
@@ -278,6 +313,7 @@ class GarminLocalCoordinator:
 
     def forget_sensor(self, sensor_id: str) -> None:
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
+        self._clear_pairing_issue(sensor_id)
         self._cancel(sensor_id)
         self._last_advertisement_action.pop(sensor_id, None)
         self._progress.pop(sensor_id, None)
@@ -532,9 +568,17 @@ class GarminLocalCoordinator:
                         next_attempt=None,
                     )
                     self._publish(sensor_id)
-                    async with asyncio.timeout(CONNECT_TIMEOUT):
+                    # Pairing is requested on every Garmin archive connection.
+                    # Bleak/BlueZ treats this as a no-op when a bond already exists,
+                    # while a new watch gets a one-time automatic Pair request before
+                    # service discovery. One attempt prevents repeated pairing prompts;
+                    # the whole operation remains inside the hard session deadline.
+                    async with asyncio.timeout(PAIR_CONNECT_TIMEOUT):
                         client = await self.provider.establish_connection(
-                            ble_device, sensor.name or endpoint.address, max_attempts=2
+                            ble_device,
+                            sensor.name or endpoint.address,
+                            max_attempts=PAIR_CONNECT_ATTEMPTS,
+                            pair=True,
                         )
                     stage = "handshake"
                     session, candidate_backends = await _start_best_session(client)
@@ -654,6 +698,7 @@ class GarminLocalCoordinator:
                     )
                     if not more_work:
                         state["last_successful_sync"] = now_utc.isoformat()
+                    self._clear_pairing_issue(sensor_id)
                     await self._save()
                     self._publish(sensor_id)
                     if more_work:
@@ -667,6 +712,7 @@ class GarminLocalCoordinator:
         except asyncio.CancelledError:
             raise
         except GarminUnsupportedTransport as err:
+            self._clear_pairing_issue(sensor_id)
             state = self._device(sensor_id)
             retry_at = datetime.now(timezone.utc) + timedelta(seconds=UNSUPPORTED_RETRY_DELAY)
             state.update(
@@ -686,16 +732,22 @@ class GarminLocalCoordinator:
             error_code = _ERROR_CODE.get(stage, "unknown")
             if stage in {"connection", "handshake"} and any(
                 token in text
-                for token in ("pair", "bond", "authentication", "not authorized")
+                for token in (
+                    "pair", "bond", "authentication", "not authorized",
+                    "passkey", "pin", "rejected", "canceled", "cancelled",
+                )
             ):
                 error_code = "pairing_required"
             if error_code == "pairing_required":
+                self._report_pairing_required(sensor_id)
                 delay = UNSUPPORTED_RETRY_DELAY
             elif retries >= MAX_RETRIES:
+                self._clear_pairing_issue(sensor_id)
                 # Repeated background failures must become progressively cheaper
                 # instead of waking the Bluetooth stack every 30 minutes forever.
                 delay = DEGRADED_RETRY_DELAY
             else:
+                self._clear_pairing_issue(sensor_id)
                 delay = min(30 * 60.0, 60.0 * (2 ** min(retries - 1, 5)))
             retry_at = datetime.now(timezone.utc) + timedelta(seconds=delay)
             state.update(

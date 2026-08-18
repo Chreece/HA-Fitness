@@ -29,6 +29,8 @@ def _method(source: str, name: str) -> str:
 def test_garmin_sync_has_hard_session_stage_cleanup_and_shutdown_bounds():
     assert "SESSION_TIMEOUT = 100.0" in COORD
     assert "CONNECT_TIMEOUT = 35.0" in COORD
+    assert "PAIR_CONNECT_TIMEOUT = 65.0" in COORD
+    assert "PAIR_CONNECT_ATTEMPTS = 1" in COORD
     assert "CLEANUP_TIMEOUT = 6.0" in COORD
     assert "IMPORT_TIMEOUT = 20.0" in COORD
     assert "TRANSPORT_NEGOTIATION_TIMEOUT = 40.0" in COORD
@@ -36,7 +38,7 @@ def test_garmin_sync_has_hard_session_stage_cleanup_and_shutdown_bounds():
     assert "SHUTDOWN_TIMEOUT = 12.0" in COORD
     sync = _method(COORD, "_async_sync")
     assert "async with asyncio.timeout(SESSION_TIMEOUT)" in sync
-    assert "async with asyncio.timeout(CONNECT_TIMEOUT)" in sync
+    assert "async with asyncio.timeout(PAIR_CONNECT_TIMEOUT)" in sync
     assert "async with asyncio.timeout(CLEANUP_TIMEOUT)" in sync
     assert "async with asyncio.timeout(IMPORT_TIMEOUT)" in sync
     shutdown = _method(COORD, "async_shutdown")
@@ -195,8 +197,22 @@ def test_manual_retry_can_replace_sleeping_backoff_but_not_cancel_active_ble():
     assert "wake_if_sleeping" in schedule
     assert "self._queued[sensor_id]" in schedule
     assert "UNSUPPORTED_RETRY_DELAY" in COORD
-    # Pairing requires user action, so background retry is intentionally sparse.
+    # Automatic pairing may still need a one-time device-side confirmation, so
+    # a rejected/missed prompt must back off instead of becoming a retry storm.
     assert 'if error_code == "pairing_required"' in COORD
+
+
+def test_garmin_pairing_is_automatic_proxy_aware_and_bounded():
+    sync = _method(COORD, "_async_sync")
+    helper = _method(BT, "establish_connection")
+    assert "pair=True" in sync
+    assert "PAIR_CONNECT_ATTEMPTS" in sync
+    assert "PAIR_CONNECT_TIMEOUT" in sync
+    assert "pair: bool = False" in helper
+    assert "pair=pair" in helper
+    # Do not bypass HA/proxy connection-slot management with direct connects.
+    assert "BleakClient.connect" not in sync
+    assert "await client.pair" not in sync
 
 
 def test_garmin_discovery_replays_cache_once_and_guide_scan_is_bounded():

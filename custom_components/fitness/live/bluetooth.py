@@ -772,13 +772,26 @@ class BluetoothFitnessProvider:
                 "Bluetooth disconnect failed during %s", reason, exc_info=True
             )
 
-    async def establish_connection(self, ble_device, name: str, *, max_attempts: int):
-        """Use the same Home Assistant/proxy-aware connector for archive sync."""
+    async def establish_connection(
+        self,
+        ble_device,
+        name: str,
+        *,
+        max_attempts: int,
+        pair: bool = False,
+    ):
+        """Use HA's proxy-aware retry connector, optionally requesting pairing.
+
+        ``pair`` is a transport-level capability, not vendor logic. Archive
+        adapters can request a one-time bond without bypassing Home Assistant's
+        connection-slot management or calling ``BleakClient.connect`` directly.
+        """
         return await establish_connection(
             BleakClient,
             device=ble_device,
             name=name,
             max_attempts=max_attempts,
+            pair=pair,
         )
 
     async def async_connect_profile(

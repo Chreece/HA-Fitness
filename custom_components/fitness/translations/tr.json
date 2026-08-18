@@ -338,7 +338,7 @@
       },
       "garmin_local_guide": {
         "title": "Yerel Garmin antrenman senkronizasyonu",
-        "description": "Bu kılavuz açıldığında GATT bağlantısı açmadan kısa ve sıkı biçimde sınırlandırılmış bir Bluetooth taraması istenir. Garmin saatleri Bluetooth üzerinden doğrudan Home Assistant'a bağlanır; telefon gerekmez ve Garmin Connect eşleşmiş kalabilir. 1) Saat Yerel Sensörler altında görünene kadar yakında tutun. 2) Garmin sensörünü kabul edip bir veya daha fazla Fitness profiline atayın. 3) HA-Fitness kısa süre bağlanır, yalnızca daha önce görülmemiş FIT antrenmanlarını içe aktarır ve bağlantıyı keser. Tanı Eşleştirme gerekli gösterirse saati bir kez Home Assistant Bluetooth hostuyla eşleştirip Garmin antrenmanlarını şimdi senkronize et düğmesine basın. Senkronizasyon salt okunurdur: dosyalar senkronize işaretlenmez, arşivlenmez veya silinmez. Adaptör GFDI V0/V1 ya da V2 Multi-Link'i model listesiyle değil cihaz yetenekleriyle seçer. Doğrulanmamış yalnızca MLR aktarımı sonsuza kadar beklemek yerine sınırlı geri çekilme ile reddedilir. Algılanan Garmin cihazları: {garmin_devices}"
+        "description": "Uyumlu Garmin cihazları Bluetooth üzerinden doğrudan Home Assistant'a bağlanır; telefon gerekli değildir ve Garmin Connect eşleşmiş kalabilir. Bu rehber açıldığında yalnızca bir kısa, sınırlı Bluetooth taraması istenir ve Home Assistant Bluetooth önbelleğinin yalnızca sınırlı ilgili bölümü tekrar işlenir; keşif GATT açmaz. 1) Garmin'i yakında tutun. 2) Akıllı antrenman cihazlarında algılanan fiziksel cihazı seçip kurulumu tamamlayın; kayıtlı antrenmanların sahibi bu Fitness profili olur. 3) HA-Fitness aynı sınırlı arşiv worker'ını hemen başlatır, bond yoksa Home Assistant Bluetooth yolu üzerinden otomatik eşleşme ister, gerçek GATT yeteneklerini algılar, görülmemiş FIT antrenmanlarını içe aktarır ve bağlantıyı keser. Garmin onay, sayı, passkey veya izin gösterirse Garmin üzerinde kabul edin. Prompt görünmez ve Garmin last error Pairing required olursa Garmin'i Bluetooth eşleşme moduna alın ve Sync workouts now'a basın; SSH veya bluetoothctl normal kurulumun parçası değildir. Bluetooth/model adları sadece gösterim içindir ve protokol seçmez. Sync salt okunurdur: mark synced, arşivleme veya silme yoktur. Doğrulanmamış MLR-only güvenli şekilde seyrek backoff ile durur. Algılanan Garmin cihazları: {garmin_devices}"
       },
       "smart_workout_devices": {
         "title": "Akıllı antrenman cihazları",
@@ -354,35 +354,39 @@
         "title": "Akıllı antrenman cihazını ayarla",
         "description": "Fiziksel cihaz: {device}. Üretici: {vendor}. Algılanan model: {model}. Yetenekler: {capabilities}. Geçerli arşiv sahibi: {owner}. Cihaz türü ve model yalnızca görüntüleme/kurulum bilgisidir ve protokolü asla seçmez.",
         "data": {
-          "smart_device_type": "Cihaz türü",
-          "smart_device_model": "Model / görünen ad",
-          "transfer_smart_device_owner": "Kayıtlı antrenman sahipliğini bu Fitness profiline aktar"
+          "smart_device_owner_action": "Kayıtlı antrenman sahipliğini bu Fitness profiline aktar"
         },
         "data_description": {
-          "smart_device_type": "Yalnızca görüntüleme ve yönergeler için genel cihaz sınıfı; protokolü asla seçmez.",
-          "smart_device_model": "İsteğe bağlı model etiketi. Destek veya protokol kanıtı olarak kullanılmaz.",
-          "transfer_smart_device_owner": "Yalnızca kayıtlı antrenman içe aktarma sahipliğini bu profile taşır. Canlı atamalar değişmez."
+          "smart_device_owner_action": "Yalnızca kayıtlı antrenman içe aktarma sahipliğini bu profile taşır. Canlı atamalar değişmez."
         }
       },
       "smart_workout_device_ready": {
         "title": "Akıllı antrenman cihazı hazır",
-        "description": "{device} artık kayıtlı antrenman içe aktarımları için {owner} profiline aittir. Canlı özellikler mevcut atamalarla paylaşılmaya devam edebilir. {vendor} protokolü yeteneklere göre seçilir. Garmin Pairing required bildirirse Home Assistant Bluetooth ana bilgisayarıyla bir kez eşleştirip Sync workouts now kullanın."
+        "description": "{device}, kayıtlı antrenman içe aktarımları için artık {owner} sahibindedir. Live yetenekleri mevcut fiziksel sensör kurallarıyla paylaşılabilir. {vendor} protokol seçimi yetenek tabanlı kalır. Bluetooth bond gerekiyorsa Fitness ilk arşiv sync sırasında otomatik pairing başlatır. Cihazı yakında tutun ve gösterilen onay/kodu kabul edin. Pairing otomatik tamamlanamazsa vendor rehberini izleyip Sync workouts now kullanın; host üzerinde manuel pairing normal prosedür değildir. Status: {status}."
       },
       "smart_workout_vendor_setup": {
         "title": "{vendor} kurulum kılavuzu",
         "description": "Kılavuz için cihaz türünü ve isteğe bağlı model adını seçin. Bunlar yalnızca bilgi amaçlıdır; Fitness protokolü model adına göre seçmez.",
         "data": {
-          "smart_device_type": "Cihaz türü",
-          "smart_device_model": "Model / görünen ad"
+          "smart_device_type": "Cihaz türü"
         },
         "data_description": {
-          "smart_device_type": "Yalnızca görüntüleme ve yönergeler için genel cihaz sınıfı; protokolü asla seçmez.",
-          "smart_device_model": "İsteğe bağlı model etiketi. Destek veya protokol kanıtı olarak kullanılmaz."
+          "smart_device_type": "Yalnızca görüntüleme ve yönergeler için genel cihaz sınıfı; protokolü asla seçmez."
         }
       },
       "smart_workout_vendor_guide": {
         "title": "{vendor} bağlantı işlemi",
-        "description": "{vendor} {device_type} {model} için cihazı yakında tutun ve Fitness Bluetooth adaptörünü etkinleştirin. Keşif model adları yerine doğrulanmış protokol/üretici kanıtlarını kullanır. Garmin’i yalnızca senkronizasyon tanısı isterse eşleştirin. Algılanan cihazlar: {detected_devices}. Sınırlı taramayı yinelemek için gönderin."
+        "description": "{vendor} {device_type} {model} için: cihazı yakında tutun ve Fitness Bluetooth adaptörünü etkinleştirin. Fitness model adından değil doğrulanmış protokol/vendor kanıtından keşfeder. Kurulumdan sonra Fitness sınırlı arşiv sync'i otomatik başlatır ve cihaz bonded değilse Bluetooth pairing ister. Onay/kod/passkey görünürse kabul edin. Daha sonra prompt olmadan Pairing required görünürse cihazı Bluetooth pairing moduna alın ve Sync workouts now'a basın. Algılanan cihazlar: {detected_devices}. Göndererek sınırlı taramayı tekrarlayın."
+      },
+      "smart_workout_pairing_help": {
+        "title": "Eşleştirme yardımınızı gerektiriyor",
+        "description": "Fitness, {device} ile otomatik Bluetooth eşleştirmesini tamamlayamadı. Garmin telefonunuzla eşleşmiş kalsın. Garmin Connect veya mevcut telefon eşleşmesini kaldırmadan ek bir host kabul etmesi için Garmin üzerinde Bluetooth/Telefon eşleştirme ekranını açın. Garmin üzerindeki kod/passkey isteğini onaylayın. Garmin mevcut telefon eşleşmesini değiştireceğini veya kaldıracağını söylerse iptal edin ve daha sonra yapmayı seçin. Hazır olduğunda Şimdi yeniden dene seçeneğini seçin.",
+        "data": {
+          "smart_pairing_action": "Ne yapmak istiyorsunuz?"
+        },
+        "data_description": {
+          "smart_pairing_action": "Retry starts one bounded automatic pairing/sync attempt."
+        }
       }
     },
     "abort": {
@@ -3450,6 +3454,10 @@
     "ai_provider_unavailable": {
       "title": "Seçilen Fitness AI sağlayıcısı kullanılamıyor",
       "description": "Fitness `{entity_id}` kullanacak şekilde yapılandırılmış, ancak bu sağlayıcı şu anda kullanılamıyor. Fitness geçici olarak Home Assistant varsayılan AI Task'ını kullanır ve seçilen sağlayıcı yeniden kullanılabilir olduğunda otomatik olarak ona döner. AI sağlayıcısını Fitness seçeneklerinden de değiştirebilirsiniz."
+    },
+    "garmin_pairing_required": {
+      "title": "Garmin eşleştirme onayı istiyor",
+      "description": "Fitness `{device}` ile otomatik eşleştirmeyi tamamlayamadı. Garmin telefonla eşleşmiş kalsın. Bluetooth/Telefon eşleştirme modunu açın, Fitness > Akıllı antrenman cihazları > `{device}` bölümüne gidin ve Şimdi yeniden dene seçin. Garmin üzerinde onaylayın. Telefon eşleşmesi değiştirilecek/kaldırılacaksa iptal edin."
     }
   },
   "services": {
