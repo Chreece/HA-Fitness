@@ -111,8 +111,8 @@ def test_removed_account_is_forced_out_of_an_already_open_profile():
 
 
 def test_access_release_bumps_one_frontend_cache_revision():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-82"' in JS
-    assert '?v=unreleased-82' in DASH
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in JS
+    assert '?v=unreleased-85' in DASH
 
 
 def test_fitness_admin_can_keep_an_own_profile_and_ha_user_link_is_current():

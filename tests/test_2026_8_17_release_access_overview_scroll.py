@@ -10,7 +10,7 @@ MANIFEST = json.loads((ROOT / "custom_components/fitness/manifest.json").read_te
 
 
 def test_hassfest_lovelace_dependency_is_declared_for_alpha_release():
-    assert MANIFEST["version"] == "2026.8.01a03"
+    assert MANIFEST["version"] == "2026.8.01a04"
     assert "lovelace" in MANIFEST.get("after_dependencies", []) or "lovelace" in MANIFEST.get("dependencies", [])
 
 

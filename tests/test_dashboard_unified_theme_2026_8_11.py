@@ -47,4 +47,4 @@ def test_inner_metrics_are_mini_cards():
 
 
 def test_single_frontend_revision_contract_stays_unchanged():
-    assert 'const FITNESS_DASHBOARD_VERSION = "unreleased-82";' in FRONTEND
+    assert 'const FITNESS_DASHBOARD_VERSION = "unreleased-85";' in FRONTEND

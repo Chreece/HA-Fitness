@@ -46,7 +46,7 @@ def test_admin_account_profile_selector_is_in_fresh_setup_class_source():
 
 
 def test_revision_71_is_unique_and_uncached():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-82"' in FRONTEND
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in FRONTEND
     assert '_RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"' in DASHBOARD
     assert '"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"' in DASHBOARD
 
@@ -62,7 +62,7 @@ def test_versioned_tv_elements_are_actually_registered():
 
 def test_frontend_route_stays_stable_while_version_query_changes():
     assert '_RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"' in DASHBOARD
-    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-82"' in DASHBOARD
+    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-85"' in DASHBOARD
     assert 'FitnessDashboardResourceView(frontend_path / "fitness-dashboard.js")' in DASHBOARD
     assert 'await asyncio.to_thread(self._frontend_file.read_bytes)' in DASHBOARD
 

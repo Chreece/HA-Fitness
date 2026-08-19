@@ -44,5 +44,5 @@ def test_frontend_tracks_real_ma_queue_progress_and_seeks_ma():
 
 
 def test_frontend_revision_is_v77():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-82"' in FRONTEND
-    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-82"' in DASHBOARD
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in FRONTEND
+    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-85"' in DASHBOARD

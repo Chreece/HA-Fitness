@@ -7,7 +7,7 @@ HA-Fitness treats a smart workout device as **one physical device with multiple 
 1. Enable the Fitness Bluetooth adapter under **Sensors & Adapters**.
 2. Open the Fitness profile that should own the device's stored workouts.
 3. Open **Smart workout devices**.
-4. Fitness requests one short, bounded Bluetooth discovery sweep and lists detected physical workout-archive devices. Devices can also appear automatically through normal Home Assistant Bluetooth discovery, just like other Fitness sensors.
+4. Fitness requests one short, bounded Bluetooth discovery sweep and lists verified workout-archive devices plus strong vendor/protocol candidates that still need their first compatibility check. Devices can also appear automatically through normal Home Assistant Bluetooth discovery, just like other Fitness sensors. A candidate that is definitively proven incompatible is removed from the vendor setup choices rather than being presented as supported.
 5. Select the detected physical device. Fitness uses the detected model/name only as display metadata and does **not** ask you to type it again. If no other Fitness profile owns its stored-workout archive, selecting the device assigns it immediately to the current profile and starts the safe automatic setup.
 6. Fitness performs host-side Bluetooth pairing, capability detection, workout download and disconnect automatically. Keep normal phone/vendor-app pairing in place. If the device itself shows a confirmation/code/passkey, approve it there.
 7. Fitness asks a question only when there is a real decision or required action: an existing stored-workout owner must be kept/transferred, or automatic Bluetooth pairing needs the device put into pairing mode. These are presented as explicit choices rather than free-text fields.
@@ -16,7 +16,7 @@ HA-Fitness treats a smart workout device as **one physical device with multiple 
 
 The Smart workout devices page contains both detected physical devices and supported setup guides. For now the manual guided vendor flow includes Garmin. A guide may ask for a broad device type such as sport watch or bike computer when that changes the instructions, but it does not ask for a manually typed model name. The detected model is shown automatically after discovery. Actual support is always determined from verified manufacturer/protocol evidence and connected capabilities.
 
-A blank or unfamiliar consumer model name does not make a device unsupported when its protocol capabilities are known. Vendor adapters may request pairing through the generic Bluetooth connection helper, but pairing remains bounded and never becomes an unbounded background interaction loop.
+A blank or unfamiliar consumer model name does not make a device unsupported when its protocol capabilities are known. Advertisement/vendor evidence alone also does not make the workout archive supported: compatibility is promoted only after the connected adapter verifies its real protocol capabilities. Vendor adapters may request pairing through the generic Bluetooth connection helper, but pairing remains bounded and never becomes an unbounded background interaction loop.
 
 ## Physical-device merging
 
@@ -26,7 +26,7 @@ Fitness merges capabilities into the canonical physical device whenever strong i
 - a browser Bluetooth route and an autonomous Home Assistant Bluetooth route can merge when they expose the same strong physical identity;
 - ANT+ and Bluetooth routes can merge when serial/protocol identity or a conservative data-driven correlation proves they are the same physical unit.
 
-Model names alone are never sufficient merge evidence. Two people can own identical products, so same-name devices remain separate unless stronger identity is available.
+Model names alone are never sufficient merge evidence. Two people can own identical products, so same-name devices remain separate unless stronger identity is available. Conversely, a restored endpoint alias must never defeat contradictory protocol-backed vendor identity: Fitness releases the stale route, repairs the Home Assistant Device Registry connection set, and lets the incoming physical device receive its own collision-safe canonical ID instead of overwriting the unrelated device.
 
 Stored-workout ownership is intentionally separate from live workout ownership. A smart device has one primary Fitness profile for local archive imports, while live metrics keep the existing assignment and exclusive active-workout ownership rules.
 

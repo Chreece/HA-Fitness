@@ -65,9 +65,9 @@ def test_manage_ha_users_uses_exact_person_route_not_people_route():
 
 
 def test_frontend_resource_revision_is_68_and_synchronized():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-82"' in FRONTEND
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in FRONTEND
     assert '_RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"' in DASHBOARD
-    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-82"' in DASHBOARD
+    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-85"' in DASHBOARD
 
 
 def test_unreleased_frontend_uses_uncached_unique_resource_path():

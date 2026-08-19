@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from bleak import BleakClient
+from bleak.exc import BleakError
 from bleak_retry_connector import establish_connection
 from homeassistant.components import bluetooth
 from homeassistant.components.bluetooth import BluetoothScanningMode
@@ -14,23 +16,95 @@ from homeassistant.components.bluetooth.match import BluetoothCallbackMatcher
 
 from ..device_archives import DeviceArchiveRegistry
 from ..const import (
-    CAPABILITY_WORKOUT_HISTORY,
     METRIC_CADENCE,
     METRIC_DISTANCE,
     METRIC_HEART_RATE,
     METRIC_POWER,
     METRIC_SPEED,
 )
-from .cycplus_m1 import (
-    CYCPLUS_M1_SERVICE_UUID,
-    CycplusM1Coordinator,
-    cycplus_m1_identity,
-    cycplus_m1_serial_identity,
-)
 from .runtime import LiveSensor
 from .vendor_registry import decode_bluetooth_advertisement, vendor_registry_issues
 
 _LOGGER = logging.getLogger(__name__)
+
+_SOURCE_PINNED_CLIENT_CLASSES: dict[str, type] = {}
+
+def _source_pinned_client_class(source: str):
+    """Return an HA Bleak client class constrained to one scanner source.
+
+    Home Assistant's HA Bleak wrapper intentionally re-ranks every scanner that
+    can see an address at connect time.  That behavior is excellent for normal
+    stateless sensors, but a secure bond belongs to one Bluetooth central.
+    Archive adapters may therefore request a source pin while still going through
+    bleak-retry-connector and HA's connection-slot allocator.
+
+    This helper is transport-generic: callers provide only HA's scanner source ID.
+    No vendor or physical-device matching belongs here.
+    """
+    source = str(source or "")
+    if not source:
+        return BleakClient
+    cached = _SOURCE_PINNED_CLIENT_CLASSES.get(source)
+    if cached is not None:
+        return cached
+
+    class FitnessSourcePinnedBleakClient(BleakClient):
+        _fitness_required_source = source
+
+        def __init__(self, address_or_ble_device, *args, **kwargs):
+            self._fitness_address = str(
+                getattr(address_or_ble_device, "address", address_or_ble_device)
+            )
+            super().__init__(address_or_ble_device, *args, **kwargs)
+
+        def _async_get_best_available_backend_and_device(self, manager):
+            routes_for_address = getattr(
+                manager, "async_scanner_devices_by_address", None
+            )
+            backend_for_route = getattr(
+                self, "_async_get_backend_for_ble_device", None
+            )
+            if routes_for_address is None or backend_for_route is None:
+                raise BleakError(
+                    "Bluetooth source pinning requires Home Assistant's HA Bluetooth client"
+                )
+
+            saw_source = False
+            for route in routes_for_address(self._fitness_address, True):
+                scanner = getattr(route, "scanner", None)
+                route_source = str(getattr(scanner, "source", None) or "")
+                if route_source != self._fitness_required_source:
+                    continue
+                saw_source = True
+                backend = backend_for_route(
+                    manager, scanner, getattr(route, "ble_device", None)
+                )
+                if backend is not None:
+                    _LOGGER.debug(
+                        "Bluetooth source pin selected %s (%s) for %s",
+                        getattr(scanner, "name", route_source),
+                        route_source,
+                        self._fitness_address,
+                    )
+                    return backend
+                raise BleakError(
+                    f"Bluetooth source {route_source} has no free connection slot "
+                    f"for {self._fitness_address}"
+                )
+
+            if saw_source:
+                raise BleakError(
+                    f"Bluetooth source {self._fitness_required_source} cannot connect "
+                    f"to {self._fitness_address}"
+                )
+            raise BleakError(
+                f"Bluetooth source {self._fitness_required_source} cannot currently "
+                f"reach {self._fitness_address}"
+            )
+
+    FitnessSourcePinnedBleakClient.__name__ = "FitnessSourcePinnedBleakClient"
+    _SOURCE_PINNED_CLIENT_CLASSES[source] = FitnessSourcePinnedBleakClient
+    return FitnessSourcePinnedBleakClient
 
 BASE = "0000{}-0000-1000-8000-00805f9b34fb"
 SERVICE_HR = BASE.format("180d")
@@ -73,7 +147,6 @@ SERVICE_CAPABILITIES = {
         METRIC_DISTANCE,
         METRIC_HEART_RATE,
     },
-    CYCPLUS_M1_SERVICE_UUID: {CAPABILITY_WORKOUT_HISTORY},
 }
 
 CHARACTERISTIC_CAPABILITIES = {
@@ -177,12 +250,15 @@ class BluetoothFitnessProvider:
         self._provisional_passive_last_decode: dict[str, float] = {}
         self._identity_probe_tasks: dict[str, asyncio.Task] = {}
         self._identity_probe_last_attempt: dict[str, float] = {}
+        # Device deletion rediscovery is one bounded timer per address. It exists
+        # only to bridge Fitness's short anti-resurrection quarantine; normal BLE
+        # discovery never polls or starts a private scanner.
+        self._rediscovery_handles: dict[str, asyncio.TimerHandle] = {}
         # Setup/config-flow discovery is control-plane work.  Coalesce concurrent
         # requests and enforce a short cooldown so opening the guide repeatedly
         # cannot force the Bluetooth stack into continuous active scanning.
         self._discovery_refresh_lock = asyncio.Lock()
         self._last_discovery_refresh = -DISCOVERY_REFRESH_MIN_INTERVAL
-        self.cycplus_m1 = CycplusM1Coordinator(self)
         self.device_archives = DeviceArchiveRegistry(self)
         # Raw BLE fitness measurements require an active GATT subscription, but
         # Fitness deliberately does not keep telemetry GATT open while idle.
@@ -202,7 +278,6 @@ class BluetoothFitnessProvider:
             self.last_error = "Home Assistant Bluetooth could not be initialized"
             return
 
-        await self.cycplus_m1.async_setup()
         await self.device_archives.async_setup()
 
         # Let Home Assistant's Bluetooth manager discard unrelated devices before
@@ -248,12 +323,7 @@ class BluetoothFitnessProvider:
         """Cheaply reject unrelated cached BLE devices before runtime work."""
         manufacturer_data = getattr(info, "manufacturer_data", {}) or {}
         uuids = {str(value).lower() for value in (getattr(info, "service_uuids", None) or [])}
-        cycplus_identity = cycplus_m1_identity(getattr(info, "name", None), uuids)
-        for service_uuid in SERVICE_CAPABILITIES:
-            if service_uuid not in uuids:
-                continue
-            if service_uuid == CYCPLUS_M1_SERVICE_UUID and cycplus_identity is None:
-                continue
+        if any(service_uuid in uuids for service_uuid in SERVICE_CAPABILITIES):
             return True
         return self.device_archives.match_bluetooth(
             getattr(info, "name", None), uuids, manufacturer_data
@@ -350,7 +420,6 @@ class BluetoothFitnessProvider:
         manufacturer_data = getattr(info, "manufacturer_data", {}) or {}
         service_data = getattr(info, "service_data", {}) or {}
         uuids = {str(x).lower() for x in (info.service_uuids or [])}
-        cycplus_identity = cycplus_m1_identity(info.name, uuids)
         archive_advertisement = self.device_archives.match_bluetooth(
             info.name, uuids, manufacturer_data
         )
@@ -358,18 +427,36 @@ class BluetoothFitnessProvider:
         capabilities: set[str] = set()
         for service, caps in SERVICE_CAPABILITIES.items():
             if service in uuids:
-                # Nordic UART is shared by many unrelated products.  The M1
-                # archive capability is accepted only when its documented local
-                # name and service are both present.
-                if service == CYCPLUS_M1_SERVICE_UUID and cycplus_identity is None:
-                    continue
                 capabilities.update(caps)
         if archive_advertisement is not None:
             capabilities.update(archive_advertisement.capabilities)
-        if not capabilities:
+        # A direct archive advertisement may be only a vendor candidate until a
+        # bounded GATT handshake proves archive compatibility. Keep that candidate
+        # discoverable without prematurely granting workout-history capability.
+        if not capabilities and archive_advertisement is None:
             return
 
         endpoint_id = f"bluetooth:{address}"
+        identity_metadata = {
+            "advertised_name": info.name,
+            "service_uuids": sorted(uuids),
+            "connectable": bool(getattr(info, "connectable", False)),
+            "manufacturer_data_ids": sorted(int(x) for x in manufacturer_data),
+            **(archive_advertisement.metadata if archive_advertisement is not None else {}),
+        }
+
+        # A restored endpoint alias is not authoritative when the newly observed
+        # protocol/vendor identity contradicts the old physical device. Release
+        # the route first, then let normal registration create the correct
+        # protocol-owned candidate.
+        detached_sensor_id = self.runtime.detach_conflicting_endpoint_alias(
+            endpoint_id, self.transport, identity_metadata
+        )
+        if detached_sensor_id is not None:
+            self.device_archives.identity_conflict_repaired(detached_sensor_id)
+            self._provisional_identity_signature.pop(endpoint_id, None)
+            self._last_discovery_fingerprint.pop(endpoint_id, None)
+
         now_mono = self.hass.loop.time()
 
         # One advertisement can match several service-specific callback
@@ -449,14 +536,7 @@ class BluetoothFitnessProvider:
                 last_seen=datetime.now(timezone.utc),
                 rssi=getattr(info, "rssi", None),
                 available=True,
-                metadata={
-                    "advertised_name": info.name,
-                    "service_uuids": sorted(uuids),
-                    "connectable": bool(getattr(info, "connectable", False)),
-                    "manufacturer_data_ids": sorted(int(x) for x in manufacturer_data),
-                    **(cycplus_identity or {}),
-                    **(archive_advertisement.metadata if archive_advertisement is not None else {}),
-                },
+                metadata=identity_metadata,
             )
             self._provisional_identity_signature[endpoint_id] = identity_signature
             accepted = self.runtime.sensor_is_accepted(sensor.sensor_id)
@@ -496,8 +576,6 @@ class BluetoothFitnessProvider:
                 metadata=detail_meta,
             )
 
-        if cycplus_identity is not None:
-            self.cycplus_m1.advertise(sensor.sensor_id, cycplus_identity)
         if archive_advertisement is not None:
             self.device_archives.advertise(sensor.sensor_id, archive_advertisement)
 
@@ -560,23 +638,26 @@ class BluetoothFitnessProvider:
         sensor = self.runtime.sensors.get(self.runtime.resolve_sensor_id(sensor_id))
         endpoint = sensor.endpoints.get("bluetooth") if sensor is not None else None
         metadata = endpoint.metadata if endpoint is not None else {}
-        direct = self.device_archives.coordinator_for_metadata(metadata)
-        if direct is not None:
-            return direct
-        if metadata.get("cycplus_protocol") == "m1_ble_fit_archive_v1":
-            return self.cycplus_m1
-        return None
+        return self.device_archives.coordinator_for_metadata(metadata)
 
     def sensor_acceptance_changed(self, sensor_id: str, accepted: bool) -> None:
         """Probe identity on acceptance; never keep idle telemetry GATT open."""
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
-        coordinator = self._archive_coordinator(sensor_id)
-        if coordinator is not None:
-            coordinator.acceptance_changed(sensor_id, accepted)
-            if accepted:
-                return
+        sensor = self.runtime.sensors.get(sensor_id)
+        endpoint = sensor.endpoints.get("bluetooth") if sensor is not None else None
+        metadata = endpoint.metadata if endpoint is not None else {}
+        self.device_archives.acceptance_changed(sensor_id, accepted, metadata)
         if accepted:
-            self._schedule_identity_probe(sensor_id)
+            # Archive adapters may own a pairing-sensitive first connection.  The
+            # generic DIS probe must stay out of the way when the adapter declares
+            # that policy; this keeps the transport vendor-neutral while avoiding a
+            # second short-lived GATT session before a stable bond is established.
+            if self.device_archives.generic_identity_probe_allowed(metadata):
+                self._schedule_identity_probe(sensor_id)
+            else:
+                pending_probe = self._identity_probe_tasks.pop(sensor_id, None)
+                if pending_probe is not None and not pending_probe.done():
+                    pending_probe.cancel()
         else:
             self._schedule_unowned_disconnect(sensor_id)
 
@@ -603,8 +684,34 @@ class BluetoothFitnessProvider:
         if task is not None and not task.done():
             task.cancel()
         self._identity_probe_last_attempt.pop(canonical, None)
-        self.cycplus_m1.forget_sensor(canonical)
         self.device_archives.forget_sensor(canonical)
+
+        if endpoint_id and endpoint_id.startswith("bluetooth:") and not endpoint_id.startswith("bluetooth:web:"):
+            address = endpoint_id.split(":", 1)[1].strip().upper()
+            if re.fullmatch(r"(?:[0-9A-F]{2}:){5}[0-9A-F]{2}", address):
+                # Prepare the next live advertisement immediately, then trigger
+                # one cached rediscovery after Runtime's five-second tombstone
+                # quarantine. Home Assistant explicitly recommends rediscovery
+                # after a Bluetooth-backed device is removed.
+                clear_match = getattr(bluetooth, "async_clear_address_from_match_history", None)
+                if clear_match is not None:
+                    try:
+                        clear_match(self.hass, address)
+                    except Exception:
+                        _LOGGER.debug("Unable to clear Bluetooth match history for %s", address, exc_info=True)
+                previous = self._rediscovery_handles.pop(address, None)
+                if previous is not None:
+                    previous.cancel()
+
+                def _rediscover() -> None:
+                    self._rediscovery_handles.pop(address, None)
+                    try:
+                        bluetooth.async_rediscover_address(self.hass, address)
+                    except Exception:
+                        _LOGGER.debug("Unable to rediscover deleted Bluetooth device %s", address, exc_info=True)
+
+                self._rediscovery_handles[address] = self.hass.loop.call_later(5.5, _rediscover)
+
         self._schedule_unowned_disconnect(canonical)
 
     def sensor_assignment_changed(self, sensor_id: str) -> None:
@@ -675,11 +782,13 @@ class BluetoothFitnessProvider:
         endpoint = sensor.endpoints.get(self.transport) if sensor is not None else None
         if sensor is None or endpoint is None or not endpoint.address:
             return
+        if not self.device_archives.generic_identity_probe_allowed(endpoint.metadata):
+            return
         if endpoint.metadata.get("identity_source") == "gatt_device_information":
             return
         # `BluetoothServiceInfoBleak.connectable` describes the scanner/path that
         # delivered an advertisement, not whether *any* Home Assistant Bluetooth
-        # controller can connect to this address. A Forerunner may therefore be
+        # controller can connect to this address. A wearable may therefore be
         # observed by a passive/non-connectable proxy while a local adapter or a
         # different proxy has a connectable route. HA explicitly recommends
         # resolving a connectable BLEDevice for this decision.
@@ -716,6 +825,11 @@ class BluetoothFitnessProvider:
             sensor = self.runtime.sensors.get(sensor_id)
             endpoint = sensor.endpoints.get(self.transport) if sensor is not None else None
             if sensor is None or endpoint is None or not endpoint.address:
+                return
+            # Re-check after taking the device lock.  A probe may have been queued
+            # while discovery metadata was still incomplete and then become
+            # forbidden when a secure archive adapter claimed the endpoint.
+            if not self.device_archives.generic_identity_probe_allowed(endpoint.metadata):
                 return
             if endpoint.metadata.get("identity_source") == "gatt_device_information":
                 return
@@ -779,15 +893,18 @@ class BluetoothFitnessProvider:
         *,
         max_attempts: int,
         pair: bool = False,
+        source: str | None = None,
     ):
-        """Use HA's proxy-aware retry connector, optionally requesting pairing.
+        """Use HA's retry connector, optionally pairing on one exact scanner.
 
-        ``pair`` is a transport-level capability, not vendor logic. Archive
-        adapters can request a one-time bond without bypassing Home Assistant's
-        connection-slot management or calling ``BleakClient.connect`` directly.
+        ``pair`` and ``source`` are transport-level capabilities, not vendor logic.
+        A source pin is needed for secure devices whose bond belongs to a specific
+        Bluetooth central; the client still uses Home Assistant's backend and
+        connection-slot allocation through ``bleak-retry-connector``.
         """
+        client_class = _source_pinned_client_class(source) if source else BleakClient
         return await establish_connection(
-            BleakClient,
+            client_class,
             device=ble_device,
             name=name,
             max_attempts=max_attempts,
@@ -975,22 +1092,12 @@ class BluetoothFitnessProvider:
             characteristic_uuids = sorted(characteristic_properties)
         except Exception:
             service_uuids, characteristic_uuids, characteristic_properties = [], [], {}
-        # The M1 GATT serial ends with the same per-device number as its
-        # ``M1_XXXX`` local name. Some scanners/routes expose only one of those
-        # facts, so bridge them after the connected service database proves this
-        # is the CYCPLUS archive protocol rather than an unrelated Nordic-UART
-        # peripheral.
-        verified_services = {
-            str(value).lower()
-            for value in (
-                list(metadata.get("service_uuids") or []) + service_uuids
-            )
-        }
-        serial_identity = cycplus_m1_serial_identity(
-            metadata.get("serial_number")
+        # Device-specific interpretation of generic GATT identity facts belongs
+        # to the archive adapter registry, never to the Bluetooth transport.
+        verified_services = list(metadata.get("service_uuids") or []) + service_uuids
+        metadata = self.device_archives.enrich_connected_metadata(
+            metadata, verified_services
         )
-        if CYCPLUS_M1_SERVICE_UUID in verified_services and serial_identity:
-            metadata.update(serial_identity)
         if service_uuids:
             metadata["gatt_services"] = service_uuids
             details["bluetooth_gatt_services"] = ", ".join(service_uuids)
@@ -1200,7 +1307,6 @@ class BluetoothFitnessProvider:
         ]
 
     async def async_shutdown(self) -> None:
-        await self.cycplus_m1.async_shutdown()
         await self.device_archives.async_shutdown()
         for unsub in tuple(self._unsubs):
             try:
@@ -1214,6 +1320,9 @@ class BluetoothFitnessProvider:
                 task.cancel()
         self._identity_probe_tasks.clear()
         self._identity_probe_last_attempt.clear()
+        for handle in tuple(self._rediscovery_handles.values()):
+            handle.cancel()
+        self._rediscovery_handles.clear()
         for profile_id in tuple(self._profile_clients):
             await self.async_disconnect_profile(profile_id, keep_heart_rate=False)
         # Defensive cleanup: any remaining client should be profile-owned, but

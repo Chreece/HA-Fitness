@@ -27,6 +27,19 @@ def test_manual_registry_creation_does_not_mix_default_name_with_primary_fields(
     assert '"default_name"' not in block
 
 
+
+
+def test_existing_physical_device_registry_name_is_refreshed_after_identity_enrichment():
+    block = RUNTIME.split("def ensure_sensor_device", 1)[1].split(
+        "def request_hub_reload", 1
+    )[0]
+    assert 'registry_updates = {' in block
+    assert '"name": info.get("name") or "Fitness sensor"' in block
+    assert 'registry.async_update_device(device.id, **registry_updates)' in block
+    # Integration-owned identity may be refreshed, but no user-name update is passed.
+    assert '"name_by_user":' not in block
+    assert 'name_by_user=' not in block
+
 def test_adapter_device_info_avoids_primary_plus_translation_key_mix():
     block = RUNTIME.split("def adapter_device_info", 1)[1].split(
         "def sensor_device_info", 1
@@ -82,3 +95,10 @@ def test_hr_baseline_has_explicit_baseline_current_difference_and_heat_axis():
     assert "heat-axis" in comparison
     assert "linear-gradient(90deg,#e53935" in comparison
     assert "baseline = current - value" in comparison
+
+
+def test_generic_placeholder_user_name_can_be_migrated_but_real_user_names_are_preserved():
+    text = (ROOT / "custom_components/fitness/live/runtime.py").read_text(encoding="utf-8")
+    assert 'getattr(device, "name_by_user", None)' in text
+    assert '== "Fitness sensor"' in text
+    assert 'registry_updates["name_by_user"] = None' in text

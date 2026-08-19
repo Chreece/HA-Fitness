@@ -181,6 +181,8 @@ def cycplus_m1_identity(
         return None
     result = {
         "manufacturer": "CYCPLUS",
+        "fitness_vendor_identity": "cycplus",
+        "archive_compatible": True,
         "model": "CYCPLUS M1 GPS Bike Computer",
         "model_id": "M1",
         "cycplus_protocol": "m1_ble_fit_archive_v1",

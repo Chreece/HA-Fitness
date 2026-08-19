@@ -24,14 +24,16 @@
       },
       "required": {
         "title": "Profielgegevens",
-        "description": "Gewicht is verplicht. Rusthartslag is optioneel en kan later worden toegevoegd. Elk veld accepteert een getal of een compatibele Home Assistant-entiteit; eenheden worden automatisch genormaliseerd.",
+        "description": "Het huidige gewicht is verplicht. Optioneel kun je een Home Assistant-weegschaalsensor kiezen. Dezelfde weegschaal kan door meerdere Fitness-profielen worden gedeeld; nieuwe metingen worden gekoppeld en moeten altijd worden bevestigd voordat een profiel wordt bijgewerkt.",
         "data": {
-          "weight": "Gewicht (kg of entiteit)",
-          "resting_hr": "Rusthartslag (bpm of entiteit)"
+          "weight": "Huidig gewicht (kg)",
+          "resting_hr": "Rusthartslag (bpm of entiteit)",
+          "weight_scale_entity": "Gedeelde weegschaal (optioneel)"
         },
         "data_description": {
-          "weight": "Lichaamsgewicht. Gebruikt voor W/kg en gewichtsgenormaliseerde metrics. Voer kg in of kies een compatibele entiteit; eenheden worden omgerekend.",
-          "resting_hr": "Rusthartslag in bpm. Gebruikt voor %HRR, intensiteitsclassificatie en Banister TRIMP. Gebruik een echte rusthartslag."
+          "weight": "Je huidige bevestigde lichaamsgewicht in kilogram. Je kunt dit altijd handmatig aanpassen.",
+          "resting_hr": "Rusthartslag in bpm. Gebruikt voor %HRR, intensiteitsclassificatie en Banister TRIMP. Gebruik een echte rusthartslag.",
+          "weight_scale_entity": "Kies een compatibele gewichtssensor in Home Assistant. De weegschaal kan door meerdere Fitness-profielen worden gedeeld. Na een nieuwe meting stelt Fitness voor wie is gewogen en vraagt om bevestiging voordat het gewicht wordt aangepast."
         }
       },
       "optional": {
@@ -151,13 +153,36 @@
           "tv_dashboard_ytdlp_enabled": "yt-dlp is een optionele adapter van derden en is niet verbonden aan YouTube of andere diensten. Je bent zelf verantwoordelijk voor naleving van wetgeving, servicevoorwaarden en auteursrecht en voor benodigde toestemmingen. Fitness levert geen cookies, staat geen omzeiling of herdistributie toe en biedt de adapter zonder garantie; dit is geen juridisch advies.",
           "tv_dashboard_ignore_lights_when_cast_active": "Wanneer een Fitness TV Cast-ontvanger actief is, gebruik je de tv voor trainingsfeedback en blijven de geconfigureerde trainingslampen ongewijzigd."
         }
+      },
+      "first_install": {
+        "title": "Fitness instellen",
+        "description": "Kies wat je eerst wilt toevoegen. Je kunt het andere onderdeel later toevoegen zonder de bestaande profielstroom te wijzigen.",
+        "menu_options": {
+          "add_protocol": "Sensorprotocol toevoegen",
+          "add_user": "Gebruikersprofiel toevoegen"
+        }
+      },
+      "add_user": {
+        "title": "Gebruikersprofiel toevoegen",
+        "description": "Ga verder met de normale instelling van het Fitness-profiel."
+      },
+      "add_protocol": {
+        "title": "Sensorprotocol toevoegen",
+        "description": "Schakel één lokaal sensortransport in. Fitness maakt het adapterapparaat en houdt detectie begrensd en onder gebruikerscontrole.",
+        "data": {
+          "protocol": "Sensorprotocol"
+        },
+        "data_description": {
+          "protocol": "Kies welk lokaal radiotransport Fitness nu moet inschakelen. Het andere blijft beschikbaar maar uitgeschakeld totdat je het activeert."
+        }
       }
     },
     "error": {
       "invalid_date": "Voer een geldige geboortedatum in het verleden in.",
       "invalid_number_or_entity": "Voer een geldige numerieke waarde of Home Assistant-entiteits-ID in.",
       "select_profile": "Selecteer minstens één Fitness-gebruiker.",
-      "select_smart_device_owner": "Kies precies één Fitness-profiel als eigenaar van opgeslagen trainingen. Livefuncties kunnen later met meer profielen worden gedeeld."
+      "select_smart_device_owner": "Kies precies één Fitness-profiel als eigenaar van opgeslagen trainingen. Livefuncties kunnen later met meer profielen worden gedeeld.",
+      "invalid_protocol": "Kies een ondersteund sensorprotocol."
     },
     "abort": {
       "already_configured": "Er bestaat al een Fitness-profiel met deze naam.",
@@ -183,7 +208,10 @@
           "sleep_devices": "Slaapapparaten",
           "sensor_assignments": "Sensortoewijzingen",
           "tv_dashboard": "Fitness TV-dashboard",
-          "smart_workout_devices": "Slimme trainingsapparaten"
+          "smart_workout_devices": "Slimme trainingsapparaten",
+          "protocols": "Sensorprotocollen",
+          "features": "Dashboardfuncties",
+          "about": "Over Fitness"
         }
       },
       "profile": {
@@ -206,26 +234,28 @@
       },
       "fitness_inputs": {
         "title": "Fitnessgegevens en beginwaarden",
-        "description": "Elk veld accepteert een getal of een compatibele entiteit. Alleen gewicht is verplicht; rusthartslag en alle andere fysiologische invoer zijn optioneel en kunnen later worden toegevoegd of verwijderd.",
+        "description": "Stel het huidige bevestigde gewicht van het profiel in en eventueel een gedeelde weegschaal. Andere fysiologische invoer kan compatibele Home Assistant-entiteiten blijven gebruiken. Gedeelde metingen wijzigen nooit een profiel zonder bevestiging.",
         "data": {
-          "weight": "Gewicht (kg of entiteit)",
+          "weight": "Huidig gewicht (kg)",
           "resting_hr": "Rusthartslag (bpm of entiteit)",
           "height": "Lengte (cm of entiteit)",
           "max_hr": "Maximale hartslag (bpm of entiteit)",
           "vo2max": "VO₂max (mL/kg/min of entiteit)",
           "threshold_hr": "Drempelhartslag (bpm of entiteit)",
           "threshold_pace": "Drempeltempo (min/km of entiteit)",
-          "threshold_power": "Drempelvermogen (W of entiteit)"
+          "threshold_power": "Drempelvermogen (W of entiteit)",
+          "weight_scale_entity": "Gedeelde weegschaal (optioneel)"
         },
         "data_description": {
-          "weight": "Lichaamsgewicht. Gebruikt voor W/kg en gewichtsgenormaliseerde metrics. Voer kg in of kies een compatibele entiteit; eenheden worden omgerekend.",
+          "weight": "Je huidige bevestigde lichaamsgewicht in kilogram. Je kunt dit altijd handmatig aanpassen.",
           "resting_hr": "Rusthartslag in bpm. Gebruikt voor %HRR, intensiteitsclassificatie en Banister TRIMP. Gebruik een echte rusthartslag.",
           "height": "Lengte. Optionele profielcontext. Handmatige waarde in cm; entiteitseenheden worden omgerekend.",
           "max_hr": "Fysiologische/ingestelde maximale hartslag in bpm. Gebruikt voor %HRmax, %HRR en TRIMP; niet afgeleid van één trainingsmaximum.",
           "vo2max": "VO₂max in mL/kg/min, gebruikt voor cardiorespiratoire vergelijkingen en langetermijnevaluatie.",
           "threshold_hr": "Drempelhartslag in bpm, gebruikt om inspanning met de ingestelde drempel te vergelijken.",
           "threshold_pace": "Hardloopdrempeltempo in min/km. Snelheidsentiteiten in m/s of km/h worden automatisch omgerekend.",
-          "threshold_power": "Drempelvermogen in watt. Gebruikt voor drempelrelatief vermogen en W/kg; meerdere dubbelzinnige FTP-bronnen worden niet automatisch gekozen."
+          "threshold_power": "Drempelvermogen in watt. Gebruikt voor drempelrelatief vermogen en W/kg; meerdere dubbelzinnige FTP-bronnen worden niet automatisch gekozen.",
+          "weight_scale_entity": "Kies een compatibele gewichtssensor in Home Assistant. De weegschaal kan door meerdere Fitness-profielen worden gedeeld. Na een nieuwe meting stelt Fitness voor wie is gewogen en vraagt om bevestiging voordat het gewicht wordt aangepast."
         }
       },
       "live_devices": {
@@ -387,6 +417,44 @@
         "data_description": {
           "smart_pairing_action": "Retry starts one bounded automatic pairing/sync attempt."
         }
+      },
+      "protocols": {
+        "title": "Sensorprotocollen",
+        "description": "Schakel lokale sensortransporten in of uit. Een transport dat in gebruik is wordt pas na afloop van de sessie uitgeschakeld.",
+        "data": {
+          "bluetooth": "Bluetooth-protocol",
+          "antplus": "ANT+-protocol"
+        },
+        "data_description": {
+          "bluetooth": "Schakelt Home Assistant Bluetooth in voor lokale Fitness-sensoren en ondersteunde apparaatarchieven.",
+          "antplus": "Schakelt lokaal ANT+ in voor compatibele USB-ontvangers en Fitness-sensoren."
+        }
+      },
+      "features": {
+        "title": "Dashboardfuncties",
+        "description": "Kies optionele dashboardmodules en bestaande Home Assistant-entiteiten. Deze opties voegen geen netwerkpolling op de achtergrond toe.",
+        "data": {
+          "dashboard_modules": "Dashboardmodules",
+          "dashboard_theme": "Home Assistant-thema",
+          "dashboard_rss_entity_ids": "RSS-/nieuwssensoren",
+          "dashboard_music_entity_ids": "Muziekspelers",
+          "dashboard_light_entity_ids": "Lampen",
+          "dashboard_video_entity_ids": "TV-/videospelers",
+          "dashboard_weather_entity_id": "Weerentiteit"
+        },
+        "data_description": {
+          "dashboard_modules": "Kies welke optionele Fitness- en Home Assistant-modules op het dashboard van dit profiel worden getoond.",
+          "dashboard_theme": "Gebruik de naam van een geïnstalleerd Home Assistant-thema of Home Assistant voor het normale systeemthema.",
+          "dashboard_rss_entity_ids": "Selecteer bestaande Home Assistant-sensoren die al RSS- of nieuwsgegevens leveren; Fitness haalt zelf geen feeds op.",
+          "dashboard_music_entity_ids": "Selecteer bestaande mediaspelers voor Home Assistant-mediabediening op het Fitness-dashboard.",
+          "dashboard_light_entity_ids": "Selecteer bestaande lichtentiteiten voor een compacte bedieningsgroep op het dashboard.",
+          "dashboard_video_entity_ids": "Selecteer bestaande TV- of videospelers voor Home Assistant-mediabediening.",
+          "dashboard_weather_entity_id": "Selecteer een bestaande Home Assistant-weerentiteit voor de optionele weerkaart."
+        }
+      },
+      "about": {
+        "title": "Over Fitness",
+        "description": "Geïnstalleerde versie: {version}\n\n{changelog}"
       }
     },
     "abort": {
@@ -3382,6 +3450,12 @@
       },
       "garmin_sync_workouts": {
         "name": "Garmin-workouts nu synchroniseren"
+      },
+      "adapter_scan_now": {
+        "name": "Nu scannen"
+      },
+      "sync_device_health_history": {
+        "name": "Gezondheidsgeschiedenis van apparaat synchroniseren"
       }
     },
     "select": {
@@ -3422,6 +3496,20 @@
         "11": "November",
         "12": "December"
       }
+    },
+    "dashboard_module": {
+      "options": {
+        "core": "Kernkaarten van Fitness",
+        "training_ai": "AI-trainingscoach",
+        "body_composition": "Lichaamssamenstelling / gewichtstrends",
+        "workout_browser": "Workoutbrowser",
+        "rss": "RSS / nieuws",
+        "music": "Muziek",
+        "tts": "Tekst-naar-spraak",
+        "lights": "Lampen",
+        "video": "TV / videoweergave",
+        "weather": "Weer"
+      }
     }
   },
   "device": {
@@ -3458,6 +3546,10 @@
     "garmin_pairing_required": {
       "title": "Garmin heeft koppelbevestiging nodig",
       "description": "Fitness kon het automatisch Bluetooth-koppelen met `{device}` niet afronden. Laat Garmin gekoppeld aan je telefoon. Zet Garmin in Bluetooth-/Telefoon-koppelmodus, open Fitness > Slimme trainingsapparaten > `{device}` en kies Opnieuw proberen. Bevestig op Garmin. Annuleer als de bestaande telefoonkoppeling wordt vervangen/verwijderd."
+    },
+    "device_user_action_required": {
+      "title": "{device} vereist uw aandacht",
+      "description": "Fitness kan de directe synchronisatie met `{device}` pas voortzetten nadat u een stap op het apparaat hebt voltooid. {reason}\n\nVolg deze stappen:\n{instructions}\n\nKies Repareren om de stappen te bevestigen en eventuele gevraagde waarden in te voeren."
     }
   },
   "services": {

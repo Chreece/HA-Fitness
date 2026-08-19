@@ -75,7 +75,7 @@ def test_lovelace_uses_stable_card_contract_and_current_module_registers_aliases
 
 
 def test_frontend_server_version_contract_can_force_reload_after_future_update():
-    assert '"frontend_version": "unreleased-82"' in DASH
+    assert '"frontend_version": "unreleased-85"' in DASH
     assert '_fitnessEnsureFrontendVersion' in JS
     assert 'location.reload();' in JS
 

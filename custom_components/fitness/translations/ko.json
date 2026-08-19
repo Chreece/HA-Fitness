@@ -24,14 +24,16 @@
       },
       "required": {
         "title": "프로필 입력",
-        "description": "체중은 필수입니다. 안정 시 심박수는 선택 사항이며 나중에 추가할 수 있습니다. 각 필드는 숫자 값 또는 호환되는 Home Assistant 엔티티를 사용할 수 있으며 단위는 자동으로 정규화됩니다.",
+        "description": "현재 체중은 필수입니다. 필요하면 Home Assistant 체중계 센서를 선택할 수 있습니다. 하나의 체중계를 여러 Fitness 프로필이 공유할 수 있으며, 새 측정값은 사용자를 추정한 뒤 프로필을 업데이트하기 전에 항상 확인을 요청합니다.",
         "data": {
-          "weight": "체중(kg 또는 엔티티)",
-          "resting_hr": "안정시 심박수(bpm 또는 엔티티)"
+          "weight": "현재 체중 (kg)",
+          "resting_hr": "안정시 심박수(bpm 또는 엔티티)",
+          "weight_scale_entity": "공유 체중계 (선택 사항)"
         },
         "data_description": {
-          "weight": "체중. W/kg 및 체중 정규화 지표에 사용합니다. kg를 입력하거나 호환 엔티티를 선택하며 단위는 자동 변환됩니다.",
-          "resting_hr": "안정시 심박수(bpm). %HRR, 강도 분류, Banister TRIMP에 사용합니다. 운동 중 최저값이 아닌 실제 안정시 HR을 사용하세요."
+          "weight": "현재 확인된 체중(kg)입니다. 언제든 수동으로 변경할 수 있습니다.",
+          "resting_hr": "안정시 심박수(bpm). %HRR, 강도 분류, Banister TRIMP에 사용합니다. 운동 중 최저값이 아닌 실제 안정시 HR을 사용하세요.",
+          "weight_scale_entity": "호환되는 Home Assistant 체중 센서를 선택하세요. 여러 Fitness 프로필이 같은 체중계를 공유할 수 있습니다. 새 측정 후 Fitness가 사용자를 제안하고 체중을 변경하기 전에 확인을 요청합니다."
         }
       },
       "optional": {
@@ -151,13 +153,36 @@
           "tv_dashboard_ytdlp_enabled": "yt-dlp는 선택형 타사 어댑터이며 YouTube 또는 기타 서비스와 제휴하지 않습니다. 법률, 서비스 약관, 저작권을 준수하고 필요한 권한을 얻을 책임은 전적으로 사용자에게 있습니다. Fitness는 계정 쿠키를 제공하거나 우회 및 무단 재배포를 허용하지 않으며 보증 없이 제공합니다. 이 고지는 법률 자문이 아닙니다.",
           "tv_dashboard_ignore_lights_when_cast_active": "Fitness TV Cast 수신기가 활성화되어 있으면 운동 피드백은 TV를 사용하고 설정된 운동 조명은 변경하지 않습니다."
         }
+      },
+      "first_install": {
+        "title": "Fitness 설정",
+        "description": "먼저 추가할 항목을 선택하세요. 기존 프로필 설정 흐름을 바꾸지 않고 나머지 항목을 나중에 추가할 수 있습니다.",
+        "menu_options": {
+          "add_protocol": "센서 프로토콜 추가",
+          "add_user": "사용자 프로필 추가"
+        }
+      },
+      "add_user": {
+        "title": "사용자 프로필 추가",
+        "description": "기존 Fitness 프로필 설정 절차를 계속합니다."
+      },
+      "add_protocol": {
+        "title": "센서 프로토콜 추가",
+        "description": "로컬 센서 전송 하나를 활성화합니다. Fitness는 어댑터 장치를 만들고 검색을 제한된 사용자 제어 방식으로 유지합니다.",
+        "data": {
+          "protocol": "프로토콜"
+        },
+        "data_description": {
+          "protocol": "Fitness가 지금 활성화할 로컬 무선 전송을 선택하세요. 다른 전송은 사용 가능하지만 직접 활성화할 때까지 꺼져 있습니다."
+        }
       }
     },
     "error": {
       "invalid_date": "과거의 올바른 생년월일을 입력하세요.",
       "invalid_number_or_entity": "올바른 숫자 값 또는 Home Assistant 엔티티 ID를 입력하세요.",
       "select_profile": "Fitness 사용자를 한 명 이상 선택하세요.",
-      "select_smart_device_owner": "저장된 운동의 소유자로 Fitness 프로필 하나만 선택하세요. 라이브 센서 기능은 나중에 다른 프로필과 공유할 수 있습니다."
+      "select_smart_device_owner": "저장된 운동의 소유자로 Fitness 프로필 하나만 선택하세요. 라이브 센서 기능은 나중에 다른 프로필과 공유할 수 있습니다.",
+      "invalid_protocol": "지원되는 센서 프로토콜을 선택하세요."
     },
     "abort": {
       "already_configured": "같은 이름의 Fitness 프로필이 이미 있습니다.",
@@ -183,7 +208,10 @@
           "sleep_devices": "수면 기기",
           "sensor_assignments": "센서 할당",
           "tv_dashboard": "Fitness TV 대시보드",
-          "smart_workout_devices": "스마트 운동 기기"
+          "smart_workout_devices": "스마트 운동 기기",
+          "protocols": "센서 프로토콜",
+          "features": "대시보드 기능",
+          "about": "Fitness 정보"
         }
       },
       "profile": {
@@ -206,26 +234,28 @@
       },
       "fitness_inputs": {
         "title": "피트니스 데이터 및 초기값",
-        "description": "각 필드는 숫자 값 또는 호환되는 엔티티를 사용할 수 있습니다. 체중만 필수이며 안정 시 심박수와 다른 생리학적 입력은 선택 사항으로 나중에 추가하거나 제거할 수 있습니다.",
+        "description": "프로필의 현재 확인된 체중과 선택적인 공유 체중계를 설정합니다. 다른 생리 입력은 계속 호환되는 Home Assistant 엔티티를 사용할 수 있습니다. 공유 체중계 측정은 확인 없이 어떤 프로필도 업데이트하지 않습니다.",
         "data": {
-          "weight": "체중(kg 또는 엔티티)",
+          "weight": "현재 체중 (kg)",
           "resting_hr": "안정시 심박수(bpm 또는 엔티티)",
           "height": "키(cm 또는 엔티티)",
           "max_hr": "최대 심박수(bpm 또는 엔티티)",
           "vo2max": "VO₂max(mL/kg/min 또는 엔티티)",
           "threshold_hr": "역치 심박수(bpm 또는 엔티티)",
           "threshold_pace": "역치 페이스(min/km 또는 엔티티)",
-          "threshold_power": "역치 파워(W 또는 엔티티)"
+          "threshold_power": "역치 파워(W 또는 엔티티)",
+          "weight_scale_entity": "공유 체중계 (선택 사항)"
         },
         "data_description": {
-          "weight": "체중. W/kg 및 체중 정규화 지표에 사용합니다. kg를 입력하거나 호환 엔티티를 선택하며 단위는 자동 변환됩니다.",
+          "weight": "현재 확인된 체중(kg)입니다. 언제든 수동으로 변경할 수 있습니다.",
           "resting_hr": "안정시 심박수(bpm). %HRR, 강도 분류, Banister TRIMP에 사용합니다. 운동 중 최저값이 아닌 실제 안정시 HR을 사용하세요.",
           "height": "신장. 선택적 프로필 정보입니다. 수동 값은 cm이고 엔티티 단위는 자동 변환됩니다.",
           "max_hr": "생리학적/설정 최대 심박수(bpm). %HRmax, %HRR, TRIMP에 사용하며 한 번의 운동 최대값으로 추정하지 않습니다.",
           "vo2max": "VO₂max(mL/kg/min). 심폐 능력 비교와 장기 평가에 사용합니다.",
           "threshold_hr": "임계 심박수(bpm). 현재/완료 운동 강도를 설정 임계값과 비교하는 데 사용합니다.",
           "threshold_pace": "러닝 임계 페이스(min/km). m/s 또는 km/h 속도 엔티티는 자동 변환됩니다.",
-          "threshold_power": "임계 파워(W). 임계 상대 파워와 W/kg에 사용하며 여러 모호한 FTP 소스는 자동 선택하지 않습니다."
+          "threshold_power": "임계 파워(W). 임계 상대 파워와 W/kg에 사용하며 여러 모호한 FTP 소스는 자동 선택하지 않습니다.",
+          "weight_scale_entity": "호환되는 Home Assistant 체중 센서를 선택하세요. 여러 Fitness 프로필이 같은 체중계를 공유할 수 있습니다. 새 측정 후 Fitness가 사용자를 제안하고 체중을 변경하기 전에 확인을 요청합니다."
         }
       },
       "live_devices": {
@@ -387,6 +417,44 @@
         "data_description": {
           "smart_pairing_action": "Retry starts one bounded automatic pairing/sync attempt."
         }
+      },
+      "protocols": {
+        "title": "센서 프로토콜",
+        "description": "로컬 센서 전송을 켜거나 끕니다. 사용 중인 전송은 세션이 끝난 뒤에만 종료됩니다.",
+        "data": {
+          "bluetooth": "블루투스 프로토콜",
+          "antplus": "ANT+ 프로토콜"
+        },
+        "data_description": {
+          "bluetooth": "로컬 Fitness 센서와 지원 장치 기록을 위해 Home Assistant 블루투스 전송을 활성화합니다.",
+          "antplus": "호환 USB 수신기와 Fitness 센서를 위해 로컬 ANT+ 전송을 활성화합니다."
+        }
+      },
+      "features": {
+        "title": "대시보드 기능",
+        "description": "선택적 대시보드 모듈과 기존 Home Assistant 엔티티를 선택합니다. 이 옵션은 백그라운드 네트워크 폴링을 추가하지 않습니다.",
+        "data": {
+          "dashboard_modules": "대시보드 모듈",
+          "dashboard_theme": "Home Assistant 테마",
+          "dashboard_rss_entity_ids": "RSS / 뉴스 센서",
+          "dashboard_music_entity_ids": "음악 플레이어",
+          "dashboard_light_entity_ids": "조명",
+          "dashboard_video_entity_ids": "TV / 비디오 플레이어",
+          "dashboard_weather_entity_id": "날씨 엔티티"
+        },
+        "data_description": {
+          "dashboard_modules": "이 프로필 대시보드에 표시할 선택적 Fitness 및 Home Assistant 모듈을 선택하세요.",
+          "dashboard_theme": "설치된 Home Assistant 테마 이름을 사용하거나 기본 시스템 테마에는 Home Assistant를 유지하세요.",
+          "dashboard_rss_entity_ids": "이미 RSS 또는 뉴스 데이터를 제공하는 Home Assistant 센서를 선택하세요. Fitness 자체는 피드를 가져오지 않습니다.",
+          "dashboard_music_entity_ids": "Fitness 대시보드에 Home Assistant 미디어 제어를 표시할 기존 미디어 플레이어를 선택하세요.",
+          "dashboard_light_entity_ids": "대시보드의 간단한 제어 그룹에 사용할 기존 조명 엔티티를 선택하세요.",
+          "dashboard_video_entity_ids": "Home Assistant 미디어 제어를 표시할 기존 TV 또는 비디오 플레이어를 선택하세요.",
+          "dashboard_weather_entity_id": "선택적 날씨 카드에 사용할 기존 Home Assistant 날씨 엔티티를 선택하세요."
+        }
+      },
+      "about": {
+        "title": "Fitness 정보",
+        "description": "설치된 버전: {version}\n\n{changelog}"
       }
     },
     "abort": {
@@ -3382,6 +3450,12 @@
       },
       "garmin_sync_workouts": {
         "name": "Garmin 운동 지금 동기화"
+      },
+      "adapter_scan_now": {
+        "name": "지금 검색"
+      },
+      "sync_device_health_history": {
+        "name": "기기 건강 기록 동기화"
       }
     },
     "select": {
@@ -3422,6 +3496,20 @@
         "11": "11월",
         "12": "12월"
       }
+    },
+    "dashboard_module": {
+      "options": {
+        "core": "Fitness 기본 카드",
+        "training_ai": "AI 트레이닝 코치",
+        "body_composition": "신체 구성 / 체중 추세",
+        "workout_browser": "운동 브라우저",
+        "rss": "RSS / 뉴스",
+        "music": "음악",
+        "tts": "텍스트 음성 변환",
+        "lights": "조명",
+        "video": "TV / 비디오",
+        "weather": "날씨"
+      }
     }
   },
   "device": {
@@ -3458,6 +3546,10 @@
     "garmin_pairing_required": {
       "title": "Garmin 페어링 확인이 필요합니다",
       "description": "Fitness가 `{device}`와의 자동 Bluetooth 페어링을 완료하지 못했습니다. Garmin과 휴대폰 페어링은 유지하고 Bluetooth/휴대폰 페어링 모드를 연 다음 Fitness > 스마트 운동 기기 > `{device}`에서 지금 다시 시도를 선택하세요. Garmin에서 승인하세요. 기존 휴대폰 페어링을 교체/삭제하려 하면 취소하세요."
+    },
+    "device_user_action_required": {
+      "title": "{device}에 사용자 조치가 필요합니다",
+      "description": "기기에서 필요한 단계를 완료할 때까지 Fitness는 `{device}`와 직접 동기화를 계속할 수 없습니다. {reason}\n\n다음 단계를 따르세요:\n{instructions}\n\n수정을 선택하여 단계를 확인하고 필요한 값을 입력하세요."
     }
   },
   "services": {

@@ -62,8 +62,8 @@ def test_remote_focus_visuals_have_clear_toolbar_spacing_and_modern_press_feedba
     # Inner controls need an unmistakable outer halo and lift from TV distance.
     assert 'transformOrigin:element.style.transformOrigin' in focus
     assert 'element.style.transformOrigin = "center center"' in focus
-    assert '0 0 0 4px color-mix(in srgb,var(--primary-color,#03a9f4) 46%,transparent)' in focus
+    assert '0 0 0 4px rgba(255,255,255,.24)' in focus
     assert '0 7px 16px rgba(0,0,0,.28)' in focus
-    assert 'element.style.backgroundColor = "color-mix(in srgb,var(--primary-color,#03a9f4) 18%,var(--secondary-background-color))"' in focus
-    assert 'element.style.backgroundColor = "color-mix(in srgb,var(--primary-color,#03a9f4) 24%,var(--secondary-background-color))"' in focus
+    assert 'element.style.backgroundColor = "color-mix(in srgb,white 12%,var(--secondary-background-color))"' in focus
+    assert 'element.style.backgroundColor = "color-mix(in srgb,white 16%,var(--secondary-background-color))"' in focus
     assert 'element.style.accentColor = "var(--primary-color,#03a9f4)"' in focus

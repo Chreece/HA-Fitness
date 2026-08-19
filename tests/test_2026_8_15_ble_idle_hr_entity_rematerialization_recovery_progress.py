@@ -42,5 +42,5 @@ def test_training_recovery_bar_is_removed_and_recovery_progress_uses_readiness_s
 
 
 def test_dashboard_cache_is_bumped():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-82"' in FRONTEND
-    assert '?v=unreleased-82' in BACKEND
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in FRONTEND
+    assert '?v=unreleased-85' in BACKEND

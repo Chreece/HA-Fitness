@@ -29,7 +29,7 @@ from homeassistant.components.lovelace.const import (
 )
 from homeassistant.components.http import HomeAssistantView, StaticPathConfig
 from homeassistant.const import CAST_APP_ID_HOMEASSISTANT_LOVELACE
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.setup import async_when_setup
 
@@ -39,6 +39,8 @@ from .access_control import (
 )
 from .const import (
     CONF_LANGUAGE,
+    CONF_HEIGHT,
+    CONF_WEIGHT_SCALE_ENTITY,
     CONF_PROFILE_NAME,
     CONF_WORKOUT_DEVICE_IDS,
     CONF_TV_DASHBOARD_ENABLED,
@@ -46,6 +48,16 @@ from .const import (
     CONF_TV_DUCKING_PERCENT,
     CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
     CONF_TV_YTDLP_ENABLED,
+    CONF_DASHBOARD_THEME,
+    CONF_DASHBOARD_MODULES,
+    CONF_DASHBOARD_RSS_ENTITY_IDS,
+    CONF_DASHBOARD_MUSIC_ENTITY_IDS,
+    CONF_DASHBOARD_LIGHT_ENTITY_IDS,
+    CONF_DASHBOARD_VIDEO_ENTITY_IDS,
+    CONF_DASHBOARD_WEATHER_ENTITY_ID,
+    CONF_TTS_ENTITY_ID,
+    CONF_TTS_MEDIA_PLAYER_IDS,
+    DEFAULT_DASHBOARD_MODULES,
     DEFAULT_TV_DUCKING_PERCENT,
     DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
     TV_DASHBOARD_PATH,
@@ -88,7 +100,7 @@ _LEGACY_RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"
 _LEGACY_CAST_RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard-cast.js"
 _RESOURCE_PREFIX = "/fitness/frontend/fitness-dashboard-"
 _RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"
-_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-82"
+_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-85"
 _SETUP_KEY = "_dashboard_frontend_setup"
 _RECONCILE_TASK_KEY = "_dashboard_reconcile_task"
 _TV_DASHBOARD_CARD_TYPE = "custom:fitness-tv-dashboard-card"
@@ -1193,6 +1205,232 @@ _RPE_DASHBOARD_TEXT: dict[str, dict[str, str]] = {
 
 for _code, _rpe_labels in _RPE_DASHBOARD_TEXT.items():
     _DASHBOARD_TEXT.setdefault(_code, {}).update(_rpe_labels)
+
+_WEIGHT_SCALE_DASHBOARD_TEXT: dict[str, dict[str, str]] = {'en': {'scale_measurement_title': 'New scale measurement',
+        'scale_measurement_guess': 'Fitness matched this measurement. Is it correct?',
+        'scale_measurement_select_user': 'Who was weighed?',
+        'scale_measurement_confirm': 'Confirm',
+        'scale_measurement_ignore': 'Ignore',
+        'scale_measurement_saving': 'Saving weight…',
+        'settings_background_hint': 'Changes are applied after Save. Device discovery and other background updates can take a moment to appear.',
+        'settings_applying': 'Applying settings… Background updates may continue for a moment.',
+        'settings_saved_background': 'Saved. Background updates may still be finishing.',
+        'scale_measurement_user_question': 'New weight value detected: {weight}. Should this be your new weight?',
+        'scale_measurement_admin_question': 'New weight value detected: {weight}. Which Fitness user should receive it?',
+        'scale_measurement_yes': 'Yes, update',
+        'scale_measurement_no': 'No'},
+ 'el': {'scale_measurement_title': 'Νέα μέτρηση ζυγαριάς',
+        'scale_measurement_guess': 'Το Fitness αντιστοίχισε αυτή τη μέτρηση. Είναι σωστό;',
+        'scale_measurement_select_user': 'Ποιος ζυγίστηκε;',
+        'scale_measurement_confirm': 'Επιβεβαίωση',
+        'scale_measurement_ignore': 'Αγνόηση',
+        'scale_measurement_saving': 'Αποθήκευση βάρους…',
+        'settings_background_hint': 'Οι αλλαγές εφαρμόζονται μετά την Αποθήκευση. Η ανακάλυψη συσκευών και άλλες εργασίες παρασκηνίου μπορεί να χρειαστούν '
+                                    'λίγο χρόνο για να εμφανιστούν.',
+        'settings_applying': 'Εφαρμογή ρυθμίσεων… Οι εργασίες παρασκηνίου μπορεί να συνεχιστούν για λίγο.',
+        'settings_saved_background': 'Αποθηκεύτηκε. Οι εργασίες παρασκηνίου μπορεί να ολοκληρώνονται ακόμη.',
+        'scale_measurement_user_question': 'Εντοπίστηκε νέα τιμή βάρους: {weight}. Να γίνει το νέο σας βάρος;',
+        'scale_measurement_admin_question': 'Εντοπίστηκε νέα τιμή βάρους: {weight}. Σε ποιον χρήστη Fitness ανήκει;',
+        'scale_measurement_yes': 'Ναι, ενημέρωση',
+        'scale_measurement_no': 'Όχι'},
+ 'de': {'scale_measurement_title': 'Neue Waagenmessung',
+        'scale_measurement_guess': 'Fitness hat diese Messung zugeordnet. Ist das richtig?',
+        'scale_measurement_select_user': 'Wer wurde gewogen?',
+        'scale_measurement_confirm': 'Bestätigen',
+        'scale_measurement_ignore': 'Ignorieren',
+        'scale_measurement_saving': 'Gewicht wird gespeichert…',
+        'settings_background_hint': 'Änderungen werden nach Speichern angewendet. Geräteerkennung und andere Hintergrundaktualisierungen können kurz brauchen, '
+                                    'bis sie sichtbar sind.',
+        'settings_applying': 'Einstellungen werden angewendet… Hintergrundaktualisierungen können noch kurz weiterlaufen.',
+        'settings_saved_background': 'Gespeichert. Hintergrundaktualisierungen können noch abgeschlossen werden.',
+        'scale_measurement_user_question': 'Neuer Gewichtswert erkannt: {weight}. Soll dies dein neues Gewicht sein?',
+        'scale_measurement_admin_question': 'Neuer Gewichtswert erkannt: {weight}. Welchem Fitness-Benutzer gehört er?',
+        'scale_measurement_yes': 'Ja, aktualisieren',
+        'scale_measurement_no': 'Nein'},
+ 'fr': {'scale_measurement_title': 'Nouvelle mesure de balance',
+        'scale_measurement_guess': 'Fitness a associé cette mesure. Est-ce correct ?',
+        'scale_measurement_select_user': 'Qui s’est pesé ?',
+        'scale_measurement_confirm': 'Confirmer',
+        'scale_measurement_ignore': 'Ignorer',
+        'scale_measurement_saving': 'Enregistrement du poids…',
+        'settings_background_hint': 'Les modifications sont appliquées après Enregistrer. La détection des appareils et d’autres mises à jour en arrière-plan '
+                                    'peuvent mettre un moment à apparaître.',
+        'settings_applying': 'Application des réglages… Les mises à jour en arrière-plan peuvent continuer un moment.',
+        'settings_saved_background': 'Enregistré. Des mises à jour en arrière-plan peuvent encore se terminer.',
+        'scale_measurement_user_question': 'Nouvelle valeur de poids détectée : {weight}. Doit-elle devenir votre nouveau poids ?',
+        'scale_measurement_admin_question': 'Nouvelle valeur de poids détectée : {weight}. À quel utilisateur Fitness appartient-elle ?',
+        'scale_measurement_yes': 'Oui, mettre à jour',
+        'scale_measurement_no': 'Non'},
+ 'es': {'scale_measurement_title': 'Nueva medición de báscula',
+        'scale_measurement_guess': 'Fitness ha asociado esta medición. ¿Es correcto?',
+        'scale_measurement_select_user': '¿Quién se pesó?',
+        'scale_measurement_confirm': 'Confirmar',
+        'scale_measurement_ignore': 'Ignorar',
+        'scale_measurement_saving': 'Guardando peso…',
+        'settings_background_hint': 'Los cambios se aplican después de Guardar. La detección de dispositivos y otras actualizaciones en segundo plano pueden '
+                                    'tardar un momento en aparecer.',
+        'settings_applying': 'Aplicando ajustes… Las actualizaciones en segundo plano pueden continuar un momento.',
+        'settings_saved_background': 'Guardado. Es posible que aún estén terminando actualizaciones en segundo plano.',
+        'scale_measurement_user_question': 'Nuevo valor de peso detectado: {weight}. ¿Debe ser tu nuevo peso?',
+        'scale_measurement_admin_question': 'Nuevo valor de peso detectado: {weight}. ¿A qué usuario de Fitness pertenece?',
+        'scale_measurement_yes': 'Sí, actualizar',
+        'scale_measurement_no': 'No'},
+ 'it': {'scale_measurement_title': 'Nuova misurazione della bilancia',
+        'scale_measurement_guess': 'Fitness ha associato questa misurazione. È corretto?',
+        'scale_measurement_select_user': 'Chi si è pesato?',
+        'scale_measurement_confirm': 'Conferma',
+        'scale_measurement_ignore': 'Ignora',
+        'scale_measurement_saving': 'Salvataggio del peso…',
+        'settings_background_hint': 'Le modifiche vengono applicate dopo Salva. Il rilevamento dei dispositivi e altri aggiornamenti in background possono '
+                                    'richiedere un momento per apparire.',
+        'settings_applying': 'Applicazione impostazioni… Gli aggiornamenti in background possono continuare per un momento.',
+        'settings_saved_background': 'Salvato. Alcuni aggiornamenti in background potrebbero essere ancora in corso.',
+        'scale_measurement_user_question': 'Rilevato un nuovo valore di peso: {weight}. Deve diventare il tuo nuovo peso?',
+        'scale_measurement_admin_question': 'Rilevato un nuovo valore di peso: {weight}. A quale utente Fitness appartiene?',
+        'scale_measurement_yes': 'Sì, aggiorna',
+        'scale_measurement_no': 'No'},
+ 'pt': {'scale_measurement_title': 'Nova medição da balança',
+        'scale_measurement_guess': 'O Fitness associou esta medição. Está correto?',
+        'scale_measurement_select_user': 'Quem se pesou?',
+        'scale_measurement_confirm': 'Confirmar',
+        'scale_measurement_ignore': 'Ignorar',
+        'scale_measurement_saving': 'A guardar peso…',
+        'settings_background_hint': 'As alterações são aplicadas depois de Guardar. A descoberta de dispositivos e outras atualizações em segundo plano podem '
+                                    'demorar um pouco a aparecer.',
+        'settings_applying': 'A aplicar definições… As atualizações em segundo plano podem continuar por instantes.',
+        'settings_saved_background': 'Guardado. Algumas atualizações em segundo plano podem ainda estar a terminar.',
+        'scale_measurement_user_question': 'Novo valor de peso detetado: {weight}. Deve ser o seu novo peso?',
+        'scale_measurement_admin_question': 'Novo valor de peso detetado: {weight}. A que utilizador Fitness pertence?',
+        'scale_measurement_yes': 'Sim, atualizar',
+        'scale_measurement_no': 'Não'},
+ 'nl': {'scale_measurement_title': 'Nieuwe weegschaalmeting',
+        'scale_measurement_guess': 'Fitness heeft deze meting gekoppeld. Klopt dat?',
+        'scale_measurement_select_user': 'Wie is gewogen?',
+        'scale_measurement_confirm': 'Bevestigen',
+        'scale_measurement_ignore': 'Negeren',
+        'scale_measurement_saving': 'Gewicht opslaan…',
+        'settings_background_hint': 'Wijzigingen worden na Opslaan toegepast. Apparaatdetectie en andere achtergrondupdates kunnen even nodig hebben voordat '
+                                    'ze zichtbaar zijn.',
+        'settings_applying': 'Instellingen toepassen… Achtergrondupdates kunnen nog even doorgaan.',
+        'settings_saved_background': 'Opgeslagen. Achtergrondupdates kunnen nog worden afgerond.',
+        'scale_measurement_user_question': 'Nieuwe gewichtswaarde gedetecteerd: {weight}. Moet dit je nieuwe gewicht worden?',
+        'scale_measurement_admin_question': 'Nieuwe gewichtswaarde gedetecteerd: {weight}. Bij welke Fitness-gebruiker hoort deze?',
+        'scale_measurement_yes': 'Ja, bijwerken',
+        'scale_measurement_no': 'Nee'},
+ 'pl': {'scale_measurement_title': 'Nowy pomiar z wagi',
+        'scale_measurement_guess': 'Fitness dopasował ten pomiar. Czy to poprawne?',
+        'scale_measurement_select_user': 'Kto się ważył?',
+        'scale_measurement_confirm': 'Potwierdź',
+        'scale_measurement_ignore': 'Ignoruj',
+        'scale_measurement_saving': 'Zapisywanie wagi…',
+        'settings_background_hint': 'Zmiany są stosowane po zapisaniu. Wykrywanie urządzeń i inne aktualizacje w tle mogą pojawić się z niewielkim '
+                                    'opóźnieniem.',
+        'settings_applying': 'Stosowanie ustawień… Aktualizacje w tle mogą jeszcze chwilę trwać.',
+        'settings_saved_background': 'Zapisano. Aktualizacje w tle mogą się jeszcze kończyć.',
+        'scale_measurement_user_question': 'Wykryto nową wartość wagi: {weight}. Czy ma to być Twoja nowa waga?',
+        'scale_measurement_admin_question': 'Wykryto nową wartość wagi: {weight}. Do którego użytkownika Fitness należy?',
+        'scale_measurement_yes': 'Tak, zaktualizuj',
+        'scale_measurement_no': 'Nie'},
+ 'ru': {'scale_measurement_title': 'Новое измерение весов',
+        'scale_measurement_guess': 'Fitness сопоставил это измерение. Всё верно?',
+        'scale_measurement_select_user': 'Кто взвешивался?',
+        'scale_measurement_confirm': 'Подтвердить',
+        'scale_measurement_ignore': 'Игнорировать',
+        'scale_measurement_saving': 'Сохранение веса…',
+        'settings_background_hint': 'Изменения применяются после сохранения. Обнаружение устройств и другие фоновые обновления могут появиться не сразу.',
+        'settings_applying': 'Применение настроек… Фоновые обновления могут продолжаться ещё некоторое время.',
+        'settings_saved_background': 'Сохранено. Фоновые обновления могут ещё завершаться.',
+        'scale_measurement_user_question': 'Обнаружено новое значение веса: {weight}. Сделать его вашим новым весом?',
+        'scale_measurement_admin_question': 'Обнаружено новое значение веса: {weight}. Какому пользователю Fitness оно принадлежит?',
+        'scale_measurement_yes': 'Да, обновить',
+        'scale_measurement_no': 'Нет'},
+ 'uk': {'scale_measurement_title': 'Нове вимірювання ваги',
+        'scale_measurement_guess': 'Fitness зіставив це вимірювання. Чи правильно?',
+        'scale_measurement_select_user': 'Хто зважувався?',
+        'scale_measurement_confirm': 'Підтвердити',
+        'scale_measurement_ignore': 'Ігнорувати',
+        'scale_measurement_saving': 'Збереження ваги…',
+        'settings_background_hint': 'Зміни застосовуються після збереження. Виявлення пристроїв та інші фонові оновлення можуть з’явитися із затримкою.',
+        'settings_applying': 'Застосування налаштувань… Фонові оновлення можуть ще тривати.',
+        'settings_saved_background': 'Збережено. Фонові оновлення можуть ще завершуватися.',
+        'scale_measurement_user_question': 'Виявлено нове значення ваги: {weight}. Зробити його вашою новою вагою?',
+        'scale_measurement_admin_question': 'Виявлено нове значення ваги: {weight}. Якому користувачу Fitness воно належить?',
+        'scale_measurement_yes': 'Так, оновити',
+        'scale_measurement_no': 'Ні'},
+ 'tr': {'scale_measurement_title': 'Yeni tartı ölçümü',
+        'scale_measurement_guess': 'Fitness bu ölçümü eşleştirdi. Doğru mu?',
+        'scale_measurement_select_user': 'Kim tartıldı?',
+        'scale_measurement_confirm': 'Onayla',
+        'scale_measurement_ignore': 'Yoksay',
+        'scale_measurement_saving': 'Kilo kaydediliyor…',
+        'settings_background_hint': "Değişiklikler Kaydet'ten sonra uygulanır. Cihaz keşfi ve diğer arka plan güncellemelerinin görünmesi biraz sürebilir.",
+        'settings_applying': 'Ayarlar uygulanıyor… Arka plan güncellemeleri bir süre daha devam edebilir.',
+        'settings_saved_background': 'Kaydedildi. Arka plan güncellemeleri hâlâ tamamlanıyor olabilir.',
+        'scale_measurement_user_question': 'Yeni kilo değeri algılandı: {weight}. Yeni kilonuz olarak güncellensin mi?',
+        'scale_measurement_admin_question': 'Yeni kilo değeri algılandı: {weight}. Hangi Fitness kullanıcısına ait?',
+        'scale_measurement_yes': 'Evet, güncelle',
+        'scale_measurement_no': 'Hayır'},
+ 'zh': {'scale_measurement_title': '新的体重秤测量',
+        'scale_measurement_guess': 'Fitness 已匹配此测量。是否正确？',
+        'scale_measurement_select_user': '是谁称重？',
+        'scale_measurement_confirm': '确认',
+        'scale_measurement_ignore': '忽略',
+        'scale_measurement_saving': '正在保存体重…',
+        'settings_background_hint': '更改会在保存后应用。设备发现和其他后台更新可能需要片刻才会显示。',
+        'settings_applying': '正在应用设置… 后台更新可能还会继续片刻。',
+        'settings_saved_background': '已保存。后台更新可能仍在完成。',
+        'scale_measurement_user_question': '检测到新的体重值：{weight}。要将其设为你的新体重吗？',
+        'scale_measurement_admin_question': '检测到新的体重值：{weight}。它属于哪个 Fitness 用户？',
+        'scale_measurement_yes': '是，更新',
+        'scale_measurement_no': '否'},
+ 'ja': {'scale_measurement_title': '新しい体重計測定',
+        'scale_measurement_guess': 'Fitness がこの測定を割り当てました。正しいですか？',
+        'scale_measurement_select_user': '誰が測定しましたか？',
+        'scale_measurement_confirm': '確認',
+        'scale_measurement_ignore': '無視',
+        'scale_measurement_saving': '体重を保存中…',
+        'settings_background_hint': '変更は保存後に適用されます。デバイス検出などのバックグラウンド更新は表示まで少し時間がかかる場合があります。',
+        'settings_applying': '設定を適用中… バックグラウンド更新がしばらく続く場合があります。',
+        'settings_saved_background': '保存しました。バックグラウンド更新がまだ完了中の場合があります。',
+        'scale_measurement_user_question': '新しい体重値を検出しました: {weight}。新しい体重として更新しますか？',
+        'scale_measurement_admin_question': '新しい体重値を検出しました: {weight}。どの Fitness ユーザーの測定ですか？',
+        'scale_measurement_yes': 'はい、更新',
+        'scale_measurement_no': 'いいえ'},
+ 'ko': {'scale_measurement_title': '새 체중계 측정',
+        'scale_measurement_guess': 'Fitness가 이 측정을 사용자와 매칭했습니다. 맞나요?',
+        'scale_measurement_select_user': '누가 측정했나요?',
+        'scale_measurement_confirm': '확인',
+        'scale_measurement_ignore': '무시',
+        'scale_measurement_saving': '체중 저장 중…',
+        'settings_background_hint': '변경 사항은 저장 후 적용됩니다. 기기 검색과 기타 백그라운드 업데이트가 표시되기까지 잠시 걸릴 수 있습니다.',
+        'settings_applying': '설정 적용 중… 백그라운드 업데이트가 잠시 계속될 수 있습니다.',
+        'settings_saved_background': '저장되었습니다. 백그라운드 업데이트가 아직 완료 중일 수 있습니다.',
+        'scale_measurement_user_question': '새 체중 값이 감지되었습니다: {weight}. 새 체중으로 업데이트할까요?',
+        'scale_measurement_admin_question': '새 체중 값이 감지되었습니다: {weight}. 어느 Fitness 사용자의 측정인가요?',
+        'scale_measurement_yes': '예, 업데이트',
+        'scale_measurement_no': '아니요'}}
+for _code, _labels in _WEIGHT_SCALE_DASHBOARD_TEXT.items():
+    _DASHBOARD_TEXT.setdefault(_code, {}).update(_labels)
+
+_SETTINGS_FLOW_FEEDBACK_TEXT: dict[str, dict[str, str]] = {
+    "en": {"settings_opening":"Opening… Some settings pages run bounded background discovery.","settings_changes_not_saved":"Changes were not saved. Returning to the settings menu…"},
+    "el": {"settings_opening":"Άνοιγμα… Ορισμένες σελίδες ρυθμίσεων εκτελούν περιορισμένες εργασίες ανακάλυψης στο παρασκήνιο.","settings_changes_not_saved":"Οι αλλαγές δεν αποθηκεύτηκαν. Επιστροφή στο κύριο μενού ρυθμίσεων…"},
+    "de": {"settings_opening":"Wird geöffnet… Einige Einstellungsseiten führen begrenzte Hintergrund-Erkennung aus.","settings_changes_not_saved":"Änderungen wurden nicht gespeichert. Zurück zum Einstellungsmenü…"},
+    "fr": {"settings_opening":"Ouverture… Certaines pages lancent une détection limitée en arrière-plan.","settings_changes_not_saved":"Les modifications n’ont pas été enregistrées. Retour au menu des réglages…"},
+    "es": {"settings_opening":"Abriendo… Algunas páginas ejecutan detección limitada en segundo plano.","settings_changes_not_saved":"Los cambios no se guardaron. Volviendo al menú de ajustes…"},
+    "it": {"settings_opening":"Apertura… Alcune pagine eseguono un rilevamento limitato in background.","settings_changes_not_saved":"Le modifiche non sono state salvate. Ritorno al menu impostazioni…"},
+    "pt": {"settings_opening":"A abrir… Algumas páginas executam descoberta limitada em segundo plano.","settings_changes_not_saved":"As alterações não foram guardadas. A regressar ao menu de definições…"},
+    "nl": {"settings_opening":"Openen… Sommige instellingen voeren begrensde detectie op de achtergrond uit.","settings_changes_not_saved":"Wijzigingen zijn niet opgeslagen. Terug naar het instellingenmenu…"},
+    "pl": {"settings_opening":"Otwieranie… Niektóre strony wykonują ograniczone wykrywanie w tle.","settings_changes_not_saved":"Zmiany nie zostały zapisane. Powrót do menu ustawień…"},
+    "ru": {"settings_opening":"Открытие… Некоторые страницы выполняют ограниченное фоновое обнаружение.","settings_changes_not_saved":"Изменения не сохранены. Возврат в меню настроек…"},
+    "uk": {"settings_opening":"Відкриття… Деякі сторінки виконують обмежене фонове виявлення.","settings_changes_not_saved":"Зміни не збережено. Повернення до меню налаштувань…"},
+    "tr": {"settings_opening":"Açılıyor… Bazı ayar sayfaları sınırlı arka plan keşfi çalıştırır.","settings_changes_not_saved":"Değişiklikler kaydedilmedi. Ayarlar menüsüne dönülüyor…"},
+    "zh": {"settings_opening":"正在打开… 某些设置页面会执行受限的后台发现。","settings_changes_not_saved":"更改未保存。正在返回设置菜单…"},
+    "ja": {"settings_opening":"開いています… 一部の設定ページでは制限されたバックグラウンド検出を実行します。","settings_changes_not_saved":"変更は保存されていません。設定メニューに戻ります…"},
+    "ko": {"settings_opening":"여는 중… 일부 설정 페이지는 제한된 백그라운드 검색을 실행합니다.","settings_changes_not_saved":"변경 사항이 저장되지 않았습니다. 설정 메뉴로 돌아갑니다…"},
+}
+for _code, _labels in _SETTINGS_FLOW_FEEDBACK_TEXT.items():
+    _DASHBOARD_TEXT.setdefault(_code, {}).update(_labels)
 
 _RECOVERY_REFINEMENT_TEXT: dict[str, dict[str, str]] = {
     "en": {"recovery_from_last_workout":"Time to recover from last workout","total_recovery":"Total recovery","at_time":"at","baseline":"Baseline","current":"Current","fitness_sleep_score":"Fitness sleep score","recovery_done_short":"Done","ready_at_compact":"Ready at: {time}","remaining_compact":"{time} remaining","certain_compact":"{percent}% certain","minutes_short":"min"},
@@ -2361,14 +2599,19 @@ def _route_matches_latest_workout(state, workout) -> bool:
     return True
 
 
-def _route_candidates(hass: HomeAssistant, manager) -> list[dict[str, str]]:
+def _route_candidates(hass: HomeAssistant, manager) -> list[dict[str, Any]]:
     """Return route data only when it belongs to the current merged workout."""
     selected = set(manager.config.get(CONF_WORKOUT_DEVICE_IDS) or [])
     latest = manager.latest_workout()
-    if not selected or latest is None:
+    if latest is None:
         return []
+    inline = (latest.extra or {}).get("gps_points") if isinstance(latest.extra, dict) else None
+    result: list[dict[str, Any]] = []
+    if isinstance(inline, list) and len(inline) >= 2:
+        result.append({"value": inline, "attribute": "gps_points", "source": "fitness_workout"})
+    if not selected:
+        return result
     registry = er.async_get(hass)
-    result: list[dict[str, str]] = []
     for registry_entry in registry.entities.values():
         if registry_entry.device_id not in selected:
             continue
@@ -2778,6 +3021,365 @@ async def websocket_tv_overview_stop(hass: HomeAssistant, connection, msg) -> No
     connection.send_result(msg["id"], _tv_overview_cast_descriptor(hass))
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/weight/subscribe",
+        vol.Required("profile_entry_id"): str,
+    }
+)
+@websocket_api.async_response
+async def websocket_weight_subscribe(hass: HomeAssistant, connection, msg) -> None:
+    """Stream pending shared-scale confirmations visible to this dashboard user."""
+    requested = str(msg["profile_entry_id"])
+    access_controller = get_fitness_access_controller(hass)
+    allowed = set(await access_controller.async_control_profile_ids(connection))
+    if requested not in allowed:
+        connection.send_error(msg["id"], "unauthorized", "Fitness profile control access required")
+        return
+    from .weight_scales import get_weight_scale_router
+
+    router = get_weight_scale_router(hass)
+    await router.async_initialize()
+
+    @callback
+    def _forward() -> None:
+        connection.send_event(
+            msg["id"],
+            {
+                "measurements": router.pending_for(
+                    allowed, require_profile_id=requested
+                )
+            },
+        )
+
+    connection.subscriptions[msg["id"]] = router.async_add_listener(_forward)
+    connection.send_result(msg["id"])
+    _forward()
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/weight/admin/subscribe",
+    }
+)
+@websocket_api.async_response
+async def websocket_weight_admin_subscribe(hass: HomeAssistant, connection, msg) -> None:
+    """Stream every pending shared-scale confirmation to Fitness administrators."""
+    access_controller = get_fitness_access_controller(hass)
+    access = await access_controller.async_descriptor(connection)
+    if not access.get("is_admin"):
+        connection.send_error(msg["id"], "unauthorized", "Fitness administrator access required")
+        return
+    allowed = set(await access_controller.async_control_profile_ids(connection))
+    from .weight_scales import get_weight_scale_router
+
+    router = get_weight_scale_router(hass)
+    await router.async_initialize()
+
+    @callback
+    def _forward() -> None:
+        connection.send_event(
+            msg["id"],
+            {"measurements": router.pending_for(allowed)},
+        )
+
+    connection.subscriptions[msg["id"]] = router.async_add_listener(_forward)
+    connection.send_result(msg["id"])
+    _forward()
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/weight/confirm",
+        vol.Required("measurement_id"): str,
+        vol.Required("profile_entry_id"): str,
+    }
+)
+@websocket_api.async_response
+async def websocket_weight_confirm(hass: HomeAssistant, connection, msg) -> None:
+    """Apply one explicitly confirmed shared-scale measurement."""
+    access_controller = get_fitness_access_controller(hass)
+    allowed = set(await access_controller.async_control_profile_ids(connection))
+    from .weight_scales import get_weight_scale_router
+
+    ok = await get_weight_scale_router(hass).async_confirm(
+        str(msg["measurement_id"]), str(msg["profile_entry_id"]), allowed
+    )
+    if not ok:
+        connection.send_error(msg["id"], "not_found_or_unauthorized", "Weight measurement cannot be applied")
+        return
+    connection.send_result(msg["id"], {"confirmed": True})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/weight/dismiss",
+        vol.Required("measurement_id"): str,
+        vol.Optional("profile_entry_id"): str,
+    }
+)
+@websocket_api.async_response
+async def websocket_weight_dismiss(hass: HomeAssistant, connection, msg) -> None:
+    """Dismiss a scale question for one user, or globally when an admin chooses Ignore."""
+    access_controller = get_fitness_access_controller(hass)
+    allowed = set(await access_controller.async_control_profile_ids(connection))
+    access = await access_controller.async_descriptor(connection)
+    from .weight_scales import get_weight_scale_router
+
+    router = get_weight_scale_router(hass)
+    profile_entry_id = str(msg.get("profile_entry_id") or "").strip()
+    if profile_entry_id:
+        ok = await router.async_dismiss_for_profile(
+            str(msg["measurement_id"]), profile_entry_id, allowed
+        )
+    else:
+        if not access.get("is_admin"):
+            connection.send_error(msg["id"], "unauthorized", "Fitness administrator access required")
+            return
+        ok = await router.async_dismiss(str(msg["measurement_id"]), allowed)
+    if not ok:
+        connection.send_error(msg["id"], "not_found_or_unauthorized", "Weight measurement cannot be dismissed")
+        return
+    connection.send_result(msg["id"], {"dismissed": True})
+
+
+async def _dashboard_profile_for_view(
+    hass: HomeAssistant, connection, profile_entry_id: str
+):
+    entry = _fitness_options_profile_entry(hass, profile_entry_id)
+    if entry is None:
+        raise ValueError("profile_not_found")
+    visible = await get_fitness_access_controller(hass).async_visible_profile_ids(
+        connection, cast_hub=get_tv_dashboard_hub(hass)
+    )
+    if entry.entry_id not in visible:
+        raise ValueError("profile_not_found")
+    manager = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if manager is None:
+        raise ValueError("profile_unavailable")
+    return entry, manager
+
+
+def _dashboard_workout_item(manager, entry_id: str, workout) -> dict[str, Any]:
+    uid = manager._calendar_uid(entry_id, workout)
+    return {
+        "uid": uid,
+        "start": workout.start,
+        "end": workout.end,
+        "name": workout.name,
+        "sport": workout.sport,
+        "duration_s": workout.duration_s,
+        "distance_m": workout.distance_m,
+        "avg_hr": workout.avg_hr,
+        "calories": workout.calories,
+        "source": workout.source,
+    }
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/workouts/list",
+        vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+        vol.Optional("limit", default=100): vol.All(int, vol.Range(min=1, max=200)),
+    }
+)
+@websocket_api.async_response
+async def websocket_workouts_list(hass: HomeAssistant, connection, msg) -> None:
+    """Return a bounded newest-first canonical workout list."""
+    try:
+        entry, manager = await _dashboard_profile_for_view(
+            hass, connection, msg["profile_entry_id"]
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], str(err), str(err))
+        return
+    all_workouts = manager.local_workouts()
+    workouts = sorted(
+        all_workouts,
+        key=lambda item: str(item.start or ""),
+        reverse=True,
+    )[: int(msg.get("limit", 100))]
+    connection.send_result(
+        msg["id"],
+        {
+            "workouts": [
+                _dashboard_workout_item(manager, entry.entry_id, workout)
+                for workout in workouts
+            ],
+            "total": len(all_workouts),
+        },
+    )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/workouts/delete",
+        vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+        vol.Required("workout_ids"): vol.All(
+            [vol.All(str, vol.Length(min=1, max=256))], vol.Length(min=1, max=100)
+        ),
+    }
+)
+@websocket_api.async_response
+async def websocket_workouts_delete(hass: HomeAssistant, connection, msg) -> None:
+    """Delete selected workouts in one bounded persistence transaction."""
+    try:
+        entry = await _require_fitness_options_profile_control(
+            hass, connection, msg["profile_entry_id"]
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], "profile_not_found", str(err))
+        return
+    manager = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if manager is None:
+        connection.send_error(msg["id"], "profile_unavailable", "Fitness profile unavailable")
+        return
+    deleted = await manager.async_delete_calendar_workouts(
+        list(msg["workout_ids"]), entry.entry_id
+    )
+    connection.send_result(msg["id"], {"deleted": deleted})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/workouts/empty",
+        vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+        vol.Required("confirm"): bool,
+    }
+)
+@websocket_api.async_response
+async def websocket_workouts_empty(hass: HomeAssistant, connection, msg) -> None:
+    """Empty current canonical history only after an explicit confirmation."""
+    if not msg.get("confirm"):
+        connection.send_error(msg["id"], "confirmation_required", "Confirmation required")
+        return
+    try:
+        entry = await _require_fitness_options_profile_control(
+            hass, connection, msg["profile_entry_id"]
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], "profile_not_found", str(err))
+        return
+    manager = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if manager is None:
+        connection.send_error(msg["id"], "profile_unavailable", "Fitness profile unavailable")
+        return
+    deleted = await manager.async_empty_workout_history()
+    connection.send_result(msg["id"], {"deleted": deleted})
+
+
+def _dashboard_scale_body_metrics(hass: HomeAssistant, manager) -> dict[str, Any]:
+    """Read conservative current body-composition facts from the configured scale device."""
+    scale_entity_id = str(manager.config.get(CONF_WEIGHT_SCALE_ENTITY) or "").strip()
+    if not scale_entity_id:
+        return {}
+    registry = er.async_get(hass)
+    root = registry.async_get(scale_entity_id)
+    device_id = root.device_id if root is not None else None
+    if not device_id:
+        return {}
+    result: dict[str, Any] = {}
+    specs = (
+        ("body_fat_percent", ("body", "fat"), "%"),
+        ("body_water_percent", ("body", "water"), "%"),
+        ("muscle_mass_kg", ("muscle", "mass"), "kg"),
+        ("bone_mass_kg", ("bone", "mass"), "kg"),
+    )
+    for entry in registry.entities.values():
+        if entry.device_id != device_id or entry.disabled_by is not None:
+            continue
+        state = hass.states.get(entry.entity_id)
+        if state is None or state.state in {"unknown", "unavailable", ""}:
+            continue
+        text = " ".join(
+            (entry.entity_id, entry.name or "", entry.original_name or "")
+        ).lower().replace("_", " ")
+        unit = str(state.attributes.get("unit_of_measurement") or "")
+        try:
+            value = float(state.state)
+        except (TypeError, ValueError):
+            continue
+        for key, tokens, required_unit in specs:
+            if key in result or not all(token in text for token in tokens):
+                continue
+            if unit != required_unit:
+                continue
+            if required_unit == "%" and not 0 <= value <= 100:
+                continue
+            if required_unit == "kg" and not 0 <= value <= 500:
+                continue
+            result[key] = round(value, 2)
+            result[f"{key}_entity_id"] = entry.entity_id
+    return result
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/body_composition",
+        vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+    }
+)
+@websocket_api.async_response
+async def websocket_body_composition(hass: HomeAssistant, connection, msg) -> None:
+    """Return bounded Fitness-owned body-mass trend data on demand."""
+    try:
+        _entry, manager = await _dashboard_profile_for_view(
+            hass, connection, msg["profile_entry_id"]
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], str(err), str(err))
+        return
+    weight = manager.current_weight_kg
+    try:
+        height_cm = float(manager.input_value(CONF_HEIGHT) or 0)
+    except (TypeError, ValueError):
+        height_cm = 0
+    bmi = None
+    if weight is not None and 50 <= height_cm <= 260:
+        bmi = round(float(weight) / ((height_cm / 100.0) ** 2), 2)
+    summary = dict(manager.long_term_statistics.get("weight") or {})
+    daily = list(summary.get("daily") or [])[-90:]
+    if not daily:
+        daily = [
+            {"start": item.get("timestamp"), "value": item.get("value")}
+            for item in (manager.metric_history.get("weight") or [])[-90:]
+            if isinstance(item, dict)
+        ]
+    connection.send_result(
+        msg["id"],
+        {
+            "current_weight_kg": weight,
+            "current_weight_updated_at": manager.current_weight_updated_at,
+            "current_weight_source": manager.current_weight_source,
+            "bmi": bmi,
+            "trend_30d_percent": summary.get("slope_percent_per_30d"),
+            "mean_28d": summary.get("mean_28d"),
+            "daily": daily[:90],
+            **_dashboard_scale_body_metrics(hass, manager),
+        },
+    )
+
+
+def _dashboard_profile_preferences(config: dict[str, Any]) -> dict[str, Any]:
+    """Return bounded presentation-only dashboard configuration."""
+    modules = [
+        str(item)
+        for item in (config.get(CONF_DASHBOARD_MODULES) or DEFAULT_DASHBOARD_MODULES)
+        if isinstance(item, str)
+    ][:20]
+    return {
+        "theme": str(config.get(CONF_DASHBOARD_THEME) or "default")[:128],
+        "modules": modules or list(DEFAULT_DASHBOARD_MODULES),
+        "rss_entity_ids": [str(x) for x in (config.get(CONF_DASHBOARD_RSS_ENTITY_IDS) or [])][:20],
+        "music_entity_ids": [str(x) for x in (config.get(CONF_DASHBOARD_MUSIC_ENTITY_IDS) or [])][:10],
+        "light_entity_ids": [str(x) for x in (config.get(CONF_DASHBOARD_LIGHT_ENTITY_IDS) or [])][:30],
+        "video_entity_ids": [str(x) for x in (config.get(CONF_DASHBOARD_VIDEO_ENTITY_IDS) or [])][:10],
+        "weather_entity_id": str(config.get(CONF_DASHBOARD_WEATHER_ENTITY_ID) or "")[:128] or None,
+        "tts_entity_id": str(config.get(CONF_TTS_ENTITY_ID) or "")[:128] or None,
+        "tts_media_player_ids": [str(x) for x in (config.get(CONF_TTS_MEDIA_PLAYER_IDS) or [])][:10],
+    }
+
+
 @websocket_api.websocket_command({vol.Required("type"): "fitness/dashboard/config"})
 @websocket_api.async_response
 async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> None:
@@ -2822,6 +3424,7 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                         "mode": "control" if entry.entry_id in control_profile_ids else "view",
                     },
                     "language": lang,
+                    "dashboard_preferences": _dashboard_profile_preferences(config),
                     "labels": {
                         **_DASHBOARD_TEXT[lang],
                         "pace": _PACE_TEXT[lang],
@@ -3015,6 +3618,7 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                     "mode": "control" if entry.entry_id in control_profile_ids else "view",
                 },
                 "language": lang,
+                "dashboard_preferences": _dashboard_profile_preferences(manager.config),
                 "labels": {**_DASHBOARD_TEXT[lang], "pace": _PACE_TEXT[lang]},
                 "labels_by_language": {
                     code: {**labels, "pace": _PACE_TEXT[code]}
@@ -3097,7 +3701,7 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
     connection.send_result(
         msg["id"],
         {
-            "frontend_version": "unreleased-82",
+            "frontend_version": "unreleased-85",
             "profiles": profiles,
             "access": access,
             # Access-denied and administrator overview screens can render
@@ -3960,6 +4564,14 @@ async def async_setup_dashboard(hass: HomeAssistant) -> None:
 
     frontend_path = Path(__file__).parent / "frontend"
     websocket_api.async_register_command(hass, websocket_dashboard_config)
+    websocket_api.async_register_command(hass, websocket_workouts_list)
+    websocket_api.async_register_command(hass, websocket_workouts_delete)
+    websocket_api.async_register_command(hass, websocket_workouts_empty)
+    websocket_api.async_register_command(hass, websocket_body_composition)
+    websocket_api.async_register_command(hass, websocket_weight_subscribe)
+    websocket_api.async_register_command(hass, websocket_weight_admin_subscribe)
+    websocket_api.async_register_command(hass, websocket_weight_confirm)
+    websocket_api.async_register_command(hass, websocket_weight_dismiss)
     websocket_api.async_register_command(hass, websocket_tv_overview_cast)
     websocket_api.async_register_command(hass, websocket_tv_overview_stop)
     websocket_api.async_register_command(hass, websocket_dashboard_flow_translations)

@@ -158,5 +158,5 @@ def test_ytdlp_acknowledgement_is_strong_but_does_not_claim_impossible_absolute_
 
 
 def test_frontend_revision_is_53():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-82"' in FRONTEND
-    assert '?v=unreleased-82' in DASHBOARD
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in FRONTEND
+    assert '?v=unreleased-85' in DASHBOARD

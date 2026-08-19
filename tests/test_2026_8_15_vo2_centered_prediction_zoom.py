@@ -22,5 +22,5 @@ def test_vo2_history_zoom_ignores_distant_prediction():
 
 
 def test_dashboard_resource_bumped():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-82"' in FRONTEND
-    assert '?v=unreleased-82' in BACKEND
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in FRONTEND
+    assert '?v=unreleased-85' in BACKEND

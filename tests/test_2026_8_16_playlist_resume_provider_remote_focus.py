@@ -75,7 +75,7 @@ def test_now_playing_text_is_bounded_to_progress_width_and_marquees_only_on_over
 def test_cast_remote_has_visible_focus_press_feedback_and_range_navigation():
     remote = FRONTEND[FRONTEND.index("  _clearCastRemoteFocus() {"):FRONTEND.index("  _claimWindowController() {")]
     assert "_markCastRemoteFocus(element, pressed = false, record = true)" in remote
-    assert 'element.style.outline = "2px solid color-mix(in srgb,var(--primary-color,#03a9f4) 92%,white 8%)"' in remote
+    assert 'element.style.outline = "2px solid rgba(255,255,255,.82)"' in remote
     assert 'pressed ? "translate3d(0,0,0) scale(.985)" : "translate3d(0,-1px,0) scale(1.018)"' in remote
     assert 'element.style.filter = "none"' in remote
     assert '["Enter","NumpadEnter","Select","Accept"," "]' in remote

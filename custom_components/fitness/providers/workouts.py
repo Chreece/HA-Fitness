@@ -1060,6 +1060,25 @@ def discover_external_workouts(
     return list(unique.values())
 
 
+
+async def async_discover_external_workouts(
+    hass: HomeAssistant,
+    config: dict,
+) -> list[Workout]:
+    """Discover entity-backed and configured file/export workout adapters."""
+    from .workout_adapters.registry import async_discover_file_adapters
+
+    candidates = discover_external_workouts(hass, config)
+    candidates.extend(await async_discover_file_adapters(hass, config))
+
+    unique: dict[tuple, Workout] = {}
+    for workout in candidates:
+        key = (workout.source, workout.start, workout.name, workout.sport)
+        current = unique.get(key)
+        if current is None or _richness(workout) > _richness(current):
+            unique[key] = workout
+    return list(unique.values())
+
 def _sport_key(value: str | None) -> str:
     text = _norm_key(value or "workout")
     aliases = {

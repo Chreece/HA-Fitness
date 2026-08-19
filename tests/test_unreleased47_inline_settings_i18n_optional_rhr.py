@@ -13,7 +13,9 @@ def test_resting_hr_is_optional_during_setup_and_options():
     required_start = FLOW.index("async def async_step_required")
     required_end = FLOW.index("async def async_step_optional", required_start)
     required = FLOW[required_start:required_end]
-    assert "CONF_WEIGHT: (20, 500, True)" in required
+    assert "_validate_manual_weight(user_input.get(CONF_WEIGHT))" in required
+    assert "CONF_WEIGHT_SCALE_ENTITY" in required
+    assert "_number(20, 500, step=0.1)" in required
     assert "CONF_RESTING_HR: (20, 150, False)" in required
     assert "vol.Required(CONF_WEIGHT" in required
     assert "_optional_suggested(\n                        CONF_RESTING_HR" in required
@@ -51,14 +53,14 @@ def test_live_sensor_page_is_translated_in_all_shipped_languages():
             assert data["options"]["step"]["live_devices"]["title"] != english_title
 
 
-def test_inline_options_save_and_return_to_settings_menu():
+def test_inline_options_save_is_explicit_and_main_menu_discards_unsaved_changes():
     assert 'const submitLabel = this._mode === "options" || step.last_step' in FRONTEND
     assert 'this.shadowRoot.querySelector(".flow-home")?.addEventListener("click", () => this._saveAndReturnToMenu());' in FRONTEND
-    assert "async _saveAndReturnToMenu()" in FRONTEND
-    assert "await this._submit(this._formData);" in FRONTEND
-    assert 'if (this._mode === "options") {' in FRONTEND
-    assert "this._returnToMenuAfterSave = true;" in FRONTEND
-    assert "await this._restartOptionsFlow();" in FRONTEND
+    block = FRONTEND[FRONTEND.index("  async _saveAndReturnToMenu() {"):FRONTEND.index("  _renderLoading()", FRONTEND.index("  async _saveAndReturnToMenu() {"))]
+    assert "await this._submit(this._formData);" not in block
+    assert "this._formDirty" in block
+    assert "settings_changes_not_saved" in block
+    assert "await this._restartOptionsFlow();" in block
     assert "Do not redraw the parent while an options flow is returning" in FRONTEND
     assert "setTimeout(() => this._load(), 100);" in FRONTEND
     assert "white-space:nowrap" in FRONTEND
@@ -83,5 +85,5 @@ def test_tv_setup_text_does_not_name_an_external_frontend_extension():
 
 
 def test_unreleased_frontend_revision_is_47():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-82"' in FRONTEND
-    assert '?v=unreleased-82' in DASH
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in FRONTEND
+    assert '?v=unreleased-85' in DASH

@@ -70,8 +70,17 @@ def test_workout_and_sleep_device_preselection_is_clearable_and_unclaimed_only()
     assert "sleep_device_choices(\n            self.hass, self.config_entry.entry_id" in FLOW
 
 
-def test_v13_migration_and_runtime_setup_enforce_source_isolation():
-    assert "VERSION = 13" in FLOW
-    assert "if config_entry.version > 13:" in INIT
+def test_v14_migration_and_runtime_setup_enforce_source_isolation():
+    assert "VERSION = 14" in FLOW
+    assert "if config_entry.version > 14:" in INIT
     assert "exclusive_profile_source_overrides" in INIT
     assert "source_overrides = exclusive_profile_source_overrides(hass, entry)" in INIT
+
+
+def test_weight_scale_is_shareable_without_weakening_other_personal_sources():
+    fields = CAP[CAP.index("_PROFILE_ENTITY_FIELDS = ("):CAP.index("_PROFILE_DEVICE_FIELDS = (")]
+    assert "CONF_WEIGHT," not in fields
+    assert "CONF_RESTING_HR" in fields
+    assert "def weight_scale_entity_choices" in CAP
+    assert "enforce_ownership=False" in CAP
+    assert "CONF_WEIGHT_SCALE_ENTITY" in FLOW

@@ -1,6 +1,0 @@
-[
-  "test_dashboard_refinements_2026_8_11.py::test_numeric_gauge_context_and_hr_baseline_tones",
-  "test_dashboard_refinements_2026_8_11.py::test_readiness_is_integrated_into_next_workout",
-  "test_dashboard_refinements_2026_8_11.py::test_single_frontend_module_contract_is_preserved",
-  "test_dashboard_refinements_2026_8_11.py::test_sleep_total_excludes_awake_regression"
-]

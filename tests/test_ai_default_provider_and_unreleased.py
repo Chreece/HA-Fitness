@@ -90,8 +90,8 @@ def test_repository_release_metadata_supports_alpha_beta_and_stable():
     assert "`YYYY.M.RRaXX`" in CHANGELOG
     assert "`YYYY.M.RR-betaXX`" in CHANGELOG
     assert "`YYYY.M.RR`" in CHANGELOG
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-82"' in FRONTEND
-    assert '?v=unreleased-82' in DASHBOARD
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in FRONTEND
+    assert '?v=unreleased-85' in DASHBOARD
     assert "2026.8.01a01" in CONTRIBUTING
     assert "2026.8.01-beta01" in CONTRIBUTING
     assert "2026.8.01" in CONTRIBUTING

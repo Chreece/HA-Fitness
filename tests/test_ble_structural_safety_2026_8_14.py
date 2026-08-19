@@ -22,8 +22,9 @@ def test_raw_ble_payloads_are_not_structural_endpoint_metadata():
     register_call = discovered.split("sensor = self.runtime.register_transport_sensor(", 1)[1].split(")\n", 1)[0]
     assert '"manufacturer_data":' not in register_call
     assert '"service_data":' not in register_call
-    assert '"manufacturer_data_ids"' in register_call
-    assert '"service_uuids"' in register_call
+    assert "metadata=identity_metadata" in register_call
+    assert '"manufacturer_data_ids"' in discovered
+    assert '"service_uuids"' in discovered
 
 
 def test_raw_ble_diagnostics_are_changed_and_rate_limited():

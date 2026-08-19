@@ -18,6 +18,8 @@ from .const import (
     ATTR_DAYS,
     CONF_LANGUAGE,
     CONF_PROFILE_NAME,
+    CONF_WEIGHT,
+    CONF_WEIGHT_SCALE_ENTITY,
     CONF_WORKOUT_RETENTION_DAYS,
     DEFAULT_WORKOUT_RETENTION_DAYS,
     DOMAIN,
@@ -226,14 +228,14 @@ async def async_migrate_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
 ) -> bool:
-    """Migrate Fitness profiles and enforce exclusive personal data sources.
+    """Migrate Fitness profiles while preserving safe source ownership.
 
-    Version 11 added per-profile language, version 12 canonical workout-history
-    retention, and version 13 makes personal HA entities/devices exclusive to
-    one Fitness profile.  The earliest profile that already claimed a source
-    keeps it; later duplicate claims are masked through explicit empty options.
+    Version 14 separates the confirmed/manual current body weight from an
+    optional shared scale entity.  Older weight-entity configurations are moved
+    to the shareable scale field and, when currently available, seed the manual
+    current weight without making the scale an exclusive personal source.
     """
-    if config_entry.version > 13:
+    if config_entry.version > 14:
         return False
 
     data = dict(config_entry.data)
@@ -254,12 +256,24 @@ async def async_migrate_entry(
 
         options.update(exclusive_profile_source_overrides(hass, config_entry))
 
-    if config_entry.version < 13:
+    if config_entry.version < 14 and not data.get("entry_type"):
+        from .providers.entities import is_entity_reference, resolve_number_or_entity
+
+        current_weight = options.get(CONF_WEIGHT, data.get(CONF_WEIGHT))
+        if is_entity_reference(current_weight):
+            options.setdefault(CONF_WEIGHT_SCALE_ENTITY, str(current_weight).strip())
+            resolved = resolve_number_or_entity(
+                hass, current_weight, quantity="weight"
+            ).value
+            if resolved is not None and 20 <= float(resolved) <= 500:
+                options[CONF_WEIGHT] = round(float(resolved), 1)
+
+    if config_entry.version < 14:
         hass.config_entries.async_update_entry(
             config_entry,
             data=data,
             options=options,
-            version=13,
+            version=14,
         )
 
     return True
@@ -296,6 +310,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if entry.title != "Sensors & Adapters":
             hass.config_entries.async_update_entry(entry, title="Sensors & Adapters")
         await runtime.async_register_hub(entry)
+        initial_transport = str(entry.data.get("initial_transport") or "").strip()
+        if initial_transport in {"bluetooth", "antplus"}:
+            # First-install protocol selection is an explicit one-shot action.
+            # Persist the runtime adapter state, then remove this setup hint so a
+            # later user-disabled adapter is not silently re-enabled on restart.
+            await runtime.async_set_transport_enabled(initial_transport, True)
+            data = dict(entry.data)
+            data.pop("initial_transport", None)
+            hass.config_entries.async_update_entry(entry, data=data)
         entry.async_on_unload(entry.add_update_listener(_async_update_listener))
         await hass.config_entries.async_forward_entry_setups(entry, HUB_PLATFORMS)
         return True
@@ -324,6 +347,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN][entry.entry_id] = manager
 
     await manager.async_setup()
+    from .weight_scales import get_weight_scale_router
+    await get_weight_scale_router(hass).async_register_profile(entry, manager)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _schedule_sensors_adapters_entry(hass)
@@ -382,6 +407,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 except TimeoutError:
                     _LOGGER.warning("Timed out unloading Fitness live sensor hub")
             return True
+        try:
+            from .weight_scales import get_weight_scale_router
+            await get_weight_scale_router(hass).async_unregister_profile(entry.entry_id)
+        except Exception:  # noqa: BLE001 - unload must never be blocked by scale UX
+            _LOGGER.exception("Unable to unregister Fitness shared scale profile")
         manager = hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
         if manager:
             try:
@@ -409,6 +439,12 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
     if entry.data.get("entry_type") == HUB_ENTRY_TYPE:
         return
+
+    try:
+        from .weight_scales import get_weight_scale_router
+        await get_weight_scale_router(hass).async_unregister_profile(entry.entry_id, permanent=True)
+    except Exception:  # noqa: BLE001 - profile removal remains best effort
+        _LOGGER.exception("Unable to remove Fitness shared scale routing")
 
     # The profile store contains canonical workouts, deletion tombstones, sleep
     # history, long-term/metric history, AI evaluations and other Fitness-owned

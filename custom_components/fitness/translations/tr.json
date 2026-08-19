@@ -24,14 +24,16 @@
       },
       "required": {
         "title": "Profil girdileri",
-        "description": "Kilo zorunludur. Dinlenik nabız isteğe bağlıdır ve daha sonra eklenebilir. Her alan sayısal değer veya uyumlu bir Home Assistant varlığı kabul eder; birimler otomatik olarak normalize edilir.",
+        "description": "Güncel kilo zorunludur. İsteğe bağlı olarak bir Home Assistant tartı sensörü seçebilirsiniz. Aynı tartı birden fazla Fitness profili tarafından paylaşılabilir; yeni ölçümler eşleştirilir ve bir profil güncellenmeden önce her zaman onay istenir.",
         "data": {
-          "weight": "Kilo (kg veya varlık)",
-          "resting_hr": "Dinlenik nabız (bpm veya varlık)"
+          "weight": "Güncel kilo (kg)",
+          "resting_hr": "Dinlenik nabız (bpm veya varlık)",
+          "weight_scale_entity": "Paylaşılan tartı (isteğe bağlı)"
         },
         "data_description": {
-          "weight": "Vücut ağırlığı. W/kg ve kütleye göre normalize ölçümler için kullanılır. kg girin veya uyumlu entity seçin; birimler dönüştürülür.",
-          "resting_hr": "Dinlenik kalp hızı (bpm). %HRR, yoğunluk ve Banister TRIMP için kullanılır. Gerçek bir dinlenik HR ölçümü kullanın."
+          "weight": "Kilogram cinsinden güncel, onaylanmış vücut ağırlığınız. İstediğiniz zaman elle değiştirebilirsiniz.",
+          "resting_hr": "Dinlenik kalp hızı (bpm). %HRR, yoğunluk ve Banister TRIMP için kullanılır. Gerçek bir dinlenik HR ölçümü kullanın.",
+          "weight_scale_entity": "Uyumlu bir Home Assistant kilo sensörü seçin. Tartı birden fazla Fitness profili tarafından paylaşılabilir. Yeni ölçümden sonra Fitness kimin tartıldığını önerir ve kilo değişmeden önce onay ister."
         }
       },
       "optional": {
@@ -151,13 +153,36 @@
           "tv_dashboard_ytdlp_enabled": "yt-dlp, YouTube veya başka hizmetlerle bağlantısı olmayan isteğe bağlı bir üçüncü taraf adaptörüdür. Yasalara, hizmet koşullarına ve telif haklarına uyma ve gerekli izinleri alma sorumluluğu yalnızca sana aittir. Fitness çerez sağlamaz, aşmayı ya da yeniden dağıtımı yetkilendirmez ve adaptörü garantisiz sunar; bu bildirim hukuki tavsiye değildir.",
           "tv_dashboard_ignore_lights_when_cast_active": "Bir Fitness TV Cast alıcısı etkinken antrenman geri bildirimi için TV’yi kullanır ve yapılandırılmış antrenman ışıklarını değiştirmez."
         }
+      },
+      "first_install": {
+        "title": "Fitness kurulumu",
+        "description": "Önce ne eklemek istediğinizi seçin. Diğer bölümü mevcut profil akışını değiştirmeden daha sonra ekleyebilirsiniz.",
+        "menu_options": {
+          "add_protocol": "Sensör protokolü ekle",
+          "add_user": "Kullanıcı profili ekle"
+        }
+      },
+      "add_user": {
+        "title": "Kullanıcı profili ekle",
+        "description": "Normal Fitness profil kurulumu ile devam edin."
+      },
+      "add_protocol": {
+        "title": "Sensör protokolü ekle",
+        "description": "Bir yerel sensör aktarımını etkinleştirin. Fitness adaptör cihazını oluşturur ve keşfi sınırlı, kullanıcı kontrollü tutar.",
+        "data": {
+          "protocol": "Protokol"
+        },
+        "data_description": {
+          "protocol": "Fitness’ın şimdi etkinleştireceği yerel radyo aktarımını seçin. Diğeri siz etkinleştirene kadar kullanılabilir ancak kapalı kalır."
+        }
       }
     },
     "error": {
       "invalid_date": "Geçmişte olan geçerli bir doğum tarihi gir.",
       "invalid_number_or_entity": "Geçerli bir sayı veya Home Assistant varlık kimliği gir.",
       "select_profile": "En az bir Fitness kullanıcısı seç.",
-      "select_smart_device_owner": "Kayıtlı antrenmanların sahibi olarak tam bir Fitness profili seçin. Canlı sensör özellikleri daha sonra başka profillerle paylaşılabilir."
+      "select_smart_device_owner": "Kayıtlı antrenmanların sahibi olarak tam bir Fitness profili seçin. Canlı sensör özellikleri daha sonra başka profillerle paylaşılabilir.",
+      "invalid_protocol": "Desteklenen bir sensör protokolü seçin."
     },
     "abort": {
       "already_configured": "Bu ada sahip bir Fitness profili zaten var.",
@@ -183,7 +208,10 @@
           "sleep_devices": "Uyku cihazları",
           "sensor_assignments": "Sensör atamaları",
           "tv_dashboard": "Fitness TV paneli",
-          "smart_workout_devices": "Akıllı antrenman cihazları"
+          "smart_workout_devices": "Akıllı antrenman cihazları",
+          "protocols": "Sensör protokolleri",
+          "features": "Pano özellikleri",
+          "about": "Fitness hakkında"
         }
       },
       "profile": {
@@ -206,26 +234,28 @@
       },
       "fitness_inputs": {
         "title": "Fitness verileri ve başlangıç değerleri",
-        "description": "Her alan sayısal değer veya uyumlu bir varlık kabul eder. Yalnızca kilo zorunludur; dinlenik nabız ve diğer fizyolojik girdiler isteğe bağlıdır ve daha sonra eklenip kaldırılabilir.",
+        "description": "Profilin güncel onaylanmış kilosunu ve isteğe bağlı paylaşılan tartıyı ayarlayın. Diğer fizyolojik girdiler uyumlu Home Assistant varlıklarını kullanmaya devam edebilir. Paylaşılan tartı ölçümü onay olmadan hiçbir profili güncellemez.",
         "data": {
-          "weight": "Kilo (kg veya varlık)",
+          "weight": "Güncel kilo (kg)",
           "resting_hr": "Dinlenik nabız (bpm veya varlık)",
           "height": "Boy (cm veya varlık)",
           "max_hr": "Maksimum nabız (bpm veya varlık)",
           "vo2max": "VO₂maks (mL/kg/dk veya varlık)",
           "threshold_hr": "Eşik nabzı (bpm veya varlık)",
           "threshold_pace": "Eşik temposu (min/km veya varlık)",
-          "threshold_power": "Eşik gücü (W veya varlık)"
+          "threshold_power": "Eşik gücü (W veya varlık)",
+          "weight_scale_entity": "Paylaşılan tartı (isteğe bağlı)"
         },
         "data_description": {
-          "weight": "Vücut ağırlığı. W/kg ve kütleye göre normalize ölçümler için kullanılır. kg girin veya uyumlu entity seçin; birimler dönüştürülür.",
+          "weight": "Kilogram cinsinden güncel, onaylanmış vücut ağırlığınız. İstediğiniz zaman elle değiştirebilirsiniz.",
           "resting_hr": "Dinlenik kalp hızı (bpm). %HRR, yoğunluk ve Banister TRIMP için kullanılır. Gerçek bir dinlenik HR ölçümü kullanın.",
           "height": "Boy. İsteğe bağlı profil bağlamı. Manuel değer cm; entity birimleri otomatik dönüştürülür.",
           "max_hr": "Fizyolojik/yapılandırılmış maksimum kalp hızı (bpm). %HRmax, %HRR ve TRIMP için kullanılır; tek bir antrenman maksimumundan tahmin edilmez.",
           "vo2max": "VO₂max (mL/kg/min); kardiyorespiratuvar karşılaştırmalar ve uzun vadeli değerlendirme için kullanılır.",
           "threshold_hr": "Eşik kalp hızı (bpm); eforu yapılandırılmış eşikle karşılaştırmak için kullanılır.",
           "threshold_pace": "Koşu eşik temposu (min/km). m/s veya km/h hız entity'leri otomatik dönüştürülür.",
-          "threshold_power": "Eşik gücü (W). Eşiğe göre güç ve W/kg için kullanılır; birden fazla belirsiz FTP otomatik seçilmez."
+          "threshold_power": "Eşik gücü (W). Eşiğe göre güç ve W/kg için kullanılır; birden fazla belirsiz FTP otomatik seçilmez.",
+          "weight_scale_entity": "Uyumlu bir Home Assistant kilo sensörü seçin. Tartı birden fazla Fitness profili tarafından paylaşılabilir. Yeni ölçümden sonra Fitness kimin tartıldığını önerir ve kilo değişmeden önce onay ister."
         }
       },
       "live_devices": {
@@ -387,6 +417,44 @@
         "data_description": {
           "smart_pairing_action": "Retry starts one bounded automatic pairing/sync attempt."
         }
+      },
+      "protocols": {
+        "title": "Sensör protokolleri",
+        "description": "Yerel sensör aktarımlarını etkinleştirin veya kapatın. Kullanımdaki bir aktarım oturum bitene kadar kapatılmaz.",
+        "data": {
+          "bluetooth": "Bluetooth protokolü",
+          "antplus": "ANT+ protokolü"
+        },
+        "data_description": {
+          "bluetooth": "Yerel Fitness sensörleri ve desteklenen cihaz arşivleri için Home Assistant Bluetooth aktarımını etkinleştirir.",
+          "antplus": "Uyumlu USB alıcıları ve Fitness sensörleri için yerel ANT+ aktarımını etkinleştirir."
+        }
+      },
+      "features": {
+        "title": "Pano özellikleri",
+        "description": "İsteğe bağlı pano modüllerini ve mevcut Home Assistant varlıklarını seçin. Bu seçenekler arka planda ağ sorgulaması eklemez.",
+        "data": {
+          "dashboard_modules": "Pano modülleri",
+          "dashboard_theme": "Home Assistant teması",
+          "dashboard_rss_entity_ids": "RSS / haber sensörleri",
+          "dashboard_music_entity_ids": "Müzik oynatıcıları",
+          "dashboard_light_entity_ids": "Işıklar",
+          "dashboard_video_entity_ids": "TV / video oynatıcıları",
+          "dashboard_weather_entity_id": "Hava durumu varlığı"
+        },
+        "data_description": {
+          "dashboard_modules": "Bu profil panosunda gösterilecek isteğe bağlı Fitness ve Home Assistant modüllerini seçin.",
+          "dashboard_theme": "Yüklü bir Home Assistant temasının adını kullanın veya normal sistem teması için Home Assistant seçeneğini koruyun.",
+          "dashboard_rss_entity_ids": "RSS veya haber verisini zaten sağlayan Home Assistant sensörlerini seçin; Fitness akışları kendisi indirmez.",
+          "dashboard_music_entity_ids": "Fitness panosunda Home Assistant medya kontrollerini göstermek için mevcut medya oynatıcılarını seçin.",
+          "dashboard_light_entity_ids": "Panoda kompakt bir kontrol grubu için mevcut ışık varlıklarını seçin.",
+          "dashboard_video_entity_ids": "Home Assistant medya kontrollerini göstermek için mevcut TV veya video oynatıcılarını seçin.",
+          "dashboard_weather_entity_id": "İsteğe bağlı hava durumu kartı için mevcut bir Home Assistant hava durumu varlığı seçin."
+        }
+      },
+      "about": {
+        "title": "Fitness hakkında",
+        "description": "Yüklü sürüm: {version}\n\n{changelog}"
       }
     },
     "abort": {
@@ -3382,6 +3450,12 @@
       },
       "garmin_sync_workouts": {
         "name": "Garmin antrenmanlarını şimdi senkronize et"
+      },
+      "adapter_scan_now": {
+        "name": "Şimdi tara"
+      },
+      "sync_device_health_history": {
+        "name": "Cihaz sağlık geçmişini eşitle"
       }
     },
     "select": {
@@ -3422,6 +3496,20 @@
         "11": "Kasım",
         "12": "Aralık"
       }
+    },
+    "dashboard_module": {
+      "options": {
+        "core": "Temel Fitness kartları",
+        "training_ai": "AI antrenman koçu",
+        "body_composition": "Vücut kompozisyonu / kilo eğilimleri",
+        "workout_browser": "Antrenman tarayıcısı",
+        "rss": "RSS / haberler",
+        "music": "Müzik",
+        "tts": "Metinden sese",
+        "lights": "Işıklar",
+        "video": "TV / görüntü",
+        "weather": "Hava durumu"
+      }
     }
   },
   "device": {
@@ -3458,6 +3546,10 @@
     "garmin_pairing_required": {
       "title": "Garmin eşleştirme onayı istiyor",
       "description": "Fitness `{device}` ile otomatik eşleştirmeyi tamamlayamadı. Garmin telefonla eşleşmiş kalsın. Bluetooth/Telefon eşleştirme modunu açın, Fitness > Akıllı antrenman cihazları > `{device}` bölümüne gidin ve Şimdi yeniden dene seçin. Garmin üzerinde onaylayın. Telefon eşleşmesi değiştirilecek/kaldırılacaksa iptal edin."
+    },
+    "device_user_action_required": {
+      "title": "{device} ilgilenmenizi gerektiriyor",
+      "description": "Fitness, cihaz üzerinde gerekli adımı tamamlayana kadar `{device}` ile doğrudan eşitlemeye devam edemez. {reason}\n\nŞu adımları izleyin:\n{instructions}\n\nAdımları onaylamak ve istenen bilgileri girmek için Düzelt seçeneğini seçin."
     }
   },
   "services": {

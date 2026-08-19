@@ -41,5 +41,5 @@ def test_compact_recovery_wording_is_translatable_in_every_supported_language():
 
 
 def test_dashboard_resource_version_remains_synchronized():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-82"' in FRONTEND
-    assert '?v=unreleased-82' in BACKEND
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in FRONTEND
+    assert '?v=unreleased-85' in BACKEND

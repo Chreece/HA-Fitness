@@ -152,5 +152,5 @@ def test_local_cast_handoff_preserves_playing_state_for_receiver_resume():
     assert '["session_replaced","cast_handoff"]' in handler
 
 def test_frontend_cache_revision_bumped_for_gateway_release():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-82"' in JS
-    assert '?v=unreleased-82' in DASH
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in JS
+    assert '?v=unreleased-85' in DASH

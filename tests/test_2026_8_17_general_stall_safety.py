@@ -7,7 +7,7 @@ ROOT = Path(__file__).parents[1] / "custom_components" / "fitness"
 MANAGER = (ROOT / "manager.py").read_text(encoding="utf-8")
 RUNTIME = (ROOT / "live" / "runtime.py").read_text(encoding="utf-8")
 REMOTE = (ROOT / "remote_gateway.py").read_text(encoding="utf-8")
-CYCPLUS = (ROOT / "live" / "cycplus_m1.py").read_text(encoding="utf-8")
+CYCPLUS = (ROOT / "device_adapters" / "cycplus_m1.py").read_text(encoding="utf-8")
 TV = (ROOT / "tv_dashboard.py").read_text(encoding="utf-8")
 MUSIC = (ROOT / "music" / "registry.py").read_text(encoding="utf-8")
 FRONTEND = (ROOT / "frontend" / "fitness-dashboard.js").read_text(encoding="utf-8")

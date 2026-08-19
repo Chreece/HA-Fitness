@@ -192,13 +192,67 @@ def catalog_product_id(name: str, endpoints: dict[str, Any]) -> str | None:
                 return value
     return None
 
+def _explicit_endpoint_vendors(endpoints: dict[str, Any]) -> set[str]:
+    """Return protocol-backed vendor identities carried by observed endpoints.
+
+    These are identity guardrails only. They never select a protocol backend. A
+    stale generated/local name must not be able to override stronger endpoint
+    evidence after a Bluetooth address is reused or an old discovery record is
+    restored.
+    """
+    vendors: set[str] = set()
+    for endpoint in endpoints.values():
+        metadata = getattr(endpoint, "metadata", {}) or {}
+        value = metadata.get("fitness_vendor_identity") or metadata.get("manufacturer")
+        cleaned = _clean(value)
+        if cleaned:
+            vendors.add(cleaned)
+    return vendors
+
+
+def catalog_name_vendor(name: str | None) -> str | None:
+    """Return one catalog vendor implied only by a semantic product name.
+
+    This deliberately ignores transport fields. Runtime uses it solely to repair
+    a tombstoned physical record whose persisted display name belongs to one
+    catalog vendor while its sole endpoint now carries strong evidence for a
+    different vendor. Ambiguous names return ``None``.
+    """
+    cleaned_name = _clean(name)
+    if not cleaned_name:
+        return None
+    vendors: set[str] = set()
+    for product in load_catalog().get("products", []) or []:
+        if not isinstance(product, dict):
+            continue
+        vendor = _clean(product.get("manufacturer"))
+        if not vendor:
+            continue
+        for rule in product.get("match_any") or []:
+            if not isinstance(rule, dict):
+                continue
+            prefix = _text(rule.get("name_prefix"))
+            if prefix and cleaned_name.startswith(_clean(prefix)):
+                vendors.add(vendor)
+                break
+    return next(iter(vendors)) if len(vendors) == 1 else None
+
+
 def _catalog_product(name: str, endpoints: dict[str, Any]) -> dict[str, str]:
+    observed_vendors = _explicit_endpoint_vendors(endpoints)
     for product in load_catalog().get("products", []) or []:
         if not isinstance(product, dict):
             continue
         rules = product.get("match_any") or []
-        if any(isinstance(rule, dict) and _matches_rule(rule, name, endpoints) for rule in rules):
-            return {key: str(product[key]) for key in ("name", "manufacturer", "model", "model_id") if product.get(key) not in (None, "")}
+        if not any(isinstance(rule, dict) and _matches_rule(rule, name, endpoints) for rule in rules):
+            continue
+        product_vendor = _clean(product.get("manufacturer"))
+        # Strong endpoint/vendor evidence outranks a stale name-only catalog
+        # match. This prevents an old product title from reclassifying a newly
+        # observed physical device that carries another vendor identity.
+        if observed_vendors and product_vendor and product_vendor not in observed_vendors:
+            continue
+        return {key: str(product[key]) for key in ("name", "manufacturer", "model", "model_id") if product.get(key) not in (None, "")}
     return {}
 
 def _generic_profile_model(endpoints: dict[str, Any]) -> str | None:
@@ -429,6 +483,16 @@ def catalog_cross_transport_ids(
             continue
         if "manufacturer_id" in role and metadata.get("manufacturer_id") != role.get("manufacturer_id"):
             continue
+        if "manufacturer_data_id" in role:
+            try:
+                required_company = int(role.get("manufacturer_data_id"))
+                observed_companies = {
+                    int(value) for value in (metadata.get("manufacturer_data_ids") or [])
+                }
+            except (TypeError, ValueError):
+                continue
+            if required_company not in observed_companies:
+                continue
         required_profiles = {int(value) for value in (role.get("profiles") or [])}
         endpoint_profiles = {int(value) for value in (metadata.get("profiles") or [])}
         if required_profiles and not required_profiles.issubset(endpoint_profiles):
@@ -495,10 +559,37 @@ def resolve_identity(sensor) -> dict[str, Any]:
             identity[key] = catalog_model[key]
     name = catalog_model.get("name") or product.get("name")
     if not name:
+        # A physical sensor can be materialized before its semantic Bluetooth
+        # name is known.  The top-level ``sensor.name`` may therefore remain the
+        # historical generic placeholder even though a later advertisement was
+        # persisted on the endpoint. Prefer a clean endpoint-advertised name
+        # before falling back to that top-level placeholder. This is transport-
+        # generic identity recovery, not a product/vendor special case.
+        endpoint_names = []
+        for transport, endpoint in sensor.endpoints.items():
+            advertised = _text(endpoint.metadata.get("advertised_name"))
+            if (
+                advertised
+                and advertised != "Fitness sensor"
+                and not _looks_address(advertised)
+                and not _numeric_only(advertised)
+            ):
+                priority = 2 if transport == "bluetooth" else 1
+                endpoint_names.append((priority, advertised))
+        if endpoint_names:
+            endpoint_names.sort(key=lambda item: (-item[0], item[1].casefold()))
+            name = endpoint_names[0][1]
+    if not name:
         advertised = _text(sensor.name)
-        if advertised and advertised != "Fitness sensor" and not _looks_address(advertised) and not _numeric_only(advertised):
-            if not re.fullmatch(r".+\s+[0-9._-]+", advertised):
-                name = advertised
+        if (
+            advertised
+            and advertised != "Fitness sensor"
+            and not _looks_address(advertised)
+            and not _numeric_only(advertised)
+        ):
+            # A trailing number is normal product identity (Forerunner 965,
+            # Edge 1050, Watch 2, ...), not evidence of an opaque scanner ID.
+            name = advertised
     if not name:
         manufacturer = identity.get("manufacturer")
         model = identity.get("model")

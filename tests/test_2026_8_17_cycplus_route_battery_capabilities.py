@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FIT = ROOT / "custom_components" / "fitness"
 BLUETOOTH = (FIT / "live" / "bluetooth.py").read_text(encoding="utf-8")
-CYCPLUS = (FIT / "live" / "cycplus_m1.py").read_text(encoding="utf-8")
+CYCPLUS = (FIT / "device_adapters" / "cycplus_m1.py").read_text(encoding="utf-8")
 RUNTIME = (FIT / "live" / "runtime.py").read_text(encoding="utf-8")
 REMOTE = (FIT / "remote_gateway.py").read_text(encoding="utf-8")
 JS = (FIT / "frontend" / "fitness-dashboard.js").read_text(encoding="utf-8")

@@ -4,6 +4,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import sys
+import struct
 import types
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -54,6 +55,7 @@ def test_v2_channel_nibble_is_capability_discovered_not_product_mapped():
     assert [candidate.backend for candidate in candidates] == ["gfdi_v2_ml"]
     assert candidates[0].receive_uuid.startswith("6a4e281f")
     assert candidates[0].send_uuid.startswith("6a4e282f")
+    assert candidates[0].write_with_response is False
 
 
 def test_mixed_device_capabilities_offer_v2_then_v1_then_v0_fallbacks():
@@ -77,6 +79,7 @@ def test_mixed_device_capabilities_offer_v2_then_v1_then_v0_fallbacks():
         "gfdi_v1",
         "gfdi_v0",
     )
+    assert all(candidate.write_with_response is True for candidate in g.transport_candidates_from_client(client))
 
 
 def test_incomplete_or_wrong_property_pairs_are_rejected_without_guessing():
@@ -104,3 +107,31 @@ def test_v2_candidate_count_is_bounded_even_if_many_channel_pairs_are_exposed():
     candidates = g.transport_candidates_from_client(_Client(chars))
     assert len(candidates) == g.MAX_V2_CHANNEL_CANDIDATES
     assert len(candidates) <= g.MAX_TRANSPORT_CANDIDATES
+
+
+def test_v2_close_all_request_has_exact_multilink_wire_length():
+    transport = g.GarminV2Transport(
+        _Client([]),
+        f"6a4e2810{p.GARMIN_UUID_SUFFIX}",
+        f"6a4e2820{p.GARMIN_UUID_SUFFIX}",
+    )
+    # V2 CLOSE_ALL uses uint16 flags plus one reserved trailing byte.
+    close_all = transport._management_request(5, b"\x00\x00\x00")
+    assert len(close_all) == 13
+    assert close_all[:2] == b"\x00\x05"
+    assert struct.unpack_from("<Q", close_all, 2)[0] == g.V2_CLIENT_ID
+    assert close_all[-3:] == b"\x00\x00\x00"
+
+
+def test_v2_register_success_accepts_optional_reliable_byte_omission():
+    transport = g.GarminV2Transport(
+        _Client([]),
+        f"6a4e2810{p.GARMIN_UUID_SUFFIX}",
+        f"6a4e2820{p.GARMIN_UUID_SUFFIX}",
+    )
+    # Body is notification payload after the leading management handle 0x00.
+    compact = bytes([1]) + struct.pack("<QHBB", g.V2_CLIENT_ID, g.V2_GFDI_SERVICE, 0, 0x42)
+    assert len(compact) == 13
+    transport._observe_management(compact)
+    assert transport._gfdi_handle == 0x42
+    assert transport._service_by_handle[0x42] == g.V2_GFDI_SERVICE

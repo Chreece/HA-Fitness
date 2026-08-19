@@ -13,6 +13,9 @@ PROTO = (GARMIN / "protocol.py").read_text(encoding="utf-8")
 FIT_PARSER = (GARMIN / "fit.py").read_text(encoding="utf-8")
 BT = (FIT / "live" / "bluetooth.py").read_text(encoding="utf-8")
 ARCHIVES = (FIT / "device_archives.py").read_text(encoding="utf-8")
+ADAPTER_REGISTRY = (FIT / "device_adapters" / "registry.py").read_text(encoding="utf-8")
+GARMIN_ADAPTER = (FIT / "device_adapters" / "garmin" / "adapter.py").read_text(encoding="utf-8")
+BLUEZ_AGENT = (FIT / "device_adapters" / "garmin" / "bluez_agent.py").read_text(encoding="utf-8")
 BUTTON = (FIT / "button.py").read_text(encoding="utf-8")
 FLOW = (FIT / "config_flow.py").read_text(encoding="utf-8")
 
@@ -155,8 +158,8 @@ def test_local_archive_is_read_only_by_construction():
 def test_manual_sync_button_only_schedules_background_work():
     press = _method(BUTTON, "async_press")
     # There are several async_press methods; source lookup can return another one,
-    # so assert the Garmin class block explicitly as well.
-    block = BUTTON.split("class GarminSyncWorkoutsButton", 1)[1].split("class BaseLiveFitnessButton", 1)[0]
+    # so assert the generic archive class block explicitly as well.
+    block = BUTTON.split("class ArchiveSyncWorkoutsButton", 1)[1].split("class BaseLiveFitnessButton", 1)[0]
     assert "coordinator.schedule" in block
     assert "await coordinator" not in block
 
@@ -178,7 +181,9 @@ def test_live_bluetooth_stays_vendor_neutral_via_archive_registry():
     assert "DeviceArchiveRegistry" in BT
     assert "device_archives.match_bluetooth" in BT
     assert "garmin" not in BT.lower()
-    assert "GarminLocalCoordinator" in ARCHIVES
+    assert "garmin" not in ARCHIVES.lower()
+    assert "GarminLocalCoordinator" in GARMIN_ADAPTER
+    assert ".garmin" in ADAPTER_REGISTRY
 
 
 def test_cached_archive_state_is_bounded_without_pruning_current_device_catalogue():
@@ -209,10 +214,57 @@ def test_garmin_pairing_is_automatic_proxy_aware_and_bounded():
     assert "PAIR_CONNECT_ATTEMPTS" in sync
     assert "PAIR_CONNECT_TIMEOUT" in sync
     assert "pair: bool = False" in helper
+    assert "source: str | None = None" in helper
     assert "pair=pair" in helper
+    assert "source=selected_source" in sync
+    # Pairing is a provisioning connection only. Garmin archive traffic then
+    # starts on a fresh bonded pair=False GATT connection, matching the proven
+    # standalone BlueZ/FIT path and avoiding Pair() on every periodic sync.
+    assert "async_bluez_device_pairing_state" in sync
+    assert "needs_pairing" in sync
+    assert "Garmin post-pair provisioning reconnect" in sync
+    assert "pair=False" in sync
+    assert "Garmin fresh bonded GATT session ready" in sync
     # Do not bypass HA/proxy connection-slot management with direct connects.
     assert "BleakClient.connect" not in sync
     assert "await client.pair" not in sync
+
+
+def test_garmin_bluez_pairing_agent_is_temporary_target_scoped_and_not_global_auto_accept():
+    sync = _method(COORD, "_async_sync")
+    assert "temporary_bluez_pairing_agent" in sync
+    assert 'enabled=route_kind == "local"' in sync
+    assert "RequestDefaultAgent" in BLUEZ_AGENT
+    assert "UnregisterAgent" in BLUEZ_AGENT
+    assert "DisplayYesNo" in BLUEZ_AGENT
+    assert "_ensure_target" in BLUEZ_AGENT
+    assert "org.bluez.Error.Rejected" in BLUEZ_AGENT
+    assert "RequestConfirmation" in BLUEZ_AGENT
+    assert "RequestPasskey" in BLUEZ_AGENT and "cannot safely invent" in BLUEZ_AGENT
+    assert "NoInputNoOutput" not in BLUEZ_AGENT
+    assert "async_bluez_device_pairing_state" in BLUEZ_AGENT
+    assert 'body=["org.bluez.Device1"]' in BLUEZ_AGENT
+    assert '_value("Paired")' in BLUEZ_AGENT
+    assert '_value("Bonded")' in BLUEZ_AGENT
+
+
+def test_garmin_bluez_agent_normalizes_target_path_case_before_comparison():
+    # BlueZ sends /org/bluez/hci0/dev_E0_48_24_67_85_64. The guard upper-cases
+    # the incoming object path, so the expected suffix must use the same case.
+    assert "expected_suffix = _device_suffix(address).upper()" in BLUEZ_AGENT
+    assert "str(device).upper().endswith(expected_suffix)" in BLUEZ_AGENT
+
+
+
+def test_secure_archive_connection_can_pin_one_ha_scanner_without_vendor_logic():
+    helper = _method(BT, "_source_pinned_client_class")
+    establish = _method(BT, "establish_connection")
+    assert "_async_get_best_available_backend_and_device" in helper
+    assert "async_scanner_devices_by_address" in helper
+    assert "_async_get_backend_for_ble_device" in helper
+    assert "scanner" in helper and "source" in helper
+    assert "_source_pinned_client_class(source)" in establish
+    assert "Garmin" not in helper and "CYCPLUS" not in helper and "Forerunner" not in helper
 
 
 def test_garmin_discovery_replays_cache_once_and_guide_scan_is_bounded():
@@ -266,3 +318,106 @@ def test_gfdi_frame_ceiling_matches_wire_length_field_and_cobs_headroom_is_small
     assert "MAX_GFDI_FRAME_BYTES = 0xFFFF" in PROTO
     assert "MAX_COBS_BUFFER_BYTES = 96 * 1024" in PROTO
     assert 'struct.unpack_from("<H"' in PROTO
+
+
+def test_garmin_persisted_archive_timers_resume_after_home_assistant_restart():
+    assert "STARTUP_RESUME_DELAY = 5.0" in COORD
+    setup = _method(COORD, "async_setup")
+    assert "_recover_interrupted_states" in setup
+    assert "_resume_persisted_schedules" in setup
+
+    recover = _method(COORD, "_recover_interrupted_states")
+    assert '{"connecting", "syncing"}' in recover
+    assert 'sync_state="waiting"' in recover
+    assert "STARTUP_RESUME_DELAY" in recover
+    assert "active_file=None" in recover
+
+    resume = _method(COORD, "_resume_persisted_schedule")
+    assert 'status in {"waiting", "retrying", "error"} or pending' in resume
+    assert 'status == "ready"' in resume
+    assert 'state.get("next_attempt")' in resume
+    assert 'state.get("last_successful_sync")' in resume
+    assert "last_success + SYNC_INTERVAL" in resume
+    assert "self.schedule(canonical, delay=delay, force=True)" in resume
+    assert "sensor_archive_profile_ids" in resume
+    assert "except (TypeError, ValueError)" in resume
+
+    acceptance = _method(COORD, "acceptance_changed")
+    assignment = _method(COORD, "assignment_changed")
+    assert "_resume_persisted_schedule" in acceptance
+    assert "_resume_persisted_schedule" in assignment
+
+
+def test_garmin_all_automatic_wakeups_are_persisted_before_sleeping():
+    sync = _method(COORD, "_async_sync")
+    unreachable = sync.split("if ble_device is None:", 1)[1].split("_LOGGER.info(", 1)[0]
+    assert "UNREACHABLE_RETRY_DELAY" in unreachable
+    assert "next_attempt=retry_at.isoformat()" in unreachable
+    assert "await self._save()" in unreachable
+
+    busy_sections = sync.split("BUSY_RETRY_DELAY")
+    assert len(busy_sections) >= 5
+    assert "await self._save()" in busy_sections[2]
+    assert "await self._save()" in busy_sections[4]
+
+    completion = sync.split("more_work = bool(remaining or cached_pending)", 1)[1]
+    assert "now_utc + timedelta(seconds=BATCH_CONTINUE_DELAY)" in completion
+    assert "now_utc + SYNC_INTERVAL" in completion
+    assert "await self._save()" in completion
+
+
+def test_garmin_partial_batches_retry_without_restart_and_without_ble_hammering():
+    text = COORD
+    assert "BATCH_CONTINUE_DELAY = 5 * 60.0" in text
+    assert "PARTIAL_BATCH_RETRY_DELAY = 5 * 60.0" in text
+    assert "MAX_PARTIAL_BATCH_RETRIES = 3" in text
+    assert 'last_batch_success=now_utc.isoformat()' in text
+    assert 'sync_state=(' in text and '"waiting"' in text
+    assert "recent_partial" in text
+
+
+def test_garmin_v2_reconnect_starts_from_acknowledged_clean_handle_namespace():
+    v2 = GFDI.split("class GarminV2Transport", 1)[1].split(
+        "def transport_candidates_from_client", 1
+    )[0]
+    start = v2.split("async def async_start", 1)[1].split(
+        "async def async_send_gfdi", 1
+    )[0]
+    # Garmin Multi-Link CLOSE_ALL is a 13-byte packet. The 3-byte tail includes
+    # uint16 flags plus the reserved byte used by known implementations.
+    assert '_management_request(5, b"\\x00\\x00\\x00")' in start
+    # CLOSE_ALL_RESP contains request type + 8-byte client id; no extra payload
+    # is required before GFDI registration may proceed.
+    assert "len(body) >= 9" in start
+    assert "Garmin Multi-Link CLOSE_ALL was not acknowledged" in start
+    assert "clean handle namespace acknowledged" in start
+
+
+def test_garmin_successful_connection_teardown_avoids_extra_cccd_and_handle_writes():
+    sync = _method(COORD, "_async_sync")
+    assert "await session.async_stop(disconnecting=True)" in sync
+
+    v2 = GFDI.split("class GarminV2Transport", 1)[1].split(
+        "def transport_candidates_from_client", 1
+    )[0]
+    stop = v2.split("async def async_stop", 1)[1]
+    assert "if not disconnecting and self._gfdi_handle is not None:" in stop
+    assert "if not disconnecting and self._started:" in stop
+    assert "self._service_by_handle.clear()" in stop
+    assert "self._gfdi_handle = None" in stop
+
+
+def test_garmin_drains_small_archive_burst_in_one_gfdi_session_with_small_import_checkpoints():
+    sync = _method(COORD, "_async_sync")
+    assert "MAX_FILES_PER_SYNC = 2" in COORD
+    assert "MAX_FILES_PER_SESSION = 8" in COORD
+    assert "][:MAX_FILES_PER_SESSION]" in sync
+    assert "MAX_FILES_PER_SESSION - len(records_to_import)" in sync
+    assert "range(0, len(records_to_import), MAX_FILES_PER_SYNC)" in sync
+    assert "await self._save()" in sync
+
+
+def test_garmin_transport_negotiation_stops_after_underlying_gatt_disconnect():
+    negotiation = _method(COORD, "_start_best_session")
+    assert 'getattr(client, "is_connected", True) is False' in negotiation
+    assert "break" in negotiation

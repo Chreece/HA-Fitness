@@ -85,5 +85,5 @@ def test_radio_country_picker_sorts_localized_names_not_iso_codes():
 
 
 def test_frontend_cache_revision_bumped_for_adapter_music_ui():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-82"' in FRONTEND
-    assert '?v=unreleased-82' in DASHBOARD
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in FRONTEND
+    assert '?v=unreleased-85' in DASHBOARD

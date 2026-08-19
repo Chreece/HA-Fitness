@@ -38,6 +38,7 @@ from .protocol import (
     STATUS_ACK,
     STATUS_NAK,
     STATUS_UNSUPPORTED,
+    build_device_information_response,
     build_download_request,
     build_file_list_request,
     build_file_request,
@@ -162,7 +163,13 @@ class BaseGarminTransport:
             raise err
         return result
 
-    async def async_stop(self) -> None:
+    async def async_stop(self, *, disconnecting: bool = False) -> None:
+        """Stop transport work.
+
+        When the caller is about to disconnect the BLE link, avoid extra CCCD or
+        Garmin handle-management writes. BlueZ tears notifications down with the
+        connection and the next V2 session begins with an acknowledged CLOSE_ALL.
+        """
         self._started = False
 
     async def async_download_service_file(
@@ -177,24 +184,42 @@ class BaseGarminTransport:
 class GarminV1Transport(BaseGarminTransport):
     """Direct V0/V1 GFDI characteristic transport."""
 
-    def __init__(self, client, send_uuid: str, receive_uuid: str, backend: str) -> None:
+    def __init__(
+        self, client, send_uuid: str, receive_uuid: str, backend: str,
+        *, write_with_response: bool = False,
+    ) -> None:
         super().__init__(client)
         self.send_uuid = send_uuid
         self.receive_uuid = receive_uuid
         self.backend = backend
+        self.write_with_response = bool(write_with_response)
 
     @classmethod
     def candidates_from_client(cls, client) -> tuple["GarminV1Transport", ...]:
         """Return every direct V1/V0 transport exposed by connected GATT."""
         chars = _all_characteristics(client)
         result: list[GarminV1Transport] = []
-        if GARMIN_GFDI_V1_SEND_UUID in chars and GARMIN_GFDI_V1_RECEIVE_UUID in chars:
+        for send_uuid, receive_uuid, backend in (
+            (GARMIN_GFDI_V1_SEND_UUID, GARMIN_GFDI_V1_RECEIVE_UUID, "gfdi_v1"),
+            (GARMIN_GFDI_V0_SEND_UUID, GARMIN_GFDI_V0_RECEIVE_UUID, "gfdi_v0"),
+        ):
+            send_char = chars.get(send_uuid)
+            receive_char = chars.get(receive_uuid)
+            if send_char is None or receive_char is None:
+                continue
+            send_props = _properties(send_char)
+            receive_props = _properties(receive_char)
+            if send_props and not ({"write", "write-without-response"} & send_props):
+                continue
+            if receive_props and not ({"notify", "indicate"} & receive_props):
+                continue
             result.append(
-                cls(client, GARMIN_GFDI_V1_SEND_UUID, GARMIN_GFDI_V1_RECEIVE_UUID, "gfdi_v1")
-            )
-        if GARMIN_GFDI_V0_SEND_UUID in chars and GARMIN_GFDI_V0_RECEIVE_UUID in chars:
-            result.append(
-                cls(client, GARMIN_GFDI_V0_SEND_UUID, GARMIN_GFDI_V0_RECEIVE_UUID, "gfdi_v0")
+                cls(
+                    client, send_uuid, receive_uuid, backend,
+                    write_with_response=(
+                        "write-without-response" not in send_props and "write" in send_props
+                    ),
+                )
             )
         return tuple(result)
 
@@ -217,16 +242,18 @@ class GarminV1Transport(BaseGarminTransport):
             for offset in range(0, len(encoded), self.max_write_size):
                 chunk = encoded[offset : offset + self.max_write_size]
                 async with asyncio.timeout(BLE_IO_TIMEOUT):
-                    await self.client.write_gatt_char(self.send_uuid, chunk, response=False)
+                    await self.client.write_gatt_char(
+                        self.send_uuid, chunk, response=self.write_with_response
+                    )
 
-    async def async_stop(self) -> None:
-        if self._started:
+    async def async_stop(self, *, disconnecting: bool = False) -> None:
+        if self._started and not disconnecting:
             try:
                 async with asyncio.timeout(CLOSE_TIMEOUT):
                     await self.client.stop_notify(self.receive_uuid)
             except Exception:
                 pass
-        await super().async_stop()
+        await super().async_stop(disconnecting=disconnecting)
 
 
 @dataclass(slots=True)
@@ -246,10 +273,14 @@ class GarminV2Transport(BaseGarminTransport):
     backend = "gfdi_v2_ml"
     supports_service_transfer = True
 
-    def __init__(self, client, receive_uuid: str, send_uuid: str) -> None:
+    def __init__(
+        self, client, receive_uuid: str, send_uuid: str,
+        *, write_with_response: bool = False,
+    ) -> None:
         super().__init__(client)
         self.receive_uuid = receive_uuid
         self.send_uuid = send_uuid
+        self.write_with_response = bool(write_with_response)
         self._management_queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=MANAGEMENT_QUEUE_LIMIT)
         self._service_by_handle: dict[int, int] = {}
         self._gfdi_handle: int | None = None
@@ -288,10 +319,18 @@ class GarminV2Transport(BaseGarminTransport):
             pairs.append((int(channel, 16), receive, send))
 
         pairs.sort(key=lambda item: item[0])
-        return tuple(
-            cls(client, receive, send)
-            for _index, receive, send in pairs[:MAX_V2_CHANNEL_CANDIDATES]
-        )
+        result = []
+        for _index, receive, send in pairs[:MAX_V2_CHANNEL_CANDIDATES]:
+            send_props = _properties(chars[send])
+            result.append(
+                cls(
+                    client, receive, send,
+                    write_with_response=(
+                        "write-without-response" not in send_props and "write" in send_props
+                    ),
+                )
+            )
+        return tuple(result)
 
     @classmethod
     def from_client(cls, client) -> "GarminV2Transport | None":
@@ -338,8 +377,10 @@ class GarminV2Transport(BaseGarminTransport):
         client_id = struct.unpack_from("<Q", body, 1)[0]
         if client_id != V2_CLIENT_ID:
             return
-        if request_type == 1 and len(body) >= 14:  # register response
-            service, status, handle, _reliable = struct.unpack_from("<HBBB", body, 9)
+        if request_type == 1 and len(body) >= 13:  # register response
+            service = struct.unpack_from("<H", body, 9)[0]
+            status = body[11]
+            handle = body[12]
             if status == 0:
                 self._service_by_handle[handle] = service
                 if service == V2_GFDI_SERVICE:
@@ -364,7 +405,9 @@ class GarminV2Transport(BaseGarminTransport):
 
     async def _write_packet(self, payload: bytes) -> None:
         async with asyncio.timeout(BLE_IO_TIMEOUT):
-            await self.client.write_gatt_char(self.send_uuid, payload, response=False)
+            await self.client.write_gatt_char(
+                self.send_uuid, payload, response=self.write_with_response
+            )
 
     async def _wait_management(self, predicate, timeout: float = BLE_IO_TIMEOUT) -> bytes:
         async with asyncio.timeout(timeout):
@@ -382,12 +425,18 @@ class GarminV2Transport(BaseGarminTransport):
         async with self._write_lock:
             await self._write_packet(request)
             response = await self._wait_management(
-                lambda body: len(body) >= 14
+                lambda body: len(body) >= 13
                 and body[0] == 1
                 and struct.unpack_from("<Q", body, 1)[0] == V2_CLIENT_ID
                 and struct.unpack_from("<H", body, 9)[0] == (service & 0xFFFF)
             )
-        _service, status, handle, reliable = struct.unpack_from("<HBBB", response, 9)
+        _service = struct.unpack_from("<H", response, 9)[0]
+        status = response[11]
+        handle = response[12]
+        # Some Garmin ML implementations omit the optional reliable-mode byte
+        # for a normal ML success response. Missing means the requested default
+        # (unreliable ML), not a malformed response.
+        reliable = response[13] if len(response) > 13 else 0
         if status != 0:
             raise GarminProtocolError(f"Garmin service 0x{service:04x} registration failed ({status})")
         if reliable != 0:
@@ -419,22 +468,41 @@ class GarminV2Transport(BaseGarminTransport):
             self._gfdi_handle = None
 
     async def async_start(self) -> None:
+        _LOGGER.info(
+            "Garmin Multi-Link candidate starting receive=%s send=%s",
+            self.receive_uuid, self.send_uuid,
+        )
         async with asyncio.timeout(BLE_IO_TIMEOUT):
             await self.client.start_notify(self.receive_uuid, self._on_notify)
         self._started = True
+        _LOGGER.info("Garmin Multi-Link notifications active on %s", self.receive_uuid)
 
-        # A stale phone/app session can leave service handles behind. Request a
-        # clean client namespace, but do not make that response a hard dependency.
-        # Garmin V2 close-all is a 13-byte management packet; the final zero is
-        # reserved but part of the on-wire request on known implementations.
+        # Garmin Multi-Link clients start by clearing their own handle namespace.
+        # The on-wire CLOSE_ALL request is 13 bytes: handle + type + client id +
+        # uint16 flags + one reserved zero byte. Do not register GFDI until the
+        # matching CLOSE_ALL response is actually observed; otherwise a stale
+        # namespace from a previous connection can make the next registration or
+        # notification setup fail unpredictably.
         close_all = self._management_request(5, b"\x00\x00\x00")
         async with self._write_lock:
             await self._write_packet(close_all)
             try:
-                await self._wait_management(lambda body: len(body) >= 9 and body[0] == 6, timeout=4.0)
-            except TimeoutError:
-                pass
+                await self._wait_management(
+                    lambda body: len(body) >= 9
+                    and body[0] == 6
+                    and struct.unpack_from("<Q", body, 1)[0] == V2_CLIENT_ID,
+                    timeout=4.0,
+                )
+            except TimeoutError as err:
+                raise GarminProtocolError(
+                    "Garmin Multi-Link CLOSE_ALL was not acknowledged"
+                ) from err
+        _LOGGER.info("Garmin Multi-Link clean handle namespace acknowledged on %s", self.receive_uuid)
         self._gfdi_handle, _ = await self.async_register_service(V2_GFDI_SERVICE)
+        _LOGGER.info(
+            "Garmin Multi-Link GFDI service registered handle=%s on %s",
+            self._gfdi_handle, self.receive_uuid,
+        )
 
     async def async_send_gfdi(self, frame: bytes) -> None:
         handle = self._gfdi_handle
@@ -491,23 +559,28 @@ class GarminV2Transport(BaseGarminTransport):
                 except Exception:
                     pass
 
-    async def async_stop(self) -> None:
+    async def async_stop(self, *, disconnecting: bool = False) -> None:
         collector = self._collector
         if collector is not None:
             collector.closed.set()
             self._collector = None
-        if self._gfdi_handle is not None:
+        if not disconnecting and self._gfdi_handle is not None:
             try:
                 await self.async_close_service(V2_GFDI_SERVICE, self._gfdi_handle)
             except Exception:
                 pass
-        if self._started:
+        if not disconnecting and self._started:
             try:
                 async with asyncio.timeout(CLOSE_TIMEOUT):
                     await self.client.stop_notify(self.receive_uuid)
             except Exception:
                 pass
-        await super().async_stop()
+        # During connection teardown the physical disconnect is authoritative.
+        # Clear only local bookkeeping; the next connection performs a strict,
+        # acknowledged CLOSE_ALL before opening GFDI again.
+        self._service_by_handle.clear()
+        self._gfdi_handle = None
+        await super().async_stop(disconnecting=disconnecting)
 
 
 def transport_candidates_from_client(client) -> tuple[BaseGarminTransport, ...]:
@@ -560,31 +633,59 @@ class GarminGfdiSession:
     async def _handle_housekeeping(self, message_type: int, payload: bytes) -> bool:
         """Handle watch-originated control messages; return True when consumed."""
         if message_type == GFDI_DEVICE_INFORMATION:
+            _LOGGER.info("Garmin GFDI DEVICE_INFORMATION received")
             if len(payload) >= 2:
                 self.protocol_version = struct.unpack_from("<H", payload, 0)[0]
-            await self._send(build_generic_status(message_type))
+            # Garmin's host exchange is ACK first, then an independent reply of
+            # the same message type.  Putting the identity bytes inside the
+            # generic status frame leaves watches waiting for the actual reply.
+            await self._send(build_generic_status(message_type, STATUS_ACK))
+            _LOGGER.info("Garmin GFDI DEVICE_INFORMATION ACK sent")
+            await self._send(build_device_information_response(self.protocol_version))
+            _LOGGER.info("Garmin GFDI DEVICE_INFORMATION host reply sent")
             return True
 
         if message_type == GFDI_CONFIGURATION:
+            _LOGGER.info("Garmin GFDI CONFIGURATION received (%d bytes)", len(payload))
             count = payload[0] if payload else 0
             if count > len(payload) - 1:
                 raise GarminProtocolError("truncated Garmin capability message")
             self.capabilities = bytes(payload[1 : 1 + count])
-            await self._send(build_generic_status(message_type))
-            # Echo a conservative capability envelope rather than claiming device
-            # features HA-Fitness does not use.
-            await self._send(build_gfdi(GFDI_CONFIGURATION, bytes([len(self.capabilities)]) + self.capabilities))
+            # Same Garmin rule as DEVICE_INFORMATION: acknowledge the incoming
+            # message first, then send the CONFIGURATION reply and follow-ups.
+            await self._send(build_generic_status(message_type, STATUS_ACK))
+            _LOGGER.info("Garmin GFDI CONFIGURATION ACK sent")
+            await self._send(
+                build_gfdi(
+                    GFDI_CONFIGURATION,
+                    bytes([len(self.capabilities)]) + self.capabilities,
+                )
+            )
+            _LOGGER.info("Garmin GFDI CONFIGURATION host reply sent")
             # AUTO_UPLOAD=true, WEATHER_CONDITIONS=true, WEATHER_ALERTS=false.
-            await self._send(build_gfdi(GFDI_DEVICE_SETTINGS, bytes([3, 6, 1, 1, 7, 1, 1, 8, 1, 0])))
-            await self._send(build_gfdi(GFDI_SYSTEM_EVENT, bytes([8, 0])))
+            await self._send(
+                build_gfdi(
+                    GFDI_DEVICE_SETTINGS,
+                    bytes([3, 6, 1, 1, 7, 1, 1, 8, 1, 0]),
+                )
+            )
+            await self._send(build_gfdi(GFDI_SYSTEM_EVENT, bytes([8])))
             self._ready = True
+            _LOGGER.info(
+                "Garmin GFDI ready protocol=%s capabilities=%d",
+                self.protocol_version, len(self.capabilities),
+            )
             return True
 
         if message_type == GFDI_AUTH_NEGOTIATION:
-            unknown = payload[0] if payload else 0
-            flags = struct.unpack_from("<I", payload + b"\x00\x00\x00\x00", 1)[0] if payload else 0
-            # GUESS_OK=0, preserve the watch's unknown byte and requested flags.
-            await self._send(build_generic_status(message_type, STATUS_ACK, bytes([0, unknown]) + struct.pack("<I", flags)))
+            # Host guess result=0 and no requested auth flags. Mirroring unknown
+            # watch bytes here produces a malformed six-byte response on devices
+            # that expect the standard one-byte + uint32 payload.
+            await self._send(
+                build_generic_status(
+                    message_type, STATUS_ACK, bytes([0]) + struct.pack("<I", 0)
+                )
+            )
             return True
 
         if message_type == GFDI_CURRENT_TIME_REQUEST:
@@ -633,8 +734,8 @@ class GarminGfdiSession:
                 break
             await self._handle_housekeeping(message_type, payload)
 
-    async def async_stop(self) -> None:
-        await self.transport.async_stop()
+    async def async_stop(self, *, disconnecting: bool = False) -> None:
+        await self.transport.async_stop(disconnecting=disconnecting)
 
     async def _next_relevant(self, predicate, *, timeout: float) -> tuple[int, bytes]:
         async with asyncio.timeout(timeout):

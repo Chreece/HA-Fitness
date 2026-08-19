@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 import asyncio
+import json
 
 import voluptuous as vol
 
@@ -31,6 +33,15 @@ from .const import (
     CONF_TV_MEDIA_PLAYER_ID,
     CONF_TV_DUCKING_PERCENT,
     CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+    CONF_DASHBOARD_THEME,
+    CONF_DASHBOARD_MODULES,
+    CONF_DASHBOARD_RSS_ENTITY_IDS,
+    CONF_DASHBOARD_MUSIC_ENTITY_IDS,
+    CONF_DASHBOARD_LIGHT_ENTITY_IDS,
+    CONF_DASHBOARD_VIDEO_ENTITY_IDS,
+    CONF_DASHBOARD_WEATHER_ENTITY_ID,
+    DASHBOARD_MODULES,
+    DEFAULT_DASHBOARD_MODULES,
     DEFAULT_TV_DUCKING_PERCENT,
     DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
     CONF_DATE_OF_BIRTH,
@@ -50,6 +61,7 @@ from .const import (
     CONF_THRESHOLD_POWER,
     CONF_VO2MAX,
     CONF_WEIGHT,
+    CONF_WEIGHT_SCALE_ENTITY,
     CONF_WORKOUT_DEVICE_IDS,
     CONF_WORKOUT_RETENTION_DAYS,
     CONF_SLEEP_DEVICE_IDS,
@@ -58,13 +70,19 @@ from .const import (
     DOMAIN,
     SUPPORTED_LANGUAGES,
 )
-from .providers.entities import is_entity_reference, validate_number_or_entity
+from .providers.entities import (
+    is_entity_reference,
+    resolve_number_or_entity,
+    validate_number_or_entity,
+)
 from .providers.autofill import exact_profile_defaults
 from .providers.capabilities import (
     live_device_choices,
     profile_entity_choices,
     profile_entity_supported,
     sleep_device_choices,
+    weight_scale_entity_choices,
+    weight_scale_entity_supported,
     workout_device_choices,
 )
 from .smart_workout_devices import (
@@ -72,8 +90,9 @@ from .smart_workout_devices import (
     DEVICE_TYPES,
     MAX_SMART_WORKOUT_DEVICE_CHOICES,
     SUPPORTED_SETUP_VENDORS,
-    is_smart_workout_sensor,
+    is_smart_workout_candidate,
     setup_vendor,
+    smart_workout_archive_compatibility,
     smart_workout_capability_labels,
     smart_workout_device_type,
     smart_workout_model_label,
@@ -278,15 +297,58 @@ def _ai_entity(hass, current: str | None = None):
     )
 
 
-def _number(min_v, max_v):
+def _number(min_v, max_v, *, step=1):
     return selector.NumberSelector(
         selector.NumberSelectorConfig(
             min=min_v,
             max=max_v,
-            step=1,
+            step=step,
             mode=selector.NumberSelectorMode.BOX,
         )
     )
+
+
+def _weight_scale_selector(hass, current: str | None = None):
+    """Offer only plausible weight sensors; a scale entity is never free text."""
+    options = list(weight_scale_entity_choices(hass))
+    current = str(current or "").strip()
+    if current and current not in {item["value"] for item in options}:
+        # Preserve an existing configuration even while its entity is temporarily
+        # unavailable; new selections remain restricted to discovered choices.
+        options.append({"value": current, "label": current})
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=options,
+            custom_value=False,
+            mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )
+
+
+def _resolved_weight_default(hass, raw):
+    """Turn an old number/entity default into a numeric manual current weight."""
+    resolved = resolve_number_or_entity(hass, raw, quantity="weight").value
+    if resolved is None:
+        return None
+    try:
+        value = float(resolved)
+    except (TypeError, ValueError):
+        return None
+    return round(value, 1) if 20 <= value <= 500 else None
+
+
+def _validate_manual_weight(value) -> bool:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return False
+    return 20 <= number <= 500
+
+
+def _validate_weight_scale(hass, value) -> bool:
+    if value in (None, ""):
+        return True
+    return weight_scale_entity_supported(hass, str(value).strip())
 
 
 def _validate(hass, user_input, specs, profile_entry_id: str | None = None):
@@ -345,12 +407,59 @@ def _preferred_profile_tts_entity(hass, language: str | None) -> str | None:
     ranked.sort(key=lambda item: (-item[0], item[1]))
     return ranked[0][1]
 
+def _dashboard_module_selector():
+    """Return presentation-only dashboard modules; no module starts polling."""
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=list(DASHBOARD_MODULES),
+            multiple=True,
+            mode=selector.SelectSelectorMode.DROPDOWN,
+            translation_key="dashboard_module",
+        )
+    )
+
+
+def _dashboard_theme_selector():
+    """Allow an existing HA theme name while keeping the system default safe."""
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=[{"value": "default", "label": "Home Assistant"}],
+            custom_value=True,
+            mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )
+
+
+def _about_payload() -> tuple[str, str]:
+    """Read bounded local release metadata without network work."""
+    base = Path(__file__).resolve().parent
+    version = "unknown"
+    try:
+        manifest = json.loads((base / "manifest.json").read_text(encoding="utf-8"))
+        version = str(manifest.get("version") or version)
+    except (OSError, ValueError, TypeError):
+        pass
+    changelog = "Changelog is unavailable in this installation."
+    try:
+        text = (base / "changelog.md").read_text(encoding="utf-8")
+        # Config-flow descriptions should stay bounded on phones. Keep the current
+        # Unreleased section rather than pushing the entire historical changelog.
+        end = text.find("\n## ", text.find("## Unreleased") + 3)
+        if end > 0:
+            text = text[:end]
+        changelog = text.strip()[:12_000]
+    except OSError:
+        pass
+    return version, changelog
+
+
 class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    VERSION = 13
+    VERSION = 14
 
     def __init__(self):
         self._data = {}
         self._autofill_defaults: dict[str, str] | None = None
+        self._first_install_choice = False
 
     def _profile_autofill(self) -> dict[str, str]:
         if self._autofill_defaults is None:
@@ -417,7 +526,7 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             selected_profiles = set(user_input.get("fitness_profile_ids") or [])
-            smart_archive = is_smart_workout_sensor(sensor)
+            smart_archive = is_smart_workout_candidate(sensor)
             if smart_archive and len(selected_profiles) > 1:
                 return self.async_show_form(
                     step_id="assign_live_sensor",
@@ -473,7 +582,7 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # A local workout archive belongs to one person even though its live
             # HR/power capabilities may later be shared across profiles. The normal
             # discovery flow therefore establishes one archive owner immediately.
-            if is_smart_workout_sensor(sensor) and selected_profiles:
+            if is_smart_workout_candidate(sensor) and selected_profiles:
                 owner_profile_id = next(iter(selected_profiles))
                 runtime.configure_smart_workout_device(
                     sensor_id,
@@ -530,7 +639,75 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders={"sensor": sensor.label()},
         )
 
+    async def async_step_first_install(self, user_input=None):
+        """Offer infrastructure or profile setup without doing radio work."""
+        del user_input
+        return self.async_show_menu(
+            step_id="first_install",
+            menu_options=["add_protocol", "add_user"],
+        )
+
+    async def async_step_add_user(self, user_input=None):
+        """Continue through the existing person/profile flow unchanged."""
+        del user_input
+        self._first_install_choice = True
+        return await self.async_step_user()
+
+    async def async_step_add_protocol(self, user_input=None):
+        """Create Sensors & Adapters and enable one explicitly selected transport."""
+        if user_input is not None:
+            transport = str(user_input.get("protocol") or "").strip().lower()
+            if transport not in {"bluetooth", "antplus"}:
+                return self.async_show_form(
+                    step_id="add_protocol",
+                    data_schema=self._protocol_setup_schema(),
+                    errors={"base": "invalid_protocol"},
+                )
+            await self.async_set_unique_id("local_sensors")
+            self._abort_if_unique_id_configured()
+            return self.async_create_entry(
+                title="Sensors & Adapters",
+                data={
+                    "entry_type": "live_hub",
+                    "initial_transport": transport,
+                },
+            )
+        return self.async_show_form(
+            step_id="add_protocol",
+            data_schema=self._protocol_setup_schema(),
+        )
+
+    @staticmethod
+    def _protocol_setup_schema():
+        return vol.Schema(
+            {
+                vol.Required("protocol", default="bluetooth"): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            {"value": "bluetooth", "label": "Bluetooth"},
+                            {"value": "antplus", "label": "ANT+"},
+                        ],
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                )
+            }
+        )
+
     async def async_step_user(self, user_input=None):
+        if user_input is None and not self._first_install_choice:
+            # Until the Sensors & Adapters hub exists, every Add Integration
+            # invocation offers the same explicit choice.  This keeps the
+            # protocol path reachable even when the user created a profile
+            # first, while preserving the legacy profile form after choosing
+            # Add user.
+            from .live.runtime import HUB_ENTRY_TYPE
+
+            has_hub = any(
+                entry.data.get("entry_type") == HUB_ENTRY_TYPE
+                for entry in self.hass.config_entries.async_entries(DOMAIN)
+            )
+            if not has_hub:
+                return await self.async_step_first_install()
         errors = {}
         if user_input is not None:
             try:
@@ -573,25 +750,38 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_required(self, user_input=None):
         errors = {}
         if user_input is not None:
-            errors = _validate(
-                self.hass,
-                user_input,
-                {
-                    CONF_WEIGHT: (20, 500, True),
-                    CONF_RESTING_HR: (20, 150, False),
-                },
+            if not _validate_manual_weight(user_input.get(CONF_WEIGHT)):
+                errors[CONF_WEIGHT] = "invalid_number_or_entity"
+            if not _validate_weight_scale(self.hass, user_input.get(CONF_WEIGHT_SCALE_ENTITY)):
+                errors[CONF_WEIGHT_SCALE_ENTITY] = "invalid_number_or_entity"
+            errors.update(
+                _validate(
+                    self.hass,
+                    user_input,
+                    {CONF_RESTING_HR: (20, 150, False)},
+                )
             )
             if not errors:
-                self._data.update(user_input)
+                self._data.update(
+                    {k: v for k, v in user_input.items() if v not in (None, "")}
+                )
                 return await self.async_step_optional()
 
+        autofill = self._profile_autofill()
+        weight_default = _resolved_weight_default(self.hass, autofill.get(CONF_WEIGHT))
+        weight_key = (
+            vol.Required(CONF_WEIGHT, default=weight_default)
+            if weight_default is not None
+            else vol.Required(CONF_WEIGHT)
+        )
         return self.async_show_form(
             step_id="required",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_WEIGHT, default=self._profile_autofill().get(CONF_WEIGHT, "")): _number_or_entity_selector(self.hass, CONF_WEIGHT),
+                    weight_key: _number(20, 500, step=0.1),
+                    vol.Optional(CONF_WEIGHT_SCALE_ENTITY): _weight_scale_selector(self.hass),
                     _optional_suggested(
-                        CONF_RESTING_HR, self._profile_autofill().get(CONF_RESTING_HR)
+                        CONF_RESTING_HR, autofill.get(CONF_RESTING_HR)
                     ): _number_or_entity_selector(self.hass, CONF_RESTING_HR),
                 }
             ),
@@ -943,16 +1133,103 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
         runtime = get_live_runtime(self.hass)
         await runtime.async_initialize()
         if self.config_entry.data.get("entry_type") == HUB_ENTRY_TYPE:
+            menu_options=["sensor_assignments"]
+            menu_options = ["protocols", *menu_options, "about"]
             return self.async_show_menu(
                 step_id="init",
-                menu_options=["sensor_assignments"],
+                menu_options=menu_options,
             )
         menu = ["profile", "fitness_inputs"]
         if runtime.live_surface_available:
             menu.append("live_devices")
         menu.extend(["workout_devices", "sleep_devices", "ai", "feedback", "tv_dashboard"])
         menu.insert(menu.index("workout_devices") + 1, "smart_workout_devices")
+        menu.insert(menu.index("tv_dashboard"), "features")
+        menu.append("about")
         return self.async_show_menu(step_id="init", menu_options=menu)
+
+    async def async_step_protocols(self, user_input=None):
+        """Enable/disable local protocols from the hub options flow."""
+        from .live import get_live_runtime
+
+        runtime = get_live_runtime(self.hass)
+        await runtime.async_initialize()
+        if user_input is not None:
+            for transport in ("bluetooth", "antplus"):
+                await runtime.async_set_transport_enabled(
+                    transport, bool(user_input.get(transport, False))
+                )
+            return await self.async_step_init()
+        return self.async_show_form(
+            step_id="protocols",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        "bluetooth", default=runtime.adapter_enabled("bluetooth")
+                    ): bool,
+                    vol.Required(
+                        "antplus", default=runtime.adapter_enabled("antplus")
+                    ): bool,
+                }
+            ),
+        )
+
+    async def async_step_features(self, user_input=None):
+        """Configure optional dashboard presentation without background work."""
+        current = self._current()
+        if user_input is not None:
+            values = dict(user_input)
+            values[CONF_DASHBOARD_MODULES] = list(
+                dict.fromkeys(values.get(CONF_DASHBOARD_MODULES) or ["core"])
+            )
+            return await self._save_merge(values)
+
+        return self.async_show_form(
+            step_id="features",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_DASHBOARD_MODULES,
+                        default=current.get(CONF_DASHBOARD_MODULES, DEFAULT_DASHBOARD_MODULES),
+                    ): _dashboard_module_selector(),
+                    vol.Required(
+                        CONF_DASHBOARD_THEME,
+                        default=current.get(CONF_DASHBOARD_THEME, "default"),
+                    ): _dashboard_theme_selector(),
+                    vol.Optional(
+                        CONF_DASHBOARD_RSS_ENTITY_IDS,
+                        default=current.get(CONF_DASHBOARD_RSS_ENTITY_IDS, []),
+                    ): _entity_multi("sensor"),
+                    vol.Optional(
+                        CONF_DASHBOARD_MUSIC_ENTITY_IDS,
+                        default=current.get(CONF_DASHBOARD_MUSIC_ENTITY_IDS, []),
+                    ): _entity_multi("media_player"),
+                    vol.Optional(
+                        CONF_DASHBOARD_LIGHT_ENTITY_IDS,
+                        default=current.get(CONF_DASHBOARD_LIGHT_ENTITY_IDS, []),
+                    ): _entity_multi("light"),
+                    vol.Optional(
+                        CONF_DASHBOARD_VIDEO_ENTITY_IDS,
+                        default=current.get(CONF_DASHBOARD_VIDEO_ENTITY_IDS, []),
+                    ): _entity_multi("media_player"),
+                    vol.Optional(
+                        CONF_DASHBOARD_WEATHER_ENTITY_ID,
+                        description={"suggested_value": current.get(CONF_DASHBOARD_WEATHER_ENTITY_ID)},
+                    ): _entity_single("weather"),
+                }
+            ),
+        )
+
+    async def async_step_about(self, user_input=None):
+        """Show installed version and bundled changelog without internet access."""
+        if user_input is not None:
+            return await self.async_step_init()
+        version, changelog = await self.hass.async_add_executor_job(_about_payload)
+        return self.async_show_form(
+            step_id="about",
+            data_schema=vol.Schema({}),
+            description_placeholders={"version": version, "changelog": changelog},
+        )
 
     async def _async_refresh_smart_workout_discovery(self, runtime) -> None:
         """Request one bounded control-plane discovery sweep when available."""
@@ -972,6 +1249,9 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
         details = runtime.sensor_detail_values.get(sensor_id, {}) or {}
         error = str(details.get("garmin_last_error") or "none")
         state = str(details.get("garmin_sync_state") or "idle")
+        compatibility = smart_workout_archive_compatibility(sensor)
+        if compatibility is False:
+            return "unsupported", "unsupported_transport"
         if error == "pairing_required":
             return "action_needed", error
         if error == "unsupported_transport" or state == "unsupported":
@@ -988,7 +1268,7 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
         """Build a bounded list of physical devices plus setup recipes."""
         choices: list[dict[str, str]] = []
         sensors = sorted(
-            (sensor for sensor in runtime.sensors.values() if is_smart_workout_sensor(sensor)),
+            (sensor for sensor in runtime.sensors.values() if is_smart_workout_candidate(sensor)),
             key=lambda item: item.label().lower(),
         )
         for sensor in sensors[:MAX_SMART_WORKOUT_DEVICE_CHOICES]:
@@ -1101,7 +1381,7 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
         await runtime.async_initialize()
         sensor_id = runtime.resolve_sensor_id(str(getattr(self, "_smart_workout_sensor_id", "")))
         sensor = runtime.sensors.get(sensor_id)
-        if sensor is None or not is_smart_workout_sensor(sensor):
+        if sensor is None or not is_smart_workout_candidate(sensor):
             return self.async_abort(reason="sensor_unavailable")
 
         owner_id = runtime.smart_device_owner_profile_id(sensor_id)
@@ -1196,16 +1476,26 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 metadata = endpoint.metadata if endpoint is not None else sensor.metadata
                 coordinator = archives.coordinator_for_metadata(metadata) if archives is not None else None
                 retry = getattr(coordinator, "async_sync_now", None) if coordinator is not None else None
-                if retry is not None:
-                    await retry(sensor_id)
-                return self.async_show_form(
-                    step_id="smart_workout_device_ready",
-                    data_schema=vol.Schema({}),
-                    description_placeholders={
-                        "device": sensor.label(), "owner": self.config_entry.title,
-                        "vendor": vendor.title(), "status": "pairing retry started",
-                    },
-                )
+                task = await retry(sensor_id) if retry is not None else None
+                # Do not let the OptionsFlow's generic "Success" toast mean only
+                # "a retry task was queued". Wait for this one bounded explicit
+                # attempt and close successfully only after Garmin negotiation has
+                # actually completed without an error. Background automatic syncs
+                # remain asynchronous everywhere else.
+                if task is not None:
+                    await task
+                sensor_id = runtime.resolve_sensor_id(sensor_id)
+                details = runtime.sensor_detail_values.get(sensor_id, {}) or {}
+                error = str(details.get("garmin_last_error") or "none")
+                protocol = details.get("garmin_protocol_version")
+                if error == "none" and protocol:
+                    return self.async_create_entry(
+                        title="", data=dict(self.config_entry.options)
+                    )
+                # The bounded retry failed. Return to the smart-device list so
+                # the user sees the device remain action-needed instead of being
+                # dropped straight back into the identical pairing-help form.
+                return await self.async_step_smart_workout_devices()
             return await self.async_step_init()
 
         return self.async_show_form(
@@ -1262,7 +1552,11 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
         await self._async_refresh_smart_workout_discovery(runtime)
         matching = []
         for sensor in sorted(runtime.sensors.values(), key=lambda item: item.label().lower()):
-            if is_smart_workout_sensor(sensor) and smart_workout_vendor(sensor) == vendor.vendor_id:
+            if (
+                is_smart_workout_candidate(sensor)
+                and smart_workout_vendor(sensor) == vendor.vendor_id
+                and smart_workout_archive_compatibility(sensor) is not False
+            ):
                 matching.append(sensor.label())
             if len(matching) >= 8:
                 break
@@ -1484,25 +1778,30 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
         )
 
     async def async_step_fitness_inputs(self, user_input=None):
-        """Edit every direct/entity physiological input."""
+        """Edit manual current weight, shared scale, and other profile inputs."""
         current = self._current()
         errors = {}
 
         if user_input is not None:
-            errors = _validate(
-                self.hass,
-                user_input,
-                {
-                    CONF_WEIGHT: (20, 500, True),
-                    CONF_RESTING_HR: (20, 150, False),
-                    CONF_HEIGHT: (50, 260, False),
-                    CONF_MAX_HR: (60, 260, False),
-                    CONF_VO2MAX: (5, 100, False),
-                    CONF_THRESHOLD_HR: (60, 260, False),
-                    CONF_THRESHOLD_PACE: (1, 20, False),
-                    CONF_THRESHOLD_POWER: (20, 2500, False),
-                },
-                self.config_entry.entry_id,
+            if not _validate_manual_weight(user_input.get(CONF_WEIGHT)):
+                errors[CONF_WEIGHT] = "invalid_number_or_entity"
+            if not _validate_weight_scale(self.hass, user_input.get(CONF_WEIGHT_SCALE_ENTITY)):
+                errors[CONF_WEIGHT_SCALE_ENTITY] = "invalid_number_or_entity"
+            errors.update(
+                _validate(
+                    self.hass,
+                    user_input,
+                    {
+                        CONF_RESTING_HR: (20, 150, False),
+                        CONF_HEIGHT: (50, 260, False),
+                        CONF_MAX_HR: (60, 260, False),
+                        CONF_VO2MAX: (5, 100, False),
+                        CONF_THRESHOLD_HR: (60, 260, False),
+                        CONF_THRESHOLD_PACE: (1, 20, False),
+                        CONF_THRESHOLD_POWER: (20, 2500, False),
+                    },
+                    self.config_entry.entry_id,
+                )
             )
 
             if not errors:
@@ -1510,6 +1809,7 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                     key: user_input.get(key, "")
                     for key in (
                         CONF_WEIGHT,
+                        CONF_WEIGHT_SCALE_ENTITY,
                         CONF_RESTING_HR,
                         CONF_HEIGHT,
                         CONF_MAX_HR,
@@ -1533,17 +1833,28 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 return str(exact_defaults.get(key, ""))
             return ""
 
+        manager = self.hass.data.get(DOMAIN, {}).get(self.config_entry.entry_id)
+        runtime_weight = getattr(manager, "current_weight_kg", None) if manager else None
+        weight_default = _resolved_weight_default(
+            self.hass, runtime_weight if runtime_weight is not None else current.get(CONF_WEIGHT)
+        )
+        if weight_default is None:
+            weight_default = _resolved_weight_default(self.hass, exact_defaults.get(CONF_WEIGHT))
+
+        weight_key = (
+            vol.Required(CONF_WEIGHT, default=weight_default)
+            if weight_default is not None
+            else vol.Required(CONF_WEIGHT)
+        )
+        scale_current = str(current.get(CONF_WEIGHT_SCALE_ENTITY) or "").strip()
         schema = vol.Schema(
             {
-                vol.Required(
-                    CONF_WEIGHT,
-                    default=current_text(CONF_WEIGHT, required=True),
-                ): _number_or_entity_selector(
-                    self.hass, CONF_WEIGHT, self.config_entry.entry_id
+                weight_key: _number(20, 500, step=0.1),
+                _optional_suggested(CONF_WEIGHT_SCALE_ENTITY, scale_current): _weight_scale_selector(
+                    self.hass, scale_current
                 ),
                 _optional_suggested(
-                    CONF_RESTING_HR,
-                    current_text(CONF_RESTING_HR),
+                    CONF_RESTING_HR, current_text(CONF_RESTING_HR)
                 ): _number_or_entity_selector(
                     self.hass, CONF_RESTING_HR, self.config_entry.entry_id
                 ),
@@ -1579,11 +1890,8 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 ),
             }
         )
-
         return self.async_show_form(
-            step_id="fitness_inputs",
-            data_schema=schema,
-            errors=errors,
+            step_id="fitness_inputs", data_schema=schema, errors=errors
         )
 
     async def async_step_live_devices(self, user_input=None):

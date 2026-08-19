@@ -24,14 +24,16 @@
       },
       "required": {
         "title": "プロフィール入力",
-        "description": "体重は必須です。安静時心拍数は任意で、後から追加できます。各項目は数値または互換性のあるHome Assistantエンティティを指定でき、単位は自動的に正規化されます。",
+        "description": "現在の体重は必須です。必要に応じて Home Assistant の体重計センサーを選択できます。同じ体重計を複数の Fitness プロフィールで共有でき、新しい測定はユーザー候補に照合され、プロフィール更新前に必ず確認されます。",
         "data": {
-          "weight": "体重（kg またはエンティティ）",
-          "resting_hr": "安静時心拍数（bpm またはエンティティ）"
+          "weight": "現在の体重 (kg)",
+          "resting_hr": "安静時心拍数（bpm またはエンティティ）",
+          "weight_scale_entity": "共有体重計（任意）"
         },
         "data_description": {
-          "weight": "体重。W/kg と体重で正規化した指標に使用します。kg を入力するか互換エンティティを選択し、単位は自動変換されます。",
-          "resting_hr": "安静時心拍数（bpm）。%HRR、強度分類、Banister TRIMP に使用します。ワークアウト最低値ではなく真の安静時 HR を使用してください。"
+          "weight": "現在確認済みの体重（kg）です。いつでも手動で変更できます。",
+          "resting_hr": "安静時心拍数（bpm）。%HRR、強度分類、Banister TRIMP に使用します。ワークアウト最低値ではなく真の安静時 HR を使用してください。",
+          "weight_scale_entity": "互換性のある Home Assistant の体重センサーを選択します。複数の Fitness プロフィールで共有できます。新しい測定後、Fitness が測定したユーザーを提案し、体重を変更する前に確認を求めます。"
         }
       },
       "optional": {
@@ -151,13 +153,36 @@
           "tv_dashboard_ytdlp_enabled": "yt-dlp は任意の第三者製アダプターで、YouTube その他のサービスとは提携していません。法令、サービス規約、著作権を守り、必要な権利や許可を得る責任は利用者にあります。Fitness はアカウント Cookie を提供せず、回避や無断再配布を認めず、無保証で提供します。この通知は法律上の助言ではありません。",
           "tv_dashboard_ignore_lights_when_cast_active": "Fitness TV Castレシーバーが動作中は、トレーニングのフィードバックにテレビを使用し、設定済みのワークアウト照明は変更しません。"
         }
+      },
+      "first_install": {
+        "title": "Fitness を設定",
+        "description": "最初に追加する項目を選択してください。既存のプロフィール設定手順を変えずに、もう一方は後から追加できます。",
+        "menu_options": {
+          "add_protocol": "センサープロトコルを追加",
+          "add_user": "ユーザープロフィールを追加"
+        }
+      },
+      "add_user": {
+        "title": "ユーザープロフィールを追加",
+        "description": "通常の Fitness プロフィール設定を続けます。"
+      },
+      "add_protocol": {
+        "title": "センサープロトコルを追加",
+        "description": "ローカルのセンサー通信を1つ有効にします。Fitness はアダプターデバイスを作成し、検出処理を限定してユーザー操作下に保ちます。",
+        "data": {
+          "protocol": "プロトコル"
+        },
+        "data_description": {
+          "protocol": "Fitness が今有効にするローカル無線通信を選択します。もう一方は利用可能なまま、手動で有効にするまで停止します。"
+        }
       }
     },
     "error": {
       "invalid_date": "過去の有効な生年月日を入力してください。",
       "invalid_number_or_entity": "有効な数値または Home Assistant エンティティ ID を入力してください。",
       "select_profile": "Fitness ユーザーを1人以上選択してください。",
-      "select_smart_device_owner": "保存済みワークアウトの所有者として Fitness プロファイルを1つだけ選んでください。ライブセンサー機能は後から他のプロファイルと共有できます。"
+      "select_smart_device_owner": "保存済みワークアウトの所有者として Fitness プロファイルを1つだけ選んでください。ライブセンサー機能は後から他のプロファイルと共有できます。",
+      "invalid_protocol": "対応しているセンサープロトコルを選択してください。"
     },
     "abort": {
       "already_configured": "同じ名前の Fitness プロフィールがすでに存在します。",
@@ -183,7 +208,10 @@
           "sleep_devices": "睡眠デバイス",
           "sensor_assignments": "センサー割り当て",
           "tv_dashboard": "Fitness TV ダッシュボード",
-          "smart_workout_devices": "スマートワークアウトデバイス"
+          "smart_workout_devices": "スマートワークアウトデバイス",
+          "protocols": "センサープロトコル",
+          "features": "ダッシュボード機能",
+          "about": "Fitness について"
         }
       },
       "profile": {
@@ -206,26 +234,28 @@
       },
       "fitness_inputs": {
         "title": "フィットネスデータと初期値",
-        "description": "各項目は数値または互換性のあるエンティティを指定できます。必須なのは体重のみで、安静時心拍数やその他の生理学的入力は後から追加・削除できます。",
+        "description": "プロフィールの現在確認済み体重と、必要に応じて共有体重計を設定します。他の生理データは引き続き互換性のある Home Assistant エンティティを使用できます。共有体重計の測定は確認なしにプロフィールを更新しません。",
         "data": {
-          "weight": "体重（kg またはエンティティ）",
+          "weight": "現在の体重 (kg)",
           "resting_hr": "安静時心拍数（bpm またはエンティティ）",
           "height": "身長（cm またはエンティティ）",
           "max_hr": "最大心拍数（bpm またはエンティティ）",
           "vo2max": "VO₂max（mL/kg/min またはエンティティ）",
           "threshold_hr": "閾値心拍数（bpm またはエンティティ）",
           "threshold_pace": "閾値ペース（min/km またはエンティティ）",
-          "threshold_power": "閾値パワー（W またはエンティティ）"
+          "threshold_power": "閾値パワー（W またはエンティティ）",
+          "weight_scale_entity": "共有体重計（任意）"
         },
         "data_description": {
-          "weight": "体重。W/kg と体重で正規化した指標に使用します。kg を入力するか互換エンティティを選択し、単位は自動変換されます。",
+          "weight": "現在確認済みの体重（kg）です。いつでも手動で変更できます。",
           "resting_hr": "安静時心拍数（bpm）。%HRR、強度分類、Banister TRIMP に使用します。ワークアウト最低値ではなく真の安静時 HR を使用してください。",
           "height": "身長。任意のプロフィール情報です。手動値は cm、エンティティ単位は自動変換されます。",
           "max_hr": "生理学的/設定済み最大心拍数（bpm）。%HRmax、%HRR、TRIMP に使用し、1回のワークアウト最大値から推測しません。",
           "vo2max": "VO₂max（mL/kg/min）。心肺能力比較と長期評価に使用します。",
           "threshold_hr": "閾値心拍数（bpm）。現在/完了した運動強度を設定閾値と比較するために使用します。",
           "threshold_pace": "ランニング閾値ペース（min/km）。m/s や km/h の速度エンティティは自動変換されます。",
-          "threshold_power": "閾値パワー（W）。閾値相対パワーと W/kg に使用し、複数の曖昧な FTP は自動選択しません。"
+          "threshold_power": "閾値パワー（W）。閾値相対パワーと W/kg に使用し、複数の曖昧な FTP は自動選択しません。",
+          "weight_scale_entity": "互換性のある Home Assistant の体重センサーを選択します。複数の Fitness プロフィールで共有できます。新しい測定後、Fitness が測定したユーザーを提案し、体重を変更する前に確認を求めます。"
         }
       },
       "live_devices": {
@@ -387,6 +417,44 @@
         "data_description": {
           "smart_pairing_action": "Retry starts one bounded automatic pairing/sync attempt."
         }
+      },
+      "protocols": {
+        "title": "センサープロトコル",
+        "description": "ローカルのセンサー通信を有効または無効にします。使用中の通信はセッション終了後にのみ停止します。",
+        "data": {
+          "bluetooth": "Bluetooth プロトコル",
+          "antplus": "ANT+ プロトコル"
+        },
+        "data_description": {
+          "bluetooth": "ローカル Fitness センサーと対応デバイス履歴向けに Home Assistant の Bluetooth 通信を有効にします。",
+          "antplus": "対応 USB レシーバーと Fitness センサー向けにローカル ANT+ 通信を有効にします。"
+        }
+      },
+      "features": {
+        "title": "ダッシュボード機能",
+        "description": "任意のダッシュボードモジュールと既存の Home Assistant エンティティを選択します。バックグラウンドのネットワーク監視は追加しません。",
+        "data": {
+          "dashboard_modules": "ダッシュボードモジュール",
+          "dashboard_theme": "Home Assistant テーマ",
+          "dashboard_rss_entity_ids": "RSS / ニュースセンサー",
+          "dashboard_music_entity_ids": "音楽プレーヤー",
+          "dashboard_light_entity_ids": "ライト",
+          "dashboard_video_entity_ids": "TV / 動画プレーヤー",
+          "dashboard_weather_entity_id": "天気エンティティ"
+        },
+        "data_description": {
+          "dashboard_modules": "このプロフィールのダッシュボードに表示する任意の Fitness / Home Assistant モジュールを選択します。",
+          "dashboard_theme": "インストール済み Home Assistant テーマ名を指定するか、通常のシステムテーマには Home Assistant を使用します。",
+          "dashboard_rss_entity_ids": "RSS またはニュースを既に提供している Home Assistant センサーを選択します。Fitness 自体はフィードを取得しません。",
+          "dashboard_music_entity_ids": "Fitness ダッシュボードに Home Assistant のメディア操作を表示する既存メディアプレーヤーを選択します。",
+          "dashboard_light_entity_ids": "ダッシュボードにコンパクトな操作グループを表示する既存ライトエンティティを選択します。",
+          "dashboard_video_entity_ids": "Home Assistant のメディア操作を表示する既存の TV または動画プレーヤーを選択します。",
+          "dashboard_weather_entity_id": "任意の天気カードに使用する既存 Home Assistant 天気エンティティを選択します。"
+        }
+      },
+      "about": {
+        "title": "Fitness について",
+        "description": "インストール済みバージョン：{version}\n\n{changelog}"
       }
     },
     "abort": {
@@ -3382,6 +3450,12 @@
       },
       "garmin_sync_workouts": {
         "name": "Garmin ワークアウトを今すぐ同期"
+      },
+      "adapter_scan_now": {
+        "name": "今すぐスキャン"
+      },
+      "sync_device_health_history": {
+        "name": "デバイスの健康履歴を同期"
       }
     },
     "select": {
@@ -3422,6 +3496,20 @@
         "11": "11月",
         "12": "12月"
       }
+    },
+    "dashboard_module": {
+      "options": {
+        "core": "Fitness 基本カード",
+        "training_ai": "AI トレーニングコーチ",
+        "body_composition": "身体組成 / 体重トレンド",
+        "workout_browser": "ワークアウトブラウザー",
+        "rss": "RSS / ニュース",
+        "music": "音楽",
+        "tts": "音声読み上げ",
+        "lights": "ライト",
+        "video": "TV / 動画",
+        "weather": "天気"
+      }
     }
   },
   "device": {
@@ -3458,6 +3546,10 @@
     "garmin_pairing_required": {
       "title": "Garmin でペアリング確認が必要です",
       "description": "Fitness は `{device}` の自動 Bluetooth ペアリングを完了できませんでした。Garmin とスマートフォンのペアリングは維持し、Bluetooth/電話ペアリングモードを開き、Fitness > スマートワークアウトデバイス > `{device}` で「今すぐ再試行」を選んでください。Garmin 側で確認します。電話ペアリングを置換/削除する場合はキャンセルしてください。"
+    },
+    "device_user_action_required": {
+      "title": "{device} で操作が必要です",
+      "description": "デバイス側の操作が完了するまで、Fitness は `{device}` との直接同期を続行できません。{reason}\n\n次の手順を実行してください：\n{instructions}\n\n「修復」を選択して手順を確認し、必要な値を入力してください。"
     }
   },
   "services": {

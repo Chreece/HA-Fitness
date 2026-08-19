@@ -10,6 +10,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 PROTOCOL_PATH = ROOT / "custom_components" / "fitness" / "device_adapters" / "garmin" / "protocol.py"
+GFDI_PATH = ROOT / "custom_components" / "fitness" / "device_adapters" / "garmin" / "gfdi.py"
+GFDI_SOURCE = GFDI_PATH.read_text(encoding="utf-8")
 SPEC = importlib.util.spec_from_file_location("fitness_garmin_protocol_test", PROTOCOL_PATH)
 assert SPEC is not None and SPEC.loader is not None
 p = importlib.util.module_from_spec(SPEC)
@@ -59,6 +61,54 @@ def test_gfdi_crc_and_cobs_round_trip_in_arbitrary_notification_chunks():
     with pytest.raises(p.GarminProtocolError, match="CRC"):
         p.parse_gfdi(bytes(damaged))
 
+
+def test_device_information_response_is_separate_same_type_host_reply():
+    # The generic ACK and the host identity reply are two different GFDI frames.
+    ack = p.build_generic_status(p.GFDI_DEVICE_INFORMATION, p.STATUS_ACK)
+    ack_kind, ack_payload = p.parse_gfdi(ack)
+    assert ack_kind == p.GFDI_RESPONSE
+    original, status = struct.unpack_from("<HB", ack_payload, 0)
+    assert original == p.GFDI_DEVICE_INFORMATION
+    assert status == p.STATUS_ACK
+    assert len(ack_payload) == 3
+
+    frame = p.build_device_information_response(150)
+    kind, payload = p.parse_gfdi(frame)
+    assert kind == p.GFDI_DEVICE_INFORMATION
+    version, product, serial, unit_id, model = struct.unpack_from("<HHIHH", payload, 0)
+    assert version == 150
+    assert product == 0xFFFF
+    assert serial == 0xFFFFFFFF
+    assert unit_id == 7791
+    assert model == 0xFFFF
+    assert b"HA-Fitness" in payload
+    assert b"Home Assistant" in payload
+    assert len(payload) > 20
+
+
+
+def test_gfdi_initialization_sends_ack_before_reply_frames():
+    start = GFDI_SOURCE.index("async def _handle_housekeeping")
+    end = GFDI_SOURCE.index("async def async_start", start)
+    handler = GFDI_SOURCE[start:end]
+
+    device = handler.split("if message_type == GFDI_DEVICE_INFORMATION:", 1)[1].split(
+        "if message_type == GFDI_CONFIGURATION:", 1
+    )[0]
+    assert device.index("build_generic_status(message_type, STATUS_ACK)") < device.index(
+        "build_device_information_response"
+    )
+    assert "DEVICE_INFORMATION ACK sent" in device
+    assert "DEVICE_INFORMATION host reply sent" in device
+
+    config = handler.split("if message_type == GFDI_CONFIGURATION:", 1)[1].split(
+        "if message_type == GFDI_AUTH_NEGOTIATION:", 1
+    )[0]
+    assert config.index("build_generic_status(message_type, STATUS_ACK)") < config.index(
+        "build_gfdi("
+    )
+    assert "CONFIGURATION ACK sent" in config
+    assert "CONFIGURATION host reply sent" in config
 
 def test_protobuf_reassembler_is_bounded_overlap_safe_and_order_independent():
     data = b"0123456789abcdefghijklmnopqrstuvwxyz"

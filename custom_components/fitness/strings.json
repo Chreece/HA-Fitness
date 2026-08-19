@@ -24,14 +24,16 @@
       },
       "required": {
         "title": "Profile inputs",
-        "description": "Weight is required. Resting heart rate is optional and can be added later. Each field accepts either a numeric value or a compatible Home Assistant entity; entity units are normalized automatically.",
+        "description": "Current weight is required. You can optionally choose a Home Assistant scale sensor. The same scale may be shared by several Fitness profiles; new measurements are matched and always require confirmation before a profile is updated.",
         "data": {
-          "weight": "Weight (kg or entity)",
-          "resting_hr": "Resting heart rate (bpm or entity)"
+          "weight": "Current weight (kg)",
+          "resting_hr": "Resting heart rate (bpm or entity)",
+          "weight_scale_entity": "Shared scale (optional)"
         },
         "data_description": {
-          "weight": "Body mass. Used for power-to-weight and body-mass-normalized metrics. Enter kg or choose a compatible entity; entity units are converted automatically.",
-          "resting_hr": "Resting heart rate in bpm. Used for heart-rate reserve (%HRR), intensity classification and Banister TRIMP. Use a true resting-HR metric, not a workout minimum."
+          "weight": "Your current confirmed body weight in kilograms. You can edit this manually at any time.",
+          "resting_hr": "Resting heart rate in bpm. Used for heart-rate reserve (%HRR), intensity classification and Banister TRIMP. Use a true resting-HR metric, not a workout minimum.",
+          "weight_scale_entity": "Choose a compatible Home Assistant weight sensor. This scale can be shared by multiple Fitness profiles. Fitness suggests who was weighed after a fresh measurement and asks for confirmation before changing anyone’s weight."
         }
       },
       "optional": {
@@ -151,13 +153,36 @@
           "tv_dashboard_ytdlp_enabled": "yt-dlp is an optional third-party adapter and is not affiliated with or endorsed by YouTube or other services. By enabling it, you acknowledge that you are solely responsible for how you use it, including complying with applicable law, service terms, copyright/licensing rules, and obtaining all necessary rights or permissions. Fitness does not provide account cookies, does not authorize circumvention, unauthorized downloading, or redistribution, and provides this adapter without warranty. You accept sole responsibility for your conduct and, to the maximum extent permitted by applicable law, for resulting legal, contractual, financial, account, copyright, licensing, or other consequences, claims, fees, fines, or penalties. The Fitness developers and contributors do not assume responsibility for a user's unlawful or unauthorized use. This notice is not legal advice and does not override rights or liabilities that cannot lawfully be excluded.",
           "tv_dashboard_ignore_lights_when_cast_active": "When a Fitness TV Cast receiver is alive, use the TV for workout feedback and leave configured workout lights untouched."
         }
+      },
+      "first_install": {
+        "title": "Set up Fitness",
+        "description": "Choose what you want to add first. You can add the other part later without changing the existing profile setup flow.",
+        "menu_options": {
+          "add_protocol": "Add sensor protocol",
+          "add_user": "Add user profile"
+        }
+      },
+      "add_user": {
+        "title": "Add user profile",
+        "description": "Continue with the normal Fitness profile setup."
+      },
+      "add_protocol": {
+        "title": "Add sensor protocol",
+        "description": "Enable one local sensor transport. Fitness creates its adapter device and keeps discovery bounded and user-controlled.",
+        "data": {
+          "protocol": "Protocol"
+        },
+        "data_description": {
+          "protocol": "Choose the local radio transport Fitness should enable now. The other transport remains available but disabled until you enable it."
+        }
       }
     },
     "error": {
       "invalid_date": "Enter a valid date of birth in the past.",
       "invalid_number_or_entity": "Enter a valid numeric value or Home Assistant entity ID.",
       "select_profile": "Select at least one Fitness user.",
-      "select_smart_device_owner": "Choose exactly one Fitness profile as the stored-workout owner. You can share live sensor capabilities with more profiles later."
+      "select_smart_device_owner": "Choose exactly one Fitness profile as the stored-workout owner. You can share live sensor capabilities with more profiles later.",
+      "invalid_protocol": "Choose a supported sensor protocol."
     },
     "abort": {
       "already_configured": "A Fitness profile with this name already exists.",
@@ -183,7 +208,10 @@
           "sleep_devices": "Sleep devices",
           "sensor_assignments": "Sensor assignments",
           "tv_dashboard": "Fitness TV dashboard",
-          "smart_workout_devices": "Smart workout devices"
+          "smart_workout_devices": "Smart workout devices",
+          "protocols": "Sensor protocols",
+          "features": "Dashboard features",
+          "about": "About Fitness"
         }
       },
       "profile": {
@@ -206,26 +234,28 @@
       },
       "fitness_inputs": {
         "title": "Fitness inputs and initial values",
-        "description": "Every field accepts a numeric value or compatible entity. Weight is required; resting heart rate and all other physiological inputs are optional and can be added or removed later.",
+        "description": "Set the profile’s current confirmed weight and, optionally, a shared scale. Other physiological inputs can still use compatible Home Assistant entities. Shared scale measurements never update a profile until you confirm the suggested user.",
         "data": {
-          "weight": "Weight (kg or entity)",
+          "weight": "Current weight (kg)",
           "resting_hr": "Resting heart rate (bpm or entity)",
           "height": "Height (cm or entity)",
           "max_hr": "Maximum heart rate (bpm or entity)",
           "vo2max": "VO₂max (mL/kg/min or entity)",
           "threshold_hr": "Threshold heart rate (bpm or entity)",
           "threshold_pace": "Threshold pace (min/km or entity)",
-          "threshold_power": "Threshold power (W or entity)"
+          "threshold_power": "Threshold power (W or entity)",
+          "weight_scale_entity": "Shared scale (optional)"
         },
         "data_description": {
-          "weight": "Body mass. Used for power-to-weight and body-mass-normalized metrics. Enter kg or choose a compatible entity; entity units are converted automatically.",
+          "weight": "Your current confirmed body weight in kilograms. You can edit this manually at any time.",
           "resting_hr": "Resting heart rate in bpm. Used for heart-rate reserve (%HRR), intensity classification and Banister TRIMP. Use a true resting-HR metric, not a workout minimum.",
           "height": "Height. Optional profile context. Manual values are cm; compatible entity units are converted automatically.",
           "max_hr": "Physiological/configured maximum heart rate in bpm. Used for %HRmax, %HRR and TRIMP. Fitness does not guess this from one workout maximum.",
           "vo2max": "VO₂max in mL/kg/min. Used for cardiorespiratory comparisons and long-term evaluation. Exact supported provider entities may be autofilled.",
           "threshold_hr": "Heart-rate threshold in bpm. Used to express current and completed-workout HR relative to the configured threshold.",
           "threshold_pace": "Running threshold pace in min/km. Speed entities such as m/s or km/h are converted automatically.",
-          "threshold_power": "Threshold power in watts. Used for threshold-relative power and power-to-weight evaluation. Ambiguous multiple FTP sources are not auto-selected."
+          "threshold_power": "Threshold power in watts. Used for threshold-relative power and power-to-weight evaluation. Ambiguous multiple FTP sources are not auto-selected.",
+          "weight_scale_entity": "Choose a compatible Home Assistant weight sensor. This scale can be shared by multiple Fitness profiles. Fitness suggests who was weighed after a fresh measurement and asks for confirmation before changing anyone’s weight."
         }
       },
       "live_devices": {
@@ -387,6 +417,44 @@
         "data_description": {
           "smart_pairing_action": "Retry starts one bounded automatic pairing/sync attempt. It never starts an unlimited retry loop."
         }
+      },
+      "protocols": {
+        "title": "Sensor protocols",
+        "description": "Enable or disable local sensor transports. A transport in active use cannot be shut down until its session finishes.",
+        "data": {
+          "bluetooth": "Bluetooth",
+          "antplus": "ANT+"
+        },
+        "data_description": {
+          "bluetooth": "Enable the Home Assistant Bluetooth transport for local fitness sensors and supported device archives.",
+          "antplus": "Enable the local ANT+ transport for compatible USB receivers and fitness sensors."
+        }
+      },
+      "features": {
+        "title": "Dashboard features",
+        "description": "Choose optional dashboard modules and existing Home Assistant entities to display. These options do not add background network polling.",
+        "data": {
+          "dashboard_modules": "Dashboard modules",
+          "dashboard_theme": "Home Assistant theme",
+          "dashboard_rss_entity_ids": "RSS / news sensors",
+          "dashboard_music_entity_ids": "Music players",
+          "dashboard_light_entity_ids": "Lights",
+          "dashboard_video_entity_ids": "TV / video players",
+          "dashboard_weather_entity_id": "Weather entity"
+        },
+        "data_description": {
+          "dashboard_modules": "Choose which optional Fitness and Home Assistant modules should be mounted on this profile dashboard.",
+          "dashboard_theme": "Use the name of an installed Home Assistant theme, or keep Home Assistant for the normal system theme.",
+          "dashboard_rss_entity_ids": "Select existing Home Assistant sensor entities that already expose RSS or news data; Fitness does not fetch feeds itself.",
+          "dashboard_music_entity_ids": "Select existing media players to expose with Home Assistant media controls on the Fitness dashboard.",
+          "dashboard_light_entity_ids": "Select existing light entities to expose as a compact dashboard control group.",
+          "dashboard_video_entity_ids": "Select existing TV or video media players to expose with Home Assistant media controls.",
+          "dashboard_weather_entity_id": "Select an existing Home Assistant weather entity for the optional weather card."
+        }
+      },
+      "about": {
+        "title": "About Fitness",
+        "description": "Installed version: {version}\n\n{changelog}"
       }
     },
     "abort": {
@@ -3382,6 +3450,12 @@
       },
       "garmin_sync_workouts": {
         "name": "Sync Garmin workouts now"
+      },
+      "adapter_scan_now": {
+        "name": "Scan now"
+      },
+      "sync_device_health_history": {
+        "name": "Sync device health history"
       }
     },
     "select": {
@@ -3422,6 +3496,20 @@
         "11": "November",
         "12": "December"
       }
+    },
+    "dashboard_module": {
+      "options": {
+        "core": "Core Fitness cards",
+        "training_ai": "Training AI coach",
+        "body_composition": "Body composition / weight trends",
+        "workout_browser": "Workout browser",
+        "rss": "RSS / news",
+        "music": "Music",
+        "tts": "Text-to-speech",
+        "lights": "Lights",
+        "video": "TV / video",
+        "weather": "Weather"
+      }
     }
   },
   "device": {
@@ -3458,6 +3546,10 @@
     "garmin_pairing_required": {
       "title": "Garmin needs pairing confirmation",
       "description": "Fitness could not finish automatic Bluetooth pairing with `{device}`. Keep the Garmin paired with your phone. Put the Garmin in its Bluetooth/Phone pairing mode so it can accept Home Assistant as an additional host, then open Fitness > Smart workout devices > `{device}` and choose Retry now. Approve any prompt on the Garmin. If Garmin warns that the current phone pairing will be replaced or removed, cancel that action instead."
+    },
+    "device_user_action_required": {
+      "title": "{device} needs your attention",
+      "description": "Fitness cannot continue direct synchronization with `{device}` until you complete a device-side step. {reason}\n\nFollow these steps:\n{instructions}\n\nChoose Fix to confirm the steps and enter any requested value."
     }
   },
   "services": {

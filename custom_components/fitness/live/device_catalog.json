@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 8,
   "manufacturers": {
     "antplus": {
       "1": "Garmin",
@@ -45,6 +45,277 @@
         },
         {
           "name_prefix": "CYCPLUS M1"
+        }
+      ]
+    },
+    {
+      "id": "xiaomi_miband1_family",
+      "manufacturer": "Xiaomi",
+      "model": "Mi Band 1 / 1A / 1S",
+      "name": "Mi Band 1 / 1A / 1S",
+      "match_any": [
+        {
+          "name_prefix": "MI Band"
+        }
+      ]
+    },
+    {
+      "id": "xiaomi_miband2",
+      "manufacturer": "Xiaomi",
+      "model": "Mi Band 2",
+      "name": "Mi Band 2",
+      "match_any": [
+        {
+          "name_prefix": "MI Band 2"
+        }
+      ]
+    },
+    {
+      "id": "xiaomi_miband3",
+      "manufacturer": "Xiaomi",
+      "model": "Mi Band 3",
+      "name": "Mi Band 3",
+      "match_any": [
+        {
+          "name_prefix": "Mi Band 3"
+        }
+      ]
+    },
+    {
+      "id": "xiaomi_miband4",
+      "manufacturer": "Xiaomi",
+      "model": "Mi Smart Band 4",
+      "name": "Mi Smart Band 4",
+      "match_any": [
+        {
+          "name_prefix": "Mi Smart Band 4"
+        }
+      ]
+    },
+    {
+      "id": "xiaomi_miband5",
+      "manufacturer": "Xiaomi",
+      "model": "Mi Smart Band 5",
+      "name": "Mi Smart Band 5",
+      "match_any": [
+        {
+          "name_prefix": "Mi Smart Band 5"
+        }
+      ]
+    },
+    {
+      "id": "xiaomi_miband6",
+      "manufacturer": "Xiaomi",
+      "model": "Mi Smart Band 6",
+      "name": "Mi Smart Band 6",
+      "match_any": [
+        {
+          "name_prefix": "Mi Smart Band 6"
+        }
+      ]
+    },
+    {
+      "id": "xiaomi_smart_band7_pro",
+      "manufacturer": "Xiaomi",
+      "model": "Xiaomi Smart Band 7 Pro",
+      "model_id": "smart_band_7_pro",
+      "name": "Xiaomi Smart Band 7 Pro",
+      "match_any": [
+        {
+          "name_prefix": "Xiaomi Smart Band 7 Pro"
+        },
+        {
+          "name_prefix": "Smart Band 7 Pro"
+        }
+      ]
+    },
+    {
+      "id": "xiaomi_miband7",
+      "manufacturer": "Xiaomi",
+      "model": "Xiaomi Smart Band 7",
+      "model_id": "miband7",
+      "name": "Xiaomi Smart Band 7",
+      "match_any": [
+        {
+          "name_prefix": "Xiaomi Smart Band 7"
+        },
+        {
+          "name_prefix": "Mi Band 7"
+        }
+      ]
+    },
+    {
+      "id": "xiaomi_smart_band8_active",
+      "manufacturer": "Xiaomi",
+      "model": "Xiaomi Smart Band 8 Active",
+      "model_id": "smart_band_8_active",
+      "name": "Xiaomi Smart Band 8 Active",
+      "match_any": [
+        {
+          "name_prefix": "Xiaomi Smart Band 8 Active"
+        },
+        {
+          "name_prefix": "Smart Band 8 Active"
+        }
+      ]
+    },
+    {
+      "id": "xiaomi_smart_band8_pro",
+      "manufacturer": "Xiaomi",
+      "model": "Xiaomi Smart Band 8 Pro",
+      "model_id": "smart_band_8_pro",
+      "name": "Xiaomi Smart Band 8 Pro",
+      "match_any": [
+        {
+          "name_prefix": "Xiaomi Smart Band 8 Pro"
+        },
+        {
+          "name_prefix": "Smart Band 8 Pro"
+        }
+      ]
+    },
+    {
+      "id": "xiaomi_smart_band8",
+      "manufacturer": "Xiaomi",
+      "model": "Xiaomi Smart Band 8",
+      "model_id": "smart_band_8",
+      "name": "Xiaomi Smart Band 8",
+      "match_any": [
+        {
+          "name_prefix": "Xiaomi Smart Band 8"
+        },
+        {
+          "name_prefix": "Smart Band 8"
+        }
+      ]
+    },
+    {
+      "id": "xiaomi_smart_band9_active",
+      "manufacturer": "Xiaomi",
+      "model": "Xiaomi Smart Band 9 Active",
+      "model_id": "smart_band_9_active",
+      "name": "Xiaomi Smart Band 9 Active",
+      "match_any": [
+        {
+          "name_prefix": "Xiaomi Smart Band 9 Active"
+        },
+        {
+          "name_prefix": "Smart Band 9 Active"
+        }
+      ]
+    },
+    {
+      "id": "xiaomi_smart_band9_pro",
+      "manufacturer": "Xiaomi",
+      "model": "Xiaomi Smart Band 9 Pro",
+      "model_id": "smart_band_9_pro",
+      "name": "Xiaomi Smart Band 9 Pro",
+      "match_any": [
+        {
+          "name_prefix": "Xiaomi Smart Band 9 Pro"
+        },
+        {
+          "name_prefix": "Smart Band 9 Pro"
+        }
+      ]
+    },
+    {
+      "id": "xiaomi_smart_band9",
+      "manufacturer": "Xiaomi",
+      "model": "Xiaomi Smart Band 9",
+      "model_id": "smart_band_9",
+      "name": "Xiaomi Smart Band 9",
+      "match_any": [
+        {
+          "name_prefix": "Xiaomi Smart Band 9"
+        },
+        {
+          "name_prefix": "Smart Band 9"
+        }
+      ]
+    },
+    {
+      "id": "xiaomi_smart_band10_pro",
+      "manufacturer": "Xiaomi",
+      "model": "Xiaomi Smart Band 10 Pro",
+      "model_id": "smart_band_10_pro",
+      "name": "Xiaomi Smart Band 10 Pro",
+      "match_any": [
+        {
+          "name_prefix": "Xiaomi Smart Band 10 Pro"
+        },
+        {
+          "name_prefix": "Smart Band 10 Pro"
+        }
+      ]
+    },
+    {
+      "id": "xiaomi_smart_band10",
+      "manufacturer": "Xiaomi",
+      "model": "Xiaomi Smart Band 10",
+      "model_id": "smart_band_10",
+      "name": "Xiaomi Smart Band 10",
+      "match_any": [
+        {
+          "name_prefix": "Xiaomi Smart Band 10"
+        },
+        {
+          "name_prefix": "Smart Band 10"
+        }
+      ]
+    },
+    {
+      "id": "amazfit_bip_lite",
+      "manufacturer": "Amazfit",
+      "model": "Amazfit Bip Lite",
+      "name": "Amazfit Bip Lite",
+      "match_any": [
+        {
+          "name_prefix": "Amazfit Bip Lite"
+        }
+      ]
+    },
+    {
+      "id": "amazfit_band5",
+      "manufacturer": "Amazfit",
+      "model": "Amazfit Band 5",
+      "name": "Amazfit Band 5",
+      "match_any": [
+        {
+          "name_prefix": "Amazfit Band 5"
+        }
+      ]
+    },
+    {
+      "id": "banglejs_watch",
+      "manufacturer": "Espruino",
+      "model": "Bangle.js smartwatch",
+      "name": "Bangle.js smartwatch",
+      "match_any": [
+        {
+          "name_prefix": "Bangle.js"
+        }
+      ]
+    },
+    {
+      "id": "mykronoz_zetime",
+      "manufacturer": "MyKronoz",
+      "model": "ZeTime",
+      "name": "ZeTime",
+      "match_any": [
+        {
+          "name_prefix": "ZeTime"
+        }
+      ]
+    },
+    {
+      "id": "ultrahuman_ring_air",
+      "manufacturer": "Ultrahuman",
+      "model": "Ring AIR",
+      "name": "Ring AIR",
+      "match_any": [
+        {
+          "name_prefix": "UH_"
         }
       ]
     }
@@ -104,20 +375,7 @@
       "max_age_seconds": 600,
       "roles": {
         "bluetooth": {
-          "name_prefixes": [
-            "Forerunner",
-            "fēnix",
-            "fenix",
-            "Epix",
-            "Venu",
-            "vívoactive",
-            "vivoactive",
-            "Instinct",
-            "Enduro",
-            "MARQ",
-            "Descent",
-            "Approach"
-          ]
+          "manufacturer_data_id": 135
         },
         "antplus": {
           "manufacturer_id": 1,
@@ -156,25 +414,6 @@
       ],
       "roles": {
         "bluetooth": {
-          "name_prefixes": [
-            "Forerunner",
-            "fēnix",
-            "fenix",
-            "Epix",
-            "Venu",
-            "vívoactive",
-            "vivoactive",
-            "Instinct",
-            "Enduro",
-            "MARQ",
-            "Descent",
-            "Approach",
-            "HR - Forerunner",
-            "HR - fēnix",
-            "HR - fenix",
-            "HR - Epix",
-            "HR - Venu"
-          ],
           "extractors": [
             {
               "source": "ant_device_number",
@@ -203,7 +442,8 @@
               "group": 1,
               "transform": "integer"
             }
-          ]
+          ],
+          "manufacturer_data_id": 135
         },
         "antplus": {
           "manufacturer_id": 1,

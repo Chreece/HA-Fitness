@@ -71,5 +71,5 @@ def test_ytdlp_live_is_supported_through_youtube_not_direct_audio_proxy():
 
 
 def test_v82_revision_contract():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-82"' in FRONTEND
-    assert '?v=unreleased-82' in DASHBOARD
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in FRONTEND
+    assert '?v=unreleased-85' in DASHBOARD

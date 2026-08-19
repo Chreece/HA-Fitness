@@ -20,7 +20,10 @@ from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
-from homeassistant.helpers.event import async_track_state_change_event, async_track_time_change
+from homeassistant.helpers.event import (
+    async_track_state_change_event,
+    async_track_time_change,
+)
 from homeassistant.helpers.storage import Store
 
 from .explanations import provenance_text
@@ -56,6 +59,7 @@ from .const import (
     CONF_SEX,
     CONF_VO2MAX,
     CONF_WEIGHT,
+    CONF_WEIGHT_SCALE_ENTITY,
     DOMAIN,
     DEFAULT_WORKOUT_RETENTION_DAYS,
     MAX_WORKOUT_RETENTION_DAYS,
@@ -120,7 +124,17 @@ from .providers.entities import (
 )
 from .providers.evaluation import collect_provider_metrics, workout_device_entity_ids
 from .providers.sleep import SleepRecord, merged_sleeps, newest_sleep
-from .history import ingest_recorder, remember, summarize_all, validate_sleep, validate_workout
+from .history import (
+    ingest_recorder,
+    parse_timestamp,
+    remember,
+    summarize_all,
+    validate_sleep,
+    validate_value,
+    validate_workout,
+)
+from .device_adapters.history import DeviceHistoryBatch
+from .health_catalog import canonical_metric_key
 from .providers.sleep_adapters.registry import (
     discover_sleep_records,
     latest_sleep as discover_latest_sleep,
@@ -151,6 +165,12 @@ HISTORY_COMPACTION_VERSION = 1
 SLEEP_COMPACTION_VERSION = 1
 MAX_LIVE_SESSION_SAMPLES = 21_600
 MANAGER_SHUTDOWN_TIMEOUT = 15.0
+MAX_DEVICE_INTRADAY_POINTS_PER_METRIC = 4096
+MAX_DEVICE_INTRADAY_METRICS = 32
+_DEVICE_ADDITIVE_METRICS = frozenset({"steps", "distance_m", "calories", "active_minutes"})
+_DEVICE_MIN_METRICS = frozenset({"min_heart_rate", "skin_temperature_min"})
+_DEVICE_MAX_METRICS = frozenset({"max_heart_rate", "skin_temperature_max"})
+_DEVICE_LATEST_METRICS = frozenset({"battery", "charging", "wear_state"})
 
 
 def _compact_history_for_storage(raw_history: list[Any]) -> list[dict[str, Any]]:
@@ -303,7 +323,21 @@ class FitnessManager:
         self.long_term_statistics: dict[str, Any] = {}
         self.long_term_statistics_updated: str | None = None
         self.metric_history: dict[str, list[dict[str, Any]]] = {}
+        # Direct wearables can expose minute/10-minute samples while the existing
+        # canonical trend store intentionally keeps one compact point per day.
+        # Retain a separate bounded raw window so synchronization never throws
+        # away useful intraday detail merely to keep long-term trends small.
+        self.device_intraday_history: dict[str, list[dict[str, Any]]] = {}
+        self.device_context_history: list[dict[str, Any]] = []
         self.history_validation: dict[str, dict[str, Any]] = {}
+        # Current confirmed body weight is Fitness-owned profile state.  A
+        # shared scale may suggest a new value, but it is never committed until
+        # a user confirms the routing.  Keeping this out of config-entry options
+        # avoids a full profile reload for every weigh-in.
+        self.current_weight_kg: float | None = None
+        self.current_weight_updated_at: str | None = None
+        self.current_weight_source: str | None = None
+        self._configured_weight_seed: str | None = None
         # Evaluation is expensive (provider registry scans + longitudinal
         # summaries). HA reads every Evaluation entity during startup, so doing
         # this independently for each entity can block the event loop for many
@@ -420,7 +454,17 @@ class FitnessManager:
             "long_term_statistics": dict(self.long_term_statistics),
             "long_term_statistics_updated": self.long_term_statistics_updated,
             "metric_history": dict(self.metric_history),
+            "device_intraday_history": {
+                str(metric): list(points[-MAX_DEVICE_INTRADAY_POINTS_PER_METRIC:])
+                for metric, points in list(self.device_intraday_history.items())[:MAX_DEVICE_INTRADAY_METRICS]
+                if isinstance(points, list)
+            },
+            "device_context_history": list(self.device_context_history[-2048:]),
             "history_validation": dict(self.history_validation),
+            "current_weight_kg": self.current_weight_kg,
+            "current_weight_updated_at": self.current_weight_updated_at,
+            "current_weight_source": self.current_weight_source,
+            "configured_weight_seed": self._configured_weight_seed,
             "sleep_history": list(self.sleep_history[-120:]),
             "materialized_sensor_keys": sorted(self.materialized_sensor_keys),
             "last_announced_workout_signature": (
@@ -502,7 +546,56 @@ class FitnessManager:
             for k, v in dict(stored.get("metric_history") or {}).items()
             if isinstance(v, list)
         }
+        raw_intraday = dict(stored.get("device_intraday_history") or {})
+        self.device_intraday_history = {
+            str(metric): [dict(item) for item in list(points)[-MAX_DEVICE_INTRADAY_POINTS_PER_METRIC:] if isinstance(item, dict)]
+            for metric, points in list(raw_intraday.items())[:MAX_DEVICE_INTRADAY_METRICS]
+            if isinstance(points, list)
+        }
         self.history_validation = dict(stored.get("history_validation") or {})
+        self.device_context_history = [
+            dict(item) for item in list(stored.get("device_context_history") or [])[-2048:]
+            if isinstance(item, dict)
+        ]
+        stored_weight = stored.get("current_weight_kg")
+        try:
+            self.current_weight_kg = (
+                float(stored_weight) if stored_weight is not None else None
+            )
+        except (TypeError, ValueError):
+            self.current_weight_kg = None
+        if self.current_weight_kg is not None and not 20 <= self.current_weight_kg <= 500:
+            self.current_weight_kg = None
+        self.current_weight_updated_at = stored.get("current_weight_updated_at")
+        self.current_weight_source = stored.get("current_weight_source")
+        self._configured_weight_seed = stored.get("configured_weight_seed")
+
+        # A manually edited config value is an explicit user override. Seed the
+        # current value on first load or when that manual value changes. Legacy
+        # pre-v14 entity values remain readable until migration/options cleanup.
+        configured_weight = self.config.get(CONF_WEIGHT)
+        configured_seed = None
+        if configured_weight not in (None, "") and not is_entity_reference(configured_weight):
+            try:
+                configured_number = float(configured_weight)
+            except (TypeError, ValueError):
+                configured_number = None
+            if configured_number is not None and 20 <= configured_number <= 500:
+                configured_seed = f"{configured_number:.3f}"
+                if self.current_weight_kg is None or configured_seed != self._configured_weight_seed:
+                    self.current_weight_kg = configured_number
+                    self.current_weight_updated_at = datetime.now(timezone.utc).isoformat()
+                    self.current_weight_source = "manual_configuration"
+                    self._configured_weight_seed = configured_seed
+        elif self.current_weight_kg is None and is_entity_reference(configured_weight):
+            legacy = resolve_number_or_entity(
+                self.hass, configured_weight, quantity="weight"
+            ).value
+            if legacy is not None and 20 <= float(legacy) <= 500:
+                self.current_weight_kg = float(legacy)
+                self.current_weight_updated_at = datetime.now(timezone.utc).isoformat()
+                self.current_weight_source = "legacy_profile_entity"
+
         self.materialized_sensor_keys = set(stored.get("materialized_sensor_keys") or [])
         self._last_announced_workout_signature = stored.get("last_announced_workout_signature")
         self.selected_feedback_area_id = stored.get("selected_feedback_area_id")
@@ -3372,8 +3465,44 @@ class FitnessManager:
             (today.month, today.day) < (dob.month, dob.day)
         )
 
+    async def async_accept_scale_weight(
+        self, value_kg, scale_entity_id: str, measured_at: str | None = None
+    ) -> bool:
+        """Commit one explicitly confirmed shared-scale measurement."""
+        try:
+            value = float(value_kg)
+        except (TypeError, ValueError):
+            return False
+        if not 20 <= value <= 500:
+            return False
+        configured_scale = str(self.config.get(CONF_WEIGHT_SCALE_ENTITY) or "").strip()
+        if not configured_scale or configured_scale != str(scale_entity_id or "").strip():
+            return False
+
+        timestamp = str(measured_at or "").strip() or datetime.now(timezone.utc).isoformat()
+        self.current_weight_kg = round(value, 3)
+        self.current_weight_updated_at = timestamp
+        self.current_weight_source = f"shared_scale:{configured_scale}"
+        remember(
+            self.metric_history,
+            "weight",
+            self.current_weight_kg,
+            timestamp,
+            source_type="fitness_scale_confirmed",
+            source_entity=configured_scale,
+            sources=[configured_scale],
+            imported=False,
+            now=datetime.now(timezone.utc),
+        )
+        self._invalidate_evaluation_cache()
+        self._schedule_save()
+        self._notify()
+        return True
+
     def input_value(self, key):
         """Resolve configured values using the field's canonical quantity/unit."""
+        if key == CONF_WEIGHT and self.current_weight_kg is not None:
+            return self.current_weight_kg
         quantity_map = {
             CONF_WEIGHT: "weight",
             CONF_RESTING_HR: "heart_rate",
@@ -4936,6 +5065,149 @@ class FitnessManager:
             self._notify()
         return len(prepared)
 
+    async def async_import_device_history(self, batch: DeviceHistoryBatch) -> dict[str, int]:
+        """Import non-FIT health history fetched directly from an assigned device.
+
+        Wearables frequently keep sleep, daily steps, HR/HRV, SpO2, stress and
+        temperature outside workout FIT files.  Device adapters feed those facts
+        through this bounded canonical boundary instead of writing manager storage
+        directly.  One save/notification burst covers the entire device batch.
+        """
+        now = datetime.now(timezone.utc)
+        metric_count = 0
+        sleep_count = 0
+        metrics_changed = False
+        sleep_changed = False
+
+        touched_days: set[tuple[str, object]] = set()
+        batch_signatures: dict[str, set[tuple[Any, ...]]] = {}
+        for point in batch.metric_points:
+            metric_key = canonical_metric_key(str(point.metric))
+            stamp = parse_timestamp(point.timestamp)
+            value, value_error = validate_value(metric_key, point.value)
+            if stamp is None or value_error is not None or value is None:
+                continue
+            context_values = {str(key)[:64]: value for key, value in point.context[:12]}
+            raw = {
+                "timestamp": stamp.isoformat(),
+                "value": value,
+                "source_type": str(point.source_type or "direct_device_history")[:128],
+                "source_entity": str(point.source_entity or "")[:256] or None,
+                "sources": [str(source)[:256] for source in point.sources[:12]],
+                "context": context_values,
+            }
+            bucket = self.device_intraday_history.setdefault(metric_key, [])
+            signatures = batch_signatures.get(metric_key)
+            if signatures is None:
+                signatures = {
+                    (
+                        str(item.get("timestamp")),
+                        item.get("value"),
+                        str(item.get("source_type") or ""),
+                        str(item.get("source_entity") or ""),
+                    )
+                    for item in bucket
+                    if isinstance(item, dict)
+                }
+                batch_signatures[metric_key] = signatures
+            signature = (raw["timestamp"], raw["value"], raw["source_type"], str(raw["source_entity"] or ""))
+            if signature not in signatures:
+                signatures.add(signature)
+                bucket.append(raw)
+                bucket.sort(key=lambda item: str(item.get("timestamp") or ""))
+                del bucket[:-MAX_DEVICE_INTRADAY_POINTS_PER_METRIC]
+                metrics_changed = True
+                metric_count += 1
+            touched_days.add((metric_key, stamp.date()))
+
+            if point.context:
+                context = dict(context_values)
+                context.update({
+                    "metric": metric_key,
+                    "value": value,
+                    "timestamp": stamp.isoformat(),
+                    "source_type": str(point.source_type)[:128],
+                    "source_entity": str(point.source_entity or "")[:256] or None,
+                })
+                if not self.device_context_history or self.device_context_history[-1] != context:
+                    self.device_context_history.append(context)
+                    del self.device_context_history[:-2048]
+                    metrics_changed = True
+
+        # Rebuild compact daily trend points from the retained intraday window.
+        # Additive minute/event metrics are summed, while an explicit
+        # ``current_total`` wins for that day. Physiological samples use their
+        # natural mean/min/max and device-state values use the latest sample.
+        for metric_key, day in touched_days:
+            raw_points = [
+                item for item in self.device_intraday_history.get(metric_key, ())
+                if isinstance(item, dict)
+                and (dt := parse_timestamp(item.get("timestamp"))) is not None
+                and dt.date() == day
+            ]
+            if not raw_points:
+                continue
+            raw_points.sort(key=lambda item: str(item.get("timestamp") or ""))
+            total_points = [
+                item for item in raw_points
+                if str((item.get("context") or {}).get("measurement_context") or "") == "current_total"
+            ]
+            if metric_key in _DEVICE_ADDITIVE_METRICS:
+                selected = total_points[-1] if total_points else raw_points[-1]
+                daily_value = (
+                    float(selected["value"])
+                    if total_points
+                    else sum(float(item["value"]) for item in raw_points)
+                )
+            elif metric_key in _DEVICE_MIN_METRICS:
+                selected = raw_points[-1]
+                daily_value = min(float(item["value"]) for item in raw_points)
+            elif metric_key in _DEVICE_MAX_METRICS:
+                selected = raw_points[-1]
+                daily_value = max(float(item["value"]) for item in raw_points)
+            elif metric_key in _DEVICE_LATEST_METRICS:
+                selected = raw_points[-1]
+                daily_value = float(selected["value"])
+            else:
+                selected = raw_points[-1]
+                daily_value = mean(float(item["value"]) for item in raw_points)
+            remember(
+                self.metric_history,
+                metric_key,
+                daily_value,
+                selected["timestamp"],
+                source_type="direct_device_daily_summary",
+                source_entity=selected.get("source_entity"),
+                sources=selected.get("sources") or (),
+                imported=True,
+                now=now,
+            )
+
+        for record in batch.sleep_records:
+            if validate_sleep(record, now) is not None:
+                continue
+            if self._remember_sleep_record(record, persist=False):
+                sleep_changed = True
+                sleep_count += 1
+
+        if not (metrics_changed or sleep_changed):
+            return {"metric_points": 0, "sleep_records": 0}
+
+        if metrics_changed:
+            self.long_term_statistics, self.history_validation = summarize_all(
+                self.metric_history, now
+            )
+            self.long_term_statistics_updated = now.isoformat()
+            self._invalidate_evaluation_cache()
+        if sleep_changed:
+            self._latest_sleep_cache = newest_sleep(self._sleep_records_from_history())
+
+        await self._save()
+        if sleep_changed:
+            self._notify_sleep()
+        self._notify()
+        return {"metric_points": metric_count, "sleep_records": sleep_count}
+
     async def async_import_provider_workout_history(self) -> int:
         """Import historical workouts exposed by provider-specific HA APIs."""
         try:
@@ -5120,6 +5392,84 @@ class FitnessManager:
         self._notify_workout_history()
         self._notify()
         return True
+
+    async def async_delete_calendar_workouts(
+        self, uids: list[str], entry_id: str
+    ) -> int:
+        """Delete several canonical workouts in one persistence transaction."""
+        wanted = {str(uid) for uid in uids if str(uid).strip()}
+        if not wanted:
+            return 0
+        wanted = set(list(wanted)[:100])
+        targets = [
+            workout
+            for workout in self.local_workouts()
+            if self._calendar_uid(entry_id, workout) in wanted
+        ]
+        if not targets:
+            return 0
+        target_uids = {self._calendar_uid(entry_id, workout) for workout in targets}
+        kept: list[dict] = []
+        for item in self.history:
+            try:
+                candidate = Workout(**item)
+            except TypeError:
+                kept.append(item)
+                continue
+            if self._calendar_uid(entry_id, candidate) in target_uids:
+                continue
+            kept.append(item)
+        self.history = kept
+        now = datetime.now(timezone.utc).isoformat()
+        existing = {
+            (item.get("start"), item.get("sport"))
+            for item in self.deleted_workouts
+            if isinstance(item, dict)
+        }
+        for target in targets:
+            key = (target.start, target.sport)
+            if key in existing:
+                continue
+            self.deleted_workouts.append(
+                {
+                    "start": target.start,
+                    "end": target.end,
+                    "duration_s": target.duration_s,
+                    "distance_m": target.distance_m,
+                    "sport": target.sport,
+                    "name": target.name,
+                    "deleted_at": now,
+                }
+            )
+            existing.add(key)
+        self.deleted_workouts = self.deleted_workouts[-1000:]
+        self._local_workouts_cache = None
+        self._latest_workout_cache_ready = False
+        if hasattr(self, "_invalidate_evaluation_cache"):
+            self._invalidate_evaluation_cache()
+        await self._save()
+        self._notify_workout_history()
+        self._notify()
+        return len(targets)
+
+    async def async_empty_workout_history(self) -> int:
+        """Empty current history and permanently suppress pre-click re-imports."""
+        count = len(self.local_workouts())
+        cutoff = datetime.now(timezone.utc)
+        existing = self._bulk_deleted_cutoff()
+        if existing is None or cutoff > existing:
+            self.deleted_workouts_before = cutoff.isoformat()
+        self.history = []
+        self.deleted_workouts = []
+        self._local_workouts_cache = tuple()
+        self._latest_workout_cache = None
+        self._latest_workout_cache_ready = True
+        if hasattr(self, "_invalidate_evaluation_cache"):
+            self._invalidate_evaluation_cache()
+        await self._save()
+        self._notify_workout_history()
+        self._notify()
+        return count
 
     @staticmethod
     def _canonicalize_workout_history(
@@ -6861,7 +7211,7 @@ class FitnessManager:
     def _build_evaluation(self) -> dict:
         provider = collect_provider_metrics(self.hass, self.config)
 
-        weight = provider.get("weight_kg") or self.input_value(CONF_WEIGHT)
+        weight = self.input_value(CONF_WEIGHT) or provider.get("weight_kg")
         resting = provider.get("resting_hr") or self.input_value(CONF_RESTING_HR)
 
         manual_max = self.input_value(CONF_MAX_HR)

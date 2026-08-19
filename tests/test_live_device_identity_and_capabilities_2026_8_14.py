@@ -26,6 +26,22 @@ def _endpoint(metadata):
     return SimpleNamespace(metadata=metadata)
 
 
+def test_advertised_product_name_with_numeric_suffix_is_preserved():
+    identity = _load_identity()
+    sensor = _sensor(
+        name="Forerunner 965",
+        endpoints={
+            "bluetooth": _endpoint({
+                "advertised_name": "Forerunner 965",
+                "fitness_vendor_identity": "garmin",
+            })
+        },
+    )
+    result = identity.resolve_identity(sensor)
+    assert result["name"] == "Forerunner 965"
+    assert result["name"] != "Fitness sensor"
+
+
 def test_numeric_ant_model_is_never_user_facing_model():
     identity = _load_identity()
     sensor = _sensor(

@@ -31,7 +31,7 @@ def test_browser_profile_lovelace_uses_known_good_setup_wrapper():
 
 
 def test_frontend_revision_is_71_and_no_people_route_returns():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-82"' in FRONTEND
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in FRONTEND
     assert 'fitness-dashboard.js' in DASHBOARD
     assert '/config/people' not in FRONTEND
     assert '/config/people' not in DASHBOARD

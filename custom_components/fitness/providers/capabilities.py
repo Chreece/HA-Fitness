@@ -24,6 +24,7 @@ from ..const import (
     CONF_THRESHOLD_POWER,
     CONF_VO2MAX,
     CONF_WEIGHT,
+    CONF_WEIGHT_SCALE_ENTITY,
     CONF_WORKOUT_DEVICE_IDS,
     DOMAIN,
 )
@@ -50,7 +51,9 @@ class CapabilityChoice:
 
 
 _PROFILE_ENTITY_FIELDS = (
-    CONF_WEIGHT,
+    # A shared scale is intentionally not a personal-source ownership claim.
+    # CONF_WEIGHT is now the profile's confirmed/manual number, while
+    # CONF_WEIGHT_SCALE_ENTITY may be selected by several profiles.
     CONF_RESTING_HR,
     CONF_HEIGHT,
     CONF_MAX_HR,
@@ -441,20 +444,19 @@ def supported_device_ids(hass: HomeAssistant, capability: str) -> set[str]:
     return {item.value for item in choices}
 
 
-def profile_entity_supported(
-    hass: HomeAssistant, field: str, entity_id: str, profile_entry_id: str | None = None
+def _profile_entity_supported(
+    hass: HomeAssistant,
+    field: str,
+    entity_id: str,
+    profile_entry_id: str | None = None,
+    *,
+    enforce_ownership: bool = True,
 ) -> bool:
-    """Validate an explicitly selected physiological sensor for a profile.
-
-    Suggestions remain deliberately conservative so unrelated entities are not
-    advertised. A user-entered entity ID, however, is accepted when the live
-    state is numeric, its unit can be converted for the requested quantity and
-    the source is not owned by another Fitness profile.
-    """
+    """Validate a physiological sensor with optional profile ownership checks."""
     entity_id = str(entity_id or "").strip()
     if not entity_id.startswith("sensor."):
         return False
-    if not profile_entity_available(hass, entity_id, profile_entry_id):
+    if enforce_ownership and not profile_entity_available(hass, entity_id, profile_entry_id):
         return False
 
     state = hass.states.get(entity_id)
@@ -481,8 +483,40 @@ def profile_entity_supported(
     return converted is not None
 
 
-def profile_entity_choices(
-    hass: HomeAssistant, field: str, profile_entry_id: str | None = None
+def profile_entity_supported(
+    hass: HomeAssistant, field: str, entity_id: str, profile_entry_id: str | None = None
+) -> bool:
+    """Validate a personal physiological source entity."""
+    return _profile_entity_supported(
+        hass, field, entity_id, profile_entry_id, enforce_ownership=True
+    )
+
+
+def weight_scale_entity_supported(hass: HomeAssistant, entity_id: str) -> bool:
+    """Validate a shareable scale sensor without claiming its source device."""
+    if not _profile_entity_supported(
+        hass, CONF_WEIGHT, entity_id, None, enforce_ownership=False
+    ):
+        return False
+    registry_entry = _entity_registry_entry(er.async_get(hass), entity_id)
+    if registry_entry is None:
+        return False
+    label = _entry_label(hass, registry_entry)
+    aliases = _PROFILE_ALIASES[CONF_WEIGHT]
+    bad_tokens = _PROFILE_BAD_TOKENS[CONF_WEIGHT]
+    return bool(
+        label
+        and any(alias in label for alias in aliases)
+        and not any(token in label for token in bad_tokens)
+    )
+
+
+def _profile_entity_choices(
+    hass: HomeAssistant,
+    field: str,
+    profile_entry_id: str | None = None,
+    *,
+    enforce_ownership: bool = True,
 ) -> list[dict[str, str]]:
     """Return plausible physiological entities, ranked best-first.
 
@@ -509,12 +543,13 @@ def profile_entity_choices(
             domain = config_entry.domain if config_entry is not None else None
         if domain in _PROFILE_BLOCKED_DOMAINS:
             continue
-        entity_owner = entity_owners.get(entry.entity_id)
-        if entity_owner is not None and entity_owner != profile_entry_id:
-            continue
-        device_owner = device_owners.get(str(entry.device_id)) if entry.device_id else None
-        if device_owner is not None and device_owner != profile_entry_id:
-            continue
+        if enforce_ownership:
+            entity_owner = entity_owners.get(entry.entity_id)
+            if entity_owner is not None and entity_owner != profile_entry_id:
+                continue
+            device_owner = device_owners.get(str(entry.device_id)) if entry.device_id else None
+            if device_owner is not None and device_owner != profile_entry_id:
+                continue
 
         label = _entry_label(hass, entry)
         if any(token in label for token in bad_tokens):
@@ -556,3 +591,19 @@ def profile_entity_choices(
 
     ranked.sort(key=lambda item: (-item[0], item[1]))
     return [item[2] for item in ranked]
+
+
+def profile_entity_choices(
+    hass: HomeAssistant, field: str, profile_entry_id: str | None = None
+) -> list[dict[str, str]]:
+    """Return setup-safe personal physiological entities."""
+    return _profile_entity_choices(
+        hass, field, profile_entry_id, enforce_ownership=True
+    )
+
+
+def weight_scale_entity_choices(hass: HomeAssistant) -> list[dict[str, str]]:
+    """Return weight sensors that may intentionally be shared by profiles."""
+    return _profile_entity_choices(
+        hass, CONF_WEIGHT, None, enforce_ownership=False
+    )

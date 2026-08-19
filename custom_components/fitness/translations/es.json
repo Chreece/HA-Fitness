@@ -24,14 +24,16 @@
       },
       "required": {
         "title": "Datos del perfil",
-        "description": "El peso es obligatorio. La frecuencia cardíaca en reposo es opcional y puede añadirse después. Cada campo acepta un valor numérico o una entidad compatible de Home Assistant; las unidades se normalizan automáticamente.",
+        "description": "El peso actual es obligatorio. Opcionalmente puedes elegir un sensor de báscula de Home Assistant. La misma báscula puede compartirse entre varios perfiles Fitness; cada nueva medición se intenta asociar y siempre requiere confirmación antes de actualizar un perfil.",
         "data": {
-          "weight": "Peso (kg o entidad)",
-          "resting_hr": "Frecuencia cardíaca en reposo (bpm o entidad)"
+          "weight": "Peso actual (kg)",
+          "resting_hr": "Frecuencia cardíaca en reposo (bpm o entidad)",
+          "weight_scale_entity": "Báscula compartida (opcional)"
         },
         "data_description": {
-          "weight": "Peso corporal. Se usa para W/kg y métricas normalizadas por masa. Introduce kg o elige una entidad compatible; las unidades se convierten automáticamente.",
-          "resting_hr": "Frecuencia cardíaca en reposo en bpm. Se usa para %HRR, clasificación de intensidad y Banister TRIMP. Usa una medida real de reposo."
+          "weight": "Tu peso corporal actual confirmado en kilogramos. Puedes cambiarlo manualmente en cualquier momento.",
+          "resting_hr": "Frecuencia cardíaca en reposo en bpm. Se usa para %HRR, clasificación de intensidad y Banister TRIMP. Usa una medida real de reposo.",
+          "weight_scale_entity": "Elige un sensor de peso compatible de Home Assistant. La báscula puede compartirse entre varios perfiles Fitness. Tras una nueva medición, Fitness propone quién se pesó y pide confirmación antes de cambiar el peso de alguien."
         }
       },
       "optional": {
@@ -151,13 +153,36 @@
           "tv_dashboard_ytdlp_enabled": "yt-dlp es un adaptador opcional de terceros sin afiliación con YouTube ni otros servicios. Eres el único responsable de cumplir la ley, las condiciones del servicio y los derechos de autor, y de obtener los permisos necesarios. Fitness no proporciona cookies, no autoriza elusión ni redistribución y ofrece el adaptador sin garantía; este aviso no es asesoramiento legal.",
           "tv_dashboard_ignore_lights_when_cast_active": "Cuando haya un receptor Fitness TV Cast activo, usa el televisor para la información del entrenamiento y deja intactas las luces de entrenamiento configuradas."
         }
+      },
+      "first_install": {
+        "title": "Configurar Fitness",
+        "description": "Elige qué quieres añadir primero. Podrás añadir la otra parte más adelante sin cambiar el flujo existente de creación del perfil.",
+        "menu_options": {
+          "add_protocol": "Añadir protocolo de sensores",
+          "add_user": "Añadir perfil de usuario"
+        }
+      },
+      "add_user": {
+        "title": "Añadir perfil de usuario",
+        "description": "Continúa con la configuración normal del perfil de Fitness."
+      },
+      "add_protocol": {
+        "title": "Añadir protocolo de sensores",
+        "description": "Activa un transporte local de sensores. Fitness crea el dispositivo adaptador y mantiene el descubrimiento limitado y bajo control del usuario.",
+        "data": {
+          "protocol": "Protocolo"
+        },
+        "data_description": {
+          "protocol": "Elige el transporte de radio local que Fitness debe activar ahora. El otro seguirá disponible pero desactivado hasta que lo habilites."
+        }
       }
     },
     "error": {
       "invalid_date": "Introduce una fecha de nacimiento válida del pasado.",
       "invalid_number_or_entity": "Introduce un valor numérico válido o un ID de entidad de Home Assistant.",
       "select_profile": "Selecciona al menos un usuario de Fitness.",
-      "select_smart_device_owner": "Elige exactamente un perfil Fitness como propietario de los entrenamientos guardados. Las funciones en vivo se pueden compartir después con más perfiles."
+      "select_smart_device_owner": "Elige exactamente un perfil Fitness como propietario de los entrenamientos guardados. Las funciones en vivo se pueden compartir después con más perfiles.",
+      "invalid_protocol": "Elige un protocolo de sensores compatible."
     },
     "abort": {
       "already_configured": "Ya existe un perfil de Fitness con este nombre.",
@@ -183,7 +208,10 @@
           "sleep_devices": "Dispositivos de sueño",
           "sensor_assignments": "Asignaciones de sensores",
           "tv_dashboard": "Panel Fitness TV",
-          "smart_workout_devices": "Dispositivos de entrenamiento inteligentes"
+          "smart_workout_devices": "Dispositivos de entrenamiento inteligentes",
+          "protocols": "Protocolos de sensores",
+          "features": "Funciones del panel",
+          "about": "Acerca de Fitness"
         }
       },
       "profile": {
@@ -206,26 +234,28 @@
       },
       "fitness_inputs": {
         "title": "Datos de fitness y valores iniciales",
-        "description": "Cada campo acepta un valor numérico o una entidad compatible. Solo el peso es obligatorio; la frecuencia cardíaca en reposo y las demás entradas fisiológicas son opcionales y pueden añadirse o eliminarse después.",
+        "description": "Define el peso actual confirmado del perfil y, opcionalmente, una báscula compartida. Las demás entradas fisiológicas pueden seguir usando entidades compatibles de Home Assistant. Una medición compartida nunca actualiza un perfil sin confirmación.",
         "data": {
-          "weight": "Peso (kg o entidad)",
+          "weight": "Peso actual (kg)",
           "resting_hr": "Frecuencia cardíaca en reposo (bpm o entidad)",
           "height": "Altura (cm o entidad)",
           "max_hr": "Frecuencia cardíaca máxima (bpm o entidad)",
           "vo2max": "VO₂máx (mL/kg/min o entidad)",
           "threshold_hr": "FC umbral (bpm o entidad)",
           "threshold_pace": "Ritmo umbral (min/km o entidad)",
-          "threshold_power": "Potencia umbral (W o entidad)"
+          "threshold_power": "Potencia umbral (W o entidad)",
+          "weight_scale_entity": "Báscula compartida (opcional)"
         },
         "data_description": {
-          "weight": "Peso corporal. Se usa para W/kg y métricas normalizadas por masa. Introduce kg o elige una entidad compatible; las unidades se convierten automáticamente.",
+          "weight": "Tu peso corporal actual confirmado en kilogramos. Puedes cambiarlo manualmente en cualquier momento.",
           "resting_hr": "Frecuencia cardíaca en reposo en bpm. Se usa para %HRR, clasificación de intensidad y Banister TRIMP. Usa una medida real de reposo.",
           "height": "Altura. Contexto opcional del perfil. Valor manual en cm; las unidades de entidades se convierten automáticamente.",
           "max_hr": "Frecuencia cardíaca máxima fisiológica/configurada en bpm. Se usa para %HRmax, %HRR y TRIMP; no se deduce de un único máximo de entrenamiento.",
           "vo2max": "VO₂max en mL/kg/min, usada para comparaciones cardiorrespiratorias y evaluación a largo plazo.",
           "threshold_hr": "Frecuencia cardíaca umbral en bpm, usada para comparar el esfuerzo con el umbral configurado.",
           "threshold_pace": "Ritmo umbral de carrera en min/km. Las entidades de velocidad en m/s o km/h se convierten automáticamente.",
-          "threshold_power": "Potencia umbral en vatios. Se usa para potencia relativa al umbral y W/kg; múltiples FTP ambiguos no se preseleccionan."
+          "threshold_power": "Potencia umbral en vatios. Se usa para potencia relativa al umbral y W/kg; múltiples FTP ambiguos no se preseleccionan.",
+          "weight_scale_entity": "Elige un sensor de peso compatible de Home Assistant. La báscula puede compartirse entre varios perfiles Fitness. Tras una nueva medición, Fitness propone quién se pesó y pide confirmación antes de cambiar el peso de alguien."
         }
       },
       "live_devices": {
@@ -387,6 +417,44 @@
         "data_description": {
           "smart_pairing_action": "Retry starts one bounded automatic pairing/sync attempt."
         }
+      },
+      "protocols": {
+        "title": "Protocolos de sensores",
+        "description": "Activa o desactiva transportes locales. Un transporte que esté en uso no se apagará hasta que termine la sesión.",
+        "data": {
+          "bluetooth": "Protocolo Bluetooth",
+          "antplus": "Protocolo ANT+"
+        },
+        "data_description": {
+          "bluetooth": "Activa el transporte Bluetooth de Home Assistant para sensores Fitness locales y archivos de dispositivos compatibles.",
+          "antplus": "Activa el transporte ANT+ local para receptores USB y sensores Fitness compatibles."
+        }
+      },
+      "features": {
+        "title": "Funciones del panel",
+        "description": "Elige módulos opcionales y entidades existentes de Home Assistant. Estas opciones no añaden consultas de red en segundo plano.",
+        "data": {
+          "dashboard_modules": "Módulos del panel",
+          "dashboard_theme": "Tema de Home Assistant",
+          "dashboard_rss_entity_ids": "Sensores RSS / noticias",
+          "dashboard_music_entity_ids": "Reproductores de música",
+          "dashboard_light_entity_ids": "Luces",
+          "dashboard_video_entity_ids": "Reproductores TV / vídeo",
+          "dashboard_weather_entity_id": "Entidad meteorológica"
+        },
+        "data_description": {
+          "dashboard_modules": "Elige los módulos opcionales de Fitness y Home Assistant que se mostrarán en el panel de este perfil.",
+          "dashboard_theme": "Usa el nombre de un tema instalado de Home Assistant o Home Assistant para conservar el tema normal del sistema.",
+          "dashboard_rss_entity_ids": "Selecciona sensores existentes de Home Assistant que ya proporcionen RSS o noticias; Fitness no descarga fuentes por sí mismo.",
+          "dashboard_music_entity_ids": "Selecciona reproductores multimedia existentes para mostrar controles de Home Assistant en el panel Fitness.",
+          "dashboard_light_entity_ids": "Selecciona entidades de luz existentes para crear un grupo compacto de controles en el panel.",
+          "dashboard_video_entity_ids": "Selecciona reproductores de TV o vídeo existentes para mostrar controles multimedia de Home Assistant.",
+          "dashboard_weather_entity_id": "Selecciona una entidad meteorológica existente de Home Assistant para la tarjeta de tiempo opcional."
+        }
+      },
+      "about": {
+        "title": "Acerca de Fitness",
+        "description": "Versión instalada: {version}\n\n{changelog}"
       }
     },
     "abort": {
@@ -3382,6 +3450,12 @@
       },
       "garmin_sync_workouts": {
         "name": "Sincronizar entrenamientos Garmin"
+      },
+      "adapter_scan_now": {
+        "name": "Buscar ahora"
+      },
+      "sync_device_health_history": {
+        "name": "Sincronizar historial de salud del dispositivo"
       }
     },
     "select": {
@@ -3422,6 +3496,20 @@
         "11": "Noviembre",
         "12": "Diciembre"
       }
+    },
+    "dashboard_module": {
+      "options": {
+        "core": "Tarjetas principales de Fitness",
+        "training_ai": "Entrenador IA",
+        "body_composition": "Composición corporal / tendencias de peso",
+        "workout_browser": "Explorador de entrenamientos",
+        "rss": "RSS / noticias",
+        "music": "Música",
+        "tts": "Texto a voz",
+        "lights": "Luces",
+        "video": "TV / vídeo",
+        "weather": "Tiempo"
+      }
     }
   },
   "device": {
@@ -3458,6 +3546,10 @@
     "garmin_pairing_required": {
       "title": "Garmin necesita confirmación de emparejamiento",
       "description": "Fitness no pudo completar el emparejamiento Bluetooth automático con `{device}`. Mantén Garmin emparejado con el teléfono. Activa el modo Bluetooth/Teléfono, abre Fitness > Dispositivos de entrenamiento inteligentes > `{device}` y elige Reintentar ahora. Acepta el aviso en Garmin. Si va a sustituir/eliminar el emparejamiento del teléfono, cancela."
+    },
+    "device_user_action_required": {
+      "title": "{device} necesita tu atención",
+      "description": "Fitness no puede continuar la sincronización directa con `{device}` hasta que completes un paso en el dispositivo. {reason}\n\nSigue estos pasos:\n{instructions}\n\nElige Reparar para confirmar los pasos e introducir cualquier dato solicitado."
     }
   },
   "services": {

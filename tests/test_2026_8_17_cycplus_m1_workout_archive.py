@@ -41,14 +41,16 @@ providers_pkg = sys.modules.setdefault(
     "cycplus_test.providers", types.ModuleType("cycplus_test.providers")
 )
 providers_pkg.__path__ = [str(FITNESS / "providers")]
-live_pkg = sys.modules.setdefault(
-    "cycplus_test.live", types.ModuleType("cycplus_test.live")
+adapters_pkg = sys.modules.setdefault(
+    "cycplus_test.device_adapters", types.ModuleType("cycplus_test.device_adapters")
 )
-live_pkg.__path__ = [str(FITNESS / "live")]
+adapters_pkg.__path__ = [str(FITNESS / "device_adapters")]
 
 load_module("cycplus_test.const", "const.py")
 workouts = load_module("cycplus_test.providers.workouts", "providers/workouts.py")
-cycplus = load_module("cycplus_test.live.cycplus_m1", "live/cycplus_m1.py")
+cycplus = load_module(
+    "cycplus_test.device_adapters.cycplus_m1", "device_adapters/cycplus_m1.py"
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 FIT = ROOT / "custom_components" / "fitness"
@@ -66,6 +68,10 @@ def test_discovery_requires_both_m1_name_and_vendor_service():
         "cycplus_model_id": "M1",
         "cycplus_device_number": "98C6",
         "fitness_physical_identity": "cycplus:m1:98c6",
+        "fitness_vendor_identity": "cycplus",
+        "archive_adapter": "cycplus_m1",
+        "smart_device_default_type": "bike_computer",
+        "archive_compatible": True,
         "device_number": "98C6",
     }
     assert cycplus.cycplus_m1_name_identity("M1_98C6") == {
@@ -314,7 +320,7 @@ def test_all_bundled_languages_cover_every_new_entity_and_enum_state():
 
 
 def test_archive_lifecycle_has_auto_retry_checkpoint_and_profile_boundaries():
-    source = (FIT / "live" / "cycplus_m1.py").read_text(encoding="utf-8")
+    source = (FIT / "device_adapters" / "cycplus_m1.py").read_text(encoding="utf-8")
     bluetooth = (FIT / "live" / "bluetooth.py").read_text(encoding="utf-8")
     manager = (FIT / "manager.py").read_text(encoding="utf-8")
     manifest = json.loads((FIT / "manifest.json").read_text(encoding="utf-8"))
@@ -345,8 +351,13 @@ def test_archive_lifecycle_has_auto_retry_checkpoint_and_profile_boundaries():
     assert "as_persistent_dict() for item in merged" in manager
     assert "async_import_device_workouts" in manager
     assert "CAPABILITY_WORKOUT_HISTORY not in sensor.capabilities" in source
-    assert "cycplus_m1_identity(info.name, uuids)" in bluetooth
-    assert "service == CYCPLUS_M1_SERVICE_UUID and cycplus_identity is None" in bluetooth
+    registry = (FIT / "device_archives.py").read_text(encoding="utf-8")
+    adapter = (FIT / "device_adapters" / "cycplus_adapter.py").read_text(encoding="utf-8")
+    assert "cycplus" not in bluetooth.lower()
+    assert "cycplus" not in registry.lower()
+    assert "cycplus_m1_identity" in adapter
+    assert "CYCPLUS_M1_SERVICE_UUID" in adapter
+    assert "device_archives.enrich_connected_metadata" in bluetooth
 
 
 def test_archive_capability_never_becomes_a_live_metric():

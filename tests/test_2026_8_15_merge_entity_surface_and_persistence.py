@@ -29,10 +29,8 @@ def test_accepted_but_not_materialized_second_add_does_not_trigger_device_cleanu
     merge = RUNTIME.split("def _merge_physical_sensors", 1)[1].split(
         "def _schedule_merged_registry_cleanup", 1
     )[0]
-    assert (
-        "secondary_had_accepted_device = secondary.sensor_id in self._sensor_device_ids"
-        in merge
-    )
+    assert "secondary_device_id = self._sensor_device_ids.get(secondary.sensor_id)" in merge
+    assert "secondary_had_accepted_device = secondary_device_id is not None" in merge
     assert "secondary_had_accepted_device = self.sensor_is_accepted" not in merge
 
 

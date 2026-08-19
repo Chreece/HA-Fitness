@@ -30,13 +30,14 @@ def test_dual_transport_fallback_is_data_driven_and_vendor_names_stay_in_catalog
     assert "garmin" not in RUNTIME.lower()
 
 
-def test_catalog_correlation_rule_requires_hr_capability_ant_identity_and_ble_family():
+def test_catalog_correlation_rule_requires_hr_capability_and_protocol_vendor_evidence():
     rule = next(rule for rule in CATALOG["transport_correlation_rules"] if rule["id"] == "garmin_wearable_hr_broadcast")
     assert rule["capabilities"] == ["heart_rate"]
     assert rule["roles"]["antplus"]["manufacturer_id"] == 1
     assert rule["roles"]["antplus"]["profiles"] == [120]
     assert rule["roles"]["antplus"]["require_serial"] is True
-    assert "Forerunner" in rule["roles"]["bluetooth"]["name_prefixes"]
+    assert rule["roles"]["bluetooth"]["manufacturer_data_id"] == 135
+    assert "name_prefixes" not in rule["roles"]["bluetooth"]
     identity = (ROOT / "custom_components/fitness/live/device_identity.py").read_text()
     assert "def catalog_transport_correlation" in identity
     assert 'role.get("require_serial")' in identity
@@ -59,7 +60,7 @@ def test_training_recovery_can_reach_100_but_load_penalties_remain():
 
 
 def test_recovery_card_pairs_readiness_and_recovery_progress_as_matching_score_bars():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-82"' in FRONTEND
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in FRONTEND
     assert 'class="recovery-score recovery-score-${kind} entity-link"' in FRONTEND
     assert 'class="recovery-score-stack"' in FRONTEND
     assert 'kind:"readiness"' in FRONTEND

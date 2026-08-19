@@ -29,8 +29,9 @@ CONF_BIRTH_DAY = "birth_day"
 CONF_BIRTH_MONTH = "birth_month"
 CONF_BIRTH_YEAR = "birth_year"
 
-# A value or entity ID.
+# Current confirmed/manual body weight in kg. Shared scale input is configured separately.
 CONF_WEIGHT = "weight"
+CONF_WEIGHT_SCALE_ENTITY = "weight_scale_entity"
 CONF_RESTING_HR = "resting_hr"
 CONF_HEIGHT = "height"
 CONF_MAX_HR = "max_hr"
@@ -73,6 +74,30 @@ CONF_TV_MEDIA_PLAYER_ID = "tv_dashboard_media_player_id"
 CONF_TV_DUCKING_PERCENT = "tv_dashboard_ducking_percent"
 CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE = "tv_dashboard_ignore_lights_when_cast_active"
 CONF_TV_YTDLP_ENABLED = "tv_dashboard_ytdlp_enabled"
+
+# Optional profile dashboard composition. These settings only change presentation;
+# they never start network polling or background jobs. External dashboard modules
+# render existing Home Assistant entities selected by the user.
+CONF_DASHBOARD_THEME = "dashboard_theme"
+CONF_DASHBOARD_MODULES = "dashboard_modules"
+CONF_DASHBOARD_RSS_ENTITY_IDS = "dashboard_rss_entity_ids"
+CONF_DASHBOARD_MUSIC_ENTITY_IDS = "dashboard_music_entity_ids"
+CONF_DASHBOARD_LIGHT_ENTITY_IDS = "dashboard_light_entity_ids"
+CONF_DASHBOARD_VIDEO_ENTITY_IDS = "dashboard_video_entity_ids"
+CONF_DASHBOARD_WEATHER_ENTITY_ID = "dashboard_weather_entity_id"
+DEFAULT_DASHBOARD_MODULES = ["core"]
+DASHBOARD_MODULES = (
+    "core",
+    "training_ai",
+    "body_composition",
+    "workout_browser",
+    "rss",
+    "music",
+    "tts",
+    "lights",
+    "video",
+    "weather",
+)
 DEFAULT_TV_DUCKING_PERCENT = 25
 DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE = True
 SERVICE_CAST_TV_DASHBOARD = "cast_tv_dashboard"

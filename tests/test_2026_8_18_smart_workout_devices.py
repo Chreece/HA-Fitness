@@ -10,7 +10,7 @@ FLOW = (FIT / "config_flow.py").read_text(encoding="utf-8")
 RUNTIME = (FIT / "live" / "runtime.py").read_text(encoding="utf-8")
 SMART = (FIT / "smart_workout_devices.py").read_text(encoding="utf-8")
 GARMIN = (FIT / "device_adapters" / "garmin" / "coordinator.py").read_text(encoding="utf-8")
-CYCPLUS = (FIT / "live" / "cycplus_m1.py").read_text(encoding="utf-8")
+CYCPLUS = (FIT / "device_adapters" / "cycplus_m1.py").read_text(encoding="utf-8")
 BT = (FIT / "live" / "bluetooth.py").read_text(encoding="utf-8")
 STRINGS = (FIT / "strings.json").read_text(encoding="utf-8")
 GARMIN_DOC = (ROOT / "docs" / "GARMIN_LOCAL.md").read_text(encoding="utf-8")
@@ -133,7 +133,7 @@ def test_manual_vendor_guide_is_model_agnostic_and_currently_exposes_garmin():
 
 def test_automatic_discovery_requires_one_archive_owner_but_can_share_live_later():
     assign = _method(FLOW, "async_step_assign_live_sensor")
-    assert "smart_archive = is_smart_workout_sensor(sensor)" in assign
+    assert "smart_archive = is_smart_workout_candidate(sensor)" in assign
     assert "len(selected_profiles) > 1" in assign
     assert 'errors={"base": "select_smart_device_owner"}' in assign
     assert "runtime.configure_smart_workout_device" in assign
@@ -145,7 +145,9 @@ def test_smart_garmin_setup_auto_pairs_and_only_requires_device_side_confirmatio
     helper = _method(BT, "establish_connection")
     assert "pair=True" in sync
     assert "pair: bool = False" in helper
+    assert "source: str | None = None" in helper
     assert "pair=pair" in helper
+    assert "source=selected_source" in sync
     assert "automatically" in STRINGS.lower()
     assert "approve" in STRINGS.lower()
     assert "bluetoothctl" in GARMIN_DOC  # explicitly documented as not required
@@ -164,6 +166,12 @@ def test_pairing_help_is_only_shown_on_action_needed_and_uses_choices_not_text()
     assert "SelectSelector" in help_step
     assert "TextSelector" not in help_step
     assert "async_sync_now" in help_step
+    assert "await task" in help_step
+    assert 'error == "none" and protocol' in help_step
+    assert "async_create_entry" in help_step
+    assert "pairing retry started" not in help_step
+    assert "return await self.async_step_smart_workout_devices()" in help_step
+    assert "return await self.async_step_smart_workout_pairing_help()" not in help_step
 
 
 def test_pairing_required_creates_one_repairs_prompt_and_clears_when_resolved():

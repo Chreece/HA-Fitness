@@ -153,15 +153,19 @@ def garmin_advertisement_identity(
     """Recognize a Garmin archive candidate without model-specific logic.
 
     Company ID, Garmin's assigned advertisement service, or a known GFDI
-    protocol service are strong enough to surface a user-visible candidate.
-    Actual V2/V1/V0 selection happens only after a bounded GATT connection.
+    protocol service are strong enough to identify a Garmin *candidate*. They do
+    not prove that local workout archive access is compatible. Actual V2/V1/V0
+    selection and archive capability are granted only after a bounded GATT
+    connection/handshake.
     """
     evidence, hint = garmin_advertisement_evidence(service_uuids, manufacturer_data)
     if not evidence:
         return None
     result: dict[str, Any] = {
         "manufacturer": "Garmin",
+        "fitness_vendor_identity": "garmin",
         "archive_adapter": "garmin_local",
+        "archive_compatible": None,
         "garmin_local": True,
         "garmin_protocol": "auto",
         "garmin_protocol_hint": hint,
@@ -242,6 +246,37 @@ def build_generic_status(original_type: int, status: int = STATUS_ACK, extra: by
         GFDI_RESPONSE,
         struct.pack("<HB", int(original_type) & 0xFFFF, int(status) & 0xFF) + bytes(extra),
     )
+
+
+def _gfdi_wire_string(value: str, *, limit: int = 63) -> bytes:
+    """Encode one bounded length-prefixed UTF-8 GFDI client string."""
+    encoded = str(value or "").encode("utf-8", errors="replace")[:limit]
+    return bytes([len(encoded)]) + encoded
+
+
+def build_device_information_response(
+    protocol_version: int | None,
+    *,
+    application: str = "HA-Fitness",
+    platform: str = "Home Assistant",
+) -> bytes:
+    """Build the host DEVICE_INFORMATION reply frame.
+
+    Garmin GFDI treats acknowledgement and reply as two independent frames:
+    the caller must first send a generic status ACK for DEVICE_INFORMATION and
+    then send this same-message-type host identity reply.  Keeping those frames
+    separate is important on watches that otherwise remain in Synchronising.
+
+    This payload is protocol-level client identity, never a watch/model table.
+    """
+    version = int(protocol_version or 150) & 0xFFFF
+    protocol_flags = 1 if version // 100 == 1 else 0
+    payload = struct.pack("<HHIHH", version, 0xFFFF, 0xFFFFFFFF, 7791, 0xFFFF)
+    payload += _gfdi_wire_string(application)
+    payload += _gfdi_wire_string(platform)
+    payload += _gfdi_wire_string(application)
+    payload += bytes([protocol_flags])
+    return build_gfdi(GFDI_DEVICE_INFORMATION, payload)
 
 
 def cobs_encode(data: bytes) -> bytes:

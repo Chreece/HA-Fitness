@@ -21,6 +21,7 @@ from homeassistant.helpers.storage import Store
 from .device_identity import (
     canonical_identity_fields,
     catalog_cross_transport_ids,
+    catalog_name_vendor,
     catalog_product_id,
     catalog_transport_correlation,
     resolve_identity,
@@ -139,6 +140,48 @@ def _physical_identity(metadata: dict[str, Any]) -> str | None:
     if not value or not re.fullmatch(r"[a-z0-9][a-z0-9:._-]{2,127}", value):
         return None
     return value
+
+
+def _vendor_identity(metadata: dict[str, Any] | None) -> str | None:
+    """Return one bounded vendor identity used only as a merge safety guard.
+
+    Adapters should publish ``fitness_vendor_identity`` from protocol evidence.
+    ``manufacturer`` is a backward-compatible fallback for persisted sensors
+    created before that field existed. It never selects a protocol backend.
+    """
+    metadata = metadata or {}
+    value = str(
+        metadata.get("fitness_vendor_identity")
+        or metadata.get("manufacturer")
+        or ""
+    ).strip().lower()
+    value = re.sub(r"[^a-z0-9]+", "", value)
+    return value[:64] or None
+
+
+def _sensor_vendor_identity(sensor: "LiveSensor") -> str | None:
+    """Return the canonical vendor of a physical sensor when unambiguous."""
+    canonical = _vendor_identity(sensor.metadata)
+    if canonical:
+        return canonical
+    vendors = {
+        vendor
+        for endpoint in sensor.endpoints.values()
+        if (vendor := _vendor_identity(endpoint.metadata))
+    }
+    return next(iter(vendors)) if len(vendors) == 1 else None
+
+
+def _vendor_conflicts(sensor: "LiveSensor", metadata: dict[str, Any]) -> bool:
+    """Reject an endpoint alias when strong vendor identities contradict.
+
+    This is intentionally generic: it protects every future smart-device adapter
+    from a stale Bluetooth address/alias incorrectly enriching another physical
+    device. Vendor strings are identity guardrails only, never support lists.
+    """
+    incoming = _vendor_identity(metadata)
+    current = _sensor_vendor_identity(sensor)
+    return bool(incoming and current and incoming != current)
 
 
 def _sensor_physical_identity(sensor: "LiveSensor") -> str | None:
@@ -470,6 +513,16 @@ class LiveRuntime:
                     )
                     sensor.endpoints[transport] = endpoint
                     self.endpoint_aliases[endpoint.endpoint_id] = sensor.sensor_id
+                if len(sensor.endpoints) == 1:
+                    restore_transport, restore_endpoint = next(iter(sensor.endpoints.items()))
+                    if self._rebase_tombstoned_single_route_identity(
+                        sensor,
+                        transport=restore_transport,
+                        endpoint_id=restore_endpoint.endpoint_id,
+                        observed_name=restore_endpoint.metadata.get("advertised_name"),
+                        incoming_metadata=restore_endpoint.metadata,
+                    ):
+                        sanitized_topology = True
                 stable_sensor_metadata = self._stable_sensor_metadata(sensor)
                 if stable_sensor_metadata != sensor.metadata:
                     sensor.metadata = stable_sensor_metadata
@@ -1569,12 +1622,24 @@ class LiveRuntime:
             )
 
         identifiers = {(DOMAIN, f"live_sensor:{sensor.sensor_id}")}
+        connections: set[tuple[str, str]] = set()
         for endpoint in sensor.endpoints.values():
             identifiers.add((DOMAIN, f"endpoint:{endpoint.endpoint_id}"))
+            # A local BLE address is a Home Assistant-wide physical-device
+            # identity. Exposing it as a Device Registry connection lets an
+            # already-restored physical live surface and its later archive
+            # capability converge even while the device is currently offline.
+            # Opaque browser routes are deliberately excluded because Web
+            # Bluetooth identifiers are not guaranteed to be adapter-stable.
+            if endpoint.transport == "bluetooth" and not _browser_ble_endpoint(endpoint):
+                address = str(endpoint.address or "").strip().upper()
+                if re.fullmatch(r"(?:[0-9A-F]{2}:){5}[0-9A-F]{2}", address):
+                    connections.add(("bluetooth", address))
         physical_identity = _sensor_physical_identity(sensor)
         if physical_identity and sensor.metadata.get("merge_evidence") in {
             "exact_physical_route_identity",
             "restored_exact_physical_route_identity",
+            "restored_exact_local_route_identity",
         }:
             # Unlike an opaque runtime sensor ID or browser route ID, this
             # server-derived token is stable across local/browser reconnection.
@@ -1588,6 +1653,7 @@ class LiveRuntime:
         identity = resolve_identity(sensor)
         info = {
             "identifiers": identifiers,
+            **({"connections": connections} if connections else {}),
             # Use a stable primary-device name even before catalog/GATT identity
             # is complete. Numeric protocol IDs remain diagnostics, never names.
             "name": identity.get("name") or sensor.name or "Fitness sensor",
@@ -1991,9 +2057,45 @@ class LiveRuntime:
         """Notify adapter/sensor entities after an explicit runtime state change."""
         self._notify()
 
-    def _new_physical_id(self, endpoint_id: str) -> str:
+    def _new_physical_id(
+        self, endpoint_id: str, incoming_metadata: dict[str, Any] | None = None
+    ) -> str:
+        """Return a stable physical ID without overwriting an unrelated sensor.
+
+        Endpoint-derived IDs are intentionally deterministic. A restored/corrupt
+        alias can however leave that deterministic ID occupied by a *different*
+        physical vendor even after the bad endpoint is detached. In that rare
+        control-plane repair case, derive a second deterministic ID from the
+        endpoint plus the protocol-backed vendor identity instead of replacing the
+        existing physical record in ``self.sensors``.
+        """
         digest = hashlib.sha1(endpoint_id.encode("utf-8")).hexdigest()[:16]
-        return f"sensor:{digest}"
+        base = f"sensor:{digest}"
+        existing = self.sensors.get(base)
+        if existing is None:
+            return base
+
+        vendor = _vendor_identity(dict(incoming_metadata or {}))
+        existing_vendor = _sensor_vendor_identity(existing)
+        if vendor and existing_vendor and vendor != existing_vendor:
+            alternate_digest = hashlib.sha1(
+                f"{endpoint_id}\0{vendor}\0physical".encode("utf-8")
+            ).hexdigest()[:16]
+            alternate = f"sensor:{alternate_digest}"
+            if alternate not in self.sensors:
+                return alternate
+
+        # A collision without strong contradictory vendor evidence is still not
+        # allowed to replace a live record. Keep the endpoint-derived portion for
+        # reproducibility and add a tiny deterministic collision discriminator.
+        for index in range(1, 17):
+            alternate_digest = hashlib.sha1(
+                f"{endpoint_id}\0collision:{index}".encode("utf-8")
+            ).hexdigest()[:16]
+            alternate = f"sensor:{alternate_digest}"
+            if alternate not in self.sensors:
+                return alternate
+        raise RuntimeError("live_sensor_identity_collision")
 
     def resolve_sensor_id(self, sensor_id: str) -> str:
         """Resolve merge aliases transitively and compress stale alias chains."""
@@ -2046,6 +2148,46 @@ class LiveRuntime:
                 grouped.setdefault(physical_identity, []).append(sensor)
 
         for physical_identity, candidates in grouped.items():
+            # Older builds could persist the same local BLE unit twice while its
+            # identity was being enriched (for example M1 archive + live route).
+            # A short vendor device number is not enough to merge two local units,
+            # but an identical autonomous endpoint id, Bluetooth address, or
+            # Device-Information serial is strong physical evidence. Collapse
+            # those exact restored routes before considering the local/browser
+            # bridge. This is startup/control-plane work only.
+            def _strong_route_keys(item: LiveSensor) -> set[tuple[str, str]]:
+                keys: set[tuple[str, str]] = set()
+                for endpoint in item.endpoints.values():
+                    endpoint_id = str(endpoint.endpoint_id or "").strip().lower()
+                    if endpoint_id:
+                        keys.add(("endpoint", endpoint_id))
+                    if endpoint.transport == "bluetooth" and not _browser_ble_endpoint(endpoint):
+                        address = str(endpoint.address or "").strip().lower()
+                        if address:
+                            keys.add(("ble_address", address))
+                        if endpoint.metadata.get("identity_source") == "gatt_device_information":
+                            serial = str(_serial(endpoint.metadata) or "").strip().lower()
+                            if serial:
+                                keys.add(("gatt_serial", serial))
+                return keys
+
+            canonical = candidates[0]
+            canonical_keys = _strong_route_keys(canonical)
+            for duplicate in tuple(candidates[1:]):
+                if duplicate.sensor_id not in self.sensors:
+                    continue
+                duplicate_keys = _strong_route_keys(duplicate)
+                if not canonical_keys.intersection(duplicate_keys):
+                    continue
+                canonical = self._merge_physical_sensors(canonical, duplicate)
+                canonical_keys.update(duplicate_keys)
+                canonical.metadata["merge_evidence"] = "restored_exact_local_route_identity"
+                canonical.metadata.setdefault("fitness_physical_identity", physical_identity)
+
+            candidates = [
+                sensor for sensor in candidates
+                if sensor.sensor_id in self.sensors
+            ]
             local = [
                 sensor
                 for sensor in candidates
@@ -2081,7 +2223,13 @@ class LiveRuntime:
             )
 
     def _cleanup_persisted_sensor_alias_devices(self) -> None:
-        """Remove orphan HA devices left behind by a pre-restart route merge."""
+        """Remove duplicate HA devices which now resolve to one physical sensor.
+
+        This runs only on the control plane (startup/migration), never from the
+        BLE packet path. Besides stale ``live_sensor`` aliases it recognizes our
+        own endpoint/physical identifiers, so a device split created by an older
+        archive/live identity transition is repaired on restart.
+        """
         if self.hub_entry is None:
             return
         from homeassistant.helpers import device_registry as dr
@@ -2089,24 +2237,63 @@ class LiveRuntime:
 
         device_registry = dr.async_get(self.hass)
         entity_registry = er.async_get(self.hass)
+        canonical_device_ids: dict[str, str] = {}
+        identifier_owner: dict[tuple[str, str], str] = {}
+        connection_owner: dict[tuple[str, str], str] = {}
+
+        for sensor in tuple(self.sensors.values()):
+            canonical = self.resolve_sensor_id(sensor.sensor_id)
+            if canonical != sensor.sensor_id or not self.sensor_is_accepted(canonical):
+                continue
+            device = device_registry.async_get_device_by_identifier(
+                (DOMAIN, f"live_sensor:{canonical}"),
+                self.hub_entry.entry_id,
+            )
+            if device is not None:
+                canonical_device_ids[canonical] = device.id
+                self._sensor_device_ids[canonical] = device.id
+            info = self.sensor_device_info(canonical)
+            for identifier in set(info.get("identifiers") or set()):
+                identifier_owner[(str(identifier[0]), str(identifier[1]))] = canonical
+            for connection in set(info.get("connections") or set()):
+                connection_owner[(str(connection[0]), str(connection[1]).upper())] = canonical
+
         obsolete_device_ids: set[str] = set()
         for device in list(device_registry.devices.values()):
             if device.config_entry_id != self.hub_entry.entry_id:
                 continue
-            live_sensor_ids = {
-                str(identifier).removeprefix("live_sensor:")
-                for domain, identifier in device.identifiers
-                if domain == DOMAIN
-                and str(identifier).startswith("live_sensor:")
-            }
-            if not live_sensor_ids or any(
-                sensor_id in self.sensors for sensor_id in live_sensor_ids
-            ):
+            owners: set[str] = set()
+            for domain, identifier in device.identifiers:
+                key = (str(domain), str(identifier))
+                owner = identifier_owner.get(key)
+                if owner:
+                    owners.add(owner)
+                if domain == DOMAIN and str(identifier).startswith("live_sensor:"):
+                    old_id = str(identifier).removeprefix("live_sensor:")
+                    resolved = self.resolve_sensor_id(old_id)
+                    if old_id != resolved and resolved in self.sensors:
+                        owners.add(resolved)
+                # Older Fitness releases sometimes materialized an archive/live
+                # endpoint with a different opaque sensor id. Recover its MAC
+                # from our own endpoint identifier and resolve it through the
+                # canonical Bluetooth connection map.
+                if domain == DOMAIN and str(identifier).startswith("endpoint:bluetooth:"):
+                    candidate = str(identifier).removeprefix("endpoint:bluetooth:").strip().upper()
+                    if re.fullmatch(r"(?:[0-9A-F]{2}:){5}[0-9A-F]{2}", candidate):
+                        owner = connection_owner.get(("bluetooth", candidate))
+                        if owner:
+                            owners.add(owner)
+            for connection_type, connection_value in device.connections:
+                owner = connection_owner.get(
+                    (str(connection_type), str(connection_value).upper())
+                )
+                if owner:
+                    owners.add(owner)
+            if len(owners) != 1:
                 continue
-            if any(
-                self.resolve_sensor_id(sensor_id) in self.sensors
-                for sensor_id in live_sensor_ids
-            ):
+            owner = next(iter(owners))
+            canonical_device_id = canonical_device_ids.get(owner)
+            if canonical_device_id and device.id != canonical_device_id:
                 obsolete_device_ids.add(device.id)
 
         if not obsolete_device_ids:
@@ -2276,7 +2463,8 @@ class LiveRuntime:
         # second Add flow can merge before its post-response materializer runs.
         # Treating that pending side as a real device used to schedule destructive
         # cleanup during the merge transaction.
-        secondary_had_accepted_device = secondary.sensor_id in self._sensor_device_ids
+        secondary_device_id = self._sensor_device_ids.get(secondary.sensor_id)
+        secondary_had_accepted_device = secondary_device_id is not None
         for transport, endpoint in secondary.endpoints.items():
             existing_endpoint = primary.endpoints.get(transport)
             # Web Bluetooth exposes an opaque per-browser route. When the same
@@ -2417,7 +2605,7 @@ class LiveRuntime:
         # registries and reloading the hub here is pure overhead. For an accepted
         # merge, defer that structural cleanup off the current radio callback.
         if secondary_had_accepted_device and not requires_reassignment:
-            self._schedule_merged_registry_cleanup(secondary.sensor_id)
+            self._schedule_merged_registry_cleanup(secondary.sensor_id, secondary_device_id)
 
         self._schedule_save()
         return primary
@@ -2507,13 +2695,19 @@ class LiveRuntime:
         self._discovery_started.discard(sensor_id)
         self.hass.loop.call_soon(self._schedule_sensor_discovery, sensor_id)
 
-    def _schedule_merged_registry_cleanup(self, old_sensor_id: str) -> None:
+    def _schedule_merged_registry_cleanup(
+        self, old_sensor_id: str, old_device_id: str | None = None
+    ) -> None:
         """Defer registry cleanup/reload caused by a physical-identity merge."""
         async def _cleanup() -> None:
             # Let the identity/common-page burst and current config-flow response
-            # finish before touching HA registries.
+            # finish before touching HA registries. Keep the discarded device id
+            # captured at merge time: after identifiers are enriched, looking it
+            # up again by the old live_sensor token is not reliable.
             await asyncio.sleep(1.0)
-            self._cleanup_merged_registry_sensor(old_sensor_id)
+            self._cleanup_merged_registry_sensor(
+                old_sensor_id, old_device_id=old_device_id
+            )
             self._notify_structure_throttled()
 
         self._start_control_task(
@@ -2522,23 +2716,33 @@ class LiveRuntime:
             f"fitness cleanup merged live sensor {old_sensor_id}",
         )
 
-    def _cleanup_merged_registry_sensor(self, old_sensor_id: str) -> None:
+    def _cleanup_merged_registry_sensor(
+        self, old_sensor_id: str, *, old_device_id: str | None = None
+    ) -> None:
         if self.hub_entry is None:
             return
         from homeassistant.helpers import device_registry as dr
         from homeassistant.helpers import entity_registry as er
         device_registry = dr.async_get(self.hass)
-        device = device_registry.async_get_device_by_identifier(
-            (DOMAIN, f"live_sensor:{old_sensor_id}"),
-            self.hub_entry.entry_id,
+        device = (
+            device_registry.async_get(old_device_id)
+            if old_device_id
+            else device_registry.async_get_device_by_identifier(
+                (DOMAIN, f"live_sensor:{old_sensor_id}"),
+                self.hub_entry.entry_id,
+            )
         )
         if device is None:
             return
 
+        canonical_sensor_id = self.resolve_sensor_id(old_sensor_id)
+        canonical_device_id = self._sensor_device_ids.get(canonical_sensor_id)
+        if canonical_device_id and device.id == canonical_device_id:
+            return
+
         entity_registry = er.async_get(self.hass)
         # Remove only entities actually attached to the discarded HA device.
-        # Matching the old sensor ID as an arbitrary unique-id substring is too
-        # broad after aliases/merges and can remove entities belonging to the
+        # Dynamic platform listeners recreate any still-supported entity on the
         # surviving canonical device.
         for entity in list(entity_registry.entities.values()):
             if (
@@ -2756,12 +2960,17 @@ class LiveRuntime:
         current = None
         if endpoint.endpoint_id in self.endpoint_aliases:
             current = self.sensors.get(self.resolve_sensor_id(self.endpoint_aliases[endpoint.endpoint_id]))
+            if current is not None and _vendor_conflicts(current, endpoint.metadata):
+                # Defensive guard for callers that bypass the registration fast
+                # path. A stale address alias is never stronger than a verified
+                # vendor contradiction.
+                current = None
 
         physical_identity = _physical_identity(endpoint.metadata)
         if physical_identity:
             candidates = []
             for sensor in self.sensors.values():
-                if sensor is current:
+                if sensor is current or _vendor_conflicts(sensor, endpoint.metadata):
                     continue
                 matching_endpoints = [
                     item
@@ -2795,7 +3004,11 @@ class LiveRuntime:
         if cross_ids:
             candidates = []
             for sensor in self.sensors.values():
-                if sensor is current or endpoint.transport in sensor.endpoints:
+                if (
+                    sensor is current
+                    or endpoint.transport in sensor.endpoints
+                    or _vendor_conflicts(sensor, endpoint.metadata)
+                ):
                     continue
                 if not (sensor.capabilities & endpoint.capabilities):
                     continue
@@ -2819,6 +3032,7 @@ class LiveRuntime:
             candidates = [
                 sensor for sensor in self.sensors.values()
                 if sensor is not current
+                and not _vendor_conflicts(sensor, endpoint.metadata)
                 and any(_serial(ep.metadata) == serial for ep in sensor.endpoints.values())
             ]
             if len(candidates) == 1:
@@ -2829,6 +3043,7 @@ class LiveRuntime:
             candidates = [
                 sensor for sensor in self.sensors.values()
                 if sensor is not current
+                and not _vendor_conflicts(sensor, endpoint.metadata)
                 and catalog_product_id(sensor.name, sensor.endpoints) == family
                 and endpoint.transport not in sensor.endpoints
                 and bool(sensor.capabilities & endpoint.capabilities)
@@ -2929,6 +3144,196 @@ class LiveRuntime:
             self._notify_structure_throttled()
         return True
 
+    def set_archive_compatibility(
+        self,
+        sensor_id: str,
+        *,
+        adapter_id: str,
+        compatible: bool,
+    ) -> bool:
+        """Record verified archive compatibility outside the BLE hot path.
+
+        Advertisement evidence is candidate identity only. A direct archive
+        backend calls this after its bounded protocol handshake succeeds or is
+        definitively unsupported. Capability removal is scoped to the matching
+        endpoint and then recomputed from all remaining physical routes.
+        """
+        sensor_id = self.resolve_sensor_id(sensor_id)
+        sensor = self.sensors.get(sensor_id)
+        endpoint = sensor.endpoints.get("bluetooth") if sensor is not None else None
+        if sensor is None or endpoint is None:
+            return False
+        if str(endpoint.metadata.get("archive_adapter") or "") != str(adapter_id):
+            return False
+
+        changed = endpoint.metadata.get("archive_compatible") is not bool(compatible)
+        endpoint.metadata["archive_compatible"] = bool(compatible)
+        transport_details = sensor.metadata.get("transport_details")
+        if isinstance(transport_details, dict):
+            details = transport_details.get("bluetooth")
+            if isinstance(details, dict):
+                details["archive_compatible"] = bool(compatible)
+
+        if compatible:
+            if CAPABILITY_WORKOUT_HISTORY not in endpoint.capabilities:
+                endpoint.capabilities.add(CAPABILITY_WORKOUT_HISTORY)
+                changed = True
+            if CAPABILITY_WORKOUT_HISTORY not in sensor.capabilities:
+                sensor.capabilities.add(CAPABILITY_WORKOUT_HISTORY)
+                changed = True
+        else:
+            if CAPABILITY_WORKOUT_HISTORY in endpoint.capabilities:
+                endpoint.capabilities.discard(CAPABILITY_WORKOUT_HISTORY)
+                changed = True
+            recomputed: set[str] = set()
+            for item in sensor.endpoints.values():
+                recomputed.update(item.capabilities)
+            if sensor.capabilities != recomputed:
+                sensor.capabilities = recomputed
+                changed = True
+
+        if not changed:
+            return False
+        self._schedule_save()
+        if self.sensor_is_accepted(sensor_id):
+            self._schedule_sensor_device_refresh(sensor_id)
+            self._notify_structure_throttled()
+        return True
+
+    def detach_conflicting_endpoint_alias(
+        self,
+        endpoint_id: str,
+        transport: str,
+        incoming_metadata: dict[str, Any],
+    ) -> str | None:
+        """Detach a stale route alias when protocol-backed vendors contradict.
+
+        Bluetooth addresses and restored aliases are useful identity hints but
+        must never override a strong vendor contradiction. The old physical
+        sensor is preserved for later rediscovery of its real route; only the
+        conflicting endpoint is released so the incoming device can get a new
+        canonical sensor.
+        """
+        raw_sensor_id = self.endpoint_aliases.get(endpoint_id)
+        if not raw_sensor_id:
+            return None
+        sensor_id = self.resolve_sensor_id(raw_sensor_id)
+        sensor = self.sensors.get(sensor_id)
+        if sensor is None or not _vendor_conflicts(sensor, incoming_metadata):
+            return None
+        endpoint = sensor.endpoints.get(transport)
+        if endpoint is None or endpoint.endpoint_id != endpoint_id:
+            return None
+
+        old_vendor = _sensor_vendor_identity(sensor) or "unknown"
+        new_vendor = _vendor_identity(incoming_metadata) or "unknown"
+        sensor.endpoints.pop(transport, None)
+        self.endpoint_aliases.pop(endpoint_id, None)
+        if sensor.active_transport == transport:
+            sensor.active_transport = None
+        details = sensor.metadata.get("transport_details")
+        if isinstance(details, dict):
+            details.pop(transport, None)
+        sensor.metadata["identity_conflict_repaired"] = f"{old_vendor}->{new_vendor}"
+
+        # Keep canonical capabilities on the old physical record. It may be an
+        # accepted/offline device whose real route will return later; deleting
+        # its semantic surface here would turn one stale alias into data loss.
+        self._schedule_save()
+        if self.sensor_is_accepted(sensor_id):
+            # Exceptionally rare repair path: remove the stale Device Registry
+            # connection before the incoming physical sensor is materialized.
+            # Otherwise HA's connection-based get-or-create can attach the new
+            # vendor to the old device again. No scan/GATT work happens here.
+            self.ensure_sensor_device(sensor_id)
+            self._notify_structure_throttled()
+        else:
+            self.remove_unaccepted_sensor_device(sensor_id)
+        _LOGGER.warning(
+            "Fitness detached conflicting %s endpoint %s from %s (%s -> %s)",
+            transport, endpoint_id, sensor_id, old_vendor, new_vendor,
+        )
+        return sensor_id
+
+    def clear_sensor_details_prefix(self, sensor_id: str, prefix: str) -> bool:
+        """Drop stale adapter diagnostics after a physical-route conflict."""
+        sensor_id = self.resolve_sensor_id(sensor_id)
+        prefix = str(prefix)[:64]
+        values = self.sensor_detail_values.get(sensor_id)
+        if not isinstance(values, dict):
+            return False
+        keys = [key for key in tuple(values) if str(key).startswith(prefix)]
+        if not keys:
+            return False
+        for key in keys:
+            values.pop(key, None)
+            self.sensor_detail_meta.get(sensor_id, {}).pop(key, None)
+            self.sensor_detail_sources.get(sensor_id, {}).pop(key, None)
+            self.sensor_detail_source.get(sensor_id, {}).pop(key, None)
+        self._notify_values_throttled({(sensor_id, key, None) for key in keys})
+        return True
+
+    def _rebase_tombstoned_single_route_identity(
+        self,
+        sensor: LiveSensor,
+        *,
+        transport: str,
+        endpoint_id: str,
+        observed_name: str | None,
+        incoming_metadata: dict[str, Any],
+    ) -> bool:
+        """Repair a deleted/reassignment record whose persisted title is another vendor.
+
+        A deleted physical sensor intentionally remains as a reassignment tombstone.
+        Older builds could leave an address-derived sensor ID named for the previous
+        device even after its only endpoint had been enriched with a different,
+        protocol-backed vendor. That made a new vendor advertisement reopen the old
+        product's discovery card.
+
+        Only a tombstoned, single-route record is eligible. A catalog vendor implied
+        by the old semantic name must contradict the sole endpoint's strong vendor
+        evidence. Accepted devices and multi-transport correlations are never
+        rewritten here.
+        """
+        if sensor.sensor_id not in self._requires_reassignment:
+            return False
+        if len(sensor.endpoints) != 1:
+            return False
+        endpoint = sensor.endpoints.get(transport)
+        if endpoint is None or endpoint.endpoint_id != endpoint_id:
+            return False
+        incoming_vendor = _vendor_identity(incoming_metadata)
+        stale_name_vendor = catalog_name_vendor(sensor.name)
+        if not incoming_vendor or not stale_name_vendor or incoming_vendor == stale_name_vendor:
+            return False
+
+        candidate_name = str(observed_name or incoming_metadata.get("advertised_name") or "").strip()
+        if (
+            not candidate_name
+            or candidate_name == "Fitness sensor"
+            or re.fullmatch(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}", candidate_name)
+        ):
+            candidate_name = str(incoming_metadata.get("manufacturer") or "Fitness sensor").strip() or "Fitness sensor"
+
+        # This tombstone represented the wrong physical device. Drop generated
+        # identity/capability facts that belonged to that old presentation, while
+        # preserving reassignment itself so the new device is never auto-owned.
+        for key in (
+            "manufacturer", "model", "model_id", "serial_number",
+            "hw_version", "sw_version", "firmware_version",
+            "fitness_physical_identity", "merge_evidence",
+            "identity_conflict_repaired",
+        ):
+            sensor.metadata.pop(key, None)
+        sensor.metadata.pop("transport_details", None)
+        sensor.metadata.pop("discovery_confirmed", None)
+        sensor.capabilities.clear()
+        endpoint.capabilities.clear()
+        sensor.active_transport = None
+        sensor.name = candidate_name[:256]
+        sensor.metadata["identity_reclassified"] = f"{stale_name_vendor}->{incoming_vendor}"
+        return True
+
     def register_transport_sensor(
         self,
         *,
@@ -2955,7 +3360,38 @@ class LiveRuntime:
         known_endpoint = (
             known_sensor.endpoints.get(transport) if known_sensor is not None else None
         )
+        if known_sensor is not None and _vendor_conflicts(known_sensor, metadata):
+            self.detach_conflicting_endpoint_alias(endpoint_id, transport, metadata)
+            known_sensor = None
+            known_endpoint = None
         metadata = self._stable_endpoint_metadata(transport, metadata, known_endpoint)
+        reclassified_tombstone = False
+        if known_sensor is not None and known_endpoint is not None:
+            reclassified_tombstone = self._rebase_tombstoned_single_route_identity(
+                known_sensor,
+                transport=transport,
+                endpoint_id=endpoint_id,
+                observed_name=name,
+                incoming_metadata=metadata,
+            )
+            if reclassified_tombstone:
+                # Remove any pre-acceptance registry surface and stale flow title.
+                # The reassignment tombstone remains, so nothing is saved/owned
+                # until the user explicitly presses Add again.
+                self.remove_unaccepted_sensor_device(known_sensor.sensor_id)
+                self._refresh_provisional_discovery_flow(known_sensor.sensor_id)
+                self.sensor_passive_values.pop(known_sensor.sensor_id, None)
+                self.sensor_passive_sources.pop(known_sensor.sensor_id, None)
+                self.sensor_detail_values.pop(known_sensor.sensor_id, None)
+                self.sensor_detail_meta.pop(known_sensor.sensor_id, None)
+                self.sensor_detail_sources.pop(known_sensor.sensor_id, None)
+                self.sensor_detail_source.pop(known_sensor.sensor_id, None)
+                _LOGGER.warning(
+                    "Fitness reclassified tombstoned %s from stale catalog vendor to %s using endpoint %s",
+                    known_sensor.sensor_id,
+                    _vendor_identity(metadata) or "unknown",
+                    endpoint_id,
+                )
         normalized_name = _normalize_name(name)
         current_name = str(known_sensor.name if known_sensor is not None else "")
         current_name_is_generic = (
@@ -2966,9 +3402,12 @@ class LiveRuntime:
         # vendor short name and product-family name). Once Fitness has a semantic
         # canonical name, those aliases must not force the slow structural path.
         name_would_change = bool(
-            known_sensor is not None
-            and current_name_is_generic
-            and known_sensor.name != normalized_name
+            reclassified_tombstone
+            or (
+                known_sensor is not None
+                and current_name_is_generic
+                and known_sensor.name != normalized_name
+            )
         )
         if (
             known_sensor is not None
@@ -2990,6 +3429,16 @@ class LiveRuntime:
                 source=source,
                 available=available,
             )
+            # A deleted device is retained as a reassignment tombstone. After a
+            # restart its first fresh advertisement can be structurally identical
+            # to the persisted endpoint, so the cheap fast path must still reopen
+            # discovery once. The scheduler performs freshness/quarantine/flow
+            # deduplication and never runs per packet after the flow is active.
+            if (
+                self.profile_entries
+                and known_sensor.sensor_id in self._requires_reassignment
+            ):
+                self._schedule_sensor_discovery(known_sensor.sensor_id)
             return known_sensor
 
         endpoint_capabilities = set(capabilities)
@@ -3013,7 +3462,7 @@ class LiveRuntime:
             if len(self.sensors) >= MAX_RUNTIME_LIVE_SENSORS:
                 raise RuntimeError("live_sensor_limit")
             sensor = LiveSensor(
-                sensor_id=self._new_physical_id(endpoint_id),
+                sensor_id=self._new_physical_id(endpoint_id, metadata),
                 name=_normalize_name(name),
             )
             self.sensors[sensor.sensor_id] = sensor
@@ -3546,6 +3995,7 @@ class LiveRuntime:
         signature = (
             subentry_id,
             tuple(sorted(info["identifiers"])),
+            tuple(sorted(info.get("connections") or set())),
             info.get("name"), info.get("manufacturer"),
             info.get("model"), info.get("model_id"), info.get("serial_number"),
             info.get("hw_version"), info.get("sw_version"),
@@ -3564,8 +4014,22 @@ class LiveRuntime:
             (DOMAIN, f"live_sensor:{sensor_id}"), self.hub_entry.entry_id
         )
         if existing is not None and existing.config_subentry_id != subentry_id:
-            registry.async_update_device(
+            existing = registry.async_update_device(
                 existing.id, new_config_subentry_id=subentry_id
+            )
+
+        # ``async_get_or_create`` merges identifiers/connections but does not
+        # remove stale ones. Physical-route conflict repair therefore has to
+        # replace those identity sets on an already materialized device before a
+        # different sensor is allowed to claim the released Bluetooth address.
+        # Normal updates are debounced control-plane work. Rare vendor-conflict
+        # repair may call this once synchronously so a released Bluetooth address
+        # cannot be reclaimed by the wrong Device Registry row.
+        if existing is not None:
+            existing = registry.async_update_device(
+                existing.id,
+                new_identifiers=set(info["identifiers"]),
+                new_connections=set(info.get("connections") or set()),
             )
 
         kwargs = {
@@ -3574,11 +4038,44 @@ class LiveRuntime:
             "identifiers": set(info["identifiers"]),
             "name": info.get("name") or "Fitness sensor",
         }
+        if info.get("connections"):
+            kwargs["connections"] = set(info["connections"])
         for key in ("manufacturer", "model", "model_id", "serial_number", "hw_version", "sw_version"):
             value = info.get(key)
             if value not in (None, ""):
                 kwargs[key] = value
         device = registry.async_get_or_create(**kwargs)
+
+        # Home Assistant keeps a device's integration-provided ``name`` separate
+        # from ``name_by_user``.  An accepted physical sensor can be materialized
+        # before its semantic BLE/GATT identity is known (for example as
+        # ``Fitness sensor``), then later resolve to a product name such as
+        # ``Forerunner 965``.  Explicitly refresh the integration-owned identity
+        # fields on the existing registry row; ``name_by_user`` is deliberately
+        # untouched so a user's manual rename always continues to win in the UI.
+        registry_updates = {
+            "name": info.get("name") or "Fitness sensor",
+        }
+        # Very early builds could persist the integration's placeholder through
+        # Home Assistant's user-name field.  That field correctly outranks the
+        # integration-owned name forever, so later GATT/advertisement enrichment
+        # could not repair the visible title.  Clear only this exact historical
+        # placeholder; any real user rename remains untouched.
+        if (
+            str(getattr(device, "name_by_user", None) or "").strip()
+            == "Fitness sensor"
+            and registry_updates["name"] != "Fitness sensor"
+        ):
+            registry_updates["name_by_user"] = None
+        for key in (
+            "manufacturer", "model", "model_id", "serial_number",
+            "hw_version", "sw_version",
+        ):
+            value = info.get(key)
+            if value not in (None, ""):
+                registry_updates[key] = value
+        device = registry.async_update_device(device.id, **registry_updates) or device
+
         self._sensor_device_ids[sensor_id] = device.id
         self._sensor_device_signatures[sensor_id] = signature
 

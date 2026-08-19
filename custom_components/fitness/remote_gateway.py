@@ -47,7 +47,7 @@ from .live.bluetooth import (
     _parse_hr,
     _parse_rsc,
 )
-from .live.cycplus_m1 import (
+from .device_adapters.cycplus_m1 import (
     CYCPLUS_M1_SERVICE_UUID,
     cycplus_m1_name_identity,
     cycplus_m1_serial_identity,

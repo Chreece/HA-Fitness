@@ -34,7 +34,7 @@ def test_catalog_correlation_treats_required_capabilities_as_subset():
         "Forerunner",
         "bluetooth",
         {"heart_rate", "battery"},
-        {"advertised_name": "Forerunner"},
+        {"advertised_name": "Any name", "manufacturer_data_ids": [135]},
     )
     match = identity.catalog_transport_correlation(bt)
     assert match and match["rule_id"] == "garmin_wearable_hr_broadcast"
@@ -113,8 +113,8 @@ def test_new_visible_vo2_and_strength_ui_text_is_profile_translatable():
 
 
 def test_frontend_resource_revision_bumped():
-    assert 'unreleased-82' in JS
-    assert 'unreleased-82' in DASH
+    assert 'unreleased-85' in JS
+    assert 'unreleased-85' in DASH
 
 
 

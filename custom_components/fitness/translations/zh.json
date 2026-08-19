@@ -24,14 +24,16 @@
       },
       "required": {
         "title": "个人资料输入",
-        "description": "体重为必填项。静息心率为可选项，可稍后添加。每个字段都可填写数值或选择兼容的 Home Assistant 实体，单位会自动换算。",
+        "description": "当前体重为必填项。你可以选择一个 Home Assistant 体重秤传感器。同一台体重秤可由多个 Fitness 个人资料共享；每次新测量都会尝试匹配用户，并且必须确认后才会更新个人资料。",
         "data": {
-          "weight": "体重（kg 或实体）",
-          "resting_hr": "静息心率（bpm 或实体）"
+          "weight": "当前体重 (kg)",
+          "resting_hr": "静息心率（bpm 或实体）",
+          "weight_scale_entity": "共享体重秤（可选）"
         },
         "data_description": {
-          "weight": "体重。用于 W/kg 和按体重归一化的指标。输入 kg 或选择兼容实体；实体单位会自动转换。",
-          "resting_hr": "静息心率（bpm）。用于 %HRR、强度分类和 Banister TRIMP。应使用真正的静息心率，而非一次训练中的最低值。"
+          "weight": "你当前已确认的体重（千克）。可随时手动修改。",
+          "resting_hr": "静息心率（bpm）。用于 %HRR、强度分类和 Banister TRIMP。应使用真正的静息心率，而非一次训练中的最低值。",
+          "weight_scale_entity": "选择兼容的 Home Assistant 体重传感器。多个 Fitness 个人资料可以共享同一台秤。收到新测量后，Fitness 会建议称重用户，并在修改任何人的体重前要求确认。"
         }
       },
       "optional": {
@@ -151,13 +153,36 @@
           "tv_dashboard_ytdlp_enabled": "yt-dlp 是可选的第三方适配器，与 YouTube 或其他服务没有关联。你应独自负责遵守法律、服务条款和版权规定，并取得所有必要授权。Fitness 不提供帐户 Cookie，不允许规避限制或未经授权的再分发，且不作任何担保；本声明不构成法律建议。",
           "tv_dashboard_ignore_lights_when_cast_active": "当 Fitness TV Cast 接收器处于活动状态时，使用电视提供训练反馈，并保持已配置的训练灯光不变。"
         }
+      },
+      "first_install": {
+        "title": "设置 Fitness",
+        "description": "请选择首先要添加的内容。以后仍可添加另一部分，而无需改变现有的用户档案设置流程。",
+        "menu_options": {
+          "add_protocol": "添加传感器协议",
+          "add_user": "添加用户档案"
+        }
+      },
+      "add_user": {
+        "title": "添加用户档案",
+        "description": "继续使用 Fitness 的常规用户档案设置流程。"
+      },
+      "add_protocol": {
+        "title": "添加传感器协议",
+        "description": "启用一种本地传感器传输。Fitness 会创建设备适配器，并让发现过程保持有界且由用户控制。",
+        "data": {
+          "protocol": "传感器协议"
+        },
+        "data_description": {
+          "protocol": "选择 Fitness 现在应启用的本地无线传输。另一种传输会保留，但在你启用前保持关闭。"
+        }
       }
     },
     "error": {
       "invalid_date": "请输入有效且早于今天的出生日期。",
       "invalid_number_or_entity": "请输入有效数值或 Home Assistant 实体 ID。",
       "select_profile": "请至少选择一个 Fitness 用户。",
-      "select_smart_device_owner": "请选择恰好一个 Fitness 配置文件作为已保存训练的所有者。实时传感器能力之后仍可共享给其他配置文件。"
+      "select_smart_device_owner": "请选择恰好一个 Fitness 配置文件作为已保存训练的所有者。实时传感器能力之后仍可共享给其他配置文件。",
+      "invalid_protocol": "请选择受支持的传感器协议。"
     },
     "abort": {
       "already_configured": "已存在同名的 Fitness 个人资料。",
@@ -183,7 +208,10 @@
           "sleep_devices": "睡眠设备",
           "sensor_assignments": "传感器分配",
           "tv_dashboard": "Fitness TV 仪表板",
-          "smart_workout_devices": "智能训练设备"
+          "smart_workout_devices": "智能训练设备",
+          "protocols": "传感器协议",
+          "features": "仪表板功能",
+          "about": "关于 Fitness"
         }
       },
       "profile": {
@@ -206,26 +234,28 @@
       },
       "fitness_inputs": {
         "title": "健身数据和初始值",
-        "description": "每个字段都可填写数值或选择兼容实体。只有体重是必填项；静息心率和其他生理输入均为可选项，可稍后添加或移除。",
+        "description": "设置个人资料当前已确认的体重，并可选设置共享体重秤。其他生理输入仍可使用兼容的 Home Assistant 实体。共享体重秤测量未经确认不会更新任何个人资料。",
         "data": {
-          "weight": "体重（kg 或实体）",
+          "weight": "当前体重 (kg)",
           "resting_hr": "静息心率（bpm 或实体）",
           "height": "身高（cm 或实体）",
           "max_hr": "最大心率（bpm 或实体）",
           "vo2max": "最大摄氧量（mL/kg/min 或实体）",
           "threshold_hr": "阈值心率（bpm 或实体）",
           "threshold_pace": "阈值配速（min/km 或实体）",
-          "threshold_power": "阈值功率（W 或实体）"
+          "threshold_power": "阈值功率（W 或实体）",
+          "weight_scale_entity": "共享体重秤（可选）"
         },
         "data_description": {
-          "weight": "体重。用于 W/kg 和按体重归一化的指标。输入 kg 或选择兼容实体；实体单位会自动转换。",
+          "weight": "你当前已确认的体重（千克）。可随时手动修改。",
           "resting_hr": "静息心率（bpm）。用于 %HRR、强度分类和 Banister TRIMP。应使用真正的静息心率，而非一次训练中的最低值。",
           "height": "身高。可选档案信息。手动值使用 cm；实体单位会自动转换。",
           "max_hr": "生理/设定最大心率（bpm）。用于 %HRmax、%HRR 和 TRIMP；不会根据单次训练最高心率猜测。",
           "vo2max": "VO₂max（mL/kg/min），用于心肺能力比较和长期评估。",
           "threshold_hr": "阈值心率（bpm），用于将运动强度与设定阈值比较。",
           "threshold_pace": "跑步阈值配速（min/km）。m/s 或 km/h 的速度实体会自动转换。",
-          "threshold_power": "阈值功率（W）。用于阈值相对功率和 W/kg；多个含义不明确的 FTP 来源不会自动选择。"
+          "threshold_power": "阈值功率（W）。用于阈值相对功率和 W/kg；多个含义不明确的 FTP 来源不会自动选择。",
+          "weight_scale_entity": "选择兼容的 Home Assistant 体重传感器。多个 Fitness 个人资料可以共享同一台秤。收到新测量后，Fitness 会建议称重用户，并在修改任何人的体重前要求确认。"
         }
       },
       "live_devices": {
@@ -387,6 +417,44 @@
         "data_description": {
           "smart_pairing_action": "Retry starts one bounded automatic pairing/sync attempt."
         }
+      },
+      "protocols": {
+        "title": "传感器协议",
+        "description": "启用或停用本地传感器传输。正在使用的传输会等当前会话结束后再关闭。",
+        "data": {
+          "bluetooth": "蓝牙协议",
+          "antplus": "ANT+ 协议"
+        },
+        "data_description": {
+          "bluetooth": "为本地 Fitness 传感器和受支持的设备历史启用 Home Assistant 蓝牙传输。",
+          "antplus": "为兼容的 USB 接收器和 Fitness 传感器启用本地 ANT+ 传输。"
+        }
+      },
+      "features": {
+        "title": "仪表板功能",
+        "description": "选择可选仪表板模块和现有 Home Assistant 实体。这些选项不会增加后台网络轮询。",
+        "data": {
+          "dashboard_modules": "仪表板模块",
+          "dashboard_theme": "Home Assistant 主题",
+          "dashboard_rss_entity_ids": "RSS / 新闻传感器",
+          "dashboard_music_entity_ids": "音乐播放器",
+          "dashboard_light_entity_ids": "灯光",
+          "dashboard_video_entity_ids": "电视 / 视频播放器",
+          "dashboard_weather_entity_id": "天气实体"
+        },
+        "data_description": {
+          "dashboard_modules": "选择要显示在此用户档案仪表板上的可选 Fitness 和 Home Assistant 模块。",
+          "dashboard_theme": "输入已安装的 Home Assistant 主题名称，或保留 Home Assistant 以使用正常系统主题。",
+          "dashboard_rss_entity_ids": "选择已经提供 RSS 或新闻数据的 Home Assistant 传感器；Fitness 本身不会抓取订阅源。",
+          "dashboard_music_entity_ids": "选择现有媒体播放器，以便在 Fitness 仪表板上显示 Home Assistant 媒体控件。",
+          "dashboard_light_entity_ids": "选择现有灯光实体，在仪表板上显示紧凑的控制组。",
+          "dashboard_video_entity_ids": "选择现有电视或视频媒体播放器，以显示 Home Assistant 媒体控件。",
+          "dashboard_weather_entity_id": "选择现有 Home Assistant 天气实体，用于可选天气卡片。"
+        }
+      },
+      "about": {
+        "title": "关于 Fitness",
+        "description": "已安装版本：{version}\n\n{changelog}"
       }
     },
     "abort": {
@@ -3382,6 +3450,12 @@
       },
       "garmin_sync_workouts": {
         "name": "立即同步 Garmin 训练"
+      },
+      "adapter_scan_now": {
+        "name": "立即扫描"
+      },
+      "sync_device_health_history": {
+        "name": "同步设备健康历史"
       }
     },
     "select": {
@@ -3422,6 +3496,20 @@
         "11": "十一月",
         "12": "十二月"
       }
+    },
+    "dashboard_module": {
+      "options": {
+        "core": "Fitness 核心卡片",
+        "training_ai": "AI 训练教练",
+        "body_composition": "身体组成 / 体重趋势",
+        "workout_browser": "训练浏览器",
+        "rss": "RSS / 新闻",
+        "music": "音乐",
+        "tts": "文字转语音",
+        "lights": "灯光",
+        "video": "电视 / 视频",
+        "weather": "天气"
+      }
     }
   },
   "device": {
@@ -3458,6 +3546,10 @@
     "garmin_pairing_required": {
       "title": "Garmin 需要配对确认",
       "description": "Fitness 无法自动完成与 `{device}` 的蓝牙配对。保持 Garmin 与手机配对，打开 Garmin 的蓝牙/手机配对模式，然后进入 Fitness > 智能训练设备 > `{device}` 并选择“立即重试”。在 Garmin 上确认提示。如果现有手机配对将被替换/删除，请取消。"
+    },
+    "device_user_action_required": {
+      "title": "{device} 需要你的操作",
+      "description": "在你完成设备端操作之前，Fitness 无法继续与 `{device}` 直接同步。{reason}\n\n请按以下步骤操作：\n{instructions}\n\n选择“修复”以确认步骤并输入任何必需的信息。"
     }
   },
   "services": {

@@ -66,6 +66,23 @@ def _iso(value: Any) -> str | None:
     return parsed.isoformat() if parsed is not None else None
 
 
+def _gps_points(records, limit: int = 256) -> list[list[float]]:
+    """Return an evenly sampled, bounded FIT GPS track for the workout map."""
+    points: list[list[float]] = []
+    for record in records:
+        lat = _degrees(record.get("position_lat"))
+        lon = _degrees(record.get("position_long"))
+        if lat is None or lon is None or not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            continue
+        point = [round(float(lat), 6), round(float(lon), 6)]
+        if not points or point != points[-1]:
+            points.append(point)
+    if len(points) <= limit:
+        return points
+    last = len(points) - 1
+    return [points[round(i * last / (limit - 1))] for i in range(limit)]
+
+
 def _degrees(value: Any) -> float | None:
     numeric = _number(value)
     if numeric is None:
@@ -218,8 +235,17 @@ def workout_from_fit(
     sensor_id: str,
     source_key: str,
     source_label: str | None = None,
+    provider_id: str = "garmin_local",
+    history_source: str = "garmin_local_ble_fit",
+    source_prefix: str = "garmin_local",
 ) -> Workout:
-    """Normalize the first completed Garmin activity session to Workout."""
+    """Normalize the first completed FIT activity session to Workout.
+
+    Garmin direct sync is the default caller, but the FIT container itself is a
+    vendor-neutral interchange format.  File/export adapters can reuse the same
+    bounded parser while supplying their own provenance; no external-adapter
+    identity leaks into the Garmin transport implementation.
+    """
     container = _fit_container(data)
     digest = hashlib.sha256(container).hexdigest()
     messages = decode_fit(container)
@@ -286,7 +312,7 @@ def workout_from_fit(
 
     product = _first(file_id, "garmin_product", "product_name", "product") or _first(device, "product_name", "descriptor", "product")
     serial = _first(file_id, "serial_number") or _first(device, "serial_number")
-    source = f"garmin_local:{sensor_id}:{source_key}"
+    source = f"{source_prefix}:{sensor_id}:{source_key}"
     summary = {key: _safe(value) for key, value in session.items() if value not in (None, "")}
     workout = Workout(
         source=source,
@@ -322,10 +348,10 @@ def workout_from_fit(
         device_name=str(source_label or product or "Garmin"),
         sample_count=len(relevant),
         sources=[source],
-        provider_domains=["garmin_local"],
+        provider_domains=[provider_id],
         extra={
-            "fitness_adapter": "garmin_local",
-            "fitness_history_source": "garmin_local_ble_fit",
+            "fitness_adapter": provider_id,
+            "fitness_history_source": history_source,
             "source_file_sha256": digest,
             "garmin_source_key": source_key,
             "garmin_product": _safe(product),
@@ -342,6 +368,7 @@ def workout_from_fit(
             "strength_active_duration_s": active_duration,
             "strength_rest_duration_s": rest_duration,
             "fit_record_count": len(relevant),
+            "gps_points": _gps_points(relevant),
             "fit_session": summary,
         },
     )
@@ -353,6 +380,6 @@ def workout_from_fit(
         "max_speed_m_s", "total_reps", "strength_total_sets", "volume_kg", "exercise_count",
         "start_latitude", "start_longitude", "device_name", "sample_count",
     )
-    workout.field_sources = {key: "garmin_local" for key in factual if getattr(workout, key) is not None}
-    workout.provider_values = {"garmin_local": summary}
+    workout.field_sources = {key: provider_id for key in factual if getattr(workout, key) is not None}
+    workout.provider_values = {provider_id: summary}
     return workout
