@@ -50,7 +50,7 @@ class DirectHistoryCoordinator:
 
     adapter_id = "direct_history"
     sync_unique_suffix = "sync_device_health_history"
-    sync_translation_key = "sync_device_health_history"
+    sync_translation_key = "sync_device_data"
     sync_icon = "mdi:heart-pulse"
     sync_interval = DEFAULT_SYNC_INTERVAL
 

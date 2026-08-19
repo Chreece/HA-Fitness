@@ -85,3 +85,132 @@ ai_tts:
         text:
           multiline: true
 
+
+clear_workout_history:
+  description: Clear this profile's canonical Fitness workout history and deletion guards so currently available external sources and later device syncs can regenerate it.
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: fitness
+
+clear_fit_files:
+  description: Prune Fitness-owned FIT import/checkpoint cache only. Source files on watches/cycling computers are never deleted.
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: fitness
+    retain_count:
+      required: false
+      default: 30
+      selector:
+        number:
+          min: 0
+          max: 500
+          step: 1
+          mode: box
+    ownership:
+      required: false
+      default: profile
+      selector:
+        select:
+          options:
+            - label: This profile's Fitness-owned FIT cache
+              value: profile
+            - label: All Fitness-owned FIT caches
+              value: all_fitness_owned
+
+manage_bluetooth_device:
+  description: Disconnect a Fitness Bluetooth device or explicitly unpair it from the local BlueZ host. Shared devices are never unpaired.
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: fitness
+    action:
+      required: true
+      default: disconnect
+      selector:
+        select:
+          options:
+            - disconnect
+            - unpair
+
+clear_workout_tombstones:
+  description: Remove all workout deletion tombstones and the bulk-deletion cutoff so external sources may recreate deleted workouts.
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: fitness
+
+delete_workout_tombstone:
+  description: Delete one workout tombstone by its zero-based index.
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: fitness
+    index:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 999
+          step: 1
+          mode: box
+
+edit_workout_tombstone:
+  description: Edit the matching fields of one workout deletion tombstone.
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: fitness
+    index:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 999
+          step: 1
+          mode: box
+    name:
+      required: false
+      selector: {text: {}}
+    sport:
+      required: false
+      selector: {text: {}}
+    start:
+      required: false
+      selector: {text: {}}
+    end:
+      required: false
+      selector: {text: {}}
+    duration_s:
+      required: false
+      selector: {number: {min: 0, max: 604800, mode: box}}
+    distance_m:
+      required: false
+      selector: {number: {min: 0, max: 1000000, mode: box}}
+
+clear_saved_data:
+  description: Clear all profile-owned saved Fitness observations, workouts, sleep/health history, tombstones and cached AI results while preserving profile configuration.
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: fitness
+    confirm:
+      required: true
+      default: false
+      selector:
+        boolean:

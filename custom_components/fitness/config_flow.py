@@ -20,6 +20,9 @@ from homeassistant.helpers import entity_registry as er
 from .const import (
     CONF_AI_ENABLED,
     CONF_AI_ENTITY,
+    CONF_TRAINING_GOAL,
+    CONF_TRAINING_GOAL_DATE,
+    CONF_TRAINING_DAYS_PER_WEEK,
     AI_ENTITY_SYSTEM_DEFAULT,
     CONF_BIRTH_DAY,
     CONF_BIRTH_MONTH,
@@ -64,8 +67,10 @@ from .const import (
     CONF_WEIGHT_SCALE_ENTITY,
     CONF_WORKOUT_DEVICE_IDS,
     CONF_WORKOUT_RETENTION_DAYS,
+    CONF_FIT_FILE_RETENTION_COUNT,
     CONF_SLEEP_DEVICE_IDS,
     DEFAULT_WORKOUT_RETENTION_DAYS,
+    DEFAULT_FIT_FILE_RETENTION_COUNT,
     MAX_WORKOUT_RETENTION_DAYS,
     DOMAIN,
     SUPPORTED_LANGUAGES,
@@ -423,7 +428,14 @@ def _dashboard_theme_selector():
     """Allow an existing HA theme name while keeping the system default safe."""
     return selector.SelectSelector(
         selector.SelectSelectorConfig(
-            options=[{"value": "default", "label": "Home Assistant"}],
+            options=[
+                {"value": "default", "label": "Home Assistant"},
+                {"value": "fitness_performance", "label": "Fitness · Performance"},
+                {"value": "fitness_minimal", "label": "Fitness · Minimal"},
+                {"value": "fitness_oled", "label": "Fitness · OLED"},
+                {"value": "fitness_glass", "label": "Fitness · Glass"},
+                {"value": "fitness_classic", "label": "Fitness · Classic"},
+            ],
             custom_value=True,
             mode=selector.SelectSelectorMode.DROPDOWN,
         )
@@ -468,11 +480,18 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_integration_discovery(self, discovery_info):
         """Create Local Sensors infrastructure or assign a discovered sensor."""
+        if bool((discovery_info or {}).get("devices_hub")):
+            await self.async_set_unique_id("fitness_devices")
+            self._abort_if_unique_id_configured()
+            return self.async_create_entry(
+                title="Fitness Devices",
+                data={"entry_type": "devices_hub"},
+            )
         if bool((discovery_info or {}).get("live_hub")):
             await self.async_set_unique_id("local_sensors")
             self._abort_if_unique_id_configured()
             return self.async_create_entry(
-                title="Sensors & Adapters",
+                title="Fitness Protocols",
                 data={"entry_type": "live_hub"},
             )
 
@@ -644,7 +663,7 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         del user_input
         return self.async_show_menu(
             step_id="first_install",
-            menu_options=["add_protocol", "add_user"],
+            menu_options=["manage_protocols", "add_user"],
         )
 
     async def async_step_add_user(self, user_input=None):
@@ -654,60 +673,150 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return await self.async_step_user()
 
     async def async_step_add_protocol(self, user_input=None):
-        """Create Sensors & Adapters and enable one explicitly selected transport."""
+        """Backward-compatible alias for the protocol manager."""
+        return await self.async_step_manage_protocols(user_input)
+
+    async def async_step_manage_protocols(self, user_input=None):
+        """Enable/remove protocol layers and choose hardware discovery policy."""
+        from .live import get_live_runtime
+        from .live.runtime import HUB_ENTRY_TYPE
+
+        runtime = get_live_runtime(self.hass)
+        await runtime.async_initialize()
+        existing_hub = next(
+            (entry for entry in self.hass.config_entries.async_entries(DOMAIN)
+             if entry.data.get("entry_type") == HUB_ENTRY_TYPE),
+            None,
+        )
         if user_input is not None:
-            transport = str(user_input.get("protocol") or "").strip().lower()
-            if transport not in {"bluetooth", "antplus"}:
-                return self.async_show_form(
-                    step_id="add_protocol",
-                    data_schema=self._protocol_setup_schema(),
-                    errors={"base": "invalid_protocol"},
-                )
-            await self.async_set_unique_id("local_sensors")
-            self._abort_if_unique_id_configured()
-            return self.async_create_entry(
-                title="Sensors & Adapters",
-                data={
-                    "entry_type": "live_hub",
-                    "initial_transport": transport,
-                },
-            )
+            selected = {
+                transport for transport in ("bluetooth", "antplus")
+                if bool(user_input.get(transport, False))
+            }
+            automatic = {
+                transport: bool(user_input.get(f"{transport}_automatic_hardware", True))
+                for transport in selected
+            }
+            self._pending_protocol_selection = selected
+            self._pending_protocol_automatic = automatic
+            self._protocol_manual_transports = [t for t in selected if not automatic[t]]
+            self._existing_protocol_hub_id = existing_hub.entry_id if existing_hub else None
+            if self._protocol_manual_transports:
+                return await self.async_step_manage_protocol_hardware()
+            return await self._async_finish_manage_protocols({})
+
         return self.async_show_form(
-            step_id="add_protocol",
-            data_schema=self._protocol_setup_schema(),
+            step_id="manage_protocols",
+            data_schema=vol.Schema({
+                vol.Required("bluetooth", default=runtime.adapter_configured("bluetooth")): bool,
+                vol.Required(
+                    "bluetooth_automatic_hardware",
+                    default=runtime.adapter_automatic_hardware("bluetooth"),
+                ): bool,
+                vol.Required("antplus", default=runtime.adapter_configured("antplus")): bool,
+                vol.Required(
+                    "antplus_automatic_hardware",
+                    default=runtime.adapter_automatic_hardware("antplus"),
+                ): bool,
+            }),
         )
 
-    @staticmethod
-    def _protocol_setup_schema():
-        return vol.Schema(
-            {
-                vol.Required("protocol", default="bluetooth"): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=[
-                            {"value": "bluetooth", "label": "Bluetooth"},
-                            {"value": "antplus", "label": "ANT+"},
-                        ],
-                        mode=selector.SelectSelectorMode.DROPDOWN,
-                    )
-                )
+    async def async_step_manage_protocol_hardware(self, user_input=None):
+        """Native menu for manual hardware discovery/selection."""
+        del user_input
+        return self.async_show_menu(
+            step_id="manage_protocol_hardware",
+            menu_options=["discover_protocol_hardware", "select_protocol_hardware"],
+        )
+
+    async def async_step_discover_protocol_hardware(self, user_input=None):
+        """Run one bounded scan and return to manual hardware management."""
+        del user_input
+        from .live import get_live_runtime
+        runtime = get_live_runtime(self.hass)
+        await runtime.async_initialize()
+        for transport in list(getattr(self, "_protocol_manual_transports", []) or []):
+            runtime.begin_manual_scan_window(transport, 20.0)
+            if transport == "bluetooth":
+                provider = runtime.providers.get("bluetooth")
+                refresh = getattr(provider, "async_refresh_discovery", None)
+                if callable(refresh):
+                    try:
+                        await refresh()
+                    except Exception:  # best-effort discovery must not break setup
+                        pass
+        return await self.async_step_manage_protocol_hardware()
+
+    async def async_step_select_protocol_hardware(self, user_input=None):
+        """Choose supported hardware for protocols using manual discovery."""
+        from .live import get_live_runtime
+        runtime = get_live_runtime(self.hass)
+        await runtime.async_initialize()
+        transports = list(getattr(self, "_protocol_manual_transports", []) or [])
+        if user_input is not None:
+            selected_hw = {
+                transport: set(user_input.get(f"{transport}_hardware") or [])
+                for transport in transports
             }
+            return await self._async_finish_manage_protocols(selected_hw)
+        schema = {}
+        for transport in transports:
+            schema[vol.Required(
+                f"{transport}_hardware",
+                default=sorted(runtime.selected_receiver_ids(transport)),
+            )] = selector.SelectSelector(selector.SelectSelectorConfig(
+                options=runtime.transport_hardware_choices(transport),
+                multiple=True,
+                mode=selector.SelectSelectorMode.DROPDOWN,
+            ))
+        return self.async_show_form(
+            step_id="select_protocol_hardware",
+            data_schema=vol.Schema(schema),
+        )
+
+    async def _async_finish_manage_protocols(self, selected_hw: dict[str, set[str]]):
+        """Apply protocol state or create the shared Fitness Protocols service."""
+        from .live import get_live_runtime
+        from .live.runtime import HUB_ENTRY_TYPE
+        runtime = get_live_runtime(self.hass)
+        selected = set(getattr(self, "_pending_protocol_selection", set()) or set())
+        automatic = dict(getattr(self, "_pending_protocol_automatic", {}) or {})
+        existing_hub = next(
+            (entry for entry in self.hass.config_entries.async_entries(DOMAIN)
+             if entry.data.get("entry_type") == HUB_ENTRY_TYPE),
+            None,
+        )
+        if existing_hub is not None:
+            await runtime.async_set_protocol_selection(selected)
+            for transport in selected:
+                await runtime.async_set_hardware_selection(
+                    transport,
+                    automatic=automatic.get(transport, True),
+                    selected=selected_hw.get(transport),
+                )
+            return self.async_abort(reason="protocols_updated")
+        await self.async_set_unique_id("local_sensors")
+        self._abort_if_unique_id_configured()
+        return self.async_create_entry(
+            title="Fitness Protocols",
+            data={
+                "entry_type": "live_hub",
+                "initial_protocols": sorted(selected),
+                "initial_hardware": {
+                    transport: {
+                        "automatic": automatic.get(transport, True),
+                        "selected": sorted(selected_hw.get(transport, set())),
+                    } for transport in selected
+                },
+            },
         )
 
     async def async_step_user(self, user_input=None):
         if user_input is None and not self._first_install_choice:
-            # Until the Sensors & Adapters hub exists, every Add Integration
-            # invocation offers the same explicit choice.  This keeps the
-            # protocol path reachable even when the user created a profile
-            # first, while preserving the legacy profile form after choosing
-            # Add user.
-            from .live.runtime import HUB_ENTRY_TYPE
-
-            has_hub = any(
-                entry.data.get("entry_type") == HUB_ENTRY_TYPE
-                for entry in self.hass.config_entries.async_entries(DOMAIN)
-            )
-            if not has_hub:
-                return await self.async_step_first_install()
+            # Every explicit Add Integration action starts at the same friendly
+            # choice: connect devices or create another profile. Discovery and
+            # reconfigure sources use their dedicated steps and never hit here.
+            return await self.async_step_first_install()
         errors = {}
         if user_input is not None:
             try:
@@ -891,6 +1000,9 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._data[CONF_WORKOUT_RETENTION_DAYS] = int(
                 user_input.get(CONF_WORKOUT_RETENTION_DAYS, DEFAULT_WORKOUT_RETENTION_DAYS)
             )
+            self._data[CONF_FIT_FILE_RETENTION_COUNT] = int(
+                user_input.get(CONF_FIT_FILE_RETENTION_COUNT, DEFAULT_FIT_FILE_RETENTION_COUNT)
+            )
             return await self.async_step_sleep_devices()
 
         workout_choices = workout_device_choices(self.hass)
@@ -907,6 +1019,9 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             min=0, max=MAX_WORKOUT_RETENTION_DAYS, step=1,
                             unit_of_measurement="d", mode=selector.NumberSelectorMode.BOX,
                         )
+                    ),
+                    vol.Required(CONF_FIT_FILE_RETENTION_COUNT, default=DEFAULT_FIT_FILE_RETENTION_COUNT): selector.NumberSelector(
+                        selector.NumberSelectorConfig(min=0, max=500, step=1, mode=selector.NumberSelectorMode.BOX)
                     ),
                 }
             ),
@@ -980,6 +1095,13 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             _optional_suggested(
                 CONF_AI_ENTITY, AI_ENTITY_SYSTEM_DEFAULT
             ): _ai_entity(self.hass),
+            vol.Optional(CONF_TRAINING_GOAL): selector.TextSelector(
+                selector.TextSelectorConfig(multiline=True)
+            ),
+            vol.Optional(CONF_TRAINING_GOAL_DATE): selector.DateSelector(),
+            vol.Optional(CONF_TRAINING_DAYS_PER_WEEK, default=4): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=1, max=7, step=1, mode=selector.NumberSelectorMode.BOX)
+            ),
         }
 
         return self.async_show_form(
@@ -1149,30 +1271,161 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_menu(step_id="init", menu_options=menu)
 
     async def async_step_protocols(self, user_input=None):
-        """Enable/disable local protocols from the hub options flow."""
+        """Manage Fitness protocols as one transactional configuration change."""
         from .live import get_live_runtime
 
         runtime = get_live_runtime(self.hass)
         await runtime.async_initialize()
         if user_input is not None:
-            for transport in ("bluetooth", "antplus"):
-                await runtime.async_set_transport_enabled(
-                    transport, bool(user_input.get(transport, False))
-                )
-            return await self.async_step_init()
+            selected = {
+                transport
+                for transport in ("bluetooth", "antplus")
+                if bool(user_input.get(transport, False))
+            }
+            automatic = {
+                transport: bool(user_input.get(f"{transport}_automatic_hardware", True))
+                for transport in selected
+            }
+            # Do not mutate the live runtime while the user is navigating the
+            # Discover/Select hardware substeps.  Keep one staged transaction so
+            # Back never resurrects the previously persisted automatic setting.
+            self._pending_protocol_selection = selected
+            self._pending_protocol_automatic = automatic
+            self._pending_protocol_hardware = {
+                transport: set(runtime.selected_receiver_ids(transport))
+                for transport in selected
+            }
+            self._protocol_manual_transports = [
+                transport for transport in selected if not automatic[transport]
+            ]
+            if self._protocol_manual_transports:
+                return await self.async_step_protocol_hardware()
+            return await self._async_finish_protocol_options({})
+
+        pending_selected = getattr(self, "_pending_protocol_selection", None)
+        pending_automatic = getattr(self, "_pending_protocol_automatic", None)
         return self.async_show_form(
             step_id="protocols",
             data_schema=vol.Schema(
                 {
                     vol.Required(
-                        "bluetooth", default=runtime.adapter_enabled("bluetooth")
+                        "bluetooth",
+                        default=(
+                            "bluetooth" in pending_selected
+                            if pending_selected is not None
+                            else runtime.adapter_configured("bluetooth")
+                        ),
                     ): bool,
                     vol.Required(
-                        "antplus", default=runtime.adapter_enabled("antplus")
+                        "bluetooth_automatic_hardware",
+                        default=(
+                            bool(pending_automatic.get("bluetooth", True))
+                            if pending_automatic is not None and "bluetooth" in (pending_selected or set())
+                            else runtime.adapter_automatic_hardware("bluetooth")
+                        ),
+                    ): bool,
+                    vol.Required(
+                        "antplus",
+                        default=(
+                            "antplus" in pending_selected
+                            if pending_selected is not None
+                            else runtime.adapter_configured("antplus")
+                        ),
+                    ): bool,
+                    vol.Required(
+                        "antplus_automatic_hardware",
+                        default=(
+                            bool(pending_automatic.get("antplus", True))
+                            if pending_automatic is not None and "antplus" in (pending_selected or set())
+                            else runtime.adapter_automatic_hardware("antplus")
+                        ),
                     ): bool,
                 }
             ),
         )
+
+    async def async_step_protocol_hardware(self, user_input=None):
+        """Offer a native Discover now action before manual hardware selection."""
+        del user_input
+        return self.async_show_menu(
+            step_id="protocol_hardware",
+            menu_options=["protocol_hardware_discover", "protocol_hardware_select"],
+        )
+
+    async def async_step_protocol_hardware_discover(self, user_input=None):
+        """Run one bounded discovery pass for manually managed protocols."""
+        del user_input
+        from .live import get_live_runtime
+        runtime = get_live_runtime(self.hass)
+        await runtime.async_initialize()
+        for transport in list(getattr(self, "_protocol_manual_transports", []) or []):
+            runtime.begin_manual_scan_window(transport, 20.0)
+            if transport == "bluetooth":
+                provider = runtime.providers.get("bluetooth")
+                refresh = getattr(provider, "async_refresh_discovery", None)
+                if callable(refresh):
+                    try:
+                        await refresh()
+                    except Exception:
+                        pass
+        return await self.async_step_protocol_hardware()
+
+    async def async_step_protocol_hardware_select(self, user_input=None):
+        """Select concrete supported hardware when automatic discovery is disabled."""
+        from .live import get_live_runtime
+        runtime = get_live_runtime(self.hass)
+        await runtime.async_initialize()
+        transports = list(getattr(self, "_protocol_manual_transports", []) or [])
+        if not transports:
+            return await self.async_step_init()
+        if user_input is not None:
+            selected_hw = {
+                transport: set(user_input.get(f"{transport}_hardware") or [])
+                for transport in transports
+            }
+            return await self._async_finish_protocol_options(selected_hw)
+        schema = {}
+        for transport in transports:
+            schema[vol.Required(
+                f"{transport}_hardware",
+                default=sorted(runtime.selected_receiver_ids(transport)),
+            )] = selector.SelectSelector(selector.SelectSelectorConfig(
+                options=runtime.transport_hardware_choices(transport),
+                multiple=True, mode=selector.SelectSelectorMode.DROPDOWN,
+            ))
+        return self.async_show_form(
+            step_id="protocol_hardware_select", data_schema=vol.Schema(schema),
+        )
+
+    async def _async_finish_protocol_options(self, selected_hw: dict[str, set[str]]):
+        """Atomically commit the staged protocol + hardware policy transaction."""
+        from .live import get_live_runtime
+
+        runtime = get_live_runtime(self.hass)
+        await runtime.async_initialize()
+        selected = set(getattr(self, "_pending_protocol_selection", set()) or set())
+        automatic = dict(getattr(self, "_pending_protocol_automatic", {}) or {})
+        staged_hw = dict(getattr(self, "_pending_protocol_hardware", {}) or {})
+        staged_hw.update(selected_hw)
+
+        # Defer the hub reload until every policy value has been persisted. This
+        # avoids reloading Fitness Protocols halfway through an OptionsFlow.
+        await runtime.async_set_protocol_selection(selected, reload=False)
+        for transport in selected:
+            is_automatic = bool(automatic.get(transport, True))
+            await runtime.async_set_hardware_selection(
+                transport,
+                automatic=is_automatic,
+                selected=() if is_automatic else staged_hw.get(transport, set()),
+            )
+        await runtime.async_refresh_modules()
+        runtime.request_hub_reload()
+
+        self._protocol_manual_transports = []
+        self._pending_protocol_selection = None
+        self._pending_protocol_automatic = None
+        self._pending_protocol_hardware = None
+        return await self.async_step_init()
 
     async def async_step_features(self, user_input=None):
         """Configure optional dashboard presentation without background work."""
@@ -1231,8 +1484,29 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
             description_placeholders={"version": version, "changelog": changelog},
         )
 
+    async def _async_prepare_smart_device_discovery(self, runtime) -> tuple[str, ...]:
+        """Enable usable protocols and automatic discovery for this setup flow.
+
+        Entering Smart Fitness Devices is an explicit request to discover hardware.
+        If a locally available/configured protocol was left in manual-scan mode,
+        restore automatic discovery so the just-added device remains discoverable
+        after this bounded setup scan.  Never enable hardware that HA cannot see.
+        """
+        enabled: list[str] = []
+        for transport in ("bluetooth", "antplus"):
+            if not runtime.adapter_configured(transport):
+                continue
+            if not runtime.adapter_enabled(transport):
+                await runtime.async_set_transport_enabled(transport, True)
+            if not runtime.adapter_automatic_scan(transport):
+                await runtime.async_set_automatic_scan(transport, True)
+            runtime.begin_manual_scan_window(transport, 20.0)
+            enabled.append(transport)
+        return tuple(enabled)
+
     async def _async_refresh_smart_workout_discovery(self, runtime) -> None:
         """Request one bounded control-plane discovery sweep when available."""
+        await self._async_prepare_smart_device_discovery(runtime)
         provider = runtime.providers.get("bluetooth")
         refresh = getattr(provider, "async_refresh_discovery", None) if provider else None
         if refresh is None:
@@ -1287,12 +1561,12 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
         for vendor in SUPPORTED_SETUP_VENDORS:
             choices.append({
                 "value": f"vendor:{vendor.vendor_id}",
-                "label": f"{vendor.label} · setup / scan guide",
+                "label": f"Setup {vendor.label} · guided connection",
             })
         return choices[: MAX_SMART_WORKOUT_DEVICE_CHOICES + len(SUPPORTED_SETUP_VENDORS)]
 
     async def async_step_smart_workout_devices(self, user_input=None):
-        """Discover and configure direct smart workout devices for this profile."""
+        """Discover and configure direct smart fitness devices for this profile."""
         from .live import get_live_runtime
 
         runtime = get_live_runtime(self.hass)
@@ -1517,26 +1791,13 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
         )
 
     async def async_step_smart_workout_vendor_setup(self, user_input=None):
-        """Ask only for a useful broad device type before vendor instructions."""
+        """Open vendor instructions without asking the user to guess a model."""
+        del user_input
         vendor = setup_vendor(str(getattr(self, "_smart_workout_vendor_id", "")))
         if vendor is None:
             return await self.async_step_smart_workout_devices()
-        type_options = [
-            {"value": value, "label": value.replace("_", " ").title()}
-            for value in vendor.device_types
-        ]
-        if user_input is not None:
-            self._smart_workout_manual_type = str(user_input.get("smart_device_type") or DEVICE_TYPE_AUTO)
-            return await self.async_step_smart_workout_vendor_guide()
-        return self.async_show_form(
-            step_id="smart_workout_vendor_setup",
-            data_schema=vol.Schema({
-                vol.Required("smart_device_type", default=DEVICE_TYPE_AUTO): selector.SelectSelector(
-                    selector.SelectSelectorConfig(options=type_options, mode=selector.SelectSelectorMode.DROPDOWN)
-                ),
-            }),
-            description_placeholders={"vendor": vendor.label},
-        )
+        self._smart_workout_manual_type = DEVICE_TYPE_AUTO
+        return await self.async_step_smart_workout_vendor_guide()
 
     async def async_step_smart_workout_vendor_guide(self, user_input=None):
         """Give vendor/type instructions, then return to bounded discovery."""
@@ -1565,8 +1826,8 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
             data_schema=vol.Schema({}),
             description_placeholders={
                 "vendor": vendor.label,
-                "device_type": str(getattr(self, "_smart_workout_manual_type", DEVICE_TYPE_AUTO)).replace("_", " "),
-                "model": "automatic after discovery",
+                "device_type": "automatically detected",
+                "model": "automatically detected",
                 "detected_devices": "; ".join(matching) if matching else "—",
             },
         )
@@ -1970,6 +2231,9 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                             DEFAULT_WORKOUT_RETENTION_DAYS,
                         )
                     ),
+                    CONF_FIT_FILE_RETENTION_COUNT: int(
+                        user_input.get(CONF_FIT_FILE_RETENTION_COUNT, DEFAULT_FIT_FILE_RETENTION_COUNT)
+                    ),
                 }
             )
 
@@ -2000,6 +2264,12 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                             min=0, max=MAX_WORKOUT_RETENTION_DAYS, step=1,
                             unit_of_measurement="d", mode=selector.NumberSelectorMode.BOX,
                         )
+                    ),
+                    vol.Required(
+                        CONF_FIT_FILE_RETENTION_COUNT,
+                        default=int(current.get(CONF_FIT_FILE_RETENTION_COUNT, DEFAULT_FIT_FILE_RETENTION_COUNT)),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(min=0, max=500, step=1, mode=selector.NumberSelectorMode.BOX)
                     ),
                 }
             ),
@@ -2081,6 +2351,9 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                     CONF_AI_ENTITY: (
                         user_input.get(CONF_AI_ENTITY) or ""
                     ),
+                    CONF_TRAINING_GOAL: str(user_input.get(CONF_TRAINING_GOAL) or "").strip(),
+                    CONF_TRAINING_GOAL_DATE: str(user_input.get(CONF_TRAINING_GOAL_DATE) or "").strip(),
+                    CONF_TRAINING_DAYS_PER_WEEK: int(user_input.get(CONF_TRAINING_DAYS_PER_WEEK) or 4),
                 }
             )
 
@@ -2110,6 +2383,16 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
             _optional_suggested(
                 CONF_AI_ENTITY, configured_ai
             ): _ai_entity(self.hass, configured_ai),
+            _optional_suggested(
+                CONF_TRAINING_GOAL, current.get(CONF_TRAINING_GOAL)
+            ): selector.TextSelector(selector.TextSelectorConfig(multiline=True)),
+            _optional_suggested(
+                CONF_TRAINING_GOAL_DATE, current.get(CONF_TRAINING_GOAL_DATE)
+            ): selector.DateSelector(),
+            vol.Optional(
+                CONF_TRAINING_DAYS_PER_WEEK,
+                default=int(current.get(CONF_TRAINING_DAYS_PER_WEEK, 4) or 4),
+            ): selector.NumberSelector(selector.NumberSelectorConfig(min=1, max=7, step=1, mode=selector.NumberSelectorMode.BOX)),
         }
 
         return self.async_show_form(

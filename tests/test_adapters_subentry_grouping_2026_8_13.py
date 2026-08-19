@@ -26,6 +26,6 @@ def test_transport_buttons_are_not_owned_by_adapter_or_sensor_subentries():
 
 def test_existing_adapter_devices_migrate_to_protocol_subentries():
     assert '_migrate_adapter_devices_to_transport_subentries()' in R
-    assert 'new_config_subentry_id=subentry_id' in R
+    assert 'new_config_subentry_id=ant_subentry_id' in R
     assert 'fitness_antplus_adapters' in ANT
     assert 'antplus_adapters' in ANT

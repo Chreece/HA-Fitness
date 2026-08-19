@@ -73,6 +73,8 @@ MANAGEMENT_QUEUE_LIMIT = 32
 MAX_LEGACY_FILE_BYTES = 32 * 1024 * 1024
 MAX_COMPRESSED_FILE_BYTES = 16 * 1024 * 1024
 MAX_FILE_LIST_PAGES = 8
+HEALTH_FIT_TYPE_NAMES = frozenset({"FIT_TYPE_9", "FIT_TYPE_14", "FIT_TYPE_15", "FIT_TYPE_28", "FIT_TYPE_32"})
+HEALTH_FILE_NAME_TOKENS = ("MONITOR", "METRIC", "WELLNESS", "HEALTH", "SLEEP", "WEIGHT", "BLOOD_PRESSURE")
 MAX_CURSOR_PAGES = 16
 MAX_FILES_PER_LISTING = 1_000
 SAFE_GATT_WRITE = 20
@@ -622,6 +624,7 @@ class GarminGfdiSession:
         self.capabilities: bytes = b""
         self._request_id = 300
         self._ready = False
+        self.catalog_type_counts: dict[str, int] = {}
 
     def next_request_id(self) -> int:
         self._request_id = 1 if self._request_id >= 0xFFFE else self._request_id + 1
@@ -863,27 +866,118 @@ class GarminGfdiSession:
             raise GarminProtocolError(f"Garmin FileRequest failed status={status}")
         return handle
 
-    async def async_activity_catalog(self) -> tuple[str, list[GarminSyncFile | GarminDirectoryEntry]]:
-        """Return (mode, activity records), preferring modern read-only FileSync."""
+    @staticmethod
+    def _modern_sync_candidate(item: GarminSyncFile) -> bool:
+        """Return whether one FileSync record is a FIT payload worth inspecting.
+
+        Garmin's FileSync type code is not itself proof that the payload is FIT:
+        full-device listings can contain other internal file families with numeric
+        codes.  Inspect every record Garmin actually labels as FIT, plus the known
+        numeric FIT families when a firmware omits their name.  Payload contents
+        still decide activity/health/unsupported after download.
+        """
+        if item.size <= 0:
+            return False
+        name = str(item.type_name or "").upper()
+        return bool(
+            name.startswith("FIT_TYPE_")
+            or item.type_code in {4, 9, 14, 15, 28, 32}
+            or any(token in name for token in HEALTH_FILE_NAME_TOKENS)
+            or "ACTIVITY" in name
+        )
+
+    @staticmethod
+    def _modern_sync_priority(item: GarminSyncFile) -> tuple[int, int, str]:
+        """Put immediately useful workout/wellness FIT families ahead of opaque FITs.
+
+        Full sync still inspects every bounded FIT candidate, including unknown
+        families, but a watch with a large historical archive should deliver
+        workouts and known health/sleep data before spending sessions inventorying
+        unsupported/unknown FIT families.
+        """
+        name = str(
+            item.type_name
+            or (f"FIT_TYPE_{item.type_code}" if item.type_code is not None else "")
+        ).upper()
+        preferred = bool(
+            name == "FIT_TYPE_4"
+            or name in HEALTH_FIT_TYPE_NAMES
+            or any(token in name for token in HEALTH_FILE_NAME_TOKENS)
+            or "ACTIVITY" in name
+        )
+        return (1 if preferred else 0, int(item.page_id or 0), item.file_id.key)
+
+    async def async_sync_catalog(self) -> tuple[str, list[GarminSyncFile | GarminDirectoryEntry]]:
+        """Return all bounded Garmin records Fitness can safely normalize.
+
+        Activity type 4 is joined by the standard Garmin/FIT wellness file
+        families (weight, blood pressure and monitoring A/daily/B). The actual
+        FIT payload is still content-classified after download; no health value
+        is inferred merely from the catalogue label.
+        """
         await self.async_best_effort_flush()
         if self.transport.supports_service_transfer:
             try:
                 modern = await self.async_modern_file_list()
-                activities = [item for item in modern if item.type_name == "FIT_TYPE_4" and item.size > 0]
-                if activities:
-                    activities.sort(key=lambda item: (item.page_id or 0, item.file_id.key), reverse=True)
-                    return "filesync_v2", activities
+                counts: dict[str, int] = {}
+                for item in modern:
+                    label = str(item.type_name or (f"FIT_TYPE_{item.type_code}" if item.type_code is not None else "unknown"))
+                    counts[label] = counts.get(label, 0) + 1
+                self.catalog_type_counts = dict(sorted(counts.items()))
+                candidates = [item for item in modern if self._modern_sync_candidate(item)]
+                if candidates:
+                    candidates.sort(key=self._modern_sync_priority, reverse=True)
+                    return "filesync_v2", candidates
             except asyncio.CancelledError:
                 raise
             except Exception:
                 _LOGGER.debug("Garmin modern FileSync unavailable; falling back to legacy directory", exc_info=True)
 
         directory = parse_directory(await self.async_download_legacy(0, max_bytes=2 * 1024 * 1024))
-        activities = [item for item in directory if item.is_activity and item.size > 0]
-        activities.sort(key=lambda item: (item.timestamp, item.index), reverse=True)
-        return "legacy_directory", activities
+        counts: dict[str, int] = {}
+        for item in directory:
+            label = f"legacy:{item.data_type}:{item.sub_type}"
+            counts[label] = counts.get(label, 0) + 1
+        self.catalog_type_counts = dict(sorted(counts.items()))
+        # Legacy data_type 128 is the FIT namespace.  Inspect every FIT subtype
+        # read-only and let the payload messages decide whether it contains a
+        # workout or supported health history. This also covers future Garmin
+        # wellness subtypes without guessing their numeric IDs.
+        candidates = [
+            item for item in directory
+            if item.size > 0 and item.data_type == 128
+        ]
+        # Preserve the full FIT namespace, but drain activity and standard
+        # wellness families first so an old archive cannot delay current useful
+        # data behind unsupported historical FIT subtypes.
+        preferred_subtypes = {4, 9, 14, 15, 28, 32}
+        candidates.sort(
+            key=lambda item: (
+                1 if item.sub_type in preferred_subtypes else 0,
+                item.timestamp,
+                item.index,
+            ),
+            reverse=True,
+        )
+        return "legacy_directory", candidates
 
-    async def async_download_activity(
+    async def async_activity_catalog(self) -> tuple[str, list[GarminSyncFile | GarminDirectoryEntry]]:
+        """Backward-compatible activity-only view of the richer sync catalogue."""
+        mode, records = await self.async_sync_catalog()
+        activities = [
+            item for item in records
+            if (
+                isinstance(item, GarminSyncFile)
+                and (
+                    str(item.type_name or "") == "FIT_TYPE_4"
+                    or item.type_code == 4
+                )
+            )
+            or (isinstance(item, GarminDirectoryEntry) and item.is_activity)
+        ]
+        return mode, activities
+
+    async def async_download_file(
         self,
         mode: str,
         item: GarminSyncFile | GarminDirectoryEntry,
@@ -898,9 +992,13 @@ class GarminGfdiSession:
             handle = await self.async_request_modern_file(item)
             compressed = await self.transport.async_download_service_file(handle, progress=progress)
             # Inflation is deliberately left to coordinator/executor code.
-            return GarminDownloadedFile(item.file_id.key, compressed, item.size, item.type_name or "FIT_TYPE_4", item.page_id)
+            return GarminDownloadedFile(item.file_id.key, compressed, item.size, item.type_name or "unknown", item.page_id)
 
         if not isinstance(item, GarminDirectoryEntry):
             raise TypeError("legacy Garmin activity record type mismatch")
         data = await self.async_download_legacy(item.index, max_bytes=min(MAX_LEGACY_FILE_BYTES, max(item.size, 1)))
-        return GarminDownloadedFile(item.key, data, item.size, "FIT_TYPE_4", None)
+        return GarminDownloadedFile(item.key, data, item.size, f"LEGACY_{item.data_type}_{item.sub_type}", None)
+
+    async def async_download_activity(self, mode, item, *, progress=None) -> GarminDownloadedFile:
+        """Backward-compatible alias for callers that still request activities."""
+        return await self.async_download_file(mode, item, progress=progress)

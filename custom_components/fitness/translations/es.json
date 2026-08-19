@@ -74,12 +74,14 @@
         "data": {
           "workout_device_ids": "Dispositivos que proporcionan historial de entrenamientos/fitness",
           "detailed_strength_analysis": "Análisis detallado de fuerza",
-          "workout_retention_days": "Retención de entrenamientos"
+          "workout_retention_days": "Retención de entrenamientos",
+          "fit_file_retention_count": "Archivos FIT/checkpoints a conservar"
         },
         "data_description": {
           "workout_device_ids": "Dispositivos de historial. Solo se preseleccionan contratos exactos soportados de Garmin, Strava, Polar, Hevy, Peloton y Oura.",
           "detailed_strength_analysis": "Analiza ejercicios/series, 1RM estimado y progreso por ejercicio cuando haya datos de fuerza.",
-          "workout_retention_days": "Días que se conservarán los entrenamientos canónicos de Fitness. 0 significa sin límite."
+          "workout_retention_days": "Días que se conservarán los entrenamientos canónicos de Fitness. 0 significa sin límite.",
+          "fit_file_retention_count": "Cantidad de registros FIT/checkpoints más recientes de Fitness que se conservan al limpiar. Nunca se eliminan archivos del dispositivo de origen."
         }
       },
       "ai": {
@@ -87,11 +89,17 @@
         "description": "La tarea de IA predeterminada de Home Assistant se selecciona por defecto. Fitness sigue automáticamente la preferencia actual del sistema; elige una tarea de IA o un agente de conversación específico solo si quieres fijarlo.",
         "data": {
           "ai_enabled": "Generar evaluaciones de fitness con IA",
-          "ai_entity": "Proveedor de IA"
+          "ai_entity": "Proveedor de IA",
+          "training_goal": "Objetivo de entrenamiento",
+          "training_goal_date": "Fecha objetivo / evento",
+          "training_days_per_week": "Días de entrenamiento preferidos por semana"
         },
         "data_description": {
           "ai_enabled": "Activa interpretación AI de cálculos deterministas. La AI nunca define ni cambia fórmulas o metadatos científicos de sensores.",
-          "ai_entity": "Usa la tarea de IA predeterminada de Home Assistant para seguir automáticamente la preferencia del sistema, o fija una tarea de IA / agente de conversación específico. Si el proveedor fijado deja de estar disponible, Fitness te avisa y usa temporalmente el predeterminado del sistema."
+          "ai_entity": "Usa la tarea de IA predeterminada de Home Assistant para seguir automáticamente la preferencia del sistema, o fija una tarea de IA / agente de conversación específico. Si el proveedor fijado deja de estar disponible, Fitness te avisa y usa temporalmente el predeterminado del sistema.",
+          "training_goal": "Describe tu objetivo, por ejemplo terminar un maratón cómodamente o mejorar el FTP de ciclismo. Fitness lo combina con historial, preparación y recuperación.",
+          "training_goal_date": "Fecha objetivo opcional; se usa solo como contexto de planificación.",
+          "training_days_per_week": "Número preferido de días de entrenamiento; la recuperación puede añadir días de descanso."
         }
       },
       "feedback": {
@@ -158,8 +166,8 @@
         "title": "Configurar Fitness",
         "description": "Elige qué quieres añadir primero. Podrás añadir la otra parte más adelante sin cambiar el flujo existente de creación del perfil.",
         "menu_options": {
-          "add_protocol": "Añadir protocolo de sensores",
-          "add_user": "Añadir perfil de usuario"
+          "add_user": "Añadir perfil de usuario",
+          "manage_protocols": "Gestionar protocolos de sensores"
         }
       },
       "add_user": {
@@ -167,13 +175,59 @@
         "description": "Continúa con la configuración normal del perfil de Fitness."
       },
       "add_protocol": {
-        "title": "Añadir protocolo de sensores",
-        "description": "Activa un transporte local de sensores. Fitness crea el dispositivo adaptador y mantiene el descubrimiento limitado y bajo control del usuario.",
+        "title": "Gestionar protocolos de sensores",
+        "description": "Elige qué protocolos usa Fitness y si el hardware compatible se detecta automáticamente o se selecciona manualmente. Los protocolos desactivados se ocultan en Fitness. Fitness nunca apaga físicamente hardware compartido del sistema.",
         "data": {
-          "protocol": "Protocolo"
+          "bluetooth": "Bluetooth para Fitness",
+          "bluetooth_automatic_hardware": "Detectar automáticamente hardware Bluetooth",
+          "antplus": "ANT+ para Fitness",
+          "antplus_automatic_hardware": "Detectar automáticamente hardware ANT+"
         },
         "data_description": {
-          "protocol": "Elige el transporte de radio local que Fitness debe activar ahora. El otro seguirá disponible pero desactivado hasta que lo habilites."
+          "bluetooth": "Elige qué protocolos usa Fitness y si el hardware compatible se detecta automáticamente o se selecciona manualmente. Los protocolos desactivados se ocultan en Fitness. Fitness nunca apaga físicamente hardware compartido del sistema.",
+          "bluetooth_automatic_hardware": "Elige qué protocolos usa Fitness y si el hardware compatible se detecta automáticamente o se selecciona manualmente. Los protocolos desactivados se ocultan en Fitness. Fitness nunca apaga físicamente hardware compartido del sistema.",
+          "antplus": "Elige qué protocolos usa Fitness y si el hardware compatible se detecta automáticamente o se selecciona manualmente. Los protocolos desactivados se ocultan en Fitness. Fitness nunca apaga físicamente hardware compartido del sistema.",
+          "antplus_automatic_hardware": "Elige qué protocolos usa Fitness y si el hardware compatible se detecta automáticamente o se selecciona manualmente. Los protocolos desactivados se ocultan en Fitness. Fitness nunca apaga físicamente hardware compartido del sistema."
+        }
+      },
+      "manage_protocols": {
+        "title": "Gestionar protocolos de sensores",
+        "description": "Elige qué protocolos usa Fitness y si el hardware compatible se detecta automáticamente o se selecciona manualmente. Los protocolos desactivados se ocultan en Fitness. Fitness nunca apaga físicamente hardware compartido del sistema.",
+        "data": {
+          "bluetooth": "Bluetooth para Fitness",
+          "bluetooth_automatic_hardware": "Detectar automáticamente hardware Bluetooth",
+          "antplus": "ANT+ para Fitness",
+          "antplus_automatic_hardware": "Detectar automáticamente hardware ANT+"
+        },
+        "data_description": {
+          "bluetooth": "Elige qué protocolos usa Fitness y si el hardware compatible se detecta automáticamente o se selecciona manualmente. Los protocolos desactivados se ocultan en Fitness. Fitness nunca apaga físicamente hardware compartido del sistema.",
+          "bluetooth_automatic_hardware": "Elige qué protocolos usa Fitness y si el hardware compatible se detecta automáticamente o se selecciona manualmente. Los protocolos desactivados se ocultan en Fitness. Fitness nunca apaga físicamente hardware compartido del sistema.",
+          "antplus": "Elige qué protocolos usa Fitness y si el hardware compatible se detecta automáticamente o se selecciona manualmente. Los protocolos desactivados se ocultan en Fitness. Fitness nunca apaga físicamente hardware compartido del sistema.",
+          "antplus_automatic_hardware": "Elige qué protocolos usa Fitness y si el hardware compatible se detecta automáticamente o se selecciona manualmente. Los protocolos desactivados se ocultan en Fitness. Fitness nunca apaga físicamente hardware compartido del sistema."
+        }
+      },
+      "manage_protocol_hardware": {
+        "title": "Selección manual de hardware",
+        "description": "Ejecuta una búsqueda limitada de hardware compatible o selecciona los adaptadores ya detectados por Fitness.",
+        "menu_options": {
+          "discover_protocol_hardware": "Buscar hardware ahora",
+          "select_protocol_hardware": "Seleccionar hardware detectado"
+        }
+      },
+      "discover_protocol_hardware": {
+        "title": "Búsqueda de hardware completada",
+        "description": "Ejecuta una búsqueda limitada de hardware compatible o selecciona los adaptadores ya detectados por Fitness."
+      },
+      "select_protocol_hardware": {
+        "title": "Selección manual de hardware",
+        "description": "Selecciona los adaptadores compatibles que Fitness puede utilizar en modo manual.",
+        "data": {
+          "bluetooth_hardware": "Adaptadores Bluetooth",
+          "antplus_hardware": "Adaptadores ANT+"
+        },
+        "data_description": {
+          "bluetooth_hardware": "Selecciona los adaptadores compatibles que Fitness puede utilizar en modo manual.",
+          "antplus_hardware": "Selecciona los adaptadores compatibles que Fitness puede utilizar en modo manual."
         }
       }
     },
@@ -191,7 +245,9 @@
       "no_fitness_profiles": "Crea un usuario de Fitness antes de asignar este sensor.",
       "invalid_discovery": "Los datos de descubrimiento del sensor de fitness no eran válidos.",
       "adapters_already_configured": "Todos los adaptadores en vivo de Fitness ya están configurados. Actívalos o desactívalos desde sus dispositivos adaptadores.",
-      "adapters_managed_on_devices": "Los adaptadores de sensores locales se configuran desde los dispositivos adaptadores ANT+ y Bluetooth."
+      "adapters_managed_on_devices": "Los adaptadores de sensores locales se configuran desde los dispositivos adaptadores ANT+ y Bluetooth.",
+      "protocol_enabled": "El protocolo de conexión seleccionado está activado.",
+      "protocols_updated": "Se actualizaron los protocolos de sensores de Fitness."
     }
   },
   "options": {
@@ -209,7 +265,7 @@
           "sensor_assignments": "Asignaciones de sensores",
           "tv_dashboard": "Panel Fitness TV",
           "smart_workout_devices": "Dispositivos de entrenamiento inteligentes",
-          "protocols": "Protocolos de sensores",
+          "protocols": "Gestionar protocolos de sensores",
           "features": "Funciones del panel",
           "about": "Acerca de Fitness"
         }
@@ -276,12 +332,14 @@
         "data": {
           "workout_device_ids": "Dispositivos que proporcionan historial de entrenamientos/fitness",
           "detailed_strength_analysis": "Análisis detallado de fuerza",
-          "workout_retention_days": "Retención de entrenamientos"
+          "workout_retention_days": "Retención de entrenamientos",
+          "fit_file_retention_count": "Archivos FIT/checkpoints a conservar"
         },
         "data_description": {
           "workout_device_ids": "Dispositivos de historial. Solo se preseleccionan contratos exactos soportados de Garmin, Strava, Polar, Hevy, Peloton y Oura.",
           "detailed_strength_analysis": "Analiza ejercicios/series, 1RM estimado y progreso por ejercicio cuando haya datos de fuerza.",
-          "workout_retention_days": "Días que se conservarán los entrenamientos canónicos de Fitness. 0 significa sin límite."
+          "workout_retention_days": "Días que se conservarán los entrenamientos canónicos de Fitness. 0 significa sin límite.",
+          "fit_file_retention_count": "Cantidad de registros FIT/checkpoints más recientes de Fitness que se conservan al limpiar. Nunca se eliminan archivos del dispositivo de origen."
         }
       },
       "ai": {
@@ -289,11 +347,17 @@
         "description": "La tarea de IA predeterminada de Home Assistant se selecciona por defecto. Fitness sigue automáticamente la preferencia actual del sistema; elige una tarea de IA o un agente de conversación específico solo si quieres fijarlo.",
         "data": {
           "ai_enabled": "Generar evaluaciones de fitness con IA",
-          "ai_entity": "Proveedor de IA"
+          "ai_entity": "Proveedor de IA",
+          "training_goal": "Objetivo de entrenamiento",
+          "training_goal_date": "Fecha objetivo / evento",
+          "training_days_per_week": "Días de entrenamiento preferidos por semana"
         },
         "data_description": {
           "ai_enabled": "Activa interpretación AI de cálculos deterministas. La AI nunca define ni cambia fórmulas o metadatos científicos de sensores.",
-          "ai_entity": "Usa la tarea de IA predeterminada de Home Assistant para seguir automáticamente la preferencia del sistema, o fija una tarea de IA / agente de conversación específico. Si el proveedor fijado deja de estar disponible, Fitness te avisa y usa temporalmente el predeterminado del sistema."
+          "ai_entity": "Usa la tarea de IA predeterminada de Home Assistant para seguir automáticamente la preferencia del sistema, o fija una tarea de IA / agente de conversación específico. Si el proveedor fijado deja de estar disponible, Fitness te avisa y usa temporalmente el predeterminado del sistema.",
+          "training_goal": "Describe tu objetivo, por ejemplo terminar un maratón cómodamente o mejorar el FTP de ciclismo. Fitness lo combina con historial, preparación y recuperación.",
+          "training_goal_date": "Fecha objetivo opcional; se usa solo como contexto de planificación.",
+          "training_days_per_week": "Número preferido de días de entrenamiento; la recuperación puede añadir días de descanso."
         }
       },
       "feedback": {
@@ -419,15 +483,19 @@
         }
       },
       "protocols": {
-        "title": "Protocolos de sensores",
-        "description": "Activa o desactiva transportes locales. Un transporte que esté en uso no se apagará hasta que termine la sesión.",
+        "title": "Gestionar protocolos de sensores",
+        "description": "Elige qué protocolos usa Fitness y si el hardware compatible se detecta automáticamente o se selecciona manualmente. Los protocolos desactivados se ocultan en Fitness. Fitness nunca apaga físicamente hardware compartido del sistema.",
         "data": {
-          "bluetooth": "Protocolo Bluetooth",
-          "antplus": "Protocolo ANT+"
+          "bluetooth": "Bluetooth para Fitness",
+          "bluetooth_automatic_hardware": "Detectar automáticamente hardware Bluetooth",
+          "antplus": "ANT+ para Fitness",
+          "antplus_automatic_hardware": "Detectar automáticamente hardware ANT+"
         },
         "data_description": {
-          "bluetooth": "Activa el transporte Bluetooth de Home Assistant para sensores Fitness locales y archivos de dispositivos compatibles.",
-          "antplus": "Activa el transporte ANT+ local para receptores USB y sensores Fitness compatibles."
+          "bluetooth": "Elige qué protocolos usa Fitness y si el hardware compatible se detecta automáticamente o se selecciona manualmente. Los protocolos desactivados se ocultan en Fitness. Fitness nunca apaga físicamente hardware compartido del sistema.",
+          "bluetooth_automatic_hardware": "Elige qué protocolos usa Fitness y si el hardware compatible se detecta automáticamente o se selecciona manualmente. Los protocolos desactivados se ocultan en Fitness. Fitness nunca apaga físicamente hardware compartido del sistema.",
+          "antplus": "Elige qué protocolos usa Fitness y si el hardware compatible se detecta automáticamente o se selecciona manualmente. Los protocolos desactivados se ocultan en Fitness. Fitness nunca apaga físicamente hardware compartido del sistema.",
+          "antplus_automatic_hardware": "Elige qué protocolos usa Fitness y si el hardware compatible se detecta automáticamente o se selecciona manualmente. Los protocolos desactivados se ocultan en Fitness. Fitness nunca apaga físicamente hardware compartido del sistema."
         }
       },
       "features": {
@@ -455,6 +523,30 @@
       "about": {
         "title": "Acerca de Fitness",
         "description": "Versión instalada: {version}\n\n{changelog}"
+      },
+      "protocol_hardware": {
+        "title": "Selección manual de hardware",
+        "description": "Ejecuta una búsqueda limitada de hardware compatible o selecciona los adaptadores ya detectados por Fitness.",
+        "menu_options": {
+          "protocol_hardware_discover": "Buscar hardware ahora",
+          "protocol_hardware_select": "Seleccionar hardware detectado"
+        }
+      },
+      "protocol_hardware_discover": {
+        "title": "Búsqueda de hardware completada",
+        "description": "Ejecuta una búsqueda limitada de hardware compatible o selecciona los adaptadores ya detectados por Fitness."
+      },
+      "protocol_hardware_select": {
+        "title": "Selección manual de hardware",
+        "description": "Selecciona los adaptadores compatibles que Fitness puede utilizar en modo manual.",
+        "data": {
+          "bluetooth_hardware": "Adaptadores Bluetooth",
+          "antplus_hardware": "Adaptadores ANT+"
+        },
+        "data_description": {
+          "bluetooth_hardware": "Selecciona los adaptadores compatibles que Fitness puede utilizar en modo manual.",
+          "antplus_hardware": "Selecciona los adaptadores compatibles que Fitness puede utilizar en modo manual."
+        }
       }
     },
     "abort": {
@@ -3366,10 +3458,11 @@
         "name": "Backend de sincronización local"
       },
       "garmin_sync_state": {
-        "name": "Estado de sincronización de entrenamientos",
+        "name": "Estado de sincronización del dispositivo",
         "state": {
           "idle": "Inactivo",
           "waiting": "En espera",
+          "cooldown": "Espera del dispositivo",
           "connecting": "Conectando",
           "syncing": "Sincronizando",
           "ready": "Actualizado",
@@ -3388,10 +3481,10 @@
         "name": "Entrenamientos en el dispositivo"
       },
       "garmin_imported_file_count": {
-        "name": "Archivos de entrenamiento importados"
+        "name": "Archivos del dispositivo descargados"
       },
       "garmin_pending_file_count": {
-        "name": "Archivos de entrenamiento pendientes"
+        "name": "Archivos del dispositivo pendientes"
       },
       "garmin_downloaded_bytes": {
         "name": "Bytes descargados"
@@ -3419,6 +3512,15 @@
       },
       "garmin_latest_workout": {
         "name": "Último entrenamiento del dispositivo"
+      },
+      "garmin_last_batch_success": {
+        "name": "Último lote correcto"
+      },
+      "garmin_next_attempt": {
+        "name": "Próximo intento de sincronización"
+      },
+      "garmin_quarantined_file_count": {
+        "name": "Archivos ilegibles omitidos"
       }
     },
     "binary_sensor": {
@@ -3449,10 +3551,13 @@
         "name": "Sincronizar entrenamientos ahora"
       },
       "garmin_sync_workouts": {
-        "name": "Sincronizar entrenamientos Garmin"
+        "name": "Sincronizar Garmin ahora"
       },
       "adapter_scan_now": {
         "name": "Buscar ahora"
+      },
+      "sync_device_data": {
+        "name": "Sincronizar datos del dispositivo"
       },
       "sync_device_health_history": {
         "name": "Sincronizar historial de salud del dispositivo"

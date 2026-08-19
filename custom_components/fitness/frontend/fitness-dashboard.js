@@ -1,6 +1,6 @@
-const FITNESS_DASHBOARD_VERSION = "unreleased-85";
-const FITNESS_TV_DASHBOARD_CARD_TAG = "fitness-tv-dashboard-card-v75";
-const FITNESS_TV_SETUP_CARD_TAG = "fitness-tv-setup-card-v75";
+const FITNESS_DASHBOARD_VERSION = "unreleased-89";
+const FITNESS_TV_DASHBOARD_CARD_TAG = "fitness-tv-dashboard-card-v76";
+const FITNESS_TV_SETUP_CARD_TAG = "fitness-tv-setup-card-v76";
 const FITNESS_TV_LOVELACE_DASHBOARD_CARD_TAG = "fitness-tv-dashboard-card";
 const FITNESS_TV_LOVELACE_SETUP_CARD_TAG = "fitness-tv-setup-card";
 const FITNESS_BRAND_ICON_PATH = "/fitness/brand/icon.png";
@@ -1731,6 +1731,15 @@ class FitnessTodayCard extends FitnessAutoProfileCard {
     }
     const vo2 = _fitnessEvaluationSourceMetric(this._profile,this._hass,"vo2max",1);
     if (vo2?.canonicalValue != null) itemsList.push(`<div class="today-item entity-link" data-more-info="${_fitnessEscape(vo2.moreInfoEntityId||"")}"><span>${_fitnessEscape(l.current_vo2max)}</span><strong>${vo2.canonicalValue.toFixed(1)} mL/kg/min</strong></div>`);
+    const today = this._profile?.today_summary || {};
+    const metricLabels = {steps:"Steps",distance_m:"Distance",calories:"Calories",active_minutes:"Active minutes",heart_rate:"Heart rate",hrv:"HRV",hrv_ms:"HRV",spo2:"SpO₂",stress:"Stress",skin_temperature:"Skin temperature"};
+    for (const [key,point] of Object.entries(today.metrics||{})) {
+      if (point?.value == null || itemsList.length >= 12) continue;
+      let value = point.value;
+      if (key === "distance_m" && Number.isFinite(Number(value))) value = `${(Number(value)/1000).toFixed(2)} km`;
+      itemsList.push(`<div class="today-item"><span>${_fitnessEscape(metricLabels[key]||key.replaceAll("_"," "))}</span><strong>${_fitnessEscape(String(value))}</strong></div>`);
+    }
+    if (Number(today.workouts||0) > 0) itemsList.push(`<div class="today-item"><span>Workouts today</span><strong>${Number(today.workouts)}</strong></div>`);
     const items = itemsList.join("");
     if (!items) { this.shadowRoot.innerHTML = ""; return; }
     this.shadowRoot.innerHTML = `<ha-card><div class="today-head"><div><strong>${_fitnessEscape(this.config.title || l.overview)}</strong><span>${_fitnessEscape(this._profile?.profile_name || "")}</span></div><ha-icon icon="mdi:heart-pulse"></ha-icon></div><div class="today-grid">${items}</div></ha-card><style>
@@ -3005,6 +3014,7 @@ class FitnessLiveWorkoutCard extends FitnessAutoProfileCard {
     return this._profile?.live_entity_keys || [
       "session_status","session_duration","current_heart_rate","current_power",
       "current_cadence","current_speed","current_pace","current_distance",
+      "active_workout_instruction","active_workout_step",
       "start_workout","pause_workout","resume_workout","stop_workout",
     ];
   }
@@ -3029,7 +3039,11 @@ class FitnessLiveWorkoutCard extends FitnessAutoProfileCard {
           "session_status","session_duration","current_heart_rate","current_power",
           "current_cadence","current_speed","current_pace","current_distance",
         ];
-    const metrics = metricKeys.map((key) => {
+    const guidedInstructionState=e.active_workout_instruction?this._hass.states[e.active_workout_instruction]:null;
+    const guidedStepState=e.active_workout_step?this._hass.states[e.active_workout_step]:null;
+    const guidedInstruction=guidedInstructionState&&!['unknown','unavailable'].includes(String(guidedInstructionState.state))?String(guidedInstructionState.state):'';
+    const guidedStep=guidedStepState&&!['unknown','unavailable'].includes(String(guidedStepState.state))?String(guidedStepState.state):'';
+    const metrics = metricKeys.filter((key)=>!['active_workout_instruction','active_workout_step'].includes(key)).map((key) => {
       const id = e[key];
       const state = id ? this._hass.states[id] : null;
       if (!id || !state || ["unavailable","unknown"].includes(state.state)) return "";
@@ -3075,6 +3089,7 @@ class FitnessLiveWorkoutCard extends FitnessAutoProfileCard {
 
     this.shadowRoot.innerHTML = `<ha-card data-session-state="${sessionState}">
       <div class="live-head"><ha-icon icon="mdi:run-fast"></ha-icon><div><strong>${_fitnessEscape(this.config.title || l.live || l.current)}</strong><span>${_fitnessEscape(this._profile.profile_name || "")}</span></div></div>
+      ${guidedInstruction?`<div class="guided"><div><small>${_fitnessEscape(guidedStep||'GUIDED WORKOUT')}</small><strong>${_fitnessEscape(guidedInstruction)}</strong></div><div class="guided-nav"><button data-step="-1"><ha-icon icon="mdi:chevron-left"></ha-icon></button><button data-step="1"><ha-icon icon="mdi:chevron-right"></ha-icon></button></div></div>`:''}
       ${motion}
       <div class="live-grid">${allMetrics || `<div class="live-empty">${_fitnessEscape(l.no_live_data)}</div>`}</div>
       ${controls ? `<div class="live-controls">${controls}</div>` : ""}
@@ -3089,6 +3104,7 @@ class FitnessLiveWorkoutCard extends FitnessAutoProfileCard {
       ha-card[data-session-state="paused"]{--fitness-card-accent:#ff9800;background:linear-gradient(135deg,color-mix(in srgb,#ff9800 19%,var(--secondary-background-color)),var(--secondary-background-color))}
       ha-card[data-session-state="recovery"]{--fitness-card-accent:#26a69a;background:linear-gradient(135deg,color-mix(in srgb,#26a69a 19%,var(--secondary-background-color)),var(--secondary-background-color))}
       .live-grid,.live-controls{padding:0;background:transparent}
+      .guided{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin:0 0 8px;padding:10px 11px;border-radius:13px;background:color-mix(in srgb,var(--fitness-card-accent) 10%,var(--card-background-color));border:1px solid color-mix(in srgb,var(--fitness-card-accent) 26%,var(--divider-color))}.guided small,.guided strong{display:block}.guided small{font-size:9px;color:var(--secondary-text-color);letter-spacing:.08em}.guided strong{font-size:13px;line-height:1.35;margin-top:3px}.guided-nav{display:flex;gap:4px}.guided-nav button{border:0;border-radius:9px;width:32px;height:32px;background:var(--secondary-background-color);color:var(--primary-text-color);display:grid;place-items:center}.guided-nav ha-icon{--mdc-icon-size:18px}
       .live-motion{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px;margin:0 0 6px}
       .live-motion-card{display:grid;grid-template-columns:38px minmax(0,1fr);align-items:center;gap:8px;padding:7px 9px;border-radius:12px;background:color-mix(in srgb,var(--fitness-card-accent) 7%,var(--card-background-color));border:1px solid color-mix(in srgb,var(--fitness-card-accent) 18%,var(--divider-color));overflow:hidden}
       .live-motion-card>span:last-child{min-width:0}.live-motion-card small,.live-motion-card strong{display:block}.live-motion-card small{font-size:9px;color:var(--secondary-text-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.live-motion-card strong{font-size:15px;margin-top:1px}.heart-orb,.run-orb{position:relative;width:34px;height:34px;display:grid;place-items:center;border-radius:50%;color:var(--fitness-card-accent);background:color-mix(in srgb,var(--fitness-card-accent) 14%,transparent)}
@@ -3129,6 +3145,12 @@ class FitnessLiveWorkoutCard extends FitnessAutoProfileCard {
         event.preventDefault();
         event.stopPropagation();
         _fitnessOpenMoreInfo(this, metric.dataset.moreInfo);
+      });
+    }
+    for (const button of this.shadowRoot.querySelectorAll("[data-step]")) {
+      button.addEventListener("click", async (event) => {
+        event.preventDefault(); event.stopPropagation();
+        try { await this._hass.callWS({type:"fitness/training/step",profile_entry_id:this._profile.entry_id,delta:Number(button.dataset.step)}); } catch (_err) {}
       });
     }
     for (const button of this.shadowRoot.querySelectorAll(".live-control")) {
@@ -3223,72 +3245,27 @@ class FitnessWorkoutRpeCard extends FitnessAutoProfileCard {
   }
 }
 
-class FitnessWorkoutCard extends FitnessCompositeCard {
-  _relevantEntityKeys() {
-    return [
-      "last_workout_hrr_60s","last_workout_banister_trimp",
-      "last_workout_aerobic_efficiency","last_workout_aerobic_decoupling",
-      "last_workout_efficiency_vs_baseline","last_workout_decoupling_vs_baseline",
-      "last_workout_hr_vs_baseline","last_workout_power_vs_baseline",
-      "last_workout_speed_vs_baseline","last_workout_trimp_vs_recent",
-      "session_rpe","last_workout_session_rpe_load","last_workout_rpe_load_vs_baseline",
-      "last_workout_fitness_aerobic_load","last_workout_fitness_high_intensity_load",
-      "last_workout_strength_sets","last_workout_estimated_1rm","last_workout_strength_progression",
-    ];
-  }
-
-  _extraSignatureParts() {
-    const sourceSignature = _fitnessWorkoutSourceSignature(this._profile, this._hass);
-    return [sourceSignature, ...(this._profile?.route_candidates || []).map((route) => {
-      const state = this._hass?.states?.[route.entity_id];
-      const value = state?.attributes?.[route.attribute];
-      let encoded = "";
-      try { encoded = JSON.stringify(value); } catch (_err) { encoded = String(value ?? ""); }
-      return `route:${route.entity_id}:${route.attribute}:${encoded}`;
-    })];
-  }
-
-  _render() {
-    if (!this.shadowRoot || !this._hass || !this._profile) return;
-    const l = this._profile.labels || {};
-    const meaningful = (value) => {
-      if (value === null || value === undefined) return false;
-      const text = String(value).trim();
-      if (!text || ["unknown","unavailable","none","null","nan"].includes(text.toLowerCase())) return false;
-      const number = Number(text);
-      return Number.isFinite(number) ? Math.abs(number) > 1e-9 : true;
-    };
-    const sourceRoutes = this._profile?.workout_source_metrics || {};
-    const hasWorkout = Boolean(this._profile?.latest_workout?.available) || Object.values(sourceRoutes).some((route) => {
-      if (!route || typeof route !== "object") return false;
-      if (meaningful(route.value ?? route.configured_value)) return true;
-      const state = route.entity_id ? this._hass.states?.[route.entity_id] : null;
-      return meaningful(state?.state);
-    });
-    if (!hasWorkout) {
-      this.shadowRoot.innerHTML = "";
-      this._compositeChildren = [];
-      this._compositeBuilt = true;
-      this._compositeSignatureValue = this._compositeSignature();
-      return;
-    }
-    const hasRoute = (this._profile.route_candidates || []).length > 0;
-    const children = [this._mount("fitness-workout-highlights-card")];
-    if (hasRoute) {
-      children.push(this._mount("fitness-route-card", {height: Number(this.config.map_height || 330)}));
-    }
-    const e = this._profile.entities || {};
-    if (e.session_rpe && this._profile?.latest_workout?.available) {
-      children.push(this._mount("fitness-workout-rpe-card"));
-    }
-    if (["last_workout_efficiency_vs_baseline","last_workout_decoupling_vs_baseline","last_workout_power_vs_baseline","last_workout_speed_vs_baseline","last_workout_trimp_vs_recent"].some(k => e[k])) {
-      children.push(this._mount("fitness-comparison-card"));
-    }
-    if (e.last_workout_strength_sets && this._hass.states[e.last_workout_strength_sets]?.attributes?.strength_analysis) {
-      children.push(this._mount("fitness-strength-details-card"));
-    }
-    this._shell(this.config.title || l.latest_workout, "mdi:run", children, "var(--primary-color)");
-  }
+class FitnessWorkoutCard extends FitnessAutoProfileCard {
+  setConfig(config){super.setConfig(config);this._rows=[];this._loaded=false;this._loading=false;this._selectedUid=null;this._showMore=false;}
+  getCardSize(){return 8;}
+  async _loadWorkouts(){if(this._loading||!this._hass||!this._profile?.entry_id)return;this._loading=true;try{const r=await this._hass.callWS({type:"fitness/workouts/list",profile_entry_id:this._profile.entry_id,limit:500});this._rows=Array.isArray(r?.workouts)?r.workouts:[];if(this._selectedUid&&!this._rows.some(w=>w.uid===this._selectedUid))this._selectedUid=null;}catch(_err){this._rows=[];}finally{this._loading=false;this._loaded=true;this._render();}}
+  _selectedIndex(){if(!this._rows.length)return-1;if(this._selectedUid){const i=this._rows.findIndex(w=>w.uid===this._selectedUid);if(i>=0)return i;}return 0;}
+  _selected(){const i=this._selectedIndex();return i>=0?this._rows[i]:null;}
+  _track(w){const extra=w?.extra||{};const direct=extra.gps_track||extra.gps_points||w?.gps_track||w?.gps_points;if(Array.isArray(direct)&&direct.length>=2)return direct;for(const [key,value] of Object.entries(extra)){const leaf=String(key).split(".").pop();if((leaf==="gps_track"||leaf==="gps_points")&&Array.isArray(value)&&value.length>=2)return value;}return null;}
+  _trackSvg(track){if(!Array.isArray(track)||track.length<2)return"";const pts=track.map(p=>Array.isArray(p)?p:[p.latitude??p.lat,p.longitude??p.lon??p.lng]).filter(p=>Number.isFinite(Number(p[0]))&&Number.isFinite(Number(p[1])));if(pts.length<2)return"";const ys=pts.map(p=>Number(p[0])),xs=pts.map(p=>Number(p[1])),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),dx=maxX-minX||1,dy=maxY-minY||1;const poly=pts.map(p=>`${3+((Number(p[1])-minX)/dx)*94},${97-((Number(p[0])-minY)/dy)*94}`).join(" ");return `<div class="route-wrap"><svg class="selected-route" viewBox="0 0 100 100" preserveAspectRatio="none"><polyline points="${poly}" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg><div class="route-badge"><ha-icon icon="mdi:map-marker-path"></ha-icon>${pts.length} GPS</div></div>`;}
+  _fmtDuration(value){const s=Number(value);if(!Number.isFinite(s)||s<=0)return null;const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=Math.round(s%60);return h?`${h}h ${m}m`:m?`${m}m ${sec}s`:`${sec}s`;}
+  _pace(w){const d=Number(w.distance_m),s=Number(w.moving_time_s||w.duration_s);if(!(d>0&&s>0))return null;const minKm=(s/60)/(d/1000);const mm=Math.floor(minKm),ss=Math.round((minKm-mm)*60);return `${mm}:${String(ss).padStart(2,'0')} /km`;}
+  _fact(icon,label,value){if(value===null||value===undefined||value===''||value==='unknown'||value==='unavailable')return"";return `<div class="fact"><ha-icon icon="${icon}"></ha-icon><span>${_fitnessEscape(label)}</span><strong>${_fitnessEscape(String(value))}</strong></div>`;}
+  _primaryFacts(w){const sport=String(w.sport||'').toLowerCase();const out=[];const dist=Number(w.distance_m);const dur=this._fmtDuration(w.duration_s||w.elapsed_time_s);if(dur)out.push(this._fact('mdi:timer-outline','Duration',dur));if(dist>0)out.push(this._fact('mdi:map-marker-distance','Distance',`${(dist/1000).toFixed(dist>=10000?1:2)} km`));if(sport.includes('run')||sport.includes('walk')||sport.includes('trail')){const pace=this._pace(w);if(pace)out.push(this._fact('mdi:speedometer','Pace',pace));if(Number(w.avg_hr)>0)out.push(this._fact('mdi:heart-pulse','Avg HR',`${Math.round(Number(w.avg_hr))} bpm`));if(Number(w.elevation_gain_m)>0)out.push(this._fact('mdi:image-filter-hdr','Elevation',`${Math.round(Number(w.elevation_gain_m))} m`));if(Number(w.avg_cadence)>0)out.push(this._fact('mdi:shoe-print','Cadence',`${Math.round(Number(w.avg_cadence))} spm`));}
+    else if(sport.includes('cycl')||sport.includes('bike')){if(Number(w.avg_power)>0)out.push(this._fact('mdi:lightning-bolt','Avg power',`${Math.round(Number(w.avg_power))} W`));if(Number(w.weighted_power)>0)out.push(this._fact('mdi:flash-outline','Weighted power',`${Math.round(Number(w.weighted_power))} W`));if(Number(w.avg_hr)>0)out.push(this._fact('mdi:heart-pulse','Avg HR',`${Math.round(Number(w.avg_hr))} bpm`));if(Number(w.avg_cadence)>0)out.push(this._fact('mdi:rotate-360','Cadence',`${Math.round(Number(w.avg_cadence))} rpm`));if(Number(w.elevation_gain_m)>0)out.push(this._fact('mdi:image-filter-hdr','Elevation',`${Math.round(Number(w.elevation_gain_m))} m`));}
+    else if(sport.includes('strength')||sport.includes('weight')){if(Number(w.strength_total_sets)>0)out.push(this._fact('mdi:counter','Sets',Math.round(Number(w.strength_total_sets))));if(Number(w.total_reps)>0)out.push(this._fact('mdi:repeat','Reps',Math.round(Number(w.total_reps))));if(Number(w.volume_kg)>0)out.push(this._fact('mdi:weight-kilogram','Volume',`${Math.round(Number(w.volume_kg))} kg`));if(Number(w.strength_best_estimated_1rm_kg)>0)out.push(this._fact('mdi:arm-flex','Best e1RM',`${Number(w.strength_best_estimated_1rm_kg).toFixed(1)} kg`));if(Number(w.avg_hr)>0)out.push(this._fact('mdi:heart-pulse','Avg HR',`${Math.round(Number(w.avg_hr))} bpm`));}
+    else {if(Number(w.avg_hr)>0)out.push(this._fact('mdi:heart-pulse','Avg HR',`${Math.round(Number(w.avg_hr))} bpm`));if(Number(w.calories)>0)out.push(this._fact('mdi:fire','Calories',`${Math.round(Number(w.calories))} kcal`));if(Number(w.training_load)>0)out.push(this._fact('mdi:chart-bell-curve-cumulative','Training load',Math.round(Number(w.training_load))));}
+    return out.filter(Boolean).slice(0,6).join('');}
+  _allFacts(w){return [...Object.entries(w),...Object.entries(w.extra||{})].filter(([k,v])=>!['uid','extra','provider_values','field_sources','gps_track','gps_points'].includes(String(k).split('.').pop())&&v!==null&&v!==undefined&&v!==''&&typeof v!=='object').map(([k,v])=>{const label=String(k).split('.').pop().replaceAll('_',' ');return this._fact('mdi:circle-small',label,v);}).filter(Boolean).join('');}
+  async _delete(){const w=this._selected();if(!w||!window.confirm(`Delete ${w.name||w.sport||"workout"}?`))return;await this._hass.callWS({type:"fitness/workouts/delete",profile_entry_id:this._profile.entry_id,workout_ids:[w.uid]});this._selectedUid=null;this._loaded=false;await this._loadWorkouts();}
+  async _edit(){const w=this._selected();if(!w)return;const name=window.prompt("Workout name",w.name||"");if(name===null)return;const sport=window.prompt("Sport",w.sport||"");if(sport===null)return;await this._hass.callWS({type:"fitness/workouts/edit",profile_entry_id:this._profile.entry_id,workout_id:w.uid,updates:{name,sport}});this._selectedUid=w.uid;this._loaded=false;await this._loadWorkouts();}
+  _openHistory(){const dialog=this.shadowRoot?.querySelector("dialog");try{dialog?.showModal?.();}catch(_err){dialog?.setAttribute("open","");}}
+  _render(){if(!this.shadowRoot||!this._hass||!this._profile)return;if(!this._loaded&&!this._loading){this._loadWorkouts();return;}const w=this._selected();if(!w){this.shadowRoot.innerHTML="";return;}const idx=this._selectedIndex(),track=this._track(w),map=this._trackSvg(track),primary=this._primaryFacts(w),all=this._showMore?this._allFacts(w):"";const sport=String(w.sport||'workout').replaceAll('_',' ');this.shadowRoot.innerHTML=`<ha-card><header><div class="icon"><ha-icon icon="mdi:dumbbell"></ha-icon></div><div class="title"><strong>${_fitnessEscape(this.config.title||"Workouts")}</strong><span>${_fitnessEscape(w.name||sport)} · ${_fitnessEscape(_fitnessDateLabel(w.start))}</span></div><div class="tools"><button data-prev title="Previous workout" ${idx>=this._rows.length-1?'disabled':''}><ha-icon icon="mdi:chevron-left"></ha-icon></button><button data-next title="Next workout" ${idx<=0?'disabled':''}><ha-icon icon="mdi:chevron-right"></ha-icon></button><button class="history" title="Workout history"><ha-icon icon="mdi:calendar-heart"></ha-icon></button><button data-edit title="Edit"><ha-icon icon="mdi:pencil-outline"></ha-icon></button><button data-delete class="danger" title="Delete"><ha-icon icon="mdi:delete-outline"></ha-icon></button></div></header>${map?`<div class="strava">${map}<div class="map-stats">${primary}</div></div>`:`<div class="hero-facts">${primary}</div>`}<button class="more">${this._showMore?'Less':'… More'}</button>${this._showMore?`<div class="all-facts">${all}</div>`:''}<dialog><fitness-workout-browser-card></fitness-workout-browser-card></dialog></ha-card><style>ha-card{padding:14px 16px;border-radius:22px;overflow:hidden}header{display:flex;align-items:center;gap:10px}.icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--primary-color) 14%,transparent);color:var(--primary-color)}.title{min-width:0;flex:1}.title strong,.title span{display:block}.title strong{font-size:17px}.title span{font-size:11px;color:var(--secondary-text-color);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tools{display:flex;gap:5px;flex-wrap:nowrap}.tools button,.more{border:0;border-radius:10px;background:var(--secondary-background-color);color:var(--primary-text-color);height:34px;min-width:34px;padding:0 8px;display:grid;place-items:center;cursor:pointer}.tools button ha-icon{--mdc-icon-size:18px}.tools .danger{color:var(--error-color)}button:disabled{opacity:.3}.strava{margin-top:12px;border-radius:18px;overflow:hidden;background:linear-gradient(150deg,color-mix(in srgb,var(--primary-color) 10%,var(--secondary-background-color)),var(--secondary-background-color));border:1px solid color-mix(in srgb,var(--divider-color) 65%,transparent)}.route-wrap{position:relative;height:230px;padding:10px;background:radial-gradient(circle at 30% 20%,color-mix(in srgb,var(--primary-color) 14%,transparent),transparent 55%)}.selected-route{width:100%;height:100%;color:var(--primary-color);filter:drop-shadow(0 2px 4px color-mix(in srgb,var(--primary-color) 32%,transparent))}.route-badge{position:absolute;top:10px;right:10px;display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:999px;background:color-mix(in srgb,var(--card-background-color) 82%,transparent);backdrop-filter:blur(8px);font-size:10px;font-weight:700}.route-badge ha-icon{--mdc-icon-size:14px}.map-stats,.hero-facts,.all-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:7px}.map-stats{padding:10px}.hero-facts{margin-top:12px}.all-facts{margin-top:8px}.fact{display:grid;grid-template-columns:20px minmax(0,1fr);grid-template-areas:'i l' 'i v';column-gap:7px;padding:9px 10px;border-radius:12px;background:color-mix(in srgb,var(--secondary-background-color) 86%,transparent);min-width:0}.fact ha-icon{grid-area:i;align-self:center;--mdc-icon-size:18px;color:var(--primary-color)}.fact span{grid-area:l;font-size:9px;color:var(--secondary-text-color);text-transform:capitalize;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fact strong{grid-area:v;font-size:13px;margin-top:2px;overflow-wrap:anywhere}.more{margin:10px 0 0 auto;display:block;height:30px;font-size:11px;padding:0 11px}dialog{border:0;padding:0;border-radius:22px;background:var(--card-background-color);color:var(--primary-text-color);width:min(720px,calc(100vw - 28px));max-height:calc(100vh - 80px);box-shadow:0 20px 60px rgba(0,0,0,.35)}dialog::backdrop{background:rgba(0,0,0,.38)}@media(max-width:650px){.tools{gap:2px}.tools button{min-width:30px;width:30px;padding:0}.route-wrap{height:180px}.title span{max-width:180px}.map-stats,.hero-facts,.all-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}</style>`;const browser=this.shadowRoot.querySelector('fitness-workout-browser-card');if(browser){browser.setConfig({profile_entry_id:this._profile.entry_id,selection_mode:true,selected_uid:w.uid});browser.hass=this._hass;browser.addEventListener('fitness-workout-selected',(ev)=>{this._selectedUid=ev.detail?.uid||null;this._showMore=false;this.shadowRoot.querySelector('dialog')?.close();this._render();});browser.addEventListener('fitness-workout-history-close',()=>this.shadowRoot.querySelector('dialog')?.close());}this.shadowRoot.querySelector('.history')?.addEventListener('click',()=>this._openHistory());this.shadowRoot.querySelector('[data-prev]')?.addEventListener('click',()=>{if(idx<this._rows.length-1){this._selectedUid=this._rows[idx+1].uid;this._showMore=false;this._render();}});this.shadowRoot.querySelector('[data-next]')?.addEventListener('click',()=>{if(idx>0){this._selectedUid=this._rows[idx-1].uid;this._showMore=false;this._render();}});this.shadowRoot.querySelector('[data-edit]')?.addEventListener('click',()=>this._edit());this.shadowRoot.querySelector('[data-delete]')?.addEventListener('click',()=>this._delete());this.shadowRoot.querySelector('.more')?.addEventListener('click',()=>{this._showMore=!this._showMore;this._render();});}
 }
 
 class FitnessSleepRecoveryCard extends FitnessCompositeCard {
@@ -3389,9 +3366,9 @@ class FitnessEvaluationCard extends FitnessCompositeCard {
 }
 
 const FITNESS_FEATURE_TEXT = Object.freeze({
-  en:{workout_browser:"Workout browser",delete_selected:"Delete selected",empty_all:"Empty workouts",no_workouts:"No workouts stored.",body_composition:"Body composition",weight:"Weight",bmi:"BMI",trend_30d:"30-day trend",body_fat:"Body fat",muscle_mass:"Muscle mass",body_water:"Body water",bone_mass:"Bone mass",training_ai:"Training AI coach",no_ai:"No AI coaching summary is available yet.",refresh:"Refresh",confirm_delete:"Delete selected workout(s)?",confirm_empty:"Empty all stored Fitness workouts? Previously deleted provider history will remain suppressed."},
-  el:{workout_browser:"Περιήγηση προπονήσεων",delete_selected:"Διαγραφή επιλεγμένων",empty_all:"Άδειασμα προπονήσεων",no_workouts:"Δεν υπάρχουν αποθηκευμένες προπονήσεις.",body_composition:"Σύσταση σώματος",weight:"Βάρος",bmi:"ΔΜΣ",trend_30d:"Τάση 30 ημερών",body_fat:"Σωματικό λίπος",muscle_mass:"Μυϊκή μάζα",body_water:"Νερό σώματος",bone_mass:"Οστική μάζα",training_ai:"AI προπονητής",no_ai:"Δεν υπάρχει ακόμη διαθέσιμη σύνοψη AI προπονητή.",refresh:"Ανανέωση",confirm_delete:"Να διαγραφούν οι επιλεγμένες προπονήσεις;",confirm_empty:"Να αδειάσουν όλες οι αποθηκευμένες προπονήσεις Fitness; Το διαγραμμένο ιστορικό παρόχων θα παραμείνει αποκλεισμένο."},
-  de:{workout_browser:"Workout-Browser",delete_selected:"Auswahl löschen",empty_all:"Workouts leeren",no_workouts:"Keine Workouts gespeichert.",body_composition:"Körperzusammensetzung",weight:"Gewicht",bmi:"BMI",trend_30d:"30-Tage-Trend",body_fat:"Körperfett",muscle_mass:"Muskelmasse",body_water:"Körperwasser",bone_mass:"Knochenmasse",training_ai:"KI-Trainingscoach",no_ai:"Noch keine KI-Coaching-Zusammenfassung verfügbar.",refresh:"Aktualisieren",confirm_delete:"Ausgewählte Workouts löschen?",confirm_empty:"Alle gespeicherten Fitness-Workouts leeren? Bereits gelöschte Provider-Historie bleibt unterdrückt."}
+  en:{workout_browser:"Workout browser",delete_selected:"Delete selected",empty_all:"Empty workouts",no_workouts:"No workouts stored.",body_composition:"Body composition",weight:"Weight",bmi:"BMI",trend_30d:"30-day trend",body_fat:"Body fat",muscle_mass:"Muscle mass",body_water:"Body water",bone_mass:"Bone mass",training_ai:"Training AI coach",today_plan:"Today’s training",rest_today:"Recovery day",last_workout_ai:"Last workout AI evaluation",live_analysis:"Live AI analysis",confidence:"Confidence",no_ai:"No AI coaching summary is available yet.",refresh:"Refresh",confirm_delete:"Delete selected workout(s)?",confirm_empty:"Empty all stored Fitness workouts? Previously deleted provider history will remain suppressed."},
+  el:{workout_browser:"Περιήγηση προπονήσεων",delete_selected:"Διαγραφή επιλεγμένων",empty_all:"Άδειασμα προπονήσεων",no_workouts:"Δεν υπάρχουν αποθηκευμένες προπονήσεις.",body_composition:"Σύσταση σώματος",weight:"Βάρος",bmi:"ΔΜΣ",trend_30d:"Τάση 30 ημερών",body_fat:"Σωματικό λίπος",muscle_mass:"Μυϊκή μάζα",body_water:"Νερό σώματος",bone_mass:"Οστική μάζα",training_ai:"AI προπονητής",today_plan:"Σημερινή προπόνηση",rest_today:"Ημέρα αποκατάστασης",last_workout_ai:"AI αξιολόγηση τελευταίας προπόνησης",live_analysis:"Ζωντανή ανάλυση AI",confidence:"Βεβαιότητα",no_ai:"Δεν υπάρχει ακόμη διαθέσιμη σύνοψη AI προπονητή.",refresh:"Ανανέωση",confirm_delete:"Να διαγραφούν οι επιλεγμένες προπονήσεις;",confirm_empty:"Να αδειάσουν όλες οι αποθηκευμένες προπονήσεις Fitness; Το διαγραμμένο ιστορικό παρόχων θα παραμείνει αποκλεισμένο."},
+  de:{workout_browser:"Workout-Browser",delete_selected:"Auswahl löschen",empty_all:"Workouts leeren",no_workouts:"Keine Workouts gespeichert.",body_composition:"Körperzusammensetzung",weight:"Gewicht",bmi:"BMI",trend_30d:"30-Tage-Trend",body_fat:"Körperfett",muscle_mass:"Muskelmasse",body_water:"Körperwasser",bone_mass:"Knochenmasse",training_ai:"KI-Trainingscoach",today_plan:"Heutiges Training",rest_today:"Erholungstag",last_workout_ai:"KI-Auswertung des letzten Trainings",live_analysis:"Live-KI-Analyse",confidence:"Sicherheit",no_ai:"Noch keine KI-Coaching-Zusammenfassung verfügbar.",refresh:"Aktualisieren",confirm_delete:"Ausgewählte Workouts löschen?",confirm_empty:"Alle gespeicherten Fitness-Workouts leeren? Bereits gelöschte Provider-Historie bleibt unterdrückt."}
 });
 function _fitnessFeatureText(profile,hass){
   const lang=String(profile?.language||hass?.language||"en").toLowerCase().split("-")[0];
@@ -3403,15 +3380,17 @@ function _fitnessDateLabel(value){
 }
 
 class FitnessWorkoutBrowserCard extends HTMLElement {
-  setConfig(config){this.config=config||{};this._profileId=this.config.profile_entry_id;this._rows=[];this._selected=new Set();this._loading=false;this._loaded=false;if(!this.shadowRoot)this.attachShadow({mode:"open"});}
+  setConfig(config){this.config=config||{};this._profileId=this.config.profile_entry_id;this._rows=[];this._loading=false;this._loaded=false;this._month=new Date();this._month.setDate(1);this._day=null;if(!this.shadowRoot)this.attachShadow({mode:"open"});}
   set hass(value){this._hass=value;if(!this._loaded&&this._profileId)this._load();}
   getCardSize(){return 5;}
-  async _load(){if(this._loading||!this._hass||!this._profileId)return;this._loading=true;this._render();try{const r=await this._hass.callWS({type:"fitness/workouts/list",profile_entry_id:this._profileId,limit:100});this._rows=Array.isArray(r?.workouts)?r.workouts:[];this._total=Number(r?.total||this._rows.length);this._loaded=true;}catch(e){this._error=String(e?.message||e);}finally{this._loading=false;this._render();}}
-  async _deleteSelected(){if(!this._selected.size)return;const ids=[...this._selected];const profile=window.__fitnessDashboardProfiles?.get?.(this._profileId)||null;const t=_fitnessFeatureText(profile,this._hass);if(!window.confirm(`${t.confirm_delete} (${ids.length})`))return;this._loading=true;this._render();try{await this._hass.callWS({type:"fitness/workouts/delete",profile_entry_id:this._profileId,workout_ids:ids});this._selected.clear();this._loaded=false;}finally{this._loading=false;await this._load();}}
-  async _empty(){const profile=window.__fitnessDashboardProfiles?.get?.(this._profileId)||null;const t=_fitnessFeatureText(profile,this._hass);if(!window.confirm(t.confirm_empty))return;this._loading=true;this._render();try{await this._hass.callWS({type:"fitness/workouts/empty",profile_entry_id:this._profileId,confirm:true});this._selected.clear();this._loaded=false;}finally{this._loading=false;await this._load();}}
-  _wire(){this.shadowRoot.querySelectorAll("input[data-uid]").forEach(el=>el.addEventListener("change",()=>{el.checked?this._selected.add(el.dataset.uid):this._selected.delete(el.dataset.uid);this._render();}));this.shadowRoot.querySelector("[data-refresh]")?.addEventListener("click",()=>{this._loaded=false;this._load();});this.shadowRoot.querySelector("[data-delete]")?.addEventListener("click",()=>this._deleteSelected());this.shadowRoot.querySelector("[data-empty]")?.addEventListener("click",()=>this._empty());}
-  _render(){if(!this.shadowRoot||!this._hass)return;const profile=window.__fitnessDashboardProfiles?.get?.(this._profileId)||null;const t=_fitnessFeatureText(profile,this._hass);const rows=this._rows.map(w=>`<label class="row"><input type="checkbox" data-uid="${_fitnessEscape(w.uid||"")}" ${this._selected.has(w.uid)?"checked":""}><span><b>${_fitnessEscape(w.name||w.sport||"Workout")}</b><small>${_fitnessEscape(_fitnessDateLabel(w.start))}${w.duration_s?` · ${Math.round(Number(w.duration_s)/60)} min`:""}${w.distance_m?` · ${(Number(w.distance_m)/1000).toFixed(2)} km`:""}</small></span></label>`).join("");this.shadowRoot.innerHTML=`<ha-card><div class="head"><ha-icon icon="mdi:format-list-checks"></ha-icon><b>${_fitnessEscape(t.workout_browser)}</b><span>${this._total??this._rows.length}</span></div><div class="body">${this._loading?`<div class="muted">…</div>`:(rows||`<div class="muted">${_fitnessEscape(t.no_workouts)}</div>`)}</div><div class="actions"><button data-refresh>${_fitnessEscape(t.refresh)}</button><button data-delete ${this._selected.size?"":"disabled"}>${_fitnessEscape(t.delete_selected)}${this._selected.size?` (${this._selected.size})`:""}</button><button class="danger" data-empty ${this._rows.length?"":"disabled"}>${_fitnessEscape(t.empty_all)}</button></div></ha-card><style>ha-card{padding:16px}.head{display:flex;align-items:center;gap:10px;font-size:18px}.head span{margin-left:auto;color:var(--secondary-text-color)}.body{max-height:420px;overflow:auto;margin:12px 0}.row{display:flex;gap:12px;align-items:flex-start;padding:10px 2px;border-bottom:1px solid var(--divider-color);cursor:pointer}.row span{min-width:0}.row b,.row small{display:block}.row small{color:var(--secondary-text-color);margin-top:3px}.muted{color:var(--secondary-text-color);padding:16px 0}.actions{display:flex;flex-wrap:wrap;gap:8px}.actions button{border:0;border-radius:10px;padding:9px 12px;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer}.actions button:disabled{opacity:.45;cursor:default}.actions .danger{color:var(--error-color)}</style>`;this._wire();}
+  async _load(){if(this._loading||!this._hass||!this._profileId)return;this._loading=true;this._render();try{const r=await this._hass.callWS({type:"fitness/workouts/list",profile_entry_id:this._profileId,limit:500});this._rows=Array.isArray(r?.workouts)?r.workouts:[];const selected=this._rows.find(w=>w.uid===this.config.selected_uid)||this._rows[0];if(selected){const d=new Date(selected.start);if(!Number.isNaN(d.getTime())){this._month=new Date(d.getFullYear(),d.getMonth(),1);this._day=this._key(d);}}this._loaded=true;}catch(e){this._error=String(e?.message||e);}finally{this._loading=false;this._render();}}
+  _key(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+  _dayKey(w){const d=new Date(w?.start);return Number.isNaN(d.getTime())?"":this._key(d);}
+  _monthRows(){const y=this._month.getFullYear(),m=this._month.getMonth();return this._rows.filter(w=>{const d=new Date(w?.start);return !Number.isNaN(d.getTime())&&d.getFullYear()===y&&d.getMonth()===m;});}
+  _calendar(){const counts=new Map();for(const w of this._monthRows()){const k=this._dayKey(w);counts.set(k,(counts.get(k)||0)+1);}const y=this._month.getFullYear(),m=this._month.getMonth(),first=new Date(y,m,1),days=new Date(y,m+1,0).getDate(),monday=(first.getDay()+6)%7;let cells='';for(let i=0;i<monday;i++)cells+='<div class="blank"></div>';for(let day=1;day<=days;day++){const d=new Date(y,m,day),k=this._key(d),count=counts.get(k)||0;cells+=`<button class="day ${this._day===k?'active':''} ${count?'has':''}" data-day="${k}"><span>${day}</span>${count?`<b>${count}</b>`:''}</button>`;}return `<div class="calhead"><button data-prev>‹</button><strong>${this._month.toLocaleDateString(undefined,{month:'long',year:'numeric'})}</strong><button data-next>›</button></div><div class="week"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div><div class="calendar">${cells}</div>`;}
+  _render(){if(!this.shadowRoot||!this._hass)return;const dayRows=this._day?this._rows.filter(w=>this._dayKey(w)===this._day):[];const choices=dayRows.map(w=>`<button class="workout-choice" data-uid="${_fitnessEscape(w.uid||'')}"><ha-icon icon="mdi:dumbbell"></ha-icon><span><b>${_fitnessEscape(w.name||w.sport||'Workout')}</b><small>${_fitnessEscape(_fitnessDateLabel(w.start))}</small></span><ha-icon icon="mdi:chevron-right"></ha-icon></button>`).join('');this.shadowRoot.innerHTML=`<ha-card><header><ha-icon icon="mdi:calendar-heart"></ha-icon><b>Workout history</b><button data-close aria-label="Close"><ha-icon icon="mdi:close"></ha-icon></button></header>${this._calendar()}<div class="choices">${this._loading||!this._loaded?'<div class="muted">…</div>':(this._error?`<div class="muted">${_fitnessEscape(this._error)}</div>`:(choices||'<div class="muted">Select a day with workouts.</div>'))}</div></ha-card><style>ha-card{padding:16px;border-radius:22px}header{display:flex;align-items:center;gap:9px;font-size:17px}header b{flex:1}header button,.calhead button{border:0;border-radius:10px;background:var(--secondary-background-color);color:var(--primary-text-color);width:36px;height:36px}.calhead{display:flex;align-items:center;justify-content:center;gap:10px;margin:16px 0 8px}.calhead strong{min-width:180px;text-align:center}.week,.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}.week span{text-align:center;font-size:10px;color:var(--secondary-text-color)}.day{position:relative;min-height:44px;border:0;border-radius:10px;background:var(--secondary-background-color);color:var(--primary-text-color)}.day.has{box-shadow:inset 0 0 0 1px var(--primary-color)}.day.active{background:var(--primary-color);color:var(--text-primary-color)}.day b{position:absolute;right:5px;bottom:3px;font-size:9px}.blank{min-height:44px}.choices{display:grid;gap:6px;margin-top:12px;max-height:210px;overflow:auto}.workout-choice{display:grid;grid-template-columns:28px minmax(0,1fr) 24px;align-items:center;gap:8px;text-align:left;border:0;border-radius:12px;padding:9px 10px;background:var(--secondary-background-color);color:var(--primary-text-color)}.workout-choice span b,.workout-choice span small{display:block}.workout-choice small{color:var(--secondary-text-color);margin-top:2px}.muted{padding:12px;color:var(--secondary-text-color)}</style>`;this.shadowRoot.querySelectorAll('[data-day]').forEach(el=>el.addEventListener('click',()=>{this._day=el.dataset.day;this._render();}));this.shadowRoot.querySelector('[data-prev]')?.addEventListener('click',()=>{this._month=new Date(this._month.getFullYear(),this._month.getMonth()-1,1);this._day=null;this._render();});this.shadowRoot.querySelector('[data-next]')?.addEventListener('click',()=>{this._month=new Date(this._month.getFullYear(),this._month.getMonth()+1,1);this._day=null;this._render();});this.shadowRoot.querySelector('[data-close]')?.addEventListener('click',()=>this.dispatchEvent(new CustomEvent('fitness-workout-history-close',{bubbles:true,composed:true})));this.shadowRoot.querySelectorAll('[data-uid]').forEach(el=>el.addEventListener('click',()=>this.dispatchEvent(new CustomEvent('fitness-workout-selected',{detail:{uid:el.dataset.uid},bubbles:true,composed:true}))));}
 }
+
 
 class FitnessBodyCompositionCard extends HTMLElement {
   setConfig(config){this.config=config||{};this._profileId=this.config.profile_entry_id;this._loaded=false;if(!this.shadowRoot)this.attachShadow({mode:"open"});}
@@ -3421,9 +3400,60 @@ class FitnessBodyCompositionCard extends HTMLElement {
   _render(){if(!this.shadowRoot||!this._hass)return;const profile=window.__fitnessDashboardProfiles?.get?.(this._profileId)||null;const t=_fitnessFeatureText(profile,this._hass);const d=this._data||{};const points=(d.daily||[]).map(x=>Number(x.value)).filter(Number.isFinite);let spark="";if(points.length>1){const min=Math.min(...points),max=Math.max(...points),span=max-min||1;const coords=points.map((v,i)=>`${(i/(points.length-1))*100},${42-((v-min)/span)*34}`).join(" ");spark=`<svg viewBox="0 0 100 46" preserveAspectRatio="none"><polyline points="${coords}" fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;}const trend=Number(d.trend_30d_percent);const extras=[[t.body_fat,d.body_fat_percent,"%"],[t.muscle_mass,d.muscle_mass_kg,"kg"],[t.body_water,d.body_water_percent,"%"],[t.bone_mass,d.bone_mass_kg,"kg"]].filter(([,v])=>Number.isFinite(Number(v))).map(([label,v,u])=>`<div><span>${_fitnessEscape(label)}</span><strong>${Number(v).toFixed(1)} ${u}</strong></div>`).join("");this.shadowRoot.innerHTML=`<ha-card><div class="head"><ha-icon icon="mdi:scale-bathroom"></ha-icon><b>${_fitnessEscape(t.body_composition)}</b></div><div class="grid"><div><span>${_fitnessEscape(t.weight)}</span><strong>${Number.isFinite(Number(d.current_weight_kg))?Number(d.current_weight_kg).toFixed(1)+" kg":"—"}</strong></div><div><span>${_fitnessEscape(t.bmi)}</span><strong>${Number.isFinite(Number(d.bmi))?Number(d.bmi).toFixed(1):"—"}</strong></div><div><span>${_fitnessEscape(t.trend_30d)}</span><strong>${Number.isFinite(trend)?`${trend>0?"+":""}${trend.toFixed(1)}%`:"—"}</strong></div>${extras}</div>${spark}</ha-card><style>ha-card{padding:16px}.head{display:flex;gap:10px;align-items:center;font-size:18px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:16px}.grid div{padding:10px;border-radius:12px;background:var(--secondary-background-color)}.grid span,.grid strong{display:block}.grid span{color:var(--secondary-text-color);font-size:12px}.grid strong{font-size:20px;margin-top:4px}svg{width:100%;height:80px;margin-top:12px;color:var(--primary-color)}</style>`;}
 }
 
-class FitnessTrainingAiCoachCard extends FitnessAutoProfileCard {
-  _render(){if(!this.shadowRoot||!this._hass||!this._profile)return;const t=_fitnessFeatureText(this._profile,this._hass);const e=this._profile.entities||{};const ai=e.ai_general_evaluation?this._hass.states[e.ai_general_evaluation]:null;const adapt=e.training_adaptation_status?this._hass.states[e.training_adaptation_status]:null;const readiness=e.readiness?this._hass.states[e.readiness]:null;const summary=String(ai?.state||ai?.attributes?.summary||"").trim();const status=String(adapt?.state||"").trim();const ready=String(readiness?.state||"").trim();this.shadowRoot.innerHTML=`<ha-card><div class="head"><ha-icon icon="mdi:robot-excited-outline"></ha-icon><b>${_fitnessEscape(t.training_ai)}</b></div>${summary&&!['unknown','unavailable'].includes(summary.toLowerCase())?`<p>${_fitnessEscape(summary)}</p>`:`<p class="muted">${_fitnessEscape(t.no_ai)}</p>`}<div class="chips">${status&&status!=="unknown"?`<span>${_fitnessEscape(status)}</span>`:""}${ready&&ready!=="unknown"?`<span>${_fitnessEscape(ready)}</span>`:""}</div></ha-card><style>ha-card{padding:16px}.head{display:flex;gap:10px;align-items:center;font-size:18px}p{white-space:pre-wrap;line-height:1.45}.muted{color:var(--secondary-text-color)}.chips{display:flex;gap:8px;flex-wrap:wrap}.chips span{padding:5px 9px;border-radius:999px;background:var(--secondary-background-color)}</style>`;}
+
+class FitnessAiTodayCard extends FitnessAutoProfileCard {
+  _render(){
+    if(!this.shadowRoot||!this._hass||!this._profile)return;
+    if(!this._profile.ai_enabled){this.shadowRoot.innerHTML="";return;}
+    const t=_fitnessFeatureText(this._profile,this._hass);
+    const plan=this._profile.ai_daily_plan||{};
+    if(!plan.recommendation){this.shadowRoot.innerHTML="";return;}
+    const action=String(plan.action||"").toLowerCase();
+    const rest=action.includes("rest")||action.includes("recover")||action.includes("recovery");
+    const icon=rest?"mdi:power-sleep":"mdi:run-fast";
+    const kicker=rest?(t.rest_today||"Recovery day"):(t.today_plan||"Today's training");
+    const chips=[
+      plan.sport&&String(plan.sport),
+      Number(plan.duration_minutes)>0?`${Number(plan.duration_minutes)} min`:"",
+      plan.intensity&&String(plan.intensity),
+      Number.isFinite(Number(plan.confidence_percent))?`${t.confidence||"Confidence"} ${Number(plan.confidence_percent)}%`:"",
+    ].filter(Boolean).map(v=>`<span>${_fitnessEscape(v)}</span>`).join("");
+    this.shadowRoot.innerHTML=`<ha-card class="${rest?'rest':'train'}"><div class="hero"><div class="orb"><ha-icon icon="${icon}"></ha-icon></div><div><small>${_fitnessEscape(kicker)}</small><h2>${_fitnessEscape(plan.recommendation)}</h2></div></div>${plan.rationale?`<p>${_fitnessEscape(plan.rationale)}</p>`:""}${chips?`<div class="chips">${chips}</div>`:""}</ha-card><style>ha-card{position:relative;overflow:hidden;padding:20px;border-radius:24px;background:linear-gradient(145deg,color-mix(in srgb,var(--primary-color) 15%,var(--ha-card-background,var(--card-background-color))),var(--ha-card-background,var(--card-background-color)) 58%);box-shadow:0 12px 34px rgba(0,0,0,.10)}ha-card.rest{background:linear-gradient(145deg,color-mix(in srgb,var(--info-color,#039be5) 14%,var(--ha-card-background,var(--card-background-color))),var(--ha-card-background,var(--card-background-color)) 60%)}.hero{display:flex;gap:14px;align-items:center}.orb{width:48px;height:48px;display:grid;place-items:center;border-radius:16px;background:color-mix(in srgb,var(--primary-color) 18%,transparent);flex:none}.rest .orb{background:color-mix(in srgb,var(--info-color,#039be5) 18%,transparent)}ha-icon{--mdc-icon-size:27px;color:var(--primary-color)}.rest ha-icon{color:var(--info-color,#039be5)}small{display:block;color:var(--secondary-text-color);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:11px}h2{font-size:22px;line-height:1.15;margin:4px 0 0}p{line-height:1.5;margin:16px 0 0;color:var(--primary-text-color)}.chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:16px}.chips span{border:1px solid color-mix(in srgb,var(--divider-color) 70%,transparent);background:color-mix(in srgb,var(--card-background-color) 72%,transparent);padding:6px 10px;border-radius:999px;font-size:12px;font-weight:600}</style>`;
+  }
 }
+
+class FitnessAiLastWorkoutCard extends FitnessAutoProfileCard {
+  _render(){
+    if(!this.shadowRoot||!this._hass||!this._profile)return;
+    if(!this._profile.ai_enabled){this.shadowRoot.innerHTML="";return;}
+    const verdict=String(this._profile.ai_workout_verdict||"").trim();
+    const body=String(this._profile.ai_workout_evaluation||"").trim();
+    if(!verdict&&!body){this.shadowRoot.innerHTML="";return;}
+    const l=this._profile.labels||{};
+    const e=this._profile.entities||{};
+    const workout=e.last_workout?this._hass.states[e.last_workout]:null;
+    const name=String(workout?.attributes?.name||workout?.state||l.latest_workout);
+    this.shadowRoot.innerHTML=`<ha-card><div class="top"><div class="badge"><ha-icon icon="mdi:brain"></ha-icon></div><div class="title"><small>${_fitnessEscape(l.latest_workout)}</small><strong>${_fitnessEscape(name)}</strong></div>${verdict?`<div class="verdict">${_fitnessEscape(verdict)}</div>`:""}</div>${body?`<p>${_fitnessEscape(body)}</p>`:""}<div class="foot"><ha-icon icon="mdi:creation-outline"></ha-icon><span>${_fitnessEscape(l.ai_summary)}</span></div></ha-card><style>ha-card{padding:20px;border-radius:24px;background:linear-gradient(145deg,color-mix(in srgb,var(--accent-color,var(--primary-color)) 10%,var(--ha-card-background,var(--card-background-color))),var(--ha-card-background,var(--card-background-color)) 64%);box-shadow:0 12px 34px rgba(0,0,0,.10)}.top{display:flex;align-items:center;gap:12px}.badge{width:46px;height:46px;border-radius:15px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent-color,var(--primary-color)) 16%,transparent)}.badge ha-icon{color:var(--accent-color,var(--primary-color));--mdc-icon-size:25px}.title{min-width:0;flex:1}.title small{display:block;color:var(--secondary-text-color);font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:700}.title strong{display:block;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.verdict{padding:7px 11px;border-radius:999px;background:color-mix(in srgb,var(--success-color,#43a047) 15%,transparent);color:var(--success-color,#43a047);font-weight:800;font-size:12px;white-space:nowrap}p{margin:16px 0 0;line-height:1.55;font-size:14px}.foot{display:flex;align-items:center;gap:6px;margin-top:15px;color:var(--secondary-text-color);font-size:11px}.foot ha-icon{--mdc-icon-size:15px}</style>`;
+  }
+}
+
+class FitnessTrainingAiCoachCard extends FitnessAutoProfileCard {
+  _render(){
+    if(!this.shadowRoot||!this._hass||!this._profile)return;
+    if(!this._profile.ai_enabled){this.shadowRoot.innerHTML="";return;}
+    const t=_fitnessFeatureText(this._profile,this._hass);
+    const e=this._profile.entities||{};
+    const ai=e.ai_general_evaluation?this._hass.states[e.ai_general_evaluation]:null;
+    const summary=String(ai?.attributes?.text||ai?.state||"").trim();
+    const plan=this._profile.ai_daily_plan||{};
+    const live=String(this._profile.ai_live_analysis||"").trim();
+    const device=plan.device_workout||null;
+    const planHtml=plan.recommendation?`<section class="plan"><h3>${_fitnessEscape(t.today_plan||"Today’s training")}</h3><strong>${_fitnessEscape(plan.recommendation)}</strong>${plan.rationale?`<p>${_fitnessEscape(plan.rationale)}</p>`:""}<div class="chips">${plan.action?`<span>${_fitnessEscape(plan.action)}</span>`:""}${plan.sport?`<span>${_fitnessEscape(plan.sport)}</span>`:""}${plan.duration_minutes?`<span>${Number(plan.duration_minutes)} min</span>`:""}${plan.intensity?`<span>${_fitnessEscape(plan.intensity)}</span>`:""}${Number.isFinite(Number(plan.confidence_percent))?`<span>${_fitnessEscape(t.confidence||"Confidence")}: ${Number(plan.confidence_percent)}%</span>`:""}</div>${device?`<details><summary>Device workout</summary><pre>${_fitnessEscape(JSON.stringify(device,null,2))}</pre></details>`:""}</section>`:"";
+    const liveHtml=live?`<section class="live"><h3>${_fitnessEscape(t.live_analysis||"Live AI analysis")}</h3><p>${_fitnessEscape(live)}</p></section>`:"";
+    this.shadowRoot.innerHTML=`<ha-card><div class="head"><ha-icon icon="mdi:robot-excited-outline"></ha-icon><b>${_fitnessEscape(t.training_ai)}</b></div>${planHtml}${liveHtml}${summary?`<section><p>${_fitnessEscape(summary)}</p></section>`:(!planHtml&&!liveHtml?`<p class="muted">${_fitnessEscape(t.no_ai)}</p>`:"")}</ha-card><style>ha-card{padding:16px}.head{display:flex;gap:10px;align-items:center;font-size:18px}section{margin-top:14px;padding:12px;border-radius:14px;background:var(--secondary-background-color)}h3{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--secondary-text-color);margin:0 0 8px}p{white-space:pre-wrap;line-height:1.45}.muted{color:var(--secondary-text-color)}.chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}.chips span{padding:5px 9px;border-radius:999px;background:var(--card-background-color)}details{margin-top:10px}pre{white-space:pre-wrap;overflow:auto;font-size:11px}</style>`;
+  }
+}
+
 
 class FitnessDashboardStrategy extends HTMLElement {
   static getCreateSuggestions(hass) {
@@ -3475,9 +3505,9 @@ class FitnessDashboardStrategy extends HTMLElement {
         section([{ type: "custom:fitness-evaluation-card", profile_entry_id: profile.entry_id }]),
       );
     }
-    if (modules.has("training_ai")) summarySections.push(section([{type:"custom:fitness-training-ai-coach-card",profile_entry_id:profile.entry_id}]));
+    if (profile.ai_enabled) summarySections.push(section([{type:"custom:fitness-training-ai-coach-card",profile_entry_id:profile.entry_id}]));
+    if (modules.has("training_ai")) summarySections.push(section([{type:"custom:fitness-tests-card",profile_entry_id:profile.entry_id}]));
     if (modules.has("body_composition")) summarySections.push(section([{type:"custom:fitness-body-composition-card",profile_entry_id:profile.entry_id}]));
-    if (modules.has("workout_browser")) summarySections.push(section([{type:"custom:fitness-workout-browser-card",profile_entry_id:profile.entry_id}]));
     if (modules.has("weather") && prefs.weather_entity_id) summarySections.push(section([{type:"weather-forecast",entity:prefs.weather_entity_id,show_forecast:true}]));
     if (modules.has("rss") && (prefs.rss_entity_ids||[]).length) summarySections.push(section([{type:"entities",title:"RSS",entities:prefs.rss_entity_ids}]));
     if (modules.has("lights") && (prefs.light_entity_ids||[]).length) summarySections.push(section([{type:"entities",title:"Lights",entities:prefs.light_entity_ids}]));
@@ -3497,16 +3527,25 @@ class FitnessDashboardStrategy extends HTMLElement {
         path: `${slug}-overview`,
         icon: "mdi:view-dashboard-outline",
         type: "sections",
-        ...(prefs.theme && prefs.theme !== "default" ? {theme:prefs.theme} : {}),
+        ...(prefs.theme && prefs.theme !== "default" && !String(prefs.theme).startsWith("fitness_") ? {theme:prefs.theme} : {}),
         max_columns: 3,
         sections: summarySections,
+      },
+      {
+        title: `${prefix}${l.workouts}`,
+        path: `${slug}-workouts`,
+        icon: "mdi:calendar-heart",
+        type: "sections",
+        ...(prefs.theme && prefs.theme !== "default" && !String(prefs.theme).startsWith("fitness_") ? {theme:prefs.theme} : {}),
+        max_columns: 2,
+        sections: [section([{type:"custom:fitness-workout-browser-card",profile_entry_id:profile.entry_id}])],
       },
       {
         title: `${prefix}${l.live || l.current}`,
         path: `${slug}-live`,
         icon: "mdi:run-fast",
         type: "sections",
-        ...(prefs.theme && prefs.theme !== "default" ? {theme:prefs.theme} : {}),
+        ...(prefs.theme && prefs.theme !== "default" && !String(prefs.theme).startsWith("fitness_") ? {theme:prefs.theme} : {}),
         max_columns: 2,
         sections: liveSections,
       },
@@ -3519,6 +3558,8 @@ const FITNESS_TV_CARD_CATALOG = Object.freeze([
   {id:"today", element:"fitness-today-card", label:"card_today", icon:"mdi:calendar-today"},
   {id:"live_workout", element:"fitness-live-workout-card", label:"card_live_workout", icon:"mdi:run-fast"},
   {id:"workout", element:"fitness-workout-card", label:"card_workout", icon:"mdi:dumbbell"},
+  {id:"ai_today", element:"fitness-ai-today-card", label:"card_ai_today", icon:"mdi:robot-excited-outline", ai:true},
+  {id:"ai_last_workout", element:"fitness-ai-last-workout-card", label:"card_ai_last_workout", icon:"mdi:brain", ai:true},
   {id:"workout_highlights", element:"fitness-workout-highlights-card", label:"card_workout_highlights", icon:"mdi:star-outline"},
   {id:"workout_rpe", element:"fitness-workout-rpe-card", label:"card_workout_rpe", icon:"mdi:gauge"},
   {id:"strength_details", element:"fitness-strength-details-card", label:"card_strength_details", icon:"mdi:weight-lifter"},
@@ -3531,6 +3572,14 @@ const FITNESS_TV_CARD_CATALOG = Object.freeze([
   {id:"training_load", element:"fitness-training-load-card", label:"card_training_load", icon:"mdi:chart-bell-curve-cumulative"},
   {id:"route", element:"fitness-route-card", label:"card_route", icon:"mdi:map-marker-path"},
   {id:"comparison", element:"fitness-comparison-card", label:"card_comparison", icon:"mdi:compare-horizontal"},
+  {id:"training_plan", element:"fitness-training-plan-card", label:"card_training_plan", title:"Training plan", icon:"mdi:calendar-star", ai:true},
+  {id:"fitness_tests", element:"fitness-tests-card", label:"card_fitness_tests", title:"Fitness tests", icon:"mdi:clipboard-pulse-outline"},
+  {id:"plugin_rss", element:"fitness-tv-rss-card", label:"card_rss", title:"RSS / news", icon:"mdi:rss"},
+  {id:"plugin_weather", element:"fitness-tv-weather-card", label:"card_weather", title:"Weather", icon:"mdi:weather-partly-cloudy"},
+  {id:"plugin_lights", element:"fitness-tv-lights-card", label:"card_lights", title:"Lights", icon:"mdi:lightbulb-group-outline"},
+  {id:"plugin_music", element:"fitness-tv-music-card", label:"card_music", title:"Music", icon:"mdi:music"},
+  {id:"plugin_video", element:"fitness-tv-video-card", label:"card_video", title:"Video", icon:"mdi:youtube-tv"},
+  {id:"plugin_tts", element:"fitness-tv-tts-card", label:"card_tts", title:"TTS", icon:"mdi:account-voice"},
 ]);
 const FITNESS_TV_DEFAULT_CARDS = Object.freeze(["live_workout","workout","sleep_recovery","evaluation"]);
 const FITNESS_TV_AUDIO_EVENT = "fitness_tv_audio";
@@ -3776,6 +3825,11 @@ class FitnessTvDashboardCard extends HTMLElement {
       // zero-second events can overwrite persisted progress before seek runs.
       this._pendingHtmlAudioResumePosition = 0;
       this._animationsEnabled = true;
+      this._toolbarAutoHide = false;
+      this._toolbarHidden = false;
+      this._toolbarHideTimer = null;
+      this._toolbarProgrammaticChangeUntil = 0;
+      this._gridResizeObserver = null;
       this._conditionalCardVisibilityKey = "";
     }
   }
@@ -3876,6 +3930,10 @@ class FitnessTvDashboardCard extends HTMLElement {
     this._releaseWindowController();
     this._cardResizeObserver?.disconnect?.();
     this._cardResizeObserver = null;
+    this._gridResizeObserver?.disconnect?.();
+    this._gridResizeObserver = null;
+    if (this._toolbarHideTimer) clearTimeout(this._toolbarHideTimer);
+    this._toolbarHideTimer = null;
     this._stopOledProtection();
     if (this._heartbeatTimer) clearInterval(this._heartbeatTimer);
     this._heartbeatTimer = null;
@@ -4511,6 +4569,8 @@ class FitnessTvDashboardCard extends HTMLElement {
     const sections = [];
     const toolbar = this.shadowRoot?.querySelector(".tv-toolbar");
     if (this._visibleCastRemoteElement(toolbar)) sections.push(toolbar);
+    const dashboardSwitcher = this.shadowRoot?.querySelector(".dashboard-switcher");
+    if (this._visibleCastRemoteElement(dashboardSwitcher)) sections.push(dashboardSwitcher);
     for (const slot of this.shadowRoot?.querySelectorAll(".tv-card-slot") || []) {
       if (this._visibleCastRemoteElement(slot)) sections.push(slot);
     }
@@ -4521,16 +4581,21 @@ class FitnessTvDashboardCard extends HTMLElement {
     const labels = this._labels();
     if (!section) return "";
     if (section.classList?.contains("tv-toolbar")) return String(labels.cast_top_bar);
+    if (section.classList?.contains("dashboard-switcher")) {
+      const active = (this._dashboards || []).find((row) => String(row?.id || "") === String(this._activeDashboardId || "main"));
+      return String(active?.name || labels.manage_dashboards);
+    }
     const cardId = String(section.dataset?.cardId || "").trim();
     if (!cardId) return String(labels.cast_card);
     const item = FITNESS_TV_CARD_CATALOG.find((entry) => entry.id === cardId);
     const labelKey = String(item?.label || "");
-    return String(labels[labelKey]);
+    return String(labels[labelKey] || item?.title || cardId);
   }
 
   _castRemoteSectionIdentity(section) {
     if (!section) return "";
     if (section.classList?.contains("tv-toolbar")) return "toolbar";
+    if (section.classList?.contains("dashboard-switcher")) return "dashboard-switcher";
     const cardId = String(section.dataset?.cardId || "");
     return cardId ? `card:${cardId}` : "";
   }
@@ -4849,6 +4914,17 @@ class FitnessTvDashboardCard extends HTMLElement {
       const sections = this._castRemoteSections();
       if (!sections.length) return true;
       const current = sections.includes(this._castRemoteSection) ? this._castRemoteSection : sections[0];
+      if (key === "ArrowUp" && this._toolbarAutoHide && this._toolbarHidden && this._isTopDashboardCard(current)) {
+        this._setToolbarHidden(false);
+        this._scheduleToolbarAutoHide();
+        const toolbar = this.shadowRoot?.querySelector(".tv-toolbar");
+        if (toolbar) {
+          this._castRemoteSection = toolbar;
+          this._markCastRemoteSection(toolbar, false);
+          this._recordCastRemoteDiagnostic("nav", `${key} · ${this._castRemoteSectionName(toolbar)}`);
+        }
+        return true;
+      }
       const next = this._moveCastRemoteSpatial(sections, current, key, {outer:true});
       if (next && next !== current) {
         this._castRemoteSectionTrail ||= [];
@@ -5410,7 +5486,13 @@ class FitnessTvDashboardCard extends HTMLElement {
         type:"fitness/tv/preferences",
         profile_entry_id:this._profile.entry_id,
       });
-      this._selectedCards = Array.isArray(prefs?.cards) ? prefs.cards : [...FITNESS_TV_DEFAULT_CARDS];
+      this._dashboards = Array.isArray(prefs?.dashboards) && prefs.dashboards.length
+        ? prefs.dashboards.map((row) => ({id:String(row.id||""),name:String(row.name||"Dashboard"),cards:Array.isArray(row.cards)?row.cards:[],layout:row.layout&&typeof row.layout==="object"?row.layout:{},theme:String(row.theme||"performance")}))
+        : [{id:"main",name:"Main",cards:Array.isArray(prefs?.cards)?prefs.cards:[...FITNESS_TV_DEFAULT_CARDS],layout:{},theme:"performance"}];
+      this._activeDashboardId = String(prefs?.active_dashboard_id || this._dashboards[0]?.id || "main");
+      const activeDashboard = this._dashboards.find((row) => row.id === this._activeDashboardId) || this._dashboards[0];
+      this._activeDashboardId = String(activeDashboard?.id || "main");
+      this._selectedCards = Array.isArray(activeDashboard?.cards) ? activeDashboard.cards : (Array.isArray(prefs?.cards) ? prefs.cards : [...FITNESS_TV_DEFAULT_CARDS]);
       this._mediaFavorites = Array.isArray(prefs?.favorites) ? prefs.favorites : [];
       this._userPlaylists = Array.isArray(prefs?.user_playlists) ? prefs.user_playlists : [];
       this._lastMediaSnapshot = prefs?.last_media || this._profile?.tv_dashboard?.last_media || {};
@@ -5432,15 +5514,19 @@ class FitnessTvDashboardCard extends HTMLElement {
       this._tvScalePercent = Math.max(10, Math.min(150, Number(prefs?.tv_scale_percent ?? this._profile?.tv_dashboard?.tv_scale_percent ?? 70)));
       this._oledProtection = Boolean(prefs?.oled_protection ?? this._profile?.tv_dashboard?.oled_protection ?? false);
       this._animationsEnabled = Boolean(prefs?.animations_enabled ?? this._profile?.tv_dashboard?.animations_enabled ?? true);
+      this._toolbarAutoHide = Boolean(prefs?.toolbar_auto_hide ?? this._profile?.tv_dashboard?.toolbar_auto_hide ?? false);
       this._audioOutputId = String(prefs?.audio_output_id || this._profile?.tv_dashboard?.audio_output_id || "__fitness_browser__");
       this._applyTvDisplayPreferences();
     } catch (_err) {
+      this._dashboards = [{id:"main",name:"Main",cards:[...FITNESS_TV_DEFAULT_CARDS],layout:{},theme:"performance"}];
+      this._activeDashboardId = "main";
       this._selectedCards = [...FITNESS_TV_DEFAULT_CARDS];
       this._mediaFavorites = [];
       this._userPlaylists = [];
       this._tvScalePercent = Number(this._profile?.tv_dashboard?.tv_scale_percent ?? 70);
       this._oledProtection = Boolean(this._profile?.tv_dashboard?.oled_protection ?? false);
       this._animationsEnabled = Boolean(this._profile?.tv_dashboard?.animations_enabled ?? true);
+      this._toolbarAutoHide = Boolean(this._profile?.tv_dashboard?.toolbar_auto_hide ?? false);
       this._audioOutputId = String(this._profile?.tv_dashboard?.audio_output_id || "__fitness_browser__");
       this._applyTvDisplayPreferences();
     }
@@ -5454,8 +5540,11 @@ class FitnessTvDashboardCard extends HTMLElement {
       const result = await this._hass.callWS({
         type:"fitness/tv/preferences/save",
         profile_entry_id:this._profile.entry_id,
+        dashboard_id:String(this._activeDashboardId || "main"),
         cards:this._selectedCards,
       });
+      if (Array.isArray(result?.dashboards)) this._dashboards = result.dashboards;
+      if (result?.active_dashboard_id) this._activeDashboardId = String(result.active_dashboard_id);
       if (Array.isArray(result?.cards)) this._selectedCards = result.cards;
       if (Array.isArray(result?.favorites)) this._mediaFavorites = result.favorites;
       if (result?.tv_scale_percent != null) this._tvScalePercent = Number(result.tv_scale_percent);
@@ -5593,8 +5682,27 @@ class FitnessTvDashboardCard extends HTMLElement {
   _applyTvDisplayPreferences() {
     const scale = Math.max(10, Math.min(150, Number(this._tvScalePercent || 70))) / 100;
     this.style.setProperty("--fitness-tv-card-scale", String(scale));
+    const theme=String(this._profile?.dashboard_preferences?.theme||"default");
+    const builtIn=theme.startsWith("fitness_")?theme:"default";
+    this.setAttribute("fitness-theme",builtIn);
+    const presets={
+      fitness_performance:{radius:"16px",gap:"9px",accent:"var(--error-color,#e53935)",blur:"0px"},
+      fitness_minimal:{radius:"10px",gap:"7px",accent:"var(--primary-color)",blur:"0px"},
+      fitness_oled:{radius:"14px",gap:"8px",accent:"#00e5ff",blur:"0px"},
+      fitness_glass:{radius:"24px",gap:"12px",accent:"var(--primary-color)",blur:"14px"},
+      fitness_classic:{radius:"20px",gap:"12px",accent:"var(--primary-color)",blur:"0px"},
+      default:{radius:"20px",gap:"12px",accent:"var(--primary-color)",blur:"0px"},
+    };
+    const preset=presets[builtIn]||presets.default;
+    this.style.setProperty("--fitness-theme-radius",preset.radius);
+    this.style.setProperty("--fitness-theme-gap",preset.gap);
+    this.style.setProperty("--fitness-theme-accent",preset.accent);
+    this.style.setProperty("--fitness-theme-blur",preset.blur);
     this.toggleAttribute("oled-protection", Boolean(this._oledProtection));
     this.toggleAttribute("fitness-animations", Boolean(this._animationsEnabled));
+    this.toggleAttribute("toolbar-auto-hide", Boolean(this._toolbarAutoHide));
+    if (!this._toolbarAutoHide) this._setToolbarHidden(false);
+    else this._scheduleToolbarAutoHide();
     if (!this._motionEnabled()) this._cancelDashboardMotion();
     if (FITNESS_TV_CAST_RECEIVER && this._oledProtection) this._startOledProtection();
     else this._stopOledProtection();
@@ -5602,6 +5710,8 @@ class FitnessTvDashboardCard extends HTMLElement {
       wrapper.style.setProperty("--fitness-card-delay", `${-(index % 7) * 0.73}s`);
       const card = wrapper.querySelector(".tv-mounted-card");
       if (card) {
+        card.style.setProperty("--primary-color", "var(--fitness-theme-accent,var(--primary-color))");
+        card.style.setProperty("--ha-card-border-radius", "var(--fitness-theme-radius,20px)");
         card.toggleAttribute("fitness-animations", Boolean(this._animationsEnabled));
         card.toggleAttribute("fitness-live-workout", this.hasAttribute("fitness-live-ambient"));
         this._syncCardGridSpan(card, wrapper);
@@ -5690,6 +5800,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       if (payload.tv_scale_percent != null) this._tvScalePercent = Number(payload.tv_scale_percent);
       if (payload.oled_protection != null) this._oledProtection = Boolean(payload.oled_protection);
       if (payload.animations_enabled != null) this._animationsEnabled = Boolean(payload.animations_enabled);
+      if (payload.toolbar_auto_hide != null) this._toolbarAutoHide = Boolean(payload.toolbar_auto_hide);
       this._applyTvDisplayPreferences();
       this._updateMediaControls();
     }, FITNESS_TV_SETTINGS_EVENT);
@@ -7176,6 +7287,18 @@ class FitnessTvDashboardCard extends HTMLElement {
     const fixedProfile = Boolean(this.config?.profile_entry_id);
     const canControl = Boolean(this._access?.is_admin || this._profile?.access?.can_control);
     const canNavigateProfiles = Boolean(this._access?.is_admin || (this._profiles || []).length > 1);
+    const dashboardRows = Array.isArray(this._dashboards) && this._dashboards.length
+      ? this._dashboards
+      : [{id:"main",name:"Main",cards:[...FITNESS_TV_DEFAULT_CARDS],layout:{}}];
+    const activeDashboardIndex = Math.max(0, dashboardRows.findIndex((row) => String(row?.id || "") === String(this._activeDashboardId || "main")));
+    const activeDashboard = dashboardRows[activeDashboardIndex] || dashboardRows[0];
+    const dashboardNavigator = canControl && dashboardRows.length > 1
+      ? `<nav class="dashboard-switcher" aria-label="${_fitnessEscape(l.manage_dashboards)}">
+          <button class="dashboard-switch-button" id="dashboard-prev" title="${_fitnessEscape(l.previous)}" aria-label="${_fitnessEscape(l.previous)}"><ha-icon icon="mdi:chevron-left"></ha-icon></button>
+          <button class="dashboard-switch-current" id="dashboard-current" title="${_fitnessEscape(l.manage_dashboards)}"><ha-icon icon="mdi:view-dashboard-outline"></ha-icon><strong>${_fitnessEscape(activeDashboard?.name || l.manage_dashboards)}</strong><small>${activeDashboardIndex + 1}/${dashboardRows.length}</small></button>
+          <button class="dashboard-switch-button" id="dashboard-next" title="${_fitnessEscape(l.next)}" aria-label="${_fitnessEscape(l.next)}"><ha-icon icon="mdi:chevron-right"></ha-icon></button>
+        </nav>`
+      : "";
     this._canControlProfile = canControl;
     const profileOptions = this._profiles.map((profile) => `<option value="${_fitnessEscape(profile.entry_id)}" ${profile.entry_id === this._profile.entry_id ? "selected" : ""}>${_fitnessEscape(profile.profile_name)}${profile.access?.can_control ? "" : ` · ${_fitnessEscape(accessCopy.view_only)}`}</option>`).join("");
     const accessBadge = canControl ? "" : `<span class="view-only-badge"><ha-icon icon="mdi:eye-outline"></ha-icon>${_fitnessEscape(accessCopy.view_only)}</span>`;
@@ -7189,12 +7312,14 @@ class FitnessTvDashboardCard extends HTMLElement {
       ? (canControl ? [
           `<button class="tool backend-tool" id="backend-config" title="${_fitnessEscape(l.configure_account || l.backend_settings)}"><ha-icon icon="mdi:account-cog-outline"></ha-icon><span>${_fitnessEscape(l.configure_account || l.backend_settings)}</span></button>`,
           `<button class="tool configure-tool" id="configure" title="${_fitnessEscape(l.configure_tv || l.reconfigure)}"><ha-icon icon="mdi:cog-outline"></ha-icon><span>${_fitnessEscape(l.configure_tv || l.reconfigure)}</span></button>`,
+          `<button class="tool dashboard-manager-tool" id="dashboards" title="${_fitnessEscape(l.manage_dashboards)}"><ha-icon icon="mdi:view-dashboard-edit-outline"></ha-icon><span>${_fitnessEscape(l.manage_dashboards)}</span></button>`,
           `<button class="tool cast-profile-toggle ${this._profile?.tv_dashboard?.light_feedback_enabled !== false ? "active" : ""}" id="light-feedback-toggle" aria-pressed="${this._profile?.tv_dashboard?.light_feedback_enabled !== false ? "true" : "false"}" title="${_fitnessEscape(this._profile?.tv_dashboard?.light_feedback_enabled !== false ? (l.light_feedback_on) : (l.light_feedback_off))}"><ha-icon icon="${this._profile?.tv_dashboard?.light_feedback_enabled !== false ? "mdi:lightbulb-on-outline" : "mdi:lightbulb-off-outline"}"></ha-icon><span>${_fitnessEscape(this._profile?.tv_dashboard?.light_feedback_enabled !== false ? (l.light_feedback_on) : (l.light_feedback_off))}</span></button>`,
           `<button class="tool cast-profile-toggle ${this._profile?.tv_dashboard?.tts_announcements_enabled !== false ? "active" : ""}" id="tts-announcements-toggle" aria-pressed="${this._profile?.tv_dashboard?.tts_announcements_enabled !== false ? "true" : "false"}" title="${_fitnessEscape(this._profile?.tv_dashboard?.tts_announcements_enabled !== false ? (l.tts_announcements_on) : (l.tts_announcements_off))}"><ha-icon icon="${this._profile?.tv_dashboard?.tts_announcements_enabled !== false ? "mdi:account-voice" : "mdi:account-voice-off"}"></ha-icon><span>${_fitnessEscape(this._profile?.tv_dashboard?.tts_announcements_enabled !== false ? (l.tts_announcements_on) : (l.tts_announcements_off))}</span></button>`,
         ].join("") : "")
       : (canControl ? [
           `<button class="tool backend-tool" id="backend-config" title="${_fitnessEscape(l.backend_settings)}"><ha-icon icon="mdi:account-cog-outline"></ha-icon><span>${_fitnessEscape(l.backend_settings)}</span></button>`,
           `<button class="tool configure-tool" id="configure" title="${_fitnessEscape(l.reconfigure)}"><ha-icon icon="mdi:cog-outline"></ha-icon><span>${_fitnessEscape(l.reconfigure)}</span></button>`,
+          `<button class="tool dashboard-manager-tool" id="dashboards" title="${_fitnessEscape(l.manage_dashboards)}"><ha-icon icon="mdi:view-dashboard-edit-outline"></ha-icon><span>${_fitnessEscape(l.manage_dashboards)}</span></button>`,
           `<button class="tool" id="cards" title="${_fitnessEscape(l.add_cards)}"><ha-icon icon="mdi:view-grid-plus-outline"></ha-icon><span>${_fitnessEscape(l.add_cards)}</span></button>`,
           `<button class="tool arrange-tool" id="arrange" title="${_fitnessEscape(l.arrange_cards)}" aria-pressed="${this._layoutEditing ? "true" : "false"}"><ha-icon icon="mdi:drag"></ha-icon><span>${_fitnessEscape(l.arrange_cards)}</span></button>`,
           `<button class="tool" id="remote-sensors" title="${_fitnessEscape(l.remote_sensors)}"><ha-icon icon="mdi:access-point"></ha-icon><span>${_fitnessEscape(l.remote_sensors)}</span></button>`,
@@ -7232,6 +7357,7 @@ class FitnessTvDashboardCard extends HTMLElement {
             </div>
           </div>
         </div>
+        ${dashboardNavigator}
         ${canControl ? "" : `<div class="view-only-notice"><ha-icon icon="mdi:eye-outline"></ha-icon><span>${_fitnessEscape(accessCopy.view_only)} — ${_fitnessEscape(accessCopy.view_only_hint)}</span></div>`}
         <div id="weight-confirmation-host" class="weight-confirmation-host"></div>
         <div class="tv-grid" id="grid"></div>
@@ -7251,6 +7377,10 @@ class FitnessTvDashboardCard extends HTMLElement {
       });
     }
     this.shadowRoot.getElementById("profile")?.addEventListener("change", (ev) => this._changeProfile(ev.target.value));
+    this.shadowRoot.getElementById("dashboards")?.addEventListener("click", () => this._openDashboardManager());
+    this.shadowRoot.getElementById("dashboard-prev")?.addEventListener("click", () => void this._switchDashboard(-1));
+    this.shadowRoot.getElementById("dashboard-next")?.addEventListener("click", () => void this._switchDashboard(1));
+    this.shadowRoot.getElementById("dashboard-current")?.addEventListener("click", () => this._openDashboardManager());
     this.shadowRoot.getElementById("profiles")?.addEventListener("click", () => {
       if (this._access?.is_admin) this._navigateTv("/fitness-tv/main");
       else this._openVisibleProfilesPicker();
@@ -7310,8 +7440,10 @@ class FitnessTvDashboardCard extends HTMLElement {
       });
       progress?.addEventListener("pointercancel", () => { this._mediaProgressScrubbing = false; });
     }
-    this.shadowRoot.querySelector(".tv-shell")?.addEventListener("pointerdown", () => this._markOledInteraction(), {passive:true});
-    this.shadowRoot.querySelector(".tv-shell")?.addEventListener("keydown", () => this._markOledInteraction());
+    const tvShell = this.shadowRoot.querySelector(".tv-shell");
+    tvShell?.addEventListener("pointerdown", () => this._markOledInteraction(), {passive:true});
+    tvShell?.addEventListener("keydown", () => this._markOledInteraction());
+    this._wireToolbarAutoHide(tvShell);
     this._mountSelectedCards();
     if (FITNESS_TV_CAST_RECEIVER) {
       setTimeout(() => this._restoreCastRemoteFocusSnapshot(castFocusSnapshot), 0);
@@ -7376,10 +7508,241 @@ class FitnessTvDashboardCard extends HTMLElement {
     if (this._canControlProfile) await this._heartbeat();
   }
 
+  _activeDashboardLayout() {
+    const row = (this._dashboards || []).find((item) => String(item?.id || "") === String(this._activeDashboardId || "main"));
+    return row?.layout && typeof row.layout === "object" ? {...row.layout} : {};
+  }
+
+  async _saveDashboardLayout(layout, {rerender = false} = {}) {
+    if (!this._profile || !this._hass || !this._canControlProfile) return;
+    const clean = {};
+    const allowed = new Set(FITNESS_TV_CARD_CATALOG.map((item) => item.id));
+    for (const [cardId, raw] of Object.entries(layout || {})) {
+      if (!allowed.has(cardId) || !raw || typeof raw !== "object") continue;
+      const next = {};
+      const span = Math.max(1, Math.min(12, Math.round(Number(raw.column_span || 0))));
+      const height = Math.max(120, Math.min(1600, Math.round(Number(raw.height || 0))));
+      if (Number(raw.column_span) > 0) next.column_span = span;
+      if (Number(raw.height) > 0) next.height = height;
+      if (Object.keys(next).length) clean[cardId] = next;
+    }
+    try {
+      const result = await this._hass.callWS({
+        type:"fitness/tv/preferences/save",
+        profile_entry_id:this._profile.entry_id,
+        dashboard_id:String(this._activeDashboardId || "main"),
+        card_layout:clean,
+      });
+      if (Array.isArray(result?.dashboards)) this._dashboards = result.dashboards;
+      if (result?.active_dashboard_id) this._activeDashboardId = String(result.active_dashboard_id);
+      if (rerender) this._render();
+      else this._applyDashboardCardLayout();
+    } catch (err) {
+      console.error("[Fitness TV] card layout save failed", err);
+    }
+  }
+
+  _logicalGridColumns(grid = this.shadowRoot?.getElementById("grid")) {
+    if (!grid) return 1;
+    const value = Number.parseInt(getComputedStyle(grid).getPropertyValue("--tv-logical-columns"), 10);
+    return Math.max(1, Math.min(12, Number.isFinite(value) ? value : 1));
+  }
+
+  _applyDashboardCardLayout() {
+    const grid = this.shadowRoot?.getElementById("grid");
+    if (!grid) return;
+    const wrappers = [...grid.querySelectorAll(".tv-card-slot")];
+    if (!wrappers.length) return;
+    const layout = this._activeDashboardLayout();
+    const logicalColumns = this._logicalGridColumns(grid);
+    const naturalSpan = Math.max(1, Math.floor(12 / logicalColumns));
+    const hasManualWidth = wrappers.some((wrapper) => Number(layout?.[wrapper.dataset.cardId]?.column_span || 0) > 0);
+    wrappers.forEach((wrapper) => {
+      const cardId = String(wrapper.dataset.cardId || "");
+      const manual = layout?.[cardId] || {};
+      const manualSpan = Number(manual.column_span || 0);
+      const manualHeight = Number(manual.height || 0);
+      wrapper.style.gridColumnStart = "auto";
+      wrapper.style.gridColumnEnd = `span ${manualSpan > 0 ? Math.max(1, Math.min(12, Math.round(manualSpan))) : naturalSpan}`;
+      wrapper.toggleAttribute("data-manual-width", manualSpan > 0);
+      wrapper.toggleAttribute("data-manual-height", manualHeight > 0);
+      if (manualHeight > 0) wrapper.style.setProperty("--fitness-manual-card-height", `${Math.max(120, Math.min(1600, Math.round(manualHeight)))}px`);
+      else wrapper.style.removeProperty("--fitness-manual-card-height");
+    });
+    // When all widths are automatic, make the final row intentionally fill the
+    // available width rather than leaving awkward blank columns. A lone card is
+    // centered at half width on multi-column screens and full width on phones.
+    if (!hasManualWidth) {
+      const fullRows = Math.floor(wrappers.length / logicalColumns);
+      const remainder = wrappers.length % logicalColumns;
+      if (remainder) {
+        const start = fullRows * logicalColumns;
+        const row = wrappers.slice(start);
+        if (remainder === 1 && logicalColumns > 1) {
+          const span = 6;
+          row[0].style.gridColumnEnd = `span ${span}`;
+          row[0].style.gridColumnStart = `${Math.floor((12 - span) / 2) + 1}`;
+        } else {
+          const base = Math.floor(12 / remainder);
+          let used = 0;
+          row.forEach((wrapper, index) => {
+            const span = index === row.length - 1 ? 12 - used : base;
+            wrapper.style.gridColumnEnd = `span ${Math.max(1, span)}`;
+            used += span;
+          });
+        }
+      }
+    }
+    for (const wrapper of wrappers) {
+      const card = wrapper.querySelector(".tv-mounted-card");
+      if (card) this._syncCardGridSpan(card, wrapper);
+    }
+  }
+
+  _wireCardResize(wrapper, cardId) {
+    const handle = wrapper?.querySelector?.(".card-resize-handle");
+    if (!handle) return;
+    handle.addEventListener("pointerdown", (event) => {
+      if (!this._layoutEditing || !this._canControlProfile) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const grid = this.shadowRoot?.getElementById("grid");
+      if (!grid) return;
+      const startRect = wrapper.getBoundingClientRect();
+      const gridRect = grid.getBoundingClientRect();
+      const startX = Number(event.clientX || 0);
+      const startY = Number(event.clientY || 0);
+      wrapper.draggable = false;
+      wrapper.classList.add("resizing");
+      try { handle.setPointerCapture?.(event.pointerId); } catch (_err) {}
+      const move = (ev) => {
+        const width = Math.max(gridRect.width / 12, startRect.width + Number(ev.clientX || 0) - startX);
+        const span = Math.max(1, Math.min(12, Math.round((width / Math.max(1, gridRect.width)) * 12)));
+        const height = Math.max(120, Math.min(1600, Math.round(startRect.height + Number(ev.clientY || 0) - startY)));
+        wrapper.style.gridColumnStart = "auto";
+        wrapper.style.gridColumnEnd = `span ${span}`;
+        wrapper.style.setProperty("--fitness-manual-card-height", `${height}px`);
+        wrapper.setAttribute("data-manual-width", "");
+        wrapper.setAttribute("data-manual-height", "");
+        const card = wrapper.querySelector(".tv-mounted-card");
+        if (card) this._syncCardGridSpan(card, wrapper);
+      };
+      const finish = async (ev) => {
+        handle.removeEventListener("pointermove", move);
+        handle.removeEventListener("pointerup", finish);
+        handle.removeEventListener("pointercancel", finish);
+        wrapper.classList.remove("resizing");
+        wrapper.draggable = this._layoutEditing;
+        try { handle.releasePointerCapture?.(ev.pointerId); } catch (_err) {}
+        const currentRect = wrapper.getBoundingClientRect();
+        const spanText = String(wrapper.style.gridColumnEnd || "").match(/span\s+(\d+)/);
+        const layout = this._activeDashboardLayout();
+        layout[cardId] = {
+          ...(layout[cardId] || {}),
+          column_span:Math.max(1, Math.min(12, Number(spanText?.[1] || 12))),
+          height:Math.max(120, Math.min(1600, Math.round(currentRect.height))),
+        };
+        await this._saveDashboardLayout(layout);
+      };
+      handle.addEventListener("pointermove", move);
+      handle.addEventListener("pointerup", finish);
+      handle.addEventListener("pointercancel", finish);
+    });
+  }
+
+  async _resetCardSize(cardId) {
+    const layout = this._activeDashboardLayout();
+    delete layout[cardId];
+    await this._saveDashboardLayout(layout);
+  }
+
+  _isTopDashboardCard(section) {
+    if (!section?.classList?.contains?.("tv-card-slot")) return false;
+    const cards = [...(this.shadowRoot?.querySelectorAll?.(".tv-card-slot") || [])].filter((node) => this._castElementVisible(node));
+    if (!cards.length) return false;
+    const top = Math.min(...cards.map((node) => node.getBoundingClientRect().top));
+    return section.getBoundingClientRect().top <= top + 12;
+  }
+
+  _setToolbarHidden(hidden) {
+    const next = Boolean(hidden && this._toolbarAutoHide);
+    if (next === this._toolbarHidden) return;
+    this._toolbarHidden = next;
+    this.toggleAttribute("toolbar-hidden", next);
+    this._toolbarProgrammaticChangeUntil = performance.now() + 220;
+  }
+
+  _toolbarIsBeingBrowsed(toolbar = this.shadowRoot?.querySelector(".tv-toolbar")) {
+    if (!toolbar) return false;
+    const active = this._deepActiveElement?.();
+    return Boolean(
+      toolbar.matches?.(":hover")
+      || toolbar === active
+      || toolbar.contains?.(active)
+      || toolbar.classList?.contains("fitness-remote-section-selected")
+      || toolbar.classList?.contains("fitness-remote-section-active")
+    );
+  }
+
+  _scheduleToolbarAutoHide(delay = 4200) {
+    if (this._toolbarHideTimer) clearTimeout(this._toolbarHideTimer);
+    this._toolbarHideTimer = null;
+    if (!this._toolbarAutoHide || this._layoutEditing) return;
+    this._toolbarHideTimer = setTimeout(() => {
+      const modalOpen = Boolean(this.shadowRoot?.querySelector("#modal-root .modal-backdrop"));
+      const toolbar = this.shadowRoot?.querySelector(".tv-toolbar");
+      if (modalOpen || this._toolbarIsBeingBrowsed(toolbar)) {
+        this._scheduleToolbarAutoHide(1800);
+        return;
+      }
+      this._setToolbarHidden(true);
+    }, Math.max(800, Number(delay || 4200)));
+  }
+
+  _wireToolbarAutoHide(shell) {
+    if (!shell || shell.__fitnessToolbarAutoHideBound) return;
+    shell.__fitnessToolbarAutoHideBound = true;
+    const toolbar = this.shadowRoot?.querySelector(".tv-toolbar");
+    const show = () => {
+      if (!this._toolbarAutoHide) return;
+      this._setToolbarHidden(false);
+      this._scheduleToolbarAutoHide();
+    };
+    const holdOpen = () => {
+      if (!this._toolbarAutoHide) return;
+      this._setToolbarHidden(false);
+      if (this._toolbarHideTimer) clearTimeout(this._toolbarHideTimer);
+      this._toolbarHideTimer = null;
+    };
+    toolbar?.addEventListener("pointerenter", holdOpen, {passive:true});
+    toolbar?.addEventListener("pointerleave", () => this._scheduleToolbarAutoHide(), {passive:true});
+    toolbar?.addEventListener("focusin", holdOpen);
+    toolbar?.addEventListener("focusout", () => setTimeout(() => {
+      if (!this._toolbarIsBeingBrowsed(toolbar)) this._scheduleToolbarAutoHide();
+    }, 0));
+    shell.addEventListener("scroll", () => {
+      if (!this._toolbarAutoHide || performance.now() < this._toolbarProgrammaticChangeUntil) return;
+      if (Number(shell.scrollTop || 0) <= 12) show();
+      else this._scheduleToolbarAutoHide(1800);
+    }, {passive:true});
+    shell.addEventListener("wheel", (event) => {
+      if (this._toolbarAutoHide && Number(event.deltaY || 0) < 0 && Number(shell.scrollTop || 0) <= 32) show();
+    }, {passive:true});
+    shell.addEventListener("pointermove", (event) => {
+      if (this._toolbarAutoHide && Number(event.clientY || 999) <= 72) show();
+    }, {passive:true});
+    shell.addEventListener("focusin", (event) => {
+      if (event.target?.closest?.(".tv-toolbar")) holdOpen();
+    });
+    this._scheduleToolbarAutoHide();
+  }
+
   _setLayoutEditing(enabled) {
     if (!this._canControlProfile) enabled = false;
     this._layoutEditing = Boolean(enabled);
     this.toggleAttribute("layout-editing", this._layoutEditing);
+    if (this._layoutEditing) this._setToolbarHidden(false);
+    else this._scheduleToolbarAutoHide();
     const button = this.shadowRoot?.getElementById("arrange");
     if (button) button.setAttribute("aria-pressed", this._layoutEditing ? "true" : "false");
     this.shadowRoot?.querySelectorAll(".tv-card-slot").forEach((slot) => {
@@ -7418,9 +7781,10 @@ class FitnessTvDashboardCard extends HTMLElement {
     const scale = FITNESS_TV_CAST_RECEIVER ? Math.max(0.10, Math.min(1.50, Number(this._tvScalePercent || 70) / 100)) : 1;
     const rowHeight = 4;
     const gap = FITNESS_TV_CAST_RECEIVER ? 6 : 12;
+    const manualHeight = Number(this._activeDashboardLayout()?.[wrapper.dataset.cardId]?.height || 0);
     const rectHeight = Number(card.getBoundingClientRect?.().height || 0);
     const rawHeight = Number(card.offsetHeight || card.scrollHeight || (rectHeight ? rectHeight / scale : 0));
-    const visualHeight = Math.max(1, Math.ceil(rawHeight * scale));
+    const visualHeight = manualHeight > 0 ? Math.max(120, Math.min(1600, manualHeight)) : Math.max(1, Math.ceil(rawHeight * scale));
     wrapper.style.setProperty("--tv-card-visual-height", `${visualHeight}px`);
     wrapper.style.gridRowEnd = `span ${Math.max(1, Math.ceil((visualHeight + gap) / rowHeight))}`;
   }
@@ -7521,6 +7885,13 @@ class FitnessTvDashboardCard extends HTMLElement {
   _shouldMountTvCard(cardId, hass = this._hass) {
     if (cardId === "workout") return this._profileHasLastWorkoutData(hass);
     if (cardId === "live_workout") return this._profileOwnsLiveSensor(hass);
+    const prefs=this._profile?.dashboard_preferences||{};
+    if(cardId==="plugin_rss")return Boolean((prefs.rss_entity_ids||[]).length);
+    if(cardId==="plugin_weather")return Boolean(prefs.weather_entity_id);
+    if(cardId==="plugin_lights")return Boolean((prefs.light_entity_ids||[]).length);
+    if(cardId==="plugin_music")return Boolean((prefs.music_entity_ids||[]).length);
+    if(cardId==="plugin_video")return Boolean((prefs.video_entity_ids||[]).length);
+    if(cardId==="plugin_tts")return Boolean(prefs.tts_entity_id||(prefs.tts_media_player_ids||[]).length);
     return true;
   }
 
@@ -7567,7 +7938,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       wrapper.draggable = this._layoutEditing;
       const tools = document.createElement("div");
       tools.className = "layout-tools";
-      tools.innerHTML = `<ha-icon class="drag-grip" icon="mdi:drag"></ha-icon><button type="button" data-move="-1" title="${_fitnessEscape(l.move_earlier)}" aria-label="${_fitnessEscape(l.move_earlier)}"><ha-icon icon="mdi:arrow-left"></ha-icon></button><button type="button" data-move="1" title="${_fitnessEscape(l.move_later)}" aria-label="${_fitnessEscape(l.move_later)}"><ha-icon icon="mdi:arrow-right"></ha-icon></button>`;
+      tools.innerHTML = `<ha-icon class="drag-grip" icon="mdi:drag"></ha-icon><button type="button" data-move="-1" title="${_fitnessEscape(l.move_earlier)}" aria-label="${_fitnessEscape(l.move_earlier)}"><ha-icon icon="mdi:arrow-left"></ha-icon></button><button type="button" data-move="1" title="${_fitnessEscape(l.move_later)}" aria-label="${_fitnessEscape(l.move_later)}"><ha-icon icon="mdi:arrow-right"></ha-icon></button><button type="button" data-reset-size="1" title="${_fitnessEscape(l.reset_card_size)}" aria-label="${_fitnessEscape(l.reset_card_size)}"><ha-icon icon="mdi:fit-to-screen-outline"></ha-icon></button>`;
       const card = document.createElement(item.element);
       card.classList.add("tv-mounted-card");
       try {
@@ -7576,15 +7947,32 @@ class FitnessTvDashboardCard extends HTMLElement {
         continue;
       }
       card.hass = this._hass;
+      const resizeHandle = document.createElement("button");
+      resizeHandle.type = "button";
+      resizeHandle.className = "card-resize-handle";
+      resizeHandle.title = l.resize_card;
+      resizeHandle.setAttribute("aria-label", l.resize_card);
+      resizeHandle.innerHTML = `<ha-icon icon="mdi:resize-bottom-right"></ha-icon>`;
       wrapper.appendChild(tools);
       wrapper.appendChild(card);
+      wrapper.appendChild(resizeHandle);
       grid.appendChild(wrapper);
       requestAnimationFrame(() => this._syncCardGridSpan(card, wrapper));
       setTimeout(() => this._syncCardGridSpan(card, wrapper), 140);
       this._cardResizeObserver?.observe(card);
       this._wireCardReorder(wrapper, item.id);
+      this._wireCardResize(wrapper, item.id);
+      tools.querySelector("[data-reset-size]")?.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void this._resetCardSize(item.id);
+      });
       this._mountedCards.push(card);
     }
+    this._gridResizeObserver?.disconnect?.();
+    this._gridResizeObserver = globalThis.ResizeObserver ? new ResizeObserver(() => this._applyDashboardCardLayout()) : null;
+    this._gridResizeObserver?.observe(grid);
+    this._applyDashboardCardLayout();
     this._scheduleDashboardEntryMotion();
   }
 
@@ -7629,15 +8017,22 @@ class FitnessTvDashboardCard extends HTMLElement {
     if (!this._motionEnabled()) return;
     const wrappers = Array.from(this.shadowRoot?.querySelectorAll?.(".tv-card-slot") || []);
     if (!wrappers.length) return;
-    // Card frames are intentionally stationary. Modern motion happens inside
-    // each card: title -> charts -> values/entities. This avoids the whole
-    // dashboard looking as if its layout is floating or stalling.
+    // Card frames are intentionally stationary in layout: only the mounted visual
+    // surface is clipped from its top edge like a sheet gently unrolling. The
+    // slot itself never moves, so the grid does not bounce or reflow.
     this._dashboardEntryTimer = setTimeout(() => {
       wrappers.forEach((wrapper, index) => {
         const card = wrapper.querySelector?.(".tv-mounted-card");
-        if (card) this._animateCardContents(card, index, "entry");
+        if (!card) return;
+        const unroll = wrapper.animate([
+          {opacity:.18, clipPath:"inset(0 0 96% 0 round 16px)"},
+          {opacity:.82, clipPath:"inset(0 0 10% 0 round 16px)", offset:.78},
+          {opacity:1, clipPath:"inset(0 0 0 0 round 16px)"},
+        ], {duration:560, delay:index * 54, easing:"cubic-bezier(.22,.72,.18,1)", fill:"both"});
+        this._finishTransientMotion(unroll);
+        this._animateCardContents(card, index, "entry");
       });
-    }, 90);
+    }, 55);
   }
 
   _cardMotionRoot(card) {
@@ -7813,7 +8208,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     }
     card.__fitnessMotionAttempt = 0;
     for (const root of roots) this._installCardMotionSkin(card, root);
-    const baseDelay = mode === "entry" ? index * 38 : 0;
+    const baseDelay = mode === "entry" ? index * 54 : 0;
     if (FITNESS_TV_CAST_RECEIVER) {
       const title = this._cardMotionElements(card, ".title,.card-title,.composite-head,.live-head,.head,h2,h3")[0];
       if (title) this._finishTransientMotion(title.animate([
@@ -7832,13 +8227,12 @@ class FitnessTvDashboardCard extends HTMLElement {
     const title = this._cardMotionElements(card, ".title,.card-title,.composite-head,.live-head,.head,h2,h3")[0];
     if (title) {
       const titleAnimation = title.animate([
-        {opacity:0, transform:"translate3d(-12px,8px,0) scale(.94)"},
-        {opacity:1, transform:"translate3d(2px,-1px,0) scale(1.018)", offset:.72},
-        {opacity:1, transform:"translate3d(0,0,0) scale(1)"},
-      ], {duration:460, delay:baseDelay, easing:"cubic-bezier(.16,1,.3,1)", fill:"both"});
+        {opacity:.35, transform:"translate3d(0,5px,0)"},
+        {opacity:1, transform:"translate3d(0,0,0)"},
+      ], {duration:300, delay:baseDelay + 120, easing:"cubic-bezier(.22,.72,.18,1)", fill:"both"});
       this._finishTransientMotion(titleAnimation);
     }
-    roots.forEach((root, rootIndex) => this._animateChartReveal(root, baseDelay + 50 + rootIndex * 26));
+    roots.forEach((root, rootIndex) => this._animateChartReveal(root, baseDelay + 150 + rootIndex * 20));
     const reveal = [];
     const seen = new Set();
     for (const root of roots) {
@@ -7848,12 +8242,11 @@ class FitnessTvDashboardCard extends HTMLElement {
         reveal.push(element);
       }
     }
-    reveal.slice(0, 32).forEach((element, elementIndex) => {
+    reveal.slice(0, 24).forEach((element, elementIndex) => {
       const animation = element.animate([
-        {opacity:0, transform:"translate3d(0,18px,0) scale(.68)", filter:"blur(3px) brightness(.88)"},
-        {opacity:1, transform:"translate3d(0,-2px,0) scale(1.055)", filter:"blur(0) brightness(1.08)", offset:.72},
-        {opacity:1, transform:"translate3d(0,0,0) scale(1)", filter:"blur(0) brightness(1)"},
-      ], {duration:500, delay:baseDelay + 120 + elementIndex * 42, easing:"cubic-bezier(.16,1,.3,1)", fill:"both"});
+        {opacity:.28, transform:"translate3d(0,6px,0)", filter:"brightness(.96)"},
+        {opacity:1, transform:"translate3d(0,0,0)", filter:"brightness(1)"},
+      ], {duration:280, delay:baseDelay + 170 + elementIndex * 22, easing:"cubic-bezier(.22,.72,.18,1)", fill:"both"});
       this._finishTransientMotion(animation);
     });
     this._ensureCardLivingMotion(card, index);
@@ -8427,6 +8820,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     const duck = Math.max(0, Math.min(100, Number(current.ducking_percent ?? 25)));
     const oled = Boolean(this._oledProtection ?? current.oled_protection);
     const animations = Boolean(this._animationsEnabled ?? current.animations_enabled ?? true);
+    const toolbarAutoHide = Boolean(this._toolbarAutoHide ?? current.toolbar_auto_hide ?? false);
     const ignoreLightsWhenCastActive = Boolean(current.ignore_lights_when_cast_active ?? true);
     const adapterRows = (this._musicAdapters || []).filter((adapter) => adapter?.available !== false).map((adapter) => {
       const checked = Boolean(adapter.selected);
@@ -8451,6 +8845,7 @@ class FitnessTvDashboardCard extends HTMLElement {
           <label class="setting-range"><span><strong>${_fitnessEscape(l.tv_scale)}</strong><small>${_fitnessEscape(l.tv_scale_hint)}</small></span><input id="cfg-scale" type="range" min="10" max="150" step="5" value="${scale}"><output id="cfg-scale-value">${scale}%</output></label>
           <label class="setting-toggle"><span><strong>${_fitnessEscape(l.ignore_lights_when_cast_active)}</strong><small>${_fitnessEscape(l.ignore_lights_when_cast_active_hint)}</small></span><input id="cfg-ignore-lights" type="checkbox" ${ignoreLightsWhenCastActive ? "checked" : ""}></label>
           <label class="setting-toggle"><span><strong>${_fitnessEscape(l.dashboard_animations)}</strong><small>${_fitnessEscape(l.dashboard_animations_hint)}</small></span><input id="cfg-animations" type="checkbox" ${animations ? "checked" : ""}></label>
+          <label class="setting-toggle"><span><strong>${_fitnessEscape(l.toolbar_auto_hide)}</strong><small>${_fitnessEscape(l.toolbar_auto_hide_hint)}</small></span><input id="cfg-toolbar-auto-hide" type="checkbox" ${toolbarAutoHide ? "checked" : ""}></label>
           <label class="setting-toggle"><span><strong>${_fitnessEscape(l.oled_protection)}</strong><small>${_fitnessEscape(l.oled_protection_hint)}</small></span><input id="cfg-oled" type="checkbox" ${oled ? "checked" : ""}></label>
         </div>
         <div class="settings-actions"><button class="tool" id="cfg-save"><ha-icon icon="mdi:content-save-outline"></ha-icon><span>${_fitnessEscape(l.save)}</span></button><span class="settings-status" id="cfg-status"></span></div>
@@ -8546,6 +8941,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     const scale = Number(root.querySelector("#cfg-scale")?.value || 70);
     const oled = Boolean(root.querySelector("#cfg-oled")?.checked);
     const animations = Boolean(root.querySelector("#cfg-animations")?.checked);
+    const toolbarAutoHide = Boolean(root.querySelector("#cfg-toolbar-auto-hide")?.checked);
     const ignoreLightsWhenCastActive = Boolean(root.querySelector("#cfg-ignore-lights")?.checked);
     const musicAdapters = [...root.querySelectorAll('input[data-config-music-adapter]:checked')].map((input) => String(input.dataset.configMusicAdapter || "")).filter(Boolean);
     const musicSearchLimit = Math.max(10, Math.min(100, Number(root.querySelector("#cfg-search-limit")?.value || 50)));
@@ -8580,6 +8976,7 @@ class FitnessTvDashboardCard extends HTMLElement {
         profile_entry_id:this._profile.entry_id,
         audio_output_id:audioOutputId,
         animations_enabled:animations,
+        toolbar_auto_hide:toolbarAutoHide,
         music_adapters:musicAdapters,
         music_adapter_options:musicAdapterOptions,
         music_search_limit:musicSearchLimit,
@@ -8588,8 +8985,9 @@ class FitnessTvDashboardCard extends HTMLElement {
       this._musicAdapterOptions = prefs?.music_adapter_options || musicAdapterOptions;
       this._audioOutputId = String(prefs?.audio_output_id || audioOutputId);
       this._animationsEnabled = Boolean(prefs?.animations_enabled ?? animations);
+      this._toolbarAutoHide = Boolean(prefs?.toolbar_auto_hide ?? toolbarAutoHide);
       this._musicAdapters = (this._musicAdapters || []).map((adapter) => ({...adapter, selected:musicAdapters.includes(adapter.id)}));
-      this._profile = {...this._profile, tv_dashboard:{...(this._profile.tv_dashboard || {}), ...result, music_adapters:prefs?.music_adapters || musicAdapters, music_adapter_options:prefs?.music_adapter_options || musicAdapterOptions, music_search_limit:Number(prefs?.music_search_limit || musicSearchLimit), audio_output_id:this._audioOutputId, animations_enabled:this._animationsEnabled}};
+      this._profile = {...this._profile, tv_dashboard:{...(this._profile.tv_dashboard || {}), ...result, music_adapters:prefs?.music_adapters || musicAdapters, music_adapter_options:prefs?.music_adapter_options || musicAdapterOptions, music_search_limit:Number(prefs?.music_search_limit || musicSearchLimit), audio_output_id:this._audioOutputId, animations_enabled:this._animationsEnabled, toolbar_auto_hide:this._toolbarAutoHide}};
       if (previousAudioOutput !== this._audioOutputId && Boolean(this._sharedMediaState?.playing) && String(this._sharedMediaState?.media_content_id || "")) {
         void this._sendMediaCommand("play", {
           ...this._sharedMediaState,
@@ -9503,17 +9901,99 @@ class FitnessTvDashboardCard extends HTMLElement {
     flow.start({mode, entryId, profileName, uiLabels:this._labels(), language:String(this._profile?.language || this._access?.language || this._hass?.language || "en")});
   }
 
+  async _switchDashboard(delta) {
+    if (!this._profile || !this._hass || !this._canControlProfile) return;
+    const dashboards = Array.isArray(this._dashboards) ? this._dashboards.filter((row) => row?.id) : [];
+    if (dashboards.length < 2) return;
+    const current = Math.max(0, dashboards.findIndex((row) => String(row.id) === String(this._activeDashboardId || "main")));
+    const next = (current + Number(delta || 0) + dashboards.length) % dashboards.length;
+    const dashboardId = String(dashboards[next]?.id || "");
+    if (dashboardId && dashboardId !== this._activeDashboardId) await this._manageDashboard("select", dashboardId);
+  }
+
+  async _manageDashboard(action, dashboardId = "", name = "") {
+    if (!this._profile || !this._hass || !this._canControlProfile) return;
+    try {
+      const result = await this._hass.callWS({
+        type:"fitness/tv/dashboard/manage",
+        profile_entry_id:this._profile.entry_id,
+        action,
+        dashboard_id:String(dashboardId || ""),
+        name:String(name || ""),
+      });
+      if (Array.isArray(result?.dashboards)) this._dashboards = result.dashboards.map((row) => ({...row,layout:row?.layout && typeof row.layout === "object" ? row.layout : {}}));
+      this._activeDashboardId = String(result?.active_dashboard_id || this._activeDashboardId || "main");
+      const active = (this._dashboards || []).find((row) => row.id === this._activeDashboardId);
+      this._selectedCards = Array.isArray(active?.cards) ? active.cards : (Array.isArray(result?.cards) ? result.cards : [...FITNESS_TV_DEFAULT_CARDS]);
+      this._render();
+    } catch (err) {
+      console.error("[Fitness TV] dashboard management failed", err);
+      const message = String(err?.message || err || "");
+      if (message.includes("dashboard_limit_reached")) {
+        alert(this._labels().dashboard_limit_reached);
+      }
+    }
+  }
+
+  _openDashboardRename(dashboardId) {
+    const row = (this._dashboards || []).find((item) => item.id === dashboardId);
+    if (!row) return;
+    const l = this._labels();
+    this._showModal(`<div class="modal-card compact-modal"><div class="modal-head"><strong>${_fitnessEscape(l.rename_dashboard)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="modal-body"><label class="setting-field"><span>${_fitnessEscape(l.dashboard_name)}</span><input id="dashboard-name-input" maxlength="48" value="${_fitnessEscape(row.name)}"></label><button class="primary-tool" id="dashboard-name-save"><ha-icon icon="mdi:content-save-outline"></ha-icon><span>${_fitnessEscape(l.save)}</span></button></div></div>`);
+    const root=this.shadowRoot?.getElementById("modal-root");
+    root?.querySelector("#dashboard-name-save")?.addEventListener("click", async()=>{
+      const name=String(root.querySelector("#dashboard-name-input")?.value||"").trim();
+      if (!name) return;
+      root.replaceChildren();
+      await this._manageDashboard("rename",dashboardId,name);
+    });
+  }
+
+  _openDashboardManager() {
+    const l = this._labels();
+    const dashboards = Array.isArray(this._dashboards) && this._dashboards.length
+      ? this._dashboards
+      : [{id:"main",name:"Main",cards:[...FITNESS_TV_DEFAULT_CARDS],layout:{}}];
+    const rows = dashboards.map((row) => `
+      <div class="dashboard-manager-row ${row.id === this._activeDashboardId ? "active" : ""}">
+        <button class="dashboard-manager-select" data-dashboard-select="${_fitnessEscape(row.id)}">
+          <ha-icon icon="${row.id === this._activeDashboardId ? "mdi:view-dashboard" : "mdi:view-dashboard-outline"}"></ha-icon>
+          <span><strong>${_fitnessEscape(row.name)}</strong><small>${Number(row.cards?.length || 0)} ${_fitnessEscape(l.add_cards)}</small></span>
+        </button>
+        <button class="icon-tool" data-dashboard-rename="${_fitnessEscape(row.id)}" title="${_fitnessEscape(l.rename_dashboard)}"><ha-icon icon="mdi:pencil-outline"></ha-icon></button>
+        ${dashboards.length > 1 ? `<button class="icon-tool danger" data-dashboard-delete="${_fitnessEscape(row.id)}" title="${_fitnessEscape(l.delete_dashboard_confirm)}"><ha-icon icon="mdi:delete-outline"></ha-icon></button>` : ""}
+      </div>`).join("");
+    this._showModal(`<div class="modal-card dashboard-manager-modal"><div class="modal-head"><strong>${_fitnessEscape(l.manage_dashboards)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="modal-scroll-body dashboard-manager-list">${rows}</div><div class="modal-actions"><button class="tool" id="dashboard-manager-auto"><ha-icon icon="mdi:fit-to-screen-outline"></ha-icon><span>${_fitnessEscape(l.dashboard_auto_size)}</span></button><button class="primary-tool" id="dashboard-manager-add"><ha-icon icon="mdi:plus"></ha-icon><span>${_fitnessEscape(l.add_dashboard)}</span></button></div></div>`);
+    const root = this.shadowRoot?.getElementById("modal-root");
+    root?.querySelectorAll("[data-dashboard-select]").forEach((button) => button.addEventListener("click", () => {
+      const id = String(button.dataset.dashboardSelect || "");
+      if (id && id !== this._activeDashboardId) void this._manageDashboard("select", id);
+      else root.replaceChildren();
+    }));
+    root?.querySelectorAll("[data-dashboard-rename]").forEach((button) => button.addEventListener("click", () => this._openDashboardRename(String(button.dataset.dashboardRename || ""))));
+    root?.querySelectorAll("[data-dashboard-delete]").forEach((button) => button.addEventListener("click", () => {
+      const id = String(button.dataset.dashboardDelete || "");
+      const row = dashboards.find((item) => item.id === id);
+      if (row && confirm(`${l.delete_dashboard_confirm} ${row.name}?`)) void this._manageDashboard("delete", id);
+    }));
+    root?.querySelector("#dashboard-manager-add")?.addEventListener("click", () => void this._manageDashboard("create"));
+    root?.querySelector("#dashboard-manager-auto")?.addEventListener("click", async () => {
+      await this._saveDashboardLayout({}, {rerender:true});
+    });
+  }
+
   _openCardPicker() {
     const l = this._labels();
     const selected = new Set(this._selectedCards || []);
-    const rows = FITNESS_TV_CARD_CATALOG.map((item) => `
+    const visibleCatalog = FITNESS_TV_CARD_CATALOG.filter((item) => !item.ai || this._profile?.ai_enabled);
+    const rows = visibleCatalog.map((item) => `
       <label class="picker-row">
         <input type="checkbox" value="${item.id}" ${selected.has(item.id) ? "checked" : ""}>
         <ha-icon icon="${item.icon}"></ha-icon>
-        <span>${_fitnessEscape(l[item.label] || item.id)}</span>
+        <span>${_fitnessEscape(l[item.label] || item.title || (item.id==="ai_today"?_fitnessFeatureText(this._profile,this._hass).today_plan:item.id==="ai_last_workout"?_fitnessFeatureText(this._profile,this._hass).last_workout_ai:item.id))}</span>
       </label>`).join("");
     this._showModal(`
-      <div class="modal-card picker-modal">
+      <div class="modal-card picker-modal card-picker-live-preview">
         <div class="modal-head"><strong>${_fitnessEscape(l.card_picker)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
         <div class="picker-list">${rows}</div>
       </div>`);
@@ -9531,6 +10011,7 @@ class FitnessTvDashboardCard extends HTMLElement {
   _showModal(content) {
     const root = this.shadowRoot?.getElementById("modal-root");
     if (!root) return;
+    this._setToolbarHidden(false);
     const toolbar = this.shadowRoot?.querySelector(".tv-toolbar");
     toolbar?.scrollIntoView?.({block:"nearest"});
     const toolbarRect = toolbar?.getBoundingClientRect?.();
@@ -9546,12 +10027,17 @@ class FitnessTvDashboardCard extends HTMLElement {
     });
     const modalCard = root.querySelector(".modal-card");
     const backendFlowModal = Boolean(modalCard?.classList?.contains("backend-flow-modal"));
+    const cardPickerPreview = Boolean(modalCard?.classList?.contains("card-picker-live-preview"));
     const backdrop = root.querySelector(".modal-backdrop");
-    if (backendFlowModal) {
-      backdrop?.classList?.add("backend-flow-backdrop");
-      if (globalThis.matchMedia?.("(max-width: 760px)")?.matches) {
-        backdrop?.style?.setProperty("--modal-top", "4px");
-      }
+    if (backendFlowModal || cardPickerPreview) {
+      // Keep settings visible together with the dashboard. The card picker is a
+      // true side inspector: reserve horizontal space and let the live card grid
+      // reflow instead of covering cards. Backend flows remain floating.
+      backdrop?.classList?.add(backendFlowModal ? "backend-flow-backdrop" : "card-picker-preview-backdrop");
+      backdrop?.style?.setProperty("--modal-top", "4px");
+      if (cardPickerPreview) this.setAttribute("card-picker-open", "");
+    } else {
+      this.removeAttribute("card-picker-open");
     }
     const scrollSelector = ":scope > .profile-settings,:scope > .picker-list,:scope > .media-list,:scope > .cast-picker,:scope > .remote-gateway-body,:scope > .provider-catalog-list,:scope > .music-search-form,:scope > .modal-scroll-body,:scope > .playlist-list,:scope > .playlist-edit-list,:scope > .music-source-list,:scope > .access-admin-body,:scope > .add-profile-list,:scope > .modal-auto-scroll-body";
     if (modalCard && !backendFlowModal) {
@@ -9565,9 +10051,9 @@ class FitnessTvDashboardCard extends HTMLElement {
         }
       }
     }
-    const scrollBody = backendFlowModal ? null : modalCard?.querySelector(scrollSelector);
+    const scrollBody = (backendFlowModal || cardPickerPreview) ? null : modalCard?.querySelector(scrollSelector);
     modalCard?.addEventListener("wheel", (ev) => {
-      if (backendFlowModal) return;
+      if (backendFlowModal || cardPickerPreview) return;
       if (!scrollBody) { ev.stopPropagation(); return; }
       if (scrollBody.contains(ev.target)) { ev.stopPropagation(); return; }
       if (Math.abs(Number(ev.deltaY || 0)) > 0) {
@@ -9576,10 +10062,14 @@ class FitnessTvDashboardCard extends HTMLElement {
       }
       ev.stopPropagation();
     }, {passive:false});
+    const closeModal = () => {
+      root.replaceChildren();
+      this.removeAttribute("card-picker-open");
+    };
     root.querySelector(".modal-backdrop")?.addEventListener("click", (ev) => {
-      if (ev.target.classList.contains("modal-backdrop")) root.replaceChildren();
+      if (ev.target.classList.contains("modal-backdrop")) closeModal();
     });
-    root.querySelector(".modal-close")?.addEventListener("click", () => root.replaceChildren());
+    root.querySelector(".modal-close")?.addEventListener("click", closeModal);
   }
 
   async _openMediaBrowser() {
@@ -10727,6 +11217,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       *{box-sizing:border-box}
       ha-card.tv-shell{min-height:0;width:100%;border:0;border-radius:0;box-shadow:none;background:var(--fitness-tv-ambient,var(--primary-background-color));padding:14px;overflow:visible;transition:background .8s ease;position:relative;isolation:isolate}
       .fitness-ambient-layer{position:absolute;inset:-8%;z-index:0;overflow:hidden;pointer-events:none;opacity:.94;transition:opacity .8s ease,filter .8s ease}.fitness-ambient-layer i{position:absolute;border-radius:50%;filter:blur(62px);background:radial-gradient(circle at 44% 40%,rgba(var(--fitness-tv-ambient-rgb,3,169,244),calc(var(--fitness-tv-ambient-core-alpha,.22) * var(--fitness-ambient-flow,.82))) 0%,rgba(var(--fitness-tv-ambient-rgb,3,169,244),var(--fitness-tv-ambient-soft-alpha,.10)) 42%,transparent 74%);will-change:transform,opacity}.fitness-ambient-layer i:nth-child(1){width:74vmax;height:74vmax;left:-31vmax;top:-35vmax}.fitness-ambient-layer i:nth-child(2){width:70vmax;height:70vmax;right:-32vmax;bottom:-38vmax;opacity:.88}.fitness-ambient-layer i:nth-child(3){left:27%;top:18%;width:54vmax;height:54vmax;opacity:.52;background:radial-gradient(circle,rgba(var(--fitness-tv-ambient-rgb,3,169,244),calc(var(--fitness-tv-ambient-soft-alpha,.10) * .88)) 0%,rgba(255,255,255,.025) 44%,transparent 73%)}.fitness-ambient-layer i:nth-child(4){left:9%;bottom:-12vmax;width:72vmax;height:30vmax;border-radius:48%;opacity:.34;filter:blur(78px);background:linear-gradient(108deg,transparent 4%,rgba(var(--fitness-tv-ambient-rgb,3,169,244),calc(var(--fitness-tv-ambient-soft-alpha,.10) * 1.4)) 42%,rgba(255,255,255,.024) 61%,transparent 95%)}:host([fitness-animations]) .fitness-ambient-layer i:nth-child(1){animation:fitness-ambient-drift-a 16s cubic-bezier(.45,.05,.3,.96) infinite alternate}:host([fitness-animations]) .fitness-ambient-layer i:nth-child(2){animation:fitness-ambient-drift-b 20s cubic-bezier(.45,.05,.3,.96) infinite alternate}:host([fitness-animations]) .fitness-ambient-layer i:nth-child(3){animation:fitness-ambient-breathe 10.5s ease-in-out infinite alternate}:host([fitness-animations]) .fitness-ambient-layer i:nth-child(4){animation:fitness-ambient-ribbon 19s ease-in-out infinite alternate}:host([fitness-live-ambient]) .fitness-ambient-layer{opacity:1;filter:saturate(1.1) contrast(1.02)}:host([fitness-live-ambient][fitness-animations]) .fitness-ambient-layer i:nth-child(1){animation-duration:calc(var(--fitness-motion-speed,6s) * 1.85)}:host([fitness-live-ambient][fitness-animations]) .fitness-ambient-layer i:nth-child(2){animation-duration:calc(var(--fitness-motion-speed,6s) * 2.25)}:host([fitness-live-ambient][fitness-animations]) .fitness-ambient-layer i:nth-child(3){animation-duration:calc(var(--fitness-motion-speed,6s) * 1.18)}:host([fitness-live-ambient][fitness-animations]) .fitness-ambient-layer i:nth-child(4){animation-duration:calc(var(--fitness-motion-speed,6s) * 2);opacity:.48}@keyframes fitness-ambient-drift-a{0%{transform:translate3d(-3%,-3%,0) scale(.94);opacity:.72}55%{opacity:1}100%{transform:translate3d(24%,18%,0) scale(1.13);opacity:.82}}@keyframes fitness-ambient-drift-b{0%{transform:translate3d(8%,11%,0) scale(1.05);opacity:.82}100%{transform:translate3d(-25%,-17%,0) scale(.91);opacity:1}}@keyframes fitness-ambient-breathe{0%{transform:translate3d(-10%,-6%,0) scale(.82);opacity:.34}50%{opacity:.62}100%{transform:translate3d(14%,11%,0) scale(1.2);opacity:.4}}@keyframes fitness-ambient-ribbon{0%{transform:translate3d(-12%,4%,0) rotate(-4deg) scaleX(.9);opacity:.22}48%{opacity:.44}100%{transform:translate3d(18%,-12%,0) rotate(5deg) scaleX(1.14);opacity:.3}}
+      .dashboard-strip{position:sticky;top:76px;z-index:55;display:flex;align-items:center;gap:7px;margin:-4px 0 12px;padding:6px 8px;border-radius:14px;background:color-mix(in srgb,var(--card-background-color) 94%,transparent);box-shadow:var(--ha-card-box-shadow,0 2px 8px rgba(0,0,0,.1));overflow-x:auto}.dashboard-tab,.dashboard-strip-tool{min-height:34px;border:1px solid var(--divider-color);border-radius:10px;background:var(--secondary-background-color);color:var(--primary-text-color);display:inline-flex;align-items:center;gap:6px;padding:4px 10px;white-space:nowrap;cursor:pointer}.dashboard-tab.active{border-color:var(--primary-color);background:color-mix(in srgb,var(--primary-color) 14%,var(--secondary-background-color));color:var(--primary-color)}.dashboard-tab ha-icon,.dashboard-strip-tool ha-icon{--mdc-icon-size:18px}.dashboard-strip-actions{display:flex;align-items:center;gap:6px;margin-left:auto}.dashboard-strip-tool.danger{color:var(--error-color)}
       .tv-toolbar{position:sticky;top:0;z-index:60;display:grid;grid-template-columns:auto minmax(140px,220px) auto minmax(260px,1fr);gap:10px;align-items:center;margin-bottom:12px;padding:10px 12px;border-radius:18px;background:var(--card-background-color);box-shadow:var(--ha-card-box-shadow,0 2px 8px rgba(0,0,0,.12));min-width:0}
       .tv-brand{display:flex;align-items:center;gap:8px;font-size:20px;white-space:nowrap}.tv-brand .fitness-brand-icon{width:30px;height:30px;flex:0 0 30px;object-fit:contain}.tv-brand ha-icon{color:var(--primary-color)}
       :host(:not([fitness-cast-receiver])) .tv-toolbar.fixed-profile{grid-template-columns:auto auto minmax(0,1fr);grid-template-areas:"brand identity actions" "music music music";align-items:center;row-gap:8px}
@@ -10739,7 +11230,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       select,.tool,.icon-tool{font:inherit;color:var(--primary-text-color);background:var(--secondary-background-color);border:1px solid var(--divider-color);border-radius:12px;min-height:42px}
       select{width:100%;min-width:0;padding:0 10px}.tool,.icon-tool{cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:5px 12px;min-width:0;line-height:1.2}.icon-tool{width:42px;min-width:42px;padding:0}.tool>span,.primary-tool>span,.adapter-setup>span,.flow-home>span{display:block;min-width:0;max-width:100%;font-size:clamp(11px,.76vw,13px);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;word-break:normal;overflow-wrap:normal}.tool:disabled,.icon-tool:disabled{opacity:.45;cursor:default}
       .music-controls{display:grid;grid-template-columns:auto minmax(280px,1fr);gap:10px;align-items:center;min-width:0}.music-button-strip{display:flex;align-items:center;gap:7px;flex-wrap:nowrap;min-width:0}.music-button-strip>.tool{flex:1 1 auto;min-width:0}.music-button-strip>.tool span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.media-now{min-width:0;display:grid;grid-template-columns:44px minmax(0,1fr);gap:8px;align-items:center;padding-left:3px}.media-art{width:44px;height:44px;display:grid;place-items:center;overflow:hidden;border-radius:9px;background:var(--secondary-background-color);color:var(--secondary-text-color)}.media-art img{width:100%;height:100%;object-fit:cover}.media-art ha-icon{--mdc-icon-size:25px}.media-now-main{min-width:0;width:min(420px,100%);max-width:420px}.media-copy{min-width:0;width:100%;max-width:420px;overflow:hidden}.media-copy small{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--secondary-text-color);font-size:9px}.media-scroll-line{min-width:0;max-width:100%;overflow:hidden;white-space:nowrap}.media-scroll-line strong,.media-scroll-line span{display:inline-block;white-space:nowrap;min-width:0;will-change:transform}.media-copy strong{font-size:13px}.media-copy span{margin-top:1px;color:var(--secondary-text-color);font-size:10px}.media-scroll-line .media-marquee{animation:fitness-media-marquee var(--media-scroll-duration,8s) ease-in-out 1s infinite alternate}@keyframes fitness-media-marquee{from{transform:translateX(0)}to{transform:translateX(calc(-1 * var(--media-scroll-distance,0px)))}}.media-progress-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:1px;align-items:center;margin-top:3px;color:var(--secondary-text-color);font-size:9px;font-variant-numeric:tabular-nums;min-width:0;width:min(420px,100%);max-width:420px;justify-self:start}.media-progress-wrap input{grid-column:1;width:100%;height:14px;min-width:0;margin:0;accent-color:var(--primary-color)}.media-progress-wrap input:disabled{opacity:.45}.playlist-control.active{color:var(--primary-color);border-color:color-mix(in srgb,var(--primary-color) 65%,var(--divider-color));background:color-mix(in srgb,var(--primary-color) 12%,var(--secondary-background-color))}.media-time-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;line-height:1}.media-time-row span{white-space:nowrap}
-      .tv-oled-stage{min-width:0;position:relative;z-index:1}.tv-grid{--tv-columns:4;--tv-row:4px;display:grid;grid-template-columns:repeat(var(--tv-columns),minmax(0,1fr));grid-auto-rows:var(--tv-row);grid-auto-flow:dense;column-gap:12px;row-gap:0;width:100%;align-items:start}.tv-card-slot{min-width:0;position:relative;overflow:visible;min-height:var(--tv-card-visual-height,1px);border-radius:14px}.tv-card-slot>.tv-mounted-card{display:block;width:100%;max-width:none}.tv-card-slot.read-only-card{cursor:default}.tv-card-slot.read-only-card>.tv-mounted-card{user-select:text}.layout-tools{display:none;position:absolute;z-index:80;top:5px;right:5px;align-items:center;gap:3px;padding:3px;border-radius:10px;background:color-mix(in srgb,var(--card-background-color) 92%,transparent);border:1px solid var(--divider-color);box-shadow:0 2px 8px rgba(0,0,0,.18)}.fitness-remote-section-selected,.fitness-remote-section-active{position:relative;z-index:72!important;transform-origin:center center;will-change:transform,box-shadow,filter;transition:transform .19s cubic-bezier(.2,.85,.2,1),outline-color .16s ease,box-shadow .19s ease,filter .16s ease}.fitness-remote-section-selected{outline:2px solid color-mix(in srgb,var(--primary-color,#03a9f4) 92%,white 8%)!important;outline-offset:3px!important;transform:scale(1.028);box-shadow:0 0 0 2px rgba(255,255,255,.10),0 0 0 5px color-mix(in srgb,var(--primary-color,#03a9f4) 36%,transparent),0 0 24px 8px color-mix(in srgb,var(--primary-color,#03a9f4) 29%,transparent),0 18px 42px rgba(0,0,0,.30)!important;filter:brightness(1.07) saturate(1.055)}.tv-toolbar.fitness-remote-section-selected{transform:scale(1.012)}.fitness-remote-section-active{outline:1px solid color-mix(in srgb,var(--primary-color,#03a9f4) 72%,transparent)!important;outline-offset:3px!important;transform:scale(1.012);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary-color,#03a9f4) 16%,transparent),0 0 16px 4px color-mix(in srgb,var(--primary-color,#03a9f4) 14%,transparent),0 10px 28px rgba(0,0,0,.18)!important;filter:brightness(1.035) saturate(1.025)}.tv-toolbar.fitness-remote-section-active{transform:scale(1.006)}.cast-exit-confirm[hidden]{display:none!important}:host([fitness-cast-receiver]) .cast-exit-confirm{position:fixed;left:9vw;right:9vw;bottom:28px;z-index:9999;margin:0 auto;max-width:760px;padding:13px 20px;border-radius:14px;background:rgba(0,0,0,.86);color:#fff;font:700 15px/1.3 system-ui,sans-serif;text-align:center;pointer-events:none;box-shadow:0 8px 28px rgba(0,0,0,.38);border:1px solid rgba(255,255,255,.24)}.layout-tools .drag-grip{--mdc-icon-size:18px;color:var(--secondary-text-color);padding:0 3px}.layout-tools button{width:28px;height:28px;border:0;border-radius:7px;display:grid;place-items:center;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer}.layout-tools button ha-icon{--mdc-icon-size:16px}:host([layout-editing]) .layout-tools{display:flex}:host([layout-editing]) .tv-card-slot{outline:2px dashed color-mix(in srgb,var(--primary-color) 65%,transparent);outline-offset:-2px;cursor:grab}:host([layout-editing]) .tv-card-slot>.tv-mounted-card{pointer-events:none;user-select:none}:host([layout-editing]) .tv-card-slot.dragging{opacity:.42}:host([layout-editing]) .tv-card-slot.drop-target{outline:3px solid var(--primary-color);background:color-mix(in srgb,var(--primary-color) 7%,transparent)}.arrange-tool[aria-pressed="true"]{border-color:var(--primary-color);background:color-mix(in srgb,var(--primary-color) 16%,var(--secondary-background-color))}
+      .tv-oled-stage{min-width:0;position:relative;z-index:1}.tv-grid{--tv-columns:4;--tv-row:4px;display:grid;--fitness-grid-tail-gap:12px;grid-template-columns:repeat(var(--tv-columns),minmax(0,1fr));grid-auto-rows:var(--tv-row);grid-auto-flow:dense;column-gap:var(--fitness-theme-gap,12px);row-gap:0;width:100%;align-items:start;margin-bottom:calc(-1 * var(--fitness-grid-tail-gap))}.tv-card-slot{min-width:0;position:relative;overflow:visible;min-height:var(--tv-card-visual-height,1px);border-radius:14px}.tv-card-slot>.tv-mounted-card{display:block;width:100%;max-width:none}.tv-card-slot.read-only-card{cursor:default}.tv-card-slot.read-only-card>.tv-mounted-card{user-select:text}.layout-tools{display:none;position:absolute;z-index:80;top:5px;right:5px;align-items:center;gap:3px;padding:3px;border-radius:10px;background:color-mix(in srgb,var(--card-background-color) 92%,transparent);border:1px solid var(--divider-color);box-shadow:0 2px 8px rgba(0,0,0,.18)}.fitness-remote-section-selected,.fitness-remote-section-active{position:relative;z-index:72!important;transform-origin:center center;will-change:transform,box-shadow,filter;transition:transform .19s cubic-bezier(.2,.85,.2,1),outline-color .16s ease,box-shadow .19s ease,filter .16s ease}.fitness-remote-section-selected{outline:2px solid color-mix(in srgb,var(--primary-color,#03a9f4) 92%,white 8%)!important;outline-offset:3px!important;transform:scale(1.028);box-shadow:0 0 0 2px rgba(255,255,255,.10),0 0 0 5px color-mix(in srgb,var(--primary-color,#03a9f4) 36%,transparent),0 0 24px 8px color-mix(in srgb,var(--primary-color,#03a9f4) 29%,transparent),0 18px 42px rgba(0,0,0,.30)!important;filter:brightness(1.07) saturate(1.055)}.tv-toolbar.fitness-remote-section-selected{transform:scale(1.012)}.fitness-remote-section-active{outline:1px solid color-mix(in srgb,var(--primary-color,#03a9f4) 72%,transparent)!important;outline-offset:3px!important;transform:scale(1.012);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary-color,#03a9f4) 16%,transparent),0 0 16px 4px color-mix(in srgb,var(--primary-color,#03a9f4) 14%,transparent),0 10px 28px rgba(0,0,0,.18)!important;filter:brightness(1.035) saturate(1.025)}.tv-toolbar.fitness-remote-section-active{transform:scale(1.006)}.cast-exit-confirm[hidden]{display:none!important}:host([fitness-cast-receiver]) .cast-exit-confirm{position:fixed;left:9vw;right:9vw;bottom:28px;z-index:9999;margin:0 auto;max-width:760px;padding:13px 20px;border-radius:14px;background:rgba(0,0,0,.86);color:#fff;font:700 15px/1.3 system-ui,sans-serif;text-align:center;pointer-events:none;box-shadow:0 8px 28px rgba(0,0,0,.38);border:1px solid rgba(255,255,255,.24)}.layout-tools .drag-grip{--mdc-icon-size:18px;color:var(--secondary-text-color);padding:0 3px}.layout-tools button{width:28px;height:28px;border:0;border-radius:7px;display:grid;place-items:center;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer}.layout-tools button ha-icon{--mdc-icon-size:16px}:host([layout-editing]) .layout-tools{display:flex}:host([layout-editing]) .tv-card-slot{outline:2px dashed color-mix(in srgb,var(--primary-color) 65%,transparent);outline-offset:-2px;cursor:grab}:host([layout-editing]) .tv-card-slot>.tv-mounted-card{pointer-events:none;user-select:none}:host([layout-editing]) .tv-card-slot.dragging{opacity:.42}:host([layout-editing]) .tv-card-slot.drop-target{outline:3px solid var(--primary-color);background:color-mix(in srgb,var(--primary-color) 7%,transparent)}.arrange-tool[aria-pressed="true"]{border-color:var(--primary-color);background:color-mix(in srgb,var(--primary-color) 16%,var(--secondary-background-color))}
       :host([fitness-cast-receiver]) .fitness-remote-section-selected,:host([fitness-cast-receiver]) .fitness-remote-section-active{will-change:transform;transition:transform .11s ease-out,outline-color .11s ease-out,box-shadow .11s ease-out;filter:none!important}
       :host([fitness-cast-receiver]) .fitness-remote-section-selected{transform:translate3d(0,-1px,0) scale(1.012);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary-color,#03a9f4) 27%,transparent),0 8px 18px rgba(0,0,0,.24)!important}
       :host([fitness-cast-receiver]) .tv-toolbar.fitness-remote-section-selected{transform:translate3d(0,-1px,0) scale(1.004)}
@@ -10748,7 +11239,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       .cast-focus-tooltip[hidden]{display:none!important}:host([fitness-cast-receiver]) .cast-focus-tooltip{position:fixed;z-index:9999;width:max-content;max-width:min(300px,calc(100vw - 24px));margin:0;padding:8px 12px;border-radius:10px;background:rgba(0,0,0,.90);color:#fff;font:600 12px/1.3 system-ui,sans-serif;text-align:center;white-space:normal;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.34);border:1px solid rgba(255,255,255,.22);animation:fitness-tooltip-in .14s ease-out both}:host([fitness-cast-receiver]) .cast-focus-tooltip::before{content:"";position:absolute;left:var(--cast-tooltip-arrow-left,50%);top:-7px;transform:translateX(-50%);border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:7px solid rgba(0,0,0,.90)}:host([fitness-cast-receiver]) .cast-focus-tooltip[data-placement="above"]::before{top:auto;bottom:-7px;border-bottom:0;border-top:7px solid rgba(0,0,0,.90)}@keyframes fitness-tooltip-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
       .fatal{padding:30px;font-size:18px}
       .access-denied{min-height:280px;display:flex;align-items:center;justify-content:center;gap:16px;padding:36px;text-align:left;color:var(--secondary-text-color)}.access-denied>ha-icon{--mdc-icon-size:38px;color:var(--error-color)}.access-denied strong,.access-denied span{display:block}.access-denied strong{font-size:20px;color:var(--primary-text-color);margin-bottom:5px}.access-denied span{max-width:620px;line-height:1.45}.view-only-badge,.view-only-notice{display:inline-flex;align-items:center;gap:6px;color:var(--secondary-text-color)}.view-only-badge{padding:3px 8px;border-radius:999px;background:var(--secondary-background-color);font-size:10px}.view-only-badge ha-icon,.view-only-notice ha-icon{--mdc-icon-size:16px}.view-only-notice{margin:-2px 0 10px;padding:9px 12px;border-radius:12px;background:color-mix(in srgb,var(--primary-color) 7%,var(--secondary-background-color));font-size:11px}.read-only-media{grid-template-columns:minmax(180px,1fr)!important}.read-only-card .layout-tools{display:none!important}
-      .modal-backdrop{position:fixed;z-index:9999;top:var(--modal-top,68px);left:0;right:0;bottom:0;background:rgba(0,0,0,.42);display:grid;place-items:start center;padding:4px 18px 18px;overflow:hidden;overscroll-behavior:none}
+      .modal-backdrop{position:fixed;z-index:9999;top:var(--modal-top,68px);left:0;right:0;bottom:0;background:rgba(0,0,0,.42);display:grid;place-items:start center;padding:4px 18px 18px;overflow:hidden;overscroll-behavior:none}.card-picker-preview-backdrop{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;place-items:start end!important;pointer-events:none;padding:28px 12px 12px!important}.card-picker-preview-backdrop>.card-picker-live-preview{pointer-events:auto;width:min(420px,34vw);max-height:calc(100dvh - var(--modal-top,68px) - 48px);margin-top:0;box-sizing:border-box;box-shadow:0 16px 46px rgba(0,0,0,.38)}:host([card-picker-open]) .tv-oled-stage{padding-right:min(440px,36vw);box-sizing:border-box;transition:padding-right .18s ease}:host([card-picker-open]) .tv-grid{--tv-columns:3;--tv-logical-columns:3}@media(max-width:1250px){:host([card-picker-open]) .tv-grid{--tv-columns:2;--tv-logical-columns:2}}@media(max-width:900px){:host([card-picker-open]) .tv-oled-stage{padding-right:0}:host([card-picker-open]) .tv-grid{--tv-columns:1;--tv-logical-columns:1}.card-picker-preview-backdrop{place-items:start center!important;background:rgba(0,0,0,.18)!important;padding:18px 8px 8px!important}.card-picker-preview-backdrop>.card-picker-live-preview{width:min(560px,calc(100vw - 16px));max-height:calc(100dvh - var(--modal-top,68px) - 34px)}}
       .modal-card{width:min(760px,calc(100vw - 16px));max-width:calc(100vw - 16px);max-height:calc(100dvh - var(--modal-top,68px) - 12px);overflow:hidden;display:flex;flex-direction:column;border-radius:20px;background:var(--card-background-color);box-shadow:0 20px 70px rgba(0,0,0,.42);border:1px solid var(--divider-color)}
       .modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid var(--divider-color);font-size:17px}.browser-title,.browser-head-actions{display:flex;align-items:center;gap:8px;min-width:0}.browser-title strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.media-country{margin:8px 10px 0;display:grid;grid-template-columns:auto minmax(160px,1fr);align-items:center;gap:9px;color:var(--secondary-text-color);font-size:12px}.media-country select{width:100%;padding:0 9px}.media-search{margin:8px 10px 0;display:grid;grid-template-columns:24px minmax(0,1fr);align-items:center;gap:6px;padding:7px 10px;border:1px solid var(--divider-color);border-radius:12px;background:var(--secondary-background-color)}.media-search ha-icon{--mdc-icon-size:19px;color:var(--secondary-text-color)}.media-search input{min-width:0;border:0;outline:0;background:transparent;color:var(--primary-text-color);font:inherit}.media-row[hidden]{display:none}.media-favorite.favorite-pulse{transform:scale(1.13);border-color:var(--primary-color);background:color-mix(in srgb,var(--primary-color) 18%,var(--secondary-background-color));transition:transform .12s ease,background .12s ease}.backend-flow-modal{height:min(900px,calc(100dvh - var(--modal-top,68px) - 26px));max-height:calc(100dvh - var(--modal-top,68px) - 26px);overflow:hidden!important}.backend-flow-modal .backend-flow-host{display:block;flex:1 1 auto;min-height:0;overflow:hidden!important}.backend-flow-modal .backend-flow-host>fitness-backend-flow{display:block;height:100%;min-height:0;overflow:hidden}
       .picker-list,.media-list{overflow:auto;padding:8px}.picker-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
@@ -10828,7 +11319,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       :host([fitness-cast-receiver]) .media-progress-wrap{gap:3px;margin-top:1px;font-size:8px;width:min(300px,100%);max-width:300px}
       :host([fitness-cast-receiver]) .media-progress-wrap input{height:12px}
       :host([fitness-cast-receiver]) .tv-oled-stage{width:calc(100% - 4px);margin:2px;transition:transform .8s ease;will-change:transform}
-      :host([fitness-cast-receiver]) .tv-grid{--tv-columns:3;column-gap:6px}
+      :host([fitness-cast-receiver]) .tv-grid{--tv-columns:3;column-gap:6px;--fitness-grid-tail-gap:6px}
       :host([fitness-cast-receiver]) .tv-card-slot>.tv-mounted-card{position:absolute;top:0;left:0;width:calc(100% / var(--fitness-tv-card-scale,.70));transform:scale(var(--fitness-tv-card-scale,.70));transform-origin:top left}
       :host([oled-protection][fitness-cast-receiver]) .tv-oled-stage{transform:translate3d(var(--fitness-oled-x,0),var(--fitness-oled-y,0),0)}
       :host([oled-idle][fitness-cast-receiver]) .tv-toolbar{opacity:.34}
@@ -10841,6 +11332,9 @@ class FitnessTvDashboardCard extends HTMLElement {
       :host([fitness-cast-receiver]){height:100dvh}
       .tool:focus-visible,.icon-tool:focus-visible,.primary-tool:focus-visible,.adapter-setup:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}
       .modal-backdrop{--modal-effective-top:min(var(--modal-top,68px),max(6px,calc(100dvh - 180px)));top:var(--modal-effective-top);padding-left:max(8px,env(safe-area-inset-left));padding-right:max(8px,env(safe-area-inset-right));padding-bottom:max(12px,env(safe-area-inset-bottom))}
+      /* Keep the dashboard visible while editing per-profile backend/dashboard settings. */
+      .backend-flow-backdrop{background:transparent!important;position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;display:flex!important;justify-content:flex-end!important;align-items:flex-start!important;pointer-events:none!important;padding:max(6px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))!important;overflow:hidden!important}
+      .backend-flow-backdrop .backend-flow-modal{pointer-events:auto!important;position:relative!important;inset:auto!important;flex:0 0 auto!important;width:min(660px,48vw)!important;max-width:calc(100vw - max(16px,env(safe-area-inset-left)) - max(16px,env(safe-area-inset-right)))!important;height:min(900px,calc(100dvh - max(14px,env(safe-area-inset-top)) - max(14px,env(safe-area-inset-bottom))))!important;max-height:calc(100dvh - max(14px,env(safe-area-inset-top)) - max(14px,env(safe-area-inset-bottom)))!important;margin:0!important;overflow:hidden!important;box-shadow:0 24px 70px rgba(0,0,0,.42)!important}
       .modal-card{max-height:calc(100dvh - var(--modal-effective-top) - max(12px,env(safe-area-inset-bottom)))}
       .backend-flow-modal,.remote-gateway-modal,.configure-modal,.music-search-modal{max-height:calc(100dvh - var(--modal-effective-top) - max(12px,env(safe-area-inset-bottom)))}
       @media(max-width:900px){
@@ -10851,8 +11345,8 @@ class FitnessTvDashboardCard extends HTMLElement {
         :host([fitness-cast-receiver]) .music-controls{grid-area:music;width:100%;grid-template-columns:auto minmax(90px,1fr)}
       }
       @media(max-width:760px){
-        .backend-flow-backdrop{top:max(2px,env(safe-area-inset-top))!important;bottom:0!important;padding:4px max(4px,env(safe-area-inset-right)) max(4px,env(safe-area-inset-bottom)) max(4px,env(safe-area-inset-left))!important;align-items:stretch!important}
-        .backend-flow-backdrop .backend-flow-modal{width:100%!important;height:calc(100dvh - max(2px,env(safe-area-inset-top)) - max(4px,env(safe-area-inset-bottom)) - 6px)!important;max-height:calc(100dvh - max(2px,env(safe-area-inset-top)) - max(4px,env(safe-area-inset-bottom)) - 6px)!important;margin:0!important;border-radius:12px!important}
+        .backend-flow-backdrop{justify-content:center!important;align-items:stretch!important;padding:max(4px,env(safe-area-inset-top)) max(4px,env(safe-area-inset-right)) max(4px,env(safe-area-inset-bottom)) max(4px,env(safe-area-inset-left))!important}
+        .backend-flow-backdrop .backend-flow-modal{width:100%!important;height:calc(100dvh - max(4px,env(safe-area-inset-top)) - max(4px,env(safe-area-inset-bottom)) - 8px)!important;max-width:100%!important;max-height:calc(100dvh - max(4px,env(safe-area-inset-top)) - max(4px,env(safe-area-inset-bottom)) - 8px)!important;margin:0!important;border-radius:12px!important}
         :host(:not([fitness-cast-receiver])) .tv-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(44px,1fr));gap:6px;width:100%}
         :host(:not([fitness-cast-receiver])) .tool,:host(:not([fitness-cast-receiver])) .icon-tool,:host(:not([fitness-cast-receiver])) .primary-tool{min-height:44px}
         :host(:not([fitness-cast-receiver])) input:not([type="checkbox"]):not([type="range"]),:host(:not([fitness-cast-receiver])) select{font-size:16px}
@@ -10875,6 +11369,28 @@ class FitnessTvDashboardCard extends HTMLElement {
         .adapter-actions>*{width:100%;max-width:none;min-height:44px}.adapter-actions .adapter-account{grid-column:1/-1;max-width:none}
         .provider-catalog-row{grid-template-columns:30px minmax(0,1fr)}.provider-catalog-row>.adapter-setup{grid-column:1/-1;width:100%;min-height:44px}
       }
+
+      /* Dashboard workspace layout: the existing toolbar is the only permanent chrome. */
+      .tv-toolbar{max-height:320px;transform:translate3d(0,0,0);transform-origin:top center;transition:opacity .24s ease,transform .38s cubic-bezier(.22,.72,.18,1),max-height .38s cubic-bezier(.22,.72,.18,1),margin-bottom .34s ease,padding-top .34s ease,padding-bottom .34s ease,box-shadow .24s ease;will-change:opacity,transform,max-height}
+      :host([toolbar-hidden]) .tv-toolbar{opacity:0;transform:translate3d(0,-18px,0) scaleY(.94);max-height:0;min-height:0;margin-bottom:0;padding-top:0;padding-bottom:0;box-shadow:none;pointer-events:none;overflow:hidden}
+      ha-card.tv-shell:fullscreen{display:block;height:100dvh;max-height:100dvh;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain;padding-bottom:max(24px,env(safe-area-inset-bottom));scrollbar-gutter:stable}
+      :host([fitness-cast-receiver]){overflow:hidden!important}
+      :host([fitness-cast-receiver]) ha-card.tv-shell{height:100dvh;max-height:100dvh;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain;scrollbar-gutter:stable}
+      .tv-grid{--tv-logical-columns:4;grid-template-columns:repeat(12,minmax(0,1fr))!important}
+      .tv-card-slot[data-manual-height]{height:var(--fitness-manual-card-height);min-height:var(--fitness-manual-card-height);overflow:auto;overscroll-behavior:contain}
+      .tv-card-slot[data-manual-height]>.tv-mounted-card{min-height:100%}
+      .card-resize-handle{display:none;position:absolute;z-index:82;right:2px;bottom:2px;width:34px;height:34px;padding:0;border:1px solid var(--divider-color);border-radius:10px;background:color-mix(in srgb,var(--card-background-color) 94%,transparent);color:var(--primary-color);cursor:nwse-resize;place-items:center;touch-action:none;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+      .card-resize-handle ha-icon{--mdc-icon-size:20px}
+      :host([layout-editing]) .card-resize-handle{display:grid}
+      :host([layout-editing]) .tv-card-slot.resizing{cursor:nwse-resize;outline:3px solid var(--primary-color)}
+      .dashboard-switcher{display:grid;grid-template-columns:30px minmax(0,auto) 30px;align-items:center;justify-content:center;gap:2px;width:max-content;max-width:min(520px,calc(100% - 18px));min-height:32px;margin:0 auto 8px;padding:2px 3px;border:1px solid color-mix(in srgb,var(--divider-color) 72%,transparent);border-radius:999px;background:color-mix(in srgb,var(--card-background-color) 92%,transparent);box-shadow:0 5px 16px rgba(0,0,0,.10);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);position:relative;z-index:54}.dashboard-switch-button,.dashboard-switch-current{height:28px;border:0;background:transparent;color:var(--primary-text-color);cursor:pointer}.dashboard-switch-button{width:28px;border-radius:50%;display:grid;place-items:center;padding:0}.dashboard-switch-button:hover,.dashboard-switch-current:hover{background:color-mix(in srgb,var(--primary-color) 10%,transparent)}.dashboard-switch-button ha-icon{--mdc-icon-size:18px}.dashboard-switch-current{min-width:0;max-width:min(360px,62vw);border-radius:999px;padding:0 8px;display:grid;grid-template-columns:18px minmax(0,1fr) auto;align-items:center;gap:5px}.dashboard-switch-current ha-icon{--mdc-icon-size:16px;color:var(--primary-color)}.dashboard-switch-current strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}.dashboard-switch-current small{font-size:9px;color:var(--secondary-text-color);font-variant-numeric:tabular-nums}.dashboard-switcher.fitness-remote-section-selected,.dashboard-switcher.fitness-remote-section-active{z-index:72!important}:host([toolbar-hidden]) .dashboard-switcher{margin-top:2px}:host([fitness-cast-receiver]) .dashboard-switcher{min-height:28px;margin-bottom:5px;padding:1px 2px;grid-template-columns:26px minmax(0,auto) 26px}:host([fitness-cast-receiver]) .dashboard-switch-button,:host([fitness-cast-receiver]) .dashboard-switch-current{height:24px}:host([fitness-cast-receiver]) .dashboard-switch-button{width:24px}:host([fitness-cast-receiver]) .dashboard-switch-current{max-width:min(300px,55vw);padding:0 6px}:host([fitness-cast-receiver]) .dashboard-switch-current strong{font-size:10px}:host([fitness-cast-receiver]) .dashboard-switch-current small{font-size:8px}
+      .dashboard-manager-list{display:grid;gap:8px}.dashboard-manager-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:7px;align-items:center;padding:6px;border:1px solid var(--divider-color);border-radius:13px;background:var(--secondary-background-color)}.dashboard-manager-row.active{border-color:var(--primary-color);background:color-mix(in srgb,var(--primary-color) 8%,var(--secondary-background-color))}.dashboard-manager-select{min-width:0;min-height:48px;border:0;background:transparent;color:var(--primary-text-color);display:grid;grid-template-columns:28px minmax(0,1fr);gap:8px;align-items:center;text-align:left;cursor:pointer}.dashboard-manager-select span,.dashboard-manager-select strong,.dashboard-manager-select small{display:block;min-width:0}.dashboard-manager-select strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dashboard-manager-select small{margin-top:2px;color:var(--secondary-text-color);font-size:11px}.dashboard-manager-select ha-icon{color:var(--primary-color)}.dashboard-manager-row .danger{color:var(--error-color)}
+      @media(max-width:1500px){:host(:not([fitness-cast-receiver])) .tv-grid{--tv-logical-columns:3}}
+      @media(max-width:1250px){:host(:not([fitness-cast-receiver])) .tv-grid{--tv-logical-columns:2}}
+      @media(max-width:760px){:host(:not([fitness-cast-receiver])) .tv-grid{--tv-logical-columns:1}}
+      :host([fitness-cast-receiver]) .tv-grid{--tv-logical-columns:3}
+      @media(max-width:900px){:host([fitness-cast-receiver]) .tv-grid{--tv-logical-columns:2}}
+      @media(max-width:520px){.dashboard-manager-row{grid-template-columns:minmax(0,1fr) auto auto}}
     </style>`;
   }
 }
@@ -11916,6 +12432,7 @@ class FitnessTvSetupCard extends HTMLElement {
     closeButton?.setAttribute("aria-label", modalLabels.close);
     const modalCard = root.querySelector(".modal-card");
     const backendFlowModal = Boolean(modalCard?.classList?.contains("backend-flow-modal"));
+    const cardPickerPreview = Boolean(modalCard?.classList?.contains("card-picker-live-preview"));
     const scrollSelector = ":scope > .profile-settings,:scope > .add-profile-list,:scope > .access-admin-body,:scope > .modal-scroll-body,:scope > .modal-auto-scroll-body";
     if (modalCard && !backendFlowModal && !modalCard.querySelector(scrollSelector)) {
       const middle = [...modalCard.children].filter((node) => !node.classList.contains("modal-head") && !node.classList.contains("modal-actions") && !node.classList.contains("settings-actions"));
@@ -11926,9 +12443,9 @@ class FitnessTvSetupCard extends HTMLElement {
         middle.forEach((node) => body.appendChild(node));
       }
     }
-    const scrollBody = backendFlowModal ? null : modalCard?.querySelector(scrollSelector);
+    const scrollBody = (backendFlowModal || cardPickerPreview) ? null : modalCard?.querySelector(scrollSelector);
     modalCard?.addEventListener("wheel", (ev) => {
-      if (backendFlowModal) return;
+      if (backendFlowModal || cardPickerPreview) return;
       if (!scrollBody) { ev.stopPropagation(); return; }
       if (scrollBody.contains(ev.target)) { ev.stopPropagation(); return; }
       if (Math.abs(Number(ev.deltaY || 0)) > 0) {
@@ -12052,6 +12569,7 @@ class FitnessTvSetupCard extends HTMLElement {
     const duck = Number(tv.ducking_percent ?? 25);
     const scale = Number(tv.tv_scale_percent ?? 70);
     const animations = Boolean(tv.animations_enabled ?? true);
+    const toolbarAutoHide = Boolean(tv.toolbar_auto_hide ?? false);
     this._modal(`<div class="modal-card configure-modal"><div class="modal-head"><strong>${_fitnessEscape(l.reconfigure_profile)}: ${_fitnessEscape(profile.profile_name)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="profile-settings">
       <label class="setting-toggle"><span><strong class="setting-title"><ha-icon icon="mdi:monitor-dashboard"></ha-icon>${_fitnessEscape(l.enable_tv_view)}</strong><small>${_fitnessEscape(l.enable_tv_view_hint)}</small></span><input id="cfg-enabled" type="checkbox" ${enabled ? "checked" : ""}></label>
       <div class="setting-adapters"><div class="setting-adapters-head"><span><strong>${_fitnessEscape(l.music_adapters)}</strong><small>${_fitnessEscape(l.music_adapters_hint)}</small></span><button type="button" class="adapter-setup" id="cfg-add-provider"><ha-icon icon="mdi:plus"></ha-icon><span>${_fitnessEscape(l.music_add_provider)}</span></button></div><div class="music-adapter-list">${adapterRows || `<div class="browser-empty">${_fitnessEscape(l.music_no_adapters)}</div>`}</div></div>
@@ -12062,6 +12580,7 @@ class FitnessTvSetupCard extends HTMLElement {
       <label class="setting-range"><span><strong>${_fitnessEscape(l.tv_scale)}</strong><small>${_fitnessEscape(l.tv_scale_hint)}</small></span><input id="cfg-scale" type="range" min="10" max="150" step="5" value="${scale}"><output id="cfg-scale-value">${scale}%</output></label>
       <label class="setting-toggle"><span><strong>${_fitnessEscape(l.ignore_lights_when_cast_active)}</strong><small>${_fitnessEscape(l.ignore_lights_when_cast_active_hint)}</small></span><input id="cfg-ignore-lights" type="checkbox" ${Boolean(tv.ignore_lights_when_cast_active ?? true) ? "checked" : ""}></label>
       <label class="setting-toggle"><span><strong>${_fitnessEscape(l.dashboard_animations)}</strong><small>${_fitnessEscape(l.dashboard_animations_hint)}</small></span><input id="cfg-animations" type="checkbox" ${animations ? "checked" : ""}></label>
+      <label class="setting-toggle"><span><strong>${_fitnessEscape(l.toolbar_auto_hide)}</strong><small>${_fitnessEscape(l.toolbar_auto_hide_hint)}</small></span><input id="cfg-toolbar-auto-hide" type="checkbox" ${toolbarAutoHide ? "checked" : ""}></label>
       <label class="setting-toggle"><span><strong>${_fitnessEscape(l.oled_protection)}</strong><small>${_fitnessEscape(l.oled_protection_hint)}</small></span><input id="cfg-oled" type="checkbox" ${tv.oled_protection ? "checked" : ""}></label>
       <div class="setting-info"><ha-icon icon="mdi:television-shimmer"></ha-icon><span><strong>${_fitnessEscape(l.keep_awake)}</strong><small>${_fitnessEscape(l.keep_awake_hint)}</small></span></div>
     </div><div class="settings-actions"><button class="tool" id="cfg-save"><ha-icon icon="mdi:content-save-outline"></ha-icon><span>${_fitnessEscape(l.save)}</span></button><span class="settings-status" id="cfg-status"></span></div></div>`);
@@ -12106,6 +12625,7 @@ class FitnessTvSetupCard extends HTMLElement {
       cast_media_player_id:String(root.querySelector("#cfg-target")?.value || ""),
       audio_output_id:String(root.querySelector("#cfg-audio-output")?.value || "__fitness_browser__"),
       animations_enabled:Boolean(root.querySelector("#cfg-animations")?.checked),
+      toolbar_auto_hide:Boolean(root.querySelector("#cfg-toolbar-auto-hide")?.checked),
       ducking_percent:Number(duckInput?.value || 25),
       ignore_lights_when_cast_active:Boolean(root.querySelector("#cfg-ignore-lights")?.checked),
       tv_scale_percent:Number(scaleInput?.value || 70),
@@ -12203,8 +12723,9 @@ class FitnessTvSetupCard extends HTMLElement {
         music_search_limit:Number(settings.music_search_limit || 50),
         audio_output_id:String(settings.audio_output_id || "__fitness_browser__"),
         animations_enabled:Boolean(settings.animations_enabled ?? true),
+        toolbar_auto_hide:Boolean(settings.toolbar_auto_hide ?? false),
       });
-      profile.tv_dashboard = {...(profile.tv_dashboard || {}), ...result, music_adapters:prefs?.music_adapters || settings.music_adapters || [], music_adapter_options:prefs?.music_adapter_options || settings.music_adapter_options || {}, music_search_limit:Number(prefs?.music_search_limit || settings.music_search_limit || 50), audio_output_id:String(prefs?.audio_output_id || settings.audio_output_id || "__fitness_browser__"), animations_enabled:Boolean(prefs?.animations_enabled ?? settings.animations_enabled ?? true)};
+      profile.tv_dashboard = {...(profile.tv_dashboard || {}), ...result, music_adapters:prefs?.music_adapters || settings.music_adapters || [], music_adapter_options:prefs?.music_adapter_options || settings.music_adapter_options || {}, music_search_limit:Number(prefs?.music_search_limit || settings.music_search_limit || 50), audio_output_id:String(prefs?.audio_output_id || settings.audio_output_id || "__fitness_browser__"), animations_enabled:Boolean(prefs?.animations_enabled ?? settings.animations_enabled ?? true), toolbar_auto_hide:Boolean(prefs?.toolbar_auto_hide ?? settings.toolbar_auto_hide ?? false)};
       if (status) status.textContent = l.saved;
       setTimeout(() => {
         this.shadowRoot?.getElementById("setup-modal")?.replaceChildren();
@@ -12223,7 +12744,10 @@ class FitnessTvSetupCard extends HTMLElement {
     const l = this._labels();
     this._modal(`<div class="modal-card access-admin-modal"><div class="modal-head"><strong class="modal-title-with-icon"><ha-icon icon="mdi:account-lock-outline"></ha-icon>${_fitnessEscape(l.fitness_accounts)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="access-admin-body"><div class="browser-working"><ha-icon class="spin" icon="mdi:loading"></ha-icon><span>${_fitnessEscape(l.loading)}</span></div></div></div>`);
     try {
-      const snapshot = await this._hass.callWS({type:"fitness/access/admin"});
+      const snapshot = await Promise.race([
+        this._hass.callWS({type:"fitness/access/admin"}),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("fitness_accounts_timeout")), 12000)),
+      ]);
       this._renderAccessAdmin(snapshot || {});
     } catch (err) {
       console.error("[Fitness TV] access settings load failed", err);
@@ -12239,6 +12763,7 @@ class FitnessTvSetupCard extends HTMLElement {
     const users = Array.isArray(snapshot?.users) ? snapshot.users : [];
     const profiles = Array.isArray(snapshot?.profiles) ? snapshot.profiles : [];
     const baseDomain = String(snapshot?.remote_base_domain || "");
+    const dashboardMax = Math.max(1, Math.min(12, Number(snapshot?.dashboard_max || 3) || 3));
     const suffix = baseDomain ? `.${baseDomain}` : "";
     const supportedLanguages = snapshot?.supported_languages && typeof snapshot.supported_languages === "object" ? snapshot.supported_languages : {en:"English"};
     const profileOptions = (selected = "") => [`<option value="">${_fitnessEscape(l.account_unassigned)}</option>`, ...profiles.map((profile) => `<option value="${_fitnessEscape(profile.entry_id)}" ${String(profile.entry_id) === String(selected || "") ? "selected" : ""}>${_fitnessEscape(profile.name || profile.entry_id)}</option>`)].join("");
@@ -12257,7 +12782,7 @@ class FitnessTvSetupCard extends HTMLElement {
       const profileMeta = profiles.find((profile) => String(profile.entry_id) === selectedProfile) || null;
       const profileName = profileMeta?.name || selectedProfile;
       const language = String(user.language || profileMeta?.language || "en");
-      const remoteUrl = role === "remote" && baseDomain && slug && selectedProfile ? `https://${slug}.${baseDomain}/fitness-tv/profile-${selectedProfile}` : "";
+      const remoteUrl = role === "remote" && baseDomain && slug && selectedProfile ? `https://${slug}.${baseDomain}/fitness-tv/main` : "";
       const badge = user.is_owner
         ? ` · ${l.ha_owner_badge}`
         : (user.is_admin ? ` · ${l.ha_admin_badge}` : "");
@@ -12277,6 +12802,7 @@ class FitnessTvSetupCard extends HTMLElement {
     this._modal(`<div class="modal-card access-admin-modal"><div class="modal-head"><strong class="modal-title-with-icon"><ha-icon icon="mdi:account-lock-outline"></ha-icon>${_fitnessEscape(l.fitness_accounts)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div><div class="access-admin-body">
       <div class="access-intro"><div><strong>${_fitnessEscape(l.fitness_accounts)}</strong><p>${_fitnessEscape(l.fitness_accounts_hint)}</p></div><a class="tool" id="access-ha-users" href="/config/person"><ha-icon icon="mdi:account-cog-outline"></ha-icon><span>${_fitnessEscape(l.manage_ha_users)}</span></a></div>
       <section class="access-section"><div class="access-section-title"><ha-icon icon="mdi:web"></ha-icon><span><strong>${_fitnessEscape(l.remote_base_domain)}</strong><small>${_fitnessEscape(l.remote_base_domain_hint)}</small></span></div><div class="access-domain-row"><input id="access-base-domain" value="${_fitnessEscape(baseDomain)}" placeholder="fitness.example.com"><button class="tool" id="access-save-domain"><ha-icon icon="mdi:content-save-outline"></ha-icon><span>${_fitnessEscape(l.save_domain)}</span></button></div><div class="setting-info"><ha-icon icon="mdi:certificate-outline"></ha-icon><span><strong>${_fitnessEscape(l.wildcard_setup)}</strong><small>${_fitnessEscape(l.wildcard_setup_hint)}</small></span></div></section>
+      <section class="access-section"><div class="access-section-title"><ha-icon icon="mdi:view-dashboard-outline"></ha-icon><span><strong>${_fitnessEscape(l.dashboard_limit)}</strong><small>${_fitnessEscape(l.dashboard_limit_hint)}</small></span></div><div class="access-domain-row"><input id="access-dashboard-max" type="number" min="1" max="12" step="1" value="${dashboardMax}"><button class="tool" id="access-save-dashboard-max"><ha-icon icon="mdi:content-save-outline"></ha-icon><span>${_fitnessEscape(l.save)}</span></button></div></section>
       <section class="access-section"><div class="access-section-title"><ha-icon icon="mdi:account-multiple-outline"></ha-icon><span><strong>${_fitnessEscape(l.fitness_accounts)}</strong><small>${_fitnessEscape(l.fitness_accounts_hint)}</small></span></div><div class="access-user-list">${userRows || `<div class="empty">${_fitnessEscape(l.no_users)}</div>`}</div></section>
       <div class="access-status" id="access-status" aria-live="polite"></div>
     </div></div>`);
@@ -12292,11 +12818,33 @@ class FitnessTvSetupCard extends HTMLElement {
       if (button) button.disabled = true;
       setStatus(l.saving);
       try {
-        const next = await this._hass.callWS({type:"fitness/access/settings/save",remote_base_domain:String(root.querySelector("#access-base-domain")?.value || "").trim()});
+        const next = await this._hass.callWS({
+          type:"fitness/access/settings/save",
+          remote_base_domain:String(root.querySelector("#access-base-domain")?.value || "").trim(),
+          dashboard_max:Math.max(1,Math.min(12,Number(root.querySelector("#access-dashboard-max")?.value || dashboardMax)||dashboardMax)),
+        });
         refresh(next);
       } catch (err) {
         if (button) button.disabled = false;
         console.error("[Fitness TV] access domain save failed", err);
+        setStatus(l.access_save_failed, true);
+      }
+    });
+
+    root.querySelector("#access-save-dashboard-max")?.addEventListener("click", async () => {
+      const button = root.querySelector("#access-save-dashboard-max");
+      if (button) button.disabled = true;
+      setStatus(l.saving);
+      try {
+        const next = await this._hass.callWS({
+          type:"fitness/access/settings/save",
+          remote_base_domain:String(root.querySelector("#access-base-domain")?.value || "").trim(),
+          dashboard_max:Math.max(1,Math.min(12,Number(root.querySelector("#access-dashboard-max")?.value || dashboardMax)||dashboardMax)),
+        });
+        refresh(next);
+      } catch (err) {
+        if (button) button.disabled = false;
+        console.error("[Fitness TV] dashboard limit save failed", err);
         setStatus(l.access_save_failed, true);
       }
     });
@@ -12738,6 +13286,8 @@ if (!customElements.get("fitness-sleep-recovery-card")) customElements.define("f
 if (!customElements.get("fitness-evaluation-card")) customElements.define("fitness-evaluation-card", FitnessEvaluationCard);
 if (!customElements.get("fitness-workout-browser-card")) customElements.define("fitness-workout-browser-card", FitnessWorkoutBrowserCard);
 if (!customElements.get("fitness-body-composition-card")) customElements.define("fitness-body-composition-card", FitnessBodyCompositionCard);
+if (!customElements.get("fitness-ai-today-card")) customElements.define("fitness-ai-today-card", FitnessAiTodayCard);
+if (!customElements.get("fitness-ai-last-workout-card")) customElements.define("fitness-ai-last-workout-card", FitnessAiLastWorkoutCard);
 if (!customElements.get("fitness-training-ai-coach-card")) customElements.define("fitness-training-ai-coach-card", FitnessTrainingAiCoachCard);
 if (!customElements.get("fitness-workout-highlights-card")) customElements.define("fitness-workout-highlights-card", FitnessWorkoutHighlightsCard);
 if (!customElements.get("fitness-workout-rpe-card")) customElements.define("fitness-workout-rpe-card", FitnessWorkoutRpeCard);
@@ -12760,10 +13310,10 @@ const _fitnessDefineCustomElement = (tag, BaseClass) => {
   customElements.define(tag, class extends BaseClass {});
 };
 
-for (const tag of [FITNESS_TV_DASHBOARD_CARD_TAG, "fitness-tv-dashboard-card", "fitness-tv-dashboard-card-v70", "fitness-tv-dashboard-card-v71", "fitness-tv-dashboard-card-v72", "fitness-tv-dashboard-card-v73", "fitness-tv-dashboard-card-v74", "fitness-tv-dashboard-card-v75"]) {
+for (const tag of [FITNESS_TV_DASHBOARD_CARD_TAG, "fitness-tv-dashboard-card", "fitness-tv-dashboard-card-v70", "fitness-tv-dashboard-card-v71", "fitness-tv-dashboard-card-v72", "fitness-tv-dashboard-card-v73", "fitness-tv-dashboard-card-v74", "fitness-tv-dashboard-card-v75", "fitness-tv-dashboard-card-v76"]) {
   _fitnessDefineCustomElement(tag, FitnessTvDashboardCard);
 }
-for (const tag of [FITNESS_TV_SETUP_CARD_TAG, "fitness-tv-setup-card", "fitness-tv-setup-card-v70", "fitness-tv-setup-card-v71", "fitness-tv-setup-card-v72", "fitness-tv-setup-card-v73", "fitness-tv-setup-card-v74", "fitness-tv-setup-card-v75"]) {
+for (const tag of [FITNESS_TV_SETUP_CARD_TAG, "fitness-tv-setup-card", "fitness-tv-setup-card-v70", "fitness-tv-setup-card-v71", "fitness-tv-setup-card-v72", "fitness-tv-setup-card-v73", "fitness-tv-setup-card-v74", "fitness-tv-setup-card-v75", "fitness-tv-setup-card-v76"]) {
   _fitnessDefineCustomElement(tag, FitnessTvSetupCard);
 }
 if (!customElements.get("ll-strategy-dashboard-fitness")) customElements.define("ll-strategy-dashboard-fitness", FitnessDashboardStrategy);
@@ -12832,3 +13382,44 @@ for (const card of FITNESS_PUBLIC_CARDS) {
 }
 
 console.info(`%c HA-Fitness dashboard ${FITNESS_DASHBOARD_VERSION} `, "background:#41BDF5;color:#fff;font-weight:600;padding:3px 6px;border-radius:4px");
+
+class FitnessTestsCard extends FitnessAutoProfileCard {
+  async _loadTargets(){try{const r=await this._hass.callWS({type:"fitness/training/export_targets",profile_entry_id:this._profileId});this._exportTargets=Array.isArray(r?.targets)?r.targets:[];}catch(_err){this._exportTargets=[];}}
+  async _export(test){if(!test||!this._exportTargets?.length)return;let target=this._exportTargets[0];if(this._exportTargets.length>1){const picked=Number(window.prompt(this._exportTargets.map((x,i)=>`${i+1}. ${x.name}`).join("\n"),"1"));if(!Number.isInteger(picked)||picked<1||picked>this._exportTargets.length)return;target=this._exportTargets[picked-1];}try{await this._hass.callWS({type:"fitness/training/export",profile_entry_id:this._profileId,sensor_id:target.sensor_id,prescription:test});}catch(e){this._testsError=String(e?.message||e);this._render();}}
+  async _loadTests(){if(this._testsLoading||!this._hass||!this._profileId)return;this._testsLoading=true;try{const r=await this._hass.callWS({type:"fitness/training/tests",profile_entry_id:this._profileId});this._tests=r?.tests||[];}catch(e){this._testsError=String(e?.message||e);}finally{this._testsLoading=false;this._render();}}
+  set hass(v){super.hass=v;if(!this._tests&&!this._testsLoading)this._loadTests();if(this._hass&&this._profileId&&!this._targetsLoading){this._targetsLoading=true;this._loadTargets().finally(()=>{this._targetsLoading=false;this._render();});}}
+  async _start(id){try{await this._hass.callWS({type:"fitness/training/start",profile_entry_id:this._profileId,test_id:id});}catch(e){this._testsError=String(e?.message||e);this._render();}}
+  _render(){if(!this.shadowRoot||!this._hass||!this._profile)return;const tests=this._tests||[];const rows=tests.map(x=>`<button data-id="${_fitnessEscape(x.id)}"><ha-icon icon="${x.sport==='cycling'?'mdi:bike':x.sport==='strength'?'mdi:dumbbell':'mdi:run-fast'}"></ha-icon><span><b>${_fitnessEscape(x.name)}</b><small>${_fitnessEscape(x.goal||'')}</small></span><span class="test-actions"><ha-icon icon="mdi:play-circle-outline"></ha-icon>${this._exportTargets?.length?`<button type="button" class="export" data-export-id="${_fitnessEscape(x.id)}" title="Send to watch"><ha-icon icon="mdi:watch-export"></ha-icon></button>`:''}</span></button>`).join('');this.shadowRoot.innerHTML=`<ha-card><header><ha-icon icon="mdi:clipboard-pulse-outline"></ha-icon><div><small>FITNESS TESTS</small><b>Guided performance tests</b></div></header><p>Run a structured test with your live sensors. The same prescription can later be exported by a device adapter that supports workout writing.</p><div class="tests">${rows||'<small>No tests available.</small>'}</div>${this._testsError?`<div class="err">${_fitnessEscape(this._testsError)}</div>`:''}</ha-card><style>ha-card{padding:18px;border-radius:24px}header{display:flex;gap:12px;align-items:center}header>ha-icon{--mdc-icon-size:30px;color:var(--primary-color)}header small,header b{display:block}header small{font-size:10px;letter-spacing:.12em;color:var(--secondary-text-color)}p{color:var(--secondary-text-color);line-height:1.45}.tests{display:grid;gap:8px}button{border:1px solid var(--divider-color);background:var(--secondary-background-color);color:var(--primary-text-color);border-radius:15px;padding:11px;display:grid;grid-template-columns:28px 1fr 28px;gap:9px;align-items:center;text-align:left;cursor:pointer}button span b,button span small{display:block}button span small{margin-top:3px;color:var(--secondary-text-color);line-height:1.3}.err{color:var(--error-color);margin-top:10px}</style>`;this.shadowRoot.querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>this._start(b.dataset.id));this.shadowRoot.querySelectorAll('[data-export-id]').forEach(b=>b.onclick=(ev)=>{ev.preventDefault();ev.stopPropagation();this._export((this._tests||[]).find(x=>x.id===b.dataset.exportId));});}
+}
+if(!customElements.get("fitness-tests-card"))customElements.define("fitness-tests-card",FitnessTestsCard);
+
+class FitnessTrainingPlanCard extends FitnessAutoProfileCard {
+  setConfig(c){super.setConfig(c);this._planLoading=false;this._planError="";this._exportTargets=[];}
+  async _loadTargets(){try{const r=await this._hass.callWS({type:"fitness/training/export_targets",profile_entry_id:this._profileId});this._exportTargets=Array.isArray(r?.targets)?r.targets:[];}catch(_err){this._exportTargets=[];}}
+  async _export(workout){if(!workout||!this._exportTargets.length)return;let target=this._exportTargets[0];if(this._exportTargets.length>1){const options=this._exportTargets.map((x,i)=>`${i+1}. ${x.name}`).join("\n");const picked=Number(window.prompt(`Send workout to:\n${options}`,"1"));if(!Number.isInteger(picked)||picked<1||picked>this._exportTargets.length)return;target=this._exportTargets[picked-1];}try{await this._hass.callWS({type:"fitness/training/export",profile_entry_id:this._profileId,sensor_id:target.sensor_id,prescription:workout});}catch(e){this._planError=String(e?.message||e);this._render();}}
+  async _load(regenerate=false){if(this._planLoading||!this._hass||!this._profileId)return;this._planLoading=true;try{const r=await this._hass.callWS({type:"fitness/training/plan",profile_entry_id:this._profileId,regenerate});this._plan=r?.plan||{};}catch(e){this._planError=String(e?.message||e);}finally{this._planLoading=false;this._render();}}
+  set hass(v){super.hass=v;if(!this._plan&&!this._planLoading)this._load(false);if(this._hass&&this._profileId&&!this._targetsLoading){this._targetsLoading=true;this._loadTargets().finally(()=>{this._targetsLoading=false;this._render();});}}
+  async _start(i){try{await this._hass.callWS({type:"fitness/training/plan/start",profile_entry_id:this._profileId,day_index:i});}catch(e){this._planError=String(e?.message||e);this._render();}}
+  _render(){if(!this.shadowRoot||!this._profile||!this._hass)return;if(!this._profile.ai_enabled){this.shadowRoot.innerHTML="";return;}const plan=this._plan||this._profile.ai_training_plan||{};const days=Array.isArray(plan.days)?plan.days:[];const rows=days.map((d,i)=>`<div class="day ${d.action==='rest'?'rest':'work'}"><div class="daynum">${i===0?'TODAY':`+${i}`}</div><div class="desc"><b>${_fitnessEscape(d.title||'')}</b><small>${_fitnessEscape(d.rationale||'')}</small></div>${d.action==='workout'&&d.workout?`<div class="day-actions"><button data-start="${i}" title="Start with live sensors"><ha-icon icon="mdi:play"></ha-icon></button>${this._exportTargets.length?`<button data-export="${i}" title="Send to watch"><ha-icon icon="mdi:watch-export"></ha-icon></button>`:''}</div>`:`<ha-icon icon="mdi:power-sleep"></ha-icon>`}</div>`).join('');this.shadowRoot.innerHTML=`<ha-card><header><ha-icon icon="mdi:calendar-star"></ha-icon><div><small>AI TRAINING PLAN</small><b>${_fitnessEscape(plan.plan_name||'Goal-based training plan')}</b></div><button class="regen" title="Regenerate"><ha-icon icon="mdi:refresh"></ha-icon></button></header>${plan.goal_summary?`<p>${_fitnessEscape(plan.goal_summary)}</p>`:''}<div class="days">${rows||`<div class="empty">${this._planLoading?'Generating plan…':'Generate a plan after setting a training goal in profile AI settings.'}</div>`}</div>${!rows?`<button class="generate">Generate plan</button>`:''}${this._planError?`<div class="err">${_fitnessEscape(this._planError)}</div>`:''}</ha-card><style>ha-card{padding:18px;border-radius:24px;background:linear-gradient(150deg,color-mix(in srgb,var(--primary-color) 9%,var(--card-background-color)),var(--card-background-color))}header{display:grid;grid-template-columns:36px 1fr 34px;gap:10px;align-items:center}header>ha-icon{--mdc-icon-size:28px;color:var(--primary-color)}header small,header b{display:block}header small{font-size:10px;letter-spacing:.1em;color:var(--secondary-text-color)}header button,.day button,.generate{border:0;border-radius:10px;background:var(--secondary-background-color);color:var(--primary-text-color);min-height:34px;cursor:pointer}p{color:var(--secondary-text-color);line-height:1.4}.days{display:grid;gap:6px;margin-top:12px}.day{display:grid;grid-template-columns:48px 1fr auto;gap:9px;align-items:center;padding:9px;border-radius:14px;background:var(--secondary-background-color)}.day.work{border-left:3px solid var(--primary-color)}.day.rest{border-left:3px solid var(--info-color,#039be5)}.daynum{font-size:10px;font-weight:800;color:var(--secondary-text-color)}.day-actions{display:flex;gap:4px}.day-actions button{width:32px}.desc b,.desc small{display:block}.desc small{margin-top:3px;color:var(--secondary-text-color);font-size:11px;line-height:1.3}.generate{margin-top:12px;padding:0 14px}.err{margin-top:8px;color:var(--error-color);font-size:11px}</style>`;this.shadowRoot.querySelector('.regen')?.addEventListener('click',()=>this._load(true));this.shadowRoot.querySelector('.generate')?.addEventListener('click',()=>this._load(true));this.shadowRoot.querySelectorAll('[data-start]').forEach(b=>b.onclick=()=>this._start(Number(b.dataset.start)));this.shadowRoot.querySelectorAll('[data-export]').forEach(b=>b.onclick=()=>this._export(days[Number(b.dataset.export)]?.workout));}
+}
+
+class FitnessTvEntityPluginCard extends FitnessAutoProfileCard {
+  pluginKind(){return "";}
+  _ids(){const p=this._profile?.dashboard_preferences||{},k=this.pluginKind();if(k==='rss')return p.rss_entity_ids||[];if(k==='weather')return p.weather_entity_id?[p.weather_entity_id]:[];if(k==='lights')return p.light_entity_ids||[];if(k==='music')return p.music_entity_ids||[];if(k==='video')return p.video_entity_ids||[];if(k==='tts')return [p.tts_entity_id,...(p.tts_media_player_ids||[])].filter(Boolean);return[];}
+  _icon(){return {rss:'mdi:rss',weather:'mdi:weather-partly-cloudy',lights:'mdi:lightbulb-group-outline',music:'mdi:music',video:'mdi:youtube-tv',tts:'mdi:account-voice'}[this.pluginKind()]||'mdi:puzzle-outline';}
+  _render(){if(!this.shadowRoot||!this._hass||!this._profile)return;const ids=this._ids();if(!ids.length){this.shadowRoot.innerHTML="";return;}const kind=this.pluginKind();const rows=ids.flatMap(id=>{const s=this._hass.states?.[id],name=s?.attributes?.friendly_name||id,value=s?.state||'unavailable';if(kind==='rss'&&s){const candidates=s.attributes.entries||s.attributes.items||s.attributes.feed||s.attributes.news||[];if(Array.isArray(candidates)&&candidates.length)return candidates.slice(0,30).map((item,index)=>{const title=typeof item==='string'?item:String(item?.title||item?.name||item?.headline||`Item ${index+1}`),body=typeof item==='object'?String(item?.summary||item?.description||item?.text||''):'';return `<div class="row rss-item" data-entity="${_fitnessEscape(id)}"><ha-icon icon="mdi:rss"></ha-icon><div><b>${_fitnessEscape(title)}</b>${body?`<span>${_fitnessEscape(body)}</span>`:''}</div></div>`});}let extra='';if(kind==='weather'&&s)extra=[s.attributes.temperature!=null?`${s.attributes.temperature}°`:null,s.attributes.humidity!=null?`${s.attributes.humidity}% humidity`:null].filter(Boolean).join(' · ');if((kind==='music'||kind==='video')&&s)extra=String(s.attributes.media_title||s.attributes.media_artist||'');return [`<div class="row" data-entity="${_fitnessEscape(id)}"><ha-icon icon="${this._icon()}"></ha-icon><div><b>${_fitnessEscape(name)}</b><span>${_fitnessEscape(extra||value)}</span></div></div>`]}).join('');this.shadowRoot.innerHTML=`<ha-card class="${kind}"><header><ha-icon icon="${this._icon()}"></ha-icon><b>${_fitnessEscape(kind.toUpperCase())}</b></header><div class="rows">${rows}</div></ha-card><style>ha-card{padding:15px;border-radius:22px;overflow:hidden}header{display:flex;gap:9px;align-items:center;margin-bottom:9px}header ha-icon{color:var(--primary-color)}.rows{display:grid;gap:6px;max-height:${kind==='rss'?'250px':'320px'};overflow:auto}.rss .rows{scroll-behavior:smooth;overscroll-behavior:contain}.rss-item{align-items:start}.row{display:grid;grid-template-columns:25px 1fr;gap:8px;padding:9px;border-radius:12px;background:var(--secondary-background-color);cursor:pointer}.row ha-icon{--mdc-icon-size:20px;color:var(--primary-color)}.row b,.row span{display:block}.row span{font-size:11px;color:var(--secondary-text-color);margin-top:2px;white-space:pre-wrap}.weather .row span{font-size:16px}</style>`;this.shadowRoot.querySelectorAll('[data-entity]').forEach(n=>n.onclick=()=>_fitnessOpenMoreInfo(this,n.dataset.entity));}
+}
+class FitnessTvRssCard extends FitnessTvEntityPluginCard{pluginKind(){return'rss'}}
+class FitnessTvWeatherCard extends FitnessTvEntityPluginCard{pluginKind(){return'weather'}}
+class FitnessTvLightsCard extends FitnessTvEntityPluginCard{pluginKind(){return'lights'}}
+class FitnessTvMusicCard extends FitnessTvEntityPluginCard{pluginKind(){return'music'}}
+class FitnessTvVideoCard extends FitnessTvEntityPluginCard{pluginKind(){return'video'}}
+class FitnessTvTtsCard extends FitnessTvEntityPluginCard{pluginKind(){return'tts'}}
+
+if(!customElements.get("fitness-training-plan-card"))customElements.define("fitness-training-plan-card",FitnessTrainingPlanCard);
+if(!customElements.get("fitness-tv-rss-card"))customElements.define("fitness-tv-rss-card",FitnessTvRssCard);
+if(!customElements.get("fitness-tv-weather-card"))customElements.define("fitness-tv-weather-card",FitnessTvWeatherCard);
+if(!customElements.get("fitness-tv-lights-card"))customElements.define("fitness-tv-lights-card",FitnessTvLightsCard);
+if(!customElements.get("fitness-tv-music-card"))customElements.define("fitness-tv-music-card",FitnessTvMusicCard);
+if(!customElements.get("fitness-tv-video-card"))customElements.define("fitness-tv-video-card",FitnessTvVideoCard);
+if(!customElements.get("fitness-tv-tts-card"))customElements.define("fitness-tv-tts-card",FitnessTvTtsCard);

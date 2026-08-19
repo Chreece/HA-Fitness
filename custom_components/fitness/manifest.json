@@ -23,5 +23,5 @@
     "yt-dlp[default]==2026.7.4",
     "nodejs-wheel==24.16.0"
   ],
-  "version": "2026.8.01a04"
+  "version": "2026.8.01a05"
 }

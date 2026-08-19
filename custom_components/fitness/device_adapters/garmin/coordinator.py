@@ -1,11 +1,13 @@
-"""Lifecycle-safe Garmin local workout synchronization coordinator."""
+"""Lifecycle-safe Garmin local workout and health synchronization coordinator."""
 from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timedelta, timezone
 from functools import partial
 import hashlib
+import json
 import logging
+from pathlib import Path
 import zlib
 from typing import Any
 
@@ -18,13 +20,16 @@ from ...const import (
     GARMIN_LOCAL_SYNC_STORE_VERSION,
 )
 from ...providers.workouts import Workout, _dt
+from ...providers.sleep import SleepRecord
+from ..history import DeviceHistoryBatch, DeviceMetricPoint
 from ...device_user_action import clear_device_user_action, request_device_user_action
 from .bluez_agent import (
     async_bluez_device_pairing_state,
     temporary_bluez_pairing_agent,
 )
-from .fit import MAX_FIT_BYTES, workout_from_fit
+from .fit import MAX_FIT_BYTES, fit_content_kind, fit_message_names, health_history_from_fit, workout_from_fit
 from .gfdi import (
+    HEALTH_FIT_TYPE_NAMES,
     GarminGfdiSession,
     GarminUnsupportedTransport,
     transport_candidates_from_client,
@@ -54,14 +59,33 @@ CLEANUP_TIMEOUT = 6.0
 IMPORT_TIMEOUT = 20.0
 SHUTDOWN_TIMEOUT = 12.0
 MAX_FILES_PER_SYNC = 2
-MAX_FILES_PER_SESSION = 8
+# Full-device health sync can expose dozens of small historical FIT records.  A
+# fixed eight-file session caused a large archive to require many independent
+# Garmin Multi-Link handshakes; on real watches the channel can need a short
+# settle after disconnect and the next handshake may then fail even though the
+# bond and transport are healthy.  Keep the import checkpoint small, but drain
+# more already-bounded files while one GFDI session is known-good.
+MAX_FILES_PER_SESSION = 24
+SESSION_FILE_WORK_BUDGET = 62.0
 MAX_BYTES_PER_SYNC = 16 * 1024 * 1024
 MAX_CACHED_FILE_RECORDS = 2_000
 BATCH_CONTINUE_DELAY = 5 * 60.0
+# Garmin Multi-Link can reject a fresh archive handshake for a short period after
+# a successful transfer.  Manual Sync now must not hammer through that settle
+# period; defer it while preserving the user request.
+MIN_SESSION_RECONNECT_GAP = 60.0
 PARTIAL_BATCH_RETRY_DELAY = 5 * 60.0
 PARTIAL_BATCH_RECENT_WINDOW = 45 * 60.0
 MAX_PARTIAL_BATCH_RETRIES = 3
-STARTUP_RESUME_DELAY = 5.0
+MAX_FILE_VALIDATION_FAILURES = 3
+# Keep a small private copy of files that fail FIT validation so we can inspect
+# whether a new Garmin health family (SpO2/monitoring/sleep/etc.) is being lost
+# instead of permanently treating every undecodable payload as junk. Captures
+# live under .storage and are hard-bounded so diagnostics cannot grow forever.
+INVALID_CAPTURE_DIRNAME = "fitness_garmin_invalid"
+MAX_INVALID_CAPTURE_FILES = 8
+MAX_INVALID_CAPTURE_BYTES = 64 * 1024 * 1024
+STARTUP_RESUME_DELAY = 45.0
 MAX_RETRIES = 6
 DEGRADED_RETRY_DELAY = 2 * 60 * 60.0
 UNSUPPORTED_RETRY_DELAY = 6 * 60 * 60.0
@@ -73,6 +97,8 @@ BUSY_RETRY_DELAY = 5 * 60.0
 # bypassing protocol/error backoff.
 UNREACHABLE_RETRY_DELAY = 30 * 60.0
 ADVERTISEMENT_ACTION_MIN_INTERVAL = 30.0
+HANDSHAKE_RECONNECT_DELAY = 1.5
+HANDSHAKE_RECONNECT_ATTEMPTS = 1
 
 _ERROR_CODE = {
     "connection": "connection_failed",
@@ -88,13 +114,16 @@ _DETAIL_META: dict[str, dict[str, Any]] = {
     "garmin_local_backend": {"icon": "mdi:protocol", "enabled_default": True},
     "garmin_sync_state": {
         "icon": "mdi:sync", "enabled_default": True, "device_class": "enum",
-        "options": ["idle", "waiting", "connecting", "syncing", "ready", "retrying", "error", "unsupported"],
+        "options": ["idle", "waiting", "cooldown", "connecting", "syncing", "ready", "retrying", "error", "unsupported"],
     },
     "garmin_last_sync": {"icon": "mdi:clock-check-outline", "enabled_default": True, "device_class": "timestamp"},
     "garmin_last_successful_sync": {"icon": "mdi:check-circle-outline", "enabled_default": True, "device_class": "timestamp"},
+    "garmin_last_batch_success": {"icon": "mdi:check-decagram-outline", "enabled_default": True, "device_class": "timestamp"},
+    "garmin_next_attempt": {"icon": "mdi:clock-fast", "enabled_default": True, "device_class": "timestamp"},
     "garmin_device_workout_count": {"icon": "mdi:calendar-multiple", "enabled_default": True},
     "garmin_imported_file_count": {"icon": "mdi:file-check-outline", "enabled_default": True},
     "garmin_pending_file_count": {"icon": "mdi:file-clock-outline", "enabled_default": True},
+    "garmin_quarantined_file_count": {"icon": "mdi:file-alert-outline", "enabled_default": True},
     "garmin_downloaded_bytes": {
         "icon": "mdi:download", "enabled_default": False, "unit": "B",
         "device_class": "data_size", "state_class": "measurement",
@@ -115,13 +144,18 @@ for _key, _meta in _DETAIL_META.items():
     _meta.update(translation_key=_key, entity_category="diagnostic")
 
 
-def _inflate_bounded(data: bytes) -> bytes:
-    """Inflate a zlib stream without allowing an expansion bomb."""
-    if len(data) >= 12 and data[8:12] == b".FIT":
-        if len(data) > MAX_FIT_BYTES:
-            raise ValueError("Garmin FIT exceeds safe size")
-        return bytes(data)
-    obj = zlib.decompressobj()
+def _looks_like_fit(data: bytes) -> bool:
+    """Return whether bytes expose the mandatory FIT header signature."""
+    return bool(
+        len(data) >= 12
+        and data[0] in {12, 14}
+        and data[8:12] == b".FIT"
+    )
+
+
+def _inflate_with_wbits_bounded(data: bytes, wbits: int) -> bytes:
+    """Inflate one DEFLATE-family stream without allowing an expansion bomb."""
+    obj = zlib.decompressobj(wbits)
     output = bytearray()
     pending = bytes(data)
     while pending:
@@ -142,6 +176,205 @@ def _inflate_bounded(data: bytes) -> bytes:
     return bytes(output)
 
 
+def _inflate_bounded(data: bytes) -> bytes:
+    """Return a raw FIT container from Garmin's bounded transfer payload.
+
+    FileSync firmware has not been perfectly uniform about its DEFLATE wrapper.
+    Accept a native FIT, zlib, gzip, or raw-DEFLATE stream, but only when the
+    resulting bytes expose a real FIT header. This makes full-device discovery
+    more tolerant without ever interpreting arbitrary opaque files as health data.
+    """
+    raw = bytes(data)
+    if _looks_like_fit(raw):
+        if len(raw) > MAX_FIT_BYTES:
+            raise ValueError("Garmin FIT exceeds safe size")
+        return raw
+    errors: list[str] = []
+    for label, wbits in (
+        ("zlib", zlib.MAX_WBITS),
+        ("gzip", zlib.MAX_WBITS | 16),
+        ("raw-deflate", -zlib.MAX_WBITS),
+    ):
+        try:
+            inflated = _inflate_with_wbits_bounded(raw, wbits)
+        except (zlib.error, ValueError) as err:
+            errors.append(f"{label}:{type(err).__name__}")
+            continue
+        if _looks_like_fit(inflated):
+            return inflated
+        errors.append(f"{label}:not-fit")
+    raise ValueError(
+        "Garmin payload is not a raw/zlib/gzip/raw-deflate FIT container"
+        + (f" ({', '.join(errors)})" if errors else "")
+    )
+
+
+def _payload_diagnostics(data: bytes, *, compressed: bool) -> tuple[dict[str, Any], bytes | None]:
+    """Describe an undecodable transfer and return a recoverable FIT candidate."""
+    raw = bytes(data)
+    info: dict[str, Any] = {
+        "raw_size": len(raw),
+        "raw_head_hex": raw[:32].hex(),
+        "raw_fit_signature_offset": raw.find(b".FIT"),
+        "compressed_transport": bool(compressed),
+    }
+    candidate: bytes | None = raw if _looks_like_fit(raw) else None
+    if candidate is not None:
+        info["container"] = "raw_fit"
+    elif compressed:
+        attempts: list[str] = []
+        for label, wbits in (
+            ("zlib", zlib.MAX_WBITS),
+            ("gzip", zlib.MAX_WBITS | 16),
+            ("raw_deflate", -zlib.MAX_WBITS),
+        ):
+            try:
+                inflated = _inflate_with_wbits_bounded(raw, wbits)
+            except Exception as err:
+                attempts.append(f"{label}:{type(err).__name__}")
+                continue
+            attempts.append(f"{label}:{'fit' if _looks_like_fit(inflated) else 'not_fit'}")
+            if _looks_like_fit(inflated):
+                candidate = inflated
+                info["container"] = label
+                break
+        info["inflate_attempts"] = attempts
+    if candidate is not None:
+        info.update({
+            "fit_size": len(candidate),
+            "fit_head_hex": candidate[:32].hex(),
+            "fit_header_size": int(candidate[0]) if candidate else None,
+            "fit_profile_version": int.from_bytes(candidate[2:4], "little") if len(candidate) >= 4 else None,
+            "fit_declared_data_size": int.from_bytes(candidate[4:8], "little") if len(candidate) >= 8 else None,
+            "fit_expected_total_size": (int(candidate[0]) + int.from_bytes(candidate[4:8], "little") + 2) if len(candidate) >= 8 else None,
+        })
+    return info, candidate
+
+
+def _capture_invalid_payload(
+    capture_root: str,
+    *,
+    sensor_id: str,
+    source_key: str,
+    file_type: str,
+    fingerprint: str,
+    raw_data: bytes,
+    compressed: bool,
+    error: str,
+) -> dict[str, Any]:
+    """Persist a bounded private forensic copy of one invalid Garmin payload."""
+    root = Path(capture_root)
+    root.mkdir(parents=True, exist_ok=True)
+    token = hashlib.sha256(
+        f"{sensor_id}|{source_key}|{fingerprint}".encode("utf-8", errors="ignore")
+    ).hexdigest()[:20]
+    diagnostics, fit_candidate = _payload_diagnostics(raw_data, compressed=compressed)
+    raw_path = root / f"{token}.payload"
+    meta_path = root / f"{token}.json"
+    fit_path = root / f"{token}.fit"
+    raw_path.write_bytes(bytes(raw_data))
+    if fit_candidate is not None:
+        fit_path.write_bytes(fit_candidate)
+    elif fit_path.exists():
+        fit_path.unlink()
+    metadata = {
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "sensor_id": str(sensor_id),
+        "source_key": str(source_key),
+        "file_type": str(file_type or "unknown"),
+        "catalog_fingerprint": str(fingerprint),
+        "validation_error": str(error)[:512],
+        "payload_file": raw_path.name,
+        "fit_file": fit_path.name if fit_candidate is not None else None,
+        "diagnostics": diagnostics,
+    }
+    meta_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    # Bound both count and total bytes. Metadata is tiny, so account payload/FIT
+    # files and remove the oldest capture group atomically enough for diagnostics.
+    metas = sorted(root.glob("*.json"), key=lambda path: path.stat().st_mtime, reverse=True)
+    total = 0
+    keep: set[str] = set()
+    for meta in metas:
+        stem = meta.stem
+        group = [meta, root / f"{stem}.payload", root / f"{stem}.fit"]
+        size = sum(path.stat().st_size for path in group if path.exists())
+        if len(keep) < MAX_INVALID_CAPTURE_FILES and total + size <= MAX_INVALID_CAPTURE_BYTES:
+            keep.add(stem)
+            total += size
+            continue
+        for path in group:
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass
+    return {
+        "token": token,
+        "directory": str(root),
+        "metadata_file": meta_path.name,
+        "payload_file": raw_path.name,
+        "fit_file": fit_path.name if fit_candidate is not None else None,
+        "diagnostics": diagnostics,
+    }
+
+
+def _serialize_history_batch(batch: DeviceHistoryBatch) -> dict[str, Any]:
+    return {
+        "metric_points": [
+            {
+                "metric": point.metric, "value": point.value, "timestamp": point.timestamp,
+                "source_type": point.source_type, "source_entity": point.source_entity,
+                "sources": list(point.sources), "context": [list(item) for item in point.context],
+            }
+            for point in batch.metric_points
+        ],
+        "sleep_records": [record.as_persistent_dict() for record in batch.sleep_records],
+    }
+
+
+def _history_batch_from_record(payload: Any) -> DeviceHistoryBatch:
+    if not isinstance(payload, dict):
+        return DeviceHistoryBatch()
+    points: list[DeviceMetricPoint] = []
+    for item in payload.get("metric_points") or []:
+        if not isinstance(item, dict):
+            continue
+        try:
+            points.append(DeviceMetricPoint(
+                metric=str(item.get("metric") or ""),
+                value=float(item.get("value")),
+                timestamp=str(item.get("timestamp") or ""),
+                source_type=str(item.get("source_type") or "garmin_local_ble_fit_health"),
+                source_entity=str(item.get("source_entity") or "") or None,
+                sources=tuple(str(value) for value in (item.get("sources") or [])[:12]),
+                context=tuple(
+                    (str(pair[0])[:64], pair[1])
+                    for pair in (item.get("context") or [])[:12]
+                    if isinstance(pair, (list, tuple)) and len(pair) == 2
+                ),
+            ))
+        except (TypeError, ValueError):
+            continue
+    sleeps: list[SleepRecord] = []
+    for item in payload.get("sleep_records") or []:
+        if not isinstance(item, dict):
+            continue
+        allowed = {
+            "source", "provider_domain", "start", "end", "observed_at", "duration_s",
+            "time_in_bed_s", "awake_s", "light_sleep_s", "deep_sleep_s", "rem_sleep_s",
+            "sleep_latency_s", "score", "efficiency_percent", "average_hr", "minimum_hr",
+            "hrv_ms", "respiratory_rate", "spo2_percent", "readiness_score",
+            "recovery_score", "sleep_need_s", "sleep_debt_s", "disturbance_count",
+            "sleep_cycle_count", "in_bed", "sources", "provider_domains",
+            "field_sources", "provider_values",
+        }
+        try:
+            sleeps.append(SleepRecord(**{key: value for key, value in item.items() if key in allowed}))
+        except TypeError:
+            continue
+    return DeviceHistoryBatch.bounded(metric_points=points, sleep_records=sleeps)
+
+
 def _decode_downloaded_file(
     data: bytes,
     *,
@@ -149,15 +382,52 @@ def _decode_downloaded_file(
     sensor_id: str,
     source_key: str,
     source_label: str | None,
-) -> tuple[Workout, int]:
+) -> tuple[dict[str, Any], int]:
+    """Content-classify one Garmin FIT and normalize every supported payload."""
     fit = _inflate_bounded(data) if compressed else bytes(data)
-    workout = workout_from_fit(
-        fit,
-        sensor_id=sensor_id,
-        source_key=source_key,
-        source_label=source_label,
-    )
-    return workout, len(fit)
+    kind = fit_content_kind(fit)
+    record: dict[str, Any] = {"kind": kind}
+    if kind == "activity":
+        workout = workout_from_fit(
+            fit, sensor_id=sensor_id, source_key=source_key, source_label=source_label
+        )
+        record["workout"] = workout.as_persistent_dict()
+    elif kind == "health":
+        batch = health_history_from_fit(
+            fit, sensor_id=sensor_id, source_key=source_key, source_label=source_label
+        )
+        record["history"] = _serialize_history_batch(batch)
+        record["health_metric_points"] = len(batch.metric_points)
+        record["health_sleep_records"] = len(batch.sleep_records)
+        if not batch.metric_points and not batch.sleep_records:
+            record["kind"] = "unsupported"
+    if record.get("kind") == "unsupported":
+        # Preserve only a small message-name inventory. This lets us recognize a
+        # future Garmin wellness FIT family without retaining opaque payloads or
+        # guessing field semantics.
+        record["fit_messages"] = list(fit_message_names(fit))[:64]
+    return record, len(fit)
+
+
+def _catalog_item_type(item: GarminSyncFile | GarminDirectoryEntry) -> str:
+    if isinstance(item, GarminSyncFile):
+        return str(item.type_name or (f"FIT_TYPE_{item.type_code}" if item.type_code is not None else "unknown"))
+    return f"FIT_TYPE_{item.sub_type}" if item.data_type == 128 else f"legacy:{item.data_type}:{item.sub_type}"
+
+
+def _catalog_item_is_health(item: GarminSyncFile | GarminDirectoryEntry) -> bool:
+    if isinstance(item, GarminSyncFile):
+        name = _catalog_item_type(item).upper()
+        return name in HEALTH_FIT_TYPE_NAMES or any(token in name for token in ("MONITOR", "METRIC", "WELLNESS", "HEALTH", "SLEEP", "WEIGHT", "BLOOD_PRESSURE"))
+    return item.data_type == 128 and item.sub_type in {9, 14, 15, 28, 32}
+
+
+def _catalog_item_fingerprint(item: GarminSyncFile | GarminDirectoryEntry) -> str:
+    """Bounded metadata fingerprint used to notice updated circular health files."""
+    if isinstance(item, GarminSyncFile):
+        digest = hashlib.sha256(bytes(item.raw or b"")[:4096]).hexdigest()[:16]
+        return f"{_catalog_item_type(item)}:{int(item.size)}:{int(item.page_id or 0)}:{digest}"
+    return f"{item.data_type}:{item.sub_type}:{item.number}:{item.size}:{item.timestamp}"
 
 
 def _scanner_route_source(route: Any) -> str | None:
@@ -335,7 +605,7 @@ class GarminLocalCoordinator:
 
     adapter_id = "garmin_local"
     sync_unique_suffix = "garmin_sync_workouts"
-    sync_translation_key = "garmin_sync_workouts"
+    sync_translation_key = "sync_device_data"
     sync_icon = "mdi:watch-import-variant"
 
     def __init__(self, provider) -> None:
@@ -434,6 +704,12 @@ class GarminLocalCoordinator:
             due = _dt(state.get("next_attempt")) or (
                 now + timedelta(seconds=STARTUP_RESUME_DELAY)
             )
+            # A previous connection error must not make a newly restarted HA wait
+            # hours before trying a watch that may now be reachable. Respect the
+            # startup Bluetooth cooldown, then retry once; normal bounded backoff
+            # resumes if the watch/phone still owns the connection.
+            if status == "error" and not pending:
+                due = min(due, now + timedelta(seconds=STARTUP_RESUME_DELAY))
         elif status == "ready":
             last_success = _dt(state.get("last_successful_sync"))
             if last_success is not None:
@@ -444,11 +720,13 @@ class GarminLocalCoordinator:
         delay = max(0.0, (due - now).total_seconds())
         self.schedule(canonical, delay=delay, force=True)
         _LOGGER.info(
-            "Garmin restored persisted archive timer for %s in %.1fs (state=%s pending=%s)",
+            "Garmin restored persisted archive timer for %s in %.1fs (state=%s pending=%s error=%s next_attempt=%s)",
             canonical,
             delay,
             status,
             pending,
+            state.get("last_error_code") or "none",
+            state.get("next_attempt") or "none",
         )
         return True
 
@@ -650,9 +928,33 @@ class GarminLocalCoordinator:
         )
 
     async def async_sync_now(self, sensor_id: str) -> asyncio.Task | None:
-        """Start one forced sync and return its tracked task for explicit UI waits."""
+        """Queue a user sync without bypassing Garmin's proven post-session settle."""
         canonical = self.runtime.resolve_sensor_id(sensor_id)
-        self.schedule(canonical, delay=0.0, force=True)
+        state = self._device(canonical)
+        try:
+            pending = max(0, int(state.get("pending_file_count") or 0))
+        except (TypeError, ValueError):
+            pending = 0
+        last_batch = _dt(state.get("last_batch_success"))
+        delay = 0.0
+        if pending and last_batch is not None:
+            age = max(0.0, (datetime.now(timezone.utc) - last_batch).total_seconds())
+            if age < MIN_SESSION_RECONNECT_GAP:
+                delay = max(1.0, MIN_SESSION_RECONNECT_GAP - age)
+                retry_at = datetime.now(timezone.utc) + timedelta(seconds=delay)
+                state.update(
+                    sync_state="cooldown",
+                    last_error_code="none",
+                    next_attempt=retry_at.isoformat(),
+                )
+                await self._save()
+                self._publish(canonical)
+                _LOGGER.info(
+                    "Garmin manual sync for %s deferred %.1fs for post-session cooldown",
+                    canonical,
+                    delay,
+                )
+        self.schedule(canonical, delay=delay, force=True)
         return self._tasks.get(canonical)
 
     def _schedule_after_current(self, sensor_id: str, delay: float) -> None:
@@ -660,7 +962,17 @@ class GarminLocalCoordinator:
         if current is None:
             self.hass.loop.call_soon(lambda: self.schedule(sensor_id, delay=delay, force=True))
             return
-        self._queued[self.runtime.resolve_sensor_id(sensor_id)] = (current, delay)
+        canonical = self.runtime.resolve_sensor_id(sensor_id)
+        previous = self._queued.get(canonical)
+        # A manual button press during an already-running automatic sync queues the
+        # earliest safe rerun. Completion/error scheduling must not overwrite that
+        # user request with a slower five-minute/periodic delay.
+        self._queued[canonical] = (
+            current,
+            min(delay, previous[1])
+            if previous is not None and previous[0] is current
+            else delay,
+        )
 
     def _publish(self, sensor_id: str) -> None:
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
@@ -671,9 +983,12 @@ class GarminLocalCoordinator:
             "garmin_sync_state": state.get("sync_state", "idle"),
             "garmin_last_sync": state.get("last_sync"),
             "garmin_last_successful_sync": state.get("last_successful_sync"),
+            "garmin_last_batch_success": state.get("last_batch_success"),
+            "garmin_next_attempt": state.get("next_attempt"),
             "garmin_device_workout_count": state.get("device_workout_count"),
             "garmin_imported_file_count": len(files),
             "garmin_pending_file_count": state.get("pending_file_count", 0),
+            "garmin_quarantined_file_count": state.get("quarantined_file_count", 0),
             "garmin_downloaded_bytes": state.get("downloaded_bytes"),
             "garmin_retry_count": state.get("retry_count", 0),
             "garmin_last_error": state.get("last_error_code") or "none",
@@ -704,25 +1019,93 @@ class GarminLocalCoordinator:
                 continue
             pending: list[dict[str, Any]] = []
             workouts: list[Workout] = []
+            health_points: list[DeviceMetricPoint] = []
+            sleep_records: list[SleepRecord] = []
             for record in records:
+                if not isinstance(record, dict) or record.get("kind") not in {"activity", "health"}:
+                    continue
                 imported = {str(value) for value in record.get("imported_profiles") or []}
                 if profile_id in imported:
                     continue
-                payload = record.get("workout")
-                if not isinstance(payload, dict):
-                    continue
-                try:
-                    workouts.append(Workout(**payload))
-                except TypeError:
-                    continue
+                if record.get("kind") == "activity":
+                    payload = record.get("workout")
+                    if not isinstance(payload, dict):
+                        continue
+                    try:
+                        workouts.append(Workout(**payload))
+                    except TypeError:
+                        continue
+                else:
+                    batch = _history_batch_from_record(record.get("history"))
+                    health_points.extend(batch.metric_points)
+                    sleep_records.extend(batch.sleep_records)
                 pending.append(record)
-            if not workouts:
+            if workouts:
+                await manager.async_import_device_workouts(workouts)
+            if health_points or sleep_records:
+                # Do not collapse several Garmin monitoring files into one batch
+                # and then truncate the tail at DeviceHistoryBatch's hard bound.
+                # Chunk the already-bounded decoded history so all supported
+                # records from this sync are offered to the canonical importer.
+                point_chunk = 2048
+                sleep_chunk = 32
+                for offset in range(0, max(len(health_points), 1), point_chunk):
+                    batch_sleep = sleep_records[:sleep_chunk] if offset == 0 else []
+                    batch_points = health_points[offset : offset + point_chunk]
+                    if batch_points or batch_sleep:
+                        await manager.async_import_device_history(
+                            DeviceHistoryBatch.bounded(
+                                metric_points=batch_points, sleep_records=batch_sleep
+                            )
+                        )
+                for offset in range(sleep_chunk, len(sleep_records), sleep_chunk):
+                    await manager.async_import_device_history(
+                        DeviceHistoryBatch.bounded(
+                            sleep_records=sleep_records[offset : offset + sleep_chunk]
+                        )
+                    )
+            if workouts or health_points or sleep_records:
+                for record in pending:
+                    imported = {str(value) for value in record.get("imported_profiles") or []}
+                    imported.add(profile_id)
+                    record["imported_profiles"] = sorted(imported)
+
+
+    async def async_clear_fit_cache(self, retain_count: int = 30, *, profile_id: str | None = None, ownership: str = "profile") -> int:
+        """Prune only Fitness-owned cache records allowed by the requested ownership scope."""
+        retain_count = max(0, min(int(retain_count), 500))
+        removed = 0
+        for state in self._state.setdefault("devices", {}).values():
+            files = state.get("files") if isinstance(state, dict) else None
+            if not isinstance(files, dict):
                 continue
-            await manager.async_import_device_workouts(workouts)
-            for record in pending:
-                imported = {str(value) for value in record.get("imported_profiles") or []}
-                imported.add(profile_id)
-                record["imported_profiles"] = sorted(imported)
+            eligible = [
+                (key, record) for key, record in files.items()
+                if isinstance(record, dict)
+                and (
+                    ownership == "all_fitness_owned"
+                    or (
+                        profile_id is not None
+                        and profile_id in {str(value) for value in record.get("imported_profiles") or []}
+                    )
+                )
+            ]
+            if len(eligible) <= retain_count:
+                continue
+            ordered = sorted(
+                eligible,
+                key=lambda item: str((item[1] or {}).get("completed_at") or item[0]),
+                reverse=True,
+            )
+            keep = {key for key, _value in ordered[:retain_count]}
+            eligible_keys = {key for key, _record in eligible}
+            for key in list(files):
+                if key in eligible_keys and key not in keep:
+                    files.pop(key, None)
+                    removed += 1
+        if removed:
+            await self._save()
+        return removed
 
     @staticmethod
     def _prune_file_records(files: dict[str, Any], protected_keys: set[str]) -> None:
@@ -942,21 +1325,63 @@ class GarminLocalCoordinator:
                     # All normal archive traffic starts on a fresh bonded connection
                     # with pair=False, matching the successful standalone FIT test and
                     # avoiding a pairing transaction on every periodic sync.
-                    stage = "connection"
-                    async with asyncio.timeout(CONNECT_TIMEOUT):
-                        client = await self.provider.establish_connection(
-                            ble_device,
-                            sensor.name or endpoint.address,
-                            max_attempts=PAIR_CONNECT_ATTEMPTS,
-                            pair=False,
-                            source=selected_source,
+                    #
+                    # Full-device sync can leave Garmin Multi-Link in a brief stale
+                    # post-disconnect state.  The next GATT connection can be perfectly
+                    # valid while the first GFDI handshake receives no CLOSE_ALL/config
+                    # response.  Previously that single transient handshake failure
+                    # aborted both automatic and manual sync, which became visible once
+                    # health history created a multi-session backlog.  Retry exactly one
+                    # *fresh* GATT session; never loop on the same client or re-pair.
+                    handshake_retry = 0
+                    while True:
+                        stage = "connection"
+                        async with asyncio.timeout(CONNECT_TIMEOUT):
+                            client = await self.provider.establish_connection(
+                                ble_device,
+                                sensor.name or endpoint.address,
+                                max_attempts=PAIR_CONNECT_ATTEMPTS,
+                                pair=False,
+                                source=selected_source,
+                            )
+                        _LOGGER.info(
+                            "Garmin fresh bonded GATT session ready via %s (%s) for %s%s",
+                            selected_source or "auto",
+                            route_kind,
+                            endpoint.address,
+                            f" (handshake retry {handshake_retry})" if handshake_retry else "",
                         )
-                    _LOGGER.info(
-                        "Garmin fresh bonded GATT session ready via %s (%s) for %s",
-                        selected_source or "auto", route_kind, endpoint.address,
-                    )
-                    stage = "handshake"
-                    session, candidate_backends = await _start_best_session(client)
+                        stage = "handshake"
+                        try:
+                            session, candidate_backends = await _start_best_session(client)
+                            break
+                        except asyncio.CancelledError:
+                            raise
+                        except Exception as err:
+                            if handshake_retry >= HANDSHAKE_RECONNECT_ATTEMPTS:
+                                raise
+                            handshake_retry += 1
+                            _LOGGER.info(
+                                "Garmin GFDI handshake did not settle for %s; reconnecting once before backoff: %s: %s",
+                                sensor_id,
+                                type(err).__name__,
+                                err,
+                            )
+                            await self.provider._async_disconnect_client(
+                                client,
+                                reason="Garmin GFDI handshake recovery reconnect",
+                            )
+                            client = None
+                            session = None
+                            await asyncio.sleep(HANDSHAKE_RECONNECT_DELAY)
+                            refreshed_device, refreshed_source, refreshed_kind = _select_garmin_ble_route(
+                                self.hass, endpoint.address, selected_source
+                            )
+                            if refreshed_device is None:
+                                raise
+                            ble_device = refreshed_device
+                            selected_source = refreshed_source or selected_source
+                            route_kind = refreshed_kind
                     # A bond belongs to the central that created it, but do not pin a
                     # route merely because a connection call returned successfully.
                     # Authentication can still be absent (ATT error 0x05). Only a
@@ -985,20 +1410,90 @@ class GarminLocalCoordinator:
                     self._publish(sensor_id)
 
                     stage = "catalog"
-                    mode, catalog = await session.async_activity_catalog()
+                    mode, catalog = await session.async_sync_catalog()
                     state["catalog_mode"] = mode
-                    state["device_workout_count"] = len(catalog)
+                    activity_catalog_count = sum(
+                        1 for item in catalog
+                        if (
+                            isinstance(item, GarminSyncFile)
+                            and (
+                                str(item.type_name or "") == "FIT_TYPE_4"
+                                or item.type_code == 4
+                            )
+                        )
+                        or (isinstance(item, GarminDirectoryEntry) and item.is_activity)
+                    )
+                    state["device_workout_count"] = activity_catalog_count
+                    state["device_sync_file_count"] = len(catalog)
+                    catalog_types = dict(getattr(session, "catalog_type_counts", {}) or {})
+                    state["catalog_file_types"] = catalog_types
+                    _LOGGER.info(
+                        "Garmin read-only catalogue for %s: mode=%s workouts=%s sync_files=%s file_types=%s",
+                        sensor_id,
+                        mode,
+                        activity_catalog_count,
+                        len(catalog),
+                        catalog_types or {"FIT_TYPE_4": len(catalog)},
+                    )
                     files = state.setdefault("files", {})
                     if not isinstance(files, dict):
                         files = state["files"] = {}
                     keys = [self._item_key(item) for item in catalog]
-                    pending_items = [item for item in catalog if self._item_key(item) not in files]
+
+                    def _needs_download(item: GarminSyncFile | GarminDirectoryEntry) -> bool:
+                        key = self._item_key(item)
+                        if key not in files:
+                            return True
+                        cached = files.get(key)
+                        if not isinstance(cached, dict) or cached.get("kind") != "invalid":
+                            return False
+                        # Re-probe invalid records created before forensic capture
+                        # existed, and any quarantined record whose Garmin catalogue
+                        # fingerprint changed. This lets an already-seen invalid file
+                        # be captured after an upgrade instead of becoming permanent
+                        # opaque state.
+                        return (
+                            not cached.get("capture_token")
+                            or str(cached.get("catalog_fingerprint") or "")
+                            != _catalog_item_fingerprint(item)
+                        )
+
+                    uncached_items = [item for item in catalog if _needs_download(item)]
+                    # Garmin monitoring/weight files may be circular and can keep
+                    # the same FileSync identity while their contents change. Once
+                    # the initial backlog is cached, refresh the newest file from
+                    # each health family on every normal sync. Metadata fingerprint
+                    # changes also force a refresh immediately.
+                    refresh_items: list[GarminSyncFile | GarminDirectoryEntry] = []
+                    newest_health: dict[str, GarminSyncFile | GarminDirectoryEntry] = {}
+                    for item in catalog:
+                        key = self._item_key(item)
+                        cached = files.get(key)
+                        if not _catalog_item_is_health(item) and not (
+                            isinstance(cached, dict) and cached.get("kind") == "health"
+                        ):
+                            continue
+                        newest_health.setdefault(_catalog_item_type(item), item)
+                    for item in newest_health.values():
+                        key = self._item_key(item)
+                        cached = files.get(key)
+                        if not isinstance(cached, dict):
+                            continue
+                        fingerprint = _catalog_item_fingerprint(item)
+                        if force or str(cached.get("catalog_fingerprint") or "") != fingerprint:
+                            refresh_items.append(item)
+                    uncached_keys = {self._item_key(item) for item in uncached_items}
+                    pending_items = uncached_items + [
+                        item for item in refresh_items
+                        if self._item_key(item) not in uncached_keys
+                    ]
                     state["pending_file_count"] = len(pending_items)
                     self._publish(sensor_id)
 
                     records_to_import = [
                         record for record in files.values()
                         if isinstance(record, dict)
+                        and record.get("kind") in {"activity", "health"}
                         and any(
                             profile_id not in {str(v) for v in record.get("imported_profiles") or []}
                             for profile_id in profile_ids
@@ -1006,20 +1501,33 @@ class GarminLocalCoordinator:
                     ][:MAX_FILES_PER_SESSION]
                     slots = max(0, MAX_FILES_PER_SESSION - len(records_to_import))
                     batch_bytes = 0
+                    file_work_started = self.hass.loop.time()
 
                     for item in pending_items[:slots]:
+                        # The hard SESSION_TIMEOUT remains authoritative.  This
+                        # softer budget prevents a long tail of tiny health files
+                        # from consuming the entire timeout and turning a healthy
+                        # partial sync into a timeout error.  At least one file is
+                        # always allowed so a slow individual transfer can still
+                        # make checkpointed progress.
+                        if (
+                            batch_bytes
+                            and self.hass.loop.time() - file_work_started
+                            >= SESSION_FILE_WORK_BUDGET
+                        ):
+                            break
                         if not self.runtime.sensor_archive_profile_ids(sensor_id):
                             return
                         expected_size = max(0, int(getattr(item, "size", 0) or 0))
                         if expected_size > MAX_BYTES_PER_SYNC:
-                            raise ValueError("Garmin activity exceeds per-sync byte budget")
+                            raise ValueError("Garmin FIT file exceeds per-sync byte budget")
                         if batch_bytes and batch_bytes + expected_size > MAX_BYTES_PER_SYNC:
                             break
                         key = self._item_key(item)
                         state.update(active_file=key, downloaded_bytes=0)
                         self._publish(sensor_id)
                         stage = "transfer"
-                        downloaded = await session.async_download_activity(
+                        downloaded = await session.async_download_file(
                             mode,
                             item,
                             progress=lambda size, sid=sensor_id: self._progress_update(sid, size),
@@ -1028,34 +1536,160 @@ class GarminLocalCoordinator:
                             raise ValueError("Garmin transfer exceeds per-sync byte budget")
                         stage = "validation"
                         compressed = mode == "filesync_v2"
-                        workout, fit_size = await self.hass.async_add_executor_job(
-                            partial(
-                                _decode_downloaded_file,
-                                downloaded.data,
-                                compressed=compressed,
-                                sensor_id=sensor_id,
-                                source_key=downloaded.key,
-                                source_label=sensor.name,
+                        try:
+                            decoded, fit_size = await self.hass.async_add_executor_job(
+                                partial(
+                                    _decode_downloaded_file,
+                                    downloaded.data,
+                                    compressed=compressed,
+                                    sensor_id=sensor_id,
+                                    source_key=downloaded.key,
+                                    source_label=sensor.name,
+                                )
                             )
-                        )
+                        except Exception as err:
+                            # Full-device FileSync exposes more than workout files,
+                            # and one corrupt/opaque record must never abort the
+                            # entire archive session. Retry the exact catalogue
+                            # fingerprint a bounded number of times, then quarantine
+                            # only that record until Garmin changes its metadata.
+                            failures = state.setdefault("validation_failures", {})
+                            if not isinstance(failures, dict):
+                                failures = state["validation_failures"] = {}
+                            fingerprint = _catalog_item_fingerprint(item)
+                            capture = await self.hass.async_add_executor_job(
+                                partial(
+                                    _capture_invalid_payload,
+                                    self.hass.config.path(".storage", INVALID_CAPTURE_DIRNAME),
+                                    sensor_id=sensor_id,
+                                    source_key=downloaded.key,
+                                    file_type=downloaded.type_name or _catalog_item_type(item),
+                                    fingerprint=fingerprint,
+                                    raw_data=downloaded.data,
+                                    compressed=compressed,
+                                    error=f"{type(err).__name__}: {err}",
+                                )
+                            )
+                            state["last_invalid_capture"] = {
+                                "file_type": downloaded.type_name or _catalog_item_type(item),
+                                "source_key": downloaded.key,
+                                "token": capture.get("token"),
+                                "diagnostics": capture.get("diagnostics") or {},
+                            }
+                            previous_failure = failures.get(key)
+                            same_file = bool(
+                                isinstance(previous_failure, dict)
+                                and str(previous_failure.get("catalog_fingerprint") or "")
+                                == fingerprint
+                            )
+                            failure_count = (
+                                int(previous_failure.get("count") or 0) + 1
+                                if same_file
+                                else 1
+                            )
+                            failures[key] = {
+                                "catalog_fingerprint": fingerprint,
+                                "count": failure_count,
+                                "last_failure": datetime.now(timezone.utc).isoformat(),
+                                "error": f"{type(err).__name__}: {err}"[:256],
+                                "capture_token": capture.get("token"),
+                                "diagnostics": capture.get("diagnostics") or {},
+                            }
+                            quarantined = failure_count >= MAX_FILE_VALIDATION_FAILURES
+                            if quarantined:
+                                files[key] = {
+                                    "kind": "invalid",
+                                    "size": len(downloaded.data),
+                                    "file_type": downloaded.type_name,
+                                    "catalog_fingerprint": fingerprint,
+                                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                                    "validation_error": f"{type(err).__name__}: {err}"[:256],
+                                    "capture_token": capture.get("token"),
+                                    "diagnostics": capture.get("diagnostics") or {},
+                                    "imported_profiles": [],
+                                }
+                                failures.pop(key, None)
+                                state["quarantined_file_count"] = sum(
+                                    1
+                                    for value in files.values()
+                                    if isinstance(value, dict) and value.get("kind") == "invalid"
+                                )
+                                _LOGGER.warning(
+                                    "Garmin quarantined unreadable device file for %s after %s attempts: type=%s key=%s error=%s: %s",
+                                    sensor_id,
+                                    failure_count,
+                                    downloaded.type_name or _catalog_item_type(item),
+                                    key,
+                                    type(err).__name__,
+                                    err,
+                                )
+                            else:
+                                _LOGGER.warning(
+                                    "Garmin device file validation failed for %s (%s/%s); continuing session and retrying this file later: type=%s key=%s error=%s: %s",
+                                    sensor_id,
+                                    failure_count,
+                                    MAX_FILE_VALIDATION_FAILURES,
+                                    downloaded.type_name or _catalog_item_type(item),
+                                    key,
+                                    type(err).__name__,
+                                    err,
+                                )
+                            state.update(
+                                active_file=None,
+                                downloaded_bytes=len(downloaded.data),
+                                pending_file_count=sum(
+                                    1 for candidate in catalog if _needs_download(candidate)
+                                ),
+                            )
+                            await self._save()
+                            self._publish(sensor_id)
+                            batch_bytes += len(downloaded.data)
+                            continue
+                        failures = state.get("validation_failures")
+                        if isinstance(failures, dict):
+                            failures.pop(key, None)
                         stage = "import"
                         record = {
+                            **decoded,
                             "size": fit_size,
+                            "file_type": downloaded.type_name,
+                            "catalog_fingerprint": _catalog_item_fingerprint(item),
                             "completed_at": datetime.now(timezone.utc).isoformat(),
-                            "workout": workout.as_persistent_dict(),
                             "imported_profiles": [],
                         }
                         files[key] = record
-                        records_to_import.append(record)
-                        start = _dt(workout.start)
-                        if start is not None:
-                            latest = start.isoformat()
-                            if not state.get("latest_workout") or latest > state["latest_workout"]:
-                                state["latest_workout"] = latest
+                        if record.get("kind") in {"activity", "health"}:
+                            records_to_import.append(record)
+                        if record.get("kind") == "activity":
+                            payload = record.get("workout") or {}
+                            start = _dt(payload.get("start")) if isinstance(payload, dict) else None
+                            if start is not None:
+                                latest = start.isoformat()
+                                if not state.get("latest_workout") or latest > state["latest_workout"]:
+                                    state["latest_workout"] = latest
+                        elif record.get("kind") == "health":
+                            state["latest_health_sync"] = datetime.now(timezone.utc).isoformat()
+                            metric_count = int(record.get("health_metric_points") or 0)
+                            sleep_count = int(record.get("health_sleep_records") or 0)
+                            state["health_metric_point_count"] = int(state.get("health_metric_point_count") or 0) + metric_count
+                            state["health_sleep_record_count"] = int(state.get("health_sleep_record_count") or 0) + sleep_count
+                            _LOGGER.info(
+                                "Garmin health FIT decoded for %s: type=%s metrics=%s sleep_records=%s",
+                                sensor_id, downloaded.type_name or _catalog_item_type(item), metric_count, sleep_count,
+                            )
+                        elif record.get("kind") == "unsupported":
+                            _LOGGER.debug(
+                                "Garmin FIT family not yet mapped for %s: type=%s messages=%s",
+                                sensor_id,
+                                downloaded.type_name or _catalog_item_type(item),
+                                record.get("fit_messages") or [],
+                            )
                         state.update(
                             active_file=None,
                             downloaded_bytes=fit_size,
-                            pending_file_count=len([candidate for candidate in keys if candidate not in files]),
+                            pending_file_count=sum(
+                                1 for candidate in catalog if _needs_download(candidate)
+                            ),
                         )
                         # Checkpoint each complete FIT before touching profile history.
                         await self._save()
@@ -1077,9 +1711,10 @@ class GarminLocalCoordinator:
                         # never forces an already-finished burst to start from zero.
                         await self._save()
                     self._prune_file_records(files, set(keys))
-                    remaining = [candidate for candidate in keys if candidate not in files]
+                    remaining = [item for item in catalog if _needs_download(item)]
                     cached_pending = any(
                         isinstance(record, dict)
+                        and record.get("kind") in {"activity", "health"}
                         and any(
                             profile_id not in {str(v) for v in record.get("imported_profiles") or []}
                             for profile_id in profile_ids
@@ -1089,8 +1724,9 @@ class GarminLocalCoordinator:
                     more_work = bool(remaining or cached_pending)
                     now_utc = datetime.now(timezone.utc)
                     state.update(
-                        sync_state="waiting" if more_work else "ready",
+                        sync_state="cooldown" if more_work else "ready",
                         last_error_code="none",
+                        last_transient_error_code="none",
                         retry_count=0,
                         partial_retry_count=0,
                         last_batch_success=now_utc.isoformat(),
@@ -1191,11 +1827,16 @@ class GarminLocalCoordinator:
             retry_at = datetime.now(timezone.utc) + timedelta(seconds=delay)
             state.update(
                 sync_state=(
-                    "waiting"
+                    "cooldown"
                     if partial_retry
                     else ("error" if retries >= MAX_RETRIES else "retrying")
                 ),
-                last_error_code=error_code,
+                # A transient post-batch handshake/catalog miss is a cooldown
+                # condition, not the outcome of the batch that already succeeded.
+                # Keep the raw code privately for diagnostics while the normal
+                # Last sync error entity remains truthful.
+                last_error_code="none" if partial_retry else error_code,
+                last_transient_error_code=error_code if partial_retry else "none",
                 retry_count=retries,
                 partial_retry_count=partial_retries if partial_retry else 0,
                 next_attempt=retry_at.isoformat(),

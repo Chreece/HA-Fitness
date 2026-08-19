@@ -74,12 +74,14 @@
         "data": {
           "workout_device_ids": "Antrenman/fitness geçmişi sağlayan cihazlar",
           "detailed_strength_analysis": "Ayrıntılı kuvvet analizi",
-          "workout_retention_days": "Antrenman saklama"
+          "workout_retention_days": "Antrenman saklama",
+          "fit_file_retention_count": "Korunacak FIT dosyaları/kontrol noktaları"
         },
         "data_description": {
           "workout_device_ids": "Geçmiş cihazları. Yalnızca tam desteklenen Garmin, Strava, Polar, Hevy, Peloton ve Oura sözleşmeleri önceden seçilir.",
           "detailed_strength_analysis": "Kuvvet verileri varsa egzersiz/set ayrıntıları, tahmini 1RM ve egzersiz bazlı ilerlemeyi analiz et.",
-          "workout_retention_days": "Fitness standart antrenmanlarının saklanacağı gün sayısı. 0 sınırsızdır."
+          "workout_retention_days": "Fitness standart antrenmanlarının saklanacağı gün sayısı. 0 sınırsızdır.",
+          "fit_file_retention_count": "Temizleme sırasında korunacak en yeni Fitness FIT içe aktarma/kontrol noktası kayıtlarının sayısı. Kaynak cihazdaki dosyalar silinmez."
         }
       },
       "ai": {
@@ -87,11 +89,17 @@
         "description": "Varsayılan olarak Home Assistant'ın varsayılan AI Task'ı seçilir. Fitness mevcut sistem tercihini otomatik olarak izler; yalnızca sabitlemek istiyorsanız belirli bir AI Task veya konuşma aracısı seçin.",
         "data": {
           "ai_enabled": "Yapay zekâ fitness değerlendirmeleri oluştur",
-          "ai_entity": "AI sağlayıcısı"
+          "ai_entity": "AI sağlayıcısı",
+          "training_goal": "Antrenman hedefi",
+          "training_goal_date": "Hedef / etkinlik tarihi",
+          "training_days_per_week": "Haftalık tercih edilen antrenman günü"
         },
         "data_description": {
           "ai_enabled": "Deterministik hesapların AI yorumunu etkinleştirir. AI bilimsel sensör formüllerini veya metadatasını asla tanımlamaz ya da değiştirmez.",
-          "ai_entity": "Sistem tercihini otomatik izlemek için Home Assistant'ın varsayılan AI Task'ını kullanın veya belirli bir AI Task / konuşma aracısını sabitleyin. Sabitlenen sağlayıcı kullanılamaz hale gelirse Fitness sizi uyarır ve geçici olarak sistem varsayılanına döner."
+          "ai_entity": "Sistem tercihini otomatik izlemek için Home Assistant'ın varsayılan AI Task'ını kullanın veya belirli bir AI Task / konuşma aracısını sabitleyin. Sabitlenen sağlayıcı kullanılamaz hale gelirse Fitness sizi uyarır ve geçici olarak sistem varsayılanına döner.",
+          "training_goal": "Hedefinizi açıklayın; örneğin bir maratonu rahat bitirmek veya bisiklet FTP değerini geliştirmek. Fitness bunu geçmiş, hazır oluş ve toparlanmayla birleştirir.",
+          "training_goal_date": "Yalnızca planlama bağlamı için kullanılan isteğe bağlı hedef tarihi.",
+          "training_days_per_week": "Tercih edilen antrenman günü sayısı; toparlanma ek dinlenme günleri oluşturabilir."
         }
       },
       "feedback": {
@@ -158,8 +166,8 @@
         "title": "Fitness kurulumu",
         "description": "Önce ne eklemek istediğinizi seçin. Diğer bölümü mevcut profil akışını değiştirmeden daha sonra ekleyebilirsiniz.",
         "menu_options": {
-          "add_protocol": "Sensör protokolü ekle",
-          "add_user": "Kullanıcı profili ekle"
+          "add_user": "Kullanıcı profili ekle",
+          "manage_protocols": "Sensör protokollerini yönet"
         }
       },
       "add_user": {
@@ -167,13 +175,59 @@
         "description": "Normal Fitness profil kurulumu ile devam edin."
       },
       "add_protocol": {
-        "title": "Sensör protokolü ekle",
-        "description": "Bir yerel sensör aktarımını etkinleştirin. Fitness adaptör cihazını oluşturur ve keşfi sınırlı, kullanıcı kontrollü tutar.",
+        "title": "Sensör protokollerini yönet",
+        "description": "Fitness tarafından kullanılacak protokolleri ve desteklenen donanımın otomatik ya da elle seçilmesini belirleyin. Devre dışı protokoller Fitness içinde gizlenir. Paylaşılan sistem donanımı Fitness tarafından fiziksel olarak kapatılmaz.",
         "data": {
-          "protocol": "Protokol"
+          "bluetooth": "Fitness için Bluetooth",
+          "bluetooth_automatic_hardware": "Bluetooth donanımını otomatik algıla",
+          "antplus": "Fitness için ANT+",
+          "antplus_automatic_hardware": "ANT+ donanımını otomatik algıla"
         },
         "data_description": {
-          "protocol": "Fitness’ın şimdi etkinleştireceği yerel radyo aktarımını seçin. Diğeri siz etkinleştirene kadar kullanılabilir ancak kapalı kalır."
+          "bluetooth": "Fitness tarafından kullanılacak protokolleri ve desteklenen donanımın otomatik ya da elle seçilmesini belirleyin. Devre dışı protokoller Fitness içinde gizlenir. Paylaşılan sistem donanımı Fitness tarafından fiziksel olarak kapatılmaz.",
+          "bluetooth_automatic_hardware": "Fitness tarafından kullanılacak protokolleri ve desteklenen donanımın otomatik ya da elle seçilmesini belirleyin. Devre dışı protokoller Fitness içinde gizlenir. Paylaşılan sistem donanımı Fitness tarafından fiziksel olarak kapatılmaz.",
+          "antplus": "Fitness tarafından kullanılacak protokolleri ve desteklenen donanımın otomatik ya da elle seçilmesini belirleyin. Devre dışı protokoller Fitness içinde gizlenir. Paylaşılan sistem donanımı Fitness tarafından fiziksel olarak kapatılmaz.",
+          "antplus_automatic_hardware": "Fitness tarafından kullanılacak protokolleri ve desteklenen donanımın otomatik ya da elle seçilmesini belirleyin. Devre dışı protokoller Fitness içinde gizlenir. Paylaşılan sistem donanımı Fitness tarafından fiziksel olarak kapatılmaz."
+        }
+      },
+      "manage_protocols": {
+        "title": "Sensör protokollerini yönet",
+        "description": "Fitness tarafından kullanılacak protokolleri ve desteklenen donanımın otomatik ya da elle seçilmesini belirleyin. Devre dışı protokoller Fitness içinde gizlenir. Paylaşılan sistem donanımı Fitness tarafından fiziksel olarak kapatılmaz.",
+        "data": {
+          "bluetooth": "Fitness için Bluetooth",
+          "bluetooth_automatic_hardware": "Bluetooth donanımını otomatik algıla",
+          "antplus": "Fitness için ANT+",
+          "antplus_automatic_hardware": "ANT+ donanımını otomatik algıla"
+        },
+        "data_description": {
+          "bluetooth": "Fitness tarafından kullanılacak protokolleri ve desteklenen donanımın otomatik ya da elle seçilmesini belirleyin. Devre dışı protokoller Fitness içinde gizlenir. Paylaşılan sistem donanımı Fitness tarafından fiziksel olarak kapatılmaz.",
+          "bluetooth_automatic_hardware": "Fitness tarafından kullanılacak protokolleri ve desteklenen donanımın otomatik ya da elle seçilmesini belirleyin. Devre dışı protokoller Fitness içinde gizlenir. Paylaşılan sistem donanımı Fitness tarafından fiziksel olarak kapatılmaz.",
+          "antplus": "Fitness tarafından kullanılacak protokolleri ve desteklenen donanımın otomatik ya da elle seçilmesini belirleyin. Devre dışı protokoller Fitness içinde gizlenir. Paylaşılan sistem donanımı Fitness tarafından fiziksel olarak kapatılmaz.",
+          "antplus_automatic_hardware": "Fitness tarafından kullanılacak protokolleri ve desteklenen donanımın otomatik ya da elle seçilmesini belirleyin. Devre dışı protokoller Fitness içinde gizlenir. Paylaşılan sistem donanımı Fitness tarafından fiziksel olarak kapatılmaz."
+        }
+      },
+      "manage_protocol_hardware": {
+        "title": "Donanımı elle seç",
+        "description": "Desteklenen donanım için sınırlı bir keşif çalıştırın veya Fitness tarafından zaten bulunan adaptörleri seçin.",
+        "menu_options": {
+          "discover_protocol_hardware": "Donanımı şimdi keşfet",
+          "select_protocol_hardware": "Bulunan donanımı seç"
+        }
+      },
+      "discover_protocol_hardware": {
+        "title": "Donanım keşfi tamamlandı",
+        "description": "Desteklenen donanım için sınırlı bir keşif çalıştırın veya Fitness tarafından zaten bulunan adaptörleri seçin."
+      },
+      "select_protocol_hardware": {
+        "title": "Donanımı elle seç",
+        "description": "Fitness’ın manuel modda kullanabileceği desteklenen adaptörleri seçin.",
+        "data": {
+          "bluetooth_hardware": "Bluetooth adaptörleri",
+          "antplus_hardware": "ANT+ adaptörleri"
+        },
+        "data_description": {
+          "bluetooth_hardware": "Fitness’ın manuel modda kullanabileceği desteklenen adaptörleri seçin.",
+          "antplus_hardware": "Fitness’ın manuel modda kullanabileceği desteklenen adaptörleri seçin."
         }
       }
     },
@@ -191,7 +245,9 @@
       "no_fitness_profiles": "Bu sensörü atamadan önce bir Fitness kullanıcısı oluştur.",
       "invalid_discovery": "Fitness sensörü keşif verileri geçersizdi.",
       "adapters_already_configured": "Tüm Fitness canlı adaptörleri zaten yapılandırılmış. Bunları adaptör cihazlarından etkinleştir veya devre dışı bırak.",
-      "adapters_managed_on_devices": "Yerel sensör adaptörleri ANT+ ve Bluetooth adaptör cihazlarından yapılandırılır."
+      "adapters_managed_on_devices": "Yerel sensör adaptörleri ANT+ ve Bluetooth adaptör cihazlarından yapılandırılır.",
+      "protocol_enabled": "Seçilen bağlantı protokolü etkinleştirildi.",
+      "protocols_updated": "Fitness sensör protokolleri güncellendi."
     }
   },
   "options": {
@@ -209,7 +265,7 @@
           "sensor_assignments": "Sensör atamaları",
           "tv_dashboard": "Fitness TV paneli",
           "smart_workout_devices": "Akıllı antrenman cihazları",
-          "protocols": "Sensör protokolleri",
+          "protocols": "Sensör protokollerini yönet",
           "features": "Pano özellikleri",
           "about": "Fitness hakkında"
         }
@@ -276,12 +332,14 @@
         "data": {
           "workout_device_ids": "Antrenman/fitness geçmişi sağlayan cihazlar",
           "detailed_strength_analysis": "Ayrıntılı kuvvet analizi",
-          "workout_retention_days": "Antrenman saklama"
+          "workout_retention_days": "Antrenman saklama",
+          "fit_file_retention_count": "Korunacak FIT dosyaları/kontrol noktaları"
         },
         "data_description": {
           "workout_device_ids": "Geçmiş cihazları. Yalnızca tam desteklenen Garmin, Strava, Polar, Hevy, Peloton ve Oura sözleşmeleri önceden seçilir.",
           "detailed_strength_analysis": "Kuvvet verileri varsa egzersiz/set ayrıntıları, tahmini 1RM ve egzersiz bazlı ilerlemeyi analiz et.",
-          "workout_retention_days": "Fitness standart antrenmanlarının saklanacağı gün sayısı. 0 sınırsızdır."
+          "workout_retention_days": "Fitness standart antrenmanlarının saklanacağı gün sayısı. 0 sınırsızdır.",
+          "fit_file_retention_count": "Temizleme sırasında korunacak en yeni Fitness FIT içe aktarma/kontrol noktası kayıtlarının sayısı. Kaynak cihazdaki dosyalar silinmez."
         }
       },
       "ai": {
@@ -289,11 +347,17 @@
         "description": "Varsayılan olarak Home Assistant'ın varsayılan AI Task'ı seçilir. Fitness mevcut sistem tercihini otomatik olarak izler; yalnızca sabitlemek istiyorsanız belirli bir AI Task veya konuşma aracısı seçin.",
         "data": {
           "ai_enabled": "Yapay zekâ fitness değerlendirmeleri oluştur",
-          "ai_entity": "AI sağlayıcısı"
+          "ai_entity": "AI sağlayıcısı",
+          "training_goal": "Antrenman hedefi",
+          "training_goal_date": "Hedef / etkinlik tarihi",
+          "training_days_per_week": "Haftalık tercih edilen antrenman günü"
         },
         "data_description": {
           "ai_enabled": "Deterministik hesapların AI yorumunu etkinleştirir. AI bilimsel sensör formüllerini veya metadatasını asla tanımlamaz ya da değiştirmez.",
-          "ai_entity": "Sistem tercihini otomatik izlemek için Home Assistant'ın varsayılan AI Task'ını kullanın veya belirli bir AI Task / konuşma aracısını sabitleyin. Sabitlenen sağlayıcı kullanılamaz hale gelirse Fitness sizi uyarır ve geçici olarak sistem varsayılanına döner."
+          "ai_entity": "Sistem tercihini otomatik izlemek için Home Assistant'ın varsayılan AI Task'ını kullanın veya belirli bir AI Task / konuşma aracısını sabitleyin. Sabitlenen sağlayıcı kullanılamaz hale gelirse Fitness sizi uyarır ve geçici olarak sistem varsayılanına döner.",
+          "training_goal": "Hedefinizi açıklayın; örneğin bir maratonu rahat bitirmek veya bisiklet FTP değerini geliştirmek. Fitness bunu geçmiş, hazır oluş ve toparlanmayla birleştirir.",
+          "training_goal_date": "Yalnızca planlama bağlamı için kullanılan isteğe bağlı hedef tarihi.",
+          "training_days_per_week": "Tercih edilen antrenman günü sayısı; toparlanma ek dinlenme günleri oluşturabilir."
         }
       },
       "feedback": {
@@ -419,15 +483,19 @@
         }
       },
       "protocols": {
-        "title": "Sensör protokolleri",
-        "description": "Yerel sensör aktarımlarını etkinleştirin veya kapatın. Kullanımdaki bir aktarım oturum bitene kadar kapatılmaz.",
+        "title": "Sensör protokollerini yönet",
+        "description": "Fitness tarafından kullanılacak protokolleri ve desteklenen donanımın otomatik ya da elle seçilmesini belirleyin. Devre dışı protokoller Fitness içinde gizlenir. Paylaşılan sistem donanımı Fitness tarafından fiziksel olarak kapatılmaz.",
         "data": {
-          "bluetooth": "Bluetooth protokolü",
-          "antplus": "ANT+ protokolü"
+          "bluetooth": "Fitness için Bluetooth",
+          "bluetooth_automatic_hardware": "Bluetooth donanımını otomatik algıla",
+          "antplus": "Fitness için ANT+",
+          "antplus_automatic_hardware": "ANT+ donanımını otomatik algıla"
         },
         "data_description": {
-          "bluetooth": "Yerel Fitness sensörleri ve desteklenen cihaz arşivleri için Home Assistant Bluetooth aktarımını etkinleştirir.",
-          "antplus": "Uyumlu USB alıcıları ve Fitness sensörleri için yerel ANT+ aktarımını etkinleştirir."
+          "bluetooth": "Fitness tarafından kullanılacak protokolleri ve desteklenen donanımın otomatik ya da elle seçilmesini belirleyin. Devre dışı protokoller Fitness içinde gizlenir. Paylaşılan sistem donanımı Fitness tarafından fiziksel olarak kapatılmaz.",
+          "bluetooth_automatic_hardware": "Fitness tarafından kullanılacak protokolleri ve desteklenen donanımın otomatik ya da elle seçilmesini belirleyin. Devre dışı protokoller Fitness içinde gizlenir. Paylaşılan sistem donanımı Fitness tarafından fiziksel olarak kapatılmaz.",
+          "antplus": "Fitness tarafından kullanılacak protokolleri ve desteklenen donanımın otomatik ya da elle seçilmesini belirleyin. Devre dışı protokoller Fitness içinde gizlenir. Paylaşılan sistem donanımı Fitness tarafından fiziksel olarak kapatılmaz.",
+          "antplus_automatic_hardware": "Fitness tarafından kullanılacak protokolleri ve desteklenen donanımın otomatik ya da elle seçilmesini belirleyin. Devre dışı protokoller Fitness içinde gizlenir. Paylaşılan sistem donanımı Fitness tarafından fiziksel olarak kapatılmaz."
         }
       },
       "features": {
@@ -455,6 +523,30 @@
       "about": {
         "title": "Fitness hakkında",
         "description": "Yüklü sürüm: {version}\n\n{changelog}"
+      },
+      "protocol_hardware": {
+        "title": "Donanımı elle seç",
+        "description": "Desteklenen donanım için sınırlı bir keşif çalıştırın veya Fitness tarafından zaten bulunan adaptörleri seçin.",
+        "menu_options": {
+          "protocol_hardware_discover": "Donanımı şimdi keşfet",
+          "protocol_hardware_select": "Bulunan donanımı seç"
+        }
+      },
+      "protocol_hardware_discover": {
+        "title": "Donanım keşfi tamamlandı",
+        "description": "Desteklenen donanım için sınırlı bir keşif çalıştırın veya Fitness tarafından zaten bulunan adaptörleri seçin."
+      },
+      "protocol_hardware_select": {
+        "title": "Donanımı elle seç",
+        "description": "Fitness’ın manuel modda kullanabileceği desteklenen adaptörleri seçin.",
+        "data": {
+          "bluetooth_hardware": "Bluetooth adaptörleri",
+          "antplus_hardware": "ANT+ adaptörleri"
+        },
+        "data_description": {
+          "bluetooth_hardware": "Fitness’ın manuel modda kullanabileceği desteklenen adaptörleri seçin.",
+          "antplus_hardware": "Fitness’ın manuel modda kullanabileceği desteklenen adaptörleri seçin."
+        }
       }
     },
     "abort": {
@@ -3366,10 +3458,11 @@
         "name": "Yerel senkronizasyon backend’i"
       },
       "garmin_sync_state": {
-        "name": "Antrenman senkronizasyon durumu",
+        "name": "Cihaz eşitleme durumu",
         "state": {
           "idle": "Boşta",
           "waiting": "Bekliyor",
+          "cooldown": "Cihaz bekleme süresi",
           "connecting": "Bağlanıyor",
           "syncing": "Eşitleniyor",
           "ready": "Güncel",
@@ -3388,10 +3481,10 @@
         "name": "Cihazdaki antrenmanlar"
       },
       "garmin_imported_file_count": {
-        "name": "İçe aktarılan antrenman dosyaları"
+        "name": "İndirilen cihaz dosyaları"
       },
       "garmin_pending_file_count": {
-        "name": "Bekleyen antrenman dosyaları"
+        "name": "Bekleyen cihaz dosyaları"
       },
       "garmin_downloaded_bytes": {
         "name": "İndirilen bayt"
@@ -3419,6 +3512,15 @@
       },
       "garmin_latest_workout": {
         "name": "Cihazdaki en yeni antrenman"
+      },
+      "garmin_last_batch_success": {
+        "name": "Son başarılı grup"
+      },
+      "garmin_next_attempt": {
+        "name": "Sonraki eşitleme denemesi"
+      },
+      "garmin_quarantined_file_count": {
+        "name": "Atlanan okunamayan dosyalar"
       }
     },
     "binary_sensor": {
@@ -3449,10 +3551,13 @@
         "name": "Antrenmanları şimdi eşitle"
       },
       "garmin_sync_workouts": {
-        "name": "Garmin antrenmanlarını şimdi senkronize et"
+        "name": "Garmin'ı şimdi eşitle"
       },
       "adapter_scan_now": {
         "name": "Şimdi tara"
+      },
+      "sync_device_data": {
+        "name": "Cihaz verilerini eşitle"
       },
       "sync_device_health_history": {
         "name": "Cihaz sağlık geçmişini eşitle"

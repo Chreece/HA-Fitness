@@ -29,7 +29,7 @@ class HPlusHistoryCoordinator(DirectHistoryCoordinator):
 
     adapter_id = "hplus_history"
     sync_unique_suffix = "sync_hplus_health_history"
-    sync_translation_key = "sync_device_health_history"
+    sync_translation_key = "sync_device_data"
     sync_icon = "mdi:watch"
 
     async def async_fetch_history(

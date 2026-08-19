@@ -74,12 +74,14 @@
         "data": {
           "workout_device_ids": "提供训练/健身历史数据的设备",
           "detailed_strength_analysis": "详细力量分析",
-          "workout_retention_days": "训练保留期"
+          "workout_retention_days": "训练保留期",
+          "fit_file_retention_count": "保留的 FIT 文件/检查点"
         },
         "data_description": {
           "workout_device_ids": "历史设备。仅预选明确支持的 Garmin、Strava、Polar、Hevy、Peloton 和 Oura 适配器契约。",
           "detailed_strength_analysis": "有力量训练数据时，分析动作/组数、估算1RM和各动作进展。",
-          "workout_retention_days": "保留 Fitness 规范化训练记录的天数。0 表示无限期。"
+          "workout_retention_days": "保留 Fitness 规范化训练记录的天数。0 表示无限期。",
+          "fit_file_retention_count": "清理时保留的最新 Fitness FIT 导入/检查点记录数量。不会删除源设备上的文件。"
         }
       },
       "ai": {
@@ -87,11 +89,17 @@
         "description": "默认选择 Home Assistant 的默认 AI Task。Fitness 会自动跟随当前系统默认项；只有在需要固定某个提供方时才选择特定 AI Task 或对话代理。",
         "data": {
           "ai_enabled": "生成 AI 健身评估",
-          "ai_entity": "AI 提供方"
+          "ai_entity": "AI 提供方",
+          "training_goal": "训练目标",
+          "training_goal_date": "目标 / 比赛日期",
+          "training_days_per_week": "每周首选训练天数"
         },
         "data_description": {
           "ai_enabled": "启用 AI 对确定性 Fitness 计算结果的解读。AI 永远不会定义或修改科学传感器公式或元数据。",
-          "ai_entity": "使用 Home Assistant 默认 AI Task 可自动跟随系统偏好，也可以固定特定 AI Task / 对话代理。如果固定的提供方变为不可用，Fitness 会提醒你并临时回退到系统默认项。"
+          "ai_entity": "使用 Home Assistant 默认 AI Task 可自动跟随系统偏好，也可以固定特定 AI Task / 对话代理。如果固定的提供方变为不可用，Fitness 会提醒你并临时回退到系统默认项。",
+          "training_goal": "描述你的目标，例如轻松完成马拉松或提高骑行 FTP。Fitness 会结合历史、准备度和恢复情况。",
+          "training_goal_date": "可选目标日期，仅用于规划背景。",
+          "training_days_per_week": "首选训练天数；恢复需求可能增加休息日。"
         }
       },
       "feedback": {
@@ -158,8 +166,8 @@
         "title": "设置 Fitness",
         "description": "请选择首先要添加的内容。以后仍可添加另一部分，而无需改变现有的用户档案设置流程。",
         "menu_options": {
-          "add_protocol": "添加传感器协议",
-          "add_user": "添加用户档案"
+          "add_user": "添加用户档案",
+          "manage_protocols": "管理传感器协议"
         }
       },
       "add_user": {
@@ -167,13 +175,59 @@
         "description": "继续使用 Fitness 的常规用户档案设置流程。"
       },
       "add_protocol": {
-        "title": "添加传感器协议",
-        "description": "启用一种本地传感器传输。Fitness 会创建设备适配器，并让发现过程保持有界且由用户控制。",
+        "title": "管理传感器协议",
+        "description": "选择 Fitness 使用的传感器协议，并决定自动发现还是手动选择受支持的硬件。未启用的协议不会显示在 Fitness 中。Fitness 不会物理关闭系统共享硬件。",
         "data": {
-          "protocol": "传感器协议"
+          "bluetooth": "Fitness 蓝牙",
+          "bluetooth_automatic_hardware": "自动发现蓝牙硬件",
+          "antplus": "Fitness ANT+",
+          "antplus_automatic_hardware": "自动发现 ANT+ 硬件"
         },
         "data_description": {
-          "protocol": "选择 Fitness 现在应启用的本地无线传输。另一种传输会保留，但在你启用前保持关闭。"
+          "bluetooth": "选择 Fitness 使用的传感器协议，并决定自动发现还是手动选择受支持的硬件。未启用的协议不会显示在 Fitness 中。Fitness 不会物理关闭系统共享硬件。",
+          "bluetooth_automatic_hardware": "选择 Fitness 使用的传感器协议，并决定自动发现还是手动选择受支持的硬件。未启用的协议不会显示在 Fitness 中。Fitness 不会物理关闭系统共享硬件。",
+          "antplus": "选择 Fitness 使用的传感器协议，并决定自动发现还是手动选择受支持的硬件。未启用的协议不会显示在 Fitness 中。Fitness 不会物理关闭系统共享硬件。",
+          "antplus_automatic_hardware": "选择 Fitness 使用的传感器协议，并决定自动发现还是手动选择受支持的硬件。未启用的协议不会显示在 Fitness 中。Fitness 不会物理关闭系统共享硬件。"
+        }
+      },
+      "manage_protocols": {
+        "title": "管理传感器协议",
+        "description": "选择 Fitness 使用的传感器协议，并决定自动发现还是手动选择受支持的硬件。未启用的协议不会显示在 Fitness 中。Fitness 不会物理关闭系统共享硬件。",
+        "data": {
+          "bluetooth": "Fitness 蓝牙",
+          "bluetooth_automatic_hardware": "自动发现蓝牙硬件",
+          "antplus": "Fitness ANT+",
+          "antplus_automatic_hardware": "自动发现 ANT+ 硬件"
+        },
+        "data_description": {
+          "bluetooth": "选择 Fitness 使用的传感器协议，并决定自动发现还是手动选择受支持的硬件。未启用的协议不会显示在 Fitness 中。Fitness 不会物理关闭系统共享硬件。",
+          "bluetooth_automatic_hardware": "选择 Fitness 使用的传感器协议，并决定自动发现还是手动选择受支持的硬件。未启用的协议不会显示在 Fitness 中。Fitness 不会物理关闭系统共享硬件。",
+          "antplus": "选择 Fitness 使用的传感器协议，并决定自动发现还是手动选择受支持的硬件。未启用的协议不会显示在 Fitness 中。Fitness 不会物理关闭系统共享硬件。",
+          "antplus_automatic_hardware": "选择 Fitness 使用的传感器协议，并决定自动发现还是手动选择受支持的硬件。未启用的协议不会显示在 Fitness 中。Fitness 不会物理关闭系统共享硬件。"
+        }
+      },
+      "manage_protocol_hardware": {
+        "title": "手动选择硬件",
+        "description": "执行一次有限时间的受支持硬件发现，或选择 Fitness 已经发现的适配器。",
+        "menu_options": {
+          "discover_protocol_hardware": "立即发现硬件",
+          "select_protocol_hardware": "选择已发现的硬件"
+        }
+      },
+      "discover_protocol_hardware": {
+        "title": "硬件发现完成",
+        "description": "执行一次有限时间的受支持硬件发现，或选择 Fitness 已经发现的适配器。"
+      },
+      "select_protocol_hardware": {
+        "title": "手动选择硬件",
+        "description": "选择 Fitness 在手动模式下可以使用的受支持适配器。",
+        "data": {
+          "bluetooth_hardware": "Bluetooth 适配器",
+          "antplus_hardware": "ANT+ 适配器"
+        },
+        "data_description": {
+          "bluetooth_hardware": "选择 Fitness 在手动模式下可以使用的受支持适配器。",
+          "antplus_hardware": "选择 Fitness 在手动模式下可以使用的受支持适配器。"
         }
       }
     },
@@ -191,7 +245,9 @@
       "no_fitness_profiles": "分配此传感器前，请先创建 Fitness 用户。",
       "invalid_discovery": "健身传感器发现数据无效。",
       "adapters_already_configured": "所有 Fitness 实时适配器均已配置。请在相应适配器设备中启用或停用它们。",
-      "adapters_managed_on_devices": "本地传感器适配器通过 ANT+ 和蓝牙适配器设备进行配置。"
+      "adapters_managed_on_devices": "本地传感器适配器通过 ANT+ 和蓝牙适配器设备进行配置。",
+      "protocol_enabled": "所选连接协议已启用。",
+      "protocols_updated": "Fitness 传感器协议已更新。"
     }
   },
   "options": {
@@ -209,7 +265,7 @@
           "sensor_assignments": "传感器分配",
           "tv_dashboard": "Fitness TV 仪表板",
           "smart_workout_devices": "智能训练设备",
-          "protocols": "传感器协议",
+          "protocols": "管理传感器协议",
           "features": "仪表板功能",
           "about": "关于 Fitness"
         }
@@ -276,12 +332,14 @@
         "data": {
           "workout_device_ids": "提供训练/健身历史数据的设备",
           "detailed_strength_analysis": "详细力量分析",
-          "workout_retention_days": "训练保留期"
+          "workout_retention_days": "训练保留期",
+          "fit_file_retention_count": "保留的 FIT 文件/检查点"
         },
         "data_description": {
           "workout_device_ids": "历史设备。仅预选明确支持的 Garmin、Strava、Polar、Hevy、Peloton 和 Oura 适配器契约。",
           "detailed_strength_analysis": "有力量训练数据时，分析动作/组数、估算1RM和各动作进展。",
-          "workout_retention_days": "保留 Fitness 规范化训练记录的天数。0 表示无限期。"
+          "workout_retention_days": "保留 Fitness 规范化训练记录的天数。0 表示无限期。",
+          "fit_file_retention_count": "清理时保留的最新 Fitness FIT 导入/检查点记录数量。不会删除源设备上的文件。"
         }
       },
       "ai": {
@@ -289,11 +347,17 @@
         "description": "默认选择 Home Assistant 的默认 AI Task。Fitness 会自动跟随当前系统默认项；只有在需要固定某个提供方时才选择特定 AI Task 或对话代理。",
         "data": {
           "ai_enabled": "生成 AI 健身评估",
-          "ai_entity": "AI 提供方"
+          "ai_entity": "AI 提供方",
+          "training_goal": "训练目标",
+          "training_goal_date": "目标 / 比赛日期",
+          "training_days_per_week": "每周首选训练天数"
         },
         "data_description": {
           "ai_enabled": "启用 AI 对确定性 Fitness 计算结果的解读。AI 永远不会定义或修改科学传感器公式或元数据。",
-          "ai_entity": "使用 Home Assistant 默认 AI Task 可自动跟随系统偏好，也可以固定特定 AI Task / 对话代理。如果固定的提供方变为不可用，Fitness 会提醒你并临时回退到系统默认项。"
+          "ai_entity": "使用 Home Assistant 默认 AI Task 可自动跟随系统偏好，也可以固定特定 AI Task / 对话代理。如果固定的提供方变为不可用，Fitness 会提醒你并临时回退到系统默认项。",
+          "training_goal": "描述你的目标，例如轻松完成马拉松或提高骑行 FTP。Fitness 会结合历史、准备度和恢复情况。",
+          "training_goal_date": "可选目标日期，仅用于规划背景。",
+          "training_days_per_week": "首选训练天数；恢复需求可能增加休息日。"
         }
       },
       "feedback": {
@@ -419,15 +483,19 @@
         }
       },
       "protocols": {
-        "title": "传感器协议",
-        "description": "启用或停用本地传感器传输。正在使用的传输会等当前会话结束后再关闭。",
+        "title": "管理传感器协议",
+        "description": "选择 Fitness 使用的传感器协议，并决定自动发现还是手动选择受支持的硬件。未启用的协议不会显示在 Fitness 中。Fitness 不会物理关闭系统共享硬件。",
         "data": {
-          "bluetooth": "蓝牙协议",
-          "antplus": "ANT+ 协议"
+          "bluetooth": "Fitness 蓝牙",
+          "bluetooth_automatic_hardware": "自动发现蓝牙硬件",
+          "antplus": "Fitness ANT+",
+          "antplus_automatic_hardware": "自动发现 ANT+ 硬件"
         },
         "data_description": {
-          "bluetooth": "为本地 Fitness 传感器和受支持的设备历史启用 Home Assistant 蓝牙传输。",
-          "antplus": "为兼容的 USB 接收器和 Fitness 传感器启用本地 ANT+ 传输。"
+          "bluetooth": "选择 Fitness 使用的传感器协议，并决定自动发现还是手动选择受支持的硬件。未启用的协议不会显示在 Fitness 中。Fitness 不会物理关闭系统共享硬件。",
+          "bluetooth_automatic_hardware": "选择 Fitness 使用的传感器协议，并决定自动发现还是手动选择受支持的硬件。未启用的协议不会显示在 Fitness 中。Fitness 不会物理关闭系统共享硬件。",
+          "antplus": "选择 Fitness 使用的传感器协议，并决定自动发现还是手动选择受支持的硬件。未启用的协议不会显示在 Fitness 中。Fitness 不会物理关闭系统共享硬件。",
+          "antplus_automatic_hardware": "选择 Fitness 使用的传感器协议，并决定自动发现还是手动选择受支持的硬件。未启用的协议不会显示在 Fitness 中。Fitness 不会物理关闭系统共享硬件。"
         }
       },
       "features": {
@@ -455,6 +523,30 @@
       "about": {
         "title": "关于 Fitness",
         "description": "已安装版本：{version}\n\n{changelog}"
+      },
+      "protocol_hardware": {
+        "title": "手动选择硬件",
+        "description": "执行一次有限时间的受支持硬件发现，或选择 Fitness 已经发现的适配器。",
+        "menu_options": {
+          "protocol_hardware_discover": "立即发现硬件",
+          "protocol_hardware_select": "选择已发现的硬件"
+        }
+      },
+      "protocol_hardware_discover": {
+        "title": "硬件发现完成",
+        "description": "执行一次有限时间的受支持硬件发现，或选择 Fitness 已经发现的适配器。"
+      },
+      "protocol_hardware_select": {
+        "title": "手动选择硬件",
+        "description": "选择 Fitness 在手动模式下可以使用的受支持适配器。",
+        "data": {
+          "bluetooth_hardware": "Bluetooth 适配器",
+          "antplus_hardware": "ANT+ 适配器"
+        },
+        "data_description": {
+          "bluetooth_hardware": "选择 Fitness 在手动模式下可以使用的受支持适配器。",
+          "antplus_hardware": "选择 Fitness 在手动模式下可以使用的受支持适配器。"
+        }
       }
     },
     "abort": {
@@ -3366,10 +3458,11 @@
         "name": "本地同步后端"
       },
       "garmin_sync_state": {
-        "name": "训练同步状态",
+        "name": "设备同步状态",
         "state": {
           "idle": "空闲",
           "waiting": "等待中",
+          "cooldown": "设备冷却等待",
           "connecting": "正在连接",
           "syncing": "正在同步",
           "ready": "已是最新",
@@ -3388,10 +3481,10 @@
         "name": "设备上的训练"
       },
       "garmin_imported_file_count": {
-        "name": "已导入训练文件"
+        "name": "已下载的设备文件"
       },
       "garmin_pending_file_count": {
-        "name": "待导入训练文件"
+        "name": "待处理的设备文件"
       },
       "garmin_downloaded_bytes": {
         "name": "已下载字节"
@@ -3419,6 +3512,15 @@
       },
       "garmin_latest_workout": {
         "name": "设备上的最新训练"
+      },
+      "garmin_last_batch_success": {
+        "name": "上次成功批次"
+      },
+      "garmin_next_attempt": {
+        "name": "下次同步尝试"
+      },
+      "garmin_quarantined_file_count": {
+        "name": "已跳过的不可读文件"
       }
     },
     "binary_sensor": {
@@ -3449,10 +3551,13 @@
         "name": "立即同步训练"
       },
       "garmin_sync_workouts": {
-        "name": "立即同步 Garmin 训练"
+        "name": "立即同步 Garmin"
       },
       "adapter_scan_now": {
         "name": "立即扫描"
+      },
+      "sync_device_data": {
+        "name": "同步设备数据"
       },
       "sync_device_health_history": {
         "name": "同步设备健康历史"

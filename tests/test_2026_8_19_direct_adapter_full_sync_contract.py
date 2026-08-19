@@ -14,13 +14,15 @@ def test_archive_button_uses_coordinator_sync_now_and_exposes_scope():
     assert '"sync_scope": "full"' in text
     assert '"sync_capabilities"' in text
     assert 'getattr(coordinator, "async_sync_now", None)' in text
+    assert 'class DeviceDataSyncButton' in text
+    assert 'ArchiveSyncWorkoutsButton' not in text
 
 
 def test_all_direct_adapters_declare_explicit_sync_capabilities():
     expected = {
         "bangle/adapter.py": {"health_history", "sleep_history", "workout_history", "gps_tracks", "device_state"},
         "cycplus_adapter.py": {"workout_history", "gps_tracks", "device_state"},
-        "garmin/adapter.py": {"workout_history", "gps_tracks"},
+        "garmin/adapter.py": {"workout_history", "gps_tracks", "health_history", "sleep_history", "device_state"},
         "hplus/adapter.py": {"health_history", "device_state"},
         "miband1/adapter.py": {"health_history", "sleep_history", "device_state"},
         "miband2/adapter.py": {"health_history", "device_state"},
@@ -33,3 +35,19 @@ def test_all_direct_adapters_declare_explicit_sync_capabilities():
         assert "sync_capabilities=frozenset" in text
         for capability in capabilities:
             assert repr(capability) in text or f'"{capability}"' in text
+
+
+def test_direct_sync_buttons_use_one_universal_device_data_translation_key():
+    base = ROOT / "custom_components/fitness/device_adapters"
+    coordinators = [
+        "history_coordinator.py", "bangle/coordinator.py", "cycplus_m1.py",
+        "garmin/coordinator.py", "hplus/coordinator.py", "huami_keyed/coordinator.py",
+        "miband1/coordinator.py", "miband2/coordinator.py",
+        "ultrahuman/coordinator.py", "zetime/coordinator.py",
+    ]
+    for rel in coordinators:
+        text = (base / rel).read_text()
+        assert 'sync_translation_key = "sync_device_data"' in text
+    strings = (ROOT / "custom_components/fitness/strings.json").read_text()
+    assert '"sync_device_data"' in strings
+    assert '"name": "Sync device data"' in strings

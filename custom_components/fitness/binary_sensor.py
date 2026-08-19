@@ -5,7 +5,7 @@ from homeassistant.components.binary_sensor import BinarySensorDeviceClass, Bina
 from homeassistant.helpers.entity import EntityCategory
 
 from .live import get_live_runtime
-from .live.runtime import HUB_ENTRY_TYPE
+from .live.runtime import HUB_ENTRY_TYPE, DEVICES_HUB_ENTRY_TYPE
 
 
 def _sensor_control_capabilities(sensor) -> dict[str, set[str]]:
@@ -20,19 +20,49 @@ def _sensor_control_capabilities(sensor) -> dict[str, set[str]]:
 
 async def async_setup_entry(hass, entry, async_add_entities):
     runtime = get_live_runtime(hass)
-    if entry.data.get("entry_type") != HUB_ENTRY_TYPE:
+    entry_type = entry.data.get("entry_type")
+    if entry_type not in {HUB_ENTRY_TYPE, DEVICES_HUB_ENTRY_TYPE}:
         return
-    for transport in sorted(runtime.adapter_entity_transports):
-        adapter_entities = [AdapterAvailable(runtime, transport), AdapterProblem(runtime, transport)]
-        async_add_entities(
-            adapter_entities,
-            config_subentry_id=runtime.adapter_subentry_id(transport),
-        )
+    if entry_type == DEVICES_HUB_ENTRY_TYPE:
+        materialized_sensor_ids: set[str] = set()
+        materialized_controls: set[tuple[str, str]] = set()
+
+        def _add_live_sensor_availability() -> None:
+            accepted_ids = {
+                runtime.resolve_sensor_id(sensor.sensor_id)
+                for sensor in runtime.sensors.values()
+                if runtime.sensor_is_accepted(sensor.sensor_id)
+            }
+            materialized_sensor_ids.intersection_update(accepted_ids)
+            new_ids = sorted(accepted_ids - materialized_sensor_ids)
+            added = [LiveSensorAvailable(runtime, sensor_id) for sensor_id in new_ids]
+            materialized_sensor_ids.update(new_ids)
+            for sensor_id in sorted(accepted_ids):
+                sensor = runtime.sensors.get(sensor_id)
+                if sensor is None:
+                    continue
+                gatt_token = (sensor_id, "__gatt_connected__")
+                if "bluetooth" in sensor.endpoints and gatt_token not in materialized_controls:
+                    materialized_controls.add(gatt_token)
+                    added.append(BluetoothGattConnected(runtime, sensor_id))
+                for capability, transports in sorted(_sensor_control_capabilities(sensor).items()):
+                    token = (sensor_id, capability)
+                    if token in materialized_controls:
+                        continue
+                    materialized_controls.add(token)
+                    added.append(PhysicalControlSupported(runtime, sensor_id, capability, transports))
+            if added:
+                async_add_entities(added)
+
+        _add_live_sensor_availability()
+        entry.async_on_unload(runtime.add_structure_listener(_add_live_sensor_availability))
+        return
 
     materialized_receivers: set[str] = set()
     def _add_ant_receiver_diagnostics():
         added = []
-        for stable_key in runtime.ant_receiver_records():
+        ant_records = runtime.ant_receiver_records() if runtime.adapter_configured("antplus") else {}
+        for stable_key in ant_records:
             if stable_key in materialized_receivers:
                 continue
             materialized_receivers.add(stable_key)
@@ -45,45 +75,23 @@ async def async_setup_entry(hass, entry, async_add_entities):
     _add_ant_receiver_diagnostics()
     entry.async_on_unload(runtime.add_listener(_add_ant_receiver_diagnostics))
 
-    materialized_sensor_ids: set[str] = set()
-    materialized_controls: set[tuple[str, str]] = set()
-
-    def _add_live_sensor_availability() -> None:
-        accepted_ids = {
-            sensor.sensor_id
-            for sensor in runtime.sensors.values()
-            if runtime.sensor_is_accepted(sensor.sensor_id)
-        }
-        materialized_sensor_ids.intersection_update(accepted_ids)
-        new_ids = sorted(accepted_ids - materialized_sensor_ids)
-        added = [LiveSensorAvailable(runtime, sensor_id) for sensor_id in new_ids]
-        materialized_sensor_ids.update(new_ids)
-
-        for sensor_id in sorted(accepted_ids):
-            sensor = runtime.sensors.get(sensor_id)
-            if sensor is None:
+    materialized_bt_scanners: set[str] = set()
+    def _add_bluetooth_adapter_diagnostics():
+        added = []
+        bt_records = runtime.bluetooth_scanner_records() if runtime.adapter_configured("bluetooth") else {}
+        for source in bt_records:
+            if source in materialized_bt_scanners:
                 continue
-            gatt_token = (sensor_id, "__gatt_connected__")
-            if "bluetooth" in sensor.endpoints and gatt_token not in materialized_controls:
-                materialized_controls.add(gatt_token)
-                added.append(BluetoothGattConnected(runtime, sensor_id))
-            for capability, transports in sorted(_sensor_control_capabilities(sensor).items()):
-                token = (sensor_id, capability)
-                if token in materialized_controls:
-                    continue
-                materialized_controls.add(token)
-                added.append(PhysicalControlSupported(runtime, sensor_id, capability, transports))
+            materialized_bt_scanners.add(source)
+            added.extend([
+                BluetoothAdapterAvailable(runtime, source),
+                BluetoothAdapterProblem(runtime, source),
+            ])
+        if added:
+            async_add_entities(added, config_subentry_id=runtime.adapter_subentry_id("bluetooth"))
+    _add_bluetooth_adapter_diagnostics()
+    entry.async_on_unload(runtime.add_listener(_add_bluetooth_adapter_diagnostics))
 
-        if not added:
-            return
-        subentry = runtime.ensure_sensors_subentry()
-        async_add_entities(
-            added,
-            config_subentry_id=subentry.subentry_id if subentry is not None else None,
-        )
-
-    _add_live_sensor_availability()
-    entry.async_on_unload(runtime.add_structure_listener(_add_live_sensor_availability))
 
 
 class _RuntimeEntity(BinarySensorEntity):
@@ -97,58 +105,52 @@ class _RuntimeEntity(BinarySensorEntity):
         self.async_write_ha_state()
 
 
-class _AdapterBase(_RuntimeEntity):
-    def __init__(self, runtime, transport):
+class _BluetoothAdapterDiagnostic(_RuntimeEntity):
+    def __init__(self, runtime, source: str):
         self.runtime = runtime
-        self.transport = transport
-        self._attr_device_info = runtime.adapter_device_info(transport)
+        self.source = source
+        self._attr_device_info = runtime.bluetooth_scanner_device_info(source)
 
     @property
-    def provider(self):
-        return self.runtime.providers.get(self.transport)
+    def record(self):
+        return self.runtime.bluetooth_scanner_records().get(self.source)
 
     @property
     def extra_state_attributes(self):
-        provider = self.provider
+        record = self.record or {}
         return {
-            "configured": self.runtime.adapter_configured(self.transport),
-            "enabled": self.runtime.adapter_enabled(self.transport),
-            "receiver_count": getattr(provider, "receiver_count", 0) if provider else 0,
-            "connected_sensor_count": getattr(provider, "connected_sensor_count", 0) if provider else 0,
-            "known_physical_sensors": sum(
-                1 for sensor in self.runtime.sensors.values() if self.transport in sensor.transports
-            ),
-            "receivers": getattr(provider, "receiver_details", []) if provider else [],
-            "last_error": getattr(provider, "last_error", None) if provider else None,
+            "source": self.source,
+            "scanner_mode": record.get("mode"),
+            "connectable": record.get("connectable"),
+            "fitness_enabled": self.runtime.receiver_enabled("bluetooth", self.source),
+            "automatic_scan": self.runtime.receiver_automatic_scan("bluetooth", self.source),
         }
 
 
-class AdapterAvailable(_AdapterBase):
-    _attr_name = "Receiver available"
-    _attr_icon = "mdi:access-point"
+class BluetoothAdapterAvailable(_BluetoothAdapterDiagnostic):
+    _attr_name = "Available"
+    _attr_icon = "mdi:bluetooth"
 
-    def __init__(self, *args):
-        super().__init__(*args)
-        self._attr_unique_id = f"fitness_{self.transport}_receiver_available"
+    def __init__(self, runtime, source: str):
+        super().__init__(runtime, source)
+        self._attr_unique_id = f"fitness_bluetooth_adapter_{source}_available"
 
     @property
     def is_on(self):
-        return self.runtime.adapter_available(self.transport)
+        return self.record is not None
 
 
-class AdapterProblem(_AdapterBase):
+class BluetoothAdapterProblem(_BluetoothAdapterDiagnostic):
     _attr_name = "Problem"
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
 
-    def __init__(self, *args):
-        super().__init__(*args)
-        self._attr_unique_id = f"fitness_{self.transport}_problem"
+    def __init__(self, runtime, source: str):
+        super().__init__(runtime, source)
+        self._attr_unique_id = f"fitness_bluetooth_adapter_{source}_problem"
 
     @property
     def is_on(self):
-        provider = self.provider
-        # Waiting for local/remote receiver hardware is not a fault.
-        return bool(provider and provider.last_error)
+        return False
 
 
 class LiveSensorAvailable(_RuntimeEntity):

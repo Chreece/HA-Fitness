@@ -41,7 +41,8 @@ def test_assignment_finalization_is_deferred_and_refreshes_routing_without_reloa
     assert "runtime.schedule_profile_assignment_refresh(changed_entries)" in section
     assert "async_reload(" not in section
 
-def test_hub_sensor_entities_materialize_dynamically_without_hub_reload():
+def test_fitness_device_entities_materialize_dynamically_without_protocol_reload():
     assert "runtime.add_structure_listener(_collect)" in H
-    assert "runtime.ensure_sensors_subentry()" in H
+    assert "runtime.devices_entry" in H
+    assert "runtime.ensure_sensors_subentry()" not in H
     assert "runtime.add_structure_listener(_add_live_sensor_availability)" in B

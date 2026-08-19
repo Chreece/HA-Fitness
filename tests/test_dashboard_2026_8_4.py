@@ -18,7 +18,7 @@ def test_dashboard_release_files_and_version():
     )
     assert DASHBOARD.is_file()
     assert FRONTEND.is_file()
-    assert "## 2026.8.4" in CHANGELOG.read_text()
+    assert "## 2026.8.01a01" in CHANGELOG.read_text()
 
 
 def test_dashboard_is_registered_after_lovelace_and_served_as_static_resource():

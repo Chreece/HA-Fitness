@@ -30,6 +30,15 @@ from .const import (
     SERVICE_START_TV_WORKOUT,
     SERVICE_TEST_TTS,
     SERVICE_AI_TTS,
+    SERVICE_CLEAR_WORKOUT_HISTORY,
+    SERVICE_CLEAR_FIT_FILES,
+    SERVICE_MANAGE_BLUETOOTH_DEVICE,
+    SERVICE_DELETE_WORKOUT_TOMBSTONE,
+    SERVICE_EDIT_WORKOUT_TOMBSTONE,
+    SERVICE_CLEAR_WORKOUT_TOMBSTONES,
+    SERVICE_CLEAR_SAVED_DATA,
+    CONF_FIT_FILE_RETENTION_COUNT,
+    DEFAULT_FIT_FILE_RETENTION_COUNT,
     STORE_KEY_PREFIX,
     STORE_VERSION,
     SUPPORTED_LANGUAGES,
@@ -210,6 +219,90 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         ),
     )
 
+    async def _profile_manager(call: ServiceCall) -> FitnessManager:
+        entry_id = str(call.data[ATTR_CONFIG_ENTRY_ID])
+        manager = hass.data.get(DOMAIN, {}).get(entry_id)
+        if not isinstance(manager, FitnessManager):
+            raise HomeAssistantError(f"Fitness profile {entry_id!r} is not loaded")
+        return manager
+
+    async def _clear_workout_history(call: ServiceCall) -> None:
+        manager = await _profile_manager(call)
+        await manager.async_clear_workout_history_regenerable()
+
+    hass.services.async_register(DOMAIN, SERVICE_CLEAR_WORKOUT_HISTORY, _clear_workout_history, schema=vol.Schema({vol.Required(ATTR_CONFIG_ENTRY_ID): str}))
+
+    async def _clear_fit_files(call: ServiceCall) -> None:
+        manager = await _profile_manager(call)
+        retain = int(call.data.get("retain_count", manager.config.get(CONF_FIT_FILE_RETENTION_COUNT, DEFAULT_FIT_FILE_RETENTION_COUNT)))
+        runtime_module = importlib.import_module(".live.runtime", __package__)
+        runtime = getattr(runtime_module, "get_live_" + "runtime")(hass)
+        provider = runtime.providers.get("bluetooth")
+        archives = getattr(provider, "device_archives", None)
+        if archives is not None:
+            await archives.async_clear_fit_cache(retain, profile_id=manager.entry.entry_id, ownership=str(call.data.get("ownership") or "profile"))
+
+    hass.services.async_register(DOMAIN, SERVICE_CLEAR_FIT_FILES, _clear_fit_files, schema=vol.Schema({vol.Required(ATTR_CONFIG_ENTRY_ID): str, vol.Optional("retain_count"): vol.All(vol.Coerce(int), vol.Range(min=0, max=500)), vol.Optional("ownership", default="profile"): vol.In({"profile", "all_fitness_owned"})}))
+
+    async def _manage_bluetooth_device(call: ServiceCall) -> None:
+        from homeassistant.helpers import device_registry as dr
+        runtime_module = importlib.import_module(".live.runtime", __package__)
+        runtime = getattr(runtime_module, "get_live_" + "runtime")(hass)
+        device_id = str(call.data.get("device_id") or "")
+        device = dr.async_get(hass).async_get(device_id)
+        if device is None:
+            raise HomeAssistantError("Fitness Bluetooth device was not found")
+        sensor_id = next((value.split(":", 1)[1] for domain, value in device.identifiers if domain == DOMAIN and value.startswith("live_sensor:")), None)
+        sensor = runtime.sensors.get(runtime.resolve_sensor_id(sensor_id or "")) if sensor_id else None
+        endpoint = sensor.endpoints.get("bluetooth") if sensor is not None else None
+        if sensor is None or endpoint is None:
+            raise HomeAssistantError("Selected Fitness device has no local Bluetooth route")
+        provider = runtime.providers.get("bluetooth")
+        if provider is not None:
+            for profile_id in runtime.sensor_assigned_profile_ids(sensor.sensor_id):
+                await provider.async_disconnect_sensor(profile_id, sensor.sensor_id)
+        if str(call.data.get("action") or "disconnect") != "unpair":
+            return
+        # Unpairing is destructive. Refuse whenever another config entry shares this HA device.
+        fitness_entry_ids = {entry.entry_id for entry in hass.config_entries.async_entries(DOMAIN)}
+        if any(entry_id not in fitness_entry_ids for entry_id in device.config_entries):
+            raise HomeAssistantError("This Bluetooth device is shared with another integration; Fitness only disconnected it")
+        from homeassistant.components import bluetooth
+        ble_device = bluetooth.async_ble_device_from_address(hass, endpoint.address, connectable=True)
+        if ble_device is None:
+            raise HomeAssistantError("Bluetooth device is not currently known to the local adapter; it was disconnected but not unpaired")
+        from .device_adapters.garmin.coordinator import _bluez_device_path
+        from .device_adapters.garmin.bluez_agent import async_bluez_remove_device
+        path = _bluez_device_path(ble_device, endpoint.address)
+        if not path:
+            raise HomeAssistantError("The selected Bluetooth route is not a local BlueZ device and cannot be unpaired by Fitness")
+        await async_bluez_remove_device(path)
+
+    hass.services.async_register(DOMAIN, SERVICE_MANAGE_BLUETOOTH_DEVICE, _manage_bluetooth_device, schema=vol.Schema({vol.Required("device_id"): str, vol.Required("action", default="disconnect"): vol.In({"disconnect", "unpair"})}))
+
+    async def _clear_tombstones(call: ServiceCall) -> None:
+        manager = await _profile_manager(call); await manager.async_clear_workout_tombstones()
+    hass.services.async_register(DOMAIN, SERVICE_CLEAR_WORKOUT_TOMBSTONES, _clear_tombstones, schema=vol.Schema({vol.Required(ATTR_CONFIG_ENTRY_ID): str}))
+
+    async def _delete_tombstone(call: ServiceCall) -> None:
+        manager = await _profile_manager(call)
+        if not await manager.async_delete_workout_tombstone(int(call.data["index"])):
+            raise HomeAssistantError("Workout tombstone index does not exist")
+    hass.services.async_register(DOMAIN, SERVICE_DELETE_WORKOUT_TOMBSTONE, _delete_tombstone, schema=vol.Schema({vol.Required(ATTR_CONFIG_ENTRY_ID): str, vol.Required("index"): vol.All(vol.Coerce(int), vol.Range(min=0, max=999))}))
+
+    async def _edit_tombstone(call: ServiceCall) -> None:
+        manager = await _profile_manager(call)
+        updates = {key: call.data[key] for key in ("name", "sport", "start", "end", "duration_s", "distance_m") if key in call.data}
+        if not await manager.async_edit_workout_tombstone(int(call.data["index"]), updates):
+            raise HomeAssistantError("Workout tombstone could not be edited")
+    hass.services.async_register(DOMAIN, SERVICE_EDIT_WORKOUT_TOMBSTONE, _edit_tombstone, schema=vol.Schema({vol.Required(ATTR_CONFIG_ENTRY_ID): str, vol.Required("index"): vol.All(vol.Coerce(int), vol.Range(min=0, max=999)), vol.Optional("name"): str, vol.Optional("sport"): str, vol.Optional("start"): str, vol.Optional("end"): str, vol.Optional("duration_s"): vol.Coerce(float), vol.Optional("distance_m"): vol.Coerce(float)}))
+
+    async def _clear_saved_data(call: ServiceCall) -> None:
+        if not bool(call.data.get("confirm")):
+            raise HomeAssistantError("Set confirm=true to clear all saved Fitness profile data")
+        manager = await _profile_manager(call); await manager.async_clear_saved_data()
+    hass.services.async_register(DOMAIN, SERVICE_CLEAR_SAVED_DATA, _clear_saved_data, schema=vol.Schema({vol.Required(ATTR_CONFIG_ENTRY_ID): str, vol.Required("confirm", default=False): bool}))
+
     # Live adapter state is owned by the Local Sensors config entry.  Global
     # integration setup must stay constant-time and must not touch storage,
     # Bluetooth, ANT+, USB, gateways, or discovery.
@@ -303,22 +396,46 @@ def _schedule_sensors_adapters_entry(hass: HomeAssistant) -> None:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     from .live import get_live_runtime
-    from .live.runtime import HUB_ENTRY_TYPE
+    from .live.runtime import HUB_ENTRY_TYPE, DEVICES_HUB_ENTRY_TYPE
     runtime = get_live_runtime(hass)
 
     if entry.data.get("entry_type") == HUB_ENTRY_TYPE:
-        if entry.title != "Sensors & Adapters":
-            hass.config_entries.async_update_entry(entry, title="Sensors & Adapters")
+        if entry.title != "Fitness Protocols":
+            hass.config_entries.async_update_entry(entry, title="Fitness Protocols")
         await runtime.async_register_hub(entry)
         initial_transport = str(entry.data.get("initial_transport") or "").strip()
-        if initial_transport in {"bluetooth", "antplus"}:
-            # First-install protocol selection is an explicit one-shot action.
-            # Persist the runtime adapter state, then remove this setup hint so a
-            # later user-disabled adapter is not silently re-enabled on restart.
+        initial_protocols = entry.data.get("initial_protocols")
+        initial_hardware = entry.data.get("initial_hardware")
+        if isinstance(initial_protocols, list):
+            selected = {str(item) for item in initial_protocols if str(item) in {"bluetooth", "antplus"}}
+            await runtime.async_set_protocol_selection(selected)
+            if isinstance(initial_hardware, dict):
+                for transport in selected:
+                    cfg = initial_hardware.get(transport) if isinstance(initial_hardware.get(transport), dict) else {}
+                    await runtime.async_set_hardware_selection(
+                        transport,
+                        automatic=bool(cfg.get("automatic", True)),
+                        selected=set(cfg.get("selected") or []),
+                    )
+            data = dict(entry.data)
+            data.pop("initial_protocols", None)
+            data.pop("initial_hardware", None)
+            data.pop("initial_transport", None)
+            hass.config_entries.async_update_entry(entry, data=data)
+        elif initial_transport in {"bluetooth", "antplus"}:
+            # Backward compatibility with the old one-protocol setup flow.
             await runtime.async_set_transport_enabled(initial_transport, True)
             data = dict(entry.data)
             data.pop("initial_transport", None)
             hass.config_entries.async_update_entry(entry, data=data)
+        entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+        await hass.config_entries.async_forward_entry_setups(entry, HUB_PLATFORMS)
+        return True
+
+    if entry.data.get("entry_type") == DEVICES_HUB_ENTRY_TYPE:
+        if entry.title != "Fitness Devices":
+            hass.config_entries.async_update_entry(entry, title="Fitness Devices")
+        await runtime.async_register_devices_hub(entry)
         entry.async_on_unload(entry.add_update_listener(_async_update_listener))
         await hass.config_entries.async_forward_entry_setups(entry, HUB_PLATFORMS)
         return True
@@ -365,9 +482,11 @@ async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry):
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    from .live.runtime import HUB_ENTRY_TYPE
-    is_hub = entry.data.get("entry_type") == HUB_ENTRY_TYPE
-    platforms = HUB_PLATFORMS if is_hub else PLATFORMS
+    from .live.runtime import HUB_ENTRY_TYPE, DEVICES_HUB_ENTRY_TYPE
+    entry_type = entry.data.get("entry_type")
+    is_hub = entry_type == HUB_ENTRY_TYPE
+    is_devices_hub = entry_type == DEVICES_HUB_ENTRY_TYPE
+    platforms = HUB_PLATFORMS if (is_hub or is_devices_hub) else PLATFORMS
     if not is_hub:
         # Release server-owned music queues before the browser/runtime disappears.
         # In particular, an orphaned MA Spotify queue can keep the account locked
@@ -407,6 +526,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 except TimeoutError:
                     _LOGGER.warning("Timed out unloading Fitness live sensor hub")
             return True
+        if is_devices_hub:
+            if runtime:
+                await runtime.async_unregister_devices_hub(entry.entry_id)
+            return True
         try:
             from .weight_scales import get_weight_scale_router
             await get_weight_scale_router(hass).async_unregister_profile(entry.entry_id)
@@ -435,9 +558,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Delete every Fitness-owned persistent record for a removed user profile."""
-    from .live.runtime import HUB_ENTRY_TYPE
+    from .live.runtime import HUB_ENTRY_TYPE, DEVICES_HUB_ENTRY_TYPE
 
-    if entry.data.get("entry_type") == HUB_ENTRY_TYPE:
+    if entry.data.get("entry_type") in {HUB_ENTRY_TYPE, DEVICES_HUB_ENTRY_TYPE}:
         return
 
     try:
@@ -477,9 +600,9 @@ async def async_remove_config_entry_device(hass, config_entry, device_entry) -> 
     underlying hardware/proxy/gateway is detected again.
     """
     from .live import get_live_runtime
-    from .live.runtime import HUB_ENTRY_TYPE
+    from .live.runtime import HUB_ENTRY_TYPE, DEVICES_HUB_ENTRY_TYPE
 
-    if config_entry.data.get("entry_type") != HUB_ENTRY_TYPE:
+    if config_entry.data.get("entry_type") not in {HUB_ENTRY_TYPE, DEVICES_HUB_ENTRY_TYPE}:
         return False
 
     identifiers = {

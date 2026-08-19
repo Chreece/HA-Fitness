@@ -52,7 +52,7 @@ def _signature(stamp: datetime, category: int, acceleration: int, steps: int, he
 class MiBand2Coordinator(DirectHistoryCoordinator):
     adapter_id = "xiaomi_miband2"
     sync_unique_suffix = "sync_miband2_full"
-    sync_translation_key = "sync_device_health_history"
+    sync_translation_key = "sync_device_data"
     sync_icon = "mdi:watch-import"
 
     def _timezone(self):

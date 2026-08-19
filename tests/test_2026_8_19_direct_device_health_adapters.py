@@ -244,7 +244,7 @@ def test_non_fit_history_batch_and_manager_boundary_are_hard_bounded():
     assert "await self._save()" in manager
 
 
-def test_wellness_only_archive_adapters_do_not_leak_into_smart_workout_flow():
+def test_wellness_only_archive_adapters_are_visible_in_smart_fitness_flow():
     pkg = sys.modules.setdefault("direct_history_smart_pkg", types.ModuleType("direct_history_smart_pkg"))
     pkg.__path__ = [str(FITNESS)]
     load_module("direct_history_smart_pkg.const", "const.py")
@@ -269,7 +269,9 @@ def test_wellness_only_archive_adapters_do_not_leak_into_smart_workout_flow():
 
     sensor = Sensor()
     assert smart.smart_workout_archive_compatibility(sensor) is None
-    assert smart.is_smart_workout_candidate(sensor) is False
+    # Smart Fitness Devices intentionally includes health/sleep-only direct
+    # devices; workout archive compatibility remains a separate capability.
+    assert smart.is_smart_workout_candidate(sensor) is True
 
 
 def test_new_device_specific_fingerprints_stay_out_of_generic_bluetooth_hot_path():

@@ -39,7 +39,7 @@ MAX_DAILY_AGGREGATES = 120
 class UltrahumanAirCoordinator(DirectHistoryCoordinator):
     adapter_id = "ultrahuman_air"
     sync_unique_suffix = "sync_ultrahuman_health_history"
-    sync_translation_key = "sync_device_health_history"
+    sync_translation_key = "sync_device_data"
     sync_icon = "mdi:ring"
 
     async def _command_response(self, client, queue: asyncio.Queue[bytes], command: bytes, opcode: int) -> bytes:

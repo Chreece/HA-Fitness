@@ -39,6 +39,6 @@ def test_changelog_tracks_unreleased_work_and_public_alpha_release():
     assert "`YYYY.M.RRaXX`" in CHANGELOG
     assert "`YYYY.M.RR-betaXX`" in CHANGELOG
     assert "`YYYY.M.RR`" in CHANGELOG
-    assert "### Internal development checkpoint: 2026.8.10" in CHANGELOG
-    assert "### Internal development checkpoint: 2026.8.11" in CHANGELOG
+    assert "## 2026.8.01a02" in CHANGELOG
+    assert "## 2026.8.01a04" in CHANGELOG
     assert "[Science & methods](docs/SCIENCE.md)" in CHANGELOG

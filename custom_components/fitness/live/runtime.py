@@ -53,7 +53,9 @@ TRANSPORTS = ("bluetooth", "antplus")
 DISCOVERY_RECENT_SECONDS = 30.0
 TRANSPORT_PRIORITY = ("antplus", "bluetooth")
 HUB_ENTRY_TYPE = "live_hub"
+DEVICES_HUB_ENTRY_TYPE = "devices_hub"
 HUB_UNIQUE_ID = "local_sensors"
+DEVICES_HUB_UNIQUE_ID = "fitness_devices"
 HUB_DEVICE_ID = "sensors_adapters"
 SENSOR_COLLECTION_DEVICE_ID = "sensors"  # legacy v2 device identifier; removed by migration
 SENSORS_SUBENTRY_TYPE = "sensors"
@@ -64,7 +66,7 @@ BLUETOOTH_SUBENTRY_TYPE = "bluetooth_adapters"
 BLUETOOTH_SUBENTRY_UNIQUE_ID = "fitness_bluetooth_adapters"
 LEGACY_ADAPTERS_SUBENTRY_TYPE = "adapters"
 LEGACY_ADAPTERS_SUBENTRY_UNIQUE_ID = "fitness_adapters"
-ADAPTER_DEVICE_MODEL_VERSION = 1
+ADAPTER_DEVICE_MODEL_VERSION = 3
 ANT_DATA_FRESH_SECONDS = 3.0
 TRANSPORT_HANDOVER_INTERVAL_SECONDS = 1.0
 RUNTIME_OPERATION_TIMEOUT = 15.0
@@ -317,6 +319,7 @@ class LiveRuntime:
         self.providers: dict[str, Any] = {}
         self.profile_entries: dict[str, Any] = {}
         self.hub_entry = None
+        self.devices_entry = None
         self.sensors_subentry_id: str | None = None
         self.antplus_subentry_id: str | None = None
         self.bluetooth_subentry_id: str | None = None
@@ -366,6 +369,13 @@ class LiveRuntime:
         )
         self._configured = {name: False for name in TRANSPORTS}
         self._enabled = {name: False for name in TRANSPORTS}
+        self._automatic_scan = {name: True for name in TRANSPORTS}
+        self._automatic_hardware = {name: True for name in TRANSPORTS}
+        self._selected_receivers: dict[str, set[str]] = {name: set() for name in TRANSPORTS}
+        self._receiver_enabled: dict[str, dict[str, bool]] = {name: {} for name in TRANSPORTS}
+        self._receiver_automatic_scan: dict[str, dict[str, bool]] = {name: {} for name in TRANSPORTS}
+        self._receiver_manual_scan_until: dict[str, dict[str, float]] = {name: {} for name in TRANSPORTS}
+        self._manual_scan_until = {name: 0.0 for name in TRANSPORTS}
         self._initialized = False
         self._discovery_started: set[str] = set()
         self._discovery_tasks: dict[str, asyncio.Task] = {}
@@ -436,6 +446,12 @@ class LiveRuntime:
         stored = await self._store.async_load() or {}
         sanitized_topology = False
         enabled = stored.get("enabled") or {}
+        automatic_scan = stored.get("automatic_scan") or {}
+        receiver_enabled = stored.get("receiver_enabled") or {}
+        receiver_automatic_scan = stored.get("receiver_automatic_scan") or {}
+        automatic_hardware = stored.get("automatic_hardware") or {}
+        selected_receivers = stored.get("selected_receivers") or {}
+        configured = stored.get("configured") or {}
         adapter_model = int(stored.get("adapter_device_model") or 0)
         self._requires_reassignment = {
             str(item) for item in (stored.get("requires_reassignment") or []) if str(item)
@@ -448,12 +464,29 @@ class LiveRuntime:
         # on the adapter's Enable switch.  Migrating from the old config-flow
         # transport model therefore creates both adapters disabled.
         for name in TRANSPORTS:
-            self._configured[name] = True
+            # v2 exposed both transports unconditionally. Preserve that once on
+            # migration, then persist the user's explicit protocol selection.
+            self._configured[name] = (
+                bool(configured.get(name, False))
+                if adapter_model >= ADAPTER_DEVICE_MODEL_VERSION
+                else True
+            )
             self._enabled[name] = (
                 bool(enabled.get(name, False))
-                if adapter_model >= ADAPTER_DEVICE_MODEL_VERSION
+                if adapter_model >= 2
                 else False
             )
+            self._automatic_scan[name] = bool(automatic_scan.get(name, True))
+            self._automatic_hardware[name] = bool(automatic_hardware.get(name, True))
+            raw_selected = selected_receivers.get(name) or []
+            if isinstance(raw_selected, (list, tuple, set)):
+                self._selected_receivers[name] = {str(item) for item in raw_selected if str(item)}
+            raw_enabled = receiver_enabled.get(name) or {}
+            raw_auto = receiver_automatic_scan.get(name) or {}
+            if isinstance(raw_enabled, dict):
+                self._receiver_enabled[name] = {str(k): bool(v) for k, v in raw_enabled.items()}
+            if isinstance(raw_auto, dict):
+                self._receiver_automatic_scan[name] = {str(k): bool(v) for k, v in raw_auto.items()}
 
         # Restore physical identity aliases so one sensor stays one HA device
         # even when ANT+/BLE advertisements arrive in a different order.
@@ -633,8 +666,13 @@ class LiveRuntime:
         async with self._save_lock:
             await self._store.async_save(
                 {
-                    "configured": {name: True for name in TRANSPORTS},
+                    "configured": dict(self._configured),
                     "enabled": dict(self._enabled),
+                    "automatic_scan": dict(self._automatic_scan),
+                    "automatic_hardware": dict(self._automatic_hardware),
+                    "selected_receivers": {name: sorted(values) for name, values in self._selected_receivers.items()},
+                    "receiver_enabled": {name: dict(values) for name, values in self._receiver_enabled.items()},
+                    "receiver_automatic_scan": {name: dict(values) for name, values in self._receiver_automatic_scan.items()},
                     "adapter_device_model": ADAPTER_DEVICE_MODEL_VERSION,
                     "physical_sensors": self._serialize_sensors(),
                     "sensor_aliases": self._serialize_sensor_aliases(),
@@ -689,7 +727,10 @@ class LiveRuntime:
         # momentary radio presence.  Keeping both configured adapters materialized
         # means a scanner appearing/disappearing never needs a config-entry reload
         # merely to create or remove an Enable switch/device.
-        return self.configured_transports | self.present_transports
+        # Only protocols explicitly selected for Fitness belong in the Fitness
+        # Protocols UI. Hardware presence alone must never resurrect a disabled
+        # protocol section.
+        return set(self.configured_transports)
 
     @property
     def live_available(self) -> bool:
@@ -1247,16 +1288,14 @@ class LiveRuntime:
         self._listen_for_registry_deletions()
         self._cleanup_legacy_profile_infrastructure()
         self._cleanup_obsolete_hub_capture_entities()
-        self.ensure_transport_subentry("antplus")
-        self.ensure_transport_subentry("bluetooth")
-        # Sensors is permanent hub infrastructure, not a reflection of the
-        # current sensor count.  Create it once during hub setup so radio
-        # discovery never has to mutate config-entry structure.
-        self.ensure_sensors_subentry()
+        for transport in TRANSPORTS:
+            if self.adapter_configured(transport):
+                self.ensure_transport_subentry(transport)
         self._remove_legacy_grouping_devices()
         self._migrate_adapter_devices_to_transport_subentries()
         self._remove_legacy_adapters_subentry_if_empty()
         self.ensure_ant_receiver_topology()
+        await self.async_ensure_devices_hub()
         self._restore_sensor_device_registry_links()
         self._consolidate_restored_exact_physical_identities()
         for sensor_id in tuple(self.sensors):
@@ -1274,6 +1313,61 @@ class LiveRuntime:
             "fitness start live transport modules",
             eager_start=False,
         )
+
+
+    async def async_ensure_devices_hub(self) -> None:
+        """Ensure the separate Fitness Devices service exists."""
+        if self.devices_entry is not None:
+            return
+        for entry in self.hass.config_entries.async_entries(DOMAIN):
+            if entry.data.get("entry_type") == DEVICES_HUB_ENTRY_TYPE:
+                self.devices_entry = entry
+                return
+        try:
+            await self.hass.config_entries.flow.async_init(
+                DOMAIN,
+                context={"source": "integration_discovery"},
+                data={"devices_hub": True},
+            )
+        except Exception:
+            _LOGGER.debug("Unable to create Fitness Devices entry", exc_info=True)
+
+    async def async_register_devices_hub(self, entry) -> None:
+        """Register the separate physical Fitness Devices service."""
+        await self.async_initialize()
+        self.devices_entry = entry
+        self._remove_legacy_sensor_subentry_if_empty(force=True)
+        for sensor_id in tuple(self.sensors):
+            if self.sensor_is_accepted(sensor_id):
+                self.ensure_sensor_device(sensor_id)
+
+    async def async_unregister_devices_hub(self, entry_id: str) -> None:
+        if self.devices_entry is not None and self.devices_entry.entry_id == entry_id:
+            self.devices_entry = None
+
+    def _remove_legacy_sensor_subentry_if_empty(self, *, force: bool = False) -> None:
+        """Remove the obsolete Smart Fitness Devices subentry from protocols."""
+        if self.hub_entry is None:
+            return
+        targets = [
+            subentry for subentry in self.hub_entry.subentries.values()
+            if subentry.subentry_type == SENSORS_SUBENTRY_TYPE
+            or subentry.unique_id == SENSORS_SUBENTRY_UNIQUE_ID
+        ]
+        for target in targets:
+            if not force:
+                from homeassistant.helpers import device_registry as dr
+                registry = dr.async_get(self.hass)
+                if any(
+                    device.config_entry_id == self.hub_entry.entry_id
+                    and device.config_subentry_id == target.subentry_id
+                    for device in registry.devices.values()
+                ):
+                    continue
+            try:
+                self.hass.config_entries.async_remove_subentry(self.hub_entry, target.subentry_id)
+            except Exception:
+                _LOGGER.debug("Unable to remove legacy Fitness Devices subentry", exc_info=True)
 
     def _cleanup_legacy_profile_infrastructure(self) -> None:
         """Remove prototype adapter/sensor registry objects owned by person entries."""
@@ -1370,8 +1464,8 @@ class LiveRuntime:
             self.bluetooth_subentry_id = None
 
     def ensure_transport_subentry(self, transport: str):
-        """Ensure one protocol-specific adapter subentry exists."""
-        if self.hub_entry is None:
+        """Ensure one enabled protocol-specific adapter subentry exists."""
+        if self.hub_entry is None or not self.adapter_configured(transport):
             return None
         if transport == "antplus":
             subtype = ANTPLUS_SUBENTRY_TYPE
@@ -1406,6 +1500,8 @@ class LiveRuntime:
         return subentry
 
     def adapter_subentry_id(self, transport: str) -> str | None:
+        if not self.adapter_configured(transport):
+            return None
         if transport == "antplus":
             if self.antplus_subentry_id:
                 return self.antplus_subentry_id
@@ -1452,16 +1548,16 @@ class LiveRuntime:
                 or subentry.unique_id == SENSORS_SUBENTRY_UNIQUE_ID
             ):
                 self.sensors_subentry_id = subentry.subentry_id
-                if subentry.title != "Sensors":
+                if subentry.title != "Smart Fitness Devices":
                     self.hass.config_entries.async_update_subentry(
-                        self.hub_entry, subentry, title="Sensors"
+                        self.hub_entry, subentry, title="Fitness Devices"
                     )
                 return subentry
 
         subentry = ConfigSubentry(
             data=MappingProxyType({}),
             subentry_type=SENSORS_SUBENTRY_TYPE,
-            title="Sensors",
+            title="Fitness Devices",
             unique_id=SENSORS_SUBENTRY_UNIQUE_ID,
         )
         self.hass.config_entries.async_add_subentry(self.hub_entry, subentry)
@@ -1482,27 +1578,25 @@ class LiveRuntime:
                 registry.async_remove_device(device.id)
 
     def _migrate_adapter_devices_to_transport_subentries(self) -> None:
-        """Move logical adapters and ANT receivers into protocol groups."""
+        """Place physical transport hardware directly in its protocol group.
+
+        Protocols are config-subentry groups, not fake Home Assistant devices.
+        Each real receiver/controller is the device that owns controls and
+        diagnostics.
+        """
         if self.hub_entry is None:
             return
         from homeassistant.helpers import device_registry as dr
         registry = dr.async_get(self.hass)
+        # Remove the obsolete logical ANT+/Bluetooth protocol devices.
         for transport in TRANSPORTS:
-            subentry_id = self.adapter_subentry_id(transport)
             device = registry.async_get_device_by_identifier(
                 (DOMAIN, f"live_adapter:{transport}"), self.hub_entry.entry_id
             )
-            if device is not None and device.config_subentry_id != subentry_id:
-                registry.async_update_device(
-                    device.id,
-                    new_config_subentry_id=subentry_id,
-                    via_device_id=None,
-                )
+            if device is not None:
+                registry.async_remove_device(device.id)
 
         ant_subentry_id = self.adapter_subentry_id("antplus")
-        ant_parent = registry.async_get_device_by_identifier(
-            (DOMAIN, "live_adapter:antplus"), self.hub_entry.entry_id
-        )
         for device in list(registry.devices.values()):
             if device.config_entry_id != self.hub_entry.entry_id:
                 continue
@@ -1510,40 +1604,17 @@ class LiveRuntime:
                 domain == DOMAIN and str(identifier).startswith("usb_adapter:")
                 for domain, identifier in device.identifiers
             )
-            if not is_ant_receiver:
-                continue
-            kwargs = {}
-            if ant_subentry_id is not None and device.config_subentry_id != ant_subentry_id:
-                kwargs["new_config_subentry_id"] = ant_subentry_id
-            if ant_parent is not None and device.via_device_id != ant_parent.id:
-                kwargs["via_device_id"] = ant_parent.id
-            if kwargs:
-                registry.async_update_device(device.id, **kwargs)
-
-    def _sensor_subentry_id(self) -> str | None:
-        if self.sensors_subentry_id:
-            return self.sensors_subentry_id
-        subentry = self.ensure_sensors_subentry()
-        return subentry.subentry_id if subentry is not None else None
-
+            if is_ant_receiver and device.config_subentry_id != ant_subentry_id:
+                registry.async_update_device(
+                    device.id, new_config_subentry_id=ant_subentry_id, via_device_id=None
+                )
 
     def ensure_ant_receiver_topology(self) -> None:
-        """Put every physical ANT receiver under the logical ANT+ Adapter.
-
-        The ANT adapter manager may discover/register USB or remote receivers
-        before the logical adapter entity has created its HA device.  Reconcile
-        the relationship whenever the parent becomes available so receivers can
-        never remain as root-level devices.
-        """
+        """Keep physical ANT receivers directly under the ANT+ protocol group."""
         if self.hub_entry is None:
             return
         from homeassistant.helpers import device_registry as dr
         registry = dr.async_get(self.hass)
-        parent = registry.async_get_device_by_identifier(
-            (DOMAIN, "live_adapter:antplus"), self.hub_entry.entry_id
-        )
-        if parent is None:
-            return
         subentry_id = self.adapter_subentry_id("antplus")
         for device in list(registry.devices.values()):
             if device.config_entry_id != self.hub_entry.entry_id:
@@ -1552,15 +1623,51 @@ class LiveRuntime:
                 domain == DOMAIN and str(identifier).startswith("usb_adapter:")
                 for domain, identifier in device.identifiers
             )
-            if not is_receiver or device.id == parent.id:
+            if not is_receiver:
                 continue
             kwargs = {}
-            if device.via_device_id != parent.id:
-                kwargs["via_device_id"] = parent.id
+            if device.via_device_id is not None:
+                kwargs["via_device_id"] = None
             if subentry_id is not None and device.config_subentry_id != subentry_id:
                 kwargs["new_config_subentry_id"] = subentry_id
             if kwargs:
                 registry.async_update_device(device.id, **kwargs)
+
+    def bluetooth_scanner_records(self) -> dict[str, dict[str, Any]]:
+        """Return currently active HA Bluetooth scanners keyed by source."""
+        try:
+            from homeassistant.components import bluetooth
+            scanners = bluetooth.async_current_scanners(self.hass)
+        except Exception:
+            return {}
+        result: dict[str, dict[str, Any]] = {}
+        for scanner in scanners or []:
+            source = str(getattr(scanner, "source", None) or "").strip()
+            if not source:
+                continue
+            result[source] = {
+                "source": source,
+                "name": str(getattr(scanner, "name", None) or source),
+                "mode": str(getattr(scanner, "current_mode", None) or "unknown"),
+                "connectable": bool(getattr(scanner, "connectable", True)),
+            }
+        return result
+
+    def bluetooth_scanner_device_info(self, source: str):
+        from homeassistant.helpers.device_registry import DeviceInfo
+        record = self.bluetooth_scanner_records().get(source, {})
+        name = str(record.get("name") or source or "Bluetooth adapter")
+        return DeviceInfo(
+            identifiers={(DOMAIN, f"bluetooth_adapter:{source}")},
+            name=name,
+            manufacturer="Bluetooth",
+            model="Home Assistant Bluetooth adapter",
+        )
+
+    def _sensor_subentry_id(self) -> str | None:
+        """Fitness devices live directly under the separate Devices entry."""
+        return None
+
 
     def ant_receiver_records(self) -> dict[str, Any]:
         provider = self.providers.get("antplus")
@@ -1571,14 +1678,7 @@ class LiveRuntime:
         from homeassistant.helpers import device_registry as dr
         from homeassistant.helpers.device_registry import DeviceInfo
         record = self.ant_receiver_records().get(stable_key)
-        parent_id = None
-        if self.hub_entry is not None:
-            parent = dr.async_get(self.hass).async_get_device_by_identifier(
-                (DOMAIN, "live_adapter:antplus"), self.hub_entry.entry_id
-            )
-            if parent is not None:
-                parent_id = parent.id
-        common = {"via_device_id": parent_id} if parent_id else {}
+        common = {}
         if record is None:
             return DeviceInfo(
                 identifiers={(DOMAIN, f"usb_adapter:{stable_key}")},
@@ -1595,19 +1695,6 @@ class LiveRuntime:
             model=adapter.product or f"ANT USB {adapter.vid}:{adapter.pid}",
             serial_number=adapter.serial,
             **common,
-        )
-
-    def adapter_device_info(self, transport: str):
-        from homeassistant.helpers.device_registry import DeviceInfo
-        label = "ANT+ Adapter" if transport == "antplus" else "Bluetooth Adapter"
-        # Home Assistant 2026.8 classifies DeviceInfo into strict primary/link/
-        # secondary shapes. Primary devices may use identifiers + name/model,
-        # but must not mix in translation/default_* fields.
-        return DeviceInfo(
-            identifiers={(DOMAIN, f"live_adapter:{transport}")},
-            name=label,
-            manufacturer="Fitness",
-            model=label,
         )
 
     def sensor_device_info(self, sensor_id: str):
@@ -1678,6 +1765,257 @@ class LiveRuntime:
 
     def adapter_enabled(self, transport: str) -> bool:
         return bool(self._enabled.get(transport, False))
+
+    def adapter_automatic_scan(self, transport: str) -> bool:
+        return bool(self._automatic_scan.get(transport, True))
+
+    def adapter_automatic_hardware(self, transport: str) -> bool:
+        """Whether Fitness automatically uses newly discovered hardware modules."""
+        return bool(self._automatic_hardware.get(transport, True))
+
+    def selected_receiver_ids(self, transport: str) -> set[str]:
+        return set(self._selected_receivers.get(transport, set()))
+
+    def receiver_management_scope(self, transport: str, receiver_id: str) -> str:
+        """Return the safest control scope for one physical transport adapter.
+
+        Home Assistant Bluetooth scanners are system infrastructure, therefore
+        Fitness may only opt in/out of using them. Local ANT USB receivers are
+        opened by Fitness' ANT manager and can be physically stopped. Remote ANT
+        gateways are shared infrastructure and are treated conservatively.
+        """
+        if transport == "bluetooth":
+            return "system_shared"
+        if transport == "antplus":
+            record = self.ant_receiver_records().get(str(receiver_id))
+            if record is None or not bool(getattr(record, "local_present", False)):
+                return "shared"
+            # Fitness may physically control a local ANT receiver only when its
+            # registry representation is not shared with another config entry.
+            try:
+                from homeassistant.helpers import device_registry as dr
+                registry = dr.async_get(self.hass)
+                device = registry.async_get_device_by_identifier(
+                    (DOMAIN, f"usb_adapter:{receiver_id}"),
+                    self.hub_entry.entry_id if self.hub_entry is not None else None,
+                )
+                config_entries = set(getattr(device, "config_entries", set()) or set()) if device is not None else set()
+                foreign = {entry_id for entry_id in config_entries if self.hub_entry is None or entry_id != self.hub_entry.entry_id}
+                if foreign:
+                    return "shared"
+            except Exception:
+                # Ownership uncertainty must never lead to destructive control.
+                return "shared"
+            return "fitness_owned"
+        return "shared"
+
+    def transport_hardware_choices(self, transport: str) -> list[dict[str, str]]:
+        """Return currently supported hardware modules for config-flow selection."""
+        if transport == "bluetooth":
+            return [
+                {"value": source, "label": str(info.get("name") or source)}
+                for source, info in sorted(self.bluetooth_scanner_records().items())
+            ]
+        if transport == "antplus":
+            result: list[dict[str, str]] = []
+            for key, record in sorted(self.ant_receiver_records().items()):
+                adapter = getattr(record, "adapter", None)
+                label = str(getattr(adapter, "product", None) or getattr(adapter, "serial", None) or key)
+                result.append({"value": str(key), "label": label})
+            return result
+        return []
+
+    async def async_set_hardware_selection(
+        self, transport: str, *, automatic: bool, selected: set[str] | list[str] | tuple[str, ...] = ()
+    ) -> None:
+        """Apply automatic/manual adapter selection without harming shared HA hardware."""
+        if transport not in TRANSPORTS:
+            raise ValueError(f"Unsupported Fitness live transport: {transport}")
+        self._automatic_hardware[transport] = bool(automatic)
+        chosen = {str(item) for item in selected if str(item)}
+        self._selected_receivers[transport] = chosen
+        known = {item["value"] for item in self.transport_hardware_choices(transport)}
+        for receiver_id in known | set(self._receiver_enabled.get(transport, {})):
+            should_use = bool(automatic or receiver_id in chosen)
+            await self.async_set_receiver_enabled(transport, receiver_id, should_use)
+        await self._async_save_adapter_config()
+        self._notify()
+
+    async def async_set_protocol_selection(
+        self,
+        selected: set[str] | list[str] | tuple[str, ...],
+        *,
+        reload: bool = True,
+    ) -> None:
+        """Enable exactly the protocol layers selected for Fitness.
+
+        Disabled protocols disappear from the Fitness Protocols UI. Shared/system
+        hardware is only ignored by Fitness; Fitness-owned hardware is physically
+        stopped before its Fitness registry representation is removed.
+        """
+        wanted = {str(item) for item in selected if str(item) in TRANSPORTS}
+        for transport in TRANSPORTS:
+            if transport in wanted:
+                self._configured[transport] = True
+                self.ensure_transport_subentry(transport)
+                await self.async_set_transport_enabled(transport, True)
+                continue
+
+            # Stop/ignore every known adapter before hiding this protocol.
+            for item in self.transport_hardware_choices(transport):
+                await self.async_set_receiver_enabled(transport, item["value"], False)
+            if self._enabled.get(transport, False):
+                await self.async_set_transport_enabled(transport, False)
+            self._configured[transport] = False
+            self._automatic_hardware[transport] = True
+            self._selected_receivers[transport].clear()
+            self._remove_transport_subentry(transport)
+        await self._async_save_adapter_config()
+        if reload:
+            await self.async_refresh_modules()
+            self.request_hub_reload()
+
+    def _remove_transport_subentry(self, transport: str) -> None:
+        """Remove one disabled protocol group and Fitness-only hardware devices."""
+        if self.hub_entry is None:
+            return
+        if transport == "antplus":
+            subtype, unique_id, attr = ANTPLUS_SUBENTRY_TYPE, ANTPLUS_SUBENTRY_UNIQUE_ID, "antplus_subentry_id"
+        elif transport == "bluetooth":
+            subtype, unique_id, attr = BLUETOOTH_SUBENTRY_TYPE, BLUETOOTH_SUBENTRY_UNIQUE_ID, "bluetooth_subentry_id"
+        else:
+            return
+        target = next((sub for sub in self.hub_entry.subentries.values() if sub.subentry_type == subtype or sub.unique_id == unique_id), None)
+        if target is None:
+            setattr(self, attr, None)
+            return
+        from homeassistant.helpers import device_registry as dr
+        registry = dr.async_get(self.hass)
+        for device in list(registry.devices.values()):
+            if device.config_entry_id != self.hub_entry.entry_id or device.config_subentry_id != target.subentry_id:
+                continue
+            receiver_id = None
+            if transport == "antplus":
+                for domain, identifier in device.identifiers:
+                    if domain == DOMAIN and str(identifier).startswith("usb_adapter:"):
+                        receiver_id = str(identifier).split(":", 1)[1]
+                        break
+            elif transport == "bluetooth":
+                for domain, identifier in device.identifiers:
+                    if domain == DOMAIN and str(identifier).startswith("bluetooth_adapter:"):
+                        receiver_id = str(identifier).split(":", 1)[1]
+                        break
+            # Removing a shared/system Device Registry object could affect other
+            # integrations. Only Fitness-exclusive hardware may be removed; a
+            # shared adapter is merely detached/ignored by disabling this protocol.
+            if receiver_id and self.receiver_management_scope(transport, receiver_id) == "fitness_owned":
+                registry.async_remove_device(device.id)
+        try:
+            self.hass.config_entries.async_remove_subentry(self.hub_entry, target.subentry_id)
+        except Exception:
+            _LOGGER.debug("Unable to remove disabled %s Fitness protocol subentry", transport, exc_info=True)
+        setattr(self, attr, None)
+
+    def receiver_enabled(self, transport: str, receiver_id: str) -> bool:
+        receiver_id = str(receiver_id)
+        configured = self._receiver_enabled.get(transport, {})
+        if receiver_id in configured:
+            return bool(configured[receiver_id])
+        return bool(
+            self.adapter_automatic_hardware(transport)
+            or receiver_id in self._selected_receivers.get(transport, set())
+        )
+
+    def receiver_automatic_scan(self, transport: str, receiver_id: str) -> bool:
+        return bool(self._receiver_automatic_scan.get(transport, {}).get(str(receiver_id), True))
+
+    async def async_set_receiver_enabled(self, transport: str, receiver_id: str, enabled: bool) -> None:
+        receiver_id = str(receiver_id)
+        self._receiver_enabled.setdefault(transport, {})[receiver_id] = bool(enabled)
+        if transport == "antplus" and self.receiver_management_scope(transport, receiver_id) == "fitness_owned":
+            provider = self.providers.get("antplus")
+            manager = getattr(provider, "adapter_manager", None) if provider else None
+            if manager is not None and receiver_id in getattr(manager, "records", {}):
+                physical = bool(enabled) and self.receiver_automatic_scan(transport, receiver_id)
+                await manager.async_set_capture(receiver_id, physical)
+        await self._async_save_adapter_config()
+        self._notify()
+
+    async def async_set_receiver_automatic_scan(self, transport: str, receiver_id: str, enabled: bool) -> None:
+        receiver_id = str(receiver_id)
+        self._receiver_automatic_scan.setdefault(transport, {})[receiver_id] = bool(enabled)
+        if transport == "antplus" and self.receiver_management_scope(transport, receiver_id) == "fitness_owned":
+            provider = self.providers.get("antplus")
+            manager = getattr(provider, "adapter_manager", None) if provider else None
+            if manager is not None and receiver_id in getattr(manager, "records", {}):
+                await manager.async_set_capture(
+                    receiver_id, bool(enabled) and self.receiver_enabled(transport, receiver_id)
+                )
+        await self._async_save_adapter_config()
+        self._notify()
+
+    async def async_begin_receiver_manual_scan(self, transport: str, receiver_id: str, seconds: float = 20.0) -> None:
+        """Start one bounded physical scan when Fitness exclusively owns hardware."""
+        self.begin_receiver_manual_scan_window(transport, receiver_id, seconds)
+        if transport != "antplus" or self.receiver_management_scope(transport, receiver_id) != "fitness_owned":
+            return
+        provider = self.providers.get("antplus")
+        manager = getattr(provider, "adapter_manager", None) if provider else None
+        if manager is None or receiver_id not in getattr(manager, "records", {}):
+            return
+        await manager.async_set_capture(receiver_id, True)
+        async def _stop_after_window():
+            try:
+                await asyncio.sleep(max(5.0, min(float(seconds), 60.0)))
+                if not self.receiver_automatic_scan(transport, receiver_id):
+                    await manager.async_set_capture(receiver_id, False)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                _LOGGER.debug("Unable to stop bounded ANT+ manual scan for %s", receiver_id, exc_info=True)
+        self._start_control_task(
+            f"manual_scan:{transport}:{receiver_id}",
+            _stop_after_window(),
+            f"fitness {transport} manual scan {receiver_id}",
+        )
+
+    def begin_receiver_manual_scan_window(self, transport: str, receiver_id: str, seconds: float = 20.0) -> None:
+        self._receiver_manual_scan_until.setdefault(transport, {})[str(receiver_id)] = (
+            time.monotonic() + max(5.0, min(float(seconds), 60.0))
+        )
+
+    def receiver_discovery_allowed(self, transport: str, receiver_id: str | None) -> bool:
+        if not receiver_id:
+            return self.adapter_automatic_scan(transport) or self._manual_scan_until.get(transport, 0.0) > time.monotonic()
+        receiver_id = str(receiver_id)
+        if not self.receiver_enabled(transport, receiver_id):
+            return False
+        return bool(
+            self.receiver_automatic_scan(transport, receiver_id)
+            or self._receiver_manual_scan_until.get(transport, {}).get(receiver_id, 0.0) > time.monotonic()
+        )
+
+    async def async_set_automatic_scan(self, transport: str, enabled: bool) -> None:
+        if transport not in TRANSPORTS:
+            raise ValueError(f"Unsupported Fitness live transport: {transport}")
+        self._automatic_scan[transport] = bool(enabled)
+        await self._async_save_adapter_config()
+        self._notify()
+
+    def begin_manual_scan_window(self, transport: str, seconds: float = 20.0) -> None:
+        if transport in TRANSPORTS:
+            self._manual_scan_until[transport] = time.monotonic() + max(5.0, min(float(seconds), 60.0))
+
+    def _discovery_allowed_for_sensor(self, sensor: "LiveSensor") -> bool:
+        now = time.monotonic()
+        for transport, endpoint in sensor.endpoints.items():
+            receiver_id = endpoint.source if transport == "bluetooth" else None
+            if receiver_id:
+                if self.receiver_discovery_allowed(transport, receiver_id):
+                    return True
+            elif self.adapter_automatic_scan(transport) or self._manual_scan_until.get(transport, 0.0) > now:
+                return True
+        return False
 
     @property
     def configured_transports(self) -> set[str]:
@@ -3778,6 +4116,8 @@ class LiveRuntime:
         sensor = self.sensors.get(sensor_id)
         if sensor is None or self.sensor_is_accepted(sensor_id):
             return
+        if not self._discovery_allowed_for_sensor(sensor):
+            return
         now_mono = time.monotonic()
         quarantined = False
         for endpoint in sensor.endpoints.values():
@@ -3927,7 +4267,7 @@ class LiveRuntime:
         device_registry = dr.async_get(self.hass)
         entity_registry = er.async_get(self.hass)
         device = device_registry.async_get_device_by_identifier(
-            (DOMAIN, f"live_sensor:{sensor_id}"), self.hub_entry.entry_id
+            (DOMAIN, f"live_sensor:{sensor_id}"), self.devices_entry.entry_id
         )
         if device is None:
             return
@@ -3984,11 +4324,9 @@ class LiveRuntime:
         """Create or migrate one physical sensor into the Sensors subentry."""
         sensor_id = self.resolve_sensor_id(sensor_id)
         sensor = self.sensors.get(sensor_id)
-        if sensor is None or self.hub_entry is None or not self.sensor_is_accepted(sensor_id):
+        if sensor is None or self.devices_entry is None or not self.sensor_is_accepted(sensor_id):
             return
-        subentry_id = self._sensor_subentry_id()
-        if subentry_id is None:
-            return
+        subentry_id = None
         from homeassistant.helpers import device_registry as dr
         registry = dr.async_get(self.hass)
         info = self.sensor_device_info(sensor_id)
@@ -4011,12 +4349,8 @@ class LiveRuntime:
         # registry entities from the old subentry when a device moves, and the
         # platform setup below will recreate them directly in the Sensors subentry.
         existing = registry.async_get_device_by_identifier(
-            (DOMAIN, f"live_sensor:{sensor_id}"), self.hub_entry.entry_id
+            (DOMAIN, f"live_sensor:{sensor_id}"), self.devices_entry.entry_id
         )
-        if existing is not None and existing.config_subentry_id != subentry_id:
-            existing = registry.async_update_device(
-                existing.id, new_config_subentry_id=subentry_id
-            )
 
         # ``async_get_or_create`` merges identifiers/connections but does not
         # remove stale ones. Physical-route conflict repair therefore has to
@@ -4033,8 +4367,7 @@ class LiveRuntime:
             )
 
         kwargs = {
-            "config_entry_id": self.hub_entry.entry_id,
-            "config_subentry_id": subentry_id,
+            "config_entry_id": self.devices_entry.entry_id,
             "identifiers": set(info["identifiers"]),
             "name": info.get("name") or "Fitness sensor",
         }

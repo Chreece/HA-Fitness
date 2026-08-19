@@ -159,7 +159,7 @@ def test_manual_sync_button_only_schedules_background_work():
     press = _method(BUTTON, "async_press")
     # There are several async_press methods; source lookup can return another one,
     # so assert the generic archive class block explicitly as well.
-    block = BUTTON.split("class ArchiveSyncWorkoutsButton", 1)[1].split("class BaseLiveFitnessButton", 1)[0]
+    block = BUTTON.split("class DeviceDataSyncButton", 1)[1].split("class BaseLiveFitnessButton", 1)[0]
     assert "coordinator.schedule" in block
     assert "await coordinator" not in block
 
@@ -321,7 +321,7 @@ def test_gfdi_frame_ceiling_matches_wire_length_field_and_cobs_headroom_is_small
 
 
 def test_garmin_persisted_archive_timers_resume_after_home_assistant_restart():
-    assert "STARTUP_RESUME_DELAY = 5.0" in COORD
+    assert "STARTUP_RESUME_DELAY = 45.0" in COORD
     setup = _method(COORD, "async_setup")
     assert "_recover_interrupted_states" in setup
     assert "_resume_persisted_schedules" in setup
@@ -410,9 +410,11 @@ def test_garmin_successful_connection_teardown_avoids_extra_cccd_and_handle_writ
 def test_garmin_drains_small_archive_burst_in_one_gfdi_session_with_small_import_checkpoints():
     sync = _method(COORD, "_async_sync")
     assert "MAX_FILES_PER_SYNC = 2" in COORD
-    assert "MAX_FILES_PER_SESSION = 8" in COORD
+    assert "MAX_FILES_PER_SESSION = 24" in COORD
+    assert "SESSION_FILE_WORK_BUDGET = 62.0" in COORD
     assert "][:MAX_FILES_PER_SESSION]" in sync
     assert "MAX_FILES_PER_SESSION - len(records_to_import)" in sync
+    assert "self.hass.loop.time() - file_work_started" in sync
     assert "range(0, len(records_to_import), MAX_FILES_PER_SYNC)" in sync
     assert "await self._save()" in sync
 

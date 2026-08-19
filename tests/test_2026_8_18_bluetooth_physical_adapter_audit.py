@@ -25,7 +25,7 @@ def test_archive_button_platform_is_adapter_driven_too():
         assert token not in lower
     assert "sync_action_for_metadata" in BUTTON
     assert "coordinator_for_metadata" in BUTTON
-    assert "ArchiveSyncWorkoutsButton" in BUTTON
+    assert "DeviceDataSyncButton" in BUTTON
 
 
 def test_physical_device_knowledge_lives_in_adapter_registry():

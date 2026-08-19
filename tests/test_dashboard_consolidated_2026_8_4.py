@@ -13,10 +13,9 @@ def test_three_consolidated_cards_are_registered():
 
 
 def test_workout_composite_is_capability_aware():
-    assert 'const hasRoute = (this._profile.route_candidates || []).length > 0' in JS
-    assert 'fitness-workout-highlights-card' in JS
-    assert 'fitness-route-card' in JS
-    assert 'fitness-comparison-card' in JS
+    assert 'gps_track' in JS
+    assert 'class FitnessWorkoutCard' in JS
+    assert 'data-prev' in JS and 'data-next' in JS
 
 
 def test_ui_language_is_independent_from_profile_language():
@@ -32,4 +31,4 @@ def test_dashboard_uses_consolidated_cards():
 
 
 def test_changelog_documents_consolidation():
-    assert "Consolidated the adaptive dashboard into three user-focused cards" in CHANGELOG
+    assert "consolidated user-focused views" in CHANGELOG

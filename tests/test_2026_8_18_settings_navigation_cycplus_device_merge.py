@@ -67,12 +67,12 @@ def test_registry_cleanup_uses_captured_device_id_and_own_identifiers():
 
 
 def test_frontend_cache_revision_85_matches_backend():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in FRONTEND
-    assert '?v=unreleased-85' in DASH
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in FRONTEND
+    assert '?v=unreleased-89' in DASH
 
 
 def test_mobile_backend_settings_use_viewport_and_compact_nonsticky_header():
-    assert 'backdrop?.classList?.add("backend-flow-backdrop")' in FRONTEND
+    assert 'backendFlowModal ? "backend-flow-backdrop" : "card-picker-preview-backdrop"' in FRONTEND
     assert 'style?.setProperty("--modal-top", "4px")' in FRONTEND
     assert '.backend-flow-backdrop .backend-flow-modal{width:100%!important;height:calc(100dvh' in FRONTEND
     flow_style = FRONTEND[FRONTEND.index('class FitnessBackendFlow'):FRONTEND.index('if (!customElements.get("fitness-backend-flow")')]

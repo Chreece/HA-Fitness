@@ -11,9 +11,9 @@ from .entity import device_info
 
 async def async_setup_entry(hass, entry, async_add_entities):
     from .live import get_live_runtime
-    from .live.runtime import HUB_ENTRY_TYPE
+    from .live.runtime import HUB_ENTRY_TYPE, DEVICES_HUB_ENTRY_TYPE
     runtime = get_live_runtime(hass)
-    if entry.data.get("entry_type") == HUB_ENTRY_TYPE:
+    if entry.data.get("entry_type") == DEVICES_HUB_ENTRY_TYPE:
         materialized: set[str] = set()
 
         def _collect_owner_selects() -> None:
@@ -35,6 +35,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
         _collect_owner_selects()
         entry.async_on_unload(runtime.add_structure_listener(_collect_owner_selects))
+        return
+    if entry.data.get("entry_type") == HUB_ENTRY_TYPE:
         return
     # The profile Live device is stable infrastructure. Keep its room selector
     # registered even when no physical sensor is currently assigned; assignment

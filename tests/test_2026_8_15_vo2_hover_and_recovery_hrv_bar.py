@@ -6,8 +6,8 @@ BACKEND = (ROOT / "custom_components/fitness/dashboard.py").read_text()
 
 
 def test_dashboard_resource_version_bumped():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in FRONTEND
-    assert '?v=unreleased-85' in BACKEND
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in FRONTEND
+    assert '?v=unreleased-89' in BACKEND
 
 
 def test_vo2_progress_uses_absolute_current_marker_and_predicted_reference():

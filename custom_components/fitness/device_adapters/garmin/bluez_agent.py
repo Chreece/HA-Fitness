@@ -205,6 +205,26 @@ async def async_bluez_device_pairing_state(device_path: str) -> tuple[bool, bool
         await _disconnect_bus(bus)
 
 
+async def async_bluez_remove_device(device_path: str) -> None:
+    """Remove one local BlueZ bond/device after an explicit user request."""
+    if not str(device_path).startswith("/org/bluez/"):
+        raise RuntimeError("invalid BlueZ device path")
+    try:
+        from dbus_fast import BusType, Message, MessageType
+        from dbus_fast.aio import MessageBus
+    except ImportError as exc:
+        raise RuntimeError("dbus-fast is unavailable") from exc
+    parts = str(device_path).split("/")
+    adapter_path = "/".join(parts[:-1])
+    bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
+    try:
+        reply = await bus.call(Message(destination=_BLUEZ, path=adapter_path, interface="org.bluez.Adapter1", member="RemoveDevice", signature="o", body=[str(device_path)]))
+        if reply.message_type == MessageType.ERROR:
+            raise RuntimeError(f"BlueZ RemoveDevice failed: {_message_error(reply)}")
+    finally:
+        await _disconnect_bus(bus)
+
+
 @asynccontextmanager
 async def temporary_bluez_pairing_agent(address: str, *, enabled: bool):
     """Register one temporary default BlueZ agent for an explicit local pairing.

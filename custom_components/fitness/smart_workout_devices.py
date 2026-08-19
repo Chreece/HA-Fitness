@@ -43,14 +43,51 @@ SUPPORTED_SETUP_VENDORS: tuple[SmartWorkoutVendor, ...] = (
     SmartWorkoutVendor(
         vendor_id="garmin",
         label="Garmin",
-        device_types=(
-            DEVICE_TYPE_AUTO,
-            DEVICE_TYPE_SPORT_WATCH,
-            DEVICE_TYPE_BIKE_COMPUTER,
-            DEVICE_TYPE_OTHER,
-        ),
+        device_types=(DEVICE_TYPE_AUTO,),
         requires_pairing=True,
         guide_key="garmin_local",
+    ),
+    SmartWorkoutVendor(
+        vendor_id="xiaomi",
+        label="Xiaomi Smart Band / Mi Band",
+        device_types=(DEVICE_TYPE_AUTO,),
+        requires_pairing=True,
+        guide_key="xiaomi_local",
+    ),
+    SmartWorkoutVendor(
+        vendor_id="amazfit",
+        label="Amazfit",
+        device_types=(DEVICE_TYPE_AUTO,),
+        requires_pairing=True,
+        guide_key="amazfit_local",
+    ),
+    SmartWorkoutVendor(
+        vendor_id="bangle",
+        label="Bangle.js",
+        device_types=(DEVICE_TYPE_AUTO,),
+        requires_pairing=False,
+        guide_key="bangle_local",
+    ),
+    SmartWorkoutVendor(
+        vendor_id="ultrahuman",
+        label="Ultrahuman Ring AIR",
+        device_types=(DEVICE_TYPE_AUTO,),
+        requires_pairing=False,
+        guide_key="ultrahuman_local",
+    ),
+    SmartWorkoutVendor(
+        vendor_id="zetime",
+        label="MyKronoz ZeTime",
+        device_types=(DEVICE_TYPE_AUTO,),
+        requires_pairing=False,
+        guide_key="zetime_local",
+    ),
+    SmartWorkoutVendor(
+        vendor_id="hplus",
+        label="HPlus",
+        device_types=(DEVICE_TYPE_AUTO,),
+        requires_pairing=False,
+        guide_key="hplus_local",
     ),
 )
 
@@ -98,10 +135,9 @@ def smart_workout_archive_compatibility(sensor) -> bool | None:
     bluetooth = endpoints.get("bluetooth")
     metadata = getattr(bluetooth, "metadata", {}) or {} if bluetooth is not None else {}
     if metadata.get("archive_adapter"):
-        # Some direct-device adapters import wellness history (sleep, daily
-        # activity, HR/HRV, SpO2, etc.) but do not expose a workout archive.
-        # Keep those devices out of the Smart workout verification flow while
-        # preserving the existing default for workout-capable archive adapters.
+        # Smart Fitness Devices includes direct wellness/history devices too.
+        # Archive compatibility remains a workout-specific status, but a device
+        # is still a valid smart-fitness candidate when workout_archive is false.
         if metadata.get("workout_archive") is False:
             return None
         value = metadata.get("archive_compatible")
@@ -126,12 +162,11 @@ def is_smart_workout_candidate(sensor) -> bool:
     endpoints = getattr(sensor, "endpoints", {}) or {}
     for endpoint in endpoints.values():
         metadata = getattr(endpoint, "metadata", {}) or {}
-        if (
-            metadata.get("archive_adapter")
-            and metadata.get("workout_archive") is not False
-            and metadata.get("archive_compatible") is not False
-        ):
-            return True
+        if metadata.get("archive_adapter"):
+            if metadata.get("workout_archive") is False:
+                return True
+            if metadata.get("archive_compatible") is not False:
+                return True
     return False
 
 

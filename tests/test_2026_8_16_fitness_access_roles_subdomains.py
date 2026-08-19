@@ -41,7 +41,7 @@ def test_remote_accounts_use_unique_logical_subdomains_and_direct_profile_urls()
     assert 'remote_slug' in ACCESS
     assert '_default_remote_slug' in ACCESS
     assert 'raise ValueError("remote_slug_in_use")' in ACCESS
-    assert 'f"https://{expected_host}/fitness-tv/profile-{account.get(\'profile_entry_id\')}"' in ACCESS
+    assert 'f"https://{expected_host}/fitness-tv/main"' in ACCESS
     assert "wildcard-DNS model" in ACCESS
     assert "wildcard dns" in DOC.lower()
     assert "Removing the Fitness account immediately removes its binding" in DOC
@@ -111,8 +111,8 @@ def test_removed_account_is_forced_out_of_an_already_open_profile():
 
 
 def test_access_release_bumps_one_frontend_cache_revision():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in JS
-    assert '?v=unreleased-85' in DASH
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in JS
+    assert '?v=unreleased-89' in DASH
 
 
 def test_fitness_admin_can_keep_an_own_profile_and_ha_user_link_is_current():

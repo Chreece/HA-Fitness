@@ -134,7 +134,7 @@ def _byte_payload(value: Any, *, exact: int | None = None, maximum: int = 512) -
 
 def _profile_entry(hass: HomeAssistant, profile_entry_id: str):
     entry = hass.config_entries.async_get_entry(str(profile_entry_id))
-    if entry is None or entry.domain != DOMAIN or entry.data.get("entry_type") == "live_hub":
+    if entry is None or entry.domain != DOMAIN or entry.data.get("entry_type") in {"live_hub", "devices_hub"}:
         return None
     return entry
 

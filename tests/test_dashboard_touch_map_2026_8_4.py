@@ -52,4 +52,4 @@ def test_frontend_resource_revision_matches():
 
 
 def test_changelog_documents_touch_map():
-    assert "Workout map interaction now behaves like a native map" in CHANGELOG
+    assert "native-style workout map interaction" in CHANGELOG

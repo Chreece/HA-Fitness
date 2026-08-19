@@ -3,6 +3,10 @@
 
 ## Unreleased
 
+- Added a compact multi-dashboard navigator below the main toolbar: when a profile has multiple dashboards it shows the active dashboard name, position and previous/next controls without covering cards; it remains available when the toolbar auto-hides, participates in TV-remote navigation, removes the duplicated textual plus from Add dashboard, and trims the synthetic final grid-row gap that left dead space at the bottom.
+- Garmin invalid-file handling now preserves a small private bounded forensic copy under `.storage/fitness_garmin_invalid`, records FIT/header/compression diagnostics, accepts raw FIT plus zlib/gzip/raw-DEFLATE wrappers only when they reveal a genuine FIT header, and re-probes older invalid records once so potentially useful monitoring/SpO2/sleep files can be investigated instead of silently discarded.
+
+- Refined per-user dashboard navigation: the auto-hide toolbar now stays open while hovered, focused or selected by the TV remote and collapses with a smooth transition; dashboard cards enter with a gentler top-edge paper-unroll reveal; and Fitness settings/submenus are hard-anchored inside the current viewport so they cannot jump to the left or render above the visible area.
 - Added local, phone-free direct health-history adapters for Ultrahuman Ring AIR, MyKronoz ZeTime and HPlus-protocol wearables. Fitness can now import bounded non-FIT sleep/activity/HR/HRV/SpO2/temperature/stress history when explicitly exposed by each device protocol, using the existing Home Assistant Bluetooth transport with sparse persisted scheduling and no permanent connection.
 - Made Garmin archive continuation restart-independent after successful partial batches: pending files now retry on a calm five-minute schedule after transient post-sync GATT/Multi-Link cooldown failures, with a bounded three-attempt soft retry before normal degraded backoff.
 - Kept smart workout archives fully local-first: removed the experimental phone-mediated Gadgetbridge FIT bridge and retained direct adapter-to-device synchronization only.

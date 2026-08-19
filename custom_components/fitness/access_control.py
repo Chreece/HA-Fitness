@@ -35,6 +35,8 @@ from .const import CONF_LANGUAGE, DOMAIN, SUPPORTED_LANGUAGES
 ACCESS_STORE_VERSION = 1
 ACCESS_STORE_KEY = "fitness.access_control"
 ACCESS_CONTROLLER_KEY = "_fitness_access_control"
+DEFAULT_DASHBOARD_MAX = 3
+MAX_DASHBOARD_MAX = 12
 
 ROLE_ADMIN = "admin"
 ROLE_LOCAL = "local"
@@ -119,6 +121,7 @@ class FitnessAccessController:
         self._mutation_lock = asyncio.Lock()
         self._data: dict[str, Any] = {
             "remote_base_domain": "",
+            "dashboard_max": DEFAULT_DASHBOARD_MAX,
             "accounts": {},
         }
 
@@ -166,10 +169,15 @@ class FitnessAccessController:
                         clean_accounts[user_id] = clean
                         if len(clean_accounts) >= 1_024:
                             break
+                try:
+                    dashboard_max = int(saved.get("dashboard_max", DEFAULT_DASHBOARD_MAX))
+                except (TypeError, ValueError):
+                    dashboard_max = DEFAULT_DASHBOARD_MAX
                 self._data = {
                     "remote_base_domain": _normalize_domain(
                         saved.get("remote_base_domain")
                     ),
+                    "dashboard_max": max(1, min(MAX_DASHBOARD_MAX, dashboard_max)),
                     "accounts": clean_accounts,
                 }
             self._loaded = True
@@ -246,7 +254,7 @@ class FitnessAccessController:
         return {
             entry.entry_id
             for entry in self.hass.config_entries.async_entries(DOMAIN)
-            if entry.data.get("entry_type") != "live_hub"
+            if entry.data.get("entry_type") not in {"live_hub", "devices_hub"}
         }
 
     @staticmethod
@@ -328,7 +336,7 @@ class FitnessAccessController:
             "view_profile_entry_ids": sorted(self._view_profile_ids(account)),
             "remote_slug": str(account.get("remote_slug") or "") or None,
             "remote_url": (
-                f"https://{expected_host}/fitness-tv/profile-{account.get('profile_entry_id')}"
+                f"https://{expected_host}/fitness-tv/main"
                 if expected_host and account.get("profile_entry_id")
                 else None
             ),
@@ -344,7 +352,7 @@ class FitnessAccessController:
             return {
                 entry.entry_id
                 for entry in self.hass.config_entries.async_entries(DOMAIN)
-                if entry.data.get("entry_type") != "live_hub"
+                if entry.data.get("entry_type") not in {"live_hub", "devices_hub"}
                 and cast_hub.has_cast_expectation(entry.entry_id)
             }
 
@@ -425,7 +433,7 @@ class FitnessAccessController:
         profile_rows: list[dict[str, Any]] = []
         profile_by_id: dict[str, dict[str, Any]] = {}
         for entry in self.hass.config_entries.async_entries(DOMAIN):
-            if entry.data.get("entry_type") == "live_hub":
+            if entry.data.get("entry_type") in {"live_hub", "devices_hub"}:
                 continue
             config = {**entry.data, **entry.options}
             prefs = await hub.async_preferences(entry.entry_id)
@@ -456,7 +464,11 @@ class FitnessAccessController:
             profile_by_id[entry.entry_id] = row
 
         users = []
-        for user in await self.hass.auth.async_get_users():
+        try:
+            auth_users = await asyncio.wait_for(self.hass.auth.async_get_users(), timeout=8.0)
+        except TimeoutError:
+            auth_users = []
+        for user in auth_users:
             if getattr(user, "system_generated", False):
                 continue
             bound = self._account(user.id)
@@ -482,24 +494,36 @@ class FitnessAccessController:
             })
         return {
             "remote_base_domain": self._data.get("remote_base_domain") or "",
+            "dashboard_max": int(self._data.get("dashboard_max", DEFAULT_DASHBOARD_MAX)),
             "supported_languages": dict(SUPPORTED_LANGUAGES),
             "users": sorted(users, key=lambda item: item["name"].casefold()),
             "profiles": sorted(profile_rows, key=lambda item: item["name"].casefold()),
         }
 
-    async def async_set_remote_base_domain(self, connection, domain: str) -> dict[str, Any]:
-        """Serialize access-policy changes so concurrent admins cannot lose writes."""
+    async def async_set_access_settings(
+        self, connection, *, domain: str, dashboard_max: int | None = None
+    ) -> dict[str, Any]:
+        """Serialize account-level Fitness settings."""
         async with self._mutation_lock:
-            return await self._async_set_remote_base_domain(connection, domain)
+            await self.async_require_admin(connection)
+            normalized = _normalize_domain(domain)
+            if domain and not normalized:
+                raise ValueError("invalid_remote_base_domain")
+            self._data["remote_base_domain"] = normalized
+            if dashboard_max is not None:
+                self._data["dashboard_max"] = max(
+                    1, min(MAX_DASHBOARD_MAX, int(dashboard_max))
+                )
+            await self._store.async_save(self._data)
+            return await self.async_admin_snapshot(connection)
 
-    async def _async_set_remote_base_domain(self, connection, domain: str) -> dict[str, Any]:
-        await self.async_require_admin(connection)
-        normalized = _normalize_domain(domain)
-        if domain and not normalized:
-            raise ValueError("invalid_remote_base_domain")
-        self._data["remote_base_domain"] = normalized
-        await self._store.async_save(self._data)
-        return await self.async_admin_snapshot(connection)
+    async def async_set_remote_base_domain(self, connection, domain: str) -> dict[str, Any]:
+        """Backward-compatible remote-domain setter."""
+        return await self.async_set_access_settings(connection, domain=domain)
+
+    def dashboard_max(self) -> int:
+        """Return the administrator-defined per-profile dashboard ceiling."""
+        return max(1, min(MAX_DASHBOARD_MAX, int(self._data.get("dashboard_max", DEFAULT_DASHBOARD_MAX))))
 
     def _has_other_admin(self, user_id: str) -> bool:
         return any(
@@ -612,7 +636,7 @@ class FitnessAccessController:
             if (
                 profile_entry is None
                 or profile_entry.domain != DOMAIN
-                or profile_entry.data.get("entry_type") == "live_hub"
+                or profile_entry.data.get("entry_type") in {"live_hub", "devices_hub"}
             ):
                 raise ValueError("profile_not_found")
             for existing_user_id, existing in self._data["accounts"].items():
@@ -716,7 +740,7 @@ class FitnessAccessController:
     async def _async_remove_profile(self, connection, profile_entry_id: str) -> dict[str, Any]:
         await self.async_require_admin(connection)
         entry = self.hass.config_entries.async_get_entry(str(profile_entry_id))
-        if entry is None or entry.domain != DOMAIN or entry.data.get("entry_type") == "live_hub":
+        if entry is None or entry.domain != DOMAIN or entry.data.get("entry_type") in {"live_hub", "devices_hub"}:
             raise ValueError("profile_not_found")
         # Remove any ownership binding and scrub view-only grants before
         # removing the backend entry.
@@ -778,13 +802,16 @@ async def websocket_fitness_access_admin(hass: HomeAssistant, connection, msg) -
 @websocket_api.websocket_command({
     vol.Required("type"): "fitness/access/settings/save",
     vol.Optional("remote_base_domain", default=""): vol.All(str, vol.Length(max=253)),
+    vol.Optional("dashboard_max"): vol.All(vol.Coerce(int), vol.Range(min=1, max=MAX_DASHBOARD_MAX)),
 })
 @websocket_api.async_response
 async def websocket_fitness_access_settings_save(hass: HomeAssistant, connection, msg) -> None:
     controller = get_fitness_access_controller(hass)
     try:
-        result = await controller.async_set_remote_base_domain(
-            connection, str(msg.get("remote_base_domain") or "")
+        result = await controller.async_set_access_settings(
+            connection,
+            domain=str(msg.get("remote_base_domain") or ""),
+            dashboard_max=msg.get("dashboard_max"),
         )
     except ValueError as err:
         connection.send_error(msg["id"], str(err), str(err))

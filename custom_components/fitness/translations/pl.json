@@ -74,12 +74,14 @@
         "data": {
           "workout_device_ids": "Urządzenia udostępniające historię treningów/fitness",
           "detailed_strength_analysis": "Szczegółowa analiza siłowa",
-          "workout_retention_days": "Przechowywanie treningów"
+          "workout_retention_days": "Przechowywanie treningów",
+          "fit_file_retention_count": "Pliki FIT/checkpointy do zachowania"
         },
         "data_description": {
           "workout_device_ids": "Urządzenia historii. Wybierane są tylko dokładnie obsługiwane kontrakty Garmin, Strava, Polar, Hevy, Peloton i Oura.",
           "detailed_strength_analysis": "Analizuj ćwiczenia/serie, szacowane 1RM i postęp dla ćwiczeń, gdy dane siłowe są dostępne.",
-          "workout_retention_days": "Liczba dni przechowywania kanonicznych treningów Fitness. 0 oznacza bez limitu."
+          "workout_retention_days": "Liczba dni przechowywania kanonicznych treningów Fitness. 0 oznacza bez limitu.",
+          "fit_file_retention_count": "Liczba najnowszych rekordów FIT/checkpointów Fitness zachowywanych podczas czyszczenia. Pliki na urządzeniu źródłowym nie są usuwane."
         }
       },
       "ai": {
@@ -87,11 +89,17 @@
         "description": "Domyślnie wybrane jest domyślne zadanie AI Home Assistant. Fitness automatycznie podąża za bieżącym ustawieniem systemowym; wybierz konkretne zadanie AI lub agenta konwersacyjnego tylko wtedy, gdy chcesz je przypiąć.",
         "data": {
           "ai_enabled": "Generuj oceny fitness przez AI",
-          "ai_entity": "Dostawca AI"
+          "ai_entity": "Dostawca AI",
+          "training_goal": "Cel treningowy",
+          "training_goal_date": "Data celu / zawodów",
+          "training_days_per_week": "Preferowane dni treningowe w tygodniu"
         },
         "data_description": {
           "ai_enabled": "Włącza interpretację AI deterministycznych obliczeń. AI nigdy nie definiuje ani nie zmienia naukowych formuł lub metadanych sensorów.",
-          "ai_entity": "Użyj domyślnego zadania AI Home Assistant, aby automatycznie podążać za preferencją systemową, albo przypnij konkretne zadanie AI / agenta konwersacyjnego. Jeśli przypięty dostawca stanie się niedostępny, Fitness poinformuje Cię i tymczasowo użyje domyślnego dostawcy systemowego."
+          "ai_entity": "Użyj domyślnego zadania AI Home Assistant, aby automatycznie podążać za preferencją systemową, albo przypnij konkretne zadanie AI / agenta konwersacyjnego. Jeśli przypięty dostawca stanie się niedostępny, Fitness poinformuje Cię i tymczasowo użyje domyślnego dostawcy systemowego.",
+          "training_goal": "Opisz cel, np. komfortowo ukończyć maraton lub poprawić FTP na rowerze. Fitness łączy go z historią, gotowością i regeneracją.",
+          "training_goal_date": "Opcjonalna data celu, używana wyłącznie jako kontekst planowania.",
+          "training_days_per_week": "Preferowana liczba dni treningowych; regeneracja może dodać dni odpoczynku."
         }
       },
       "feedback": {
@@ -158,8 +166,8 @@
         "title": "Konfiguracja Fitness",
         "description": "Wybierz, co chcesz dodać najpierw. Drugą część możesz dodać później bez zmiany istniejącego procesu tworzenia profilu.",
         "menu_options": {
-          "add_protocol": "Dodaj protokół czujników",
-          "add_user": "Dodaj profil użytkownika"
+          "add_user": "Dodaj profil użytkownika",
+          "manage_protocols": "Zarządzaj protokołami czujników"
         }
       },
       "add_user": {
@@ -167,13 +175,59 @@
         "description": "Kontynuuj standardową konfigurację profilu Fitness."
       },
       "add_protocol": {
-        "title": "Dodaj protokół czujników",
-        "description": "Włącz jeden lokalny transport czujników. Fitness tworzy urządzenie adaptera, a wykrywanie pozostaje ograniczone i kontrolowane przez użytkownika.",
+        "title": "Zarządzaj protokołami czujników",
+        "description": "Wybierz protokoły używane przez Fitness oraz automatyczne lub ręczne wykrywanie obsługiwanego sprzętu. Wyłączone protokoły są ukrywane w Fitness. Współdzielony sprzęt systemowy nie jest fizycznie wyłączany przez Fitness.",
         "data": {
-          "protocol": "Protokół"
+          "bluetooth": "Bluetooth dla Fitness",
+          "bluetooth_automatic_hardware": "Automatycznie wykrywaj sprzęt Bluetooth",
+          "antplus": "ANT+ dla Fitness",
+          "antplus_automatic_hardware": "Automatycznie wykrywaj sprzęt ANT+"
         },
         "data_description": {
-          "protocol": "Wybierz lokalny transport radiowy, który Fitness ma teraz włączyć. Drugi pozostanie dostępny, ale wyłączony do czasu jego aktywacji."
+          "bluetooth": "Wybierz protokoły używane przez Fitness oraz automatyczne lub ręczne wykrywanie obsługiwanego sprzętu. Wyłączone protokoły są ukrywane w Fitness. Współdzielony sprzęt systemowy nie jest fizycznie wyłączany przez Fitness.",
+          "bluetooth_automatic_hardware": "Wybierz protokoły używane przez Fitness oraz automatyczne lub ręczne wykrywanie obsługiwanego sprzętu. Wyłączone protokoły są ukrywane w Fitness. Współdzielony sprzęt systemowy nie jest fizycznie wyłączany przez Fitness.",
+          "antplus": "Wybierz protokoły używane przez Fitness oraz automatyczne lub ręczne wykrywanie obsługiwanego sprzętu. Wyłączone protokoły są ukrywane w Fitness. Współdzielony sprzęt systemowy nie jest fizycznie wyłączany przez Fitness.",
+          "antplus_automatic_hardware": "Wybierz protokoły używane przez Fitness oraz automatyczne lub ręczne wykrywanie obsługiwanego sprzętu. Wyłączone protokoły są ukrywane w Fitness. Współdzielony sprzęt systemowy nie jest fizycznie wyłączany przez Fitness."
+        }
+      },
+      "manage_protocols": {
+        "title": "Zarządzaj protokołami czujników",
+        "description": "Wybierz protokoły używane przez Fitness oraz automatyczne lub ręczne wykrywanie obsługiwanego sprzętu. Wyłączone protokoły są ukrywane w Fitness. Współdzielony sprzęt systemowy nie jest fizycznie wyłączany przez Fitness.",
+        "data": {
+          "bluetooth": "Bluetooth dla Fitness",
+          "bluetooth_automatic_hardware": "Automatycznie wykrywaj sprzęt Bluetooth",
+          "antplus": "ANT+ dla Fitness",
+          "antplus_automatic_hardware": "Automatycznie wykrywaj sprzęt ANT+"
+        },
+        "data_description": {
+          "bluetooth": "Wybierz protokoły używane przez Fitness oraz automatyczne lub ręczne wykrywanie obsługiwanego sprzętu. Wyłączone protokoły są ukrywane w Fitness. Współdzielony sprzęt systemowy nie jest fizycznie wyłączany przez Fitness.",
+          "bluetooth_automatic_hardware": "Wybierz protokoły używane przez Fitness oraz automatyczne lub ręczne wykrywanie obsługiwanego sprzętu. Wyłączone protokoły są ukrywane w Fitness. Współdzielony sprzęt systemowy nie jest fizycznie wyłączany przez Fitness.",
+          "antplus": "Wybierz protokoły używane przez Fitness oraz automatyczne lub ręczne wykrywanie obsługiwanego sprzętu. Wyłączone protokoły są ukrywane w Fitness. Współdzielony sprzęt systemowy nie jest fizycznie wyłączany przez Fitness.",
+          "antplus_automatic_hardware": "Wybierz protokoły używane przez Fitness oraz automatyczne lub ręczne wykrywanie obsługiwanego sprzętu. Wyłączone protokoły są ukrywane w Fitness. Współdzielony sprzęt systemowy nie jest fizycznie wyłączany przez Fitness."
+        }
+      },
+      "manage_protocol_hardware": {
+        "title": "Ręczny wybór sprzętu",
+        "description": "Uruchom ograniczone wykrywanie obsługiwanego sprzętu lub wybierz adaptery już znalezione przez Fitness.",
+        "menu_options": {
+          "discover_protocol_hardware": "Wykryj sprzęt teraz",
+          "select_protocol_hardware": "Wybierz wykryty sprzęt"
+        }
+      },
+      "discover_protocol_hardware": {
+        "title": "Wykrywanie sprzętu zakończone",
+        "description": "Uruchom ograniczone wykrywanie obsługiwanego sprzętu lub wybierz adaptery już znalezione przez Fitness."
+      },
+      "select_protocol_hardware": {
+        "title": "Ręczny wybór sprzętu",
+        "description": "Wybierz obsługiwane adaptery, których Fitness może używać w trybie ręcznym.",
+        "data": {
+          "bluetooth_hardware": "Adaptery Bluetooth",
+          "antplus_hardware": "Adaptery ANT+"
+        },
+        "data_description": {
+          "bluetooth_hardware": "Wybierz obsługiwane adaptery, których Fitness może używać w trybie ręcznym.",
+          "antplus_hardware": "Wybierz obsługiwane adaptery, których Fitness może używać w trybie ręcznym."
         }
       }
     },
@@ -191,7 +245,9 @@
       "no_fitness_profiles": "Utwórz użytkownika Fitness przed przypisaniem tego czujnika.",
       "invalid_discovery": "Dane wykrywania czujnika fitness były nieprawidłowe.",
       "adapters_already_configured": "Wszystkie adaptery danych na żywo Fitness są już skonfigurowane. Włączaj lub wyłączaj je na urządzeniach adapterów.",
-      "adapters_managed_on_devices": "Lokalne adaptery czujników konfiguruje się na urządzeniach adapterów ANT+ i Bluetooth."
+      "adapters_managed_on_devices": "Lokalne adaptery czujników konfiguruje się na urządzeniach adapterów ANT+ i Bluetooth.",
+      "protocol_enabled": "Wybrany protokół połączenia został włączony.",
+      "protocols_updated": "Protokoły czujników Fitness zostały zaktualizowane."
     }
   },
   "options": {
@@ -209,7 +265,7 @@
           "sensor_assignments": "Przypisania czujników",
           "tv_dashboard": "Panel Fitness TV",
           "smart_workout_devices": "Inteligentne urządzenia treningowe",
-          "protocols": "Protokoły czujników",
+          "protocols": "Zarządzaj protokołami czujników",
           "features": "Funkcje panelu",
           "about": "O Fitness"
         }
@@ -276,12 +332,14 @@
         "data": {
           "workout_device_ids": "Urządzenia udostępniające historię treningów/fitness",
           "detailed_strength_analysis": "Szczegółowa analiza siłowa",
-          "workout_retention_days": "Przechowywanie treningów"
+          "workout_retention_days": "Przechowywanie treningów",
+          "fit_file_retention_count": "Pliki FIT/checkpointy do zachowania"
         },
         "data_description": {
           "workout_device_ids": "Urządzenia historii. Wybierane są tylko dokładnie obsługiwane kontrakty Garmin, Strava, Polar, Hevy, Peloton i Oura.",
           "detailed_strength_analysis": "Analizuj ćwiczenia/serie, szacowane 1RM i postęp dla ćwiczeń, gdy dane siłowe są dostępne.",
-          "workout_retention_days": "Liczba dni przechowywania kanonicznych treningów Fitness. 0 oznacza bez limitu."
+          "workout_retention_days": "Liczba dni przechowywania kanonicznych treningów Fitness. 0 oznacza bez limitu.",
+          "fit_file_retention_count": "Liczba najnowszych rekordów FIT/checkpointów Fitness zachowywanych podczas czyszczenia. Pliki na urządzeniu źródłowym nie są usuwane."
         }
       },
       "ai": {
@@ -289,11 +347,17 @@
         "description": "Domyślnie wybrane jest domyślne zadanie AI Home Assistant. Fitness automatycznie podąża za bieżącym ustawieniem systemowym; wybierz konkretne zadanie AI lub agenta konwersacyjnego tylko wtedy, gdy chcesz je przypiąć.",
         "data": {
           "ai_enabled": "Generuj oceny fitness przez AI",
-          "ai_entity": "Dostawca AI"
+          "ai_entity": "Dostawca AI",
+          "training_goal": "Cel treningowy",
+          "training_goal_date": "Data celu / zawodów",
+          "training_days_per_week": "Preferowane dni treningowe w tygodniu"
         },
         "data_description": {
           "ai_enabled": "Włącza interpretację AI deterministycznych obliczeń. AI nigdy nie definiuje ani nie zmienia naukowych formuł lub metadanych sensorów.",
-          "ai_entity": "Użyj domyślnego zadania AI Home Assistant, aby automatycznie podążać za preferencją systemową, albo przypnij konkretne zadanie AI / agenta konwersacyjnego. Jeśli przypięty dostawca stanie się niedostępny, Fitness poinformuje Cię i tymczasowo użyje domyślnego dostawcy systemowego."
+          "ai_entity": "Użyj domyślnego zadania AI Home Assistant, aby automatycznie podążać za preferencją systemową, albo przypnij konkretne zadanie AI / agenta konwersacyjnego. Jeśli przypięty dostawca stanie się niedostępny, Fitness poinformuje Cię i tymczasowo użyje domyślnego dostawcy systemowego.",
+          "training_goal": "Opisz cel, np. komfortowo ukończyć maraton lub poprawić FTP na rowerze. Fitness łączy go z historią, gotowością i regeneracją.",
+          "training_goal_date": "Opcjonalna data celu, używana wyłącznie jako kontekst planowania.",
+          "training_days_per_week": "Preferowana liczba dni treningowych; regeneracja może dodać dni odpoczynku."
         }
       },
       "feedback": {
@@ -419,15 +483,19 @@
         }
       },
       "protocols": {
-        "title": "Protokoły czujników",
-        "description": "Włączaj lub wyłączaj lokalne transporty. Transport używany w aktywnej sesji zostanie wyłączony dopiero po jej zakończeniu.",
+        "title": "Zarządzaj protokołami czujników",
+        "description": "Wybierz protokoły używane przez Fitness oraz automatyczne lub ręczne wykrywanie obsługiwanego sprzętu. Wyłączone protokoły są ukrywane w Fitness. Współdzielony sprzęt systemowy nie jest fizycznie wyłączany przez Fitness.",
         "data": {
-          "bluetooth": "Protokół Bluetooth",
-          "antplus": "Protokół ANT+"
+          "bluetooth": "Bluetooth dla Fitness",
+          "bluetooth_automatic_hardware": "Automatycznie wykrywaj sprzęt Bluetooth",
+          "antplus": "ANT+ dla Fitness",
+          "antplus_automatic_hardware": "Automatycznie wykrywaj sprzęt ANT+"
         },
         "data_description": {
-          "bluetooth": "Włącza transport Bluetooth Home Assistant dla lokalnych czujników Fitness i obsługiwanych archiwów urządzeń.",
-          "antplus": "Włącza lokalny transport ANT+ dla zgodnych odbiorników USB i czujników Fitness."
+          "bluetooth": "Wybierz protokoły używane przez Fitness oraz automatyczne lub ręczne wykrywanie obsługiwanego sprzętu. Wyłączone protokoły są ukrywane w Fitness. Współdzielony sprzęt systemowy nie jest fizycznie wyłączany przez Fitness.",
+          "bluetooth_automatic_hardware": "Wybierz protokoły używane przez Fitness oraz automatyczne lub ręczne wykrywanie obsługiwanego sprzętu. Wyłączone protokoły są ukrywane w Fitness. Współdzielony sprzęt systemowy nie jest fizycznie wyłączany przez Fitness.",
+          "antplus": "Wybierz protokoły używane przez Fitness oraz automatyczne lub ręczne wykrywanie obsługiwanego sprzętu. Wyłączone protokoły są ukrywane w Fitness. Współdzielony sprzęt systemowy nie jest fizycznie wyłączany przez Fitness.",
+          "antplus_automatic_hardware": "Wybierz protokoły używane przez Fitness oraz automatyczne lub ręczne wykrywanie obsługiwanego sprzętu. Wyłączone protokoły są ukrywane w Fitness. Współdzielony sprzęt systemowy nie jest fizycznie wyłączany przez Fitness."
         }
       },
       "features": {
@@ -455,6 +523,30 @@
       "about": {
         "title": "O Fitness",
         "description": "Zainstalowana wersja: {version}\n\n{changelog}"
+      },
+      "protocol_hardware": {
+        "title": "Ręczny wybór sprzętu",
+        "description": "Uruchom ograniczone wykrywanie obsługiwanego sprzętu lub wybierz adaptery już znalezione przez Fitness.",
+        "menu_options": {
+          "protocol_hardware_discover": "Wykryj sprzęt teraz",
+          "protocol_hardware_select": "Wybierz wykryty sprzęt"
+        }
+      },
+      "protocol_hardware_discover": {
+        "title": "Wykrywanie sprzętu zakończone",
+        "description": "Uruchom ograniczone wykrywanie obsługiwanego sprzętu lub wybierz adaptery już znalezione przez Fitness."
+      },
+      "protocol_hardware_select": {
+        "title": "Ręczny wybór sprzętu",
+        "description": "Wybierz obsługiwane adaptery, których Fitness może używać w trybie ręcznym.",
+        "data": {
+          "bluetooth_hardware": "Adaptery Bluetooth",
+          "antplus_hardware": "Adaptery ANT+"
+        },
+        "data_description": {
+          "bluetooth_hardware": "Wybierz obsługiwane adaptery, których Fitness może używać w trybie ręcznym.",
+          "antplus_hardware": "Wybierz obsługiwane adaptery, których Fitness może używać w trybie ręcznym."
+        }
       }
     },
     "abort": {
@@ -3366,10 +3458,11 @@
         "name": "Backend lokalnej synchronizacji"
       },
       "garmin_sync_state": {
-        "name": "Stan synchronizacji treningów",
+        "name": "Stan synchronizacji urządzenia",
         "state": {
           "idle": "Bezczynny",
           "waiting": "Oczekiwanie",
+          "cooldown": "Przerwa urządzenia",
           "connecting": "Łączenie",
           "syncing": "Synchronizowanie",
           "ready": "Aktualne",
@@ -3388,10 +3481,10 @@
         "name": "Treningi na urządzeniu"
       },
       "garmin_imported_file_count": {
-        "name": "Zaimportowane pliki treningów"
+        "name": "Pobrane pliki urządzenia"
       },
       "garmin_pending_file_count": {
-        "name": "Oczekujące pliki treningów"
+        "name": "Oczekujące pliki urządzenia"
       },
       "garmin_downloaded_bytes": {
         "name": "Pobrane bajty"
@@ -3419,6 +3512,15 @@
       },
       "garmin_latest_workout": {
         "name": "Najnowszy trening na urządzeniu"
+      },
+      "garmin_last_batch_success": {
+        "name": "Ostatnia udana partia"
+      },
+      "garmin_next_attempt": {
+        "name": "Następna próba synchronizacji"
+      },
+      "garmin_quarantined_file_count": {
+        "name": "Pominięte nieczytelne pliki"
       }
     },
     "binary_sensor": {
@@ -3449,10 +3551,13 @@
         "name": "Synchronizuj treningi teraz"
       },
       "garmin_sync_workouts": {
-        "name": "Synchronizuj treningi Garmin"
+        "name": "Synchronizuj Garmin teraz"
       },
       "adapter_scan_now": {
         "name": "Skanuj teraz"
+      },
+      "sync_device_data": {
+        "name": "Synchronizuj dane urządzenia"
       },
       "sync_device_health_history": {
         "name": "Synchronizuj historię zdrowia urządzenia"

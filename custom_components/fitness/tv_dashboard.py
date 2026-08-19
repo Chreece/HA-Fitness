@@ -90,6 +90,8 @@ TV_HUB_KEY = "_tv_dashboard_hub"
 DEFAULT_TV_SCALE_PERCENT = 70
 DEFAULT_TV_OLED_PROTECTION = False
 DEFAULT_AUDIO_OUTPUT_ID = "__fitness_browser__"
+DEFAULT_DASHBOARD_NAME = "Main"
+MAX_DASHBOARD_NAME_LENGTH = 48
 CAST_CLIENT_STALE_SECONDS = 14.0
 CAST_STATE_GRACE_SECONDS = 5.0
 
@@ -191,6 +193,8 @@ TV_CARD_IDS: tuple[str, ...] = (
     "today",
     "live_workout",
     "workout",
+    "ai_today",
+    "ai_last_workout",
     "workout_highlights",
     "workout_rpe",
     "strength_details",
@@ -203,6 +207,14 @@ TV_CARD_IDS: tuple[str, ...] = (
     "training_load",
     "route",
     "comparison",
+    "training_plan",
+    "fitness_tests",
+    "plugin_rss",
+    "plugin_weather",
+    "plugin_lights",
+    "plugin_music",
+    "plugin_video",
+    "plugin_tts",
 )
 DEFAULT_TV_CARD_IDS: tuple[str, ...] = (
     "live_workout",
@@ -332,6 +344,36 @@ class FitnessTVDashboardHub:
             card_id = str(raw)
             if card_id in allowed and card_id not in result:
                 result.append(card_id)
+        return result
+
+    @staticmethod
+    def _sanitize_card_layout(layout: Any) -> dict[str, dict[str, int]]:
+        """Return bounded per-card TV layout overrides."""
+        if not isinstance(layout, dict):
+            return {}
+        allowed = set(TV_CARD_IDS)
+        result: dict[str, dict[str, int]] = {}
+        for raw_card_id, raw_settings in layout.items():
+            card_id = str(raw_card_id or "")
+            if card_id not in allowed or not isinstance(raw_settings, dict):
+                continue
+            settings: dict[str, int] = {}
+            try:
+                column_span = int(raw_settings.get("column_span") or 0)
+            except (TypeError, ValueError):
+                column_span = 0
+            if 1 <= column_span <= 12:
+                settings["column_span"] = column_span
+            try:
+                height = int(raw_settings.get("height") or 0)
+            except (TypeError, ValueError):
+                height = 0
+            if 120 <= height <= 1600:
+                settings["height"] = height
+            if settings:
+                result[card_id] = settings
+            if len(result) >= len(TV_CARD_IDS):
+                break
         return result
 
     @staticmethod
@@ -580,11 +622,15 @@ class FitnessTVDashboardHub:
         for key, sanitizer in sanitizers.items():
             if key in raw:
                 result[key] = sanitizer(raw.get(key))
+        dashboards, active_dashboard_id = cls._sanitize_dashboards(raw)
+        result["dashboards"] = dashboards
+        result["active_dashboard_id"] = active_dashboard_id
         for key in (
             "oled_protection",
             "animations_enabled",
             "light_feedback_enabled",
             "tts_announcements_enabled",
+            "toolbar_auto_hide",
         ):
             if key in raw:
                 result[key] = bool(raw.get(key))
@@ -663,21 +709,112 @@ class FitnessTVDashboardHub:
         profile = self._data.get("profiles", {}).get(str(profile_entry_id))
         return bool(profile.get("tts_announcements_enabled", True)) if isinstance(profile, dict) else True
 
+    @classmethod
+    def _sanitize_dashboards(cls, profile: dict[str, Any]) -> tuple[list[dict[str, Any]], str]:
+        """Return bounded dashboard definitions, migrating the legacy single cards list."""
+        raw = profile.get("dashboards")
+        dashboards: list[dict[str, Any]] = []
+        if isinstance(raw, list):
+            for index, item in enumerate(raw[:12]):
+                if not isinstance(item, dict):
+                    continue
+                dashboard_id = str(item.get("id") or f"dashboard-{index + 1}")[:64]
+                name = str(item.get("name") or f"Dashboard {index + 1}").strip()[:MAX_DASHBOARD_NAME_LENGTH]
+                dashboards.append({
+                    "id": dashboard_id,
+                    "name": name or f"Dashboard {index + 1}",
+                    "cards": cls._sanitize_cards(item.get("cards")),
+                    "layout": cls._sanitize_card_layout(item.get("layout")),
+                    "theme": str(item.get("theme") or "performance")[:32],
+                })
+        if not dashboards:
+            cards = cls._sanitize_cards(profile.get("cards"))
+            if "cards" not in profile:
+                cards = list(DEFAULT_TV_CARD_IDS)
+            dashboards = [{"id": "main", "name": DEFAULT_DASHBOARD_NAME, "cards": cards, "layout": {}, "theme": str(profile.get("fitness_theme") or "performance")[:32]}]
+        ids = {row["id"] for row in dashboards}
+        active = str(profile.get("active_dashboard_id") or dashboards[0]["id"])
+        if active not in ids:
+            active = dashboards[0]["id"]
+        return dashboards, active
+
+    async def async_manage_dashboard(
+        self,
+        profile_entry_id: str,
+        *,
+        action: str,
+        dashboard_id: str = "",
+        name: str = "",
+        dashboard_max: int = 3,
+    ) -> dict[str, Any]:
+        """Create, rename, select or delete one profile dashboard."""
+        await self.async_load()
+        current = self._data["profiles"].get(profile_entry_id)
+        if not isinstance(current, dict):
+            current = {}
+        updated = dict(current)
+        dashboards, active = self._sanitize_dashboards(updated)
+        action = str(action or "").strip()
+        dashboard_id = str(dashboard_id or "").strip()
+        if action == "create":
+            if len(dashboards) >= max(1, int(dashboard_max)):
+                raise ValueError("dashboard_limit_reached")
+            new_id = f"dashboard-{uuid4().hex[:12]}"
+            clean_name = str(name or f"Dashboard {len(dashboards)+1}").strip()[:MAX_DASHBOARD_NAME_LENGTH]
+            dashboards.append({"id": new_id, "name": clean_name or f"Dashboard {len(dashboards)+1}", "cards": list(DEFAULT_TV_CARD_IDS), "layout": {}, "theme": "performance"})
+            active = new_id
+        elif action == "rename":
+            clean_name = str(name or "").strip()[:MAX_DASHBOARD_NAME_LENGTH]
+            if not clean_name:
+                raise ValueError("invalid_dashboard_name")
+            found = False
+            for row in dashboards:
+                if row["id"] == dashboard_id:
+                    row["name"] = clean_name
+                    found = True
+                    break
+            if not found:
+                raise ValueError("dashboard_not_found")
+        elif action == "delete":
+            if len(dashboards) <= 1:
+                raise ValueError("last_dashboard")
+            dashboards = [row for row in dashboards if row["id"] != dashboard_id]
+            if active == dashboard_id:
+                active = dashboards[0]["id"]
+        elif action == "select":
+            if dashboard_id not in {row["id"] for row in dashboards}:
+                raise ValueError("dashboard_not_found")
+            active = dashboard_id
+        else:
+            raise ValueError("invalid_dashboard_action")
+        updated["dashboards"] = dashboards
+        updated["active_dashboard_id"] = active
+        # Keep legacy cards synchronized with the active dashboard for older clients.
+        active_row = next(row for row in dashboards if row["id"] == active)
+        updated["cards"] = list(active_row["cards"])
+        self._data["profiles"][profile_entry_id] = updated
+        await self._async_save_data()
+        return await self.async_preferences(profile_entry_id)
+
     async def async_preferences(self, profile_entry_id: str) -> dict[str, Any]:
         await self.async_load()
         profile = self._data["profiles"].get(profile_entry_id)
         if not isinstance(profile, dict):
             profile = {}
-        cards = self._sanitize_cards(profile.get("cards"))
-        # An explicitly empty list is meaningful: the user removed every card.
-        if "cards" not in profile:
-            cards = list(DEFAULT_TV_CARD_IDS)
+        dashboards, active_dashboard_id = self._sanitize_dashboards(profile)
+        active_dashboard = next(
+            row for row in dashboards if row["id"] == active_dashboard_id
+        )
+        cards = list(active_dashboard["cards"])
         try:
             scale = int(profile.get("tv_scale_percent", DEFAULT_TV_SCALE_PERCENT))
         except (TypeError, ValueError):
             scale = DEFAULT_TV_SCALE_PERCENT
         return {
             "cards": cards,
+            "dashboards": dashboards,
+            "active_dashboard_id": active_dashboard_id,
+            "card_layout": dict(active_dashboard.get("layout") or {}),
             "favorites": self._sanitize_favorites(profile.get("favorites")),
             "user_playlists": self._sanitize_user_playlists(profile.get("user_playlists")),
             "last_media": self._sanitize_last_media(profile.get("last_media")),
@@ -686,6 +823,7 @@ class FitnessTVDashboardHub:
                 profile.get("oled_protection", DEFAULT_TV_OLED_PROTECTION)
             ),
             "animations_enabled": bool(profile.get("animations_enabled", True)),
+            "toolbar_auto_hide": bool(profile.get("toolbar_auto_hide", False)),
             "light_feedback_enabled": bool(profile.get("light_feedback_enabled", True)),
             "tts_announcements_enabled": bool(profile.get("tts_announcements_enabled", True)),
             "audio_output_id": self._sanitize_audio_output_id(profile.get("audio_output_id")),
@@ -709,12 +847,15 @@ class FitnessTVDashboardHub:
         profile_entry_id: str,
         *,
         cards: list[str] | None = None,
+        dashboard_id: str | None = None,
+        card_layout: dict[str, Any] | None = None,
         favorites: list[dict[str, Any]] | None = None,
         user_playlists: list[dict[str, Any]] | None = None,
         last_media: dict[str, Any] | None = None,
         tv_scale_percent: int | None = None,
         oled_protection: bool | None = None,
         animations_enabled: bool | None = None,
+        toolbar_auto_hide: bool | None = None,
         light_feedback_enabled: bool | None = None,
         tts_announcements_enabled: bool | None = None,
         audio_output_id: str | None = None,
@@ -731,8 +872,22 @@ class FitnessTVDashboardHub:
             current = {}
         previous_audio_output = self._sanitize_audio_output_id(current.get("audio_output_id"))
         updated = dict(current)
-        if cards is not None:
-            updated["cards"] = self._sanitize_cards(cards)
+        if cards is not None or card_layout is not None:
+            dashboards, active = self._sanitize_dashboards(updated)
+            target_id = str(dashboard_id or active)
+            found_target = False
+            for row in dashboards:
+                if row["id"] == target_id:
+                    found_target = True
+                    if cards is not None:
+                        row["cards"] = self._sanitize_cards(cards)
+                    if card_layout is not None:
+                        row["layout"] = self._sanitize_card_layout(card_layout)
+                    break
+            updated["dashboards"] = dashboards
+            updated["active_dashboard_id"] = target_id if found_target else active
+            active_row = next(row for row in dashboards if row["id"] == updated["active_dashboard_id"])
+            updated["cards"] = list(active_row["cards"])
         if favorites is not None:
             updated["favorites"] = self._sanitize_favorites(favorites)
         if user_playlists is not None:
@@ -747,6 +902,8 @@ class FitnessTVDashboardHub:
             updated["oled_protection"] = bool(oled_protection)
         if animations_enabled is not None:
             updated["animations_enabled"] = bool(animations_enabled)
+        if toolbar_auto_hide is not None:
+            updated["toolbar_auto_hide"] = bool(toolbar_auto_hide)
         if light_feedback_enabled is not None:
             updated["light_feedback_enabled"] = bool(light_feedback_enabled)
         if tts_announcements_enabled is not None:
@@ -2738,6 +2895,11 @@ async def websocket_tv_preferences(hass: HomeAssistant, connection, msg) -> None
         vol.Required("type"): "fitness/tv/preferences/save",
         vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
         vol.Optional("cards"): vol.All([str], vol.Length(max=len(TV_CARD_IDS))),
+        vol.Optional("dashboard_id"): vol.All(str, vol.Length(max=64)),
+        vol.Optional("card_layout"): vol.All(
+            dict,
+            bounded_websocket_payload(max_nodes=256, max_depth=3, max_string_length=128),
+        ),
         vol.Optional("favorites"): vol.All(
             [dict], vol.Length(max=100),
             bounded_websocket_payload(max_nodes=2_048, max_depth=5, max_string_length=4_096),
@@ -2750,6 +2912,7 @@ async def websocket_tv_preferences(hass: HomeAssistant, connection, msg) -> None
         vol.Optional("tv_scale_percent"): vol.All(vol.Coerce(int), vol.Range(min=10, max=150)),
         vol.Optional("oled_protection"): bool,
         vol.Optional("animations_enabled"): bool,
+        vol.Optional("toolbar_auto_hide"): bool,
         vol.Optional("light_feedback_enabled"): bool,
         vol.Optional("tts_announcements_enabled"): bool,
         vol.Optional("audio_output_id"): str,
@@ -2789,12 +2952,15 @@ async def websocket_tv_preferences_save(hass: HomeAssistant, connection, msg) ->
     result = await hub.async_set_preferences(
         profile_entry_id,
         cards=list(msg["cards"]) if "cards" in msg else None,
+        dashboard_id=msg.get("dashboard_id"),
+        card_layout=dict(msg["card_layout"]) if "card_layout" in msg else None,
         favorites=list(msg["favorites"]) if "favorites" in msg else None,
         user_playlists=list(msg["user_playlists"]) if "user_playlists" in msg else None,
         last_media=dict(msg["last_media"]) if "last_media" in msg else None,
         tv_scale_percent=msg.get("tv_scale_percent"),
         oled_protection=msg.get("oled_protection"),
         animations_enabled=msg.get("animations_enabled"),
+        toolbar_auto_hide=msg.get("toolbar_auto_hide"),
         light_feedback_enabled=msg.get("light_feedback_enabled"),
         tts_announcements_enabled=msg.get("tts_announcements_enabled"),
         audio_output_id=msg.get("audio_output_id"),
@@ -2805,17 +2971,52 @@ async def websocket_tv_preferences_save(hass: HomeAssistant, connection, msg) ->
         music_search_scopes=dict(msg["music_search_scopes"]) if "music_search_scopes" in msg else None,
         music_search_types=list(msg["music_search_types"]) if "music_search_types" in msg else None,
     )
-    if any(key in msg for key in ("tv_scale_percent", "oled_protection", "animations_enabled", "light_feedback_enabled", "tts_announcements_enabled")):
+    if any(key in msg for key in ("tv_scale_percent", "oled_protection", "animations_enabled", "toolbar_auto_hide", "light_feedback_enabled", "tts_announcements_enabled")):
         hub.broadcast_settings(
             profile_entry_id,
             {
                 "tv_scale_percent": result["tv_scale_percent"],
                 "oled_protection": result["oled_protection"],
                 "animations_enabled": result["animations_enabled"],
+                "toolbar_auto_hide": result["toolbar_auto_hide"],
                 "light_feedback_enabled": result["light_feedback_enabled"],
                 "tts_announcements_enabled": result["tts_announcements_enabled"],
             },
         )
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/tv/dashboard/manage",
+        vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+        vol.Required("action"): vol.In({"create", "rename", "delete", "select"}),
+        vol.Optional("dashboard_id"): vol.All(str, vol.Length(max=64)),
+        vol.Optional("name"): vol.All(str, vol.Length(max=MAX_DASHBOARD_NAME_LENGTH)),
+    }
+)
+@websocket_api.async_response
+async def websocket_tv_dashboard_manage(hass: HomeAssistant, connection, msg) -> None:
+    profile_entry_id = str(msg["profile_entry_id"])
+    if not _profile_loaded(hass, profile_entry_id):
+        connection.send_error(msg["id"], "profile_not_found", "Fitness profile not loaded")
+        return
+    hub = get_tv_dashboard_hub(hass)
+    await _require_profile_control(hass, connection, profile_entry_id, hub=hub)
+    from .access_control import get_fitness_access_controller
+    controller = get_fitness_access_controller(hass)
+    await controller.async_load()
+    try:
+        result = await hub.async_manage_dashboard(
+            profile_entry_id,
+            action=str(msg["action"]),
+            dashboard_id=str(msg.get("dashboard_id") or ""),
+            name=str(msg.get("name") or ""),
+            dashboard_max=controller.dashboard_max(),
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], str(err), str(err))
+        return
     connection.send_result(msg["id"], result)
 
 
@@ -3765,6 +3966,7 @@ def async_register_tv_websocket_commands(hass: HomeAssistant) -> None:
         domain_data[MA_SENDSPIN_PROXY_VIEW_KEY] = True
     websocket_api.async_register_command(hass, websocket_tv_preferences)
     websocket_api.async_register_command(hass, websocket_tv_preferences_save)
+    websocket_api.async_register_command(hass, websocket_tv_dashboard_manage)
     websocket_api.async_register_command(hass, websocket_tv_profile_configure)
     websocket_api.async_register_command(hass, websocket_tv_heartbeat)
     websocket_api.async_register_command(hass, websocket_tv_cast_rearm)

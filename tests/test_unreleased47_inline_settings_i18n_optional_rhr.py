@@ -85,5 +85,5 @@ def test_tv_setup_text_does_not_name_an_external_frontend_extension():
 
 
 def test_unreleased_frontend_revision_is_47():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in FRONTEND
-    assert '?v=unreleased-85' in DASH
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in FRONTEND
+    assert '?v=unreleased-89' in DASH

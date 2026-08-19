@@ -68,4 +68,4 @@ def test_frontend_revision_matches_backend_resource():
 
 
 def test_changelog_contains_final_stability_polish():
-    assert "Final dashboard stability polish" in CHANGELOG
+    assert "stability work preventing unnecessary map blinking/reloads" in CHANGELOG

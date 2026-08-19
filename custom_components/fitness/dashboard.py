@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -63,6 +64,8 @@ from .const import (
     TV_DASHBOARD_PATH,
     DOMAIN,
 )
+from .workout_prescriptions import fitness_test_catalog, normalize_prescription
+
 from .dashboard_translations import (
     DASHBOARD_LANGUAGE_AUDIT_TEXT,
     SUPPORTED_DASHBOARD_LANGUAGES,
@@ -100,7 +103,7 @@ _LEGACY_RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"
 _LEGACY_CAST_RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard-cast.js"
 _RESOURCE_PREFIX = "/fitness/frontend/fitness-dashboard-"
 _RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"
-_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-85"
+_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-89"
 _SETUP_KEY = "_dashboard_frontend_setup"
 _RECONCILE_TASK_KEY = "_dashboard_reconcile_task"
 _TV_DASHBOARD_CARD_TYPE = "custom:fitness-tv-dashboard-card"
@@ -1572,7 +1575,7 @@ _DASHBOARD_UI_TEXT: dict[str, dict[str, str]] = {
     "ko": {"difference":"차이","history":"기록","measurements":"측정","actual":"실제","trend":"추세","predicted":"예측","zoom_in":"확대","zoom_out":"축소","reset_zoom":"확대/축소 초기화","workout":"운동","exercise":"운동 종목","exercises":"종목","sets":"세트","reps":"회","volume":"볼륨","strength_progression":"근력 향상","total_volume":"총 볼륨","awake":"깨어 있음","light_sleep":"얕은 수면","deep_sleep":"깊은 수면","rem_sleep":"REM 수면","current_marker":"현재","predicted_marker":"예측","date_axis":"날짜"},
 }
 _TV_DASHBOARD_TEXT: dict[str, dict[str, str]] = {
-    "en": {"tv_dashboard":"Fitness TV","tv_profile":"Profile","add_cards":"Add cards","arrange_cards":"Arrange","move_earlier":"Move earlier","move_later":"Move later","card_picker":"Cards on this TV","play":"Play","pause":"Pause","media_browser":"Media browser","now_playing":"Now playing","media_selected":"Selected","nothing_playing":"No music selected","media_browser_back":"Back","media_browser_empty":"No media is available here.","music_only":"Select an audio item to play music.","media_error":"Unable to play this media.","tv_no_profiles":"No Fitness profile has the TV dashboard enabled.","card_today":"Today","card_live_workout":"Live workout","card_workout":"Workout","card_workout_highlights":"Workout highlights","card_workout_rpe":"Workout RPE","card_strength_details":"Strength details","card_sleep_recovery":"Sleep & recovery","card_sleep_stages":"Sleep stages","card_recovery":"Recovery","card_evaluation":"Evaluation","card_progress":"Progress","card_training_adaptation":"Training adaptation","card_training_load":"Training load","card_route":"Route","card_comparison":"Workout comparison","cast_dashboard":'Cast',"cast_dashboard_title":'Cast Fitness TV',"cast_to":'Cast to',"cast_now":'Cast now',"cast_default":'default',"cast_unavailable":'unavailable',"cast_no_targets":'No Google Cast displays are available.',"cast_connecting":"Connecting to TV…","cast_sent":'Dashboard sent to TV.',"cast_failed":'Unable to cast the dashboard.',"cast_stop":"Stop Cast","cast_restarting":"Restarting Cast session…","cast_stopping":"Stopping Cast…","cast_stopped":"Fitness Cast stopped.","cast_stop_failed":"Unable to stop Fitness Cast."},
+    "en": {"tv_dashboard":"Fitness TV","tv_profile":"Profile","add_cards":"Add cards","arrange_cards":"Arrange","move_earlier":"Move earlier","move_later":"Move later","card_picker":"Cards on this TV","play":"Play","pause":"Pause","media_browser":"Media browser","now_playing":"Now playing","media_selected":"Selected","nothing_playing":"No music selected","media_browser_back":"Back","media_browser_empty":"No media is available here.","music_only":"Select an audio item to play music.","media_error":"Unable to play this media.","tv_no_profiles":"No Fitness profile has the TV dashboard enabled.","card_today":"Today","card_live_workout":"Live workout","card_workout":"Workouts","card_workout_highlights":"Workout highlights","card_workout_rpe":"Workout RPE","card_strength_details":"Strength details","card_sleep_recovery":"Sleep & recovery","card_sleep_stages":"Sleep stages","card_recovery":"Recovery","card_evaluation":"Evaluation","card_progress":"Progress","card_training_adaptation":"Training adaptation","card_training_load":"Training load","card_route":"Route","card_comparison":"Workout comparison","cast_dashboard":'Cast',"cast_dashboard_title":'Cast Fitness TV',"cast_to":'Cast to',"cast_now":'Cast now',"cast_default":'default',"cast_unavailable":'unavailable',"cast_no_targets":'No Google Cast displays are available.',"cast_connecting":"Connecting to TV…","cast_sent":'Dashboard sent to TV.',"cast_failed":'Unable to cast the dashboard.',"cast_stop":"Stop Cast","cast_restarting":"Restarting Cast session…","cast_stopping":"Stopping Cast…","cast_stopped":"Fitness Cast stopped.","cast_stop_failed":"Unable to stop Fitness Cast."},
     "el": {"tv_dashboard":"Fitness TV","tv_profile":"Προφίλ","add_cards":"Προσθήκη καρτών","arrange_cards":"Τακτοποίηση","move_earlier":"Μετακίνηση πριν","move_later":"Μετακίνηση μετά","card_picker":"Κάρτες σε αυτή την TV","play":"Αναπαραγωγή","pause":"Παύση","media_browser":"Περιήγηση πολυμέσων","now_playing":"Αναπαράγεται τώρα","media_selected":"Επιλεγμένο","nothing_playing":"Δεν έχει επιλεγεί μουσική","media_browser_back":"Πίσω","media_browser_empty":"Δεν υπάρχουν διαθέσιμα πολυμέσα εδώ.","music_only":"Επίλεξε ένα στοιχείο ήχου για αναπαραγωγή μουσικής.","media_error":"Δεν ήταν δυνατή η αναπαραγωγή αυτού του πολυμέσου.","tv_no_profiles":"Κανένα προφίλ Fitness δεν έχει ενεργοποιημένο τον πίνακα TV.","card_today":"Σήμερα","card_live_workout":"Ζωντανή προπόνηση","card_workout":"Προπόνηση","card_workout_highlights":"Κύρια στοιχεία προπόνησης","card_workout_rpe":"RPE προπόνησης","card_strength_details":"Λεπτομέρειες δύναμης","card_sleep_recovery":"Ύπνος & αποκατάσταση","card_sleep_stages":"Στάδια ύπνου","card_recovery":"Αποκατάσταση","card_evaluation":"Αξιολόγηση","card_progress":"Πρόοδος","card_training_adaptation":"Προσαρμογή προπόνησης","card_training_load":"Προπονητικό φορτίο","card_route":"Διαδρομή","card_comparison":"Σύγκριση προπόνησης","cast_dashboard":'Μετάδοση',"cast_dashboard_title":'Μετάδοση Fitness TV',"cast_to":'Μετάδοση σε',"cast_now":'Μετάδοση τώρα',"cast_default":'προεπιλογή',"cast_unavailable":'μη διαθέσιμο',"cast_no_targets":'Δεν υπάρχουν διαθέσιμες οθόνες Google Cast.',"cast_connecting":"Σύνδεση με την TV…","cast_sent":'Ο πίνακας στάλθηκε στην TV.',"cast_failed":'Δεν ήταν δυνατή η μετάδοση του πίνακα.',"cast_stop":"Διακοπή μετάδοσης","cast_restarting":"Επανεκκίνηση συνεδρίας Cast…","cast_stopping":"Διακοπή μετάδοσης…","cast_stopped":"Η μετάδοση Fitness σταμάτησε.","cast_stop_failed":"Δεν ήταν δυνατή η διακοπή της μετάδοσης Fitness."},
     "de": {"tv_dashboard":"Fitness TV","tv_profile":"Profil","add_cards":"Karten hinzufügen","arrange_cards":"Anordnen","move_earlier":"Nach vorne","move_later":"Nach hinten","card_picker":"Karten auf diesem TV","play":"Wiedergabe","pause":"Pause","media_browser":"Medienbrowser","now_playing":"Aktuelle Wiedergabe","media_selected":"Ausgewählt","nothing_playing":"Keine Musik ausgewählt","media_browser_back":"Zurück","media_browser_empty":"Hier sind keine Medien verfügbar.","music_only":"Wähle ein Audioelement zum Abspielen von Musik.","media_error":"Dieses Medium kann nicht wiedergegeben werden.","tv_no_profiles":"Für kein Fitness-Profil ist das TV-Dashboard aktiviert.","card_today":"Heute","card_live_workout":"Live-Training","card_workout":"Training","card_workout_highlights":"Trainingshighlights","card_workout_rpe":"Training-RPE","card_strength_details":"Kraftdetails","card_sleep_recovery":"Schlaf & Erholung","card_sleep_stages":"Schlafphasen","card_recovery":"Erholung","card_evaluation":"Auswertung","card_progress":"Fortschritt","card_training_adaptation":"Trainingsanpassung","card_training_load":"Trainingsbelastung","card_route":"Route","card_comparison":"Trainingsvergleich","cast_dashboard":'Cast',"cast_dashboard_title":'Fitness TV übertragen',"cast_to":'Übertragen auf',"cast_now":'Jetzt übertragen',"cast_default":'Standard',"cast_unavailable":'nicht verfügbar',"cast_no_targets":'Keine Google-Cast-Anzeigen verfügbar.',"cast_connecting":"Verbindung zum TV…","cast_sent":'Dashboard an TV gesendet.',"cast_failed":'Dashboard konnte nicht übertragen werden.',"cast_stop":"Cast beenden","cast_restarting":"Cast-Sitzung wird neu gestartet…","cast_stopping":"Cast wird beendet…","cast_stopped":"Fitness-Cast beendet.","cast_stop_failed":"Fitness-Cast konnte nicht beendet werden."},
     "fr": {"tv_dashboard":"Fitness TV","tv_profile":"Profil","add_cards":"Ajouter des cartes","arrange_cards":"Organiser","move_earlier":"Déplacer avant","move_later":"Déplacer après","card_picker":"Cartes sur ce téléviseur","play":"Lecture","pause":"Pause","media_browser":"Navigateur multimédia","now_playing":"Lecture en cours","media_selected":"Sélectionné","nothing_playing":"Aucune musique sélectionnée","media_browser_back":"Retour","media_browser_empty":"Aucun média disponible ici.","music_only":"Sélectionnez un élément audio pour écouter de la musique.","media_error":"Impossible de lire ce média.","tv_no_profiles":"Aucun profil Fitness n’a activé le tableau de bord TV.","card_today":"Aujourd’hui","card_live_workout":"Entraînement en direct","card_workout":"Entraînement","card_workout_highlights":"Points forts de l’entraînement","card_workout_rpe":"RPE de l’entraînement","card_strength_details":"Détails de force","card_sleep_recovery":"Sommeil et récupération","card_sleep_stages":"Phases du sommeil","card_recovery":"Récupération","card_evaluation":"Évaluation","card_progress":"Progression","card_training_adaptation":"Adaptation à l’entraînement","card_training_load":"Charge d’entraînement","card_route":"Parcours","card_comparison":"Comparaison d’entraînement","cast_dashboard":'Caster',"cast_dashboard_title":'Caster Fitness TV',"cast_to":'Caster vers',"cast_now":'Caster maintenant',"cast_default":'par défaut',"cast_unavailable":'indisponible',"cast_no_targets":'Aucun écran Google Cast disponible.',"cast_connecting":"Connexion au téléviseur…","cast_sent":'Tableau de bord envoyé au téléviseur.',"cast_failed":'Impossible de caster le tableau de bord.',"cast_stop":"Arrêter le Cast","cast_restarting":"Redémarrage de la session Cast…","cast_stopping":"Arrêt du Cast…","cast_stopped":"Cast Fitness arrêté.","cast_stop_failed":"Impossible d’arrêter le Cast Fitness."},
@@ -2054,6 +2057,42 @@ _TV_DASHBOARD_ACCESS_TEXT: dict[str, dict[str, str]] = {
     },
 }
 
+_TV_DASHBOARD_MULTI_TEXT: dict[str, dict[str, str]] = {
+    "en":{"dashboard_limit":"Dashboard limit","dashboard_limit_hint":"Maximum number of Fitness TV dashboards each user may create.","add_dashboard":"Dashboard","rename_dashboard":"Rename dashboard","dashboard_name":"Dashboard name","dashboard_limit_reached":"The dashboard limit has been reached.","delete_dashboard_confirm":"Delete dashboard"},
+    "el":{"dashboard_limit":"Όριο πινάκων","dashboard_limit_hint":"Μέγιστος αριθμός πινάκων Fitness TV που μπορεί να δημιουργήσει κάθε χρήστης.","add_dashboard":"Πίνακας","rename_dashboard":"Μετονομασία πίνακα","dashboard_name":"Όνομα πίνακα","dashboard_limit_reached":"Έχει συμπληρωθεί το όριο πινάκων.","delete_dashboard_confirm":"Διαγραφή πίνακα"},
+    "de":{"dashboard_limit":"Dashboard-Limit","dashboard_limit_hint":"Maximale Anzahl an Fitness-TV-Dashboards pro Benutzer.","add_dashboard":"Dashboard","rename_dashboard":"Dashboard umbenennen","dashboard_name":"Dashboard-Name","dashboard_limit_reached":"Das Dashboard-Limit wurde erreicht.","delete_dashboard_confirm":"Dashboard löschen"},
+    "es":{"dashboard_limit":"Límite de paneles","dashboard_limit_hint":"Número máximo de paneles Fitness TV que puede crear cada usuario.","add_dashboard":"Panel","rename_dashboard":"Renombrar panel","dashboard_name":"Nombre del panel","dashboard_limit_reached":"Se alcanzó el límite de paneles.","delete_dashboard_confirm":"Eliminar panel"},
+    "fr":{"dashboard_limit":"Limite de tableaux","dashboard_limit_hint":"Nombre maximal de tableaux Fitness TV par utilisateur.","add_dashboard":"Tableau","rename_dashboard":"Renommer le tableau","dashboard_name":"Nom du tableau","dashboard_limit_reached":"La limite de tableaux est atteinte.","delete_dashboard_confirm":"Supprimer le tableau"},
+    "it":{"dashboard_limit":"Limite dashboard","dashboard_limit_hint":"Numero massimo di dashboard Fitness TV per utente.","add_dashboard":"Dashboard","rename_dashboard":"Rinomina dashboard","dashboard_name":"Nome dashboard","dashboard_limit_reached":"È stato raggiunto il limite di dashboard.","delete_dashboard_confirm":"Elimina dashboard"},
+    "ja":{"dashboard_limit":"ダッシュボード上限","dashboard_limit_hint":"各ユーザーが作成できる Fitness TV ダッシュボードの最大数です。","add_dashboard":"ダッシュボード","rename_dashboard":"ダッシュボード名を変更","dashboard_name":"ダッシュボード名","dashboard_limit_reached":"ダッシュボード上限に達しました。","delete_dashboard_confirm":"ダッシュボードを削除"},
+    "ko":{"dashboard_limit":"대시보드 제한","dashboard_limit_hint":"사용자별 Fitness TV 대시보드 최대 개수입니다.","add_dashboard":"대시보드","rename_dashboard":"대시보드 이름 변경","dashboard_name":"대시보드 이름","dashboard_limit_reached":"대시보드 제한에 도달했습니다.","delete_dashboard_confirm":"대시보드 삭제"},
+    "nl":{"dashboard_limit":"Dashboardlimiet","dashboard_limit_hint":"Maximaal aantal Fitness TV-dashboards per gebruiker.","add_dashboard":"Dashboard","rename_dashboard":"Dashboard hernoemen","dashboard_name":"Dashboardnaam","dashboard_limit_reached":"De dashboardlimiet is bereikt.","delete_dashboard_confirm":"Dashboard verwijderen"},
+    "pl":{"dashboard_limit":"Limit pulpitów","dashboard_limit_hint":"Maksymalna liczba pulpitów Fitness TV na użytkownika.","add_dashboard":"Pulpit","rename_dashboard":"Zmień nazwę pulpitu","dashboard_name":"Nazwa pulpitu","dashboard_limit_reached":"Osiągnięto limit pulpitów.","delete_dashboard_confirm":"Usuń pulpit"},
+    "pt":{"dashboard_limit":"Limite de painéis","dashboard_limit_hint":"Número máximo de painéis Fitness TV por utilizador.","add_dashboard":"Painel","rename_dashboard":"Renomear painel","dashboard_name":"Nome do painel","dashboard_limit_reached":"O limite de painéis foi atingido.","delete_dashboard_confirm":"Eliminar painel"},
+    "ru":{"dashboard_limit":"Лимит панелей","dashboard_limit_hint":"Максимальное число панелей Fitness TV для каждого пользователя.","add_dashboard":"Панель","rename_dashboard":"Переименовать панель","dashboard_name":"Название панели","dashboard_limit_reached":"Достигнут лимит панелей.","delete_dashboard_confirm":"Удалить панель"},
+    "tr":{"dashboard_limit":"Pano sınırı","dashboard_limit_hint":"Her kullanıcı için en fazla Fitness TV pano sayısı.","add_dashboard":"Pano","rename_dashboard":"Panoyu yeniden adlandır","dashboard_name":"Pano adı","dashboard_limit_reached":"Pano sınırına ulaşıldı.","delete_dashboard_confirm":"Panoyu sil"},
+    "uk":{"dashboard_limit":"Ліміт панелей","dashboard_limit_hint":"Максимальна кількість панелей Fitness TV для кожного користувача.","add_dashboard":"Панель","rename_dashboard":"Перейменувати панель","dashboard_name":"Назва панелі","dashboard_limit_reached":"Досягнуто ліміт панелей.","delete_dashboard_confirm":"Видалити панель"},
+    "zh":{"dashboard_limit":"仪表板上限","dashboard_limit_hint":"每位用户可创建的 Fitness TV 仪表板最大数量。","add_dashboard":"仪表板","rename_dashboard":"重命名仪表板","dashboard_name":"仪表板名称","dashboard_limit_reached":"已达到仪表板数量上限。","delete_dashboard_confirm":"删除仪表板"},
+}
+
+_TV_DASHBOARD_LAYOUT_TEXT: dict[str, dict[str, str]] = {
+    "en":{"manage_dashboards":"Dashboards","dashboard_auto_size":"Auto-size cards","toolbar_auto_hide":"Auto-hide top bar","toolbar_auto_hide_hint":"Hide the top bar after inactivity. Move or scroll to the top, or press Up from a top-row TV card, to show it again.","resize_card":"Resize card","reset_card_size":"Use automatic size"},
+    "el":{"manage_dashboards":"Πίνακες","dashboard_auto_size":"Αυτόματο μέγεθος καρτών","toolbar_auto_hide":"Αυτόματη απόκρυψη επάνω μπάρας","toolbar_auto_hide_hint":"Κρύβει την επάνω μπάρα μετά από αδράνεια. Μετακινήσου ή κύλησε στην κορυφή ή πάτησε Πάνω από κάρτα της επάνω σειράς στην TV για να εμφανιστεί ξανά.","resize_card":"Αλλαγή μεγέθους κάρτας","reset_card_size":"Αυτόματο μέγεθος"},
+    "de":{"manage_dashboards":"Dashboards","dashboard_auto_size":"Karten automatisch anpassen","toolbar_auto_hide":"Obere Leiste automatisch ausblenden","toolbar_auto_hide_hint":"Blendet die obere Leiste nach Inaktivität aus. Bewege oder scrolle nach oben oder drücke auf dem TV von einer Karte der obersten Reihe aus Nach oben, um sie wieder einzublenden.","resize_card":"Kartengröße ändern","reset_card_size":"Automatische Größe verwenden"},
+    "es":{"manage_dashboards":"Paneles","dashboard_auto_size":"Ajustar tarjetas automáticamente","toolbar_auto_hide":"Ocultar barra superior automáticamente","toolbar_auto_hide_hint":"Oculta la barra superior tras un periodo de inactividad. Mueve o desplázate arriba, o pulsa Arriba desde una tarjeta de la fila superior del televisor, para mostrarla de nuevo.","resize_card":"Cambiar tamaño de tarjeta","reset_card_size":"Usar tamaño automático"},
+    "fr":{"manage_dashboards":"Tableaux","dashboard_auto_size":"Dimensionner automatiquement les cartes","toolbar_auto_hide":"Masquer automatiquement la barre supérieure","toolbar_auto_hide_hint":"Masque la barre supérieure après une période d’inactivité. Revenez en haut ou appuyez sur Haut depuis une carte de la première rangée du téléviseur pour la réafficher.","resize_card":"Redimensionner la carte","reset_card_size":"Utiliser la taille automatique"},
+    "it":{"manage_dashboards":"Dashboard","dashboard_auto_size":"Ridimensiona automaticamente le schede","toolbar_auto_hide":"Nascondi automaticamente la barra superiore","toolbar_auto_hide_hint":"Nasconde la barra superiore dopo un periodo di inattività. Spostati o scorri verso l’alto oppure premi Su da una scheda della riga superiore sulla TV per mostrarla di nuovo.","resize_card":"Ridimensiona scheda","reset_card_size":"Usa dimensione automatica"},
+    "ja":{"manage_dashboards":"ダッシュボード","dashboard_auto_size":"カードを自動サイズ調整","toolbar_auto_hide":"上部バーを自動的に隠す","toolbar_auto_hide_hint":"操作がないと上部バーを隠します。上端へ移動・スクロールするか、TVで最上段のカードから上を押すと再表示します。","resize_card":"カードのサイズ変更","reset_card_size":"自動サイズを使用"},
+    "ko":{"manage_dashboards":"대시보드","dashboard_auto_size":"카드 자동 크기 조정","toolbar_auto_hide":"상단 표시줄 자동 숨김","toolbar_auto_hide_hint":"일정 시간 사용하지 않으면 상단 표시줄을 숨깁니다. 위쪽으로 이동하거나 스크롤하거나 TV에서 맨 위 행 카드에서 위쪽을 누르면 다시 표시됩니다.","resize_card":"카드 크기 조절","reset_card_size":"자동 크기 사용"},
+    "nl":{"manage_dashboards":"Dashboards","dashboard_auto_size":"Kaarten automatisch schalen","toolbar_auto_hide":"Bovenbalk automatisch verbergen","toolbar_auto_hide_hint":"Verbergt de bovenbalk na inactiviteit. Beweeg of scroll naar boven, of druk op Omhoog vanaf een kaart in de bovenste rij op de tv, om hem weer te tonen.","resize_card":"Kaartgrootte wijzigen","reset_card_size":"Automatische grootte gebruiken"},
+    "pl":{"manage_dashboards":"Pulpity","dashboard_auto_size":"Automatycznie dopasuj karty","toolbar_auto_hide":"Automatycznie ukrywaj górny pasek","toolbar_auto_hide_hint":"Ukrywa górny pasek po bezczynności. Przejdź lub przewiń do góry albo naciśnij Góra na TV z karty w górnym rzędzie, aby pokazać go ponownie.","resize_card":"Zmień rozmiar karty","reset_card_size":"Użyj automatycznego rozmiaru"},
+    "pt":{"manage_dashboards":"Painéis","dashboard_auto_size":"Dimensionar cartões automaticamente","toolbar_auto_hide":"Ocultar automaticamente a barra superior","toolbar_auto_hide_hint":"Oculta a barra superior após inatividade. Mova ou desloque para o topo, ou prima Para cima num cartão da fila superior da TV, para a mostrar novamente.","resize_card":"Redimensionar cartão","reset_card_size":"Usar tamanho automático"},
+    "ru":{"manage_dashboards":"Панели","dashboard_auto_size":"Автоматически подобрать размер карточек","toolbar_auto_hide":"Автоматически скрывать верхнюю панель","toolbar_auto_hide_hint":"Скрывает верхнюю панель после бездействия. Переместитесь или прокрутите вверх либо нажмите Вверх на верхней карточке ТВ, чтобы показать её снова.","resize_card":"Изменить размер карточки","reset_card_size":"Использовать автоматический размер"},
+    "tr":{"manage_dashboards":"Panolar","dashboard_auto_size":"Kartları otomatik boyutlandır","toolbar_auto_hide":"Üst çubuğu otomatik gizle","toolbar_auto_hide_hint":"Hareketsizlikten sonra üst çubuğu gizler. Yeniden göstermek için üste gidin veya kaydırın ya da TV’de üst sıradaki bir karttan Yukarı tuşuna basın.","resize_card":"Kartı yeniden boyutlandır","reset_card_size":"Otomatik boyutu kullan"},
+    "uk":{"manage_dashboards":"Панелі","dashboard_auto_size":"Автоматично підібрати розмір карток","toolbar_auto_hide":"Автоматично приховувати верхню панель","toolbar_auto_hide_hint":"Приховує верхню панель після бездіяльності. Перейдіть або прокрутіть угору чи натисніть Вгору на верхній картці TV, щоб показати її знову.","resize_card":"Змінити розмір картки","reset_card_size":"Використати автоматичний розмір"},
+    "zh":{"manage_dashboards":"仪表板","dashboard_auto_size":"自动调整卡片大小","toolbar_auto_hide":"自动隐藏顶部栏","toolbar_auto_hide_hint":"空闲后隐藏顶部栏。移动或滚动到顶部，或在电视上从顶行卡片按向上键，即可再次显示。","resize_card":"调整卡片大小","reset_card_size":"使用自动大小"},
+}
+
 _DASHBOARD_LABEL_GROUPS = (
     _DASHBOARD_UI_TEXT,
     _TV_DASHBOARD_TEXT,
@@ -2064,6 +2103,8 @@ _DASHBOARD_LABEL_GROUPS = (
     _TV_DASHBOARD_FLOW_TEXT,
     _TV_DASHBOARD_REMOTE_TEXT,
     _TV_DASHBOARD_ACCESS_TEXT,
+    _TV_DASHBOARD_MULTI_TEXT,
+    _TV_DASHBOARD_LAYOUT_TEXT,
 )
 _REQUIRED_DASHBOARD_LABELS = set(DASHBOARD_LANGUAGE_AUDIT_TEXT["en"])
 for _group in _DASHBOARD_LABEL_GROUPS:
@@ -2830,7 +2871,7 @@ def _fitness_options_profile_entry(hass: HomeAssistant, profile_entry_id: str):
     if (
         entry is None
         or entry.domain != DOMAIN
-        or entry.data.get("entry_type") == "live_hub"
+        or entry.data.get("entry_type") in {"live_hub", "devices_hub"}
     ):
         return None
     return entry
@@ -3161,26 +3202,34 @@ async def _dashboard_profile_for_view(
 
 
 def _dashboard_workout_item(manager, entry_id: str, workout) -> dict[str, Any]:
-    uid = manager._calendar_uid(entry_id, workout)
-    return {
-        "uid": uid,
-        "start": workout.start,
-        "end": workout.end,
-        "name": workout.name,
-        "sport": workout.sport,
-        "duration_s": workout.duration_s,
-        "distance_m": workout.distance_m,
-        "avg_hr": workout.avg_hr,
-        "calories": workout.calories,
-        "source": workout.source,
-    }
+    """Return the complete canonical workout, bounded for dashboard transport."""
+    data = workout.as_dict()
+    extra = dict(data.get("extra") or {})
+    # Merge canonicalization namespaces provider extras (for example
+    # ``garmin_direct.gps_track``). Promote any real route back to the
+    # dashboard's canonical key so old and newly merged workouts render maps.
+    track = extra.get("gps_track") or extra.get("gps_points")
+    if not isinstance(track, list) or len(track) < 2:
+        for key, value in extra.items():
+            suffix = str(key).rsplit(".", 1)[-1]
+            if suffix in {"gps_track", "gps_points"} and isinstance(value, list) and len(value) >= 2:
+                track = value
+                break
+    if isinstance(track, list) and len(track) >= 2:
+        if len(track) > 1500:
+            step = max(1, len(track) // 1500)
+            track = track[::step][:1500]
+        extra["gps_track"] = track
+    data["extra"] = extra
+    data["uid"] = manager._calendar_uid(entry_id, workout)
+    return data
 
 
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "fitness/workouts/list",
         vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
-        vol.Optional("limit", default=100): vol.All(int, vol.Range(min=1, max=200)),
+        vol.Optional("limit", default=100): vol.All(int, vol.Range(min=1, max=500)),
     }
 )
 @websocket_api.async_response
@@ -3238,6 +3287,34 @@ async def websocket_workouts_delete(hass: HomeAssistant, connection, msg) -> Non
         list(msg["workout_ids"]), entry.entry_id
     )
     connection.send_result(msg["id"], {"deleted": deleted})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/workouts/edit",
+        vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+        vol.Required("workout_id"): vol.All(str, vol.Length(min=1, max=256)),
+        vol.Required("updates"): dict,
+    }
+)
+@websocket_api.async_response
+async def websocket_workouts_edit(hass: HomeAssistant, connection, msg) -> None:
+    """Apply bounded user corrections to one canonical workout."""
+    try:
+        entry = await _require_fitness_options_profile_control(hass, connection, msg["profile_entry_id"])
+    except ValueError as err:
+        connection.send_error(msg["id"], "profile_not_found", str(err))
+        return
+    manager = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if manager is None:
+        connection.send_error(msg["id"], "profile_unavailable", "Fitness profile unavailable")
+        return
+    updates = dict(msg.get("updates") or {})
+    if len(updates) > 12:
+        connection.send_error(msg["id"], "too_many_fields", "Too many workout fields")
+        return
+    updated = await manager.async_edit_calendar_workout(msg["workout_id"], entry.entry_id, updates)
+    connection.send_result(msg["id"], {"updated": updated})
 
 
 @websocket_api.websocket_command(
@@ -3380,6 +3457,195 @@ def _dashboard_profile_preferences(config: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _dashboard_today_summary(manager) -> dict[str, Any]:
+    """Return only facts that belong to today, including sleep ending today."""
+    try:
+        from homeassistant.util import dt as dt_util
+        today = dt_util.now().date()
+    except Exception:
+        today = datetime.now().astimezone().date()
+    result: dict[str, Any] = {"date": today.isoformat(), "metrics": {}}
+    for metric, points in manager.metric_history.items():
+        if not isinstance(points, list):
+            continue
+        candidates = []
+        for item in points:
+            if not isinstance(item, dict):
+                continue
+            stamp = str(item.get("timestamp") or item.get("date") or "")
+            if stamp[:10] == today.isoformat():
+                candidates.append(item)
+        if candidates:
+            latest = candidates[-1]
+            result["metrics"][metric] = {"value": latest.get("value"), "timestamp": latest.get("timestamp") or latest.get("date")}
+    sleep = manager.latest_sleep()
+    if sleep is not None and str(sleep.end or "")[:10] == today.isoformat():
+        result["sleep"] = {
+            "start": sleep.start, "end": sleep.end, "duration_s": sleep.duration_s,
+            "score": sleep.score, "hrv_ms": sleep.hrv_ms, "average_hr": sleep.average_hr,
+            "spo2_percent": sleep.spo2_percent, "deep_sleep_s": sleep.deep_sleep_s,
+            "light_sleep_s": sleep.light_sleep_s, "rem_sleep_s": sleep.rem_sleep_s,
+        }
+    workouts = [w for w in manager.local_workouts() if str(w.start or "")[:10] == today.isoformat()]
+    result["workouts"] = len(workouts)
+    return result
+
+
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "fitness/training/tests",
+    vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+})
+@websocket_api.async_response
+async def websocket_training_tests(hass: HomeAssistant, connection, msg) -> None:
+    """Return built-in structured tests available to this athlete."""
+    try:
+        await _dashboard_profile_for_view(hass, connection, msg["profile_entry_id"])
+    except ValueError as err:
+        connection.send_error(msg["id"], str(err), str(err)); return
+    connection.send_result(msg["id"], {"tests": fitness_test_catalog()})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "fitness/training/plan",
+    vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+    vol.Optional("regenerate", default=False): bool,
+})
+@websocket_api.async_response
+async def websocket_training_plan(hass: HomeAssistant, connection, msg) -> None:
+    """Return or regenerate the athlete's goal-aware seven-day AI plan."""
+    profile_id = msg["profile_entry_id"]
+    try:
+        _entry, manager = await _dashboard_profile_for_view(hass, connection, profile_id)
+    except ValueError as err:
+        connection.send_error(msg["id"], str(err), str(err)); return
+    if msg.get("regenerate"):
+        allowed = set(await get_fitness_access_controller(hass).async_control_profile_ids(connection))
+        if profile_id not in allowed:
+            connection.send_error(msg["id"], "unauthorized", "Fitness profile control required"); return
+        await manager.async_generate_training_plan(force=True)
+    connection.send_result(msg["id"], {"plan": dict(manager.ai_training_plan or {})})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "fitness/training/plan/start",
+    vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+    vol.Required("day_index"): vol.All(vol.Coerce(int), vol.Range(min=0, max=6)),
+})
+@websocket_api.async_response
+async def websocket_training_plan_start(hass: HomeAssistant, connection, msg) -> None:
+    """Start one structured workout from the current training plan."""
+    profile_id = msg["profile_entry_id"]
+    allowed = set(await get_fitness_access_controller(hass).async_control_profile_ids(connection))
+    if profile_id not in allowed:
+        connection.send_error(msg["id"], "unauthorized", "Fitness profile control required"); return
+    manager = hass.data.get(DOMAIN, {}).get(profile_id)
+    if manager is None:
+        connection.send_error(msg["id"], "profile_unavailable", "Fitness profile unavailable"); return
+    try:
+        result = await manager.async_start_training_plan_day(int(msg["day_index"]))
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_workout", str(err)); return
+    if not result:
+        connection.send_error(msg["id"], "rest_day", "Selected day is a rest day"); return
+    connection.send_result(msg["id"], {"started": True, "prescription": result})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "fitness/training/step",
+    vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+    vol.Required("delta"): vol.In((-1, 1)),
+})
+@websocket_api.async_response
+async def websocket_training_step(hass: HomeAssistant, connection, msg) -> None:
+    """Move a guided live prescription backward/forward one step."""
+    profile_id = msg["profile_entry_id"]
+    allowed = set(await get_fitness_access_controller(hass).async_control_profile_ids(connection))
+    if profile_id not in allowed:
+        connection.send_error(msg["id"], "unauthorized", "Fitness profile control required"); return
+    manager = hass.data.get(DOMAIN, {}).get(profile_id)
+    if manager is None:
+        connection.send_error(msg["id"], "profile_unavailable", "Fitness profile unavailable"); return
+    step = await manager.async_prescription_step(int(msg["delta"]))
+    connection.send_result(msg["id"], {"step": step})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "fitness/training/export_targets",
+    vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+})
+@websocket_api.async_response
+async def websocket_training_export_targets(hass: HomeAssistant, connection, msg) -> None:
+    """Return only devices whose direct adapter implements workout writing."""
+    profile_id = msg["profile_entry_id"]
+    try:
+        await _dashboard_profile_for_view(hass, connection, profile_id)
+    except ValueError as err:
+        connection.send_error(msg["id"], str(err), str(err)); return
+    from .live import get_live_runtime
+    runtime = get_live_runtime(hass)
+    provider = runtime.providers.get("bluetooth")
+    archives = getattr(provider, "device_archives", None)
+    targets = archives.workout_export_targets(profile_id) if archives is not None else []
+    connection.send_result(msg["id"], {"targets": targets})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "fitness/training/export",
+    vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+    vol.Required("sensor_id"): vol.All(str, vol.Length(max=256)),
+    vol.Required("prescription"): dict,
+})
+@websocket_api.async_response
+async def websocket_training_export(hass: HomeAssistant, connection, msg) -> None:
+    """Export one canonical workout through a device adapter with a real writer."""
+    profile_id = msg["profile_entry_id"]
+    allowed = set(await get_fitness_access_controller(hass).async_control_profile_ids(connection))
+    if profile_id not in allowed:
+        connection.send_error(msg["id"], "unauthorized", "Fitness profile control required"); return
+    from .live import get_live_runtime
+    runtime = get_live_runtime(hass)
+    provider = runtime.providers.get("bluetooth")
+    archives = getattr(provider, "device_archives", None)
+    if archives is None:
+        connection.send_error(msg["id"], "unavailable", "No direct workout export transport is available"); return
+    try:
+        result = await archives.async_export_workout(profile_id, msg["sensor_id"], normalize_prescription(msg["prescription"]))
+    except (ValueError, KeyError) as err:
+        connection.send_error(msg["id"], "unsupported", str(err)); return
+    connection.send_result(msg["id"], {"exported": True, "result": result})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "fitness/training/start",
+    vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+    vol.Optional("test_id"): vol.All(str, vol.Length(max=128)),
+    vol.Optional("daily_ai", default=False): bool,
+})
+@websocket_api.async_response
+async def websocket_training_start(hass: HomeAssistant, connection, msg) -> None:
+    """Start a Fitness test or today's AI prescription with live sensors."""
+    profile_id = msg["profile_entry_id"]
+    allowed = set(await get_fitness_access_controller(hass).async_control_profile_ids(connection))
+    if profile_id not in allowed:
+        connection.send_error(msg["id"], "unauthorized", "Fitness profile control required"); return
+    entry = _fitness_options_profile_entry(hass, profile_id)
+    manager = hass.data.get(DOMAIN, {}).get(profile_id) if entry else None
+    if manager is None:
+        connection.send_error(msg["id"], "profile_unavailable", "Fitness profile unavailable"); return
+    try:
+        if msg.get("daily_ai"):
+            result = await manager.async_start_ai_daily_workout()
+        else:
+            result = await manager.async_start_fitness_test(str(msg.get("test_id") or ""))
+    except (KeyError, ValueError) as err:
+        connection.send_error(msg["id"], "invalid_workout", str(err)); return
+    if not result:
+        connection.send_error(msg["id"], "workout_unavailable", "No executable workout is available"); return
+    connection.send_result(msg["id"], {"started": True, "prescription": result})
+
+
 @websocket_api.websocket_command({vol.Required("type"): "fitness/dashboard/config"})
 @websocket_api.async_response
 async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> None:
@@ -3492,6 +3758,7 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                             )
                         ),
                         "animations_enabled": bool(tv_preferences.get("animations_enabled", True)),
+                        "toolbar_auto_hide": bool(tv_preferences.get("toolbar_auto_hide", False)),
                         "light_feedback_enabled": bool(tv_preferences.get("light_feedback_enabled", True)),
                         "tts_announcements_enabled": bool(tv_preferences.get("tts_announcements_enabled", True)),
                         "music_search_limit": int(
@@ -3619,6 +3886,18 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                 },
                 "language": lang,
                 "dashboard_preferences": _dashboard_profile_preferences(manager.config),
+                "ai_enabled": bool(manager.config.get("ai_enabled")),
+                "ai_daily_plan": dict(manager.ai_daily_plan or {}),
+                "ai_training_plan": dict(manager.ai_training_plan or {}),
+                "active_prescription": dict(manager.active_prescription or {}),
+                "active_prescription_step": manager.active_prescription_step,
+                "current_prescription_step": manager.current_prescription_step(),
+                "ai_live_analysis": manager.ai_live_analysis if manager.session_active else None,
+                "ai_live_analysis_at": manager.ai_live_analysis_at if manager.session_active else None,
+                "ai_workout_verdict": manager.ai_workout_verdict,
+                "ai_workout_evaluation": manager.ai_workout,
+                "ai_last_generated": manager.ai_last_generated,
+                "today_summary": _dashboard_today_summary(manager),
                 "labels": {**_DASHBOARD_TEXT[lang], "pace": _PACE_TEXT[lang]},
                 "labels_by_language": {
                     code: {**labels, "pace": _PACE_TEXT[code]}
@@ -3689,6 +3968,7 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                         tv_preferences.get("oled_protection", DEFAULT_TV_OLED_PROTECTION)
                     ),
                     "animations_enabled": bool(tv_preferences.get("animations_enabled", True)),
+                    "toolbar_auto_hide": bool(tv_preferences.get("toolbar_auto_hide", False)),
                     "light_feedback_enabled": bool(tv_preferences.get("light_feedback_enabled", True)),
                     "tts_announcements_enabled": bool(tv_preferences.get("tts_announcements_enabled", True)),
                     "music_search_limit": int(tv_preferences.get("music_search_limit", 50)),
@@ -3701,7 +3981,7 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
     connection.send_result(
         msg["id"],
         {
-            "frontend_version": "unreleased-85",
+            "frontend_version": "unreleased-89",
             "profiles": profiles,
             "access": access,
             # Access-denied and administrator overview screens can render
@@ -3740,7 +4020,7 @@ def _tv_dashboard_profile_entries(hass: HomeAssistant) -> list[Any]:
     return [
         entry
         for entry in hass.config_entries.async_entries(DOMAIN)
-        if entry.data.get("entry_type") != "live_hub"
+        if entry.data.get("entry_type") not in {"live_hub", "devices_hub"}
     ]
 
 
@@ -4566,8 +4846,16 @@ async def async_setup_dashboard(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, websocket_dashboard_config)
     websocket_api.async_register_command(hass, websocket_workouts_list)
     websocket_api.async_register_command(hass, websocket_workouts_delete)
+    websocket_api.async_register_command(hass, websocket_workouts_edit)
     websocket_api.async_register_command(hass, websocket_workouts_empty)
     websocket_api.async_register_command(hass, websocket_body_composition)
+    websocket_api.async_register_command(hass, websocket_training_tests)
+    websocket_api.async_register_command(hass, websocket_training_plan)
+    websocket_api.async_register_command(hass, websocket_training_plan_start)
+    websocket_api.async_register_command(hass, websocket_training_step)
+    websocket_api.async_register_command(hass, websocket_training_export_targets)
+    websocket_api.async_register_command(hass, websocket_training_export)
+    websocket_api.async_register_command(hass, websocket_training_start)
     websocket_api.async_register_command(hass, websocket_weight_subscribe)
     websocket_api.async_register_command(hass, websocket_weight_admin_subscribe)
     websocket_api.async_register_command(hass, websocket_weight_confirm)

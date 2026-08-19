@@ -27,11 +27,15 @@ from homeassistant.helpers.event import (
 from homeassistant.helpers.storage import Store
 
 from .explanations import provenance_text
+from .workout_prescriptions import normalize_prescription, fitness_test
 from .live import get_live_runtime
 from .const import (
     CONF_AI_ENABLED,
     CONF_AI_ENTITY,
     AI_ENTITY_SYSTEM_DEFAULT,
+    CONF_TRAINING_GOAL,
+    CONF_TRAINING_GOAL_DATE,
+    CONF_TRAINING_DAYS_PER_WEEK,
     CONF_FEEDBACK_AREA_IDS,
     CONF_FEEDBACK_LIGHT_IDS,
     CONF_LANGUAGE,
@@ -167,10 +171,10 @@ MAX_LIVE_SESSION_SAMPLES = 21_600
 MANAGER_SHUTDOWN_TIMEOUT = 15.0
 MAX_DEVICE_INTRADAY_POINTS_PER_METRIC = 4096
 MAX_DEVICE_INTRADAY_METRICS = 32
-_DEVICE_ADDITIVE_METRICS = frozenset({"steps", "distance_m", "calories", "active_minutes"})
+_DEVICE_ADDITIVE_METRICS = frozenset({"steps", "distance_m", "calories", "active_calories", "active_minutes", "body_battery_charged", "body_battery_drained"})
 _DEVICE_MIN_METRICS = frozenset({"min_heart_rate", "skin_temperature_min"})
 _DEVICE_MAX_METRICS = frozenset({"max_heart_rate", "skin_temperature_max"})
-_DEVICE_LATEST_METRICS = frozenset({"battery", "charging", "wear_state"})
+_DEVICE_LATEST_METRICS = frozenset({"battery", "charging", "wear_state", "body_battery", "vo2_max", "device_battery_voltage", "metabolic_age", "visceral_fat_rating", "skin_temperature_deviation", "skin_temperature_7d_deviation"})
 
 
 def _compact_history_for_storage(raw_history: list[Any]) -> list[dict[str, Any]]:
@@ -362,6 +366,28 @@ class FitnessManager:
         self.ai_general_verdict: str | None = None
         self.ai_workout_verdict: str | None = None
         self.ai_last_generated: str | None = None
+        # Optional per-profile AI coaching surfaces. Daily plan is deliberately
+        # structured so future device exporters can consume it without parsing prose.
+        self.ai_daily_plan: dict[str, Any] | None = None
+        self.ai_daily_plan_date: str | None = None
+        self.ai_daily_plan_sleep_key: str | None = None
+        # Direct-device archive refresh is independent of AI availability. Keep a
+        # separate durable sleep signature so provider reconciliation of the same
+        # completed night cannot repeatedly reconnect every assigned wearable.
+        self.archive_sleep_sync_key: str | None = None
+        self.ai_training_plan: dict[str, Any] | None = None
+        self._ai_daily_refresh_task: asyncio.Task | None = None
+        self.active_prescription: dict[str, Any] | None = None
+        self.active_prescription_step: int = 0
+        self._prescription_step_task: asyncio.Task | None = None
+        self.ai_live_analysis: str | None = None
+        self.ai_live_analysis_at: str | None = None
+        self._ai_live_analysis_task: asyncio.Task | None = None
+        # Runtime fail-closed guard. A broken/stale selected provider falls back
+        # to Home Assistant's preferred AI Task. If that also fails, Fitness
+        # silently suspends AI for this profile until the integration is reloaded
+        # or the selected provider becomes available again.
+        self._ai_runtime_disabled = False
         self._last_external_signature: str | None = None
         self._last_announced_workout_signature: str | None = None
         self._external_workout_baseline_pending = False
@@ -451,6 +477,15 @@ class FitnessManager:
             "ai_general_verdict": self.ai_general_verdict,
             "ai_workout_verdict": self.ai_workout_verdict,
             "ai_last_generated": self.ai_last_generated,
+            "ai_daily_plan": dict(self.ai_daily_plan or {}),
+            "ai_daily_plan_date": self.ai_daily_plan_date,
+            "ai_daily_plan_sleep_key": self.ai_daily_plan_sleep_key,
+            "archive_sleep_sync_key": self.archive_sleep_sync_key,
+            "ai_training_plan": dict(self.ai_training_plan or {}),
+            "active_prescription": dict(self.active_prescription or {}),
+            "active_prescription_step": self.active_prescription_step,
+            "ai_live_analysis": self.ai_live_analysis,
+            "ai_live_analysis_at": self.ai_live_analysis_at,
             "long_term_statistics": dict(self.long_term_statistics),
             "long_term_statistics_updated": self.long_term_statistics_updated,
             "metric_history": dict(self.metric_history),
@@ -539,6 +574,18 @@ class FitnessManager:
         self.ai_general_verdict = stored.get("ai_general_verdict")
         self.ai_workout_verdict = stored.get("ai_workout_verdict")
         self.ai_last_generated = stored.get("ai_last_generated")
+        stored_plan = stored.get("ai_daily_plan")
+        self.ai_daily_plan = dict(stored_plan) if isinstance(stored_plan, dict) else None
+        self.ai_daily_plan_date = stored.get("ai_daily_plan_date")
+        self.ai_daily_plan_sleep_key = stored.get("ai_daily_plan_sleep_key")
+        self.archive_sleep_sync_key = stored.get("archive_sleep_sync_key")
+        stored_training_plan = stored.get("ai_training_plan")
+        self.ai_training_plan = dict(stored_training_plan) if isinstance(stored_training_plan, dict) else None
+        stored_prescription = stored.get("active_prescription")
+        self.active_prescription = dict(stored_prescription) if isinstance(stored_prescription, dict) else None
+        self.active_prescription_step = max(0, int(stored.get("active_prescription_step") or 0))
+        self.ai_live_analysis = stored.get("ai_live_analysis")
+        self.ai_live_analysis_at = stored.get("ai_live_analysis_at")
         self.long_term_statistics = dict(stored.get("long_term_statistics") or {})
         self.long_term_statistics_updated = stored.get("long_term_statistics_updated")
         self.metric_history = {
@@ -737,6 +784,12 @@ class FitnessManager:
                 )
             )
         self._sync_ai_provider_issue()
+        if self.config.get(CONF_AI_ENABLED):
+            # Home Assistant's preferred AI Task can be registered after Fitness.
+            # Re-arm optional AI immediately when an AI service becomes available.
+            self.remove_listeners.append(
+                self.hass.bus.async_listen("service_registered", self._async_ai_service_registered)
+            )
 
         # Refresh the canonical completed-workout cache once after providers have
         # restored. Entity state reads from now on are cache-only.
@@ -776,6 +829,23 @@ class FitnessManager:
             self._start_background_task(
                 self.async_generate_ai(general=True, workout=False),
                 "fitness startup AI generation",
+            )
+        if self.config.get(CONF_AI_ENABLED):
+            self._start_background_task(
+                self.async_generate_daily_training_plan(),
+                "fitness daily AI training plan",
+            )
+            if str(self.config.get(CONF_TRAINING_GOAL) or "").strip():
+                self._start_background_task(
+                    self.async_generate_training_plan(),
+                    "fitness goal training plan",
+                )
+            self.remove_listeners.append(
+                async_track_time_change(
+                    self.hass,
+                    self._handle_ai_daily_plan_tick,
+                    hour=0, minute=0, second=1,
+                )
             )
 
         self.post_start_ready = True
@@ -958,8 +1028,62 @@ class FitnessManager:
                     "Fitness live entity listener failed; continuing remaining updates"
                 )
 
+    def _sleep_plan_key(self) -> str | None:
+        """Stable key for a genuinely completed latest sleep session."""
+        sleep = self.latest_sleep()
+        end = _dt(getattr(sleep, "end", None)) if sleep is not None else None
+        if end is None:
+            return None
+        now = datetime.now(timezone.utc)
+        if end.tzinfo is None:
+            end = end.replace(tzinfo=timezone.utc)
+        # Only a recently completed night represents the user waking up. Old
+        # provider merges/reconciliation must not regenerate today's AI plan.
+        if abs((now - end.astimezone(timezone.utc)).total_seconds()) > 6 * 3600:
+            return None
+        return f"{getattr(sleep, 'start', '')}|{getattr(sleep, 'end', '')}|{getattr(sleep, 'duration_s', '')}"
+
+    def _schedule_ai_daily_refresh(self, reason: str) -> None:
+        if not self.config.get(CONF_AI_ENABLED):
+            return
+        if self._ai_daily_refresh_task is not None and not self._ai_daily_refresh_task.done():
+            return
+        async def _refresh() -> None:
+            await asyncio.sleep(1.0)
+            self._ai_runtime_disabled = False
+            await self.async_generate_daily_training_plan(force=True)
+            if str(self.config.get(CONF_TRAINING_GOAL) or "").strip():
+                await self.async_generate_training_plan(force=False)
+        self._ai_daily_refresh_task = self._start_background_task(
+            _refresh(), f"fitness daily AI refresh {reason}"
+        )
+
     def _notify_sleep(self):
         self._invalidate_evaluation_cache()
+        sleep_key = self._sleep_plan_key()
+        if sleep_key and sleep_key != self.ai_daily_plan_sleep_key:
+            self._schedule_ai_daily_refresh("fresh completed sleep")
+        if sleep_key and sleep_key != self.archive_sleep_sync_key:
+            # Fresh wake data is also a natural point to collect anything the
+            # athlete's direct devices recorded overnight. This only schedules
+            # background work; it never blocks the sleep/entity update path. The
+            # signature is persisted independently from AI so the same sleep is
+            # never re-triggered merely because AI is disabled/unavailable.
+            self.archive_sleep_sync_key = sleep_key
+            self._schedule_save()
+            try:
+                runtime = get_live_runtime(self.hass)
+                provider = runtime.providers.get("bluetooth")
+                archives = getattr(provider, "device_archives", None) if provider else None
+                if archives is not None:
+                    archives.schedule_archive_sync(
+                        profile_id=self.entry.entry_id,
+                        delay=8.0,
+                        force=True,
+                        reason="fresh_completed_sleep",
+                    )
+            except Exception:
+                _LOGGER.debug("Unable to schedule post-sleep archive sync", exc_info=True)
         for listener in list(self.sleep_listeners):
             try:
                 listener()
@@ -1235,8 +1359,21 @@ class FitnessManager:
 
     @callback
     def _async_ai_provider_state_change(self, event: Event):
-        """Keep the pinned-provider repair in sync with entity availability."""
-        self._sync_ai_provider_issue()
+        """Re-arm AI and refresh today's prescription when selected AI returns."""
+        entity_id = self._configured_ai_entity()
+        if entity_id and self._ai_provider_available(entity_id):
+            self._ai_runtime_disabled = False
+            self._schedule_ai_daily_refresh("selected AI available")
+        self._clear_ai_provider_issue()
+
+    @callback
+    def _async_ai_service_registered(self, event: Event):
+        """Re-arm a profile following HA preferred AI service registration."""
+        domain = str(event.data.get("domain") or "")
+        service = str(event.data.get("service") or "")
+        if domain == "ai_task" and service == "generate_data":
+            self._ai_runtime_disabled = False
+            self._schedule_ai_daily_refresh("Home Assistant AI available")
 
     @staticmethod
     def _workout_has_real_information(
@@ -3692,6 +3829,7 @@ class FitnessManager:
 
         self.session_armed = False
         self.session_active = True
+        self._ensure_live_ai_analysis()
         self.session_paused = False
         self.recovery_active = False
         self.session_started = datetime.now(timezone.utc)
@@ -3839,6 +3977,77 @@ class FitnessManager:
         )
         return True
 
+    async def async_start_prescription(self, prescription: dict[str, Any]) -> dict[str, Any]:
+        """Start one canonical planned workout using the normal live-sensor session."""
+        self.active_prescription = normalize_prescription(prescription)
+        self.active_prescription_step = 0
+        if self._prescription_step_task is not None and not self._prescription_step_task.done():
+            self._prescription_step_task.cancel()
+        await self._save()
+        await self.async_start_session()
+        self._prescription_step_task = self._start_background_task(
+            self._async_run_prescription_steps(), "fitness guided workout steps"
+        )
+        self._notify()
+        return dict(self.active_prescription)
+
+    def current_prescription_step(self) -> dict[str, Any] | None:
+        steps = list((self.active_prescription or {}).get("steps") or [])
+        if not steps or self.active_prescription_step >= len(steps):
+            return None
+        step = steps[self.active_prescription_step]
+        return dict(step) if isinstance(step, dict) else None
+
+    async def async_prescription_step(self, delta: int = 1) -> dict[str, Any] | None:
+        steps = list((self.active_prescription or {}).get("steps") or [])
+        if not steps:
+            return None
+        self.active_prescription_step = max(0, min(len(steps) - 1, self.active_prescription_step + int(delta)))
+        await self._save()
+        step = self.current_prescription_step()
+        if step and step.get("instruction"):
+            await self._async_speak(str(step["instruction"]))
+        self._notify()
+        return step
+
+    async def _async_run_prescription_steps(self) -> None:
+        """Speak/read timed prescription steps; untimed steps wait for manual Next."""
+        try:
+            while self.session_active or self.session_armed:
+                step = self.current_prescription_step()
+                if not step:
+                    return
+                instruction = str(step.get("instruction") or step.get("name") or "").strip()
+                if instruction:
+                    await self._async_speak(instruction)
+                self._notify()
+                duration = step.get("duration_seconds")
+                if not duration:
+                    return
+                await asyncio.sleep(max(1, int(duration)))
+                steps = list((self.active_prescription or {}).get("steps") or [])
+                if self.active_prescription_step >= len(steps) - 1:
+                    return
+                self.active_prescription_step += 1
+                await self._save()
+        except asyncio.CancelledError:
+            return
+
+    async def async_start_fitness_test(self, test_id: str) -> dict[str, Any]:
+        """Launch a built-in Fitness test through the same live workout engine."""
+        return await self.async_start_prescription(fitness_test(test_id))
+
+    async def async_start_ai_daily_workout(self) -> dict[str, Any] | None:
+        """Launch today's AI workout when it contains an executable prescription."""
+        plan = self.ai_daily_plan or {}
+        if str(plan.get("action") or "").lower() != "workout":
+            return None
+        workout = plan.get("device_workout")
+        if not isinstance(workout, dict):
+            return None
+        workout = {**workout, "name": plan.get("recommendation") or workout.get("name"), "source": "ai_coach"}
+        return await self.async_start_prescription(workout)
+
     async def async_start_session(self):
         """Arm workout capture; the timer starts only on first valid live data."""
         if self.session_active or self.session_armed:
@@ -3956,6 +4165,12 @@ class FitnessManager:
         ):
             self._periodic_live_announcement_task.cancel()
         self._periodic_live_announcement_task = None
+        if self._ai_live_analysis_task and not self._ai_live_analysis_task.done():
+            self._ai_live_analysis_task.cancel()
+        self._ai_live_analysis_task = None
+        if self._prescription_step_task and not self._prescription_step_task.done():
+            self._prescription_step_task.cancel()
+        self._prescription_step_task = None
 
         if self._feedback_scene_active:
             await self._async_restore_feedback_lights(clear_snapshot=True)
@@ -4094,6 +4309,9 @@ class FitnessManager:
         ):
             self._periodic_live_announcement_task.cancel()
         self._periodic_live_announcement_task = None
+        if self._ai_live_analysis_task and not self._ai_live_analysis_task.done():
+            self._ai_live_analysis_task.cancel()
+        self._ai_live_analysis_task = None
 
         history_changed = False
         if workout is not None:
@@ -5393,6 +5611,41 @@ class FitnessManager:
         self._notify()
         return True
 
+    async def async_edit_calendar_workout(
+        self, uid: str, entry_id: str, updates: dict[str, Any]
+    ) -> bool:
+        """Create a Fitness-owned corrected copy while suppressing provider re-import."""
+        target = next((w for w in self.local_workouts() if self._calendar_uid(entry_id, w) == uid), None)
+        if target is None:
+            return False
+        allowed = {"name", "sport", "start", "end", "duration_s", "distance_m", "calories", "session_rpe"}
+        clean = {key: value for key, value in updates.items() if key in allowed}
+        if not clean:
+            return False
+        original = target.as_dict()
+        # Tombstone the provider-backed version first so a future sync cannot undo
+        # an explicit user correction. The replacement remains Fitness-owned.
+        await self.async_delete_calendar_workout(uid, entry_id)
+        original.update(clean)
+        original["source"] = "fitness_manual_edit"
+        original["sources"] = list(dict.fromkeys([*(original.get("sources") or []), "fitness_manual_edit"]))
+        extra = dict(original.get("extra") or {})
+        extra["user_edited"] = True
+        extra["edited_at"] = datetime.now(timezone.utc).isoformat()
+        original["extra"] = extra
+        try:
+            edited = Workout(**original)
+        except (TypeError, ValueError):
+            return False
+        self.history.append(edited.as_dict())
+        self._local_workouts_cache = None
+        self._latest_workout_cache_ready = False
+        self._invalidate_evaluation_cache()
+        await self._save()
+        self._notify_workout_history()
+        self._notify()
+        return True
+
     async def async_delete_calendar_workouts(
         self, uids: list[str], entry_id: str
     ) -> int:
@@ -5470,6 +5723,80 @@ class FitnessManager:
         self._notify_workout_history()
         self._notify()
         return count
+
+    async def async_clear_workout_history_regenerable(self) -> int:
+        """Clear canonical workouts and deletion guards so sources may regenerate them."""
+        count = len(self.local_workouts())
+        self.history = []
+        self.deleted_workouts = []
+        self.deleted_workouts_before = None
+        self._local_workouts_cache = tuple()
+        self._latest_workout_cache = None
+        self._latest_workout_cache_ready = True
+        self._invalidate_evaluation_cache()
+        await self._save()
+        # Rebuild immediately from sources that are already available in HA.
+        await self._async_reconcile_external_workouts()
+        self._notify_workout_history()
+        self._notify()
+        return count
+
+    async def async_clear_workout_tombstones(self) -> int:
+        count = len(self.deleted_workouts) + (1 if self.deleted_workouts_before else 0)
+        self.deleted_workouts = []
+        self.deleted_workouts_before = None
+        await self._save()
+        return count
+
+    async def async_delete_workout_tombstone(self, index: int) -> bool:
+        if index < 0 or index >= len(self.deleted_workouts):
+            return False
+        self.deleted_workouts.pop(index)
+        await self._save()
+        return True
+
+    async def async_edit_workout_tombstone(self, index: int, updates: dict[str, Any]) -> bool:
+        if index < 0 or index >= len(self.deleted_workouts):
+            return False
+        allowed = {"start", "end", "duration_s", "distance_m", "sport", "name"}
+        clean = {key: value for key, value in updates.items() if key in allowed}
+        if not clean:
+            return False
+        current = dict(self.deleted_workouts[index])
+        current.update(clean)
+        current["edited_at"] = datetime.now(timezone.utc).isoformat()
+        self.deleted_workouts[index] = current
+        await self._save()
+        return True
+
+    async def async_clear_saved_data(self) -> None:
+        """Clear profile-owned persisted observations while preserving configuration."""
+        self.history = []
+        self.sleep_history = []
+        self.deleted_workouts = []
+        self.deleted_workouts_before = None
+        self.metric_history = {}
+        self.device_intraday_history = {}
+        self.device_context_history = []
+        self.long_term_statistics = {}
+        self.long_term_statistics_updated = None
+        self.history_validation = {}
+        self.ai_general = None
+        self.ai_workout = None
+        self.ai_general_verdict = None
+        self.ai_workout_verdict = None
+        self.ai_last_generated = None
+        self.ai_daily_plan = None
+        self.ai_daily_plan_date = None
+        self.ai_live_analysis = None
+        self.ai_live_analysis_at = None
+        self._local_workouts_cache = tuple()
+        self._latest_workout_cache = None
+        self._latest_workout_cache_ready = True
+        self._invalidate_evaluation_cache()
+        await self._save()
+        self._notify_workout_history()
+        self._notify()
 
     @staticmethod
     def _canonicalize_workout_history(
@@ -7568,6 +7895,201 @@ class FitnessManager:
             + self._bounded_ai_json(evaluation, max_bytes=9000)
         )
 
+    def _today_iso(self) -> str:
+        """Return the profile-local current date used for daily AI products."""
+        try:
+            from homeassistant.util import dt as dt_util
+            return dt_util.now().date().isoformat()
+        except Exception:
+            return datetime.now().astimezone().date().isoformat()
+
+    async def _handle_ai_daily_plan_tick(self, _now=None) -> None:
+        if self.config.get(CONF_AI_ENABLED):
+            await self.async_generate_daily_training_plan(force=True)
+            if str(self.config.get(CONF_TRAINING_GOAL) or "").strip():
+                await self.async_generate_training_plan(force=True)
+
+    def _daily_training_plan_prompt(self) -> str:
+        strings = self._prompt_strings()
+        context = self._ai_evaluation_context()
+        readiness = self.readiness_evaluation()
+        recovery = self.recovery_time_evaluation()
+        payload = {
+            "date": self._today_iso(),
+            "readiness": readiness,
+            "recovery": recovery,
+            "training_goal": str(self.config.get(CONF_TRAINING_GOAL) or "")[:1000] or None,
+            "goal_date": str(self.config.get(CONF_TRAINING_GOAL_DATE) or "")[:32] or None,
+            "preferred_training_days_per_week": int(self.config.get(CONF_TRAINING_DAYS_PER_WEEK, 4) or 4),
+            "fitness_evidence": context,
+        }
+        return (
+            "Act as a conservative fitness training planner. Decide whether today should be rest, "
+            "recovery, easy, moderate, hard, strength, endurance, intervals, or another clearly named session. "
+            "Use only the supplied history, readiness, recovery, sleep and training evidence. Missing data must "
+            "lower confidence; never invent measurements or medical claims. "
+            f"MANDATORY OUTPUT LANGUAGE for user-facing strings: {strings['language']}. "
+            "Return ONLY one JSON object with keys: recommendation (short title), action (rest|workout), "
+            "sport (string or null), duration_minutes (integer or null), intensity (string or null), "
+            "rationale (1-3 short sentences), confidence_percent (0-100), and device_workout. "
+            "device_workout must be null for rest, otherwise an object containing sport, duration_minutes, "
+            "intensity, steps (array of simple structured workout steps when appropriate), and notes. "
+            "Do not wrap the JSON in markdown.\n\nEvidence:\n"
+            + self._bounded_ai_json(payload, max_bytes=14000)
+        )
+
+    def _training_plan_prompt(self) -> str:
+        """Build a bounded goal-aware seven-day training-plan request."""
+        strings = self._prompt_strings()
+        payload = {
+            "goal": str(self.config.get(CONF_TRAINING_GOAL) or "")[:1000],
+            "goal_date": str(self.config.get(CONF_TRAINING_GOAL_DATE) or "")[:32] or None,
+            "preferred_training_days_per_week": int(self.config.get(CONF_TRAINING_DAYS_PER_WEEK, 4) or 4),
+            "readiness": self.readiness_evaluation(),
+            "recovery": self.recovery_time_evaluation(),
+            "fitness_evidence": self._ai_evaluation_context(),
+        }
+        return (
+            "Create a conservative rolling 7-day training plan for the athlete's stated goal. "
+            "Use only supplied history/readiness/recovery evidence, preserve rest where needed, and never invent measurements. "
+            f"MANDATORY OUTPUT LANGUAGE: {strings['language']}. Return ONLY JSON with keys plan_name, goal_summary, generated_for_date, days. "
+            "days must be an array of exactly 7 objects with date_offset (0-6), action (rest|workout), title, rationale, and workout. "
+            "For rest, workout must be null. For workout, workout must be a structured prescription with sport, duration_minutes, notes, and steps. "
+            "Each step may include name, instruction, duration_seconds, distance_m, repetitions, target and recovery_seconds."
+            "\n\nEvidence:\n" + self._bounded_ai_json(payload, max_bytes=16000)
+        )
+
+    async def async_generate_training_plan(self, *, force: bool = False) -> dict[str, Any] | None:
+        """Generate a bounded rolling seven-day goal-aware plan."""
+        if not self.config.get(CONF_AI_ENABLED) or self._ai_runtime_disabled:
+            return self.ai_training_plan
+        today = self._today_iso()
+        if not force and self.ai_training_plan and self.ai_training_plan.get("generated_for_date") == today:
+            return self.ai_training_plan
+        result = await self._call_ai(self._training_plan_prompt(), f"Fitness training plan {self.config.get(CONF_PROFILE_NAME)}")
+        if not result:
+            return self.ai_training_plan
+        text = str(result).strip()
+        if text.startswith("```"):
+            text = text.strip("`")
+            if text.lower().startswith("json"):
+                text = text[4:].lstrip()
+        try:
+            parsed = json.loads(text)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            _LOGGER.warning("Fitness AI training plan returned non-JSON output")
+            return self.ai_training_plan
+        if not isinstance(parsed, dict):
+            return self.ai_training_plan
+        days = []
+        for raw in list(parsed.get("days") or [])[:7]:
+            if not isinstance(raw, dict):
+                continue
+            action = str(raw.get("action") or "rest").lower()
+            item = {
+                "date_offset": max(0, min(6, int(raw.get("date_offset") or len(days)))),
+                "action": "workout" if action == "workout" else "rest",
+                "title": str(raw.get("title") or ("Workout" if action == "workout" else "Rest"))[:160],
+                "rationale": str(raw.get("rationale") or "")[:800],
+                "workout": None,
+            }
+            if item["action"] == "workout" and isinstance(raw.get("workout"), dict):
+                item["workout"] = normalize_prescription({**raw["workout"], "name": item["title"], "source": "ai_training_plan"})
+            days.append(item)
+        if not days:
+            return self.ai_training_plan
+        plan = {
+            "plan_name": str(parsed.get("plan_name") or "7-day training plan")[:160],
+            "goal_summary": str(parsed.get("goal_summary") or self.config.get(CONF_TRAINING_GOAL) or "")[:1000],
+            "generated_for_date": today,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "days": days,
+        }
+        self.ai_training_plan = plan
+        await self._save()
+        self._notify()
+        return plan
+
+    async def async_start_training_plan_day(self, day_index: int) -> dict[str, Any] | None:
+        plan = self.ai_training_plan or {}
+        days = list(plan.get("days") or [])
+        if day_index < 0 or day_index >= len(days):
+            raise ValueError("training plan day does not exist")
+        workout = days[day_index].get("workout") if isinstance(days[day_index], dict) else None
+        if not isinstance(workout, dict):
+            return None
+        return await self.async_start_prescription(workout)
+
+    async def async_generate_daily_training_plan(self, *, force: bool = False) -> dict[str, Any] | None:
+        """Generate one bounded structured plan per local day when AI is enabled."""
+        if not self.config.get(CONF_AI_ENABLED) or self._ai_runtime_disabled:
+            return None
+        today = self._today_iso()
+        if not force and self.ai_daily_plan_date == today and self.ai_daily_plan:
+            return self.ai_daily_plan
+        result = await self._call_ai(self._daily_training_plan_prompt(), f"Fitness daily training plan {self.config.get(CONF_PROFILE_NAME)}")
+        if not result:
+            return self.ai_daily_plan
+        text = str(result).strip()
+        if text.startswith("```"):
+            text = text.strip("`")
+            if text.lower().startswith("json"):
+                text = text[4:].lstrip()
+        try:
+            parsed = json.loads(text)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            _LOGGER.warning("Fitness daily AI plan returned non-JSON output")
+            return self.ai_daily_plan
+        if not isinstance(parsed, dict):
+            return self.ai_daily_plan
+        allowed = {"recommendation", "action", "sport", "duration_minutes", "intensity", "rationale", "confidence_percent", "device_workout"}
+        plan = {key: parsed.get(key) for key in allowed if key in parsed}
+        if str(plan.get("action") or "").lower() not in {"rest", "workout"}:
+            return self.ai_daily_plan
+        if isinstance(plan.get("device_workout"), dict):
+            plan["device_workout"] = normalize_prescription(
+                {**plan["device_workout"], "name": plan.get("recommendation"), "source": "ai_coach"}
+            )
+        plan["date"] = today
+        plan["generated_at"] = datetime.now(timezone.utc).isoformat()
+        self.ai_daily_plan = plan
+        self.ai_daily_plan_date = today
+        self.ai_daily_plan_sleep_key = self._sleep_plan_key()
+        await self._save()
+        self._notify()
+        return plan
+
+    async def _async_live_ai_analysis_loop(self) -> None:
+        """Refresh silent AI analysis once per minute while a workout is live."""
+        try:
+            while self.session_active and self.config.get(CONF_AI_ENABLED) and not self._ai_runtime_disabled:
+                context = self.live_coaching_context()
+                if any(context.get(k) is not None for k in ("heart_rate_bpm", "power_w", "cadence_per_min", "pace_min_km", "speed_kmh")):
+                    strings = self._prompt_strings()
+                    prompt = (
+                        "Analyze this ongoing workout in 1-3 concise sentences. "
+                        f"Reply only in {strings['language']}. Use actual supplied values, relative intensity and trends; "
+                        "mention recovery/pacing implications only when supported. Give at most one actionable cue. "
+                        "Do not diagnose disease, invent zones, or claim unsupported fatigue.\n\nLive evidence:\n"
+                        + self._bounded_ai_json(context, max_bytes=9000)
+                    )
+                    result = await self._call_ai(prompt, f"Fitness live analysis {self.config.get(CONF_PROFILE_NAME)}")
+                    if result and self.session_active:
+                        self.ai_live_analysis = " ".join(str(result).split())[:1200]
+                        self.ai_live_analysis_at = datetime.now(timezone.utc).isoformat()
+                        self._notify()
+                await asyncio.sleep(60.0)
+        except asyncio.CancelledError:
+            return
+
+    def _ensure_live_ai_analysis(self) -> None:
+        if not self.config.get(CONF_AI_ENABLED) or self._ai_runtime_disabled or not self.session_active:
+            return
+        if self._ai_live_analysis_task is None or self._ai_live_analysis_task.done():
+            self._ai_live_analysis_task = self._start_background_task(
+                self._async_live_ai_analysis_loop(), "fitness live AI analysis"
+            )
+
     def _configured_ai_entity(self) -> str | None:
         """Return a pinned AI provider, or None to follow Home Assistant."""
         entity = str(self.config.get(CONF_AI_ENTITY) or "").strip()
@@ -7604,15 +8126,8 @@ class FitnessManager:
         )
 
     def _sync_ai_provider_issue(self) -> None:
-        """Reflect the configured provider's availability in Repairs."""
-        if not self.config.get(CONF_AI_ENABLED):
-            self._clear_ai_provider_issue()
-            return
-        entity_id = self._configured_ai_entity()
-        if entity_id is None or self._ai_provider_available(entity_id):
-            self._clear_ai_provider_issue()
-            return
-        self._report_ai_provider_unavailable(entity_id)
+        """Keep legacy provider Repairs cleared; AI fallback is automatic."""
+        self._clear_ai_provider_issue()
 
     async def _call_ai_task_service(
         self,
@@ -7701,52 +8216,61 @@ class FitnessManager:
                 return await self._call_ai_unlocked(prompt, task_name)
 
     async def _call_ai_unlocked(self, prompt: str, task_name: str) -> str | None:
+        """Resolve selected AI -> HA preferred AI -> fail closed for this profile."""
+        if self._ai_runtime_disabled or not self.config.get(CONF_AI_ENABLED):
+            return None
+
         configured_entity = self._configured_ai_entity()
 
-        # Default mode deliberately omits entity_id. Home Assistant resolves its
-        # preferred data-generation AI Task at call time, so changing the system
-        # default automatically changes Fitness without editing this config entry.
+        # Home Assistant's preferred AI Task is the canonical fallback. Omitting
+        # entity_id lets HA resolve the current preference at call time.
         if configured_entity is None:
             self._clear_ai_provider_issue()
-            return await self._call_ai_task_service(prompt, task_name)
+            result = await self._call_ai_task_service(prompt, task_name)
+            if result is not None:
+                return result
+            self._disable_ai_runtime(task_name)
+            return None
 
-        # A pinned provider that disappears must not silently disable AI. Surface
-        # one Repairs warning and temporarily follow Home Assistant's default AI
-        # Task. The pinned choice remains stored and is used again when available.
-        if not self._ai_provider_available(configured_entity):
-            self._report_ai_provider_unavailable(configured_entity)
-            return await self._call_ai_task_service(prompt, task_name)
-
-        self._clear_ai_provider_issue()
-
-        if configured_entity.startswith("conversation."):
-            result = await self._call_conversation_service(
-                prompt,
-                task_name,
-                configured_entity,
-            )
-        elif configured_entity.startswith("ai_task."):
-            result = await self._call_ai_task_service(
-                prompt,
-                task_name,
-                configured_entity,
-            )
-        else:
-            # Defensive migration fallback for a stale/unsupported stored value.
-            self._report_ai_provider_unavailable(configured_entity)
-            return await self._call_ai_task_service(prompt, task_name)
+        result: str | None = None
+        if self._ai_provider_available(configured_entity):
+            if configured_entity.startswith("conversation."):
+                result = await self._call_conversation_service(
+                    prompt, task_name, configured_entity
+                )
+            elif configured_entity.startswith("ai_task."):
+                result = await self._call_ai_task_service(
+                    prompt, task_name, configured_entity
+                )
 
         if result is not None:
+            self._clear_ai_provider_issue()
             return result
 
-        # Handle a provider being removed or becoming unavailable between the
-        # preflight state check and the service call. Do not mask ordinary model
-        # errors by switching providers when the selected entity is still alive.
-        if not self._ai_provider_available(configured_entity):
-            self._report_ai_provider_unavailable(configured_entity)
-            return await self._call_ai_task_service(prompt, task_name)
+        # Missing, stale, unsupported, or failed selected provider: transparently
+        # retry through Home Assistant's preferred AI Task. This intentionally
+        # does not create a Repair/warning because user AI selections are allowed
+        # to disappear or fail independently of Fitness.
+        self._clear_ai_provider_issue()
+        fallback = await self._call_ai_task_service(prompt, task_name)
+        if fallback is not None:
+            return fallback
 
+        self._disable_ai_runtime(task_name)
         return None
+
+    def _disable_ai_runtime(self, task_name: str) -> None:
+        """Silently suspend optional AI after selected and default paths fail."""
+        if self._ai_runtime_disabled:
+            return
+        self._ai_runtime_disabled = True
+        self._clear_ai_provider_issue()
+        _LOGGER.info(
+            "Fitness AI disabled for profile %s after selected/default providers "
+            "could not complete %s",
+            self.config.get(CONF_PROFILE_NAME),
+            task_name,
+        )
 
     def _ai_result_language_mismatch(self, result: str | None) -> bool:
         """Detect the common failure mode where a Greek profile receives English."""
@@ -7780,7 +8304,7 @@ class FitnessManager:
         workout: bool,
         raise_on_failure: bool = False,
     ):
-        if not self.config.get(CONF_AI_ENABLED):
+        if not self.config.get(CONF_AI_ENABLED) or self._ai_runtime_disabled:
             return
 
         requested = 0

@@ -113,8 +113,8 @@ def test_new_visible_vo2_and_strength_ui_text_is_profile_translatable():
 
 
 def test_frontend_resource_revision_bumped():
-    assert 'unreleased-85' in JS
-    assert 'unreleased-85' in DASH
+    assert 'unreleased-89' in JS
+    assert 'unreleased-89' in DASH
 
 
 

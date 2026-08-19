@@ -40,13 +40,10 @@ def test_existing_physical_device_registry_name_is_refreshed_after_identity_enri
     assert '"name_by_user":' not in block
     assert 'name_by_user=' not in block
 
-def test_adapter_device_info_avoids_primary_plus_translation_key_mix():
-    block = RUNTIME.split("def adapter_device_info", 1)[1].split(
-        "def sensor_device_info", 1
-    )[0]
-    assert "translation_key=" not in block
-    assert "identifiers=" in block
-    assert "manufacturer=" in block
+def test_physical_adapter_device_info_avoids_fake_protocol_devices():
+    assert "def ant_receiver_device_info" in RUNTIME
+    assert "def bluetooth_scanner_device_info" in RUNTIME
+    assert "def adapter_device_info" not in RUNTIME
 
 
 def test_bluetooth_adapter_no_longer_has_capture_active_entity():

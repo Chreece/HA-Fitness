@@ -16,23 +16,24 @@ def test_phone_mediated_gadgetbridge_adapter_is_removed():
     assert "gadgetbridge_fit_export" not in (FIT / "const.py").read_text(encoding="utf-8")
 
 
-def test_first_install_offers_protocol_or_user_without_rewriting_profile_flow():
+def test_first_install_offers_protocol_manager_or_user_without_rewriting_profile_flow():
     assert "async_step_first_install" in FLOW
-    assert 'menu_options=["add_protocol", "add_user"]' in FLOW
-    assert "async_step_add_protocol" in FLOW
+    assert 'menu_options=["manage_protocols", "add_user"]' in FLOW
+    assert "async_step_manage_protocols" in FLOW
+    assert "async_step_add_protocol" in FLOW  # backward-compatible alias
     assert "async_step_add_user" in FLOW
-    assert "has_hub = any(" in FLOW
-    assert 'entry.data.get("entry_type") == HUB_ENTRY_TYPE' in FLOW
-    assert '"initial_transport": transport' in FLOW
-    assert 'transport not in {"bluetooth", "antplus"}' in FLOW
+    assert '"initial_protocols": sorted(selected)' in FLOW
+    assert '"initial_hardware": {' in FLOW
+    assert 'menu_options=["discover_protocol_hardware", "select_protocol_hardware"]' in FLOW
+    assert 'runtime.transport_hardware_choices(transport)' in FLOW
 
 
 def test_adapter_scan_now_is_bounded_and_transport_generic():
-    assert "class AdapterScanNowButton" in BUTTON
+    assert "class PhysicalAdapterScanNowButton" in BUTTON
     assert "asyncio.timeout(15.0)" in BUTTON
     assert "async_refresh_discovery" in BUTTON
     assert "async_refresh_local" in BUTTON
-    block = BUTTON.split("class AdapterScanNowButton", 1)[1].split("class BaseFitnessButton", 1)[0]
+    block = BUTTON.split("class PhysicalAdapterScanNowButton", 1)[1].split("class BaseFitnessButton", 1)[0]
     assert "Garmin" not in block and "CYCPLUS" not in block and "Forerunner" not in block
 
 
@@ -49,7 +50,7 @@ def test_dashboard_features_are_presentation_only_and_entity_backed():
 
 def test_workout_browser_has_bounded_list_batch_delete_and_explicit_empty_confirmation():
     assert '"fitness/workouts/list"' in DASH
-    assert 'vol.Range(min=1, max=200)' in DASH
+    assert 'vol.Range(min=1, max=500)' in DASH
     assert '"fitness/workouts/delete"' in DASH
     assert 'vol.Length(min=1, max=100)' in DASH
     assert '"fitness/workouts/empty"' in DASH

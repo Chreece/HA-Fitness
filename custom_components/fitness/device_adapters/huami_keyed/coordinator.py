@@ -52,7 +52,7 @@ class HuamiKeyedCoordinator(DirectHistoryCoordinator):
 
     model_name = "Xiaomi fitness band"
     sync_unique_suffix = "sync_xiaomi_band_full"
-    sync_translation_key = "sync_device_health_history"
+    sync_translation_key = "sync_device_data"
     sync_icon = "mdi:watch-import"
 
     def _timezone(self):

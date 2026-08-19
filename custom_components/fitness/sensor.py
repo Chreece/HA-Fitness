@@ -423,6 +423,10 @@ DESCRIPTIONS = (
     Desc(key="training_adaptation_status", translation_key="training_adaptation_status", kind="evaluation", metric="training_adaptation_status"),
     Desc(key="ai_general_evaluation", translation_key="ai_general_evaluation", kind="evaluation", metric="ai_general"),
     Desc(key="ai_workout_evaluation", translation_key="ai_workout_evaluation", kind="evaluation", metric="ai_workout"),
+    Desc(key="ai_daily_training_plan", name="AI daily training plan", kind="evaluation", metric="ai_daily_plan"),
+    Desc(key="ai_live_analysis", name="AI live workout analysis", kind="evaluation", metric="ai_live_analysis"),
+    Desc(key="active_workout_instruction", name="Active workout instruction", kind="live", metric="active_workout_instruction"),
+    Desc(key="active_workout_step", name="Active workout step", kind="live", metric="active_workout_step"),
     Desc(key="evaluation_data", name="Evaluation data", kind="evaluation", metric="evaluation_data"),
 
 
@@ -432,11 +436,13 @@ DESCRIPTIONS = (
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up profile sensors or global Local Sensors entities."""
     from .live import get_live_runtime
-    from .live.runtime import HUB_ENTRY_TYPE
+    from .live.runtime import HUB_ENTRY_TYPE, DEVICES_HUB_ENTRY_TYPE
     runtime = get_live_runtime(hass)
-    if entry.data.get("entry_type") == HUB_ENTRY_TYPE:
+    if entry.data.get("entry_type") == DEVICES_HUB_ENTRY_TYPE:
         from .live.ha_entities import async_setup_sensor_entities
         await async_setup_sensor_entities(runtime, async_add_entities)
+        return
+    if entry.data.get("entry_type") == HUB_ENTRY_TYPE:
         return
 
     manager = hass.data[DOMAIN][entry.entry_id]
@@ -803,6 +809,10 @@ class FitnessSensor(SensorEntity):
             "workout_personal_context",
             "ai_general",
             "ai_workout",
+            "ai_daily_plan",
+            "ai_live_analysis",
+            "active_workout_instruction",
+            "active_workout_step",
             "cardiorespiratory_status",
             "hrv_status",
             "provider_training_status",
@@ -1087,6 +1097,16 @@ class FitnessSensor(SensorEntity):
             value = values.get(m)
             return self._meaningful_workout_value(m, value)
 
+        if m == "active_workout_instruction":
+            step = self.manager.current_prescription_step()
+            return (step or {}).get("instruction") or (step or {}).get("name")
+        if m == "active_workout_step":
+            step = self.manager.current_prescription_step()
+            if not step:
+                return None
+            total = len((self.manager.active_prescription or {}).get("steps") or [])
+            return f"{self.manager.active_prescription_step + 1}/{total}: {step.get('name') or 'Step'}"
+
         # AI text is persisted state and is safe to expose during bootstrap.
         if m == "ai_general":
             return self.manager.ai_general_verdict or (
@@ -1096,6 +1116,11 @@ class FitnessSensor(SensorEntity):
             return self.manager.ai_workout_verdict or (
                 "Updated" if self.manager.ai_workout else None
             )
+        if m == "ai_daily_plan":
+            plan = self.manager.ai_daily_plan or {}
+            return plan.get("recommendation") or plan.get("action")
+        if m == "ai_live_analysis":
+            return "Active" if self.manager.session_active and self.manager.ai_live_analysis else None
 
         # Evaluation/recovery summaries can scan provider registries and
         # longitudinal history. Never build them from an entity property while
@@ -1647,7 +1672,13 @@ class FitnessSensor(SensorEntity):
                 )
             )
 
-        if m in ("ai_general", "ai_workout"):
+        if m in ("active_workout_instruction", "active_workout_step"):
+            attrs.update({
+                "prescription": dict(self.manager.active_prescription or {}),
+                "step_index": self.manager.active_prescription_step,
+                "step": self.manager.current_prescription_step(),
+            })
+        elif m in ("ai_general", "ai_workout"):
             full_text = self.manager.ai_general if m == "ai_general" else self.manager.ai_workout
             ai_entity = self.manager.config.get("ai_entity") or "preferred_default"
             if ai_entity == "__home_assistant_default__":
@@ -1657,6 +1688,18 @@ class FitnessSensor(SensorEntity):
                 "generated_at": self.manager.ai_last_generated,
                 "ai_entity": ai_entity,
                 "role": "interpretation_only",
+            })
+        elif m == "ai_daily_plan":
+            attrs.update(dict(self.manager.ai_daily_plan or {}))
+            attrs["role"] = "structured_training_recommendation"
+            attrs["exportable"] = bool((self.manager.ai_daily_plan or {}).get("device_workout"))
+        elif m == "ai_live_analysis":
+            attrs.update({
+                "text": self.manager.ai_live_analysis,
+                "generated_at": self.manager.ai_live_analysis_at,
+                "cadence_seconds": 60,
+                "only_while_live": True,
+                "role": "live_interpretation_only",
             })
         return attrs
 

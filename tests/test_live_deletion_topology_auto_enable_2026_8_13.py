@@ -14,12 +14,12 @@ def test_native_live_devices_opt_into_ha_device_deletion():
     assert 'value.startswith("live_adapter:")' in INIT
 
 
-def test_ant_receivers_are_real_children_of_logical_ant_adapter():
-    assert 'via_device_id=parent.id' in ANT
+def test_ant_receivers_are_flat_physical_devices_in_ant_group():
     assert 'config_subentry_id=adapters_subentry_id' in ANT
+    assert 'live_adapter:antplus' not in ANT
+    assert 'kwargs["via_device_id"] = None' in ANT
     assert 'def ensure_ant_receiver_topology' in RUNTIME
-    assert 'kwargs["via_device_id"] = parent.id' in RUNTIME
-    assert 'self.runtime.ensure_ant_receiver_topology()' in SWITCH
+    assert 'kwargs["via_device_id"] = None' in RUNTIME
 
 
 def test_presence_detection_never_auto_enables_user_disabled_backend():

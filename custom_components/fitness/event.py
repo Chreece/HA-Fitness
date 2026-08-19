@@ -4,7 +4,7 @@ from __future__ import annotations
 from homeassistant.components.event import EventEntity
 
 from .live import get_live_runtime
-from .live.runtime import HUB_ENTRY_TYPE
+from .live.runtime import DEVICES_HUB_ENTRY_TYPE
 
 
 def _event_capabilities(sensor) -> set[str]:
@@ -49,7 +49,7 @@ class PhysicalProtocolEvent(EventEntity):
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    if entry.data.get("entry_type") != HUB_ENTRY_TYPE:
+    if entry.data.get("entry_type") != DEVICES_HUB_ENTRY_TYPE:
         return
     runtime = get_live_runtime(hass)
     materialized: set[tuple[str, str]] = set()
@@ -67,11 +67,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 materialized.add(token)
                 entities.append(PhysicalProtocolEvent(runtime, sensor_id, event_key))
         if entities:
-            subentry = runtime.ensure_sensors_subentry()
-            async_add_entities(
-                entities,
-                config_subentry_id=subentry.subentry_id if subentry else None,
-            )
+            async_add_entities(entities)
 
     _collect()
     entry.async_on_unload(runtime.add_structure_listener(_collect))

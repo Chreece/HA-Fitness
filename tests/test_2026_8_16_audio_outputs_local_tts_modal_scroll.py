@@ -93,8 +93,9 @@ def test_all_tv_modals_keep_outer_shell_fixed_and_forward_wheel_to_internal_scro
 def test_dashboard_modal_scroll_selector_is_in_scope_for_wheel_forwarding():
     modal = JS[JS.index("  _showModal(content) {"):JS.index("  async _openMediaBrowser()")]
     backend_at = modal.index('const backendFlowModal = Boolean(')
+    preview_at = modal.index('const cardPickerPreview = Boolean(')
     selector_at = modal.index('const scrollSelector = ')
     conditional_at = modal.index('if (modalCard && !backendFlowModal) {')
-    use_at = modal.index('const scrollBody = backendFlowModal ? null : modalCard?.querySelector(scrollSelector);')
-    assert backend_at < selector_at < conditional_at < use_at
-    assert 'if (backendFlowModal) return;' in modal
+    use_at = modal.index('const scrollBody = (backendFlowModal || cardPickerPreview) ? null')
+    assert backend_at < preview_at < selector_at < conditional_at < use_at
+    assert 'if (backendFlowModal || cardPickerPreview) return;' in modal

@@ -11,11 +11,11 @@ def test_shared_adapters_subentry_is_legacy_only():
     assert '_remove_legacy_adapters_subentry_if_empty()' in R
 
 
-def test_ant_receivers_share_antplus_protocol_group_and_keep_via_parent():
+def test_ant_receivers_share_antplus_protocol_group_without_fake_parent():
     assert 'adapter_subentry_id("antplus")' in R
-    assert 'kwargs["via_device_id"] = ant_parent.id' in R
+    assert 'kwargs["via_device_id"] = None' in R
     assert 'fitness_antplus_adapters' in ANT
-    assert 'via_device_id=parent.id' in ANT
+    assert 'live_adapter:antplus' not in ANT
 
 
 def test_bluetooth_adapter_has_its_own_protocol_group():

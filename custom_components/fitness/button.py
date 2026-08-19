@@ -16,15 +16,45 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     runtime = get_live_runtime(hass)
-    from .live.runtime import HUB_ENTRY_TYPE
+    from .live.runtime import HUB_ENTRY_TYPE, DEVICES_HUB_ENTRY_TYPE
 
     if entry.data.get("entry_type") == HUB_ENTRY_TYPE:
-        for transport in sorted(runtime.adapter_entity_transports):
-            async_add_entities(
-                [AdapterScanNowButton(runtime, transport)],
-                config_subentry_id=runtime.adapter_subentry_id(transport),
-            )
+        materialized_adapters: set[tuple[str, str]] = set()
 
+        def _add_physical_adapter_buttons() -> None:
+            ant = []
+            if runtime.adapter_configured("antplus"):
+                ant_records = runtime.ant_receiver_records()
+            else:
+                ant_records = {}
+            for stable_key in sorted(ant_records):
+                token = ("antplus", stable_key)
+                if token in materialized_adapters:
+                    continue
+                materialized_adapters.add(token)
+                ant.append(PhysicalAdapterScanNowButton(runtime, "antplus", stable_key))
+            if ant:
+                async_add_entities(ant, config_subentry_id=runtime.adapter_subentry_id("antplus"))
+
+            bt = []
+            if runtime.adapter_configured("bluetooth"):
+                bt_records = runtime.bluetooth_scanner_records()
+            else:
+                bt_records = {}
+            for source in sorted(bt_records):
+                token = ("bluetooth", source)
+                if token in materialized_adapters:
+                    continue
+                materialized_adapters.add(token)
+                bt.append(PhysicalAdapterScanNowButton(runtime, "bluetooth", source))
+            if bt:
+                async_add_entities(bt, config_subentry_id=runtime.adapter_subentry_id("bluetooth"))
+
+        _add_physical_adapter_buttons()
+        entry.async_on_unload(runtime.add_listener(_add_physical_adapter_buttons))
+        return
+
+    if entry.data.get("entry_type") == DEVICES_HUB_ENTRY_TYPE:
         # Normal live transport is automatic. Archive-capable adapters expose one
         # generic explicit retry action in addition to automatic reconnect policy.
         materialized: set[str] = set()
@@ -114,15 +144,12 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 if not runtime.sensor_is_accepted(sensor_id):
                     continue
                 materialized.add(marker)
-                added.append(ArchiveSyncWorkoutsButton(runtime, sensor_id, action))
+                added.append(DeviceDataSyncButton(runtime, sensor_id, action))
             if added:
-                subentry = runtime.ensure_sensors_subentry()
-                async_add_entities(
-                    added,
-                    config_subentry_id=(
-                        subentry.subentry_id if subentry is not None else None
-                    ),
-                )
+                # Fitness Devices is now its own config entry. Do not attach
+                # archive buttons to the removed legacy Smart Fitness Devices
+                # subentry that used to live under Fitness Protocols.
+                async_add_entities(added)
 
         _collect_archive_buttons()
         entry.async_on_unload(runtime.add_structure_listener(_collect_archive_buttons))
@@ -143,19 +170,24 @@ async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities(entities)
 
 
-class AdapterScanNowButton(ButtonEntity):
-    """Run one bounded adapter-owned discovery refresh on explicit request."""
+class PhysicalAdapterScanNowButton(ButtonEntity):
+    """Run one bounded manual scan through a physical Fitness adapter."""
 
     _attr_has_entity_name = True
     _attr_translation_key = "adapter_scan_now"
     _attr_icon = "mdi:radar"
 
-    def __init__(self, runtime, transport: str):
+    def __init__(self, runtime, transport: str, receiver_id: str):
         self.runtime = runtime
         self.transport = transport
+        self.receiver_id = receiver_id
         self._running = False
-        self._attr_unique_id = f"fitness_{transport}_adapter_scan_now"
-        self._attr_device_info = runtime.adapter_device_info(transport)
+        self._attr_unique_id = f"fitness_{transport}_{receiver_id}_scan_now"
+        self._attr_device_info = (
+            runtime.ant_receiver_device_info(receiver_id)
+            if transport == "antplus"
+            else runtime.bluetooth_scanner_device_info(receiver_id)
+        )
 
     async def async_added_to_hass(self):
         self.async_on_remove(self.runtime.add_listener(self._update))
@@ -166,8 +198,8 @@ class AdapterScanNowButton(ButtonEntity):
     @property
     def available(self):
         return bool(
-            self.runtime.adapter_enabled(self.transport)
-            and not self.runtime.transport_in_use(self.transport)
+            self.runtime.receiver_enabled(self.transport, self.receiver_id)
+            and not self.runtime.receiver_automatic_scan(self.transport, self.receiver_id)
             and not self._running
         )
 
@@ -175,6 +207,7 @@ class AdapterScanNowButton(ButtonEntity):
         if not self.available:
             return
         self._running = True
+        await self.runtime.async_begin_receiver_manual_scan(self.transport, self.receiver_id, 20.0)
         self.async_write_ha_state()
         try:
             async with asyncio.timeout(15.0):
@@ -190,15 +223,9 @@ class AdapterScanNowButton(ButtonEntity):
                         await refresh()
                 await self.runtime.async_refresh_adapter_presence()
         except TimeoutError:
-            # Scanning is a best-effort control-plane action. Runtime/provider
-            # diagnostics expose any durable adapter problem; never block HA.
-            _LOGGER.debug("Fitness %s adapter scan timed out", self.transport)
-        except Exception as err:  # noqa: BLE001 - user action must not destabilize HA
-            _LOGGER.debug(
-                "Fitness %s adapter scan failed: %s",
-                self.transport,
-                err,
-            )
+            _LOGGER.debug("Fitness %s physical adapter scan timed out", self.transport)
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("Fitness %s physical adapter scan failed: %s", self.transport, err)
         finally:
             self._running = False
             self.async_write_ha_state()
@@ -219,8 +246,8 @@ class BaseFitnessButton(ButtonEntity):
         self.async_write_ha_state()
 
 
-class ArchiveSyncWorkoutsButton(ButtonEntity):
-    """Request an immediate adapter-owned archive retry without blocking HA."""
+class DeviceDataSyncButton(ButtonEntity):
+    """Request an immediate adapter-owned full device-data sync without blocking HA."""
 
     _attr_has_entity_name = True
 
@@ -302,6 +329,7 @@ class StartWorkoutButton(BaseLiveFitnessButton):
     def available(self):
         return bool(
             self.runtime.profile_has_assigned_live_sensor(self.entry)
+            and any(self.runtime.adapter_enabled(t) for t in ("bluetooth", "antplus"))
             and not self.manager.session_active
             and not self.manager.session_armed
         )

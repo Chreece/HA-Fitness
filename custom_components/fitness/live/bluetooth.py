@@ -493,6 +493,12 @@ class BluetoothFitnessProvider:
             known_sensor is not None
             and self.runtime.sensor_is_accepted(known_sensor.sensor_id)
         )
+        known_endpoint = (
+            known_sensor.endpoints.get(self.transport)
+            if known_sensor is not None
+            else None
+        )
+        was_available = bool(known_endpoint is not None and known_endpoint.available)
 
         # For a provisional discovery device, the advertisement payload itself is
         # not useful after stable identity has been registered. RSSI, service bytes,
@@ -577,7 +583,17 @@ class BluetoothFitnessProvider:
             )
 
         if archive_advertisement is not None:
-            self.device_archives.advertise(sensor.sensor_id, archive_advertisement)
+            endpoint_now = sensor.endpoints.get(self.transport)
+            self.device_archives.advertise(
+                sensor.sensor_id,
+                archive_advertisement,
+                became_available=bool(
+                    accepted
+                    and not was_available
+                    and endpoint_now is not None
+                    and endpoint_now.available
+                ),
+            )
 
         # Raw changing payload diagnostics and proprietary passive decoders are
         # useful only after the user accepts the sensor. Before acceptance they

@@ -75,5 +75,5 @@ def test_native_music_provider_policy_is_provider_specific_not_wholesale_copy():
 
 
 def test_frontend_revision_is_55():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in FRONTEND
-    assert '?v=unreleased-85' in DASHBOARD
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in FRONTEND
+    assert '?v=unreleased-89' in DASHBOARD

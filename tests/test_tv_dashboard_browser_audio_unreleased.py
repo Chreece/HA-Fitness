@@ -213,8 +213,8 @@ def test_tv_audio_core_has_no_required_extra_ha_integration_and_dashboard_revisi
         (BASE / name).read_text(encoding="utf-8")
         for name in ("__init__.py", "config_flow.py", "dashboard.py", "manager.py", "tv_dashboard.py")
     ) + "\n" + FRONTEND
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in FRONTEND
-    assert '?v=unreleased-85' in DASHBOARD
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in FRONTEND
+    assert '?v=unreleased-89' in DASHBOARD
     assert 'fitness/tv/music/browse' in runtime
     assert 'FITNESS_RADIO_PREFIX = "fitness-radio://"' in RADIO_ADAPTER
     # SoundCloud/YouTube helpers are loaded only when selected; account-backed
@@ -502,7 +502,7 @@ def test_live_card_localizes_session_state_and_includes_pause_stop_controls():
 
 
 def test_unreleased_44_live_controls_use_native_service_and_stable_more_info():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in FRONTEND
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in FRONTEND
     assert 'this._hass.callService("button", "press", {}, {entity_id:entityId})' in FRONTEND
     assert '_liveStateSignature(hass)' in FRONTEND
     assert 'metric.addEventListener("click"' in FRONTEND

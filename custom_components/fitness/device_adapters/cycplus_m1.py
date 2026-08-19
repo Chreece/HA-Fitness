@@ -677,6 +677,7 @@ def workouts_from_fit_messages(
                 "fit_session_count": len(sessions),
                 "fit_lap_count": int(_number(_value(session, "num_laps")) or len(laps)),
                 "fit_record_count": len(relevant),
+            "gps_track": _gps_points(relevant),
             "gps_points": _gps_points(relevant),
                 "fit_avg_temperature_c": _number(_value(session, "avg_temperature")),
                 "fit_max_temperature_c": _number(_value(session, "max_temperature")),
@@ -1018,7 +1019,7 @@ class CycplusM1Coordinator:
 
     adapter_id = "cycplus_m1"
     sync_unique_suffix = "cycplus_sync_workouts"
-    sync_translation_key = "cycplus_sync_workouts"
+    sync_translation_key = "sync_device_data"
     sync_icon = "mdi:calendar-sync"
 
     def __init__(self, provider) -> None:
@@ -1316,6 +1317,42 @@ class CycplusM1Coordinator:
         self._publish(sensor_id)
         if self.runtime.sensor_is_accepted(sensor_id):
             self.schedule(sensor_id, delay=2.0)
+
+    async def async_clear_fit_cache(self, retain_count: int = 30, *, profile_id: str | None = None, ownership: str = "profile") -> int:
+        """Prune only Fitness-owned cache records allowed by the requested ownership scope."""
+        retain_count = max(0, min(int(retain_count), 500))
+        removed = 0
+        for state in self._state.setdefault("devices", {}).values():
+            files = state.get("files") if isinstance(state, dict) else None
+            if not isinstance(files, dict):
+                continue
+            eligible = [
+                (key, record) for key, record in files.items()
+                if isinstance(record, dict)
+                and (
+                    ownership == "all_fitness_owned"
+                    or (
+                        profile_id is not None
+                        and profile_id in {str(value) for value in record.get("imported_profiles") or []}
+                    )
+                )
+            ]
+            if len(eligible) <= retain_count:
+                continue
+            ordered = sorted(
+                eligible,
+                key=lambda item: str((item[1] or {}).get("completed_at") or item[0]),
+                reverse=True,
+            )
+            keep = {key for key, _value in ordered[:retain_count]}
+            eligible_keys = {key for key, _record in eligible}
+            for key in list(files):
+                if key in eligible_keys and key not in keep:
+                    files.pop(key, None)
+                    removed += 1
+        if removed:
+            await self._save()
+        return removed
 
     def acceptance_changed(self, sensor_id: str, accepted: bool) -> None:
         if accepted:

@@ -10,10 +10,9 @@ def test_sleep_stage_total_uses_source_routed_canonical_duration():
     assert "e.last_sleep_duration" not in JS
 
 def test_workout_metrics_always_remain_visible_and_route_is_optional():
-    assert "const hasRoute = (this._profile.route_candidates || []).length > 0" in JS
-    assert 'const children = [this._mount("fitness-workout-highlights-card")]' in JS
-    assert 'if (hasRoute)' in JS
-    assert 'children.push(this._mount("fitness-route-card"' in JS
+    assert 'class FitnessWorkoutCard' in JS
+    assert 'gps_track' in JS
+    assert 'class="hero-facts"' in JS
 
 def test_route_summary_has_full_normalized_workout_metrics():
     for key in ("last_workout_max_hr", "last_workout_vo2max", "last_workout_banister_trimp"):

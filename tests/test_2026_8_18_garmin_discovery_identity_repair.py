@@ -123,7 +123,7 @@ def test_conflict_cleanup_removes_wrong_garmin_state_from_other_physical_device(
     assert 'fitness_{sensor_id}_garmin_sync_workouts' in adapter_repair
     assert "registry.async_remove(entity_id)" in adapter_repair
 
-    archive_button = BUTTON.split("class ArchiveSyncWorkoutsButton", 1)[1].split("class BaseLiveFitnessButton", 1)[0]
+    archive_button = BUTTON.split("class DeviceDataSyncButton", 1)[1].split("class BaseLiveFitnessButton", 1)[0]
     # The manual retry must be available before workout_history is verified;
     # Garmin grants that capability only after the handshake this button retries.
     assert "CAPABILITY_WORKOUT_HISTORY" not in archive_button

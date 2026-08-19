@@ -106,6 +106,8 @@ def _dashboard_catalogs():
         "_TV_DASHBOARD_FLOW_TEXT",
         "_TV_DASHBOARD_REMOTE_TEXT",
         "_TV_DASHBOARD_ACCESS_TEXT",
+        "_TV_DASHBOARD_MULTI_TEXT",
+        "_TV_DASHBOARD_LAYOUT_TEXT",
     ):
         for language in LANGUAGES:
             catalogs[language].update(values[group].get(language, {}))

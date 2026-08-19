@@ -20,7 +20,7 @@ def test_modern_dashboard_motion_is_entity_first_data_aware_and_continuously_ali
     assert 'transform:"scaleY(0)"' in FRONTEND
     assert 'clipPath:"circle(0% at 50% 50%)"' in FRONTEND
     assert 'fill:"both"' in FRONTEND
-    assert "elementIndex * 42" in FRONTEND
+    assert "elementIndex * 22" in FRONTEND
     assert "_ensureChartTracer(card" in FRONTEND
     assert 'document.createElementNS("http://www.w3.org/2000/svg", "animateMotion")' in FRONTEND
     assert 'svg.style.overflow = "hidden"' in FRONTEND

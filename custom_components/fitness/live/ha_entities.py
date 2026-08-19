@@ -448,11 +448,8 @@ async def async_setup_sensor_entities(runtime, async_add_entities) -> None:
                 entities.append(PhysicalDetailSensor(runtime, sensor_id, detail_key))
 
         if entities:
-            subentry = runtime.ensure_sensors_subentry()
-            async_add_entities(
-                entities,
-                config_subentry_id=subentry.subentry_id if subentry is not None else None,
-            )
+            async_add_entities(entities)
 
     _collect()
-    runtime.hub_entry.async_on_unload(runtime.add_structure_listener(_collect))
+    if runtime.devices_entry is not None:
+        runtime.devices_entry.async_on_unload(runtime.add_structure_listener(_collect))

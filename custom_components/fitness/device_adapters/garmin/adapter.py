@@ -49,7 +49,7 @@ ARCHIVE_ADAPTER = BluetoothArchiveAdapterSpec(
     # Vendor advertisement evidence is only a candidate. The connected GFDI
     # handshake grants workout_history after V2/V1/V0 capability verification.
     advertisement_capabilities=frozenset(),
-    sync_capabilities=frozenset({"workout_history", "gps_tracks"}),
+    sync_capabilities=frozenset({"workout_history", "gps_tracks", "health_history", "sleep_history", "device_state"}),
     # Garmin pairing/bond state belongs to one Bluetooth central.  Let the
     # adapter own the first connected session instead of running the generic
     # short-lived DIS identity probe before pairing.

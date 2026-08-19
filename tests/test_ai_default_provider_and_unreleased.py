@@ -45,10 +45,10 @@ def test_default_ai_provider_is_resolved_by_home_assistant_at_every_call():
     end = MANAGER.index("def _ai_result_language_mismatch", start)
     routing = MANAGER[start:end]
     assert "if configured_entity is None:" in routing
-    assert "return await self._call_ai_task_service(prompt, task_name)" in routing
+    assert "result = await self._call_ai_task_service(prompt, task_name)" in routing
 
 
-def test_pinned_provider_is_honored_and_unavailability_falls_back_with_repair():
+def test_pinned_provider_is_honored_and_unavailability_falls_back_silently():
     assert 'if configured_entity.startswith("conversation."):' in MANAGER
     assert 'elif configured_entity.startswith("ai_task."):' in MANAGER
     assert "_call_conversation_service(" in MANAGER
@@ -56,10 +56,10 @@ def test_pinned_provider_is_honored_and_unavailability_falls_back_with_repair():
     assert "async_track_state_change_event(" in MANAGER
     assert "self._async_ai_provider_state_change" in MANAGER
     assert "def _sync_ai_provider_issue" in MANAGER
-    assert "ir.async_create_issue(" in MANAGER
-    assert 'translation_key="ai_provider_unavailable"' in MANAGER
-    assert "ir.async_delete_issue(" in MANAGER
-    assert "if not self._ai_provider_available(configured_entity):" in MANAGER
+    assert "self._clear_ai_provider_issue()" in MANAGER
+    assert "fallback = await self._call_ai_task_service(prompt, task_name)" in MANAGER
+    assert "self._disable_ai_runtime(task_name)" in MANAGER
+    assert "self._ai_runtime_disabled = True" in MANAGER
 
 
 def test_default_sentinel_is_not_exposed_as_ai_entity_attribute():
@@ -90,8 +90,8 @@ def test_repository_release_metadata_supports_alpha_beta_and_stable():
     assert "`YYYY.M.RRaXX`" in CHANGELOG
     assert "`YYYY.M.RR-betaXX`" in CHANGELOG
     assert "`YYYY.M.RR`" in CHANGELOG
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in FRONTEND
-    assert '?v=unreleased-85' in DASHBOARD
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in FRONTEND
+    assert '?v=unreleased-89' in DASHBOARD
     assert "2026.8.01a01" in CONTRIBUTING
     assert "2026.8.01-beta01" in CONTRIBUTING
     assert "2026.8.01" in CONTRIBUTING

@@ -11,7 +11,7 @@ from typing import Any, Iterable
 
 from ..providers.sleep import SleepRecord
 
-MAX_DEVICE_METRIC_POINTS = 2048
+MAX_DEVICE_METRIC_POINTS = 8192
 MAX_DEVICE_SLEEP_RECORDS = 32
 MAX_POINT_CONTEXT_ITEMS = 12
 

@@ -49,7 +49,7 @@ def _valid_epoch(value: int) -> datetime | None:
 class ZeTimeCoordinator(DirectHistoryCoordinator):
     adapter_id = "mykronoz_zetime"
     sync_unique_suffix = "sync_zetime_health_history"
-    sync_translation_key = "sync_device_health_history"
+    sync_translation_key = "sync_device_data"
     sync_icon = "mdi:watch"
 
     async def _send_frame(self, client, frame: bytes) -> None:

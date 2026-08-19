@@ -13,8 +13,8 @@ def test_tv_custom_element_aliases_use_unique_subclass_constructors():
 
 
 def test_stable_lovelace_tags_and_current_alias_are_registered():
-    assert 'FITNESS_TV_DASHBOARD_CARD_TAG = "fitness-tv-dashboard-card-v75"' in FRONTEND
-    assert 'FITNESS_TV_SETUP_CARD_TAG = "fitness-tv-setup-card-v75"' in FRONTEND
+    assert 'FITNESS_TV_DASHBOARD_CARD_TAG = "fitness-tv-dashboard-card-v76"' in FRONTEND
+    assert 'FITNESS_TV_SETUP_CARD_TAG = "fitness-tv-setup-card-v76"' in FRONTEND
     assert '"fitness-tv-dashboard-card",' in FRONTEND
     assert '"fitness-tv-setup-card",' in FRONTEND
     assert '"fitness-tv-dashboard-card-v75"' in FRONTEND
@@ -23,6 +23,6 @@ def test_stable_lovelace_tags_and_current_alias_are_registered():
     assert '_TV_SETUP_CARD_TYPE = "custom:fitness-tv-setup-card"' in DASHBOARD
 
 
-def test_frontend_resource_revision_is_v75():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-85"' in FRONTEND
-    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-85"' in DASHBOARD
+def test_frontend_resource_revision_is_v76():
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in FRONTEND
+    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-89"' in DASHBOARD

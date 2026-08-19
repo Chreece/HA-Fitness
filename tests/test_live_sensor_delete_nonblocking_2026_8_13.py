@@ -35,7 +35,11 @@ def test_deletion_does_not_reload_profiles_or_hub():
 
 
 def test_adapter_switches_are_added_per_transport_subentry():
-    assert 'for transport in sorted(runtime.adapter_entity_transports):' in SWITCH
-    assert 'config_subentry_id=runtime.adapter_subentry_id(transport)' in SWITCH
+    assert 'ant_records = runtime.ant_receiver_records() if runtime.adapter_configured("antplus") else {}' in SWITCH
+    assert 'for stable_key in sorted(ant_records):' in SWITCH
+    assert 'bt_records = runtime.bluetooth_scanner_records() if runtime.adapter_configured("bluetooth") else {}' in SWITCH
+    assert 'for source in sorted(bt_records):' in SWITCH
+    assert 'config_subentry_id=runtime.adapter_subentry_id("antplus")' in SWITCH
+    assert 'config_subentry_id=runtime.adapter_subentry_id("bluetooth")' in SWITCH
     broken = '''[AdapterEnabledSwitch(runtime, transport) for transport in sorted(runtime.adapter_entity_transports)],\n        config_subentry_id=runtime.adapter_subentry_id(transport)'''
     assert broken not in SWITCH

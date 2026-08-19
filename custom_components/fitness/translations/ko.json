@@ -74,12 +74,14 @@
         "data": {
           "workout_device_ids": "운동/피트니스 기록 데이터를 제공하는 기기",
           "detailed_strength_analysis": "상세 근력 분석",
-          "workout_retention_days": "운동 보관 기간"
+          "workout_retention_days": "운동 보관 기간",
+          "fit_file_retention_count": "보존할 FIT 파일/체크포인트"
         },
         "data_description": {
           "workout_device_ids": "기록 장치. 명확히 지원되는 Garmin, Strava, Polar, Hevy, Peloton, Oura 계약만 미리 선택합니다.",
           "detailed_strength_analysis": "근력 데이터가 있을 때 운동/세트, 추정 1RM, 운동별 진행 상황을 분석합니다.",
-          "workout_retention_days": "Fitness 표준 운동을 보관할 일수입니다. 0은 무제한입니다."
+          "workout_retention_days": "Fitness 표준 운동을 보관할 일수입니다. 0은 무제한입니다.",
+          "fit_file_retention_count": "정리할 때 보존할 최신 Fitness FIT 가져오기/체크포인트 기록 수입니다. 원본 기기의 파일은 삭제하지 않습니다."
         }
       },
       "ai": {
@@ -87,11 +89,17 @@
         "description": "기본적으로 Home Assistant의 기본 AI Task가 선택됩니다. Fitness는 현재 시스템 기본값을 자동으로 따릅니다. 특정 AI Task 또는 대화 에이전트에 고정하려는 경우에만 별도로 선택하세요.",
         "data": {
           "ai_enabled": "AI 피트니스 평가 생성",
-          "ai_entity": "AI 제공자"
+          "ai_entity": "AI 제공자",
+          "training_goal": "훈련 목표",
+          "training_goal_date": "목표 / 대회 날짜",
+          "training_days_per_week": "주당 선호 훈련 일수"
         },
         "data_description": {
           "ai_enabled": "결정론적 계산의 AI 해석을 활성화합니다. AI는 과학적 센서 공식이나 메타데이터를 정의하거나 변경하지 않습니다.",
-          "ai_entity": "Home Assistant 기본 AI Task를 사용하면 시스템 기본 설정을 자동으로 따릅니다. 특정 AI Task / 대화 에이전트에 고정할 수도 있습니다. 고정된 제공자를 사용할 수 없게 되면 Fitness가 알려 주고 일시적으로 시스템 기본값으로 대체합니다."
+          "ai_entity": "Home Assistant 기본 AI Task를 사용하면 시스템 기본 설정을 자동으로 따릅니다. 특정 AI Task / 대화 에이전트에 고정할 수도 있습니다. 고정된 제공자를 사용할 수 없게 되면 Fitness가 알려 주고 일시적으로 시스템 기본값으로 대체합니다.",
+          "training_goal": "편안한 마라톤 완주나 사이클 FTP 향상처럼 목표를 설명하세요. Fitness는 기록, 준비도, 회복 상태와 함께 사용합니다.",
+          "training_goal_date": "계획 맥락에만 사용하는 선택적 목표 날짜입니다.",
+          "training_days_per_week": "선호 훈련 일수이며 회복 필요에 따라 휴식일이 추가될 수 있습니다."
         }
       },
       "feedback": {
@@ -158,8 +166,8 @@
         "title": "Fitness 설정",
         "description": "먼저 추가할 항목을 선택하세요. 기존 프로필 설정 흐름을 바꾸지 않고 나머지 항목을 나중에 추가할 수 있습니다.",
         "menu_options": {
-          "add_protocol": "센서 프로토콜 추가",
-          "add_user": "사용자 프로필 추가"
+          "add_user": "사용자 프로필 추가",
+          "manage_protocols": "센서 프로토콜 관리"
         }
       },
       "add_user": {
@@ -167,13 +175,59 @@
         "description": "기존 Fitness 프로필 설정 절차를 계속합니다."
       },
       "add_protocol": {
-        "title": "센서 프로토콜 추가",
-        "description": "로컬 센서 전송 하나를 활성화합니다. Fitness는 어댑터 장치를 만들고 검색을 제한된 사용자 제어 방식으로 유지합니다.",
+        "title": "센서 프로토콜 관리",
+        "description": "Fitness에서 사용할 프로토콜과 지원 하드웨어의 자동 검색 또는 수동 선택을 지정합니다. 비활성화된 프로토콜은 Fitness에 표시되지 않습니다. Fitness는 시스템 공유 하드웨어를 물리적으로 끄지 않습니다.",
         "data": {
-          "protocol": "프로토콜"
+          "bluetooth": "Fitness용 Bluetooth",
+          "bluetooth_automatic_hardware": "Bluetooth 하드웨어 자동 검색",
+          "antplus": "Fitness용 ANT+",
+          "antplus_automatic_hardware": "ANT+ 하드웨어 자동 검색"
         },
         "data_description": {
-          "protocol": "Fitness가 지금 활성화할 로컬 무선 전송을 선택하세요. 다른 전송은 사용 가능하지만 직접 활성화할 때까지 꺼져 있습니다."
+          "bluetooth": "Fitness에서 사용할 프로토콜과 지원 하드웨어의 자동 검색 또는 수동 선택을 지정합니다. 비활성화된 프로토콜은 Fitness에 표시되지 않습니다. Fitness는 시스템 공유 하드웨어를 물리적으로 끄지 않습니다.",
+          "bluetooth_automatic_hardware": "Fitness에서 사용할 프로토콜과 지원 하드웨어의 자동 검색 또는 수동 선택을 지정합니다. 비활성화된 프로토콜은 Fitness에 표시되지 않습니다. Fitness는 시스템 공유 하드웨어를 물리적으로 끄지 않습니다.",
+          "antplus": "Fitness에서 사용할 프로토콜과 지원 하드웨어의 자동 검색 또는 수동 선택을 지정합니다. 비활성화된 프로토콜은 Fitness에 표시되지 않습니다. Fitness는 시스템 공유 하드웨어를 물리적으로 끄지 않습니다.",
+          "antplus_automatic_hardware": "Fitness에서 사용할 프로토콜과 지원 하드웨어의 자동 검색 또는 수동 선택을 지정합니다. 비활성화된 프로토콜은 Fitness에 표시되지 않습니다. Fitness는 시스템 공유 하드웨어를 물리적으로 끄지 않습니다."
+        }
+      },
+      "manage_protocols": {
+        "title": "센서 프로토콜 관리",
+        "description": "Fitness에서 사용할 프로토콜과 지원 하드웨어의 자동 검색 또는 수동 선택을 지정합니다. 비활성화된 프로토콜은 Fitness에 표시되지 않습니다. Fitness는 시스템 공유 하드웨어를 물리적으로 끄지 않습니다.",
+        "data": {
+          "bluetooth": "Fitness용 Bluetooth",
+          "bluetooth_automatic_hardware": "Bluetooth 하드웨어 자동 검색",
+          "antplus": "Fitness용 ANT+",
+          "antplus_automatic_hardware": "ANT+ 하드웨어 자동 검색"
+        },
+        "data_description": {
+          "bluetooth": "Fitness에서 사용할 프로토콜과 지원 하드웨어의 자동 검색 또는 수동 선택을 지정합니다. 비활성화된 프로토콜은 Fitness에 표시되지 않습니다. Fitness는 시스템 공유 하드웨어를 물리적으로 끄지 않습니다.",
+          "bluetooth_automatic_hardware": "Fitness에서 사용할 프로토콜과 지원 하드웨어의 자동 검색 또는 수동 선택을 지정합니다. 비활성화된 프로토콜은 Fitness에 표시되지 않습니다. Fitness는 시스템 공유 하드웨어를 물리적으로 끄지 않습니다.",
+          "antplus": "Fitness에서 사용할 프로토콜과 지원 하드웨어의 자동 검색 또는 수동 선택을 지정합니다. 비활성화된 프로토콜은 Fitness에 표시되지 않습니다. Fitness는 시스템 공유 하드웨어를 물리적으로 끄지 않습니다.",
+          "antplus_automatic_hardware": "Fitness에서 사용할 프로토콜과 지원 하드웨어의 자동 검색 또는 수동 선택을 지정합니다. 비활성화된 프로토콜은 Fitness에 표시되지 않습니다. Fitness는 시스템 공유 하드웨어를 물리적으로 끄지 않습니다."
+        }
+      },
+      "manage_protocol_hardware": {
+        "title": "하드웨어 수동 선택",
+        "description": "지원되는 하드웨어를 제한된 시간 동안 검색하거나 Fitness가 이미 찾은 어댑터를 선택합니다.",
+        "menu_options": {
+          "discover_protocol_hardware": "지금 하드웨어 검색",
+          "select_protocol_hardware": "검색된 하드웨어 선택"
+        }
+      },
+      "discover_protocol_hardware": {
+        "title": "하드웨어 검색 완료",
+        "description": "지원되는 하드웨어를 제한된 시간 동안 검색하거나 Fitness가 이미 찾은 어댑터를 선택합니다."
+      },
+      "select_protocol_hardware": {
+        "title": "하드웨어 수동 선택",
+        "description": "수동 모드에서 Fitness가 사용할 수 있는 지원 어댑터를 선택합니다.",
+        "data": {
+          "bluetooth_hardware": "Bluetooth 어댑터",
+          "antplus_hardware": "ANT+ 어댑터"
+        },
+        "data_description": {
+          "bluetooth_hardware": "수동 모드에서 Fitness가 사용할 수 있는 지원 어댑터를 선택합니다.",
+          "antplus_hardware": "수동 모드에서 Fitness가 사용할 수 있는 지원 어댑터를 선택합니다."
         }
       }
     },
@@ -191,7 +245,9 @@
       "no_fitness_profiles": "이 센서를 할당하기 전에 Fitness 사용자를 만드세요.",
       "invalid_discovery": "피트니스 센서 검색 데이터가 올바르지 않습니다.",
       "adapters_already_configured": "모든 Fitness 실시간 어댑터가 이미 구성되었습니다. 각 어댑터 기기에서 활성화하거나 비활성화하세요.",
-      "adapters_managed_on_devices": "로컬 센서 어댑터는 ANT+ 및 Bluetooth 어댑터 기기에서 구성합니다."
+      "adapters_managed_on_devices": "로컬 센서 어댑터는 ANT+ 및 Bluetooth 어댑터 기기에서 구성합니다.",
+      "protocol_enabled": "선택한 연결 프로토콜이 활성화되었습니다.",
+      "protocols_updated": "Fitness 센서 프로토콜이 업데이트되었습니다."
     }
   },
   "options": {
@@ -209,7 +265,7 @@
           "sensor_assignments": "센서 할당",
           "tv_dashboard": "Fitness TV 대시보드",
           "smart_workout_devices": "스마트 운동 기기",
-          "protocols": "센서 프로토콜",
+          "protocols": "센서 프로토콜 관리",
           "features": "대시보드 기능",
           "about": "Fitness 정보"
         }
@@ -276,12 +332,14 @@
         "data": {
           "workout_device_ids": "운동/피트니스 기록 데이터를 제공하는 기기",
           "detailed_strength_analysis": "상세 근력 분석",
-          "workout_retention_days": "운동 보관 기간"
+          "workout_retention_days": "운동 보관 기간",
+          "fit_file_retention_count": "보존할 FIT 파일/체크포인트"
         },
         "data_description": {
           "workout_device_ids": "기록 장치. 명확히 지원되는 Garmin, Strava, Polar, Hevy, Peloton, Oura 계약만 미리 선택합니다.",
           "detailed_strength_analysis": "근력 데이터가 있을 때 운동/세트, 추정 1RM, 운동별 진행 상황을 분석합니다.",
-          "workout_retention_days": "Fitness 표준 운동을 보관할 일수입니다. 0은 무제한입니다."
+          "workout_retention_days": "Fitness 표준 운동을 보관할 일수입니다. 0은 무제한입니다.",
+          "fit_file_retention_count": "정리할 때 보존할 최신 Fitness FIT 가져오기/체크포인트 기록 수입니다. 원본 기기의 파일은 삭제하지 않습니다."
         }
       },
       "ai": {
@@ -289,11 +347,17 @@
         "description": "기본적으로 Home Assistant의 기본 AI Task가 선택됩니다. Fitness는 현재 시스템 기본값을 자동으로 따릅니다. 특정 AI Task 또는 대화 에이전트에 고정하려는 경우에만 별도로 선택하세요.",
         "data": {
           "ai_enabled": "AI 피트니스 평가 생성",
-          "ai_entity": "AI 제공자"
+          "ai_entity": "AI 제공자",
+          "training_goal": "훈련 목표",
+          "training_goal_date": "목표 / 대회 날짜",
+          "training_days_per_week": "주당 선호 훈련 일수"
         },
         "data_description": {
           "ai_enabled": "결정론적 계산의 AI 해석을 활성화합니다. AI는 과학적 센서 공식이나 메타데이터를 정의하거나 변경하지 않습니다.",
-          "ai_entity": "Home Assistant 기본 AI Task를 사용하면 시스템 기본 설정을 자동으로 따릅니다. 특정 AI Task / 대화 에이전트에 고정할 수도 있습니다. 고정된 제공자를 사용할 수 없게 되면 Fitness가 알려 주고 일시적으로 시스템 기본값으로 대체합니다."
+          "ai_entity": "Home Assistant 기본 AI Task를 사용하면 시스템 기본 설정을 자동으로 따릅니다. 특정 AI Task / 대화 에이전트에 고정할 수도 있습니다. 고정된 제공자를 사용할 수 없게 되면 Fitness가 알려 주고 일시적으로 시스템 기본값으로 대체합니다.",
+          "training_goal": "편안한 마라톤 완주나 사이클 FTP 향상처럼 목표를 설명하세요. Fitness는 기록, 준비도, 회복 상태와 함께 사용합니다.",
+          "training_goal_date": "계획 맥락에만 사용하는 선택적 목표 날짜입니다.",
+          "training_days_per_week": "선호 훈련 일수이며 회복 필요에 따라 휴식일이 추가될 수 있습니다."
         }
       },
       "feedback": {
@@ -419,15 +483,19 @@
         }
       },
       "protocols": {
-        "title": "센서 프로토콜",
-        "description": "로컬 센서 전송을 켜거나 끕니다. 사용 중인 전송은 세션이 끝난 뒤에만 종료됩니다.",
+        "title": "센서 프로토콜 관리",
+        "description": "Fitness에서 사용할 프로토콜과 지원 하드웨어의 자동 검색 또는 수동 선택을 지정합니다. 비활성화된 프로토콜은 Fitness에 표시되지 않습니다. Fitness는 시스템 공유 하드웨어를 물리적으로 끄지 않습니다.",
         "data": {
-          "bluetooth": "블루투스 프로토콜",
-          "antplus": "ANT+ 프로토콜"
+          "bluetooth": "Fitness용 Bluetooth",
+          "bluetooth_automatic_hardware": "Bluetooth 하드웨어 자동 검색",
+          "antplus": "Fitness용 ANT+",
+          "antplus_automatic_hardware": "ANT+ 하드웨어 자동 검색"
         },
         "data_description": {
-          "bluetooth": "로컬 Fitness 센서와 지원 장치 기록을 위해 Home Assistant 블루투스 전송을 활성화합니다.",
-          "antplus": "호환 USB 수신기와 Fitness 센서를 위해 로컬 ANT+ 전송을 활성화합니다."
+          "bluetooth": "Fitness에서 사용할 프로토콜과 지원 하드웨어의 자동 검색 또는 수동 선택을 지정합니다. 비활성화된 프로토콜은 Fitness에 표시되지 않습니다. Fitness는 시스템 공유 하드웨어를 물리적으로 끄지 않습니다.",
+          "bluetooth_automatic_hardware": "Fitness에서 사용할 프로토콜과 지원 하드웨어의 자동 검색 또는 수동 선택을 지정합니다. 비활성화된 프로토콜은 Fitness에 표시되지 않습니다. Fitness는 시스템 공유 하드웨어를 물리적으로 끄지 않습니다.",
+          "antplus": "Fitness에서 사용할 프로토콜과 지원 하드웨어의 자동 검색 또는 수동 선택을 지정합니다. 비활성화된 프로토콜은 Fitness에 표시되지 않습니다. Fitness는 시스템 공유 하드웨어를 물리적으로 끄지 않습니다.",
+          "antplus_automatic_hardware": "Fitness에서 사용할 프로토콜과 지원 하드웨어의 자동 검색 또는 수동 선택을 지정합니다. 비활성화된 프로토콜은 Fitness에 표시되지 않습니다. Fitness는 시스템 공유 하드웨어를 물리적으로 끄지 않습니다."
         }
       },
       "features": {
@@ -455,6 +523,30 @@
       "about": {
         "title": "Fitness 정보",
         "description": "설치된 버전: {version}\n\n{changelog}"
+      },
+      "protocol_hardware": {
+        "title": "하드웨어 수동 선택",
+        "description": "지원되는 하드웨어를 제한된 시간 동안 검색하거나 Fitness가 이미 찾은 어댑터를 선택합니다.",
+        "menu_options": {
+          "protocol_hardware_discover": "지금 하드웨어 검색",
+          "protocol_hardware_select": "검색된 하드웨어 선택"
+        }
+      },
+      "protocol_hardware_discover": {
+        "title": "하드웨어 검색 완료",
+        "description": "지원되는 하드웨어를 제한된 시간 동안 검색하거나 Fitness가 이미 찾은 어댑터를 선택합니다."
+      },
+      "protocol_hardware_select": {
+        "title": "하드웨어 수동 선택",
+        "description": "수동 모드에서 Fitness가 사용할 수 있는 지원 어댑터를 선택합니다.",
+        "data": {
+          "bluetooth_hardware": "Bluetooth 어댑터",
+          "antplus_hardware": "ANT+ 어댑터"
+        },
+        "data_description": {
+          "bluetooth_hardware": "수동 모드에서 Fitness가 사용할 수 있는 지원 어댑터를 선택합니다.",
+          "antplus_hardware": "수동 모드에서 Fitness가 사용할 수 있는 지원 어댑터를 선택합니다."
+        }
       }
     },
     "abort": {
@@ -3366,10 +3458,11 @@
         "name": "로컬 동기화 백엔드"
       },
       "garmin_sync_state": {
-        "name": "운동 동기화 상태",
+        "name": "기기 동기화 상태",
         "state": {
           "idle": "유휴",
           "waiting": "대기 중",
+          "cooldown": "기기 대기 시간",
           "connecting": "연결 중",
           "syncing": "동기화 중",
           "ready": "최신 상태",
@@ -3388,10 +3481,10 @@
         "name": "장치의 운동"
       },
       "garmin_imported_file_count": {
-        "name": "가져온 운동 파일"
+        "name": "다운로드한 기기 파일"
       },
       "garmin_pending_file_count": {
-        "name": "대기 중인 운동 파일"
+        "name": "대기 중인 기기 파일"
       },
       "garmin_downloaded_bytes": {
         "name": "다운로드한 바이트"
@@ -3419,6 +3512,15 @@
       },
       "garmin_latest_workout": {
         "name": "장치의 최신 운동"
+      },
+      "garmin_last_batch_success": {
+        "name": "마지막 성공 배치"
+      },
+      "garmin_next_attempt": {
+        "name": "다음 동기화 시도"
+      },
+      "garmin_quarantined_file_count": {
+        "name": "읽을 수 없어 건너뛴 파일"
       }
     },
     "binary_sensor": {
@@ -3449,10 +3551,13 @@
         "name": "지금 운동 동기화"
       },
       "garmin_sync_workouts": {
-        "name": "Garmin 운동 지금 동기화"
+        "name": "지금 Garmin 동기화"
       },
       "adapter_scan_now": {
         "name": "지금 검색"
+      },
+      "sync_device_data": {
+        "name": "기기 데이터 동기화"
       },
       "sync_device_health_history": {
         "name": "기기 건강 기록 동기화"

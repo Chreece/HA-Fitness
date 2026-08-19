@@ -99,7 +99,7 @@ def _sleep_records(samples: list[MiBand1ActivitySample], sensor_id: str) -> list
 class MiBand1Coordinator(DirectHistoryCoordinator):
     adapter_id = "xiaomi_miband1"
     sync_unique_suffix = "sync_miband1_full"
-    sync_translation_key = "sync_device_health_history"
+    sync_translation_key = "sync_device_data"
     sync_icon = "mdi:watch-import"
 
     def _timezone(self):

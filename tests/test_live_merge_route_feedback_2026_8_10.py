@@ -39,8 +39,8 @@ def test_workout_card_keeps_metrics_even_with_route():
     start = JS.index("class FitnessWorkoutCard")
     end = JS.index("class FitnessSleepRecoveryCard", start)
     block = JS[start:end]
-    assert 'const children = [this._mount("fitness-workout-highlights-card")]' in block
-    assert 'children.push(this._mount("fitness-route-card"' in block
+    assert 'gps_track' in block
+    assert 'selected-route' in block
 
 
 def test_live_card_uses_all_available_live_device_entities_only():

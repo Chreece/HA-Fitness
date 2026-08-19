@@ -8,6 +8,8 @@ import math
 from typing import Any
 
 from ...providers.workouts import Workout, _dt
+from ...providers.sleep import SleepRecord
+from ..history import DeviceHistoryBatch, DeviceMetricPoint
 
 MAX_FIT_BYTES = 32 * 1024 * 1024
 MAX_FIT_RECORDS = 150_000
@@ -229,6 +231,426 @@ def _normalize_sets(sets: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], f
     return normalized, active_duration, rest_duration, all_reps_plausible
 
 
+
+HEALTH_MESSAGE_NAMES = frozenset({
+    "monitoring", "monitoring_info", "monitoring_hr_data", "resting_heart_rate",
+    "hr", "hrv", "beat_intervals", "hrv_status_summary", "hrv_value", "stress_level",
+    "respiration_rate", "spo2_data", "sleep_level", "sleep_assessment",
+    "weight_scale", "blood_pressure", "hsa_step_data", "hsa_spo2_data",
+    "hsa_stress_data", "hsa_respiration_data", "hsa_heart_rate_data",
+    "hsa_body_battery_data", "skin_temp_overnight", "hsa_wrist_temperature_data",
+    "device_aux_battery_info", "max_met_data",
+})
+MAX_HEALTH_FRAMES = 100_000
+
+
+def _health_frames(data: bytes) -> list[tuple[str, dict[str, Any]]]:
+    """Decode only documented/recognized wellness messages under hard bounds."""
+    container = _fit_container(data)
+    import fitdecode
+
+    result: list[tuple[str, dict[str, Any]]] = []
+    count = 0
+    with fitdecode.FitReader(io.BytesIO(container), check_crc=fitdecode.CrcCheck.RAISE) as reader:
+        for frame in reader:
+            if frame.frame_type != fitdecode.FIT_FRAME_DATA:
+                continue
+            name = str(frame.name)
+            if name not in HEALTH_MESSAGE_NAMES:
+                continue
+            count += 1
+            if count > MAX_HEALTH_FRAMES:
+                raise ValueError("Garmin wellness FIT frame count exceeds safe limit")
+            values: dict[str, Any] = {}
+            for field in frame.fields:
+                field_name = str(field.name)
+                if field_name.startswith("unknown_") or field_name.isdigit():
+                    continue
+                value = _safe(field.value)
+                if value is None:
+                    continue
+                if field_name in values:
+                    old = values[field_name]
+                    values[field_name] = [*old, value] if isinstance(old, list) else [old, value]
+                else:
+                    values[field_name] = value
+            if values:
+                result.append((name, values))
+    return result
+
+
+def _point_time(values: dict[str, Any]) -> datetime | None:
+    for key in (
+        "timestamp", "stress_level_time", "local_timestamp", "start_time",
+        "measurement_time", "sample_time", "time_created", "update_time",
+    ):
+        parsed = _dt(values.get(key))
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _scalar(value: Any, *, mean_list: bool = False) -> float | None:
+    if isinstance(value, (list, tuple)):
+        numbers = [number for item in value if (number := _number(item)) is not None]
+        if not numbers:
+            return None
+        return sum(numbers) / len(numbers) if mean_list else numbers[-1]
+    return _number(value)
+
+
+def _scaled_percent(value: Any) -> float | None:
+    number = _scalar(value)
+    if number is None:
+        return None
+    while number > 100.0 and number <= 10000.0:
+        number /= 100.0
+    return number
+
+
+def _scaled_respiration(value: Any) -> float | None:
+    number = _scalar(value)
+    if number is None:
+        return None
+    # Older Garmin monitoring files encode hundredths of breaths/min while FIT
+    # decoders based on newer profiles may already apply the scale.
+    if 100.0 < number <= 10000.0:
+        number /= 100.0
+    return number
+
+
+def _sleep_stage(value: Any) -> str | None:
+    text = str(value or "").strip().lower().replace(" ", "_")
+    if "rem" in text:
+        return "rem"
+    if "deep" in text:
+        return "deep"
+    if "light" in text:
+        return "light"
+    if "awake" in text or "wake" in text:
+        return "awake"
+    return None
+
+
+def _sleep_records_from_frames(
+    frames: list[tuple[str, dict[str, Any]]], *, source: str
+) -> list[SleepRecord]:
+    events: list[tuple[datetime, str]] = []
+    assessments: list[tuple[datetime | None, dict[str, Any]]] = []
+    for name, values in frames:
+        if name == "sleep_level":
+            stamp = _point_time(values)
+            stage = _sleep_stage(_first(values, "sleep_level", "level", "stage"))
+            if stamp is not None and stage is not None:
+                events.append((stamp, stage))
+        elif name == "sleep_assessment":
+            assessments.append((_point_time(values), values))
+    events.sort(key=lambda item: item[0])
+    if not events and not assessments:
+        return []
+
+    sessions: list[SleepRecord] = []
+    # Garmin sleep_level is transition/sample history. Split only at very large
+    # gaps; normal wake periods inside one night remain part of the same record.
+    groups: list[list[tuple[datetime, str]]] = []
+    for event in events:
+        if not groups or (event[0] - groups[-1][-1][0]).total_seconds() > 6 * 3600:
+            groups.append([event])
+        else:
+            groups[-1].append(event)
+    for group in groups[-32:]:
+        if len(group) < 2:
+            continue
+        durations = {"awake": 0.0, "light": 0.0, "deep": 0.0, "rem": 0.0}
+        for (stamp, stage), (next_stamp, _next_stage) in zip(group, group[1:]):
+            seconds = max(0.0, min(3 * 3600.0, (next_stamp - stamp).total_seconds()))
+            durations[stage] += seconds
+        asleep = durations["light"] + durations["deep"] + durations["rem"]
+        total = asleep + durations["awake"]
+        if asleep <= 0:
+            continue
+        first_sleep = next((stamp for stamp, stage in group if stage != "awake"), group[0][0])
+        last = group[-1][0]
+        end = last
+        sessions.append(SleepRecord(
+            source=source,
+            provider_domain="garmin_local",
+            start=first_sleep.isoformat(),
+            end=end.isoformat() if end > first_sleep else None,
+            observed_at=last.isoformat(),
+            duration_s=asleep,
+            time_in_bed_s=total if total > 0 else None,
+            awake_s=durations["awake"],
+            light_sleep_s=durations["light"],
+            deep_sleep_s=durations["deep"],
+            rem_sleep_s=durations["rem"],
+            sources=[source],
+            provider_domains=["garmin_local"],
+            field_sources={
+                key: "garmin_local" for key in (
+                    "start", "end", "duration_s", "time_in_bed_s", "awake_s",
+                    "light_sleep_s", "deep_sleep_s", "rem_sleep_s",
+                )
+            },
+        ))
+
+    # Merge documented assessment summary fields into the closest staged night;
+    # if no stage history is present, keep a sparse record for cross-provider merge.
+    for stamp, values in assessments[-32:]:
+        candidate = None
+        if sessions and stamp is not None:
+            candidate = min(
+                sessions,
+                key=lambda record: abs(((_dt(record.end or record.start) or stamp) - stamp).total_seconds()),
+            )
+        elif sessions:
+            # FIT sleep_assessment has no timestamp field in the standard
+            # profile. In a monitoring file it belongs to the staged sleep
+            # session carried by the same file, so attach it to the newest one.
+            candidate = sessions[-1]
+        if candidate is None:
+            candidate = SleepRecord(
+                source=source,
+                provider_domain="garmin_local",
+                observed_at=stamp.isoformat() if stamp else None,
+                sources=[source], provider_domains=["garmin_local"],
+            )
+            sessions.append(candidate)
+        mappings = {
+            "score": ("sleep_score", "overall_sleep_score", "score"),
+            "average_hr": ("average_heart_rate", "avg_heart_rate", "average_hr"),
+            "minimum_hr": ("lowest_heart_rate", "min_heart_rate", "minimum_heart_rate"),
+            "hrv_ms": ("average_hrv", "avg_hrv", "hrv"),
+            "respiratory_rate": ("average_respiration_rate", "avg_respiration_rate", "respiration_rate"),
+            "spo2_percent": ("average_spo2", "avg_spo2", "spo2"),
+            "recovery_score": ("sleep_recovery_score",),
+            "disturbance_count": ("awakenings_count",),
+        }
+        for attr, keys in mappings.items():
+            value = _scalar(_first(values, *keys))
+            if attr == "spo2_percent":
+                value = _scaled_percent(value)
+            elif attr == "respiratory_rate":
+                value = _scaled_respiration(value)
+            if value is not None:
+                if attr in {"score", "recovery_score"} and not 0 <= value <= 100:
+                    continue
+                if attr == "disturbance_count" and not 0 <= value <= 255:
+                    continue
+                setattr(candidate, attr, value)
+                candidate.field_sources[attr] = "garmin_local"
+        candidate.provider_values.setdefault("garmin_local", {}).update(
+            {str(k)[:128]: _safe(v) for k, v in list(values.items())[:64]}
+        )
+    return sessions[-32:]
+
+
+def health_history_from_fit(
+    data: bytes,
+    *,
+    sensor_id: str,
+    source_key: str,
+    source_label: str | None = None,
+) -> DeviceHistoryBatch:
+    """Normalize Garmin wellness FIT messages into the universal health catalog."""
+    frames = _health_frames(data)
+    source = f"garmin_local:{sensor_id}:{source_key}"
+    points: list[DeviceMetricPoint] = []
+
+    def add(metric: str, value: Any, stamp: datetime | None, *, context: dict[str, Any] | None = None) -> None:
+        number = _scalar(value, mean_list=True)
+        if number is None or stamp is None:
+            return
+        points.append(DeviceMetricPoint(
+            metric=metric,
+            value=float(number),
+            timestamp=stamp.isoformat(),
+            source_type="garmin_local_ble_fit_health",
+            source_entity=source_label,
+            sources=(source,),
+            context=tuple((str(k)[:64], _safe(v)) for k, v in list((context or {}).items())[:12]),
+        ))
+
+    for name, values in frames:
+        stamp = _point_time(values)
+        common_context = {"garmin_message": name}
+        if name == "monitoring":
+            activity_type = str(values.get("activity_type") or "")
+            context = {**common_context, "activity_type": activity_type}
+            add("heart_rate", _first(values, "heart_rate", "bpm"), stamp, context=context)
+            steps = _first(values, "steps", "step_count")
+            if steps is None and activity_type in {"walking", "running"}:
+                steps = values.get("cycles")
+            add("steps", steps, stamp, context={**context, "measurement_context": "current_total"})
+            add("distance_m", _first(values, "distance", "distance_16"), stamp, context={**context, "measurement_context": "current_total"})
+            add("calories", values.get("calories"), stamp, context={**context, "measurement_context": "current_total"})
+            add("active_calories", values.get("active_calories"), stamp, context={**context, "measurement_context": "current_total"})
+            active = _scalar(_first(values, "active_time", "active_time_16"))
+            if active is not None:
+                add("active_minutes", active / 60.0, stamp, context={**context, "measurement_context": "current_total"})
+            add("activity_level", _first(values, "intensity", "activity_level"), stamp, context=context)
+            add("floors_climbed", _first(values, "floors_climbed", "floors"), stamp, context={**context, "measurement_context": "current_total"})
+            add("device_temperature", values.get("temperature"), stamp, context=context)
+            add("device_temperature_min", values.get("temperature_min"), stamp, context=context)
+            add("device_temperature_max", values.get("temperature_max"), stamp, context=context)
+        elif name == "monitoring_info":
+            add("basal_metabolic_rate", values.get("resting_metabolic_rate"), stamp, context=common_context)
+        elif name in {"resting_heart_rate", "monitoring_hr_data"}:
+            add("resting_heart_rate", _first(values, "current_day_resting_heart_rate", "daily_rhr", "resting_heart_rate"), stamp, context=common_context)
+            add("heart_rate", _first(values, "heart_rate", "current_heart_rate"), stamp, context=common_context)
+        elif name == "hr":
+            add("heart_rate", _first(values, "heart_rate", "filtered_bpm", "bpm"), stamp, context=common_context)
+        elif name == "stress_level":
+            stress_stamp = _dt(values.get("stress_level_time")) or stamp
+            value = _scalar(_first(values, "stress_level_value", "stress_level", "stress"))
+            if value is not None and 0 <= value <= 100:
+                add("stress", value, stress_stamp, context=common_context)
+        elif name in {"respiration_rate", "hsa_respiration_data"}:
+            value = _scaled_respiration(_first(values, "respiration_rate", "respiration", "value"))
+            if value is not None and 4 <= value <= 100:
+                add("respiratory_rate", value, stamp, context=common_context)
+        elif name in {"spo2_data", "hsa_spo2_data"}:
+            value = _scaled_percent(_first(values, "reading_spo2", "spo2", "percentage", "value"))
+            context = {
+                **common_context,
+                "confidence": _safe(_first(values, "reading_confidence", "confidence")),
+                "measurement_context": _safe(values.get("mode")),
+            }
+            if value is not None and 50 <= value <= 100:
+                add("spo2", value, stamp, context=context)
+        elif name == "hsa_heart_rate_data":
+            if str(values.get("status") or "1") not in {"0", "searching"}:
+                add("heart_rate", _first(values, "heart_rate", "bpm", "value"), stamp, context=common_context)
+        elif name == "hsa_stress_data":
+            value = _scalar(_first(values, "stress", "stress_level", "value"))
+            if value is not None and 0 <= value <= 100:
+                add("stress", value, stamp, context=common_context)
+        elif name == "hsa_step_data":
+            add("steps", _first(values, "steps", "step_count", "value"), stamp, context={**common_context, "measurement_context": "current_total"})
+        elif name == "hsa_body_battery_data":
+            level = _scalar(_first(values, "level", "body_battery", "body_battery_value", "value"))
+            if level is not None and 0 <= level <= 100:
+                add("body_battery", level, stamp, context=common_context)
+            add("body_battery_charged", values.get("charged"), stamp, context={**common_context, "measurement_context": "current_total"})
+            add("body_battery_drained", values.get("uncharged"), stamp, context={**common_context, "measurement_context": "current_total"})
+        elif name == "hrv_status_summary":
+            context = {**common_context, "hrv_status": _safe(values.get("status"))}
+            add("hrv_ms", _first(values, "last_night_average", "weekly_average"), stamp, context=context)
+        elif name == "hrv_value":
+            add("hrv_ms", _first(values, "value", "hrv", "hrv_value"), stamp, context=common_context)
+        elif name in {"hrv", "beat_intervals"}:
+            value = _first(values, "time", "hrv")
+            numeric = _scalar(value, mean_list=True)
+            if numeric is not None and numeric < 10.0:
+                numeric *= 1000.0
+            add("beat_interval_ms", numeric, stamp, context=common_context)
+        elif name == "weight_scale":
+            for metric, keys in {
+                "weight": ("weight",),
+                "bmi": ("bmi",),
+                "body_fat": ("percent_fat", "body_fat"),
+                "body_water": ("percent_hydration", "body_water"),
+                "muscle_mass": ("muscle_mass",),
+                "bone_mass": ("bone_mass",),
+                "visceral_fat_mass": ("visceral_fat_mass",),
+                "visceral_fat_rating": ("visceral_fat_rating",),
+                "basal_metabolic_rate": ("basal_met",),
+                "active_metabolic_rate": ("active_met",),
+                "metabolic_age": ("metabolic_age",),
+            }.items():
+                add(metric, _first(values, *keys), stamp, context=common_context)
+        elif name == "blood_pressure":
+            context = {**common_context, "status": _safe(values.get("status"))}
+            add("systolic_blood_pressure", _first(values, "systolic_pressure", "systolic"), stamp, context=context)
+            add("diastolic_blood_pressure", _first(values, "diastolic_pressure", "diastolic"), stamp, context=context)
+            add("mean_arterial_pressure", values.get("mean_arterial_pressure"), stamp, context=context)
+            add("heart_rate", values.get("heart_rate"), stamp, context=context)
+        elif name == "skin_temp_overnight":
+            add("skin_temperature", values.get("nightly_value"), stamp, context=common_context)
+            add("skin_temperature_deviation", values.get("average_deviation"), stamp, context=common_context)
+            add("skin_temperature_7d_deviation", values.get("average_7_day_deviation"), stamp, context=common_context)
+        elif name == "hsa_wrist_temperature_data":
+            add("skin_temperature", _first(values, "value", "wrist_temperature", "temperature"), stamp, context=common_context)
+        elif name == "device_aux_battery_info":
+            context = {**common_context, "battery_status": _safe(values.get("battery_status")), "battery_identifier": _safe(values.get("battery_identifier"))}
+            add("device_battery_voltage", values.get("battery_voltage"), stamp, context=context)
+            value = _scaled_percent(_first(values, "battery_level", "battery_percentage", "battery"))
+            if value is not None and 0 <= value <= 100:
+                add("battery", value, stamp, context=context)
+        elif name == "max_met_data":
+            context = {
+                **common_context,
+                "sport": _safe(values.get("sport")),
+                "sub_sport": _safe(values.get("sub_sport")),
+                "hr_source": _safe(values.get("hr_source")),
+                "speed_source": _safe(values.get("speed_source")),
+            }
+            add("vo2_max", values.get("vo2_max"), stamp, context=context)
+
+    sleep = _sleep_records_from_frames(frames, source=source)
+    for record in sleep:
+        start = _dt(record.start)
+        end = _dt(record.end)
+        if start is None or end is None or end <= start:
+            continue
+        samples: dict[str, list[float]] = {}
+        for point in points:
+            stamp = _dt(point.timestamp)
+            if stamp is None or stamp < start or stamp > end:
+                continue
+            samples.setdefault(point.metric, []).append(float(point.value))
+        if samples.get("heart_rate"):
+            record.average_hr = sum(samples["heart_rate"]) / len(samples["heart_rate"])
+            record.minimum_hr = min(samples["heart_rate"])
+            record.field_sources["average_hr"] = "garmin_local"
+            record.field_sources["minimum_hr"] = "garmin_local"
+        for metric, attr in (("hrv_ms", "hrv_ms"), ("respiratory_rate", "respiratory_rate"), ("spo2", "spo2_percent")):
+            values = samples.get(metric)
+            if values:
+                setattr(record, attr, sum(values) / len(values))
+                record.field_sources[attr] = "garmin_local"
+    return DeviceHistoryBatch.bounded(metric_points=points, sleep_records=sleep)
+
+
+def fit_message_names(data: bytes) -> tuple[str, ...]:
+    """Return a bounded message-name inventory for unsupported FIT diagnostics."""
+    container = _fit_container(data)
+    import fitdecode
+
+    names: set[str] = set()
+    count = 0
+    with fitdecode.FitReader(io.BytesIO(container), check_crc=fitdecode.CrcCheck.RAISE) as reader:
+        for frame in reader:
+            if frame.frame_type != fitdecode.FIT_FRAME_DATA:
+                continue
+            count += 1
+            if count > MAX_HEALTH_FRAMES:
+                raise ValueError("Garmin FIT frame count exceeds safe limit")
+            if len(names) < 64:
+                names.add(str(frame.name)[:128])
+    return tuple(sorted(names))
+
+
+def fit_content_kind(data: bytes) -> str:
+    """Return activity, health or unsupported from decoded FIT message evidence."""
+    container = _fit_container(data)
+    import fitdecode
+    saw_health = False
+    count = 0
+    with fitdecode.FitReader(io.BytesIO(container), check_crc=fitdecode.CrcCheck.RAISE) as reader:
+        for frame in reader:
+            if frame.frame_type != fitdecode.FIT_FRAME_DATA:
+                continue
+            count += 1
+            if count > MAX_HEALTH_FRAMES:
+                raise ValueError("Garmin FIT frame count exceeds safe limit")
+            name = str(frame.name)
+            if name == "session":
+                return "activity"
+            if name in HEALTH_MESSAGE_NAMES:
+                saw_health = True
+    return "health" if saw_health else "unsupported"
+
 def workout_from_fit(
     data: bytes,
     *,
@@ -368,6 +790,7 @@ def workout_from_fit(
             "strength_active_duration_s": active_duration,
             "strength_rest_duration_s": rest_duration,
             "fit_record_count": len(relevant),
+            "gps_track": _gps_points(relevant),
             "gps_points": _gps_points(relevant),
             "fit_session": summary,
         },

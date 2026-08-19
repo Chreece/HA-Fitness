@@ -74,12 +74,14 @@
         "data": {
           "workout_device_ids": "Apparaten met trainings-/fitnesshistorie",
           "detailed_strength_analysis": "Gedetailleerde krachtanalyse",
-          "workout_retention_days": "Bewaartermijn workouts"
+          "workout_retention_days": "Bewaartermijn workouts",
+          "fit_file_retention_count": "Te bewaren FIT-bestanden/checkpoints"
         },
         "data_description": {
           "workout_device_ids": "Historische apparaten. Alleen exact ondersteunde Garmin-, Strava-, Polar-, Hevy-, Peloton- en Oura-contracten worden voorgeselecteerd.",
           "detailed_strength_analysis": "Analyseer oefeningen/sets, geschatte 1RM en voortgang per oefening wanneer krachtdata beschikbaar is.",
-          "workout_retention_days": "Aantal dagen dat canonieke Fitness-workouts worden bewaard. 0 betekent onbeperkt."
+          "workout_retention_days": "Aantal dagen dat canonieke Fitness-workouts worden bewaard. 0 betekent onbeperkt.",
+          "fit_file_retention_count": "Aantal nieuwste Fitness FIT-import/checkpointrecords dat bij opschonen behouden blijft. Bestanden op het bronapparaat worden nooit verwijderd."
         }
       },
       "ai": {
@@ -87,11 +89,17 @@
         "description": "De standaard AI-taak van Home Assistant is standaard geselecteerd. Fitness volgt automatisch de huidige systeemvoorkeur; kies alleen een specifieke AI-taak of conversatie-agent als je die wilt vastzetten.",
         "data": {
           "ai_enabled": "AI-fitnessbeoordelingen genereren",
-          "ai_entity": "AI-provider"
+          "ai_entity": "AI-provider",
+          "training_goal": "Trainingsdoel",
+          "training_goal_date": "Doel- / wedstrijddatum",
+          "training_days_per_week": "Gewenste trainingsdagen per week"
         },
         "data_description": {
           "ai_enabled": "Schakelt AI-interpretatie van deterministische berekeningen in. AI definieert of wijzigt nooit wetenschappelijke sensorformules of metadata.",
-          "ai_entity": "Gebruik de standaard AI-taak van Home Assistant om automatisch de systeemvoorkeur te volgen, of zet een specifieke AI-taak / conversatie-agent vast. Als een vastgezette provider niet beschikbaar is, waarschuwt Fitness je en valt het tijdelijk terug op de systeemstandaard."
+          "ai_entity": "Gebruik de standaard AI-taak van Home Assistant om automatisch de systeemvoorkeur te volgen, of zet een specifieke AI-taak / conversatie-agent vast. Als een vastgezette provider niet beschikbaar is, waarschuwt Fitness je en valt het tijdelijk terug op de systeemstandaard.",
+          "training_goal": "Beschrijf je doel, bijvoorbeeld comfortabel een marathon uitlopen of je fiets-FTP verbeteren. Fitness combineert dit met geschiedenis, paraatheid en herstel.",
+          "training_goal_date": "Optionele doeldatum, alleen gebruikt als planningscontext.",
+          "training_days_per_week": "Gewenst aantal trainingsdagen; herstel kan extra rustdagen toevoegen."
         }
       },
       "feedback": {
@@ -158,8 +166,8 @@
         "title": "Fitness instellen",
         "description": "Kies wat je eerst wilt toevoegen. Je kunt het andere onderdeel later toevoegen zonder de bestaande profielstroom te wijzigen.",
         "menu_options": {
-          "add_protocol": "Sensorprotocol toevoegen",
-          "add_user": "Gebruikersprofiel toevoegen"
+          "add_user": "Gebruikersprofiel toevoegen",
+          "manage_protocols": "Sensorprotocollen beheren"
         }
       },
       "add_user": {
@@ -167,13 +175,59 @@
         "description": "Ga verder met de normale instelling van het Fitness-profiel."
       },
       "add_protocol": {
-        "title": "Sensorprotocol toevoegen",
-        "description": "Schakel één lokaal sensortransport in. Fitness maakt het adapterapparaat en houdt detectie begrensd en onder gebruikerscontrole.",
+        "title": "Sensorprotocollen beheren",
+        "description": "Kies welke protocollen Fitness gebruikt en of ondersteunde hardware automatisch wordt gevonden of handmatig wordt geselecteerd. Uitgeschakelde protocollen worden in Fitness verborgen. Gedeelde systeemhardware wordt nooit fysiek door Fitness uitgeschakeld.",
         "data": {
-          "protocol": "Sensorprotocol"
+          "bluetooth": "Bluetooth voor Fitness",
+          "bluetooth_automatic_hardware": "Bluetooth-hardware automatisch detecteren",
+          "antplus": "ANT+ voor Fitness",
+          "antplus_automatic_hardware": "ANT+-hardware automatisch detecteren"
         },
         "data_description": {
-          "protocol": "Kies welk lokaal radiotransport Fitness nu moet inschakelen. Het andere blijft beschikbaar maar uitgeschakeld totdat je het activeert."
+          "bluetooth": "Kies welke protocollen Fitness gebruikt en of ondersteunde hardware automatisch wordt gevonden of handmatig wordt geselecteerd. Uitgeschakelde protocollen worden in Fitness verborgen. Gedeelde systeemhardware wordt nooit fysiek door Fitness uitgeschakeld.",
+          "bluetooth_automatic_hardware": "Kies welke protocollen Fitness gebruikt en of ondersteunde hardware automatisch wordt gevonden of handmatig wordt geselecteerd. Uitgeschakelde protocollen worden in Fitness verborgen. Gedeelde systeemhardware wordt nooit fysiek door Fitness uitgeschakeld.",
+          "antplus": "Kies welke protocollen Fitness gebruikt en of ondersteunde hardware automatisch wordt gevonden of handmatig wordt geselecteerd. Uitgeschakelde protocollen worden in Fitness verborgen. Gedeelde systeemhardware wordt nooit fysiek door Fitness uitgeschakeld.",
+          "antplus_automatic_hardware": "Kies welke protocollen Fitness gebruikt en of ondersteunde hardware automatisch wordt gevonden of handmatig wordt geselecteerd. Uitgeschakelde protocollen worden in Fitness verborgen. Gedeelde systeemhardware wordt nooit fysiek door Fitness uitgeschakeld."
+        }
+      },
+      "manage_protocols": {
+        "title": "Sensorprotocollen beheren",
+        "description": "Kies welke protocollen Fitness gebruikt en of ondersteunde hardware automatisch wordt gevonden of handmatig wordt geselecteerd. Uitgeschakelde protocollen worden in Fitness verborgen. Gedeelde systeemhardware wordt nooit fysiek door Fitness uitgeschakeld.",
+        "data": {
+          "bluetooth": "Bluetooth voor Fitness",
+          "bluetooth_automatic_hardware": "Bluetooth-hardware automatisch detecteren",
+          "antplus": "ANT+ voor Fitness",
+          "antplus_automatic_hardware": "ANT+-hardware automatisch detecteren"
+        },
+        "data_description": {
+          "bluetooth": "Kies welke protocollen Fitness gebruikt en of ondersteunde hardware automatisch wordt gevonden of handmatig wordt geselecteerd. Uitgeschakelde protocollen worden in Fitness verborgen. Gedeelde systeemhardware wordt nooit fysiek door Fitness uitgeschakeld.",
+          "bluetooth_automatic_hardware": "Kies welke protocollen Fitness gebruikt en of ondersteunde hardware automatisch wordt gevonden of handmatig wordt geselecteerd. Uitgeschakelde protocollen worden in Fitness verborgen. Gedeelde systeemhardware wordt nooit fysiek door Fitness uitgeschakeld.",
+          "antplus": "Kies welke protocollen Fitness gebruikt en of ondersteunde hardware automatisch wordt gevonden of handmatig wordt geselecteerd. Uitgeschakelde protocollen worden in Fitness verborgen. Gedeelde systeemhardware wordt nooit fysiek door Fitness uitgeschakeld.",
+          "antplus_automatic_hardware": "Kies welke protocollen Fitness gebruikt en of ondersteunde hardware automatisch wordt gevonden of handmatig wordt geselecteerd. Uitgeschakelde protocollen worden in Fitness verborgen. Gedeelde systeemhardware wordt nooit fysiek door Fitness uitgeschakeld."
+        }
+      },
+      "manage_protocol_hardware": {
+        "title": "Hardware handmatig kiezen",
+        "description": "Voer een begrensde zoekopdracht naar ondersteunde hardware uit of kies adapters die Fitness al heeft gevonden.",
+        "menu_options": {
+          "discover_protocol_hardware": "Hardware nu zoeken",
+          "select_protocol_hardware": "Gevonden hardware kiezen"
+        }
+      },
+      "discover_protocol_hardware": {
+        "title": "Hardwarezoekopdracht voltooid",
+        "description": "Voer een begrensde zoekopdracht naar ondersteunde hardware uit of kies adapters die Fitness al heeft gevonden."
+      },
+      "select_protocol_hardware": {
+        "title": "Hardware handmatig kiezen",
+        "description": "Kies de ondersteunde adapters die Fitness in handmatige modus mag gebruiken.",
+        "data": {
+          "bluetooth_hardware": "Bluetooth-adapters",
+          "antplus_hardware": "ANT+-adapters"
+        },
+        "data_description": {
+          "bluetooth_hardware": "Kies de ondersteunde adapters die Fitness in handmatige modus mag gebruiken.",
+          "antplus_hardware": "Kies de ondersteunde adapters die Fitness in handmatige modus mag gebruiken."
         }
       }
     },
@@ -191,7 +245,9 @@
       "no_fitness_profiles": "Maak een Fitness-gebruiker voordat je deze sensor toewijst.",
       "invalid_discovery": "De ontdekkingsgegevens van de fitnesssensor waren ongeldig.",
       "adapters_already_configured": "Alle Fitness-liveadapters zijn al geconfigureerd. Schakel ze in of uit via hun adapterapparaten.",
-      "adapters_managed_on_devices": "Lokale sensoradapters worden ingesteld via de ANT+- en Bluetooth-adapterapparaten."
+      "adapters_managed_on_devices": "Lokale sensoradapters worden ingesteld via de ANT+- en Bluetooth-adapterapparaten.",
+      "protocol_enabled": "Het geselecteerde verbindingsprotocol is ingeschakeld.",
+      "protocols_updated": "De Fitness-sensorprotocollen zijn bijgewerkt."
     }
   },
   "options": {
@@ -209,7 +265,7 @@
           "sensor_assignments": "Sensortoewijzingen",
           "tv_dashboard": "Fitness TV-dashboard",
           "smart_workout_devices": "Slimme trainingsapparaten",
-          "protocols": "Sensorprotocollen",
+          "protocols": "Sensorprotocollen beheren",
           "features": "Dashboardfuncties",
           "about": "Over Fitness"
         }
@@ -276,12 +332,14 @@
         "data": {
           "workout_device_ids": "Apparaten met trainings-/fitnesshistorie",
           "detailed_strength_analysis": "Gedetailleerde krachtanalyse",
-          "workout_retention_days": "Bewaartermijn workouts"
+          "workout_retention_days": "Bewaartermijn workouts",
+          "fit_file_retention_count": "Te bewaren FIT-bestanden/checkpoints"
         },
         "data_description": {
           "workout_device_ids": "Historische apparaten. Alleen exact ondersteunde Garmin-, Strava-, Polar-, Hevy-, Peloton- en Oura-contracten worden voorgeselecteerd.",
           "detailed_strength_analysis": "Analyseer oefeningen/sets, geschatte 1RM en voortgang per oefening wanneer krachtdata beschikbaar is.",
-          "workout_retention_days": "Aantal dagen dat canonieke Fitness-workouts worden bewaard. 0 betekent onbeperkt."
+          "workout_retention_days": "Aantal dagen dat canonieke Fitness-workouts worden bewaard. 0 betekent onbeperkt.",
+          "fit_file_retention_count": "Aantal nieuwste Fitness FIT-import/checkpointrecords dat bij opschonen behouden blijft. Bestanden op het bronapparaat worden nooit verwijderd."
         }
       },
       "ai": {
@@ -289,11 +347,17 @@
         "description": "De standaard AI-taak van Home Assistant is standaard geselecteerd. Fitness volgt automatisch de huidige systeemvoorkeur; kies alleen een specifieke AI-taak of conversatie-agent als je die wilt vastzetten.",
         "data": {
           "ai_enabled": "AI-fitnessbeoordelingen genereren",
-          "ai_entity": "AI-provider"
+          "ai_entity": "AI-provider",
+          "training_goal": "Trainingsdoel",
+          "training_goal_date": "Doel- / wedstrijddatum",
+          "training_days_per_week": "Gewenste trainingsdagen per week"
         },
         "data_description": {
           "ai_enabled": "Schakelt AI-interpretatie van deterministische berekeningen in. AI definieert of wijzigt nooit wetenschappelijke sensorformules of metadata.",
-          "ai_entity": "Gebruik de standaard AI-taak van Home Assistant om automatisch de systeemvoorkeur te volgen, of zet een specifieke AI-taak / conversatie-agent vast. Als een vastgezette provider niet beschikbaar is, waarschuwt Fitness je en valt het tijdelijk terug op de systeemstandaard."
+          "ai_entity": "Gebruik de standaard AI-taak van Home Assistant om automatisch de systeemvoorkeur te volgen, of zet een specifieke AI-taak / conversatie-agent vast. Als een vastgezette provider niet beschikbaar is, waarschuwt Fitness je en valt het tijdelijk terug op de systeemstandaard.",
+          "training_goal": "Beschrijf je doel, bijvoorbeeld comfortabel een marathon uitlopen of je fiets-FTP verbeteren. Fitness combineert dit met geschiedenis, paraatheid en herstel.",
+          "training_goal_date": "Optionele doeldatum, alleen gebruikt als planningscontext.",
+          "training_days_per_week": "Gewenst aantal trainingsdagen; herstel kan extra rustdagen toevoegen."
         }
       },
       "feedback": {
@@ -419,15 +483,19 @@
         }
       },
       "protocols": {
-        "title": "Sensorprotocollen",
-        "description": "Schakel lokale sensortransporten in of uit. Een transport dat in gebruik is wordt pas na afloop van de sessie uitgeschakeld.",
+        "title": "Sensorprotocollen beheren",
+        "description": "Kies welke protocollen Fitness gebruikt en of ondersteunde hardware automatisch wordt gevonden of handmatig wordt geselecteerd. Uitgeschakelde protocollen worden in Fitness verborgen. Gedeelde systeemhardware wordt nooit fysiek door Fitness uitgeschakeld.",
         "data": {
-          "bluetooth": "Bluetooth-protocol",
-          "antplus": "ANT+-protocol"
+          "bluetooth": "Bluetooth voor Fitness",
+          "bluetooth_automatic_hardware": "Bluetooth-hardware automatisch detecteren",
+          "antplus": "ANT+ voor Fitness",
+          "antplus_automatic_hardware": "ANT+-hardware automatisch detecteren"
         },
         "data_description": {
-          "bluetooth": "Schakelt Home Assistant Bluetooth in voor lokale Fitness-sensoren en ondersteunde apparaatarchieven.",
-          "antplus": "Schakelt lokaal ANT+ in voor compatibele USB-ontvangers en Fitness-sensoren."
+          "bluetooth": "Kies welke protocollen Fitness gebruikt en of ondersteunde hardware automatisch wordt gevonden of handmatig wordt geselecteerd. Uitgeschakelde protocollen worden in Fitness verborgen. Gedeelde systeemhardware wordt nooit fysiek door Fitness uitgeschakeld.",
+          "bluetooth_automatic_hardware": "Kies welke protocollen Fitness gebruikt en of ondersteunde hardware automatisch wordt gevonden of handmatig wordt geselecteerd. Uitgeschakelde protocollen worden in Fitness verborgen. Gedeelde systeemhardware wordt nooit fysiek door Fitness uitgeschakeld.",
+          "antplus": "Kies welke protocollen Fitness gebruikt en of ondersteunde hardware automatisch wordt gevonden of handmatig wordt geselecteerd. Uitgeschakelde protocollen worden in Fitness verborgen. Gedeelde systeemhardware wordt nooit fysiek door Fitness uitgeschakeld.",
+          "antplus_automatic_hardware": "Kies welke protocollen Fitness gebruikt en of ondersteunde hardware automatisch wordt gevonden of handmatig wordt geselecteerd. Uitgeschakelde protocollen worden in Fitness verborgen. Gedeelde systeemhardware wordt nooit fysiek door Fitness uitgeschakeld."
         }
       },
       "features": {
@@ -455,6 +523,30 @@
       "about": {
         "title": "Over Fitness",
         "description": "Geïnstalleerde versie: {version}\n\n{changelog}"
+      },
+      "protocol_hardware": {
+        "title": "Hardware handmatig kiezen",
+        "description": "Voer een begrensde zoekopdracht naar ondersteunde hardware uit of kies adapters die Fitness al heeft gevonden.",
+        "menu_options": {
+          "protocol_hardware_discover": "Hardware nu zoeken",
+          "protocol_hardware_select": "Gevonden hardware kiezen"
+        }
+      },
+      "protocol_hardware_discover": {
+        "title": "Hardwarezoekopdracht voltooid",
+        "description": "Voer een begrensde zoekopdracht naar ondersteunde hardware uit of kies adapters die Fitness al heeft gevonden."
+      },
+      "protocol_hardware_select": {
+        "title": "Hardware handmatig kiezen",
+        "description": "Kies de ondersteunde adapters die Fitness in handmatige modus mag gebruiken.",
+        "data": {
+          "bluetooth_hardware": "Bluetooth-adapters",
+          "antplus_hardware": "ANT+-adapters"
+        },
+        "data_description": {
+          "bluetooth_hardware": "Kies de ondersteunde adapters die Fitness in handmatige modus mag gebruiken.",
+          "antplus_hardware": "Kies de ondersteunde adapters die Fitness in handmatige modus mag gebruiken."
+        }
       }
     },
     "abort": {
@@ -3366,10 +3458,11 @@
         "name": "Lokale synchronisatiebackend"
       },
       "garmin_sync_state": {
-        "name": "Status workoutsynchronisatie",
+        "name": "Status apparaatsynchronisatie",
         "state": {
           "idle": "Inactief",
           "waiting": "Wachten",
+          "cooldown": "Wachttijd apparaat",
           "connecting": "Verbinden",
           "syncing": "Synchroniseren",
           "ready": "Actueel",
@@ -3388,10 +3481,10 @@
         "name": "Workouts op apparaat"
       },
       "garmin_imported_file_count": {
-        "name": "Geïmporteerde workoutbestanden"
+        "name": "Gedownloade apparaatbestanden"
       },
       "garmin_pending_file_count": {
-        "name": "Wachtende workoutbestanden"
+        "name": "Wachtende apparaatbestanden"
       },
       "garmin_downloaded_bytes": {
         "name": "Gedownloade bytes"
@@ -3419,6 +3512,15 @@
       },
       "garmin_latest_workout": {
         "name": "Nieuwste workout op apparaat"
+      },
+      "garmin_last_batch_success": {
+        "name": "Laatste geslaagde batch"
+      },
+      "garmin_next_attempt": {
+        "name": "Volgende synchronisatiepoging"
+      },
+      "garmin_quarantined_file_count": {
+        "name": "Overgeslagen onleesbare bestanden"
       }
     },
     "binary_sensor": {
@@ -3449,10 +3551,13 @@
         "name": "Trainingen nu synchroniseren"
       },
       "garmin_sync_workouts": {
-        "name": "Garmin-workouts nu synchroniseren"
+        "name": "Garmin nu synchroniseren"
       },
       "adapter_scan_now": {
         "name": "Nu scannen"
+      },
+      "sync_device_data": {
+        "name": "Apparaatgegevens synchroniseren"
       },
       "sync_device_health_history": {
         "name": "Gezondheidsgeschiedenis van apparaat synchroniseren"

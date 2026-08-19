@@ -6,10 +6,11 @@ BUTTON = (ROOT / "custom_components/fitness/button.py").read_text()
 RUNTIME = (ROOT / "custom_components/fitness/live/runtime.py").read_text()
 
 
-def test_ant_usb_receiver_is_child_of_logical_ant_adapter():
-    assert '(DOMAIN, "live_adapter:antplus")' in ADAPTER
-    assert '"via_device_id": parent.id' in ADAPTER
-    assert 'update_kwargs["new_config_subentry_id"] = parent.config_subentry_id' in ADAPTER
+def test_ant_usb_receiver_is_flat_physical_device_under_ant_subentry():
+    assert 'live_adapter:antplus' not in ADAPTER
+    assert 'kwargs["via_device_id"] = None' in ADAPTER
+    assert 'config_subentry_id=adapters_subentry_id' in ADAPTER
+    assert 'live_adapter:antplus' not in ADAPTER
 
 
 def test_hub_has_no_capture_or_manual_gatt_buttons():
@@ -17,4 +18,9 @@ def test_hub_has_no_capture_or_manual_gatt_buttons():
     assert "AntReceiverStopCaptureButton" not in BUTTON
     assert "SensorGattConnectButton" not in BUTTON
     assert "SensorGattDisconnectButton" not in BUTTON
-    assert 'if entry.data.get("entry_type") == HUB_ENTRY_TYPE:' in BUTTON
+    assert 'PhysicalAdapterScanNowButton' in BUTTON
+
+
+def test_runtime_removes_obsolete_fake_protocol_devices():
+    assert 'f"live_adapter:{transport}"' in RUNTIME
+    assert 'registry.async_remove_device(device.id)' in RUNTIME
