@@ -42,6 +42,17 @@ def _enrich_connected_metadata(
     serial_identity = cycplus_m1_serial_identity(result.get("serial_number"))
     if serial_identity:
         result.update(serial_identity)
+        # This flag can only be set after the M1 vendor service and the full
+        # Device Information serial have both been verified by a live GATT
+        # connection. It is deliberately stronger than the advertised M1_XXXX
+        # suffix, which is not enough to deduplicate two cached local addresses.
+        result["cycplus_gatt_identity_verified"] = True
+        # Universal Runtime dedupe consumes this protocol-neutral proof marker.
+        # CYCPLUS owns the rule that this particular serial is trustworthy; the
+        # runtime owns the invariant that a verified serial maps to one physical
+        # Fitness sensor ID, regardless of how many BLE routes are observed.
+        result["fitness_serial_identity_verified"] = True
+        result.pop("archive_discovery_identity_required", None)
     return result
 
 
@@ -52,5 +63,6 @@ ARCHIVE_ADAPTER = BluetoothArchiveAdapterSpec(
     match_bluetooth=_match_bluetooth,
     advertisement_capabilities=frozenset({CAPABILITY_WORKOUT_HISTORY}),
     sync_capabilities=frozenset({"workout_history", "gps_tracks", "device_state"}),
+    remote_gatt_services=frozenset({CYCPLUS_M1_SERVICE_UUID}),
     enrich_connected_metadata=_enrich_connected_metadata,
 )

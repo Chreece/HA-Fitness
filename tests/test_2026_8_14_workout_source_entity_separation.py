@@ -89,5 +89,5 @@ def test_frontend_uses_source_routes_for_factual_workout_values():
 
 
 def test_dashboard_resource_version_matches_frontend_after_owned_workout_routing_change():
-    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-89"' in DASHBOARD
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in FRONTEND
+    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-110"' in DASHBOARD
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND

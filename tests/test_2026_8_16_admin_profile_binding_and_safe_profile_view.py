@@ -4,22 +4,24 @@ ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = (ROOT / "custom_components/fitness/frontend/fitness-dashboard.js").read_text(encoding="utf-8")
 DASHBOARD = (ROOT / "custom_components/fitness/dashboard.py").read_text(encoding="utf-8")
 ACCESS = (ROOT / "custom_components/fitness/access_control.py").read_text(encoding="utf-8")
+ACCOUNTS = (ROOT / "custom_components/fitness/fitness_accounts.py").read_text(encoding="utf-8")
 
 
 def test_ha_account_profile_selector_is_hidden_only_for_no_fitness_account():
-    assert 'class="access-profile-field ${role === "none" ? "hidden" : ""}"' in FRONTEND
-    assert 'const withoutProfile = current === "none";' in FRONTEND
-    assert 'profileField?.classList.toggle("hidden", withoutProfile);' in FRONTEND
-    assert 'viewField?.classList.toggle("hidden", withoutProfile);' in FRONTEND
-    assert 'if (profile) profile.disabled = withoutProfile;' in FRONTEND
-
+    assert 'data-account-profile' in FRONTEND
+    assert '<option value="admin"' in FRONTEND
+    assert '<option value="local"' in FRONTEND
+    assert '<option value="remote"' in FRONTEND
+    assert 'value="none"' not in FRONTEND[FRONTEND.index('data-account-role'):FRONTEND.index('data-account-profile')]
+    assert 'profile_entry_id:String(profile?.value || "") || null' in FRONTEND
+    assert 'if role in {ROLE_LOCAL, ROLE_REMOTE} and not profile_id:' in ACCOUNTS
 
 def test_fitness_admin_can_keep_an_own_profile_binding():
-    assert 'role == ROLE_ADMIN' in ACCESS
-    assert 'row["profile_entry_id"] = requested_profile_id' in ACCESS
-    assert 'existing.get("role") in {ROLE_ADMIN, ROLE_LOCAL, ROLE_REMOTE}' in ACCESS
-    assert 'profile_entry_id:String(profile?.value || "")' in FRONTEND
-
+    assert 'if role in {ROLE_LOCAL, ROLE_REMOTE} and not profile_id:' in ACCOUNTS
+    assert 'if role == ROLE_ADMIN:' in ACCOUNTS
+    assert 'views.clear()' in ACCOUNTS
+    assert 'profile_entry_id:String(profile?.value || "") || null' in FRONTEND
+    assert 'admin_profile_optional' in FRONTEND
 
 def test_browser_profile_lovelace_uses_known_good_setup_wrapper():
     profile_block = DASHBOARD[DASHBOARD.index('for entry in entries:'):DASHBOARD.index('return {"title": "Fitness TV", "views": views}')]
@@ -31,7 +33,7 @@ def test_browser_profile_lovelace_uses_known_good_setup_wrapper():
 
 
 def test_frontend_revision_is_71_and_no_people_route_returns():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in FRONTEND
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
     assert 'fitness-dashboard.js' in DASHBOARD
     assert '/config/people' not in FRONTEND
     assert '/config/people' not in DASHBOARD

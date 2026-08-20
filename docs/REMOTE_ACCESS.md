@@ -1,82 +1,141 @@
-# Fitness TV accounts and remote access
+# Fitness accounts and Cloudflare external access
 
-Fitness TV separates the Home Assistant login identity from the Fitness profile it is allowed to use. A user cannot enroll or bind themselves to a Fitness profile; only a local Fitness administrator can create or change the binding.
+HA-Fitness uses **independent Fitness accounts** for its TV/dashboard surface. Fitness users are no longer Home Assistant users that are assigned to a Fitness profile, and Fitness credentials are not stored in or delegated to Home Assistant.
 
-## Roles
+## Fitness account roles
 
-| Role | Fitness visibility | Where Fitness TV is accepted | Management |
-| --- | --- | --- | --- |
-| **Fitness administrator** | Every Fitness profile | Local Home Assistant network only | May bind/remove Fitness accounts and add/delete backend Fitness profiles |
-| **Local user** | Exactly one assigned profile | Local Home Assistant network only | Cannot manage accounts or other profiles |
-| **Remote user** | Exactly one assigned profile | Only through that account's configured remote subdomain | Cannot manage accounts or other profiles |
+| Role | Fitness access | Login scope |
+| --- | --- | --- |
+| **Administrator** | Full HA-Fitness administration and every Fitness profile | Local network by default; optional exact remote hostname |
+| **Local user** | Full control of its own assigned profile; optional administrator-granted view-only profiles | Local network only |
+| **Remote user** | Same profile rights as a local user, plus its own public hostname | Its exact configured Fitness hostname |
 
-The Home Assistant owner is bootstrapped as the first Fitness administrator if no Fitness administrator exists yet. Fitness prevents removal/demotion of the last Fitness administrator. A Fitness administrator must also be a Home Assistant administrator because backend Fitness profile/config-entry management is an HA administrator operation; Fitness itself still accepts the administrator role only from a local-network session.
+A non-admin account controls only its own assigned profile. An administrator can grant additional profiles as **view only**. View-only users can browse every dashboard in the granted profile, but cannot change cards, profile settings, workouts, music, sensors, Cast/TTS or other controls. The normal Fitness TV toolbar is hidden while a profile is being viewed read-only.
 
-While a user is assigned the **Local user** role, Fitness also marks that underlying Home Assistant user `local_only`, so Home Assistant itself rejects remote login for that account. Fitness remembers the previous HA `local_only` value and restores it when the Fitness account is removed or the backend profile is deleted. A **Remote user** is made non-local-only while assigned so it can authenticate through its remote Fitness hostname.
+The Fitness TV overview and Fitness-account administration are available only to Fitness administrators.
 
-## What Fitness manages and what DNS still has to provide
+Active native Home Assistant administrators retain Fitness administrator access. Independent Fitness administrators are supported alongside them, while ordinary Home Assistant users receive no Fitness rights automatically.
 
-Fitness deliberately manages the **logical access layer**, not your DNS provider or public TLS keys. This keeps Cloudflare, Route53, DuckDNS, router and certificate credentials out of the integration.
+## Fitness credentials and first login
 
-Fitness can manage from its UI:
+When an administrator creates a Fitness account, HA-Fitness generates a strong **first-time password**. The plaintext password is returned to the administrator once and is never persisted in readable form. If it is lost, an administrator can replace it with a new temporary password; the old password is not recoverable.
 
-- the remote Fitness base domain, for example `fitness.example.com`;
-- the per-user slug, for example `alice`;
-- the Home Assistant user -> Fitness role/profile binding;
-- the exact remote URL generated for that user;
-- authorization and immediate revocation of that Fitness account.
+On first login the user must choose a new password and may change the login name. Passwords must be at least 14 characters, use multiple character classes, and are rejected when they are common, repetitive, predictable, or contain account/profile identifiers. Passwords are stored with a per-account salt using `scrypt` and constant-time verification.
 
-The network owner must provide these once outside Fitness:
+After first login, users can change their own login name and password from **Account settings** in the Fitness portal. They must provide their current password before a credential change.
 
-1. **Public HTTPS reachability for Home Assistant.** Use an existing Home Assistant HTTPS/reverse-proxy setup, VPN/tunnel product that exposes the required hostname, or another supported public endpoint.
-2. **Wildcard DNS.** Point `*.fitness.example.com` at the same public endpoint that reaches Home Assistant. A wildcard avoids creating/deleting a DNS record for every Fitness user.
-3. **TLS valid for the wildcard hostname.** The reverse proxy must present a certificate valid for `*.fitness.example.com` (and normally the base hostname as well). This may be an ACME/Let's Encrypt wildcard certificate or a certificate managed by the chosen proxy/tunnel service.
-4. **Preserve the incoming `Host` header.** Fitness uses the requested hostname to enforce each remote user's assigned slug, so the proxy must forward the original host instead of rewriting every request to one internal hostname.
-5. **Configure Home Assistant for the reverse proxy when one is used.** Home Assistant must trust only the actual proxy addresses and correctly accept forwarded client information. Do not configure an unrestricted trusted-proxy range.
-6. **Set Home Assistant's external HTTPS URL** to the normal externally reachable Home Assistant URL. Fitness's per-user subdomains are additional accepted entry points; they do not replace HA's normal external URL.
+Fitness sign-in requires **HTTPS**. Session cookies are `Secure`, `HttpOnly`, `SameSite=Strict` browser-session cookies. Sessions have both absolute and idle timeouts, are bound to the hostname and browser user-agent fingerprint, and state-changing portal requests require a per-session CSRF token. Repeated failed logins are rate-limited and temporarily locked out.
 
-Depending on the network, the owner may additionally need router port-forwarding, dynamic-DNS updating, CGNAT workarounds, or a tunnel/VPN provider. Fitness cannot infer or safely change those network-level settings by itself.
+## What HA-Fitness manages in Cloudflare
 
-Fitness could technically integrate with individual DNS/provider APIs in the future, but doing so would require provider-specific credentials and would reduce portability. The wildcard model means that is not required for normal operation.
+HA-Fitness manages only the DNS layer. It **does not edit nginx, Certbot**, certificates, router forwarding or firewall configuration.
 
-## Remote-user subdomains
+Global administrator settings:
 
-Example:
+- **Cloudflare zone**, for example `example.com`;
+- **Fitness base domain**, for example `fitness.example.com`;
+- a scoped **Cloudflare API token**;
+- the public IPv4 used as the A-record target.
+
+Each **Remote Fitness account**, and each Administrator with **Remote access** enabled, owns:
+
+- one DNS-safe **Subdomain**, for example `chreece`;
+- the resulting URL, for example `https://chreece.fitness.example.com`.
+
+When a remote account is enabled, HA-Fitness creates or updates one **DNS-only A record** for that exact account hostname. The record is marked as HA-Fitness-managed and an unrelated record at the same hostname is never adopted or overwritten.
+
+When the remote account is disabled, deleted, changed to Local, or moved to another hostname, HA-Fitness blocks that account/hostname in its own authorization state first and then removes the old managed DNS record. If Cloudflare is temporarily unavailable, access stays blocked and cleanup can be retried later.
+
+## One-time Cloudflare setup
+
+1. In Cloudflare, create an API token scoped to the required zone with **Zone Read** and **DNS Edit** permissions.
+2. Open **Fitness settings -> Fitness accounts** as a Fitness administrator.
+3. In **Cloudflare external access**, enter:
+   - Zone: `example.com`
+   - Fitness base domain: `fitness.example.com`
+   - API token
+   - Public IPv4: the address already reaching the existing nginx/Home Assistant reverse proxy
+4. Save the configuration.
+5. Configure the Home Assistant host/reverse proxy separately. DNS alone is not enough: nginx (or an equivalent reverse proxy) must accept the Fitness base domain and wildcard user hosts, HTTPS/443 must reach that proxy, a valid TLS certificate must cover those names (for example a Certbot-managed wildcard or per-host certificate), and the original `Host` header must be preserved (for nginx, normally `proxy_set_header Host $host;`). HA-Fitness intentionally does not edit nginx, Certbot, firewall or router configuration.
+6. HA-Fitness activates the exact-host Fitness guard when the integration loads. If that guard cannot be installed safely, Remote Fitness DNS is withheld or withdrawn instead of exposing the normal Home Assistant frontend.
+
+There is an **info button** beside the Cloudflare configuration explaining these requirements in the selected Fitness language.
+
+The API token is stored in private HA-Fitness storage. The browser only receives whether a token is configured; the saved token itself is never returned.
+
+## Creating a Remote Fitness account
+
+1. Open **Fitness settings -> Fitness accounts** as a Fitness administrator.
+2. Add an account and choose **Remote user**.
+3. Select the account's own Fitness profile.
+4. Enter a subdomain such as `chreece`. The default login name follows the subdomain and can be changed.
+5. Optionally grant other Fitness profiles as view-only.
+6. Save the account.
+7. Copy the one-time first password shown to the administrator.
+8. HA-Fitness creates `chreece.fitness.example.com` as a DNS-only A record pointing at the configured public IPv4.
+9. The user opens `https://chreece.fitness.example.com`. The hostname fixes the account identity server-side, so the page shows the assigned account instead of accepting another username. The user chooses a supported Fitness language, enters the temporary password, and is forced to choose a strong personal password before the dashboard opens. The chosen language is retained for that restricted dashboard session.
+
+The subdomain belongs to the **account**, not to the profile settings. A Remote URL shown under the account is therefore resolved automatically from that account's subdomain and the global Fitness base domain.
+
+## Giving a Fitness administrator remote access
+
+An independent **Administrator** account can optionally enable **Remote access** in the same account row. The administrator keeps full Fitness-admin permissions and can still sign in locally, while Internet login is accepted only on that administrator's exact assigned hostname. A personal Fitness profile remains optional for administrators; the remote DNS record is account-owned rather than borrowed from a profile.
+
+The same reverse-proxy/TLS requirements apply as for a normal Remote user.
+
+## Creating a Local Fitness account
+
+Create the account the same way but choose **Local user**. No public subdomain is created. The account can authenticate only from the local/private network and still uses the same HTTPS Fitness login and first-password flow.
+
+## Public hostname confinement
+
+A request to a configured remote hostname, for example:
 
 ```text
-Remote Fitness base domain: fitness.example.com
-Wildcard DNS:                *.fitness.example.com -> your HA/reverse-proxy endpoint
-Wildcard certificate:        *.fitness.example.com
-
-Alice: https://alice.fitness.example.com/fitness-tv/profile-<alice-profile-id>
-Bob:   https://bob.fitness.example.com/fitness-tv/profile-<bob-profile-id>
+https://chreece.fitness.example.com
 ```
 
-Configure the wildcard DNS record, TLS certificate and reverse proxy once. Fitness then owns only the logical per-account slug (`alice`, `bob`, ...). If the administrator leaves the slug blank, Fitness generates an unused DNS-safe slug automatically.
+enters the restricted HA-Fitness login/portal. It does **not** expose the generic Home Assistant frontend, authentication API or websocket surface through that hostname.
 
-A remote Fitness session is accepted only when the Home Assistant WebSocket session was authenticated from the exact assigned hostname. Knowing another profile entry ID does not grant access: dashboard configuration, workout control, music, Cast, TTS acknowledgements, BLE gateway data and ANT+ gateway data all perform the same server-side profile authorization.
+After login, HA-Fitness exposes only its restricted account bridge and the profiles permitted by that Fitness account:
 
-Removing the Fitness account immediately removes its binding, so that HA user can no longer access any Fitness profile through Fitness TV. Because the DNS record is a wildcard, the hostname can still resolve at DNS level after removal; Fitness rejects it. This avoids requiring DNS-provider credentials inside Fitness.
+- the account's own profile is controllable;
+- administrator-granted profiles are view-only;
+- another profile ID does not bypass the ACL;
+- a disabled or unknown Fitness subdomain returns 404;
+- a Remote account cannot authenticate on a different remote account's hostname.
 
-## Home Assistant identity boundary
+The restricted bridge allows the Fitness dashboard to read the states and Fitness websocket operations it needs, but write operations remain subject to the same profile control ACL.
 
-Version 1 intentionally reuses Home Assistant authentication. Fitness does **not** store a second password database and does not copy Home Assistant credentials.
+### Remote browser Bluetooth and USB
 
-This provides strict isolation inside Fitness TV, but it does not turn the Home Assistant frontend into a separate standalone Fitness-only application. A Fitness user may still have whatever non-Fitness Home Assistant access the administrator grants to that HA user. Use dedicated non-admin Home Assistant users for local/remote Fitness accounts and restrict their Home Assistant permissions as appropriate.
+An authenticated Remote Fitness user may use the dashboard's browser-side Bluetooth or USB gateway when their browser supports Web Bluetooth/WebUSB. The hardware stays attached to the user's browser: Home Assistant receives only bounded decoded gateway frames and does not obtain arbitrary USB/Bluetooth access to the remote computer. Pairing/device selection requires an explicit browser permission flow and a user action over HTTPS.
 
-A future dedicated Fitness remote portal can build on the same profile/access model if completely separate Fitness-only login sessions are desired.
+The restricted portal sends `Permissions-Policy` with `bluetooth=(self)` and `usb=(self)`, so third-party origins/frames cannot inherit device access. Gateway frames, strings, batch sizes, remembered devices and assignments are bounded server-side; every request is still checked against the authenticated Fitness profile ACL. Browser support remains platform-dependent, so an unsupported browser must use a supported Chromium-family browser or a local Home Assistant Bluetooth/ANT+ route instead.
 
-## Administrator workflow
+## Per-account diagnostics
 
-1. Create the backend Fitness profile in Home Assistant.
-2. Create or choose the Home Assistant user that will authenticate.
-3. Complete the one-time public HTTPS, wildcard DNS/TLS and reverse-proxy setup described above if remote users will be used.
-4. Open **Fitness TV -> Fitness accounts** as the local Fitness administrator.
-5. Set **Remote Fitness base domain** once.
-6. Assign one of:
-   - **Local user** + one Fitness profile; or
-   - **Remote user** + one Fitness profile + optional subdomain slug.
-7. Give a remote user the exact URL generated by Fitness.
-8. Remove the Fitness account binding to revoke Fitness access immediately. Deleting the backend Fitness profile also removes any binding to it.
+The administrator's Fitness Accounts screen refreshes account diagnostics without overwriting unsaved form edits. It reports, as available:
 
-Users never get an account-assignment control in their own Fitness TV UI.
+- current state (`live`, `ready`, `setup required`, `DNS pending`, `locked`, `error`, `disabled`);
+- active Fitness sessions;
+- last login and last seen times;
+- local-network or remote-hostname login scope;
+- failed-login count and lockout expiry;
+- password/first-login status;
+- Cloudflare DNS state and error;
+- last account/login/DNS error.
+
+## DNS safety rules
+
+HA-Fitness intentionally applies several restrictions:
+
+- only valid public IPv4 A-record targets are accepted;
+- only DNS-safe single-label remote-account subdomains are accepted;
+- records are created with Cloudflare proxying disabled;
+- unrelated DNS records are never taken over;
+- only records HA-Fitness can identify as managed are deleted;
+- global zone/base/target/token changes that could orphan active managed records are blocked;
+- API-token rotation is allowed after the replacement token is validated.
+
+Because these records are deliberately **DNS-only**, clients connect directly to the configured public IPv4. Cloudflare's HTTP proxy/WAF/DDoS layer is not in the request path, so the public nginx/TLS origin must remain securely configured.

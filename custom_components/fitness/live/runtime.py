@@ -136,6 +136,48 @@ def _serial(metadata: dict[str, Any]) -> str | None:
     return None
 
 
+def _verified_serial(metadata: dict[str, Any]) -> str | None:
+    """Return a serial learned from an identity-bearing protocol exchange.
+
+    A model/local-name value must never be promoted to this evidence class.  The
+    generic Bluetooth identity probe marks Device Information reads explicitly;
+    adapters may opt into the same contract for other protocols by setting
+    ``fitness_serial_identity_verified`` after validating their serial source.
+    """
+    serial = _serial(metadata)
+    if serial is None:
+        return None
+    if (
+        str(metadata.get("identity_source") or "").strip().lower()
+        == "gatt_device_information"
+        or bool(metadata.get("fitness_serial_identity_verified"))
+    ):
+        return serial
+    return None
+
+
+def _sensor_serials(sensor: "LiveSensor") -> set[str]:
+    """Return all stable serial facts retained on a physical sensor.
+
+    Serial identity is duplicated intentionally between canonical sensor metadata
+    and transport metadata.  Matching only endpoint metadata allowed a restored
+    device whose serial survived on the canonical object to be missed, producing
+    another physical sensor ID for the same unit.
+    """
+    values = {_serial(sensor.metadata)}
+    values.update(_serial(endpoint.metadata) for endpoint in sensor.endpoints.values())
+    return {value for value in values if value}
+
+
+def _sensor_verified_serials(sensor: "LiveSensor") -> set[str]:
+    """Return serials backed by an explicit identity verification source."""
+    values = {_verified_serial(sensor.metadata)}
+    values.update(
+        _verified_serial(endpoint.metadata) for endpoint in sensor.endpoints.values()
+    )
+    return {value for value in values if value}
+
+
 def _physical_identity(metadata: dict[str, Any]) -> str | None:
     """Return an exact server-derived identity shared by alternate routes."""
     value = str(metadata.get("fitness_physical_identity") or "").strip().lower()
@@ -144,46 +186,71 @@ def _physical_identity(metadata: dict[str, Any]) -> str | None:
     return value
 
 
-def _vendor_identity(metadata: dict[str, Any] | None) -> str | None:
-    """Return one bounded vendor identity used only as a merge safety guard.
+def _vendor_identities(metadata: dict[str, Any] | None) -> set[str]:
+    """Return all bounded vendor aliases carried by one metadata snapshot.
 
-    Adapters should publish ``fitness_vendor_identity`` from protocol evidence.
-    ``manufacturer`` is a backward-compatible fallback for persisted sensors
-    created before that field existed. It never selects a protocol backend.
+    ``fitness_vendor_identity`` is an adapter-owned canonical family token while
+    ``manufacturer`` is commonly the legal GATT/ANT manufacturer string.  Both
+    can describe the same physical vendor (for example ``cycplus`` and
+    ``CDZN Tech Co.,Ltd``).  Treating the preferred canonical token as a
+    replacement for the manufacturer made an identity-enrichment update look
+    like a vendor contradiction and detached the already-known endpoint.
     """
     metadata = metadata or {}
-    value = str(
-        metadata.get("fitness_vendor_identity")
-        or metadata.get("manufacturer")
-        or ""
-    ).strip().lower()
-    value = re.sub(r"[^a-z0-9]+", "", value)
-    return value[:64] or None
+    values: set[str] = set()
+    for raw in (metadata.get("fitness_vendor_identity"), metadata.get("manufacturer")):
+        value = re.sub(r"[^a-z0-9]+", "", str(raw or "").strip().lower())
+        if value:
+            values.add(value[:64])
+    return values
+
+
+def _vendor_identity(metadata: dict[str, Any] | None) -> str | None:
+    """Return one preferred vendor token for stable grouping/display guards."""
+    metadata = metadata or {}
+    preferred = re.sub(
+        r"[^a-z0-9]+",
+        "",
+        str(metadata.get("fitness_vendor_identity") or "").strip().lower(),
+    )
+    if preferred:
+        return preferred[:64]
+    manufacturer = re.sub(
+        r"[^a-z0-9]+",
+        "",
+        str(metadata.get("manufacturer") or "").strip().lower(),
+    )
+    return manufacturer[:64] or None
+
+
+def _sensor_vendor_identities(sensor: "LiveSensor") -> set[str]:
+    """Return every non-conflicting vendor alias retained by a physical sensor."""
+    vendors = set(_vendor_identities(sensor.metadata))
+    for endpoint in sensor.endpoints.values():
+        vendors.update(_vendor_identities(endpoint.metadata))
+    return vendors
 
 
 def _sensor_vendor_identity(sensor: "LiveSensor") -> str | None:
-    """Return the canonical vendor of a physical sensor when unambiguous."""
+    """Return the preferred canonical vendor of a physical sensor."""
     canonical = _vendor_identity(sensor.metadata)
     if canonical:
         return canonical
-    vendors = {
-        vendor
-        for endpoint in sensor.endpoints.values()
-        if (vendor := _vendor_identity(endpoint.metadata))
-    }
+    vendors = _sensor_vendor_identities(sensor)
     return next(iter(vendors)) if len(vendors) == 1 else None
 
 
 def _vendor_conflicts(sensor: "LiveSensor", metadata: dict[str, Any]) -> bool:
-    """Reject an endpoint alias when strong vendor identities contradict.
+    """Reject an endpoint alias only when its vendor evidence is disjoint.
 
-    This is intentionally generic: it protects every future smart-device adapter
-    from a stale Bluetooth address/alias incorrectly enriching another physical
-    device. Vendor strings are identity guardrails only, never support lists.
+    Adapter canonical names and protocol manufacturer strings are aliases, not
+    contradictions, when either side overlaps.  This keeps the stale-address
+    safety guard universal without splitting a device merely because enrichment
+    added a canonical vendor token later.
     """
-    incoming = _vendor_identity(metadata)
-    current = _sensor_vendor_identity(sensor)
-    return bool(incoming and current and incoming != current)
+    incoming = _vendor_identities(metadata)
+    current = _sensor_vendor_identities(sensor)
+    return bool(incoming and current and incoming.isdisjoint(current))
 
 
 def _sensor_physical_identity(sensor: "LiveSensor") -> str | None:
@@ -1297,6 +1364,7 @@ class LiveRuntime:
         self.ensure_ant_receiver_topology()
         await self.async_ensure_devices_hub()
         self._restore_sensor_device_registry_links()
+        self._consolidate_restored_verified_serials()
         self._consolidate_restored_exact_physical_identities()
         for sensor_id in tuple(self.sensors):
             if self.sensor_is_accepted(sensor_id):
@@ -1722,6 +1790,23 @@ class LiveRuntime:
                 address = str(endpoint.address or "").strip().upper()
                 if re.fullmatch(r"(?:[0-9A-F]{2}:){5}[0-9A-F]{2}", address):
                     connections.add(("bluetooth", address))
+        # CYCPLUS M1 exposes a long stable GATT serial (M1...XXXX). Use that
+        # verified vendor serial as an additional HA Device Registry identifier
+        # so browser/local archive rediscovery converges on one physical device.
+        cycplus_serial = str(sensor.metadata.get("serial_number") or "").strip().upper()
+        if not cycplus_serial:
+            cycplus_serial = next((
+                str(endpoint.metadata.get("serial_number") or "").strip().upper()
+                for endpoint in sensor.endpoints.values()
+                if str(endpoint.metadata.get("serial_number") or "").strip()
+            ), "")
+        if (
+            str(sensor.metadata.get("manufacturer") or "").upper() == "CYCPLUS"
+            and str(sensor.metadata.get("model_id") or "").upper() == "M1"
+            and len(cycplus_serial) >= 8
+            and cycplus_serial.startswith("M1")
+        ):
+            identifiers.add((DOMAIN, f"physical_serial:cycplus:m1:{cycplus_serial.lower()}"))
         physical_identity = _sensor_physical_identity(sensor)
         if physical_identity and sensor.metadata.get("merge_evidence") in {
             "exact_physical_route_identity",
@@ -2471,6 +2556,51 @@ class LiveRuntime:
             if device is not None:
                 self._sensor_device_ids[sensor_id] = device.id
 
+    def _consolidate_restored_verified_serials(self) -> None:
+        """Collapse restored verified identities and endpoint-less legacy clones.
+
+        A verified serial is the witness for one physical unit.  Older Fitness
+        builds may have left provisional endpoint-less sensors carrying that same
+        serial after an identity-enrichment conflict.  Those orphans are safe to
+        absorb when their vendor evidence does not conflict with the verified
+        witness.  Active routes still require their own verified serial so a
+        vendor with a reused/default serial cannot collapse two live devices.
+        """
+        witnesses: dict[str, list[LiveSensor]] = {}
+        for sensor in tuple(self.sensors.values()):
+            for serial in _sensor_verified_serials(sensor):
+                witnesses.setdefault(serial, []).append(sensor)
+
+        for serial, verified_sensors in witnesses.items():
+            live_verified = [
+                sensor for sensor in verified_sensors if sensor.sensor_id in self.sensors
+            ]
+            if not live_verified:
+                continue
+            canonical = live_verified[0]
+
+            # First collapse multiple independently verified routes.
+            for duplicate in tuple(live_verified[1:]):
+                if duplicate.sensor_id not in self.sensors:
+                    continue
+                if _vendor_conflicts(canonical, duplicate.metadata):
+                    continue
+                canonical = self._merge_physical_sensors(canonical, duplicate)
+
+            # Then absorb only endpoint-less historical clones carrying the same
+            # serial and compatible vendor evidence. This is the exact shape left
+            # behind by the old vendor-alias conflict bug.
+            for duplicate in tuple(self.sensors.values()):
+                if duplicate.sensor_id == canonical.sensor_id:
+                    continue
+                if duplicate.endpoints or serial not in _sensor_serials(duplicate):
+                    continue
+                if _vendor_conflicts(canonical, duplicate.metadata):
+                    continue
+                canonical = self._merge_physical_sensors(canonical, duplicate)
+
+            canonical.metadata["merge_evidence"] = "restored_verified_serial_identity"
+
     def _consolidate_restored_exact_physical_identities(self) -> None:
         """Collapse persisted local/browser routes before platform setup.
 
@@ -2930,6 +3060,19 @@ class LiveRuntime:
             self._collapse_provisional_discovery_flows_after_merge(
                 primary.sensor_id, {a_id, b_id}
             )
+        elif self.sensor_is_accepted(primary.sensor_id):
+            # A strong identity can arrive after Home Assistant already opened a
+            # discovery card for a provisional route (for example an M1 using a
+            # newly observed BLE address). Once that route merges into an already
+            # accepted physical device, no discovery flow for either pre-merge ID
+            # is valid anymore. Leaving it alive makes the UI offer Add even though
+            # pressing Add immediately resolves to the installed device; the stale
+            # card is then recreated on every restart. Cancel pending async_init
+            # work and abort any already-open flow instead of transferring discovery
+            # state onto the accepted canonical sensor.
+            self._abort_discovery_flows_after_accepted_merge(
+                primary.sensor_id, {a_id, b_id}
+            )
         else:
             secondary_started = secondary.sensor_id in self._discovery_started
             self._discovery_started.discard(secondary.sensor_id)
@@ -2942,11 +3085,59 @@ class LiveRuntime:
         # Unaccepted sensors have no registry objects, so scanning/removing the HA
         # registries and reloading the hub here is pure overhead. For an accepted
         # merge, defer that structural cleanup off the current radio callback.
-        if secondary_had_accepted_device and not requires_reassignment:
+        if not provisional_merge and not requires_reassignment:
+            # The discarded route may already have a HA Device Registry object
+            # even when the in-memory _sensor_device_ids cache missed it. Let the
+            # cleanup resolver look it up by the old live_sensor/endpoint aliases.
             self._schedule_merged_registry_cleanup(secondary.sensor_id, secondary_device_id)
 
         self._schedule_save()
         return primary
+
+    def _abort_discovery_flows_after_accepted_merge(
+        self, canonical_id: str, merged_ids: set[str]
+    ) -> None:
+        """Remove stale discovery UI after a route joins an installed device.
+
+        Identity enrichment can race config-flow creation. The provisional route
+        may therefore have an Add card before a later serial/physical-route proof
+        merges it into a sensor the user already accepted. An accepted physical
+        sensor must have no discoverable Add surface, so cancel both queued and
+        already-open flows for every pre-merge identity and do not reopen one.
+        """
+        canonical_id = self.resolve_sensor_id(canonical_id)
+        merged_ids = set(merged_ids) | {canonical_id}
+
+        for sensor_id in tuple(merged_ids):
+            task = self._discovery_tasks.pop(sensor_id, None)
+            if task is not None and not task.done():
+                task.cancel()
+            self._discovery_started.discard(sensor_id)
+        self._discovery_started.discard(canonical_id)
+
+        manager = self.hass.config_entries.flow
+        for flow in tuple(manager.async_progress(include_uninitialized=True)):
+            context = flow.get("context") or {}
+            unique_id = str(context.get("unique_id") or "")
+            if not unique_id.startswith("live_sensor:"):
+                continue
+            provisional = unique_id.split(":", 1)[1]
+            if (
+                provisional not in merged_ids
+                and self.resolve_sensor_id(provisional) != canonical_id
+            ):
+                continue
+            flow_id = str(flow.get("flow_id") or "")
+            if not flow_id:
+                continue
+            try:
+                manager.async_abort(flow_id)
+            except Exception:  # Flow can finish between progress() and abort().
+                _LOGGER.debug(
+                    "Unable to abort installed-device Fitness discovery flow %s",
+                    flow_id,
+                    exc_info=True,
+                )
 
     def _collapse_provisional_discovery_flows_after_merge(
         self, canonical_id: str, merged_ids: set[str]
@@ -3368,13 +3559,56 @@ class LiveRuntime:
         serial = _serial(endpoint.metadata)
         if serial:
             candidates = [
-                sensor for sensor in self.sensors.values()
+                sensor
+                for sensor in tuple(self.sensors.values())
                 if sensor is not current
                 and not _vendor_conflicts(sensor, endpoint.metadata)
-                and any(_serial(ep.metadata) == serial for ep in sensor.endpoints.values())
+                and serial in _sensor_serials(sensor)
             ]
             if len(candidates) == 1:
-                return self._merge_physical_sensors(current, candidates[0]) if current else candidates[0]
+                return (
+                    self._merge_physical_sensors(current, candidates[0])
+                    if current is not None
+                    else candidates[0]
+                )
+
+            # If more than one existing physical object carries the same verified
+            # serial, that is already a duplicate-topology condition. Refusing to
+            # match because the result is "ambiguous" makes the situation strictly
+            # worse: the newly observed route receives a third sensor ID and can
+            # surface a third Add flow. Collapse the verified cohort first, then
+            # attach this endpoint to that canonical object.
+            verified = _verified_serial(endpoint.metadata)
+            if verified:
+                # A freshly verified identity is allowed to repair historical
+                # provisional clones that carry the same serial but no longer
+                # own a transport endpoint.  These endpoint-less records cannot
+                # represent another concurrently observed physical device; they
+                # are the residue of an earlier identity/enrichment split.
+                #
+                # Active candidates still need their own verified serial. This
+                # preserves protection against vendors that reuse/default serial
+                # strings across multiple concurrently visible units.
+                mergeable = [
+                    candidate
+                    for candidate in candidates
+                    if (
+                        verified in _sensor_verified_serials(candidate)
+                        or not candidate.endpoints
+                    )
+                ]
+                if mergeable:
+                    canonical = current
+                    for candidate in mergeable:
+                        if candidate.sensor_id not in self.sensors:
+                            continue
+                        if canonical is None:
+                            canonical = candidate
+                            continue
+                        canonical = self._merge_physical_sensors(canonical, candidate)
+                    if canonical is not None:
+                        canonical.metadata["merge_evidence"] = "verified_serial_identity"
+                        return canonical
 
         family = catalog_product_id(name, {endpoint.transport: endpoint})
         if family:
@@ -4052,8 +4286,22 @@ class LiveRuntime:
         if sensor is None:
             return False
 
+        bluetooth = sensor.endpoints.get("bluetooth")
+        if bluetooth is not None:
+            # Adapter identity gates must run before generic catalog/serial readiness.
+            # CYCPLUS M1 deliberately advertises a perfectly recognizable model name
+            # while its BLE address can rotate; letting catalog_product_id() return
+            # first would expose an address-derived Add flow before the bounded GATT
+            # probe learns the stable per-unit identity.
+            required_identity = str(
+                bluetooth.metadata.get("archive_discovery_identity_required") or ""
+            ).strip()
+            if required_identity and not bluetooth.metadata.get(required_identity):
+                return False
+
         # A catalog product-family match is strong enough for both discovery and
-        # cross-transport merging.
+        # cross-transport merging only after any adapter-owned identity gate above
+        # has been satisfied.
         if catalog_product_id(sensor.name, sensor.endpoints):
             return True
 
@@ -4065,7 +4313,6 @@ class LiveRuntime:
         if serials:
             return True
 
-        bluetooth = sensor.endpoints.get("bluetooth")
         if bluetooth is not None:
             # Direct workout archives may have a blank/generic BLE local name. A
             # verified archive adapter marker is stronger discovery evidence than

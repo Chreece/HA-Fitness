@@ -23,6 +23,7 @@ from homeassistant.helpers.network import NoURLAvailableError, get_url
 
 from .access_control import get_fitness_access_controller
 from .const import CONF_LIVE_SENSOR_IDS, DOMAIN
+from .live.antplus_core.adapter import AntUsbAdapter
 from .live.antplus_core.const import (
     REMOTE_GATEWAY_HELLO_EVENT,
     REMOTE_GATEWAY_STATUS_EVENT,
@@ -47,6 +48,7 @@ from .live.bluetooth import (
     _parse_hr,
     _parse_rsc,
 )
+from .device_adapters.registry import ARCHIVE_ADAPTERS
 from .device_adapters.cycplus_m1 import (
     CYCPLUS_M1_SERVICE_UUID,
     cycplus_m1_name_identity,
@@ -165,6 +167,178 @@ async def _async_assign_sensor_to_profile(hass: HomeAssistant, runtime, entry, s
     runtime.schedule_profile_assignment_refresh([entry.entry_id])
 
 
+
+class RemoteGattSession:
+    """One authenticated browser GATT bridge used by archive adapters.
+
+    The browser owns the physical Bluetooth connection; adapter protocols stay
+    in Python and issue bounded read/write/notify operations through this queue.
+    """
+
+    def __init__(self, hass: HomeAssistant, key: tuple[str, str, str]) -> None:
+        self.hass = hass
+        self.key = key
+        self.connected = True
+        self.closed = False
+        self._queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=64)
+        self._pending: dict[str, asyncio.Future] = {}
+        self._notify: dict[str, list[Any]] = defaultdict(list)
+        self._sequence = 0
+
+    async def request(
+        self,
+        operation: str,
+        *,
+        characteristic_uuid: str | None = None,
+        payload: bytes | None = None,
+        response: bool | None = None,
+        timeout: float = 30.0,
+    ) -> bytes:
+        if self.closed:
+            raise RuntimeError("remote_gatt_closed")
+        self._sequence += 1
+        request_id = f"g{self._sequence:x}"
+        future = self.hass.loop.create_future()
+        self._pending[request_id] = future
+        item: dict[str, Any] = {"request_id": request_id, "operation": operation}
+        if characteristic_uuid:
+            item["characteristic_uuid"] = _normalize_uuid(characteristic_uuid)
+        if payload is not None:
+            item["payload"] = list(payload)
+        if response is not None:
+            item["response"] = bool(response)
+        try:
+            self._queue.put_nowait(item)
+        except asyncio.QueueFull as err:
+            self._pending.pop(request_id, None)
+            raise RuntimeError("remote_gatt_queue_full") from err
+        try:
+            result = await asyncio.wait_for(future, timeout=max(1.0, timeout))
+        finally:
+            self._pending.pop(request_id, None)
+        if not isinstance(result, dict) or not result.get("ok"):
+            message = str((result or {}).get("error") or "remote_gatt_failed")
+            raise RuntimeError(message)
+        data = _byte_payload((result or {}).get("payload") or [], maximum=65536)
+        if operation == "connect":
+            self.connected = True
+        elif operation == "disconnect":
+            self.connected = False
+        return data
+
+    async def poll(self, timeout: float = 20.0) -> dict[str, Any] | None:
+        if self.closed:
+            return None
+        try:
+            return await asyncio.wait_for(self._queue.get(), timeout=max(1.0, timeout))
+        except TimeoutError:
+            return None
+
+    def resolve(self, request_id: str, *, ok: bool, payload: Any = None, error: str = "") -> bool:
+        future = self._pending.get(str(request_id))
+        if future is None or future.done():
+            return False
+        future.set_result({"ok": bool(ok), "payload": payload or [], "error": str(error or "")[:300]})
+        return True
+
+    def add_notify(self, characteristic_uuid: str, callback) -> None:
+        uuid = _normalize_uuid(characteristic_uuid)
+        if callback not in self._notify[uuid]:
+            self._notify[uuid].append(callback)
+
+    def remove_notify(self, characteristic_uuid: str, callback=None) -> None:
+        uuid = _normalize_uuid(characteristic_uuid)
+        if callback is None:
+            self._notify.pop(uuid, None)
+            return
+        callbacks = self._notify.get(uuid, [])
+        if callback in callbacks:
+            callbacks.remove(callback)
+        if not callbacks:
+            self._notify.pop(uuid, None)
+
+    def publish_notify(self, characteristic_uuid: str, payload: bytes) -> int:
+        uuid = _normalize_uuid(characteristic_uuid)
+        callbacks = tuple(self._notify.get(uuid, ()))
+        for callback in callbacks:
+            try:
+                callback(uuid, bytes(payload))
+            except Exception:
+                _LOGGER.debug("Remote GATT notify callback failed", exc_info=True)
+        return len(callbacks)
+
+    def close(self, reason: str = "remote_gatt_closed") -> None:
+        self.closed = True
+        self.connected = False
+        for future in tuple(self._pending.values()):
+            if not future.done():
+                future.set_result({"ok": False, "payload": [], "error": reason})
+        self._pending.clear()
+        self._notify.clear()
+        while not self._queue.empty():
+            try:
+                self._queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+
+
+class RemoteGattClient:
+    """Bleak-like client facade backed by one browser GATT bridge."""
+
+    def __init__(self, session: RemoteGattSession) -> None:
+        self._session = session
+
+    @property
+    def is_connected(self) -> bool:
+        return bool(self._session.connected and not self._session.closed)
+
+    async def connect(self) -> bool:
+        await self._session.request("connect", timeout=25.0)
+        return True
+
+    async def disconnect(self) -> bool:
+        if self._session.closed:
+            return True
+        try:
+            await self._session.request("disconnect", timeout=10.0)
+        except Exception:
+            self._session.connected = False
+        return True
+
+    async def read_gatt_char(self, characteristic_uuid: str) -> bytearray:
+        data = await self._session.request(
+            "read", characteristic_uuid=characteristic_uuid, timeout=20.0
+        )
+        return bytearray(data)
+
+    async def write_gatt_char(
+        self, characteristic_uuid: str, data, response: bool = False
+    ) -> None:
+        await self._session.request(
+            "write",
+            characteristic_uuid=characteristic_uuid,
+            payload=bytes(data),
+            response=bool(response),
+            timeout=20.0,
+        )
+
+    async def start_notify(self, characteristic_uuid: str, callback) -> None:
+        self._session.add_notify(characteristic_uuid, callback)
+        try:
+            await self._session.request(
+                "start_notify", characteristic_uuid=characteristic_uuid, timeout=20.0
+            )
+        except Exception:
+            self._session.remove_notify(characteristic_uuid, callback)
+            raise
+
+    async def stop_notify(self, characteristic_uuid: str) -> None:
+        await self._session.request(
+            "stop_notify", characteristic_uuid=characteristic_uuid, timeout=10.0
+        )
+        self._session.remove_notify(characteristic_uuid)
+
+
 class RemoteGatewayRuntime:
     """Per-HA decoder state for authenticated remote gateways."""
 
@@ -176,6 +350,8 @@ class RemoteGatewayRuntime:
         self._last_prune = 0.0
         self._ant_assignment_pending: dict[tuple[str, str], set[int]] = {}
         self._ant_assignment_tasks: dict[tuple[str, str], asyncio.Task] = {}
+        self._gatt_sessions: dict[tuple[str, str, str], RemoteGattSession] = {}
+        self._gatt_sensor_keys: dict[str, tuple[str, str, str]] = {}
 
     def _prune_ble_state(self, *, force: bool = False) -> None:
         """Bound state retained for vanished browser Bluetooth devices."""
@@ -200,7 +376,14 @@ class RemoteGatewayRuntime:
             stale.update(key for _seen, key in remaining[REMOTE_BLE_DEVICE_LIMIT:])
         for key in stale:
             self._last_seen.pop(key, None)
-            self._ble_sensor_ids.pop(key, None)
+            sensor_id = self._ble_sensor_ids.pop(key, None)
+            session = self._gatt_sessions.pop(key, None)
+            if session is not None:
+                session.close("remote_ble_stale")
+            if sensor_id:
+                canonical = get_live_runtime(self.hass).resolve_sensor_id(sensor_id)
+                if self._gatt_sensor_keys.get(canonical) == key:
+                    self._gatt_sensor_keys.pop(canonical, None)
         if stale:
             for state_key in tuple(self._ble_revolutions):
                 if state_key[:3] in stale:
@@ -275,6 +458,71 @@ class RemoteGatewayRuntime:
         self._ble_revolutions.clear()
         self._ble_sensor_ids.clear()
         self._last_seen.clear()
+        for session in tuple(self._gatt_sessions.values()):
+            session.close("gateway_shutdown")
+        self._gatt_sessions.clear()
+        self._gatt_sensor_keys.clear()
+
+    def remote_gatt_client_for_sensor(self, sensor_id: str) -> RemoteGattClient | None:
+        runtime = get_live_runtime(self.hass)
+        canonical = runtime.resolve_sensor_id(str(sensor_id))
+        key = self._gatt_sensor_keys.get(canonical)
+        if key is None:
+            for stored_id, candidate_key in tuple(self._gatt_sensor_keys.items()):
+                if runtime.resolve_sensor_id(stored_id) == canonical:
+                    key = candidate_key
+                    self._gatt_sensor_keys[canonical] = candidate_key
+                    break
+        session = self._gatt_sessions.get(key) if key is not None else None
+        if session is None or session.closed:
+            return None
+        return RemoteGattClient(session)
+
+    def _ensure_gatt_session(
+        self, profile_entry_id: str, gateway_id: str, device_id: str
+    ) -> RemoteGattSession:
+        key = (str(profile_entry_id), str(gateway_id), str(device_id))
+        session = self._gatt_sessions.get(key)
+        if session is None or session.closed:
+            session = self._gatt_sessions[key] = RemoteGattSession(self.hass, key)
+        else:
+            session.connected = True
+        return session
+
+    async def async_poll_gatt(
+        self, profile_entry_id: str, gateway_id: str, device_id: str
+    ) -> dict[str, Any] | None:
+        session = self._gatt_sessions.get((profile_entry_id, gateway_id, device_id))
+        if session is None:
+            return None
+        return await session.poll(20.0)
+
+    def resolve_gatt_result(
+        self,
+        profile_entry_id: str,
+        gateway_id: str,
+        device_id: str,
+        request_id: str,
+        *,
+        ok: bool,
+        payload: Any = None,
+        error: str = "",
+    ) -> bool:
+        session = self._gatt_sessions.get((profile_entry_id, gateway_id, device_id))
+        return bool(session and session.resolve(request_id, ok=ok, payload=payload, error=error))
+
+    def publish_gatt_notify(
+        self,
+        profile_entry_id: str,
+        gateway_id: str,
+        device_id: str,
+        characteristic_uuid: str,
+        payload: bytes,
+    ) -> int:
+        session = self._gatt_sessions.get((profile_entry_id, gateway_id, device_id))
+        if session is None:
+            return 0
+        return session.publish_notify(characteristic_uuid, payload)
 
     async def async_register_ble_device(
         self,
@@ -310,13 +558,23 @@ class RemoteGatewayRuntime:
             meta = BLE_CHARACTERISTICS.get(char)
             if meta:
                 capabilities.update(meta[0])
-        if not capabilities:
-            raise ValueError("unsupported_ble_sensor")
 
         endpoint_id = f"bluetooth:web:{profile_entry_id}:{gateway_id}:{device_id}"
         device_name = str(name or "Remote Bluetooth fitness sensor")[:160]
+        provider = runtime.providers.get("bluetooth")
+        archives = getattr(provider, "device_archives", None) if provider is not None else None
+        archive_advertisement = (
+            archives.match_remote_gatt(device_name, services)
+            if archives is not None
+            else None
+        )
+        if archive_advertisement is not None:
+            capabilities.update(archive_advertisement.capabilities)
+        if not capabilities:
+            raise ValueError("unsupported_ble_sensor")
+
         raw_identity = identity if isinstance(identity, dict) else {}
-        identity = {}
+        identity = dict(archive_advertisement.metadata) if archive_advertisement is not None else {}
         for key, value in islice(raw_identity.items(), len(REMOTE_BLE_IDENTITY_FIELDS)):
             clean_key = str(key).strip().lower()
             if clean_key not in REMOTE_BLE_IDENTITY_FIELDS:
@@ -339,6 +597,8 @@ class RemoteGatewayRuntime:
             if serial_identity:
                 route_identity.update(serial_identity)
         identity.update(route_identity)
+        if archive_advertisement is not None and archives is not None:
+            identity = archives.enrich_connected_metadata(identity, services)
         existing = runtime.find_sensor_for_remote_ble_identity(
             name=device_name,
             capabilities=capabilities,
@@ -379,10 +639,24 @@ class RemoteGatewayRuntime:
             )
         self._ble_sensor_ids[(profile_entry_id, gateway_id, device_id)] = sensor.sensor_id
         self._last_seen[(profile_entry_id, gateway_id, device_id)] = time.monotonic()
-        await _async_assign_sensor_to_profile(self.hass, runtime, entry, sensor.sensor_id)
+        canonical_sensor_id = runtime.resolve_sensor_id(sensor.sensor_id)
+        if archive_advertisement is not None:
+            self._ensure_gatt_session(profile_entry_id, gateway_id, device_id)
+            self._gatt_sensor_keys[canonical_sensor_id] = (profile_entry_id, gateway_id, device_id)
+        await _async_assign_sensor_to_profile(self.hass, runtime, entry, canonical_sensor_id)
+        if archive_advertisement is not None and archives is not None:
+            archives.schedule_archive_sync(
+                profile_id=entry.entry_id,
+                sensor_id=canonical_sensor_id,
+                delay=0.0,
+                force=True,
+                reason="remote_gatt_connected",
+            )
         return {
-            "sensor_id": runtime.resolve_sensor_id(sensor.sensor_id),
+            "sensor_id": canonical_sensor_id,
             "capabilities": sorted(capabilities),
+            "archive_adapter": str(identity.get("archive_adapter") or ""),
+            "remote_archive": archive_advertisement is not None,
             "assigned_profile_entry_id": entry.entry_id,
         }
 
@@ -431,6 +705,13 @@ class RemoteGatewayRuntime:
                     available=False,
                 )
         self._last_seen.pop(key, None)
+        session = self._gatt_sessions.pop(key, None)
+        if session is not None:
+            session.close("remote_ble_disconnected")
+        if sensor_id:
+            canonical = runtime.resolve_sensor_id(sensor_id)
+            if self._gatt_sensor_keys.get(canonical) == key:
+                self._gatt_sensor_keys.pop(canonical, None)
         for state_key in tuple(self._ble_revolutions):
             if state_key[:3] == key:
                 self._ble_revolutions.pop(state_key, None)
@@ -581,10 +862,18 @@ def _external_hass_url(
 })
 @websocket_api.async_response
 async def websocket_remote_gateway_capabilities(hass: HomeAssistant, connection, msg) -> None:
+    remote_archive_services = sorted({
+        str(service).lower()
+        for adapter in ARCHIVE_ADAPTERS
+        for service in getattr(adapter, "remote_gatt_services", frozenset())
+        if str(service).strip()
+    })
     connection.send_result(msg["id"], {
         "protocol_version": REMOTE_GATEWAY_PROTOCOL,
         "transports": ["bluetooth", "antplus"],
         "ble_payload": "raw_gatt_characteristic",
+        "remote_gatt_proxy": True,
+        "remote_ble_optional_services": remote_archive_services,
         "antplus_payload": "decoded_ant_serial_extended_packet",
         "local_cast": {
             "receiver_application_id": LOCAL_CAST_APP_ID,
@@ -621,20 +910,15 @@ async def websocket_remote_gateway_hello(hass: HomeAssistant, connection, msg) -
         if "bluetooth" in transports:
             get_live_runtime(hass).set_adapter_presence("bluetooth", True)
         if "antplus" in transports:
+            # A browser saying "I can do ANT+" is not evidence that any
+            # physical USB receiver is actually attached.  Do not invent a
+            # gateway-scoped adapter here: the authoritative status message
+            # sent after WebUSB permission carries VID/PID/serial and is what
+            # materializes or reactivates the physical receiver.
             hass.bus.async_fire(REMOTE_GATEWAY_HELLO_EVENT, {
                 "gateway_id": gateway_id,
                 "control_protocol": 0,
-                "adapters": [{
-                    "adapter_id": f"webusb:{gateway_id}",
-                    "name": (
-                        f"Remote WebUSB ANT+ "
-                        f"({str(msg.get('client_name') or 'browser')[:160]})"
-                    ),
-                    "available": True,
-                    "vendor_id": "0FCF",
-                    "product_id": "1008/1009",
-                    "transport": "webusb",
-                }],
+                "adapters": [],
             })
         connection.send_result(msg["id"], {
             "protocol_version": REMOTE_GATEWAY_PROTOCOL,
@@ -747,6 +1031,80 @@ async def websocket_remote_gateway_ble_frames(hass: HomeAssistant, connection, m
         connection.send_error(msg["id"], "ble_gateway_error", str(err))
 
 
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "fitness/remote_gateway/gatt_poll",
+    vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+    vol.Required("gateway_id"): vol.All(str, vol.Length(max=128)),
+    vol.Required("device_id"): vol.All(str, vol.Length(max=256)),
+})
+@websocket_api.async_response
+async def websocket_remote_gateway_gatt_poll(hass: HomeAssistant, connection, msg) -> None:
+    await _require_profile_access(hass, connection, str(msg["profile_entry_id"]))
+    try:
+        request = await get_remote_gateway_runtime(hass).async_poll_gatt(
+            str(msg["profile_entry_id"]),
+            _clean_gateway_id(msg["gateway_id"]),
+            _clean_device_id(msg["device_id"]),
+        )
+        connection.send_result(msg["id"], {"request": request})
+    except ValueError as err:
+        connection.send_error(msg["id"], str(err), str(err))
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "fitness/remote_gateway/gatt_result",
+    vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+    vol.Required("gateway_id"): vol.All(str, vol.Length(max=128)),
+    vol.Required("device_id"): vol.All(str, vol.Length(max=256)),
+    vol.Required("request_id"): vol.All(str, vol.Length(max=64)),
+    vol.Required("ok"): bool,
+    vol.Optional("payload", default=[]): vol.All(list, vol.Length(max=4096)),
+    vol.Optional("error", default=""): vol.All(str, vol.Length(max=300)),
+})
+@websocket_api.async_response
+async def websocket_remote_gateway_gatt_result(hass: HomeAssistant, connection, msg) -> None:
+    await _require_profile_access(hass, connection, str(msg["profile_entry_id"]))
+    try:
+        payload = _byte_payload(msg.get("payload") or [], maximum=4096)
+        resolved = get_remote_gateway_runtime(hass).resolve_gatt_result(
+            str(msg["profile_entry_id"]),
+            _clean_gateway_id(msg["gateway_id"]),
+            _clean_device_id(msg["device_id"]),
+            str(msg["request_id"]),
+            ok=bool(msg["ok"]),
+            payload=list(payload),
+            error=str(msg.get("error") or ""),
+        )
+        connection.send_result(msg["id"], {"resolved": resolved})
+    except ValueError as err:
+        connection.send_error(msg["id"], str(err), str(err))
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "fitness/remote_gateway/gatt_notify",
+    vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+    vol.Required("gateway_id"): vol.All(str, vol.Length(max=128)),
+    vol.Required("device_id"): vol.All(str, vol.Length(max=256)),
+    vol.Required("characteristic_uuid"): vol.All(str, vol.Length(max=128)),
+    vol.Required("payload"): vol.All(list, vol.Length(max=4096)),
+})
+@websocket_api.async_response
+async def websocket_remote_gateway_gatt_notify(hass: HomeAssistant, connection, msg) -> None:
+    await _require_profile_access(hass, connection, str(msg["profile_entry_id"]))
+    try:
+        delivered = get_remote_gateway_runtime(hass).publish_gatt_notify(
+            str(msg["profile_entry_id"]),
+            _clean_gateway_id(msg["gateway_id"]),
+            _clean_device_id(msg["device_id"]),
+            str(msg["characteristic_uuid"]),
+            _byte_payload(msg["payload"], maximum=4096),
+        )
+        connection.send_result(msg["id"], {"delivered": delivered})
+    except ValueError as err:
+        connection.send_error(msg["id"], str(err), str(err))
+
+
 @websocket_api.websocket_command({
     vol.Required("type"): "fitness/remote_gateway/ant_packets",
     vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
@@ -803,7 +1161,13 @@ async def websocket_remote_gateway_ant_packets(hass: HomeAssistant, connection, 
     vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
     vol.Required("gateway_id"): vol.All(str, vol.Length(max=128)),
     vol.Optional("antplus_connected", default=False): bool,
-    vol.Optional("antplus_product_id"): vol.All(str, vol.Length(max=32)),
+    vol.Optional("antplus_vendor_id"): vol.All(str, vol.Length(max=16)),
+    vol.Optional("antplus_product_id"): vol.All(str, vol.Length(max=16)),
+    vol.Optional("antplus_serial_number"): vol.All(str, vol.Length(max=160)),
+    vol.Optional("antplus_serial_source"): vol.All(str, vol.Length(max=32)),
+    vol.Optional("antplus_usb_serial_number"): vol.All(str, vol.Length(max=160)),
+    vol.Optional("antplus_manufacturer"): vol.All(str, vol.Length(max=160)),
+    vol.Optional("antplus_product"): vol.All(str, vol.Length(max=160)),
 })
 @websocket_api.async_response
 async def websocket_remote_gateway_status(hass: HomeAssistant, connection, msg) -> None:
@@ -811,19 +1175,49 @@ async def websocket_remote_gateway_status(hass: HomeAssistant, connection, msg) 
     try:
         gateway_id = _clean_gateway_id(msg["gateway_id"])
         connected = bool(msg.get("antplus_connected"))
+        adapter: AntUsbAdapter | None = None
+        adapters: list[dict[str, Any]] = []
+        if connected:
+            vid = str(msg.get("antplus_vendor_id") or "0FCF").strip().upper().zfill(4)
+            pid = str(msg.get("antplus_product_id") or "").strip().upper().zfill(4)
+            if (vid, pid) not in {("0FCF", "1008"), ("0FCF", "1009")}:
+                raise ValueError(f"Unsupported remote ANT+ USB adapter {vid}:{pid}")
+            adapter = AntUsbAdapter(
+                vid=vid,
+                pid=pid,
+                serial=str(msg.get("antplus_serial_number") or "").strip() or None,
+                manufacturer=str(msg.get("antplus_manufacturer") or "").strip() or None,
+                product=str(msg.get("antplus_product") or "").strip() or None,
+                source="remote",
+                gateway_id=gateway_id,
+                serial_source=str(msg.get("antplus_serial_source") or "").strip() or None,
+                usb_serial=str(msg.get("antplus_usb_serial_number") or "").strip() or None,
+            )
+            # ``_parse_adapters`` consumes the same canonical mapping used by
+            # local ANT discovery (vid/pid/serial).  This is deliberately not a
+            # browser/gateway identifier: a serial-numbered stick therefore
+            # resolves to the exact same stable key when moved between hosts.
+            adapters.append({
+                **adapter.identity_storage(),
+                "transport": "webusb",
+                "serial_source": adapter.serial_source,
+                "usb_serial": adapter.usb_serial,
+            })
         hass.bus.async_fire(REMOTE_GATEWAY_STATUS_EVENT, {
             "gateway_id": gateway_id,
             "control_protocol": 0,
-            "adapters": ([{
-                "adapter_id": f"webusb:{gateway_id}",
-                "name": "Remote WebUSB ANT+",
-                "available": connected,
-                "vendor_id": "0FCF",
-                "product_id": str(msg.get("antplus_product_id") or "1008/1009")[:32],
-                "transport": "webusb",
-            }] if connected else []),
+            "authoritative": True,
+            "adapters": adapters,
+            # WebUSB has already claimed/configured the stick before this
+            # status is sent, so this is an authoritative physical Capture
+            # state even though protocol-v1 browsers do not yet accept remote
+            # Capture commands from Home Assistant.
+            "capture_states": ({adapter.stable_key: True} if adapter is not None else {}),
         })
-        connection.send_result(msg["id"], {"ok": True})
+        connection.send_result(msg["id"], {
+            "ok": True,
+            "adapter_id": adapter.stable_key if adapter is not None else None,
+        })
     except ValueError as err:
         connection.send_error(msg["id"], "gateway_error", str(err))
 
@@ -964,6 +1358,9 @@ def async_register_remote_gateway_websocket_commands(hass: HomeAssistant) -> Non
         websocket_remote_gateway_ble_device,
         websocket_remote_gateway_ble_disconnect,
         websocket_remote_gateway_ble_frames,
+        websocket_remote_gateway_gatt_poll,
+        websocket_remote_gateway_gatt_result,
+        websocket_remote_gateway_gatt_notify,
         websocket_remote_gateway_ant_packets,
         websocket_remote_gateway_status,
         websocket_tv_local_cast_credentials,

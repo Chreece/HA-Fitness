@@ -9,7 +9,8 @@ def test_archive_registry_schedules_nonblocking_startup_sync():
     assert 'schedule_archive_sync(delay=45.0, force=True, reason="home_assistant_startup")' in REGISTRY
 
 def test_archive_registry_wakes_device_after_real_reappearance():
-    assert "now - previous >= 300.0" in REGISTRY
+    assert "gap >= max(300.0, return_min_gap)" in REGISTRY
+    assert "delay=return_delay" in REGISTRY
     assert 'reason="device_available_again"' in REGISTRY
 
 def test_fresh_completed_sleep_schedules_profile_archive_sync():

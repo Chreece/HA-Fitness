@@ -30,5 +30,6 @@ ARCHIVE_ADAPTER = BluetoothArchiveAdapterSpec(
     match_bluetooth=_match_bluetooth,
     advertisement_capabilities=frozenset(),
     sync_capabilities=frozenset({"health_history", "device_state"}),
+    remote_gatt_services=frozenset({HPLUS_SERVICE_UUID}),
     generic_identity_probe=False,
 )

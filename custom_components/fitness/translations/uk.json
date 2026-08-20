@@ -3521,6 +3521,57 @@
       },
       "garmin_quarantined_file_count": {
         "name": "Пропущені нечитабельні файли"
+      },
+      "cycplus_workout_avg_altitude": {
+        "name": "Середня висота останнього тренування"
+      },
+      "cycplus_workout_max_altitude": {
+        "name": "Максимальна висота останнього тренування"
+      },
+      "cycplus_workout_min_altitude": {
+        "name": "Мінімальна висота останнього тренування"
+      },
+      "cycplus_workout_avg_temperature": {
+        "name": "Середня температура останнього тренування"
+      },
+      "cycplus_workout_max_temperature": {
+        "name": "Максимальна температура останнього тренування"
+      },
+      "cycplus_workout_avg_positive_grade": {
+        "name": "Середній ухил підйому останнього тренування"
+      },
+      "cycplus_workout_max_positive_grade": {
+        "name": "Максимальний ухил підйому останнього тренування"
+      },
+      "cycplus_workout_avg_negative_grade": {
+        "name": "Середній ухил спуску останнього тренування"
+      },
+      "cycplus_workout_max_negative_grade": {
+        "name": "Максимальний ухил спуску останнього тренування"
+      },
+      "cycplus_history_workout_count": {
+        "name": "Імпортовані тренування"
+      },
+      "cycplus_history_total_distance": {
+        "name": "Загальна велосипедна дистанція"
+      },
+      "cycplus_history_total_moving_time": {
+        "name": "Загальний час їзди"
+      },
+      "cycplus_history_total_ascent": {
+        "name": "Загальний набір висоти"
+      },
+      "cycplus_history_7d_distance": {
+        "name": "Велосипедна дистанція за 7 днів"
+      },
+      "cycplus_history_7d_moving_time": {
+        "name": "Час їзди за 7 днів"
+      },
+      "cycplus_history_30d_distance": {
+        "name": "Велосипедна дистанція за 30 днів"
+      },
+      "cycplus_history_30d_moving_time": {
+        "name": "Час їзди за 30 днів"
       }
     },
     "binary_sensor": {
@@ -3556,11 +3607,11 @@
       "adapter_scan_now": {
         "name": "Сканувати зараз"
       },
-      "sync_device_data": {
-        "name": "Синхронізувати дані пристрою"
-      },
       "sync_device_health_history": {
         "name": "Синхронізувати історію здоров’я пристрою"
+      },
+      "sync_device_data": {
+        "name": "Синхронізувати дані пристрою"
       }
     },
     "select": {

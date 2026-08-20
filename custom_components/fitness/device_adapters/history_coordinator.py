@@ -336,12 +336,15 @@ class DirectHistoryCoordinator:
             await self._schedule_retry(sensor_id, state, delay=BUSY_RETRY)
             return
 
-        ble_device = bluetooth.async_ble_device_from_address(
-            self.hass, endpoint.address, connectable=True
-        )
-        if ble_device is None:
-            await self._schedule_retry(sensor_id, state, delay=UNREACHABLE_RETRY)
-            return
+        remote_client = self.provider.remote_gatt_client(sensor_id)
+        ble_device = None
+        if remote_client is None:
+            ble_device = bluetooth.async_ble_device_from_address(
+                self.hass, endpoint.address, connectable=True
+            )
+            if ble_device is None:
+                await self._schedule_retry(sensor_id, state, delay=UNREACHABLE_RETRY)
+                return
 
         client = None
         lock = self.provider._connect_lock(sensor_id)
@@ -358,11 +361,15 @@ class DirectHistoryCoordinator:
                     )
                     await self._save()
                     async with asyncio.timeout(CONNECT_TIMEOUT):
-                        client = await self.provider.establish_connection(
-                            ble_device,
-                            sensor.name or endpoint.address,
-                            max_attempts=2,
-                        )
+                        if remote_client is not None:
+                            client = remote_client
+                            await client.connect()
+                        else:
+                            client = await self.provider.establish_connection(
+                                ble_device,
+                                sensor.name or endpoint.address,
+                                max_attempts=2,
+                            )
                     working = deepcopy(state)
                     working["sync_state"] = "syncing"
                     fetched = await self.async_fetch_history(

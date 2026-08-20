@@ -48,7 +48,7 @@ def test_fitness_creates_sidebar_fullscreen_cast_dashboard_with_profile_specific
     assert 'view["subview"] = True' in DASHBOARD
     assert 'path=f"profile-{entry.entry_id}"' in DASHBOARD
     assert 'profile_entry_id=entry.entry_id' in DASHBOARD
-    assert '"custom:fitness-tv-dashboard-card"' in DASHBOARD
+    assert '_TV_DASHBOARD_CARD_TYPE = "custom:fitness-tv-dashboard-card"' in DASHBOARD
     assert 'strategy_type in {"custom:fitness-tv", "fitness-tv"}' in DASHBOARD
     assert 'current != expected_config' in DASHBOARD
     assert '"cast", "show_lovelace_view", cast_data, blocking=True' in DASHBOARD
@@ -213,8 +213,8 @@ def test_tv_audio_core_has_no_required_extra_ha_integration_and_dashboard_revisi
         (BASE / name).read_text(encoding="utf-8")
         for name in ("__init__.py", "config_flow.py", "dashboard.py", "manager.py", "tv_dashboard.py")
     ) + "\n" + FRONTEND
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in FRONTEND
-    assert '?v=unreleased-89' in DASHBOARD
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
+    assert '?v=unreleased-110' in DASHBOARD
     assert 'fitness/tv/music/browse' in runtime
     assert 'FITNESS_RADIO_PREFIX = "fitness-radio://"' in RADIO_ADAPTER
     # SoundCloud/YouTube helpers are loaded only when selected; account-backed
@@ -281,17 +281,19 @@ def test_tv_music_uses_absolute_home_assistant_media_urls_on_cast_receiver():
 
 def test_tv_modals_anchor_under_toolbar_and_cards_pack_without_row_gaps():
     assert 'toolbar?.scrollIntoView?.({block:"nearest"})' in FRONTEND
-    assert 'const top = Math.max(6, Math.round((toolbarRect?.bottom || 64) + 4));' in FRONTEND
+    assert 'const compactFocus = Boolean(globalThis.matchMedia?.("(max-width: 900px)")?.matches);' in FRONTEND
+    assert 'const topAnchor = compactFocus ? (toolbarRect?.top ?? this.getBoundingClientRect?.().top ?? 0) : (toolbarRect?.bottom ?? 64);' in FRONTEND
+    assert 'const top = castModal ? 6 : Math.max(6, Math.round(Number(topAnchor || 0) + 4));' in FRONTEND
     assert 'top:var(--modal-top,68px);left:0;right:0;bottom:0' in FRONTEND
     assert '.tv-toolbar{position:sticky;top:0' in FRONTEND
     assert ':host{display:block;width:100%;max-width:none;min-height:0' in FRONTEND
     dashboard = FRONTEND[FRONTEND.index('class FitnessTvDashboardCard'):FRONTEND.index('class FitnessTvDashboardStrategy')]
     layout_before_tooltip = dashboard[:dashboard.index('.cast-focus-tooltip[hidden]')]
     assert 'transform:translateX(-50%)' not in layout_before_tooltip
-    assert '.tv-grid{--tv-columns:4;--tv-row:4px;display:grid' in FRONTEND
+    assert 'measured centered masonry' in FRONTEND
     assert 'grid-auto-flow:dense' in FRONTEND
     assert 'new ResizeObserver((entries) =>' in FRONTEND
-    assert 'wrapper.style.gridRowEnd = `span ${Math.max(1, Math.ceil((visualHeight + gap) / rowHeight))}`' in FRONTEND
+    assert 'wrapper.style.removeProperty("grid-row-end")' in FRONTEND
     assert 'Number(this._tvScalePercent || 70) / 100' in FRONTEND
     assert '@media(max-width:1500px){:host(:not([fitness-cast-receiver])) .tv-grid{--tv-columns:3}' in FRONTEND
     assert ':host([fitness-cast-receiver]) .tv-grid{--tv-columns:3;column-gap:6px' in FRONTEND
@@ -315,8 +317,10 @@ def test_browser_profile_views_are_full_width_panels_and_cast_uses_separate_safe
 
 def test_tv_cards_keep_saved_order_and_support_rearranging():
     assert 'for (const cardId of selectedIds)' in FRONTEND
-    assert 'wrapper.draggable = this._layoutEditing' in FRONTEND
-    assert 'this._reorderCard(sourceId, cardId, after)' in FRONTEND
+    assert 'wrapper.draggable = false' in FRONTEND
+    assert 'class="card-move-handle"' in FRONTEND
+    assert 'grid.insertBefore(placeholder, reference || null);' in FRONTEND
+    assert 'await this._savePreferences(cards);' in FRONTEND
     assert 'type:"fitness/tv/preferences/save"' in FRONTEND
     assert 'arrange_cards' in DASHBOARD
 
@@ -417,7 +421,7 @@ def test_unreleased_38_flow_modal_is_scrollable_translated_and_has_main_menu_but
     assert 'class="flow-home"' in FRONTEND
     assert 'mdi:view-dashboard-outline' in FRONTEND
     assert '_restartOptionsFlow()' in FRONTEND
-    assert '.flow-body{display:grid;gap:9px;padding:15px;overflow-y:auto;overflow-x:hidden;min-height:0' in FRONTEND
+    assert '.flow-body{display:grid;gap:9px;padding:15px 15px max(22px,env(safe-area-inset-bottom));overflow-y:auto;overflow-x:hidden;min-height:0' in FRONTEND
     assert ':host{display:block;color:var(--primary-text-color);height:100%;max-height:100%;min-height:0;overflow:hidden}' in FRONTEND
     assert 'flowBody.scrollTop += Number(event.deltaY || 0);' in FRONTEND
     assert 'settings_main_menu' in DASHBOARD
@@ -502,7 +506,7 @@ def test_live_card_localizes_session_state_and_includes_pause_stop_controls():
 
 
 def test_unreleased_44_live_controls_use_native_service_and_stable_more_info():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in FRONTEND
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
     assert 'this._hass.callService("button", "press", {}, {entity_id:entityId})' in FRONTEND
     assert '_liveStateSignature(hass)' in FRONTEND
     assert 'metric.addEventListener("click"' in FRONTEND

@@ -3521,6 +3521,57 @@
       },
       "garmin_quarantined_file_count": {
         "name": "Archivos ilegibles omitidos"
+      },
+      "cycplus_workout_avg_altitude": {
+        "name": "Altitud media del último entrenamiento"
+      },
+      "cycplus_workout_max_altitude": {
+        "name": "Altitud máxima del último entrenamiento"
+      },
+      "cycplus_workout_min_altitude": {
+        "name": "Altitud mínima del último entrenamiento"
+      },
+      "cycplus_workout_avg_temperature": {
+        "name": "Temperatura media del último entrenamiento"
+      },
+      "cycplus_workout_max_temperature": {
+        "name": "Temperatura máxima del último entrenamiento"
+      },
+      "cycplus_workout_avg_positive_grade": {
+        "name": "Pendiente media en subida del último entrenamiento"
+      },
+      "cycplus_workout_max_positive_grade": {
+        "name": "Pendiente máxima en subida del último entrenamiento"
+      },
+      "cycplus_workout_avg_negative_grade": {
+        "name": "Pendiente media en bajada del último entrenamiento"
+      },
+      "cycplus_workout_max_negative_grade": {
+        "name": "Pendiente máxima en bajada del último entrenamiento"
+      },
+      "cycplus_history_workout_count": {
+        "name": "Entrenamientos importados"
+      },
+      "cycplus_history_total_distance": {
+        "name": "Distancia total en bicicleta"
+      },
+      "cycplus_history_total_moving_time": {
+        "name": "Tiempo total en bicicleta"
+      },
+      "cycplus_history_total_ascent": {
+        "name": "Ascenso total"
+      },
+      "cycplus_history_7d_distance": {
+        "name": "Distancia en bicicleta de 7 días"
+      },
+      "cycplus_history_7d_moving_time": {
+        "name": "Tiempo en bicicleta de 7 días"
+      },
+      "cycplus_history_30d_distance": {
+        "name": "Distancia en bicicleta de 30 días"
+      },
+      "cycplus_history_30d_moving_time": {
+        "name": "Tiempo en bicicleta de 30 días"
       }
     },
     "binary_sensor": {
@@ -3556,11 +3607,11 @@
       "adapter_scan_now": {
         "name": "Buscar ahora"
       },
-      "sync_device_data": {
-        "name": "Sincronizar datos del dispositivo"
-      },
       "sync_device_health_history": {
         "name": "Sincronizar historial de salud del dispositivo"
+      },
+      "sync_device_data": {
+        "name": "Sincronizar datos del dispositivo"
       }
     },
     "select": {

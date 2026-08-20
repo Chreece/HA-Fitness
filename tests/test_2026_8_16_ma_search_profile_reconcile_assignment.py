@@ -5,6 +5,7 @@ FRONTEND = (ROOT / "custom_components/fitness/frontend/fitness-dashboard.js").re
 TV = (ROOT / "custom_components/fitness/tv_dashboard.py").read_text()
 DASHBOARD = (ROOT / "custom_components/fitness/dashboard.py").read_text()
 ACCESS = (ROOT / "custom_components/fitness/access_control.py").read_text()
+ACCOUNTS = (ROOT / "custom_components/fitness/fitness_accounts.py").read_text()
 
 
 def test_ma_search_never_requires_sendspin_client_registration():
@@ -46,28 +47,22 @@ def test_dashboard_config_reconciles_managed_fitness_tv_views_before_open():
 
 
 def test_admin_profile_assignment_uses_the_account_row_without_duplicate_profile_manager():
-    assert 'class="access-profile-field ${role === "none" ? "hidden" : ""}"' in FRONTEND
-    assert 'profileField?.classList.toggle("hidden", withoutProfile)' in FRONTEND
-    assert '.access-role-field,.access-profile-field,.access-language-field{display:block;min-width:0;align-self:stretch}' in FRONTEND
-    assert 'profile_entry_id:String(profile?.value || "")' in FRONTEND
-    assert 'data-profile-owner' not in FRONTEND
-    assert 'data-assign-profile' not in FRONTEND
-    assert 'data-profile-entry' not in FRONTEND
-    # Explicit empty string still clears an admin's optional own-profile binding;
-    # omitting the key still means preserve the existing binding.
-    assert 'if "profile_entry_id" in msg' in ACCESS
-    assert 'profile_entry_id is None' in ACCESS
-
+    assert 'class="access-profile-field"' in FRONTEND
+    assert 'data-account-profile' in FRONTEND
+    assert 'profile_entry_id:String(profile?.value || "") || null' in FRONTEND
+    assert 'data-profile-assign' not in FRONTEND
+    assert 'profile_already_assigned' in ACCOUNTS
 
 def test_manage_ha_users_uses_exact_person_route_not_people_route():
-    assert 'href="/config/person"' in FRONTEND
-    assert ('/config/' + 'people') not in FRONTEND
-
+    assert 'href="/config/person"' not in FRONTEND
+    assert 'href="/config/people"' not in FRONTEND
+    assert 'type:"fitness/accounts/admin"' in FRONTEND
+    assert 'type:"fitness/accounts/save"' in FRONTEND
 
 def test_frontend_resource_revision_is_68_and_synchronized():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in FRONTEND
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
     assert '_RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"' in DASHBOARD
-    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-89"' in DASHBOARD
+    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-110"' in DASHBOARD
 
 
 def test_unreleased_frontend_uses_uncached_unique_resource_path():

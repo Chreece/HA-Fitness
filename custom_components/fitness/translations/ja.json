@@ -3521,6 +3521,57 @@
       },
       "garmin_quarantined_file_count": {
         "name": "読み取れずスキップしたファイル"
+      },
+      "cycplus_workout_avg_altitude": {
+        "name": "前回ワークアウトの平均高度"
+      },
+      "cycplus_workout_max_altitude": {
+        "name": "前回ワークアウトの最高高度"
+      },
+      "cycplus_workout_min_altitude": {
+        "name": "前回ワークアウトの最低高度"
+      },
+      "cycplus_workout_avg_temperature": {
+        "name": "前回ワークアウトの平均気温"
+      },
+      "cycplus_workout_max_temperature": {
+        "name": "前回ワークアウトの最高気温"
+      },
+      "cycplus_workout_avg_positive_grade": {
+        "name": "前回ワークアウトの平均上り勾配"
+      },
+      "cycplus_workout_max_positive_grade": {
+        "name": "前回ワークアウトの最大上り勾配"
+      },
+      "cycplus_workout_avg_negative_grade": {
+        "name": "前回ワークアウトの平均下り勾配"
+      },
+      "cycplus_workout_max_negative_grade": {
+        "name": "前回ワークアウトの最大下り勾配"
+      },
+      "cycplus_history_workout_count": {
+        "name": "インポート済みワークアウト"
+      },
+      "cycplus_history_total_distance": {
+        "name": "サイクリング総距離"
+      },
+      "cycplus_history_total_moving_time": {
+        "name": "サイクリング総時間"
+      },
+      "cycplus_history_total_ascent": {
+        "name": "総上昇量"
+      },
+      "cycplus_history_7d_distance": {
+        "name": "7日間のサイクリング距離"
+      },
+      "cycplus_history_7d_moving_time": {
+        "name": "7日間のサイクリング時間"
+      },
+      "cycplus_history_30d_distance": {
+        "name": "30日間のサイクリング距離"
+      },
+      "cycplus_history_30d_moving_time": {
+        "name": "30日間のサイクリング時間"
       }
     },
     "binary_sensor": {
@@ -3556,11 +3607,11 @@
       "adapter_scan_now": {
         "name": "今すぐスキャン"
       },
-      "sync_device_data": {
-        "name": "デバイスデータを同期"
-      },
       "sync_device_health_history": {
         "name": "デバイスの健康履歴を同期"
+      },
+      "sync_device_data": {
+        "name": "デバイスデータを同期"
       }
     },
     "select": {

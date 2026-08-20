@@ -3521,6 +3521,57 @@
       },
       "garmin_quarantined_file_count": {
         "name": "Overgeslagen onleesbare bestanden"
+      },
+      "cycplus_workout_avg_altitude": {
+        "name": "Gemiddelde hoogte laatste training"
+      },
+      "cycplus_workout_max_altitude": {
+        "name": "Maximale hoogte laatste training"
+      },
+      "cycplus_workout_min_altitude": {
+        "name": "Minimale hoogte laatste training"
+      },
+      "cycplus_workout_avg_temperature": {
+        "name": "Gemiddelde temperatuur laatste training"
+      },
+      "cycplus_workout_max_temperature": {
+        "name": "Maximale temperatuur laatste training"
+      },
+      "cycplus_workout_avg_positive_grade": {
+        "name": "Gemiddelde stijging laatste training"
+      },
+      "cycplus_workout_max_positive_grade": {
+        "name": "Maximale stijging laatste training"
+      },
+      "cycplus_workout_avg_negative_grade": {
+        "name": "Gemiddelde daling laatste training"
+      },
+      "cycplus_workout_max_negative_grade": {
+        "name": "Maximale daling laatste training"
+      },
+      "cycplus_history_workout_count": {
+        "name": "Geïmporteerde trainingen"
+      },
+      "cycplus_history_total_distance": {
+        "name": "Totale fietsafstand"
+      },
+      "cycplus_history_total_moving_time": {
+        "name": "Totale fietstijd"
+      },
+      "cycplus_history_total_ascent": {
+        "name": "Totale stijging"
+      },
+      "cycplus_history_7d_distance": {
+        "name": "Fietsafstand over 7 dagen"
+      },
+      "cycplus_history_7d_moving_time": {
+        "name": "Fietstijd over 7 dagen"
+      },
+      "cycplus_history_30d_distance": {
+        "name": "Fietsafstand over 30 dagen"
+      },
+      "cycplus_history_30d_moving_time": {
+        "name": "Fietstijd over 30 dagen"
       }
     },
     "binary_sensor": {
@@ -3556,11 +3607,11 @@
       "adapter_scan_now": {
         "name": "Nu scannen"
       },
-      "sync_device_data": {
-        "name": "Apparaatgegevens synchroniseren"
-      },
       "sync_device_health_history": {
         "name": "Gezondheidsgeschiedenis van apparaat synchroniseren"
+      },
+      "sync_device_data": {
+        "name": "Apparaatgegevens synchroniseren"
       }
     },
     "select": {

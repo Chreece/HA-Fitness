@@ -43,7 +43,8 @@ def test_provisional_merge_does_not_scan_registry():
         "def _schedule_merged_registry_cleanup", 1
     )[0]
     assert "secondary_had_accepted_device" in merge
-    assert "if secondary_had_accepted_device and not requires_reassignment:" in merge
+    assert "if not provisional_merge and not requires_reassignment:" in merge
+    assert "_schedule_merged_registry_cleanup(secondary.sensor_id, secondary_device_id)" in merge
 
 
 def test_registry_cleanup_is_deferred_out_of_identity_burst():

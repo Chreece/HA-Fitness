@@ -197,6 +197,8 @@ class PhysicalAdapterScanNowButton(ButtonEntity):
 
     @property
     def available(self):
+        if self.transport == "antplus" and self.runtime.receiver_management_scope(self.transport, self.receiver_id) != "fitness_owned":
+            return False
         return bool(
             self.runtime.receiver_enabled(self.transport, self.receiver_id)
             and not self.runtime.receiver_automatic_scan(self.transport, self.receiver_id)

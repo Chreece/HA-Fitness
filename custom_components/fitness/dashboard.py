@@ -35,8 +35,13 @@ from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.setup import async_when_setup
 
 from .access_control import (
+    async_register_external_host_routing,
     async_register_fitness_access_websocket_commands,
     get_fitness_access_controller,
+)
+from .fitness_accounts import (
+    async_register_fitness_account_websocket_commands,
+    get_fitness_account_controller,
 )
 from .const import (
     CONF_LANGUAGE,
@@ -103,7 +108,7 @@ _LEGACY_RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"
 _LEGACY_CAST_RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard-cast.js"
 _RESOURCE_PREFIX = "/fitness/frontend/fitness-dashboard-"
 _RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"
-_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-89"
+_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-110"
 _SETUP_KEY = "_dashboard_frontend_setup"
 _RECONCILE_TASK_KEY = "_dashboard_reconcile_task"
 _TV_DASHBOARD_CARD_TYPE = "custom:fitness-tv-dashboard-card"
@@ -1916,8 +1921,8 @@ _TV_DASHBOARD_REMOTE_TEXT: dict[str, dict[str, str]] = {
 _TV_DASHBOARD_ACCESS_TEXT: dict[str, dict[str, str]] = {
     "en": {
         "fitness_accounts":"Fitness accounts",
-        "fitness_accounts_hint":"Home Assistant administrators manage Fitness access. Each user can own one Fitness profile and may also receive view-only access to additional profiles.",
-        "manage_ha_users":"Manage Home Assistant users",
+        "fitness_accounts_hint":"Fitness administrators manage independent Fitness accounts. Local and remote users control only their own profile and may receive administrator-granted view-only access to additional profiles.",
+        "manage_ha_users":"Fitness accounts are independent from Home Assistant users",
         "remote_base_domain":"Remote Fitness base domain",
         "remote_base_domain_hint":"Configure wildcard DNS/TLS once (for example *.fitness.example.com). Fitness then assigns one logical subdomain per remote account.",
         "save_domain":"Save domain",
@@ -1931,7 +1936,7 @@ _TV_DASHBOARD_ACCESS_TEXT: dict[str, dict[str, str]] = {
         "account_language_hint":"Menus and this user's Fitness TV dashboard use this language.",
         "configure_tv":"Configure Fitness TV",
         "configure_account":"Configure Fitness account",
-        "assign_user":"Assign Home Assistant user",
+        "assign_user":"Assign Fitness account",
         "complete_remove":"Remove completely",
         "complete_remove_confirm":"Remove this Fitness profile completely? This deletes its backend profile and all Fitness TV settings.",
         "light_feedback_on":"Light feedback on",
@@ -1956,15 +1961,15 @@ _TV_DASHBOARD_ACCESS_TEXT: dict[str, dict[str, str]] = {
         "view_only_profiles":"Additional view-only profiles",
         "view_only_profiles_hint":"These profiles are visible to the user, but the user cannot change Fitness, Fitness TV, workouts, music, sensors, Cast, or profile settings for them.",
         "access_denied":"Access denied",
-        "access_denied_hint":"Your Home Assistant account does not have permission to access this Fitness TV page.",
+        "access_denied_hint":"This Fitness account does not have permission to access this Fitness TV page.",
         "view_only":"View only",
         "own_profile":"Own profile",
-        "ha_admin_global_access":"Home Assistant administrators always have full access to all Fitness profiles.",
+        "ha_admin_global_access":"Fitness administrators have full access to all Fitness profiles. A local Home Assistant administrator remains available only as a bootstrap/recovery administrator.",
     },
     "el": {
         "fitness_accounts":"Λογαριασμοί Fitness",
-        "fitness_accounts_hint":"Οι διαχειριστές Home Assistant διαχειρίζονται την πρόσβαση Fitness. Κάθε χρήστης μπορεί να έχει ένα δικό του προφίλ Fitness και επιπλέον πρόσβαση μόνο για προβολή σε άλλα προφίλ.",
-        "manage_ha_users":"Διαχείριση χρηστών Home Assistant",
+        "fitness_accounts_hint":"Οι διαχειριστές Fitness διαχειρίζονται ανεξάρτητους λογαριασμούς Fitness. Οι τοπικοί και απομακρυσμένοι χρήστες ελέγχουν μόνο το δικό τους προφίλ και μπορούν να λάβουν από διαχειριστή πρόσβαση μόνο για προβολή σε άλλα προφίλ.",
+        "manage_ha_users":"Οι λογαριασμοί Fitness είναι ανεξάρτητοι από τους χρήστες Home Assistant",
         "remote_base_domain":"Βασικό domain απομακρυσμένου Fitness",
         "remote_base_domain_hint":"Ρύθμισε μία φορά wildcard DNS/TLS (π.χ. *.fitness.example.com). Μετά το Fitness αντιστοιχίζει ένα λογικό subdomain σε κάθε απομακρυσμένο λογαριασμό.",
         "save_domain":"Αποθήκευση domain",
@@ -1978,7 +1983,7 @@ _TV_DASHBOARD_ACCESS_TEXT: dict[str, dict[str, str]] = {
         "account_language_hint":"Τα μενού και το Fitness TV αυτού του χρήστη χρησιμοποιούν αυτή τη γλώσσα.",
         "configure_tv":"Ρύθμιση Fitness TV",
         "configure_account":"Ρύθμιση λογαριασμού Fitness",
-        "assign_user":"Αντιστοίχιση χρήστη Home Assistant",
+        "assign_user":"Αντιστοίχιση λογαριασμού Fitness",
         "complete_remove":"Πλήρης διαγραφή",
         "complete_remove_confirm":"Να διαγραφεί πλήρως αυτό το προφίλ Fitness; Θα διαγραφούν το backend προφίλ και όλες οι ρυθμίσεις Fitness TV.",
         "light_feedback_on":"Φωτεινή ανάδραση ενεργή",
@@ -2003,15 +2008,53 @@ _TV_DASHBOARD_ACCESS_TEXT: dict[str, dict[str, str]] = {
         "view_only_profiles":"Επιπλέον προφίλ μόνο για προβολή",
         "view_only_profiles_hint":"Αυτά τα προφίλ είναι ορατά στον χρήστη, αλλά δεν μπορεί να αλλάξει ρυθμίσεις Fitness/Fitness TV, προπονήσεις, μουσική, αισθητήρες, Cast ή ρυθμίσεις προφίλ.",
         "access_denied":"Δεν επιτρέπεται η πρόσβαση",
-        "access_denied_hint":"Ο λογαριασμός Home Assistant δεν έχει δικαίωμα πρόσβασης σε αυτή τη σελίδα Fitness TV.",
+        "access_denied_hint":"Αυτός ο λογαριασμός Fitness δεν έχει δικαίωμα πρόσβασης σε αυτή τη σελίδα Fitness TV.",
         "view_only":"Μόνο προβολή",
         "own_profile":"Δικό μου προφίλ",
-        "ha_admin_global_access":"Οι διαχειριστές Home Assistant έχουν πάντα πλήρη πρόσβαση σε όλα τα προφίλ Fitness.",
+        "ha_admin_global_access":"Οι διαχειριστές Fitness έχουν πλήρη πρόσβαση σε όλα τα προφίλ Fitness. Ένας τοπικός διαχειριστής Home Assistant παραμένει μόνο για αρχική ρύθμιση/ανάκτηση.",
+        "fitness_accounts_independent":"Ανεξάρτητοι λογαριασμοί Fitness",
+        "fitness_accounts_hint_v2":"Οι λογαριασμοί Fitness έχουν δικό τους ασφαλές login και ρόλους και δεν αντιστοιχίζονται πλέον σε χρήστες Home Assistant.",
+        "add_fitness_account":"Προσθήκη λογαριασμού",
+        "new_fitness_account":"Νέος λογαριασμός Fitness",
+        "account_display_name":"Όνομα λογαριασμού",
+        "account_username":"Όνομα σύνδεσης",
+        "account_username_hint":"Στους απομακρυσμένους λογαριασμούς προεπιλέγεται το subdomain. Ο χρήστης μπορεί αργότερα να το αλλάξει.",
+        "remote_subdomain_hint":"Αυτό το hostname ανήκει αποκλειστικά σε αυτόν τον απομακρυσμένο λογαριασμό Fitness.",
+        "account_enabled":"Ενεργός",
+        "remote_url_pending":"Επίλεξε subdomain για να δημιουργηθεί το απομακρυσμένο URL.",
+        "account_never":"Ποτέ",
+        "account_state_live":"Συνδεδεμένος",
+        "account_state_ready":"Έτοιμος",
+        "account_state_dns_pending":"Αναμονή DNS",
+        "account_state_setup_required":"Απαιτείται αρχικός κωδικός",
+        "account_state_locked":"Κλειδωμένος",
+        "account_state_error":"Σφάλμα",
+        "account_state_disabled":"Απενεργοποιημένος",
+        "account_diag_sessions":"Ενεργές συνεδρίες",
+        "account_diag_last_login":"Τελευταία σύνδεση",
+        "account_diag_last_seen":"Τελευταία παρουσία",
+        "account_diag_error":"Τελευταίο σφάλμα",
+        "account_reset_password":"Νέος προσωρινός κωδικός",
+        "account_resetting_password":"Δημιουργία νέου προσωρινού κωδικού…",
+        "temporary_password_title":"Αρχικός κωδικός μίας χρήσης",
+        "temporary_password_hint":"Αντέγραψέ τον τώρα. Το Fitness δεν τον αποθηκεύει σε αναγνώσιμη μορφή και δεν μπορεί να εμφανιστεί ξανά.",
+        "copy":"Αντιγραφή",
+        "copied":"Αντιγράφηκε",
+        "copy_failed":"Η αντιγραφή απέτυχε",
+        "cloudflare_hint_accounts":"Ρύθμισε το Cloudflare μία φορά· μετά κάθε απομακρυσμένος λογαριασμός Fitness διαχειρίζεται το δικό του subdomain.",
+        "cloudflare_info_steps_accounts":"1. Δημιούργησε Cloudflare API token για τη ζώνη με Zone Read και DNS Edit.\n2. Δήλωσε ζώνη, βασικό domain Fitness και δημόσιο IPv4.\n3. Το Fitness δεν αλλάζει nginx ή Certbot.\n4. Δημιούργησε λογαριασμό με ρόλο Απομακρυσμένος χρήστης και δήλωσε το subdomain του.\n5. Το Fitness δημιουργεί DNS-only A record και το URL ανοίγει την ασφαλή σελίδα σύνδεσης αυτού του λογαριασμού.",
+        "fitness_roles_hint":"Οι διαχειριστές έχουν πλήρη πρόσβαση. Οι τοπικοί και απομακρυσμένοι χρήστες ελέγχουν μόνο το δικό τους προφίλ και μπορούν να βλέπουν επιπλέον προφίλ μόνο αν τα παραχωρήσει διαχειριστής.",
+        "no_fitness_accounts":"Δεν υπάρχουν ακόμη λογαριασμοί Fitness",
+        "account_profile_optional":"Χωρίς δικό του προφίλ",
+        "admin_profile_optional":"Προαιρετικό για διαχειριστές",
+        "role_admin_hint":"Πλήρης διαχείριση Fitness",
+        "role_remote_hint":"Δικό του προφίλ και ασφαλές απομακρυσμένο subdomain",
+        "role_local_hint":"Δικό του προφίλ, σύνδεση μόνο από το τοπικό δίκτυο",
     },
     "de": {
         "fitness_accounts":"Fitness-Konten",
-        "fitness_accounts_hint":"Home-Assistant-Administratoren verwalten den Fitness-Zugriff. Jeder Benutzer kann ein eigenes Fitness-Profil besitzen und zusätzlich Nur-Lese-Zugriff auf weitere Profile erhalten.",
-        "manage_ha_users":"Home-Assistant-Benutzer verwalten",
+        "fitness_accounts_hint":"Fitness-Administratoren verwalten unabhängige Fitness-Konten. Lokale und Remote-Benutzer steuern nur ihr eigenes Profil und können vom Administrator Nur-Lese-Zugriff auf weitere Profile erhalten.",
+        "manage_ha_users":"Fitness-Konten sind unabhängig von Home-Assistant-Benutzern",
         "remote_base_domain":"Basisdomain für Remote-Fitness",
         "remote_base_domain_hint":"Wildcard-DNS/TLS einmal einrichten (z. B. *.fitness.example.com). Fitness weist danach jedem Remote-Konto eine logische Subdomain zu.",
         "save_domain":"Domain speichern",
@@ -2025,7 +2068,7 @@ _TV_DASHBOARD_ACCESS_TEXT: dict[str, dict[str, str]] = {
         "account_language_hint":"Menüs und das Fitness-TV-Dashboard dieses Benutzers verwenden diese Sprache.",
         "configure_tv":"Fitness TV konfigurieren",
         "configure_account":"Fitness-Konto konfigurieren",
-        "assign_user":"Home-Assistant-Benutzer zuweisen",
+        "assign_user":"Fitness-Konto zuweisen",
         "complete_remove":"Vollständig entfernen",
         "complete_remove_confirm":"Dieses Fitness-Profil vollständig entfernen? Dadurch werden das Backend-Profil und alle Fitness-TV-Einstellungen gelöscht.",
         "light_feedback_on":"Licht-Feedback an",
@@ -2050,10 +2093,48 @@ _TV_DASHBOARD_ACCESS_TEXT: dict[str, dict[str, str]] = {
         "view_only_profiles":"Zusätzliche Nur-Lese-Profile",
         "view_only_profiles_hint":"Diese Profile sind sichtbar, aber der Benutzer kann dort keine Fitness-/Fitness-TV-Einstellungen, Trainings, Musik, Sensoren, Cast- oder Profileinstellungen ändern.",
         "access_denied":"Zugriff verweigert",
-        "access_denied_hint":"Dieses Home-Assistant-Konto darf diese Fitness-TV-Seite nicht öffnen.",
+        "access_denied_hint":"Dieses Fitness-Konto darf diese Fitness-TV-Seite nicht öffnen.",
         "view_only":"Nur ansehen",
         "own_profile":"Eigenes Profil",
-        "ha_admin_global_access":"Home-Assistant-Administratoren haben immer vollen Zugriff auf alle Fitness-Profile.",
+        "ha_admin_global_access":"Fitness-Administratoren haben vollen Zugriff auf alle Fitness-Profile. Ein lokaler Home-Assistant-Administrator bleibt nur für Bootstrap/Wiederherstellung verfügbar.",
+        "fitness_accounts_independent":"Unabhängige Fitness-Konten",
+        "fitness_accounts_hint_v2":"Fitness-Konten besitzen eine eigene sichere Anmeldung und Rollen und werden nicht mehr Home-Assistant-Benutzern zugeordnet.",
+        "add_fitness_account":"Konto hinzufügen",
+        "new_fitness_account":"Neues Fitness-Konto",
+        "account_display_name":"Kontoname",
+        "account_username":"Anmeldename",
+        "account_username_hint":"Bei Remote-Konten ist die Subdomain der Standard. Der Benutzer kann den Namen später ändern.",
+        "remote_subdomain_hint":"Dieser Hostname gehört ausschließlich zu diesem Remote-Fitness-Konto.",
+        "account_enabled":"Aktiv",
+        "remote_url_pending":"Wähle eine Subdomain, um die Remote-URL zu erstellen.",
+        "account_never":"Nie",
+        "account_state_live":"Live",
+        "account_state_ready":"Bereit",
+        "account_state_dns_pending":"DNS ausstehend",
+        "account_state_setup_required":"Erstpasswort erforderlich",
+        "account_state_locked":"Gesperrt",
+        "account_state_error":"Fehler",
+        "account_state_disabled":"Deaktiviert",
+        "account_diag_sessions":"Aktive Sitzungen",
+        "account_diag_last_login":"Letzte Anmeldung",
+        "account_diag_last_seen":"Zuletzt aktiv",
+        "account_diag_error":"Letzter Fehler",
+        "account_reset_password":"Neues temporäres Passwort",
+        "account_resetting_password":"Neues temporäres Passwort wird erzeugt…",
+        "temporary_password_title":"Einmaliges Erstpasswort",
+        "temporary_password_hint":"Jetzt kopieren. Fitness speichert dieses Passwort nicht lesbar und kann es später nicht erneut anzeigen.",
+        "copy":"Kopieren",
+        "copied":"Kopiert",
+        "copy_failed":"Kopieren fehlgeschlagen",
+        "cloudflare_hint_accounts":"Cloudflare einmal konfigurieren; danach besitzt jedes Remote-Fitness-Konto seine eigene Subdomain.",
+        "cloudflare_info_steps_accounts":"1. Erstelle ein zonenbeschränktes Cloudflare-API-Token mit Zone Read und DNS Edit.\n2. Trage Zone, Fitness-Basisdomain und öffentliche IPv4 ein.\n3. Fitness verändert nginx und Certbot nicht.\n4. Erstelle ein Remote-Fitness-Konto und trage dort seine Subdomain ein.\n5. Fitness erstellt einen DNS-only-A-Record; die URL öffnet die sichere Anmeldung genau dieses Kontos.",
+        "fitness_roles_hint":"Administratoren haben vollen Zugriff. Lokale und Remote-Benutzer steuern nur ihr eigenes Profil und sehen zusätzliche Profile nur nach Freigabe durch einen Administrator.",
+        "no_fitness_accounts":"Noch keine Fitness-Konten",
+        "account_profile_optional":"Kein eigenes Profil",
+        "admin_profile_optional":"Für Administratoren optional",
+        "role_admin_hint":"Vollständige Fitness-Verwaltung",
+        "role_remote_hint":"Eigenes Profil plus sichere Remote-Subdomain",
+        "role_local_hint":"Eigenes Profil, Anmeldung nur aus dem lokalen Netzwerk",
     },
 }
 
@@ -2093,8 +2174,50 @@ _TV_DASHBOARD_LAYOUT_TEXT: dict[str, dict[str, str]] = {
     "zh":{"manage_dashboards":"仪表板","dashboard_auto_size":"自动调整卡片大小","toolbar_auto_hide":"自动隐藏顶部栏","toolbar_auto_hide_hint":"空闲后隐藏顶部栏。移动或滚动到顶部，或在电视上从顶行卡片按向上键，即可再次显示。","resize_card":"调整卡片大小","reset_card_size":"使用自动大小"},
 }
 
+
+_TV_DASHBOARD_CLOUDFLARE_TEXT: dict[str, dict[str, str]] = {
+    "en": {
+        "cloudflare_title":"Cloudflare external access","cloudflare_hint":"Configure Cloudflare once; each Fitness profile can then publish or remove its own DNS-only hostname.","cloudflare_zone":"Cloudflare zone","cloudflare_base_domain":"Fitness base domain","cloudflare_api_token":"API token","cloudflare_api_token_hint":"Use a scoped token with Zone Read and DNS Edit for this zone. The token is stored privately and is never sent back to browsers.","cloudflare_public_ipv4":"Public IPv4 / A-record target","cloudflare_public_ipv4_hint":"The public IPv4 address already reaching your nginx/Home Assistant reverse proxy.","cloudflare_token_keep":"Configured — leave blank to keep the saved token","cloudflare_save":"Save Cloudflare","cloudflare_info":"How it works","cloudflare_info_title":"Using Fitness with Cloudflare","cloudflare_info_steps":"1. In Cloudflare create an API token limited to this zone with Zone Read and DNS Edit.\n2. Enter the zone, Fitness base domain and public IPv4 here.\n3. Keep your wildcard nginx/TLS setup as it is and preserve the original Host header; Fitness does not edit nginx or Certbot.\n4. In a profile enable External access and choose a subdomain. Fitness creates a DNS-only A record.\n5. Opening that hostname goes directly to the assigned Fitness profile. Disabling it blocks the profile immediately and removes the managed DNS record. DNS-only exposes the configured public IPv4, so secure the origin.","external_access":"External access","external_access_hint":"Publish this Fitness profile on its own Cloudflare DNS-only hostname.","external_subdomain":"Subdomain","external_url":"External URL","external_requires_admin_setup":"An administrator must configure Cloudflare first.","external_dns_active":"DNS record active","external_dns_disabled":"External access disabled","external_dns_error":"DNS needs attention","cloudflare_dns_only":"Fitness creates DNS-only A records; Cloudflare proxying stays off.","cloudflare_router_restart":"Restart Home Assistant once to activate hostname routing."},
+    "el": {
+        "cloudflare_title":"Εξωτερική πρόσβαση Cloudflare","cloudflare_hint":"Ρύθμισε το Cloudflare μία φορά και μετά κάθε προφίλ Fitness μπορεί να δημιουργεί ή να αφαιρεί το δικό του DNS-only hostname.","cloudflare_zone":"Ζώνη Cloudflare","cloudflare_base_domain":"Βασικό domain Fitness","cloudflare_api_token":"API token","cloudflare_api_token_hint":"Χρησιμοποίησε scoped token με Zone Read και DNS Edit μόνο για αυτή τη ζώνη. Το token αποθηκεύεται ιδιωτικά και δεν επιστρέφεται ποτέ στον browser.","cloudflare_public_ipv4":"Δημόσια IPv4 / στόχος A record","cloudflare_public_ipv4_hint":"Η δημόσια IPv4 που ήδη οδηγεί στο nginx/reverse proxy του Home Assistant.","cloudflare_token_keep":"Έχει ρυθμιστεί — άφησέ το κενό για να διατηρηθεί","cloudflare_save":"Αποθήκευση Cloudflare","cloudflare_info":"Πώς λειτουργεί","cloudflare_info_title":"Χρήση του Fitness με Cloudflare","cloudflare_info_steps":"1. Στο Cloudflare δημιούργησε API token μόνο για αυτή τη ζώνη με Zone Read και DNS Edit.\n2. Βάλε εδώ τη ζώνη, το βασικό domain Fitness και τη δημόσια IPv4.\n3. Άφησε το υπάρχον wildcard nginx/TLS όπως είναι και διατήρησε το αρχικό Host header· το Fitness δεν αλλάζει nginx ή Certbot.\n4. Σε κάθε προφίλ ενεργοποίησε την Εξωτερική πρόσβαση και διάλεξε subdomain. Το Fitness δημιουργεί DNS-only A record.\n5. Το hostname ανοίγει κατευθείαν το συγκεκριμένο προφίλ Fitness. Η απενεργοποίηση το μπλοκάρει αμέσως και διαγράφει το DNS record που διαχειρίζεται το Fitness. Το DNS-only εκθέτει τη δημόσια IPv4, οπότε ασφάλισε το origin.","external_access":"Εξωτερική πρόσβαση","external_access_hint":"Δημοσίευσε αυτό το προφίλ Fitness σε δικό του DNS-only hostname μέσω Cloudflare.","external_subdomain":"Subdomain","external_url":"Εξωτερικό URL","external_requires_admin_setup":"Πρέπει πρώτα να ρυθμίσει το Cloudflare ένας διαχειριστής.","external_dns_active":"Το DNS record είναι ενεργό","external_dns_disabled":"Η εξωτερική πρόσβαση είναι ανενεργή","external_dns_error":"Το DNS χρειάζεται έλεγχο","cloudflare_dns_only":"Το Fitness δημιουργεί DNS-only A records· το Cloudflare proxy παραμένει κλειστό.","cloudflare_router_restart":"Κάνε μία επανεκκίνηση του Home Assistant για να ενεργοποιηθεί η δρομολόγηση hostname."},
+    "de": {
+        "cloudflare_title":"Cloudflare-Zugriff von außen","cloudflare_hint":"Cloudflare einmal global einrichten; danach kann jedes Fitness-Profil seinen eigenen DNS-only-Hostnamen veröffentlichen oder entfernen.","cloudflare_zone":"Cloudflare-Zone","cloudflare_base_domain":"Fitness-Basisdomain","cloudflare_api_token":"API-Token","cloudflare_api_token_hint":"Verwende ein auf diese Zone beschränktes Token mit Zone Read und DNS Edit. Das Token wird privat gespeichert und nie an Browser zurückgegeben.","cloudflare_public_ipv4":"Öffentliche IPv4 / A-Record-Ziel","cloudflare_public_ipv4_hint":"Die öffentliche IPv4, die bereits zu deinem nginx/Home-Assistant-Reverse-Proxy führt.","cloudflare_token_keep":"Konfiguriert — leer lassen, um das gespeicherte Token zu behalten","cloudflare_save":"Cloudflare speichern","cloudflare_info":"So funktioniert es","cloudflare_info_title":"Fitness mit Cloudflare verwenden","cloudflare_info_steps":"1. Erstelle in Cloudflare ein API-Token nur für diese Zone mit Zone Read und DNS Edit.\n2. Trage Zone, Fitness-Basisdomain und öffentliche IPv4 hier ein.\n3. Deine bestehende Wildcard-nginx/TLS-Konfiguration bleibt unverändert und muss den ursprünglichen Host-Header weitergeben; Fitness bearbeitet weder nginx noch Certbot.\n4. Aktiviere im Profil Externer Zugriff und wähle eine Subdomain. Fitness erstellt einen DNS-only-A-Record.\n5. Der Hostname öffnet direkt das zugewiesene Fitness-Profil. Deaktivieren sperrt es sofort und entfernt den von Fitness verwalteten DNS-Record. DNS-only legt die konfigurierte öffentliche IPv4 offen; sichere den Origin entsprechend.","external_access":"Externer Zugriff","external_access_hint":"Dieses Fitness-Profil unter einem eigenen DNS-only-Cloudflare-Hostnamen veröffentlichen.","external_subdomain":"Subdomain","external_url":"Externe URL","external_requires_admin_setup":"Ein Administrator muss Cloudflare zuerst konfigurieren.","external_dns_active":"DNS-Record aktiv","external_dns_disabled":"Externer Zugriff deaktiviert","external_dns_error":"DNS benötigt Aufmerksamkeit","cloudflare_dns_only":"Fitness erstellt DNS-only-A-Records; der Cloudflare-Proxy bleibt aus.","cloudflare_router_restart":"Home Assistant einmal neu starten, um das Hostname-Routing zu aktivieren."},
+    "es": {"cloudflare_title":"Acceso externo de Cloudflare","cloudflare_hint":"Configura Cloudflare una vez y cada perfil podrá publicar su propio hostname DNS-only.","cloudflare_zone":"Zona de Cloudflare","cloudflare_base_domain":"Dominio base de Fitness","cloudflare_api_token":"Token API","cloudflare_api_token_hint":"Usa un token limitado a esta zona con Zone Read y DNS Edit. Se guarda de forma privada.","cloudflare_public_ipv4":"IPv4 pública / destino A","cloudflare_public_ipv4_hint":"La IPv4 pública que ya apunta a nginx/Home Assistant.","cloudflare_token_keep":"Configurado — deja vacío para conservarlo","cloudflare_save":"Guardar Cloudflare","cloudflare_info":"Cómo funciona","cloudflare_info_title":"Usar Fitness con Cloudflare","cloudflare_info_steps":"1. Crea un token para esta zona con Zone Read y DNS Edit.\n2. Introduce zona, dominio base e IPv4 pública.\n3. Fitness no modifica nginx ni Certbot.\n4. Activa Acceso externo en un perfil y elige subdominio.\n5. Fitness crea un A DNS-only y al desactivarlo bloquea el perfil y elimina su registro.","external_access":"Acceso externo","external_access_hint":"Publicar este perfil con su propio hostname DNS-only.","external_subdomain":"Subdominio","external_url":"URL externa","external_requires_admin_setup":"Un administrador debe configurar Cloudflare primero.","external_dns_active":"Registro DNS activo","external_dns_disabled":"Acceso externo desactivado","external_dns_error":"DNS requiere atención","cloudflare_dns_only":"Fitness crea registros A DNS-only; el proxy de Cloudflare queda desactivado.","cloudflare_router_restart":"Reinicia Home Assistant una vez para activar el enrutamiento por hostname."},
+    "fr": {"cloudflare_title":"Accès externe Cloudflare","cloudflare_hint":"Configurez Cloudflare une fois, puis chaque profil peut publier son propre nom DNS-only.","cloudflare_zone":"Zone Cloudflare","cloudflare_base_domain":"Domaine de base Fitness","cloudflare_api_token":"Jeton API","cloudflare_api_token_hint":"Utilisez un jeton limité à cette zone avec Zone Read et DNS Edit. Il reste stocké de façon privée.","cloudflare_public_ipv4":"IPv4 publique / cible A","cloudflare_public_ipv4_hint":"L’IPv4 publique qui pointe déjà vers nginx/Home Assistant.","cloudflare_token_keep":"Configuré — laissez vide pour conserver le jeton","cloudflare_save":"Enregistrer Cloudflare","cloudflare_info":"Fonctionnement","cloudflare_info_title":"Utiliser Fitness avec Cloudflare","cloudflare_info_steps":"1. Créez un jeton pour cette zone avec Zone Read et DNS Edit.\n2. Saisissez zone, domaine de base et IPv4 publique.\n3. Fitness ne modifie ni nginx ni Certbot.\n4. Activez l’accès externe sur un profil et choisissez un sous-domaine.\n5. Fitness crée un A DNS-only; la désactivation bloque le profil et supprime son enregistrement.","external_access":"Accès externe","external_access_hint":"Publier ce profil sur son propre nom d’hôte DNS-only.","external_subdomain":"Sous-domaine","external_url":"URL externe","external_requires_admin_setup":"Un administrateur doit d’abord configurer Cloudflare.","external_dns_active":"Enregistrement DNS actif","external_dns_disabled":"Accès externe désactivé","external_dns_error":"DNS à vérifier","cloudflare_dns_only":"Fitness crée des A DNS-only; le proxy Cloudflare reste désactivé.","cloudflare_router_restart":"Redémarrez Home Assistant une fois pour activer le routage par nom d’hôte."},
+    "it": {"cloudflare_title":"Accesso esterno Cloudflare","cloudflare_hint":"Configura Cloudflare una volta; ogni profilo può poi pubblicare il proprio hostname DNS-only.","cloudflare_zone":"Zona Cloudflare","cloudflare_base_domain":"Dominio base Fitness","cloudflare_api_token":"Token API","cloudflare_api_token_hint":"Usa un token limitato alla zona con Zone Read e DNS Edit. Viene salvato in modo privato.","cloudflare_public_ipv4":"IPv4 pubblico / destinazione A","cloudflare_public_ipv4_hint":"L’IPv4 pubblico che già punta a nginx/Home Assistant.","cloudflare_token_keep":"Configurato — lascia vuoto per mantenerlo","cloudflare_save":"Salva Cloudflare","cloudflare_info":"Come funziona","cloudflare_info_title":"Usare Fitness con Cloudflare","cloudflare_info_steps":"1. Crea un token per la zona con Zone Read e DNS Edit.\n2. Inserisci zona, dominio base e IPv4 pubblico.\n3. Fitness non modifica nginx o Certbot.\n4. Abilita Accesso esterno nel profilo e scegli il sottodominio.\n5. Fitness crea un record A DNS-only; disabilitando blocca il profilo e rimuove il record.","external_access":"Accesso esterno","external_access_hint":"Pubblica questo profilo sul proprio hostname DNS-only.","external_subdomain":"Sottodominio","external_url":"URL esterno","external_requires_admin_setup":"Un amministratore deve prima configurare Cloudflare.","external_dns_active":"Record DNS attivo","external_dns_disabled":"Accesso esterno disattivato","external_dns_error":"DNS da controllare","cloudflare_dns_only":"Fitness crea record A DNS-only; il proxy Cloudflare resta disattivato.","cloudflare_router_restart":"Riavvia Home Assistant una volta per attivare il routing hostname."},
+    "ja": {"cloudflare_title":"Cloudflare 外部アクセス","cloudflare_hint":"Cloudflare を一度設定すると、各 Fitness プロフィールで専用 DNS-only ホスト名を管理できます。","cloudflare_zone":"Cloudflare ゾーン","cloudflare_base_domain":"Fitness ベースドメイン","cloudflare_api_token":"API トークン","cloudflare_api_token_hint":"このゾーンだけの Zone Read と DNS Edit 権限を持つトークンを使用します。トークンは非公開で保存されます。","cloudflare_public_ipv4":"公開 IPv4 / A レコード先","cloudflare_public_ipv4_hint":"既に nginx/Home Assistant に向いている公開 IPv4。","cloudflare_token_keep":"設定済み — 空欄で保存済みトークンを維持","cloudflare_save":"Cloudflare を保存","cloudflare_info":"使い方","cloudflare_info_title":"Fitness と Cloudflare","cloudflare_info_steps":"1. Zone Read と DNS Edit のゾーン限定トークンを作成します。\n2. ゾーン、ベースドメイン、公開 IPv4 を入力します。\n3. Fitness は nginx や Certbot を変更しません。\n4. プロフィールで外部アクセスを有効にし、サブドメインを選びます。\n5. DNS-only A レコードが作成され、無効化すると即時ブロックしてレコードを削除します。","external_access":"外部アクセス","external_access_hint":"このプロフィールを専用 DNS-only ホスト名で公開します。","external_subdomain":"サブドメイン","external_url":"外部 URL","external_requires_admin_setup":"管理者が先に Cloudflare を設定する必要があります。","external_dns_active":"DNS レコード有効","external_dns_disabled":"外部アクセス無効","external_dns_error":"DNS の確認が必要","cloudflare_dns_only":"Fitness は DNS-only A レコードを作成し、Cloudflare プロキシはオフのままです。","cloudflare_router_restart":"ホスト名ルーティングを有効にするため Home Assistant を一度再起動してください。"},
+    "ko": {"cloudflare_title":"Cloudflare 외부 액세스","cloudflare_hint":"Cloudflare를 한 번 설정하면 각 Fitness 프로필이 자체 DNS-only 호스트를 관리할 수 있습니다.","cloudflare_zone":"Cloudflare 영역","cloudflare_base_domain":"Fitness 기본 도메인","cloudflare_api_token":"API 토큰","cloudflare_api_token_hint":"이 영역에만 Zone Read 및 DNS Edit 권한이 있는 토큰을 사용합니다. 토큰은 비공개로 저장됩니다.","cloudflare_public_ipv4":"공인 IPv4 / A 레코드 대상","cloudflare_public_ipv4_hint":"이미 nginx/Home Assistant로 연결되는 공인 IPv4입니다.","cloudflare_token_keep":"설정됨 — 비워 두면 기존 토큰 유지","cloudflare_save":"Cloudflare 저장","cloudflare_info":"사용 방법","cloudflare_info_title":"Fitness와 Cloudflare 사용","cloudflare_info_steps":"1. Zone Read와 DNS Edit 권한의 영역 제한 토큰을 만듭니다.\n2. 영역, 기본 도메인, 공인 IPv4를 입력합니다.\n3. Fitness는 nginx나 Certbot을 수정하지 않습니다.\n4. 프로필에서 외부 액세스를 켜고 서브도메인을 선택합니다.\n5. DNS-only A 레코드가 생성되며 끄면 즉시 차단되고 레코드가 삭제됩니다.","external_access":"외부 액세스","external_access_hint":"이 프로필을 자체 DNS-only 호스트명으로 공개합니다.","external_subdomain":"서브도메인","external_url":"외부 URL","external_requires_admin_setup":"관리자가 먼저 Cloudflare를 설정해야 합니다.","external_dns_active":"DNS 레코드 활성","external_dns_disabled":"외부 액세스 비활성","external_dns_error":"DNS 확인 필요","cloudflare_dns_only":"Fitness는 DNS-only A 레코드를 만들며 Cloudflare 프록시는 꺼진 상태입니다.","cloudflare_router_restart":"호스트 라우팅을 활성화하려면 Home Assistant를 한 번 재시작하세요."},
+    "nl": {"cloudflare_title":"Externe toegang via Cloudflare","cloudflare_hint":"Configureer Cloudflare één keer; daarna kan elk Fitness-profiel zijn eigen DNS-only-hostnaam beheren.","cloudflare_zone":"Cloudflare-zone","cloudflare_base_domain":"Fitness-basisdomein","cloudflare_api_token":"API-token","cloudflare_api_token_hint":"Gebruik een zone-beperkt token met Zone Read en DNS Edit. Het token wordt privé opgeslagen.","cloudflare_public_ipv4":"Publiek IPv4 / A-recorddoel","cloudflare_public_ipv4_hint":"Het publieke IPv4 dat al naar nginx/Home Assistant wijst.","cloudflare_token_keep":"Geconfigureerd — leeg laten om te behouden","cloudflare_save":"Cloudflare opslaan","cloudflare_info":"Hoe het werkt","cloudflare_info_title":"Fitness met Cloudflare gebruiken","cloudflare_info_steps":"1. Maak een token voor deze zone met Zone Read en DNS Edit.\n2. Vul zone, basisdomein en publiek IPv4 in.\n3. Fitness wijzigt nginx of Certbot niet.\n4. Schakel Externe toegang in bij een profiel en kies een subdomein.\n5. Fitness maakt een DNS-only A-record; uitschakelen blokkeert direct en verwijdert het record.","external_access":"Externe toegang","external_access_hint":"Publiceer dit profiel op een eigen DNS-only-hostnaam.","external_subdomain":"Subdomein","external_url":"Externe URL","external_requires_admin_setup":"Een beheerder moet Cloudflare eerst configureren.","external_dns_active":"DNS-record actief","external_dns_disabled":"Externe toegang uit","external_dns_error":"DNS heeft aandacht nodig","cloudflare_dns_only":"Fitness maakt DNS-only A-records; Cloudflare-proxy blijft uit.","cloudflare_router_restart":"Herstart Home Assistant één keer om hostnaamrouting te activeren."},
+    "pl": {"cloudflare_title":"Zewnętrzny dostęp Cloudflare","cloudflare_hint":"Skonfiguruj Cloudflare raz, a każdy profil będzie mógł zarządzać własną nazwą DNS-only.","cloudflare_zone":"Strefa Cloudflare","cloudflare_base_domain":"Domena bazowa Fitness","cloudflare_api_token":"Token API","cloudflare_api_token_hint":"Użyj tokenu ograniczonego do tej strefy z Zone Read i DNS Edit. Token jest przechowywany prywatnie.","cloudflare_public_ipv4":"Publiczny IPv4 / cel rekordu A","cloudflare_public_ipv4_hint":"Publiczny IPv4 wskazujący już na nginx/Home Assistant.","cloudflare_token_keep":"Skonfigurowano — zostaw puste, aby zachować","cloudflare_save":"Zapisz Cloudflare","cloudflare_info":"Jak to działa","cloudflare_info_title":"Fitness z Cloudflare","cloudflare_info_steps":"1. Utwórz token dla strefy z Zone Read i DNS Edit.\n2. Podaj strefę, domenę bazową i publiczny IPv4.\n3. Fitness nie zmienia nginx ani Certbot.\n4. Włącz Dostęp zewnętrzny w profilu i wybierz subdomenę.\n5. Fitness tworzy rekord A DNS-only; wyłączenie natychmiast blokuje profil i usuwa rekord.","external_access":"Dostęp zewnętrzny","external_access_hint":"Publikuj profil pod własną nazwą DNS-only.","external_subdomain":"Subdomena","external_url":"Zewnętrzny URL","external_requires_admin_setup":"Administrator musi najpierw skonfigurować Cloudflare.","external_dns_active":"Rekord DNS aktywny","external_dns_disabled":"Dostęp zewnętrzny wyłączony","external_dns_error":"DNS wymaga uwagi","cloudflare_dns_only":"Fitness tworzy rekordy A DNS-only; proxy Cloudflare pozostaje wyłączone.","cloudflare_router_restart":"Uruchom Home Assistant ponownie raz, aby włączyć routing po nazwie hosta."},
+    "pt": {"cloudflare_title":"Acesso externo Cloudflare","cloudflare_hint":"Configure o Cloudflare uma vez; depois cada perfil pode gerir o seu hostname DNS-only.","cloudflare_zone":"Zona Cloudflare","cloudflare_base_domain":"Domínio base Fitness","cloudflare_api_token":"Token API","cloudflare_api_token_hint":"Use um token limitado à zona com Zone Read e DNS Edit. O token é guardado de forma privada.","cloudflare_public_ipv4":"IPv4 público / destino A","cloudflare_public_ipv4_hint":"O IPv4 público que já aponta para nginx/Home Assistant.","cloudflare_token_keep":"Configurado — deixe vazio para manter","cloudflare_save":"Guardar Cloudflare","cloudflare_info":"Como funciona","cloudflare_info_title":"Usar Fitness com Cloudflare","cloudflare_info_steps":"1. Crie um token para a zona com Zone Read e DNS Edit.\n2. Introduza zona, domínio base e IPv4 público.\n3. O Fitness não altera nginx nem Certbot.\n4. Ative Acesso externo no perfil e escolha um subdomínio.\n5. O Fitness cria um A DNS-only; desativar bloqueia imediatamente e remove o registo.","external_access":"Acesso externo","external_access_hint":"Publique este perfil num hostname DNS-only próprio.","external_subdomain":"Subdomínio","external_url":"URL externo","external_requires_admin_setup":"Um administrador precisa configurar o Cloudflare primeiro.","external_dns_active":"Registo DNS ativo","external_dns_disabled":"Acesso externo desativado","external_dns_error":"DNS requer atenção","cloudflare_dns_only":"O Fitness cria registos A DNS-only; o proxy Cloudflare fica desligado.","cloudflare_router_restart":"Reinicie o Home Assistant uma vez para ativar o encaminhamento por hostname."},
+    "ru": {"cloudflare_title":"Внешний доступ Cloudflare","cloudflare_hint":"Настройте Cloudflare один раз, затем каждый профиль сможет управлять своим DNS-only именем.","cloudflare_zone":"Зона Cloudflare","cloudflare_base_domain":"Базовый домен Fitness","cloudflare_api_token":"API-токен","cloudflare_api_token_hint":"Используйте токен только для этой зоны с Zone Read и DNS Edit. Токен хранится приватно.","cloudflare_public_ipv4":"Публичный IPv4 / цель A","cloudflare_public_ipv4_hint":"Публичный IPv4, уже ведущий на nginx/Home Assistant.","cloudflare_token_keep":"Настроено — оставьте пустым, чтобы сохранить","cloudflare_save":"Сохранить Cloudflare","cloudflare_info":"Как это работает","cloudflare_info_title":"Fitness и Cloudflare","cloudflare_info_steps":"1. Создайте токен зоны с Zone Read и DNS Edit.\n2. Введите зону, базовый домен и публичный IPv4.\n3. Fitness не изменяет nginx или Certbot.\n4. В профиле включите внешний доступ и выберите поддомен.\n5. Fitness создаст DNS-only A; отключение сразу блокирует профиль и удаляет запись.","external_access":"Внешний доступ","external_access_hint":"Опубликовать профиль на собственном DNS-only имени.","external_subdomain":"Поддомен","external_url":"Внешний URL","external_requires_admin_setup":"Администратор должен сначала настроить Cloudflare.","external_dns_active":"DNS-запись активна","external_dns_disabled":"Внешний доступ отключён","external_dns_error":"DNS требует внимания","cloudflare_dns_only":"Fitness создаёт DNS-only A-записи; прокси Cloudflare остаётся выключен.","cloudflare_router_restart":"Перезапустите Home Assistant один раз для маршрутизации по hostname."},
+    "tr": {"cloudflare_title":"Cloudflare dış erişim","cloudflare_hint":"Cloudflare'i bir kez yapılandırın; her Fitness profili kendi DNS-only ana bilgisayarını yönetebilir.","cloudflare_zone":"Cloudflare bölgesi","cloudflare_base_domain":"Fitness temel alan adı","cloudflare_api_token":"API belirteci","cloudflare_api_token_hint":"Yalnızca bu bölge için Zone Read ve DNS Edit izinli bir belirteç kullanın. Belirteç özel saklanır.","cloudflare_public_ipv4":"Genel IPv4 / A kaydı hedefi","cloudflare_public_ipv4_hint":"Zaten nginx/Home Assistant'a yönlenen genel IPv4.","cloudflare_token_keep":"Yapılandırıldı — korumak için boş bırakın","cloudflare_save":"Cloudflare'i kaydet","cloudflare_info":"Nasıl çalışır","cloudflare_info_title":"Fitness'i Cloudflare ile kullanma","cloudflare_info_steps":"1. Bölge için Zone Read ve DNS Edit izinli belirteç oluşturun.\n2. Bölge, temel alan adı ve genel IPv4'ü girin.\n3. Fitness nginx veya Certbot'u değiştirmez.\n4. Profilde Dış erişimi açıp alt alan adını seçin.\n5. Fitness DNS-only A kaydı oluşturur; kapatmak profili hemen engeller ve kaydı siler.","external_access":"Dış erişim","external_access_hint":"Bu profili kendi DNS-only ana bilgisayarında yayınlayın.","external_subdomain":"Alt alan adı","external_url":"Dış URL","external_requires_admin_setup":"Önce bir yönetici Cloudflare'i yapılandırmalıdır.","external_dns_active":"DNS kaydı etkin","external_dns_disabled":"Dış erişim kapalı","external_dns_error":"DNS dikkat gerektiriyor","cloudflare_dns_only":"Fitness DNS-only A kayıtları oluşturur; Cloudflare proxy kapalı kalır.","cloudflare_router_restart":"Hostname yönlendirmesini etkinleştirmek için Home Assistant'ı bir kez yeniden başlatın."},
+    "uk": {"cloudflare_title":"Зовнішній доступ Cloudflare","cloudflare_hint":"Налаштуйте Cloudflare один раз, після чого кожен профіль зможе керувати власним DNS-only ім’ям.","cloudflare_zone":"Зона Cloudflare","cloudflare_base_domain":"Базовий домен Fitness","cloudflare_api_token":"API-токен","cloudflare_api_token_hint":"Використовуйте токен лише для цієї зони з Zone Read і DNS Edit. Токен зберігається приватно.","cloudflare_public_ipv4":"Публічний IPv4 / ціль A","cloudflare_public_ipv4_hint":"Публічний IPv4, що вже веде на nginx/Home Assistant.","cloudflare_token_keep":"Налаштовано — залиште порожнім, щоб зберегти","cloudflare_save":"Зберегти Cloudflare","cloudflare_info":"Як це працює","cloudflare_info_title":"Fitness із Cloudflare","cloudflare_info_steps":"1. Створіть токен зони з Zone Read і DNS Edit.\n2. Введіть зону, базовий домен і публічний IPv4.\n3. Fitness не змінює nginx або Certbot.\n4. У профілі увімкніть зовнішній доступ і виберіть піддомен.\n5. Fitness створить DNS-only A; вимкнення одразу блокує профіль і видаляє запис.","external_access":"Зовнішній доступ","external_access_hint":"Опублікувати профіль на власному DNS-only імені.","external_subdomain":"Піддомен","external_url":"Зовнішній URL","external_requires_admin_setup":"Адміністратор має спочатку налаштувати Cloudflare.","external_dns_active":"DNS-запис активний","external_dns_disabled":"Зовнішній доступ вимкнено","external_dns_error":"DNS потребує уваги","cloudflare_dns_only":"Fitness створює DNS-only A-записи; проксі Cloudflare лишається вимкненим.","cloudflare_router_restart":"Перезапустіть Home Assistant один раз для маршрутизації за hostname."},
+    "zh": {"cloudflare_title":"Cloudflare 外部访问","cloudflare_hint":"只需全局配置一次 Cloudflare，每个 Fitness 配置文件即可管理自己的 DNS-only 主机名。","cloudflare_zone":"Cloudflare 区域","cloudflare_base_domain":"Fitness 基础域名","cloudflare_api_token":"API 令牌","cloudflare_api_token_hint":"使用仅限此区域且具有 Zone Read 和 DNS Edit 权限的令牌。令牌会私密保存。","cloudflare_public_ipv4":"公网 IPv4 / A 记录目标","cloudflare_public_ipv4_hint":"已经指向 nginx/Home Assistant 的公网 IPv4。","cloudflare_token_keep":"已配置 — 留空以保留现有令牌","cloudflare_save":"保存 Cloudflare","cloudflare_info":"使用说明","cloudflare_info_title":"Fitness 与 Cloudflare","cloudflare_info_steps":"1. 创建仅限该区域并具有 Zone Read 和 DNS Edit 的令牌。\n2. 填写区域、基础域名和公网 IPv4。\n3. Fitness 不会修改 nginx 或 Certbot。\n4. 在配置文件中启用外部访问并选择子域名。\n5. Fitness 创建 DNS-only A 记录；禁用后会立即阻止访问并删除记录。","external_access":"外部访问","external_access_hint":"通过专用 DNS-only 主机名发布此 Fitness 配置文件。","external_subdomain":"子域名","external_url":"外部 URL","external_requires_admin_setup":"管理员必须先配置 Cloudflare。","external_dns_active":"DNS 记录已激活","external_dns_disabled":"外部访问已禁用","external_dns_error":"DNS 需要处理","cloudflare_dns_only":"Fitness 创建 DNS-only A 记录；Cloudflare 代理保持关闭。","cloudflare_router_restart":"重启一次 Home Assistant 以启用主机名路由。"},
+}
+
+
+_WELLNESS_DASHBOARD_TEXT: dict[str, dict[str, str]] = {
+    "en": {"card_wellness":"Health snapshot","synced_device_health":"Synced device health","empty_card_preview":"No data yet · available while arranging","send_to_device":"Send to device","start_with_live":"Start with live sensors"},
+    "el": {"card_wellness":"Εικόνα υγείας","synced_device_health":"Υγεία από συγχρονισμένες συσκευές","empty_card_preview":"Δεν υπάρχουν ακόμη δεδομένα · διαθέσιμη κατά την τακτοποίηση","send_to_device":"Αποστολή στη συσκευή","start_with_live":"Έναρξη με ζωντανούς αισθητήρες"},
+    "de": {"card_wellness":"Gesundheitsübersicht","synced_device_health":"Gesundheit von synchronisierten Geräten","empty_card_preview":"Noch keine Daten · beim Anordnen verfügbar","send_to_device":"An Gerät senden","start_with_live":"Mit Live-Sensoren starten"},
+    "fr": {"card_wellness":"Aperçu santé","synced_device_health":"Santé des appareils synchronisés","empty_card_preview":"Pas encore de données · disponible pendant l’organisation","send_to_device":"Envoyer vers l’appareil","start_with_live":"Démarrer avec les capteurs en direct"},
+    "es": {"card_wellness":"Resumen de salud","synced_device_health":"Salud de dispositivos sincronizados","empty_card_preview":"Aún no hay datos · disponible al organizar","send_to_device":"Enviar al dispositivo","start_with_live":"Iniciar con sensores en directo"},
+    "it": {"card_wellness":"Panoramica salute","synced_device_health":"Salute dai dispositivi sincronizzati","empty_card_preview":"Nessun dato ancora · disponibile durante la disposizione","send_to_device":"Invia al dispositivo","start_with_live":"Avvia con sensori live"},
+    "pt": {"card_wellness":"Resumo de saúde","synced_device_health":"Saúde dos dispositivos sincronizados","empty_card_preview":"Ainda sem dados · disponível durante a organização","send_to_device":"Enviar para o dispositivo","start_with_live":"Iniciar com sensores ao vivo"},
+    "nl": {"card_wellness":"Gezondheidsoverzicht","synced_device_health":"Gezondheid van gesynchroniseerde apparaten","empty_card_preview":"Nog geen gegevens · beschikbaar tijdens rangschikken","send_to_device":"Naar apparaat sturen","start_with_live":"Starten met live-sensoren"},
+    "pl": {"card_wellness":"Podsumowanie zdrowia","synced_device_health":"Zdrowie z zsynchronizowanych urządzeń","empty_card_preview":"Brak danych · dostępna podczas układania","send_to_device":"Wyślij do urządzenia","start_with_live":"Uruchom z czujnikami na żywo"},
+    "ru": {"card_wellness":"Сводка здоровья","synced_device_health":"Данные здоровья с синхронизированных устройств","empty_card_preview":"Данных пока нет · доступно при расстановке","send_to_device":"Отправить на устройство","start_with_live":"Запустить с датчиками в реальном времени"},
+    "uk": {"card_wellness":"Огляд здоров’я","synced_device_health":"Дані здоров’я із синхронізованих пристроїв","empty_card_preview":"Даних ще немає · доступно під час упорядкування","send_to_device":"Надіслати на пристрій","start_with_live":"Запустити з датчиками наживо"},
+    "tr": {"card_wellness":"Sağlık özeti","synced_device_health":"Senkronize cihaz sağlığı","empty_card_preview":"Henüz veri yok · düzenleme sırasında kullanılabilir","send_to_device":"Cihaza gönder","start_with_live":"Canlı sensörlerle başlat"},
+    "zh": {"card_wellness":"健康概览","synced_device_health":"已同步设备健康数据","empty_card_preview":"暂无数据 · 排列时可用","send_to_device":"发送到设备","start_with_live":"使用实时传感器开始"},
+    "ja": {"card_wellness":"健康スナップショット","synced_device_health":"同期済みデバイスの健康データ","empty_card_preview":"まだデータがありません · 配置中は表示されます","send_to_device":"デバイスへ送信","start_with_live":"ライブセンサーで開始"},
+    "ko": {"card_wellness":"건강 요약","synced_device_health":"동기화된 기기 건강 데이터","empty_card_preview":"아직 데이터 없음 · 배치 중에는 표시됨","send_to_device":"기기로 보내기","start_with_live":"라이브 센서로 시작"},
+}
+
 _DASHBOARD_LABEL_GROUPS = (
     _DASHBOARD_UI_TEXT,
+    _WELLNESS_DASHBOARD_TEXT,
     _TV_DASHBOARD_TEXT,
     _TV_DASHBOARD_SETTINGS_TEXT,
     _TV_DASHBOARD_EXTRA_TEXT,
@@ -2105,6 +2228,7 @@ _DASHBOARD_LABEL_GROUPS = (
     _TV_DASHBOARD_ACCESS_TEXT,
     _TV_DASHBOARD_MULTI_TEXT,
     _TV_DASHBOARD_LAYOUT_TEXT,
+    _TV_DASHBOARD_CLOUDFLARE_TEXT,
 )
 _REQUIRED_DASHBOARD_LABELS = set(DASHBOARD_LANGUAGE_AUDIT_TEXT["en"])
 for _group in _DASHBOARD_LABEL_GROUPS:
@@ -3291,6 +3415,39 @@ async def websocket_workouts_delete(hass: HomeAssistant, connection, msg) -> Non
 
 @websocket_api.websocket_command(
     {
+        vol.Required("type"): "fitness/workouts/rpe",
+        vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+        vol.Required("workout_id"): vol.All(str, vol.Length(min=1, max=256)),
+        vol.Required("value"): vol.All(int, vol.Range(min=1, max=10)),
+    }
+)
+@websocket_api.async_response
+async def websocket_workouts_rpe(hass: HomeAssistant, connection, msg) -> None:
+    """Set RPE on the explicitly selected completed workout."""
+    try:
+        entry = await _require_fitness_options_profile_control(
+            hass, connection, msg["profile_entry_id"]
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], "profile_not_found", str(err))
+        return
+    manager = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if manager is None:
+        connection.send_error(
+            msg["id"], "profile_unavailable", "Fitness profile unavailable"
+        )
+        return
+    updated = await manager.async_set_workout_rpe(
+        msg["workout_id"], entry.entry_id, int(msg["value"])
+    )
+    if not updated:
+        connection.send_error(msg["id"], "workout_not_found", "Workout not found")
+        return
+    connection.send_result(msg["id"], {"updated": True, "value": int(msg["value"])})
+
+
+@websocket_api.websocket_command(
+    {
         vol.Required("type"): "fitness/workouts/edit",
         vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
         vol.Required("workout_id"): vol.All(str, vol.Length(min=1, max=256)),
@@ -3508,6 +3665,39 @@ async def websocket_training_tests(hass: HomeAssistant, connection, msg) -> None
 
 
 @websocket_api.websocket_command({
+    vol.Required("type"): "fitness/training/daily_plan",
+    vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+    vol.Optional("regenerate", default=False): bool,
+})
+@websocket_api.async_response
+async def websocket_training_daily_plan(hass: HomeAssistant, connection, msg) -> None:
+    """Return or regenerate today's AI training suggestion."""
+    profile_id = msg["profile_entry_id"]
+    try:
+        _entry, manager = await _dashboard_profile_for_view(hass, connection, profile_id)
+    except ValueError as err:
+        connection.send_error(msg["id"], str(err), str(err)); return
+    if msg.get("regenerate"):
+        allowed = set(await get_fitness_access_controller(hass).async_control_profile_ids(connection))
+        if profile_id not in allowed:
+            connection.send_error(msg["id"], "unauthorized", "Fitness profile control required"); return
+        before_generated_at = str((manager.ai_daily_plan or {}).get("generated_at") or "")
+        plan = await manager.async_generate_daily_training_plan(force=True)
+        after_generated_at = str((plan or {}).get("generated_at") or "")
+        if not after_generated_at or after_generated_at == before_generated_at:
+            connection.send_error(
+                msg["id"],
+                "ai_regeneration_failed",
+                "AI regeneration did not complete",
+            )
+            return
+    connection.send_result(msg["id"], {
+        "plan": dict(manager.ai_daily_plan or {}),
+        "regenerated": bool(msg.get("regenerate")),
+    })
+
+
+@websocket_api.websocket_command({
     vol.Required("type"): "fitness/training/plan",
     vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
     vol.Optional("regenerate", default=False): bool,
@@ -3524,8 +3714,20 @@ async def websocket_training_plan(hass: HomeAssistant, connection, msg) -> None:
         allowed = set(await get_fitness_access_controller(hass).async_control_profile_ids(connection))
         if profile_id not in allowed:
             connection.send_error(msg["id"], "unauthorized", "Fitness profile control required"); return
-        await manager.async_generate_training_plan(force=True)
-    connection.send_result(msg["id"], {"plan": dict(manager.ai_training_plan or {})})
+        before_generated_at = str((manager.ai_training_plan or {}).get("generated_at") or "")
+        plan = await manager.async_generate_training_plan(force=True)
+        after_generated_at = str((plan or {}).get("generated_at") or "")
+        if not after_generated_at or after_generated_at == before_generated_at:
+            connection.send_error(
+                msg["id"],
+                "ai_regeneration_failed",
+                "AI regeneration did not complete",
+            )
+            return
+    connection.send_result(msg["id"], {
+        "plan": dict(manager.ai_training_plan or {}),
+        "regenerated": bool(msg.get("regenerate")),
+    })
 
 
 @websocket_api.websocket_command({
@@ -3579,10 +3781,9 @@ async def websocket_training_step(hass: HomeAssistant, connection, msg) -> None:
 async def websocket_training_export_targets(hass: HomeAssistant, connection, msg) -> None:
     """Return only devices whose direct adapter implements workout writing."""
     profile_id = msg["profile_entry_id"]
-    try:
-        await _dashboard_profile_for_view(hass, connection, profile_id)
-    except ValueError as err:
-        connection.send_error(msg["id"], str(err), str(err)); return
+    allowed = set(await get_fitness_access_controller(hass).async_control_profile_ids(connection))
+    if profile_id not in allowed:
+        connection.send_error(msg["id"], "unauthorized", "Fitness profile control required"); return
     from .live import get_live_runtime
     runtime = get_live_runtime(hass)
     provider = runtime.providers.get("bluetooth")
@@ -3689,6 +3890,7 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                         "is_own": entry.entry_id == access.get("profile_entry_id"),
                         "mode": "control" if entry.entry_id in control_profile_ids else "view",
                     },
+                    "external_access": access_controller.external_profile_descriptor(entry.entry_id),
                     "language": lang,
                     "dashboard_preferences": _dashboard_profile_preferences(config),
                     "labels": {
@@ -3716,6 +3918,7 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                         "name": None,
                         "fitness_owned": False,
                     },
+                    "workout_comparisons": [],
                     "workout_source_metrics": {},
                     "sleep_source_metrics": {},
                     "evaluation_source_metrics": {},
@@ -3884,6 +4087,7 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                     "is_own": entry.entry_id == access.get("profile_entry_id"),
                     "mode": "control" if entry.entry_id in control_profile_ids else "view",
                 },
+                "external_access": access_controller.external_profile_descriptor(entry.entry_id),
                 "language": lang,
                 "dashboard_preferences": _dashboard_profile_preferences(manager.config),
                 "ai_enabled": bool(manager.config.get("ai_enabled")),
@@ -3936,8 +4140,11 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                     "available": latest_workout is not None,
                     "sport": workout_sport_kind(latest_workout),
                     "name": latest_workout.name if latest_workout is not None else None,
+                    "start": latest_workout.start if latest_workout is not None else None,
+                    "end": latest_workout.end if latest_workout is not None else None,
                     "fitness_owned": workout_is_fitness_owned(latest_workout),
                 },
+                "workout_comparisons": manager.workout_comparisons_by_sport(),
                 "workout_source_metrics": workout_source_metrics,
                 "sleep_source_metrics": sleep_source_metrics,
                 "evaluation_source_metrics": evaluation_source_metrics,
@@ -3981,7 +4188,7 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
     connection.send_result(
         msg["id"],
         {
-            "frontend_version": "unreleased-89",
+            "frontend_version": "unreleased-110",
             "profiles": profiles,
             "access": access,
             # Access-denied and administrator overview screens can render
@@ -4846,10 +5053,12 @@ async def async_setup_dashboard(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, websocket_dashboard_config)
     websocket_api.async_register_command(hass, websocket_workouts_list)
     websocket_api.async_register_command(hass, websocket_workouts_delete)
+    websocket_api.async_register_command(hass, websocket_workouts_rpe)
     websocket_api.async_register_command(hass, websocket_workouts_edit)
     websocket_api.async_register_command(hass, websocket_workouts_empty)
     websocket_api.async_register_command(hass, websocket_body_composition)
     websocket_api.async_register_command(hass, websocket_training_tests)
+    websocket_api.async_register_command(hass, websocket_training_daily_plan)
     websocket_api.async_register_command(hass, websocket_training_plan)
     websocket_api.async_register_command(hass, websocket_training_plan_start)
     websocket_api.async_register_command(hass, websocket_training_step)
@@ -4867,10 +5076,12 @@ async def async_setup_dashboard(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, websocket_dashboard_options_flow_step)
     websocket_api.async_register_command(hass, websocket_dashboard_options_flow_cancel)
     async_register_fitness_access_websocket_commands(hass)
+    async_register_fitness_account_websocket_commands(hass)
     async_register_tv_websocket_commands(hass)
 
     async def _http_ready(_hass: HomeAssistant, _component: str) -> None:
         try:
+            async_register_external_host_routing(_hass)
             # Register the exact CORS-capable module route before the broader
             # static directory route so Cast always receives the explicit
             # cross-origin headers required for custom Lovelace resources.
@@ -4882,6 +5093,12 @@ async def async_setup_dashboard(hass: HomeAssistant) -> None:
                     StaticPathConfig("/fitness/frontend", str(frontend_path), False),
                     StaticPathConfig("/fitness/brand", str(Path(__file__).parent / "brand"), True),
                 ]
+            )
+            _hass.async_create_task(
+                get_fitness_access_controller(_hass).async_reconcile_external_profiles()
+            )
+            _hass.async_create_task(
+                get_fitness_account_controller(_hass).async_reconcile_remote_dns()
             )
         except Exception:  # noqa: BLE001 - dashboard is optional UI enhancement
             _LOGGER.exception(

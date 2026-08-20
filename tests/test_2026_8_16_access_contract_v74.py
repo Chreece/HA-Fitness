@@ -2,6 +2,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ACCESS = (ROOT / "custom_components/fitness/access_control.py").read_text()
+ACCOUNTS = (ROOT / "custom_components/fitness/fitness_accounts.py").read_text()
 DASH = (ROOT / "custom_components/fitness/dashboard.py").read_text()
 TV = (ROOT / "custom_components/fitness/tv_dashboard.py").read_text()
 REMOTE = (ROOT / "custom_components/fitness/remote_gateway.py").read_text()
@@ -9,22 +10,22 @@ JS = (ROOT / "custom_components/fitness/frontend/fitness-dashboard.js").read_tex
 
 
 def test_ha_admin_is_always_global_fitness_admin_independent_of_binding():
-    assert 'getattr(user, "is_admin", False)' in ACCESS
-    assert '"role": ROLE_ADMIN' in ACCESS
-    assert '"is_admin": True' in ACCESS
-    assert '"can_manage": True' in ACCESS
-    assert 'return self._all_profile_ids()' in ACCESS
-    assert 'async def async_require_admin' in ACCESS
-
+    assert 'async def _ha_native_admin(self, connection)' in ACCESS
+    native = ACCESS[ACCESS.index("async def _ha_native_admin"):ACCESS.index("async def async_descriptor")]
+    assert 'getattr(user, "is_admin", False)' in native
+    assert 'has_usable_admin()' not in native
+    require = ACCESS[ACCESS.index("async def async_require_admin"):ACCESS.index("async def async_admin_snapshot")]
+    assert 'if not await self._ha_native_admin(connection):' in require
+    assert 'raise Unauthorized' in require
 
 def test_profile_ownership_and_extra_view_only_grants_are_separate():
     assert '"profile_entry_id"' in ACCESS
     assert '"view_profile_entry_ids"' in ACCESS
-    assert 'visible = self._view_profile_ids(account)' in ACCESS
+    assert 'principal = self._fitness_principal(connection)' in ACCESS
+    assert 'visible = self._view_profile_ids(principal)' in ACCESS
     assert 'visible.add(profile_id)' in ACCESS
-    assert 'async def async_control_profile_ids' in ACCESS
+    assert 'return {profile_id} if profile_id and profile_id in self._all_profile_ids() else set()' in ACCESS
     assert 'async def async_profile_access' in ACCESS
-
 
 def test_view_only_users_cannot_execute_profile_write_paths():
     assert 'async def _require_profile_control(' in TV
@@ -58,12 +59,12 @@ def test_unauthorized_and_view_only_pages_have_explicit_ui_and_no_control_tools(
 
 
 def test_access_admin_can_assign_owner_and_additional_view_only_profiles():
-    assert 'class="access-profile-field ${role === "none" ? "hidden" : ""}"' in JS
-    assert 'data-access-profile' in JS
-    assert 'data-access-view-profile' in JS
-    assert 'view_profile_entry_ids:Array.from(row.querySelectorAll("[data-access-view-profile]:checked"))' in JS
-    assert 'view_profile_entry_ids' in ACCESS
-
+    assert 'class="access-profile-field"' in JS
+    assert 'data-account-profile' in JS
+    assert 'data-account-view' in JS
+    assert 'view_profile_entry_ids:[...row.querySelectorAll("[data-account-view]:checked")]' in JS
+    assert 'vol.Optional("view_profile_entry_ids", default=[])' in ACCOUNTS
+    assert 'role === "admin" ? ""' in JS
 
 def test_lovelace_uses_stable_card_contract_and_current_module_registers_aliases():
     assert '_TV_DASHBOARD_CARD_TYPE = "custom:fitness-tv-dashboard-card"' in DASH
@@ -75,7 +76,7 @@ def test_lovelace_uses_stable_card_contract_and_current_module_registers_aliases
 
 
 def test_frontend_server_version_contract_can_force_reload_after_future_update():
-    assert '"frontend_version": "unreleased-89"' in DASH
+    assert '"frontend_version": "unreleased-110"' in DASH
     assert '_fitnessEnsureFrontendVersion' in JS
     assert 'location.reload();' in JS
 

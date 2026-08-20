@@ -3521,6 +3521,57 @@
       },
       "garmin_quarantined_file_count": {
         "name": "Ficheiros ilegíveis ignorados"
+      },
+      "cycplus_workout_avg_altitude": {
+        "name": "Altitude média do último treino"
+      },
+      "cycplus_workout_max_altitude": {
+        "name": "Altitude máxima do último treino"
+      },
+      "cycplus_workout_min_altitude": {
+        "name": "Altitude mínima do último treino"
+      },
+      "cycplus_workout_avg_temperature": {
+        "name": "Temperatura média do último treino"
+      },
+      "cycplus_workout_max_temperature": {
+        "name": "Temperatura máxima do último treino"
+      },
+      "cycplus_workout_avg_positive_grade": {
+        "name": "Inclinação média de subida do último treino"
+      },
+      "cycplus_workout_max_positive_grade": {
+        "name": "Inclinação máxima de subida do último treino"
+      },
+      "cycplus_workout_avg_negative_grade": {
+        "name": "Inclinação média de descida do último treino"
+      },
+      "cycplus_workout_max_negative_grade": {
+        "name": "Inclinação máxima de descida do último treino"
+      },
+      "cycplus_history_workout_count": {
+        "name": "Treinos importados"
+      },
+      "cycplus_history_total_distance": {
+        "name": "Distância total de ciclismo"
+      },
+      "cycplus_history_total_moving_time": {
+        "name": "Tempo total de ciclismo"
+      },
+      "cycplus_history_total_ascent": {
+        "name": "Subida total"
+      },
+      "cycplus_history_7d_distance": {
+        "name": "Distância de ciclismo em 7 dias"
+      },
+      "cycplus_history_7d_moving_time": {
+        "name": "Tempo de ciclismo em 7 dias"
+      },
+      "cycplus_history_30d_distance": {
+        "name": "Distância de ciclismo em 30 dias"
+      },
+      "cycplus_history_30d_moving_time": {
+        "name": "Tempo de ciclismo em 30 dias"
       }
     },
     "binary_sensor": {
@@ -3556,11 +3607,11 @@
       "adapter_scan_now": {
         "name": "Procurar agora"
       },
-      "sync_device_data": {
-        "name": "Sincronizar dados do dispositivo"
-      },
       "sync_device_health_history": {
         "name": "Sincronizar histórico de saúde do dispositivo"
+      },
+      "sync_device_data": {
+        "name": "Sincronizar dados do dispositivo"
       }
     },
     "select": {

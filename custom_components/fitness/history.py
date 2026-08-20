@@ -44,6 +44,8 @@ METRIC_BOUNDS: dict[str, tuple[float | None, float | None]] = {
     "body_temperature": (20.0, 50.0),
     "device_temperature": (-40.0, 100.0),
     "steps": (0.0, 250000.0),
+    "moderate_minutes": (0.0, 1440.0),
+    "vigorous_minutes": (0.0, 1440.0),
     "distance_m": (0.0, 500000.0),
     "calories": (0.0, 30000.0),
     "stress": (0.0, 255.0),

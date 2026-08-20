@@ -612,6 +612,204 @@ def health_history_from_fit(
     return DeviceHistoryBatch.bounded(metric_points=points, sleep_records=sleep)
 
 
+_GENERIC_WELLNESS_FIELDS: dict[str, tuple[str, ...]] = {
+    # These aliases are intentionally semantic: we only promote fields whose
+    # decoded FIT names already tell us what the value means. Unknown numeric
+    # vendor fields remain diagnostic samples instead of being guessed.
+    "steps": ("steps", "step_count", "daily_steps"),
+    "heart_rate": ("heart_rate", "current_heart_rate", "bpm"),
+    "resting_heart_rate": ("resting_heart_rate", "current_day_resting_heart_rate", "daily_rhr"),
+    "stress": ("stress", "stress_level", "stress_score", "stress_level_value"),
+    "respiratory_rate": ("respiration_rate", "respiratory_rate", "breaths_per_minute"),
+    "spo2": ("spo2", "reading_spo2", "oxygen_saturation", "oxygen_saturation_percent", "pulse_ox"),
+    "hrv_ms": ("hrv_ms", "rmssd", "average_hrv", "avg_hrv", "last_night_average"),
+    "body_battery": ("body_battery", "body_battery_level", "body_battery_value"),
+    "body_battery_charged": ("body_battery_charged", "charged"),
+    "body_battery_drained": ("body_battery_drained", "uncharged", "drained"),
+    "active_calories": ("active_calories",),
+    "calories": ("calories", "total_calories"),
+    "basal_metabolic_rate": ("basal_metabolic_rate", "resting_metabolic_rate", "basal_met"),
+    "distance_m": ("distance", "distance_16", "total_distance"),
+    "floors_climbed": ("floors_climbed", "floors"),
+    "active_minutes": ("active_minutes", "activity_minutes"),
+    "moderate_minutes": ("moderate_minutes", "moderate_activity_minutes"),
+    "vigorous_minutes": ("vigorous_minutes", "vigorous_activity_minutes"),
+    "activity_level": ("activity_level", "intensity"),
+    "skin_temperature": ("skin_temperature", "wrist_temperature", "nightly_value"),
+    "device_temperature": ("temperature", "device_temperature"),
+    "weight": ("weight",),
+    "bmi": ("bmi",),
+    "body_fat": ("percent_fat", "body_fat"),
+    "body_water": ("percent_hydration", "body_water"),
+    "muscle_mass": ("muscle_mass",),
+    "bone_mass": ("bone_mass",),
+    "systolic_blood_pressure": ("systolic_pressure", "systolic"),
+    "diastolic_blood_pressure": ("diastolic_pressure", "diastolic"),
+    "sleep_score": ("sleep_score", "overall_sleep_score"),
+    "vo2_max": ("vo2_max",),
+}
+
+
+def _generic_metric_value(metric: str, raw: Any) -> float | None:
+    if metric == "spo2":
+        value = _scaled_percent(raw)
+        return value if value is not None and 50 <= value <= 100 else None
+    if metric == "respiratory_rate":
+        value = _scaled_respiration(raw)
+        return value if value is not None and 4 <= value <= 100 else None
+    value = _scalar(raw, mean_list=True)
+    if value is None:
+        return None
+    bounds = {
+        "steps": (0, 250_000),
+        "heart_rate": (20, 260),
+        "resting_heart_rate": (20, 220),
+        "stress": (0, 100),
+        "hrv_ms": (0, 1000),
+        "body_battery": (0, 100),
+        "body_battery_charged": (0, 10_000),
+        "body_battery_drained": (0, 10_000),
+        "active_calories": (0, 20_000),
+        "calories": (0, 30_000),
+        "basal_metabolic_rate": (0, 10_000),
+        "distance_m": (0, 1_000_000),
+        "floors_climbed": (0, 10_000),
+        "active_minutes": (0, 1440),
+        "moderate_minutes": (0, 1440),
+        "vigorous_minutes": (0, 1440),
+        "activity_level": (0, 255),
+        "skin_temperature": (20, 50),
+        "device_temperature": (-40, 100),
+        "weight": (10, 500),
+        "bmi": (5, 100),
+        "body_fat": (0, 100),
+        "body_water": (0, 100),
+        "muscle_mass": (0, 300),
+        "bone_mass": (0, 30),
+        "systolic_blood_pressure": (40, 300),
+        "diastolic_blood_pressure": (20, 200),
+        "sleep_score": (0, 100),
+        "vo2_max": (5, 100),
+    }
+    low, high = bounds.get(metric, (-1_000_000, 1_000_000))
+    return value if low <= value <= high else None
+
+
+def generic_wellness_from_fit(
+    data: bytes,
+    *,
+    sensor_id: str,
+    source_key: str,
+    source_label: str | None = None,
+) -> tuple[DeviceHistoryBatch, dict[str, Any]]:
+    """Extract conservative wellness fields from otherwise-unmapped FIT messages.
+
+    Garmin firmware evolves faster than the FIT profile bundled by parsers.  We
+    therefore keep exact message/field inventories and only normalize fields
+    whose *field names* already describe a known Fitness metric.  Numeric or
+    ``unknown_*`` vendor fields are never guessed.
+    """
+    container = _fit_container(data)
+    import fitdecode
+
+    source = f"garmin_local:{sensor_id}:{source_key}"
+    points: list[DeviceMetricPoint] = []
+    message_counts: dict[str, int] = {}
+    field_inventory: dict[str, list[str]] = {}
+    sample_values: dict[str, dict[str, Any]] = {}
+    frames: list[tuple[str, dict[str, Any]]] = []
+    fallback_stamp: datetime | None = None
+    count = 0
+
+    with fitdecode.FitReader(io.BytesIO(container), check_crc=fitdecode.CrcCheck.RAISE) as reader:
+        for frame in reader:
+            if frame.frame_type != fitdecode.FIT_FRAME_DATA:
+                continue
+            count += 1
+            if count > MAX_HEALTH_FRAMES:
+                raise ValueError("Garmin FIT frame count exceeds safe limit")
+            name = str(frame.name)[:128]
+            message_counts[name] = message_counts.get(name, 0) + 1
+            values: dict[str, Any] = {}
+            fields: list[str] = []
+            for field in frame.fields:
+                field_name = str(field.name)[:128]
+                if field_name.startswith("unknown_") or field_name.isdigit():
+                    continue
+                fields.append(field_name)
+                value = _safe(field.value)
+                if value is not None:
+                    values[field_name] = value
+            if name not in field_inventory and len(field_inventory) < 64:
+                field_inventory[name] = sorted(set(fields))[:48]
+            if values and name not in sample_values and len(sample_values) < 32:
+                sample_values[name] = {
+                    str(key)[:128]: _safe(value)
+                    for key, value in list(values.items())[:32]
+                }
+            if not values:
+                continue
+            stamp = _point_time(values)
+            if stamp is not None and fallback_stamp is None:
+                fallback_stamp = stamp
+            if name == "file_id":
+                created = _dt(_first(values, "time_created", "timestamp"))
+                if created is not None:
+                    fallback_stamp = created
+            frames.append((name, values))
+
+    seen: set[tuple[str, str, float]] = set()
+    for name, values in frames:
+        stamp = _point_time(values) or fallback_stamp
+        if stamp is None:
+            continue
+        for metric, aliases in _GENERIC_WELLNESS_FIELDS.items():
+            field_name = next((alias for alias in aliases if values.get(alias) not in (None, "")), None)
+            if field_name is None:
+                continue
+            value = _generic_metric_value(metric, values.get(field_name))
+            if value is None:
+                continue
+            key = (metric, stamp.isoformat(), round(float(value), 6))
+            if key in seen:
+                continue
+            seen.add(key)
+            context = {
+                "garmin_message": name,
+                "garmin_field": field_name,
+                "decoder": "generic_named_field",
+            }
+            if _point_time(values) is None:
+                context["timestamp_source"] = "file"
+            if metric in {
+                "steps", "active_calories", "calories", "distance_m", "floors_climbed",
+                "active_minutes", "moderate_minutes", "vigorous_minutes",
+                "body_battery_charged", "body_battery_drained",
+            }:
+                context["measurement_context"] = "current_total"
+            points.append(DeviceMetricPoint(
+                metric=metric,
+                value=float(value),
+                timestamp=stamp.isoformat(),
+                source_type="garmin_local_ble_fit_generic",
+                source_entity=source_label,
+                sources=(source,),
+                context=tuple((str(k)[:64], _safe(v)) for k, v in context.items()),
+            ))
+
+    inventory = {
+        "message_counts": dict(sorted(message_counts.items(), key=lambda item: (-item[1], item[0]))[:64]),
+        "fields": field_inventory,
+        # Bounded decoded samples preserve useful named Garmin data even when
+        # HA-Fitness does not yet have a universal semantic for every field.
+        # This lets future decoder revisions be written from local evidence
+        # without exposing unknown vendor numbers as misleading sensors.
+        "samples": sample_values,
+        "normalized_metric_points": len(points),
+    }
+    return DeviceHistoryBatch.bounded(metric_points=points), inventory
+
+
 def fit_message_names(data: bytes) -> tuple[str, ...]:
     """Return a bounded message-name inventory for unsupported FIT diagnostics."""
     container = _fit_container(data)

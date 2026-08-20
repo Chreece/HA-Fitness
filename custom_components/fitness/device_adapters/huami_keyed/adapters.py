@@ -70,6 +70,7 @@ def _spec(adapter_id: str) -> BluetoothArchiveAdapterSpec:
         match_bluetooth=match,
         advertisement_capabilities=frozenset(),
         sync_capabilities=frozenset({"health_history"}),
+        remote_gatt_services=frozenset({SERVICE_UUID}),
         generic_identity_probe=False,
     )
 

@@ -86,8 +86,16 @@ class PhysicalAdapterEnabledSwitch(_PhysicalAdapterSwitch):
         if self.transport == "antplus":
             record = self.runtime.ant_receiver_records().get(self.receiver_id)
             if record is not None:
+                if self.runtime.receiver_management_scope(self.transport, self.receiver_id) != "fitness_owned":
+                    return bool(record.capture_enabled)
                 return bool(record.desired_capture)
         return self.runtime.receiver_enabled(self.transport, self.receiver_id)
+
+    @property
+    def available(self):
+        if self.transport == "antplus":
+            return self.runtime.receiver_management_scope(self.transport, self.receiver_id) == "fitness_owned"
+        return True
 
     async def async_turn_on(self, **kwargs):
         del kwargs
@@ -114,6 +122,8 @@ class PhysicalAdapterAutomaticScanSwitch(_PhysicalAdapterSwitch):
 
     @property
     def available(self):
+        if self.transport == "antplus" and self.runtime.receiver_management_scope(self.transport, self.receiver_id) != "fitness_owned":
+            return False
         return self.runtime.receiver_enabled(self.transport, self.receiver_id)
 
     async def async_turn_on(self, **kwargs):

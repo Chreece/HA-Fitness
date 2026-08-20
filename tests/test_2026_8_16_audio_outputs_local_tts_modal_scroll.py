@@ -83,19 +83,21 @@ def test_tts_follows_only_the_profiles_actively_playing_output_then_falls_back_t
 def test_all_tv_modals_keep_outer_shell_fixed_and_forward_wheel_to_internal_scroll_body():
     assert '.modal-backdrop{position:fixed' in JS
     assert 'overflow:hidden;overscroll-behavior:none' in JS
-    assert JS.count('.modal-auto-scroll-body{flex:1 1 auto;min-height:0;overflow-y:auto') >= 2
+    assert '.fitness-modal-scroll-region{' in JS
+    assert 'flex:1 1 auto!important' in JS
+    assert 'overflow-y:auto!important' in JS
     assert '.remote-gateway-modal>.remote-gateway-body' in JS
-    assert JS.count('scrollBody.scrollTop += Number(ev.deltaY || 0);') >= 2
-    assert JS.count('{passive:false}') >= 2
-    assert JS.count('body.className = "modal-auto-scroll-body";') >= 2
+    assert 'scrollRegion.scrollTop = before + delta;' in JS
+    assert '{passive:false}' in JS
+    assert JS.count('_fitnessNormalizeModalScroll(modalCard, {disabled:backendFlowModal || cardPickerPreview})') >= 2
+    assert JS.count('_fitnessWireModalScroll(modalCard, scrollBody);') >= 2
 
 
 def test_dashboard_modal_scroll_selector_is_in_scope_for_wheel_forwarding():
     modal = JS[JS.index("  _showModal(content) {"):JS.index("  async _openMediaBrowser()")]
     backend_at = modal.index('const backendFlowModal = Boolean(')
     preview_at = modal.index('const cardPickerPreview = Boolean(')
-    selector_at = modal.index('const scrollSelector = ')
-    conditional_at = modal.index('if (modalCard && !backendFlowModal) {')
-    use_at = modal.index('const scrollBody = (backendFlowModal || cardPickerPreview) ? null')
-    assert backend_at < preview_at < selector_at < conditional_at < use_at
-    assert 'if (backendFlowModal || cardPickerPreview) return;' in modal
+    normalize_at = modal.index('const scrollBody = _fitnessNormalizeModalScroll(')
+    wire_at = modal.index('_fitnessWireModalScroll(modalCard, scrollBody);')
+    assert backend_at < preview_at < normalize_at < wire_at
+    assert '{disabled:backendFlowModal || cardPickerPreview}' in modal

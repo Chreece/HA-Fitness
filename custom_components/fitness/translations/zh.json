@@ -3521,6 +3521,57 @@
       },
       "garmin_quarantined_file_count": {
         "name": "已跳过的不可读文件"
+      },
+      "cycplus_workout_avg_altitude": {
+        "name": "上次训练平均海拔"
+      },
+      "cycplus_workout_max_altitude": {
+        "name": "上次训练最高海拔"
+      },
+      "cycplus_workout_min_altitude": {
+        "name": "上次训练最低海拔"
+      },
+      "cycplus_workout_avg_temperature": {
+        "name": "上次训练平均温度"
+      },
+      "cycplus_workout_max_temperature": {
+        "name": "上次训练最高温度"
+      },
+      "cycplus_workout_avg_positive_grade": {
+        "name": "上次训练平均上坡坡度"
+      },
+      "cycplus_workout_max_positive_grade": {
+        "name": "上次训练最大上坡坡度"
+      },
+      "cycplus_workout_avg_negative_grade": {
+        "name": "上次训练平均下坡坡度"
+      },
+      "cycplus_workout_max_negative_grade": {
+        "name": "上次训练最大下坡坡度"
+      },
+      "cycplus_history_workout_count": {
+        "name": "已导入训练"
+      },
+      "cycplus_history_total_distance": {
+        "name": "骑行总距离"
+      },
+      "cycplus_history_total_moving_time": {
+        "name": "骑行总时间"
+      },
+      "cycplus_history_total_ascent": {
+        "name": "累计爬升"
+      },
+      "cycplus_history_7d_distance": {
+        "name": "7 天骑行距离"
+      },
+      "cycplus_history_7d_moving_time": {
+        "name": "7 天骑行时间"
+      },
+      "cycplus_history_30d_distance": {
+        "name": "30 天骑行距离"
+      },
+      "cycplus_history_30d_moving_time": {
+        "name": "30 天骑行时间"
       }
     },
     "binary_sensor": {
@@ -3556,11 +3607,11 @@
       "adapter_scan_now": {
         "name": "立即扫描"
       },
-      "sync_device_data": {
-        "name": "同步设备数据"
-      },
       "sync_device_health_history": {
         "name": "同步设备健康历史"
+      },
+      "sync_device_data": {
+        "name": "同步设备数据"
       }
     },
     "select": {

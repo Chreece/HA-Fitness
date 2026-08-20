@@ -595,6 +595,16 @@ class BluetoothFitnessProvider:
                 ),
             )
 
+        # Some archive devices rotate BLE addresses while advertising only a
+        # model-level name. Their adapter can require one bounded Device
+        # Information probe before discovery so the generic address route never
+        # becomes a second install of the same physical unit.
+        if not accepted and self.device_archives.discovery_identity_probe_required(
+            endpoint_meta
+        ):
+            self._schedule_identity_probe(sensor.sensor_id)
+            return
+
         # Raw changing payload diagnostics and proprietary passive decoders are
         # useful only after the user accepts the sensor. Before acceptance they
         # must not create a permanent telemetry workload behind a discovery card.
@@ -886,6 +896,14 @@ class BluetoothFitnessProvider:
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
         return set(self._sensor_users.get(sensor_id, set()))
 
+    def remote_gatt_client(self, sensor_id: str):
+        """Return a browser-backed Bleak-like client for an active remote route."""
+        remote = self.hass.data.get("fitness", {}).get("_remote_gateway_runtime")
+        getter = getattr(remote, "remote_gatt_client_for_sensor", None) if remote is not None else None
+        if not callable(getter):
+            return None
+        return getter(self.runtime.resolve_sensor_id(sensor_id))
+
     def _connect_lock(self, sensor_id: str) -> asyncio.Lock:
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
         return self._connect_locks.setdefault(sensor_id, asyncio.Lock())
@@ -1167,6 +1185,10 @@ class BluetoothFitnessProvider:
             last_seen=datetime.now(timezone.utc), rssi=endpoint.rssi,
             available=True, metadata=metadata,
         )
+        canonical_id = self.device_archives.canonicalize_connected_sensor(
+            merged.sensor_id, metadata
+        )
+        merged = self.runtime.sensors.get(canonical_id, merged)
         if battery_values:
             self.runtime.publish_passive(
                 merged.sensor_id,

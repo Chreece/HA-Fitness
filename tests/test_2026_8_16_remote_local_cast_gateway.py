@@ -48,10 +48,12 @@ def test_remote_ant_reuses_existing_remote_packet_worker_and_auto_assigns_profil
     assert 'runtime.endpoint_aliases.get(f"antplus:{device_id}")' in REMOTE
 
 
-def test_browser_gateway_supports_filtered_web_bluetooth_permission_and_reconnect():
+def test_browser_gateway_supports_post_connection_web_bluetooth_capability_discovery_and_reconnect():
     assert "navigator.bluetooth.requestDevice" in JS
-    assert 'filters:[...FITNESS_REMOTE_BLE_SERVICES].map((service) => ({services:[service]}))' in JS
-    assert "acceptAllDevices:true" not in JS
+    assert 'acceptAllDevices:true' in JS
+    assert 'const optionalServices = await this._remoteBleRequestedServices();' in JS
+    assert 'optionalServices,' in JS
+    assert 'remote_ble_optional_services' in JS
     assert "navigator.bluetooth.getDevices" in JS
     assert 'type:"fitness/remote_gateway/ble_device"' in JS
     assert 'type:"fitness/remote_gateway/ble_frames"' in JS
@@ -152,5 +154,5 @@ def test_local_cast_handoff_preserves_playing_state_for_receiver_resume():
     assert '["session_replaced","cast_handoff"]' in handler
 
 def test_frontend_cache_revision_bumped_for_gateway_release():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in JS
-    assert '?v=unreleased-89' in DASH
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in JS
+    assert '?v=unreleased-110' in DASH

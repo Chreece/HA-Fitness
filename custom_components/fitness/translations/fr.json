@@ -3521,6 +3521,57 @@
       },
       "garmin_quarantined_file_count": {
         "name": "Fichiers illisibles ignorés"
+      },
+      "cycplus_workout_avg_altitude": {
+        "name": "Altitude moyenne du dernier entraînement"
+      },
+      "cycplus_workout_max_altitude": {
+        "name": "Altitude maximale du dernier entraînement"
+      },
+      "cycplus_workout_min_altitude": {
+        "name": "Altitude minimale du dernier entraînement"
+      },
+      "cycplus_workout_avg_temperature": {
+        "name": "Température moyenne du dernier entraînement"
+      },
+      "cycplus_workout_max_temperature": {
+        "name": "Température maximale du dernier entraînement"
+      },
+      "cycplus_workout_avg_positive_grade": {
+        "name": "Pente moyenne en montée du dernier entraînement"
+      },
+      "cycplus_workout_max_positive_grade": {
+        "name": "Pente maximale en montée du dernier entraînement"
+      },
+      "cycplus_workout_avg_negative_grade": {
+        "name": "Pente moyenne en descente du dernier entraînement"
+      },
+      "cycplus_workout_max_negative_grade": {
+        "name": "Pente maximale en descente du dernier entraînement"
+      },
+      "cycplus_history_workout_count": {
+        "name": "Entraînements importés"
+      },
+      "cycplus_history_total_distance": {
+        "name": "Distance totale à vélo"
+      },
+      "cycplus_history_total_moving_time": {
+        "name": "Temps total à vélo"
+      },
+      "cycplus_history_total_ascent": {
+        "name": "Dénivelé positif total"
+      },
+      "cycplus_history_7d_distance": {
+        "name": "Distance à vélo sur 7 jours"
+      },
+      "cycplus_history_7d_moving_time": {
+        "name": "Temps à vélo sur 7 jours"
+      },
+      "cycplus_history_30d_distance": {
+        "name": "Distance à vélo sur 30 jours"
+      },
+      "cycplus_history_30d_moving_time": {
+        "name": "Temps à vélo sur 30 jours"
       }
     },
     "binary_sensor": {
@@ -3556,11 +3607,11 @@
       "adapter_scan_now": {
         "name": "Analyser maintenant"
       },
-      "sync_device_data": {
-        "name": "Synchroniser les données de l’appareil"
-      },
       "sync_device_health_history": {
         "name": "Synchroniser l’historique santé de l’appareil"
+      },
+      "sync_device_data": {
+        "name": "Synchroniser les données de l’appareil"
       }
     },
     "select": {

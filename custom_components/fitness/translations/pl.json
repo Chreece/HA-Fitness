@@ -3521,6 +3521,57 @@
       },
       "garmin_quarantined_file_count": {
         "name": "Pominięte nieczytelne pliki"
+      },
+      "cycplus_workout_avg_altitude": {
+        "name": "Średnia wysokość ostatniego treningu"
+      },
+      "cycplus_workout_max_altitude": {
+        "name": "Maksymalna wysokość ostatniego treningu"
+      },
+      "cycplus_workout_min_altitude": {
+        "name": "Minimalna wysokość ostatniego treningu"
+      },
+      "cycplus_workout_avg_temperature": {
+        "name": "Średnia temperatura ostatniego treningu"
+      },
+      "cycplus_workout_max_temperature": {
+        "name": "Maksymalna temperatura ostatniego treningu"
+      },
+      "cycplus_workout_avg_positive_grade": {
+        "name": "Średnie nachylenie podjazdu ostatniego treningu"
+      },
+      "cycplus_workout_max_positive_grade": {
+        "name": "Maksymalne nachylenie podjazdu ostatniego treningu"
+      },
+      "cycplus_workout_avg_negative_grade": {
+        "name": "Średnie nachylenie zjazdu ostatniego treningu"
+      },
+      "cycplus_workout_max_negative_grade": {
+        "name": "Maksymalne nachylenie zjazdu ostatniego treningu"
+      },
+      "cycplus_history_workout_count": {
+        "name": "Zaimportowane treningi"
+      },
+      "cycplus_history_total_distance": {
+        "name": "Łączny dystans rowerowy"
+      },
+      "cycplus_history_total_moving_time": {
+        "name": "Łączny czas jazdy"
+      },
+      "cycplus_history_total_ascent": {
+        "name": "Łączna suma podjazdów"
+      },
+      "cycplus_history_7d_distance": {
+        "name": "Dystans rowerowy z 7 dni"
+      },
+      "cycplus_history_7d_moving_time": {
+        "name": "Czas jazdy z 7 dni"
+      },
+      "cycplus_history_30d_distance": {
+        "name": "Dystans rowerowy z 30 dni"
+      },
+      "cycplus_history_30d_moving_time": {
+        "name": "Czas jazdy z 30 dni"
       }
     },
     "binary_sensor": {
@@ -3556,11 +3607,11 @@
       "adapter_scan_now": {
         "name": "Skanuj teraz"
       },
-      "sync_device_data": {
-        "name": "Synchronizuj dane urządzenia"
-      },
       "sync_device_health_history": {
         "name": "Synchronizuj historię zdrowia urządzenia"
+      },
+      "sync_device_data": {
+        "name": "Synchronizuj dane urządzenia"
       }
     },
     "select": {

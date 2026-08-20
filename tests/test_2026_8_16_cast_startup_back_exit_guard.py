@@ -20,7 +20,8 @@ def test_top_level_cast_exit_requires_physical_remote_keydown():
     assert 'const physicalBack = source === "keydown" && !!event;' in back
     assert 'if (!physicalBack)' in back
     assert 'non-physical top-level Back ignored' in back
-    assert back.index('if (!physicalBack)') < back.index('this._showCastExitConfirmation();')
+    outer = back[back.index('this._ensureCastRemoteOuterFocus()'):]
+    assert outer.index('if (!physicalBack)') < outer.index('this._showCastExitConfirmation();')
 
 
 def test_popstate_can_never_arm_or_complete_cast_exit():

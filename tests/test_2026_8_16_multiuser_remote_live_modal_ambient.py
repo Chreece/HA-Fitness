@@ -39,9 +39,11 @@ def test_tts_follows_playing_profile_dashboard_before_configured_speaker_fallbac
     assert 'media_players = self._feedback_media_player_ids()' in MANAGER
 
 
-def test_browser_ble_chooser_only_advertises_supported_fitness_services_and_can_disconnect():
-    assert 'filters:[...FITNESS_REMOTE_BLE_SERVICES].map((service) => ({services:[service]}))' in JS
-    assert 'acceptAllDevices:true' not in JS
+def test_browser_ble_chooser_validates_supported_fitness_services_after_connection_and_can_disconnect():
+    assert 'acceptAllDevices:true' in JS
+    assert 'const optionalServices = await this._remoteBleRequestedServices();' in JS
+    assert 'optionalServices,' in JS
+    assert 'remote_ble_optional_services' in JS
     assert 'data-remote-ble-disconnect=' in JS
     assert 'async _disconnectRemoteBleDevice(deviceId, forget = true)' in JS
     assert 'type:"fitness/remote_gateway/ble_disconnect"' in JS
@@ -69,12 +71,14 @@ def test_live_card_has_heartbeat_and_speed_motion_visuals():
 
 
 def test_access_role_controls_hide_profile_and_extra_views_for_no_profile_role():
-    assert 'const withoutProfile = current === "none";' in JS
-    assert 'profileField?.classList.toggle("hidden", withoutProfile);' in JS
-    assert 'viewField?.classList.toggle("hidden", withoutProfile);' in JS
-    assert 'data-access-role-hint' in JS
-    assert '.access-role-field,.access-profile-field,.access-language-field{display:block;min-width:0;align-self:stretch}' in JS
-
+    assert '<option value="admin"' in JS
+    assert '<option value="local"' in JS
+    assert '<option value="remote"' in JS
+    assert 'const current = String(role?.value || "local");' in JS
+    assert 'const remoteActive = current === "remote" || (current === "admin" && Boolean(adminRemote?.checked));' in JS
+    assert 'field.classList.toggle("hidden", !remoteActive)' in JS
+    assert 'current === "admin"' in JS
+    assert 'value="none"' not in JS[JS.index('data-account-role'):JS.index('data-account-profile')]
 
 def test_structured_modals_scroll_the_body_and_keep_config_save_footer_reachable():
     assert '.configure-modal>.settings-actions{flex:0 0 auto;position:relative;bottom:auto' in JS
@@ -96,11 +100,13 @@ def test_living_background_uses_existing_fitness_zone_rgb_and_reduced_motion_fal
 
 def test_remote_access_document_separates_fitness_policy_from_external_network_setup():
     for phrase in (
-        'Wildcard DNS',
-        'TLS valid for the wildcard hostname',
-        'Preserve the incoming `Host` header',
-        'Configure Home Assistant for the reverse proxy',
-        "Set Home Assistant's external HTTPS URL",
-        'Fitness deliberately manages the **logical access layer**',
+        'Cloudflare external access',
+        'DNS-only A record',
+        'nginx',
+        'Certbot',
+        'restricted HA-Fitness login/portal',
+        'independent Fitness account',
+        'Fitness credentials',
     ):
         assert phrase in REMOTE_DOC
+

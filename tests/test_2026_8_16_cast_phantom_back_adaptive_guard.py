@@ -23,7 +23,7 @@ def test_unsolicited_startup_back_marks_session_unreliable_instead_of_arming_exi
 
 def test_double_back_no_longer_requires_matching_runtime_key_signature():
     block = _back_block()
-    assert "FITNESS_TV_BACK_DISTINCT_PRESS_MS = 280" in FRONTEND
+    assert "FITNESS_TV_BACK_DISTINCT_PRESS_MS = 110" in FRONTEND
     assert "const signature = this._castRemoteBackSignature(event);" not in block
     assert "authorized === signature" not in block
     assert "Any genuinely second physical Back press may confirm the exit" in block

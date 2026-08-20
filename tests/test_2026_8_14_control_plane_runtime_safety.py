@@ -70,7 +70,7 @@ def test_dynamic_sensor_materialization_is_coalesced_and_domain_scoped():
     setup = _method_source(SENSOR, "async_setup_entry")
     assert "pending_materialization_kinds" in setup
     assert "hass.loop.call_later(" in setup
-    assert '{"workout", "evaluation"}' in setup
+    assert '{"workout", "evaluation", "wellness"}' in setup
     assert '{"sleep", "evaluation"}' in setup
     assert '{"live"}' in setup
 

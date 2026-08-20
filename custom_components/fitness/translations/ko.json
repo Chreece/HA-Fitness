@@ -3521,6 +3521,57 @@
       },
       "garmin_quarantined_file_count": {
         "name": "읽을 수 없어 건너뛴 파일"
+      },
+      "cycplus_workout_avg_altitude": {
+        "name": "최근 운동 평균 고도"
+      },
+      "cycplus_workout_max_altitude": {
+        "name": "최근 운동 최고 고도"
+      },
+      "cycplus_workout_min_altitude": {
+        "name": "최근 운동 최저 고도"
+      },
+      "cycplus_workout_avg_temperature": {
+        "name": "최근 운동 평균 온도"
+      },
+      "cycplus_workout_max_temperature": {
+        "name": "최근 운동 최고 온도"
+      },
+      "cycplus_workout_avg_positive_grade": {
+        "name": "최근 운동 평균 오르막 경사"
+      },
+      "cycplus_workout_max_positive_grade": {
+        "name": "최근 운동 최대 오르막 경사"
+      },
+      "cycplus_workout_avg_negative_grade": {
+        "name": "최근 운동 평균 내리막 경사"
+      },
+      "cycplus_workout_max_negative_grade": {
+        "name": "최근 운동 최대 내리막 경사"
+      },
+      "cycplus_history_workout_count": {
+        "name": "가져온 운동"
+      },
+      "cycplus_history_total_distance": {
+        "name": "총 사이클링 거리"
+      },
+      "cycplus_history_total_moving_time": {
+        "name": "총 사이클링 시간"
+      },
+      "cycplus_history_total_ascent": {
+        "name": "총 상승고도"
+      },
+      "cycplus_history_7d_distance": {
+        "name": "7일 사이클링 거리"
+      },
+      "cycplus_history_7d_moving_time": {
+        "name": "7일 사이클링 시간"
+      },
+      "cycplus_history_30d_distance": {
+        "name": "30일 사이클링 거리"
+      },
+      "cycplus_history_30d_moving_time": {
+        "name": "30일 사이클링 시간"
       }
     },
     "binary_sensor": {
@@ -3556,11 +3607,11 @@
       "adapter_scan_now": {
         "name": "지금 검색"
       },
-      "sync_device_data": {
-        "name": "기기 데이터 동기화"
-      },
       "sync_device_health_history": {
         "name": "기기 건강 기록 동기화"
+      },
+      "sync_device_data": {
+        "name": "기기 데이터 동기화"
       }
     },
     "select": {

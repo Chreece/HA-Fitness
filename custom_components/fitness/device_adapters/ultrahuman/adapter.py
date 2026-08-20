@@ -6,7 +6,7 @@ from homeassistant.components.bluetooth.match import BluetoothCallbackMatcher
 
 from ..base import BluetoothArchiveAdapterSpec
 from .coordinator import UltrahumanAirCoordinator
-from .protocol import ULTRAHUMAN_COMMAND_SERVICE_UUID, ultrahuman_identity
+from .protocol import ULTRAHUMAN_COMMAND_SERVICE_UUID, ULTRAHUMAN_STATE_SERVICE_UUID, ultrahuman_identity
 
 
 def _bluetooth_matchers() -> tuple[BluetoothCallbackMatcher, ...]:
@@ -31,5 +31,6 @@ ARCHIVE_ADAPTER = BluetoothArchiveAdapterSpec(
     match_bluetooth=_match_bluetooth,
     advertisement_capabilities=frozenset(),
     sync_capabilities=frozenset({"health_history", "device_state"}),
+    remote_gatt_services=frozenset({ULTRAHUMAN_COMMAND_SERVICE_UUID, ULTRAHUMAN_STATE_SERVICE_UUID}),
     generic_identity_probe=False,
 )

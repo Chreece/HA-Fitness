@@ -69,5 +69,5 @@ def test_search_type_labels_are_available_and_frontend_revision_bumped():
         "music_search_select_type",
     ):
         assert label in DASHBOARD
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in FRONTEND
-    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-89"' in DASHBOARD
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
+    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-110"' in DASHBOARD

@@ -1298,3 +1298,376 @@ _WEIGHT_SCALE_AUDIT_TEXT = {'en': {'scale_measurement_title': 'New scale measure
         'scale_measurement_no': '아니요'}}
 for _language, _labels in _WEIGHT_SCALE_AUDIT_TEXT.items():
     DASHBOARD_LANGUAGE_AUDIT_TEXT[_language].update(_labels)
+
+# Independent Fitness-account portal / diagnostics (unreleased-92).
+# These labels are intentionally language-complete because the account system
+# no longer inherits text or language from Home Assistant users.
+_FITNESS_ACCOUNT_AUDIT_TEXT = {
+    "en": {
+        "account_profile_hint": "This account controls only its own Fitness profile.",
+        "fitness_accounts_independent": "Independent Fitness accounts",
+        "fitness_accounts_hint_v2": "Fitness accounts use their own secure sign-in and roles. They are not assigned to Home Assistant users.",
+        "add_fitness_account": "Add account",
+        "new_fitness_account": "New Fitness account",
+        "account_display_name": "Account name",
+        "account_username": "Login name",
+        "account_username_hint": "Remote accounts default to their subdomain. The user can change the login name later.",
+        "remote_subdomain_hint": "This hostname belongs exclusively to this remote Fitness account.",
+        "account_enabled": "Enabled",
+        "remote_url_pending": "Choose a subdomain to create the remote URL.",
+        "account_never": "Never",
+        "account_state_live": "Live",
+        "account_state_ready": "Ready",
+        "account_state_dns_pending": "DNS pending",
+        "account_state_setup_required": "First password required",
+        "account_state_locked": "Locked",
+        "account_state_error": "Error",
+        "account_state_disabled": "Disabled",
+        "account_diag_sessions": "Active sessions",
+        "account_diag_last_login": "Last login",
+        "account_diag_last_seen": "Last seen",
+        "account_diag_error": "Last error",
+        "account_diag_scope": "Login scope",
+        "account_diag_failures": "Failed logins",
+        "account_diag_password": "Credentials",
+        "account_diag_password_first": "First change required",
+        "account_diag_password_ready": "Configured",
+        "account_diag_lockout": "Locked until",
+        "account_scope_remote": "Remote hostname",
+        "account_scope_local": "Local network",
+        "account_reset_password": "New temporary password",
+        "account_resetting_password": "Generating a new temporary password…",
+        "temporary_password_title": "One-time first password",
+        "temporary_password_hint": "Copy it now. Fitness never stores this password in readable form and cannot show it again.",
+        "copy": "Copy",
+        "copied": "Copied",
+        "copy_failed": "Copy failed",
+        "cloudflare_hint_accounts": "Configure Cloudflare once; each remote Fitness account then owns its own subdomain.",
+        "cloudflare_info_steps_accounts": "1. Create a zone-scoped Cloudflare API token with Zone Read and DNS Edit.\n2. Enter the zone, Fitness base domain and public IPv4.\n3. Fitness does not modify nginx or Certbot.\n4. Create a Remote Fitness account and enter its subdomain.\n5. Fitness creates a DNS-only A record and the URL opens that account’s secure Fitness sign-in page.",
+        "fitness_roles_hint": "Administrators have full Fitness access. Local and remote users control only their own profile and may browse administrator-granted profiles as view only.",
+        "no_fitness_accounts": "No Fitness accounts yet",
+        "account_profile_optional": "No own profile",
+        "admin_profile_optional": "Optional for administrators",
+        "role_admin_hint": "Full Fitness administration",
+        "role_remote_hint": "Own profile plus secure remote subdomain",
+        "role_local_hint": "Own profile, sign-in only from the local network",
+    },
+    "el": {
+        "account_profile_hint": "Αυτός ο λογαριασμός ελέγχει μόνο το δικό του προφίλ Fitness.",
+        "fitness_accounts_independent": "Ανεξάρτητοι λογαριασμοί Fitness",
+        "fitness_accounts_hint_v2": "Οι λογαριασμοί Fitness έχουν δικό τους ασφαλές login και ρόλους και δεν αντιστοιχίζονται σε χρήστες Home Assistant.",
+        "add_fitness_account": "Προσθήκη λογαριασμού",
+        "new_fitness_account": "Νέος λογαριασμός Fitness",
+        "account_display_name": "Όνομα λογαριασμού",
+        "account_username": "Όνομα σύνδεσης",
+        "account_username_hint": "Στους απομακρυσμένους λογαριασμούς προεπιλέγεται το subdomain. Ο χρήστης μπορεί αργότερα να αλλάξει το όνομα σύνδεσης.",
+        "remote_subdomain_hint": "Αυτό το hostname ανήκει αποκλειστικά σε αυτόν τον απομακρυσμένο λογαριασμό Fitness.",
+        "account_enabled": "Ενεργός",
+        "remote_url_pending": "Επίλεξε subdomain για να δημιουργηθεί το απομακρυσμένο URL.",
+        "account_never": "Ποτέ",
+        "account_state_live": "Συνδεδεμένος",
+        "account_state_ready": "Έτοιμος",
+        "account_state_dns_pending": "Αναμονή DNS",
+        "account_state_setup_required": "Απαιτείται αρχικός κωδικός",
+        "account_state_locked": "Κλειδωμένος",
+        "account_state_error": "Σφάλμα",
+        "account_state_disabled": "Απενεργοποιημένος",
+        "account_diag_sessions": "Ενεργές συνεδρίες",
+        "account_diag_last_login": "Τελευταία σύνδεση",
+        "account_diag_last_seen": "Τελευταία παρουσία",
+        "account_diag_error": "Τελευταίο σφάλμα",
+        "account_diag_scope": "Περιοχή σύνδεσης",
+        "account_diag_failures": "Αποτυχημένες συνδέσεις",
+        "account_diag_password": "Διαπιστευτήρια",
+        "account_diag_password_first": "Απαιτείται πρώτη αλλαγή",
+        "account_diag_password_ready": "Ρυθμισμένα",
+        "account_diag_lockout": "Κλειδωμένος έως",
+        "account_scope_remote": "Απομακρυσμένο hostname",
+        "account_scope_local": "Τοπικό δίκτυο",
+        "account_reset_password": "Νέος προσωρινός κωδικός",
+        "account_resetting_password": "Δημιουργία νέου προσωρινού κωδικού…",
+        "temporary_password_title": "Αρχικός κωδικός μίας χρήσης",
+        "temporary_password_hint": "Αντέγραψέ τον τώρα. Το Fitness δεν τον αποθηκεύει ποτέ σε αναγνώσιμη μορφή και δεν μπορεί να τον εμφανίσει ξανά.",
+        "copy": "Αντιγραφή",
+        "copied": "Αντιγράφηκε",
+        "copy_failed": "Η αντιγραφή απέτυχε",
+        "cloudflare_hint_accounts": "Ρύθμισε το Cloudflare μία φορά· μετά κάθε απομακρυσμένος λογαριασμός Fitness έχει το δικό του subdomain.",
+        "cloudflare_info_steps_accounts": "1. Δημιούργησε Cloudflare API token για τη ζώνη με Zone Read και DNS Edit.\n2. Δήλωσε ζώνη, βασικό domain Fitness και δημόσιο IPv4.\n3. Το Fitness δεν αλλάζει nginx ή Certbot.\n4. Δημιούργησε απομακρυσμένο λογαριασμό Fitness και δήλωσε το subdomain του.\n5. Το Fitness δημιουργεί DNS-only A record και το URL ανοίγει την ασφαλή σελίδα σύνδεσης αυτού του λογαριασμού.",
+        "fitness_roles_hint": "Οι διαχειριστές έχουν πλήρη πρόσβαση Fitness. Οι τοπικοί και απομακρυσμένοι χρήστες ελέγχουν μόνο το δικό τους προφίλ και βλέπουν επιπλέον προφίλ μόνο αν τα παραχωρήσει διαχειριστής.",
+        "no_fitness_accounts": "Δεν υπάρχουν ακόμη λογαριασμοί Fitness",
+        "account_profile_optional": "Χωρίς δικό του προφίλ",
+        "admin_profile_optional": "Προαιρετικό για διαχειριστές",
+        "role_admin_hint": "Πλήρης διαχείριση Fitness",
+        "role_remote_hint": "Δικό του προφίλ και ασφαλές απομακρυσμένο subdomain",
+        "role_local_hint": "Δικό του προφίλ, σύνδεση μόνο από το τοπικό δίκτυο",
+    },
+    "de": {
+        "account_profile_hint": "Dieses Konto steuert nur sein eigenes Fitness-Profil.",
+        "fitness_accounts_independent": "Unabhängige Fitness-Konten",
+        "fitness_accounts_hint_v2": "Fitness-Konten besitzen eine eigene sichere Anmeldung und Rollen und werden keinen Home-Assistant-Benutzern mehr zugeordnet.",
+        "add_fitness_account": "Konto hinzufügen",
+        "new_fitness_account": "Neues Fitness-Konto",
+        "account_display_name": "Kontoname",
+        "account_username": "Anmeldename",
+        "account_username_hint": "Bei Remote-Konten ist die Subdomain der Standard. Der Benutzer kann den Anmeldenamen später ändern.",
+        "remote_subdomain_hint": "Dieser Hostname gehört ausschließlich zu diesem Remote-Fitness-Konto.",
+        "account_enabled": "Aktiv",
+        "remote_url_pending": "Wähle eine Subdomain, um die Remote-URL zu erstellen.",
+        "account_never": "Nie",
+        "account_state_live": "Live",
+        "account_state_ready": "Bereit",
+        "account_state_dns_pending": "DNS ausstehend",
+        "account_state_setup_required": "Erstpasswort erforderlich",
+        "account_state_locked": "Gesperrt",
+        "account_state_error": "Fehler",
+        "account_state_disabled": "Deaktiviert",
+        "account_diag_sessions": "Aktive Sitzungen",
+        "account_diag_last_login": "Letzte Anmeldung",
+        "account_diag_last_seen": "Zuletzt aktiv",
+        "account_diag_error": "Letzter Fehler",
+        "account_diag_scope": "Anmeldebereich",
+        "account_diag_failures": "Fehlgeschlagene Anmeldungen",
+        "account_diag_password": "Zugangsdaten",
+        "account_diag_password_first": "Erste Änderung erforderlich",
+        "account_diag_password_ready": "Konfiguriert",
+        "account_diag_lockout": "Gesperrt bis",
+        "account_scope_remote": "Remote-Hostname",
+        "account_scope_local": "Lokales Netzwerk",
+        "account_reset_password": "Neues temporäres Passwort",
+        "account_resetting_password": "Neues temporäres Passwort wird erzeugt…",
+        "temporary_password_title": "Einmaliges Erstpasswort",
+        "temporary_password_hint": "Jetzt kopieren. Fitness speichert dieses Passwort nie lesbar und kann es später nicht erneut anzeigen.",
+        "copy": "Kopieren",
+        "copied": "Kopiert",
+        "copy_failed": "Kopieren fehlgeschlagen",
+        "cloudflare_hint_accounts": "Cloudflare einmal konfigurieren; danach besitzt jedes Remote-Fitness-Konto seine eigene Subdomain.",
+        "cloudflare_info_steps_accounts": "1. Erstelle ein zonenbeschränktes Cloudflare-API-Token mit Zone Read und DNS Edit.\n2. Trage Zone, Fitness-Basisdomain und öffentliche IPv4 ein.\n3. Fitness verändert nginx und Certbot nicht.\n4. Erstelle ein Remote-Fitness-Konto und trage seine Subdomain ein.\n5. Fitness erstellt einen DNS-only-A-Record; die URL öffnet die sichere Anmeldung dieses Kontos.",
+        "fitness_roles_hint": "Administratoren haben vollen Fitness-Zugriff. Lokale und Remote-Benutzer steuern nur ihr eigenes Profil und sehen zusätzliche Profile nur nach Freigabe durch einen Administrator.",
+        "no_fitness_accounts": "Noch keine Fitness-Konten",
+        "account_profile_optional": "Kein eigenes Profil",
+        "admin_profile_optional": "Für Administratoren optional",
+        "role_admin_hint": "Vollständige Fitness-Verwaltung",
+        "role_remote_hint": "Eigenes Profil plus sichere Remote-Subdomain",
+        "role_local_hint": "Eigenes Profil, Anmeldung nur aus dem lokalen Netzwerk",
+    },
+}
+
+# Languages not duplicated in the older access-text block get a complete,
+# translated account overlay here. Keeping these in one bounded table makes it
+# harder for a future account field to silently fall back to English.
+_FITNESS_ACCOUNT_AUDIT_TRANSLATIONS = {
+    "fr": {
+        "account_profile_hint":"Ce compte contrôle uniquement son propre profil Fitness.","fitness_accounts_independent":"Comptes Fitness indépendants","fitness_accounts_hint_v2":"Les comptes Fitness utilisent leur propre connexion sécurisée et leurs propres rôles. Ils ne sont pas associés aux utilisateurs Home Assistant.","add_fitness_account":"Ajouter un compte","new_fitness_account":"Nouveau compte Fitness","account_display_name":"Nom du compte","account_username":"Identifiant","account_username_hint":"Pour les comptes distants, le sous-domaine est utilisé par défaut. L’utilisateur peut modifier l’identifiant plus tard.","remote_subdomain_hint":"Ce nom d’hôte appartient exclusivement à ce compte Fitness distant.","account_enabled":"Activé","remote_url_pending":"Choisissez un sous-domaine pour créer l’URL distante.","account_never":"Jamais","account_state_live":"En ligne","account_state_ready":"Prêt","account_state_dns_pending":"DNS en attente","account_state_setup_required":"Premier mot de passe requis","account_state_locked":"Verrouillé","account_state_error":"Erreur","account_state_disabled":"Désactivé","account_diag_sessions":"Sessions actives","account_diag_last_login":"Dernière connexion","account_diag_last_seen":"Dernière activité","account_diag_error":"Dernière erreur","account_diag_scope":"Portée de connexion","account_diag_failures":"Connexions échouées","account_diag_password":"Identifiants","account_diag_password_first":"Premier changement requis","account_diag_password_ready":"Configurés","account_diag_lockout":"Verrouillé jusqu’à","account_scope_remote":"Nom d’hôte distant","account_scope_local":"Réseau local","account_reset_password":"Nouveau mot de passe temporaire","account_resetting_password":"Création d’un nouveau mot de passe temporaire…","temporary_password_title":"Premier mot de passe à usage unique","temporary_password_hint":"Copiez-le maintenant. Fitness ne le stocke jamais en clair et ne pourra pas l’afficher de nouveau.","copy":"Copier","copied":"Copié","copy_failed":"Échec de la copie","cloudflare_hint_accounts":"Configurez Cloudflare une fois ; chaque compte Fitness distant possède ensuite son propre sous-domaine.","cloudflare_info_steps_accounts":"1. Créez un jeton API Cloudflare limité à la zone avec Zone Read et DNS Edit.\n2. Saisissez la zone, le domaine de base Fitness et l’IPv4 publique.\n3. Fitness ne modifie ni nginx ni Certbot.\n4. Créez un compte Fitness distant et saisissez son sous-domaine.\n5. Fitness crée un enregistrement A DNS-only et l’URL ouvre la connexion sécurisée de ce compte.","fitness_roles_hint":"Les administrateurs ont un accès Fitness complet. Les utilisateurs locaux et distants contrôlent uniquement leur propre profil et ne voient les profils supplémentaires qu’en lecture seule après autorisation d’un administrateur.","no_fitness_accounts":"Aucun compte Fitness pour le moment","account_profile_optional":"Aucun profil personnel","admin_profile_optional":"Facultatif pour les administrateurs","role_admin_hint":"Administration Fitness complète","role_remote_hint":"Profil personnel et sous-domaine distant sécurisé","role_local_hint":"Profil personnel, connexion uniquement depuis le réseau local"},
+    "es": {
+        "account_profile_hint":"Esta cuenta controla únicamente su propio perfil de Fitness.","fitness_accounts_independent":"Cuentas Fitness independientes","fitness_accounts_hint_v2":"Las cuentas Fitness usan su propio inicio de sesión seguro y sus propios roles. Ya no se asignan a usuarios de Home Assistant.","add_fitness_account":"Añadir cuenta","new_fitness_account":"Nueva cuenta Fitness","account_display_name":"Nombre de la cuenta","account_username":"Nombre de inicio de sesión","account_username_hint":"En las cuentas remotas se usa el subdominio por defecto. El usuario puede cambiar el nombre después.","remote_subdomain_hint":"Este hostname pertenece exclusivamente a esta cuenta Fitness remota.","account_enabled":"Activa","remote_url_pending":"Elige un subdominio para crear la URL remota.","account_never":"Nunca","account_state_live":"En línea","account_state_ready":"Lista","account_state_dns_pending":"DNS pendiente","account_state_setup_required":"Se requiere contraseña inicial","account_state_locked":"Bloqueada","account_state_error":"Error","account_state_disabled":"Desactivada","account_diag_sessions":"Sesiones activas","account_diag_last_login":"Último inicio de sesión","account_diag_last_seen":"Última actividad","account_diag_error":"Último error","account_diag_scope":"Ámbito de inicio de sesión","account_diag_failures":"Inicios fallidos","account_diag_password":"Credenciales","account_diag_password_first":"Primer cambio obligatorio","account_diag_password_ready":"Configuradas","account_diag_lockout":"Bloqueada hasta","account_scope_remote":"Hostname remoto","account_scope_local":"Red local","account_reset_password":"Nueva contraseña temporal","account_resetting_password":"Generando una nueva contraseña temporal…","temporary_password_title":"Contraseña inicial de un solo uso","temporary_password_hint":"Cópiala ahora. Fitness nunca la guarda en texto legible y no podrá mostrarla de nuevo.","copy":"Copiar","copied":"Copiado","copy_failed":"Error al copiar","cloudflare_hint_accounts":"Configura Cloudflare una vez; después cada cuenta Fitness remota tendrá su propio subdominio.","cloudflare_info_steps_accounts":"1. Crea un token de API de Cloudflare limitado a la zona con Zone Read y DNS Edit.\n2. Introduce la zona, el dominio base de Fitness y la IPv4 pública.\n3. Fitness no modifica nginx ni Certbot.\n4. Crea una cuenta Fitness remota e introduce su subdominio.\n5. Fitness crea un registro A DNS-only y la URL abre el inicio de sesión seguro de esa cuenta.","fitness_roles_hint":"Los administradores tienen acceso completo a Fitness. Los usuarios locales y remotos controlan solo su propio perfil y pueden ver perfiles adicionales en modo solo lectura si un administrador se los concede.","no_fitness_accounts":"Todavía no hay cuentas Fitness","account_profile_optional":"Sin perfil propio","admin_profile_optional":"Opcional para administradores","role_admin_hint":"Administración completa de Fitness","role_remote_hint":"Perfil propio y subdominio remoto seguro","role_local_hint":"Perfil propio, acceso solo desde la red local"},
+    "it": {
+        "account_profile_hint":"Questo account controlla solo il proprio profilo Fitness.","fitness_accounts_independent":"Account Fitness indipendenti","fitness_accounts_hint_v2":"Gli account Fitness usano un accesso sicuro e ruoli propri. Non sono più associati agli utenti Home Assistant.","add_fitness_account":"Aggiungi account","new_fitness_account":"Nuovo account Fitness","account_display_name":"Nome account","account_username":"Nome di accesso","account_username_hint":"Per gli account remoti il sottodominio è predefinito. L’utente può cambiare il nome di accesso in seguito.","remote_subdomain_hint":"Questo hostname appartiene esclusivamente a questo account Fitness remoto.","account_enabled":"Attivo","remote_url_pending":"Scegli un sottodominio per creare l’URL remoto.","account_never":"Mai","account_state_live":"Online","account_state_ready":"Pronto","account_state_dns_pending":"DNS in attesa","account_state_setup_required":"Password iniziale richiesta","account_state_locked":"Bloccato","account_state_error":"Errore","account_state_disabled":"Disattivato","account_diag_sessions":"Sessioni attive","account_diag_last_login":"Ultimo accesso","account_diag_last_seen":"Ultima attività","account_diag_error":"Ultimo errore","account_diag_scope":"Ambito di accesso","account_diag_failures":"Accessi falliti","account_diag_password":"Credenziali","account_diag_password_first":"Primo cambio richiesto","account_diag_password_ready":"Configurate","account_diag_lockout":"Bloccato fino a","account_scope_remote":"Hostname remoto","account_scope_local":"Rete locale","account_reset_password":"Nuova password temporanea","account_resetting_password":"Generazione nuova password temporanea…","temporary_password_title":"Password iniziale monouso","temporary_password_hint":"Copiala ora. Fitness non la memorizza mai in forma leggibile e non potrà mostrarla di nuovo.","copy":"Copia","copied":"Copiato","copy_failed":"Copia non riuscita","cloudflare_hint_accounts":"Configura Cloudflare una sola volta; ogni account Fitness remoto avrà poi il proprio sottodominio.","cloudflare_info_steps_accounts":"1. Crea un token API Cloudflare limitato alla zona con Zone Read e DNS Edit.\n2. Inserisci zona, dominio base Fitness e IPv4 pubblica.\n3. Fitness non modifica nginx o Certbot.\n4. Crea un account Fitness remoto e inserisci il suo sottodominio.\n5. Fitness crea un record A DNS-only e l’URL apre l’accesso sicuro di quell’account.","fitness_roles_hint":"Gli amministratori hanno accesso completo a Fitness. Gli utenti locali e remoti controllano solo il proprio profilo e possono visualizzare altri profili in sola lettura solo se autorizzati da un amministratore.","no_fitness_accounts":"Nessun account Fitness","account_profile_optional":"Nessun profilo proprio","admin_profile_optional":"Opzionale per gli amministratori","role_admin_hint":"Amministrazione Fitness completa","role_remote_hint":"Profilo proprio e sottodominio remoto sicuro","role_local_hint":"Profilo proprio, accesso solo dalla rete locale"},
+    "pt": {
+        "account_profile_hint":"Esta conta controla apenas o seu próprio perfil Fitness.","fitness_accounts_independent":"Contas Fitness independentes","fitness_accounts_hint_v2":"As contas Fitness usam início de sessão seguro e funções próprias. Já não são atribuídas a utilizadores do Home Assistant.","add_fitness_account":"Adicionar conta","new_fitness_account":"Nova conta Fitness","account_display_name":"Nome da conta","account_username":"Nome de início de sessão","account_username_hint":"Nas contas remotas, o subdomínio é usado por predefinição. O utilizador pode alterar o nome depois.","remote_subdomain_hint":"Este hostname pertence exclusivamente a esta conta Fitness remota.","account_enabled":"Ativa","remote_url_pending":"Escolha um subdomínio para criar o URL remoto.","account_never":"Nunca","account_state_live":"Online","account_state_ready":"Pronta","account_state_dns_pending":"DNS pendente","account_state_setup_required":"Primeira palavra-passe necessária","account_state_locked":"Bloqueada","account_state_error":"Erro","account_state_disabled":"Desativada","account_diag_sessions":"Sessões ativas","account_diag_last_login":"Último início de sessão","account_diag_last_seen":"Última atividade","account_diag_error":"Último erro","account_diag_scope":"Âmbito de início de sessão","account_diag_failures":"Inícios falhados","account_diag_password":"Credenciais","account_diag_password_first":"Primeira alteração necessária","account_diag_password_ready":"Configuradas","account_diag_lockout":"Bloqueada até","account_scope_remote":"Hostname remoto","account_scope_local":"Rede local","account_reset_password":"Nova palavra-passe temporária","account_resetting_password":"A gerar nova palavra-passe temporária…","temporary_password_title":"Primeira palavra-passe de utilização única","temporary_password_hint":"Copie-a agora. O Fitness nunca a guarda em formato legível e não a poderá mostrar novamente.","copy":"Copiar","copied":"Copiado","copy_failed":"Falha ao copiar","cloudflare_hint_accounts":"Configure o Cloudflare uma vez; depois cada conta Fitness remota terá o seu próprio subdomínio.","cloudflare_info_steps_accounts":"1. Crie um token API Cloudflare limitado à zona com Zone Read e DNS Edit.\n2. Introduza a zona, domínio base Fitness e IPv4 público.\n3. O Fitness não altera nginx nem Certbot.\n4. Crie uma conta Fitness remota e introduza o subdomínio.\n5. O Fitness cria um registo A DNS-only e o URL abre o início de sessão seguro dessa conta.","fitness_roles_hint":"Os administradores têm acesso total ao Fitness. Os utilizadores locais e remotos controlam apenas o próprio perfil e podem ver perfis adicionais em modo só de leitura se um administrador lhes der acesso.","no_fitness_accounts":"Ainda não existem contas Fitness","account_profile_optional":"Sem perfil próprio","admin_profile_optional":"Opcional para administradores","role_admin_hint":"Administração Fitness completa","role_remote_hint":"Perfil próprio e subdomínio remoto seguro","role_local_hint":"Perfil próprio, acesso apenas na rede local"},
+    "nl": {
+        "account_profile_hint":"Dit account beheert alleen het eigen Fitness-profiel.","fitness_accounts_independent":"Onafhankelijke Fitness-accounts","fitness_accounts_hint_v2":"Fitness-accounts gebruiken een eigen veilige login en rollen. Ze worden niet meer aan Home Assistant-gebruikers gekoppeld.","add_fitness_account":"Account toevoegen","new_fitness_account":"Nieuw Fitness-account","account_display_name":"Accountnaam","account_username":"Inlognaam","account_username_hint":"Bij externe accounts is het subdomein de standaard. De gebruiker kan de inlognaam later wijzigen.","remote_subdomain_hint":"Deze hostnaam hoort uitsluitend bij dit externe Fitness-account.","account_enabled":"Actief","remote_url_pending":"Kies een subdomein om de externe URL te maken.","account_never":"Nooit","account_state_live":"Online","account_state_ready":"Gereed","account_state_dns_pending":"DNS in afwachting","account_state_setup_required":"Eerste wachtwoord vereist","account_state_locked":"Vergrendeld","account_state_error":"Fout","account_state_disabled":"Uitgeschakeld","account_diag_sessions":"Actieve sessies","account_diag_last_login":"Laatste login","account_diag_last_seen":"Laatst actief","account_diag_error":"Laatste fout","account_diag_scope":"Loginbereik","account_diag_failures":"Mislukte logins","account_diag_password":"Inloggegevens","account_diag_password_first":"Eerste wijziging vereist","account_diag_password_ready":"Geconfigureerd","account_diag_lockout":"Vergrendeld tot","account_scope_remote":"Externe hostnaam","account_scope_local":"Lokaal netwerk","account_reset_password":"Nieuw tijdelijk wachtwoord","account_resetting_password":"Nieuw tijdelijk wachtwoord wordt gemaakt…","temporary_password_title":"Eenmalig eerste wachtwoord","temporary_password_hint":"Kopieer het nu. Fitness slaat dit wachtwoord nooit leesbaar op en kan het later niet opnieuw tonen.","copy":"Kopiëren","copied":"Gekopieerd","copy_failed":"Kopiëren mislukt","cloudflare_hint_accounts":"Configureer Cloudflare één keer; daarna heeft elk extern Fitness-account een eigen subdomein.","cloudflare_info_steps_accounts":"1. Maak een zonegebonden Cloudflare API-token met Zone Read en DNS Edit.\n2. Vul zone, Fitness-basisdomein en openbaar IPv4-adres in.\n3. Fitness wijzigt nginx en Certbot niet.\n4. Maak een extern Fitness-account en vul het subdomein in.\n5. Fitness maakt een DNS-only A-record en de URL opent de veilige login van dat account.","fitness_roles_hint":"Beheerders hebben volledige Fitness-toegang. Lokale en externe gebruikers beheren alleen hun eigen profiel en kunnen extra profielen alleen-lezen bekijken als een beheerder toegang geeft.","no_fitness_accounts":"Nog geen Fitness-accounts","account_profile_optional":"Geen eigen profiel","admin_profile_optional":"Optioneel voor beheerders","role_admin_hint":"Volledig Fitness-beheer","role_remote_hint":"Eigen profiel plus veilig extern subdomein","role_local_hint":"Eigen profiel, login alleen vanaf het lokale netwerk"},
+    "pl": {
+        "account_profile_hint":"To konto kontroluje tylko własny profil Fitness.","fitness_accounts_independent":"Niezależne konta Fitness","fitness_accounts_hint_v2":"Konta Fitness mają własne bezpieczne logowanie i role. Nie są już przypisywane do użytkowników Home Assistant.","add_fitness_account":"Dodaj konto","new_fitness_account":"Nowe konto Fitness","account_display_name":"Nazwa konta","account_username":"Nazwa logowania","account_username_hint":"Dla kont zdalnych domyślnie używana jest subdomena. Użytkownik może później zmienić nazwę logowania.","remote_subdomain_hint":"Ta nazwa hosta należy wyłącznie do tego zdalnego konta Fitness.","account_enabled":"Aktywne","remote_url_pending":"Wybierz subdomenę, aby utworzyć zdalny URL.","account_never":"Nigdy","account_state_live":"Online","account_state_ready":"Gotowe","account_state_dns_pending":"DNS oczekuje","account_state_setup_required":"Wymagane pierwsze hasło","account_state_locked":"Zablokowane","account_state_error":"Błąd","account_state_disabled":"Wyłączone","account_diag_sessions":"Aktywne sesje","account_diag_last_login":"Ostatnie logowanie","account_diag_last_seen":"Ostatnia aktywność","account_diag_error":"Ostatni błąd","account_diag_scope":"Zakres logowania","account_diag_failures":"Nieudane logowania","account_diag_password":"Dane logowania","account_diag_password_first":"Wymagana pierwsza zmiana","account_diag_password_ready":"Skonfigurowane","account_diag_lockout":"Zablokowane do","account_scope_remote":"Zdalna nazwa hosta","account_scope_local":"Sieć lokalna","account_reset_password":"Nowe hasło tymczasowe","account_resetting_password":"Generowanie nowego hasła tymczasowego…","temporary_password_title":"Jednorazowe hasło początkowe","temporary_password_hint":"Skopiuj je teraz. Fitness nigdy nie zapisuje go w czytelnej postaci i nie może go później ponownie wyświetlić.","copy":"Kopiuj","copied":"Skopiowano","copy_failed":"Kopiowanie nie powiodło się","cloudflare_hint_accounts":"Skonfiguruj Cloudflare raz; potem każde zdalne konto Fitness ma własną subdomenę.","cloudflare_info_steps_accounts":"1. Utwórz token API Cloudflare ograniczony do strefy z Zone Read i DNS Edit.\n2. Podaj strefę, bazową domenę Fitness i publiczny IPv4.\n3. Fitness nie zmienia nginx ani Certbot.\n4. Utwórz zdalne konto Fitness i podaj jego subdomenę.\n5. Fitness tworzy rekord A DNS-only, a URL otwiera bezpieczne logowanie tego konta.","fitness_roles_hint":"Administratorzy mają pełny dostęp Fitness. Użytkownicy lokalni i zdalni kontrolują tylko własny profil, a dodatkowe profile mogą przeglądać wyłącznie w trybie tylko do odczytu po przyznaniu dostępu przez administratora.","no_fitness_accounts":"Brak kont Fitness","account_profile_optional":"Bez własnego profilu","admin_profile_optional":"Opcjonalne dla administratorów","role_admin_hint":"Pełna administracja Fitness","role_remote_hint":"Własny profil i bezpieczna zdalna subdomena","role_local_hint":"Własny profil, logowanie tylko z sieci lokalnej"},
+    "ru": {
+        "account_profile_hint":"Эта учётная запись управляет только своим профилем Fitness.","fitness_accounts_independent":"Независимые учётные записи Fitness","fitness_accounts_hint_v2":"Учётные записи Fitness используют собственный безопасный вход и роли. Они больше не привязаны к пользователям Home Assistant.","add_fitness_account":"Добавить учётную запись","new_fitness_account":"Новая учётная запись Fitness","account_display_name":"Имя учётной записи","account_username":"Имя входа","account_username_hint":"Для удалённых учётных записей по умолчанию используется поддомен. Пользователь может изменить имя входа позже.","remote_subdomain_hint":"Это имя хоста принадлежит только этой удалённой учётной записи Fitness.","account_enabled":"Активна","remote_url_pending":"Выберите поддомен, чтобы создать удалённый URL.","account_never":"Никогда","account_state_live":"Онлайн","account_state_ready":"Готова","account_state_dns_pending":"Ожидание DNS","account_state_setup_required":"Требуется первый пароль","account_state_locked":"Заблокирована","account_state_error":"Ошибка","account_state_disabled":"Отключена","account_diag_sessions":"Активные сеансы","account_diag_last_login":"Последний вход","account_diag_last_seen":"Последняя активность","account_diag_error":"Последняя ошибка","account_diag_scope":"Область входа","account_diag_failures":"Неудачные входы","account_diag_password":"Учётные данные","account_diag_password_first":"Требуется первая смена","account_diag_password_ready":"Настроены","account_diag_lockout":"Заблокирована до","account_scope_remote":"Удалённый hostname","account_scope_local":"Локальная сеть","account_reset_password":"Новый временный пароль","account_resetting_password":"Создание нового временного пароля…","temporary_password_title":"Одноразовый первый пароль","temporary_password_hint":"Скопируйте его сейчас. Fitness никогда не хранит этот пароль в читаемом виде и не сможет показать его снова.","copy":"Копировать","copied":"Скопировано","copy_failed":"Не удалось скопировать","cloudflare_hint_accounts":"Настройте Cloudflare один раз; затем каждая удалённая учётная запись Fitness получает собственный поддомен.","cloudflare_info_steps_accounts":"1. Создайте ограниченный зоной токен Cloudflare API с Zone Read и DNS Edit.\n2. Укажите зону, базовый домен Fitness и публичный IPv4.\n3. Fitness не изменяет nginx или Certbot.\n4. Создайте удалённую учётную запись Fitness и укажите её поддомен.\n5. Fitness создаёт DNS-only A-запись, а URL открывает безопасный вход этой учётной записи.","fitness_roles_hint":"Администраторы имеют полный доступ Fitness. Локальные и удалённые пользователи управляют только своим профилем и могут просматривать дополнительные профили только в режиме чтения после разрешения администратора.","no_fitness_accounts":"Учётных записей Fitness пока нет","account_profile_optional":"Без собственного профиля","admin_profile_optional":"Необязательно для администраторов","role_admin_hint":"Полное администрирование Fitness","role_remote_hint":"Собственный профиль и безопасный удалённый поддомен","role_local_hint":"Собственный профиль, вход только из локальной сети"},
+    "uk": {
+        "account_profile_hint":"Цей обліковий запис керує лише власним профілем Fitness.","fitness_accounts_independent":"Незалежні облікові записи Fitness","fitness_accounts_hint_v2":"Облікові записи Fitness мають власний безпечний вхід і ролі. Вони більше не прив’язуються до користувачів Home Assistant.","add_fitness_account":"Додати обліковий запис","new_fitness_account":"Новий обліковий запис Fitness","account_display_name":"Назва облікового запису","account_username":"Ім’я входу","account_username_hint":"Для віддалених облікових записів за замовчуванням використовується піддомен. Користувач може змінити ім’я входу пізніше.","remote_subdomain_hint":"Це ім’я хоста належить виключно цьому віддаленому обліковому запису Fitness.","account_enabled":"Активний","remote_url_pending":"Виберіть піддомен, щоб створити віддалений URL.","account_never":"Ніколи","account_state_live":"Онлайн","account_state_ready":"Готовий","account_state_dns_pending":"Очікування DNS","account_state_setup_required":"Потрібен перший пароль","account_state_locked":"Заблокований","account_state_error":"Помилка","account_state_disabled":"Вимкнений","account_diag_sessions":"Активні сеанси","account_diag_last_login":"Останній вхід","account_diag_last_seen":"Остання активність","account_diag_error":"Остання помилка","account_diag_scope":"Область входу","account_diag_failures":"Невдалі входи","account_diag_password":"Облікові дані","account_diag_password_first":"Потрібна перша зміна","account_diag_password_ready":"Налаштовані","account_diag_lockout":"Заблоковано до","account_scope_remote":"Віддалений hostname","account_scope_local":"Локальна мережа","account_reset_password":"Новий тимчасовий пароль","account_resetting_password":"Створення нового тимчасового пароля…","temporary_password_title":"Одноразовий перший пароль","temporary_password_hint":"Скопіюйте його зараз. Fitness ніколи не зберігає цей пароль у читабельному вигляді й не зможе показати його знову.","copy":"Копіювати","copied":"Скопійовано","copy_failed":"Не вдалося скопіювати","cloudflare_hint_accounts":"Налаштуйте Cloudflare один раз; потім кожен віддалений обліковий запис Fitness матиме власний піддомен.","cloudflare_info_steps_accounts":"1. Створіть обмежений зоною токен Cloudflare API з Zone Read і DNS Edit.\n2. Вкажіть зону, базовий домен Fitness і публічний IPv4.\n3. Fitness не змінює nginx або Certbot.\n4. Створіть віддалений обліковий запис Fitness і вкажіть його піддомен.\n5. Fitness створює DNS-only A-запис, а URL відкриває безпечний вхід цього облікового запису.","fitness_roles_hint":"Адміністратори мають повний доступ Fitness. Локальні та віддалені користувачі керують лише власним профілем і можуть переглядати додаткові профілі лише в режимі читання після дозволу адміністратора.","no_fitness_accounts":"Облікових записів Fitness ще немає","account_profile_optional":"Без власного профілю","admin_profile_optional":"Необов’язково для адміністраторів","role_admin_hint":"Повне адміністрування Fitness","role_remote_hint":"Власний профіль і безпечний віддалений піддомен","role_local_hint":"Власний профіль, вхід лише з локальної мережі"},
+    "tr": {
+        "account_profile_hint":"Bu hesap yalnızca kendi Fitness profilini kontrol eder.","fitness_accounts_independent":"Bağımsız Fitness hesapları","fitness_accounts_hint_v2":"Fitness hesaplarının kendi güvenli oturum açma sistemi ve rolleri vardır. Artık Home Assistant kullanıcılarına atanmazlar.","add_fitness_account":"Hesap ekle","new_fitness_account":"Yeni Fitness hesabı","account_display_name":"Hesap adı","account_username":"Oturum açma adı","account_username_hint":"Uzak hesaplarda varsayılan olarak alt alan adı kullanılır. Kullanıcı daha sonra oturum açma adını değiştirebilir.","remote_subdomain_hint":"Bu hostname yalnızca bu uzak Fitness hesabına aittir.","account_enabled":"Etkin","remote_url_pending":"Uzak URL’yi oluşturmak için bir alt alan adı seçin.","account_never":"Hiçbir zaman","account_state_live":"Çevrimiçi","account_state_ready":"Hazır","account_state_dns_pending":"DNS bekliyor","account_state_setup_required":"İlk parola gerekli","account_state_locked":"Kilitli","account_state_error":"Hata","account_state_disabled":"Devre dışı","account_diag_sessions":"Etkin oturumlar","account_diag_last_login":"Son oturum açma","account_diag_last_seen":"Son etkinlik","account_diag_error":"Son hata","account_diag_scope":"Oturum açma kapsamı","account_diag_failures":"Başarısız girişler","account_diag_password":"Kimlik bilgileri","account_diag_password_first":"İlk değişiklik gerekli","account_diag_password_ready":"Yapılandırıldı","account_diag_lockout":"Şu zamana kadar kilitli","account_scope_remote":"Uzak hostname","account_scope_local":"Yerel ağ","account_reset_password":"Yeni geçici parola","account_resetting_password":"Yeni geçici parola oluşturuluyor…","temporary_password_title":"Tek kullanımlık ilk parola","temporary_password_hint":"Şimdi kopyalayın. Fitness bu parolayı hiçbir zaman okunabilir biçimde saklamaz ve tekrar gösteremez.","copy":"Kopyala","copied":"Kopyalandı","copy_failed":"Kopyalama başarısız","cloudflare_hint_accounts":"Cloudflare’i bir kez yapılandırın; ardından her uzak Fitness hesabı kendi alt alan adına sahip olur.","cloudflare_info_steps_accounts":"1. Zone Read ve DNS Edit izinleriyle bölgeye sınırlı bir Cloudflare API belirteci oluşturun.\n2. Bölgeyi, Fitness temel alan adını ve genel IPv4 adresini girin.\n3. Fitness nginx veya Certbot’u değiştirmez.\n4. Uzak bir Fitness hesabı oluşturup alt alan adını girin.\n5. Fitness DNS-only A kaydı oluşturur ve URL bu hesabın güvenli oturum açma sayfasını açar.","fitness_roles_hint":"Yöneticiler tam Fitness erişimine sahiptir. Yerel ve uzak kullanıcılar yalnızca kendi profillerini kontrol eder ve ek profilleri ancak yönetici izin verirse salt okunur olarak görebilir.","no_fitness_accounts":"Henüz Fitness hesabı yok","account_profile_optional":"Kendi profili yok","admin_profile_optional":"Yöneticiler için isteğe bağlı","role_admin_hint":"Tam Fitness yönetimi","role_remote_hint":"Kendi profili ve güvenli uzak alt alan adı","role_local_hint":"Kendi profili, yalnızca yerel ağdan oturum açma"},
+    "zh": {
+        "account_profile_hint":"此账户只能控制自己的 Fitness 个人资料。","fitness_accounts_independent":"独立 Fitness 账户","fitness_accounts_hint_v2":"Fitness 账户使用自己的安全登录和角色，不再绑定 Home Assistant 用户。","add_fitness_account":"添加账户","new_fitness_account":"新建 Fitness 账户","account_display_name":"账户名称","account_username":"登录名","account_username_hint":"远程账户默认使用子域名，用户之后可以更改登录名。","remote_subdomain_hint":"此主机名仅属于这个远程 Fitness 账户。","account_enabled":"已启用","remote_url_pending":"请选择子域名以创建远程 URL。","account_never":"从不","account_state_live":"在线","account_state_ready":"就绪","account_state_dns_pending":"等待 DNS","account_state_setup_required":"需要初始密码","account_state_locked":"已锁定","account_state_error":"错误","account_state_disabled":"已禁用","account_diag_sessions":"活动会话","account_diag_last_login":"上次登录","account_diag_last_seen":"上次活动","account_diag_error":"上次错误","account_diag_scope":"登录范围","account_diag_failures":"失败登录","account_diag_password":"凭据","account_diag_password_first":"需要首次修改","account_diag_password_ready":"已配置","account_diag_lockout":"锁定至","account_scope_remote":"远程主机名","account_scope_local":"本地网络","account_reset_password":"新的临时密码","account_resetting_password":"正在生成新的临时密码…","temporary_password_title":"一次性初始密码","temporary_password_hint":"请立即复制。Fitness 从不以可读形式保存该密码，也无法再次显示。","copy":"复制","copied":"已复制","copy_failed":"复制失败","cloudflare_hint_accounts":"Cloudflare 只需配置一次；之后每个远程 Fitness 账户都有自己的子域名。","cloudflare_info_steps_accounts":"1. 创建仅限该区域且具有 Zone Read 和 DNS Edit 权限的 Cloudflare API 令牌。\n2. 输入区域、Fitness 基础域名和公网 IPv4。\n3. Fitness 不会修改 nginx 或 Certbot。\n4. 创建远程 Fitness 账户并输入其子域名。\n5. Fitness 创建 DNS-only A 记录，该 URL 会打开此账户的安全登录页面。","fitness_roles_hint":"管理员拥有完整 Fitness 权限。本地和远程用户只能控制自己的个人资料；只有管理员授权后，才能以只读方式查看其他个人资料。","no_fitness_accounts":"还没有 Fitness 账户","account_profile_optional":"无自己的个人资料","admin_profile_optional":"管理员可选","role_admin_hint":"完整 Fitness 管理权限","role_remote_hint":"自己的个人资料和安全远程子域名","role_local_hint":"自己的个人资料，仅可从本地网络登录"},
+    "ja": {
+        "account_profile_hint":"このアカウントは自分の Fitness プロフィールだけを操作できます。","fitness_accounts_independent":"独立した Fitness アカウント","fitness_accounts_hint_v2":"Fitness アカウントは独自の安全なログインとロールを使用し、Home Assistant ユーザーには割り当てられません。","add_fitness_account":"アカウントを追加","new_fitness_account":"新しい Fitness アカウント","account_display_name":"アカウント名","account_username":"ログイン名","account_username_hint":"リモートアカウントではサブドメインが既定です。ユーザーは後からログイン名を変更できます。","remote_subdomain_hint":"このホスト名は、このリモート Fitness アカウント専用です。","account_enabled":"有効","remote_url_pending":"リモート URL を作成するサブドメインを選択してください。","account_never":"なし","account_state_live":"オンライン","account_state_ready":"準備完了","account_state_dns_pending":"DNS 待機中","account_state_setup_required":"初回パスワードが必要","account_state_locked":"ロック中","account_state_error":"エラー","account_state_disabled":"無効","account_diag_sessions":"有効なセッション","account_diag_last_login":"最終ログイン","account_diag_last_seen":"最終アクセス","account_diag_error":"最終エラー","account_diag_scope":"ログイン範囲","account_diag_failures":"ログイン失敗","account_diag_password":"認証情報","account_diag_password_first":"初回変更が必要","account_diag_password_ready":"設定済み","account_diag_lockout":"ロック解除時刻","account_scope_remote":"リモートホスト名","account_scope_local":"ローカルネットワーク","account_reset_password":"新しい一時パスワード","account_resetting_password":"新しい一時パスワードを生成中…","temporary_password_title":"初回ワンタイムパスワード","temporary_password_hint":"今すぐコピーしてください。Fitness はこのパスワードを読める形式で保存せず、後から再表示できません。","copy":"コピー","copied":"コピーしました","copy_failed":"コピーに失敗しました","cloudflare_hint_accounts":"Cloudflare は一度だけ設定します。その後、各リモート Fitness アカウントが独自のサブドメインを持ちます。","cloudflare_info_steps_accounts":"1. Zone Read と DNS Edit を持つゾーン限定の Cloudflare API トークンを作成します。\n2. ゾーン、Fitness ベースドメイン、公開 IPv4 を入力します。\n3. Fitness は nginx や Certbot を変更しません。\n4. リモート Fitness アカウントを作成し、サブドメインを入力します。\n5. Fitness が DNS-only の A レコードを作成し、その URL から該当アカウントの安全なログイン画面を開けます。","fitness_roles_hint":"管理者は Fitness の全権限を持ちます。ローカルおよびリモートユーザーは自分のプロフィールだけを操作し、管理者が許可した追加プロフィールのみ読み取り専用で閲覧できます。","no_fitness_accounts":"Fitness アカウントはまだありません","account_profile_optional":"自分のプロフィールなし","admin_profile_optional":"管理者は任意","role_admin_hint":"Fitness の完全管理","role_remote_hint":"自分のプロフィールと安全なリモートサブドメイン","role_local_hint":"自分のプロフィール、ローカルネットワークからのみログイン"},
+    "ko": {
+        "account_profile_hint":"이 계정은 자신의 Fitness 프로필만 제어합니다.","fitness_accounts_independent":"독립 Fitness 계정","fitness_accounts_hint_v2":"Fitness 계정은 자체 보안 로그인과 역할을 사용하며 Home Assistant 사용자에 더 이상 연결되지 않습니다.","add_fitness_account":"계정 추가","new_fitness_account":"새 Fitness 계정","account_display_name":"계정 이름","account_username":"로그인 이름","account_username_hint":"원격 계정은 기본적으로 서브도메인을 사용합니다. 사용자는 나중에 로그인 이름을 변경할 수 있습니다.","remote_subdomain_hint":"이 호스트 이름은 이 원격 Fitness 계정 전용입니다.","account_enabled":"활성화","remote_url_pending":"원격 URL을 만들 서브도메인을 선택하세요.","account_never":"없음","account_state_live":"온라인","account_state_ready":"준비됨","account_state_dns_pending":"DNS 대기 중","account_state_setup_required":"초기 비밀번호 필요","account_state_locked":"잠김","account_state_error":"오류","account_state_disabled":"비활성화","account_diag_sessions":"활성 세션","account_diag_last_login":"마지막 로그인","account_diag_last_seen":"마지막 활동","account_diag_error":"마지막 오류","account_diag_scope":"로그인 범위","account_diag_failures":"로그인 실패","account_diag_password":"자격 증명","account_diag_password_first":"첫 변경 필요","account_diag_password_ready":"구성됨","account_diag_lockout":"잠금 해제 시각","account_scope_remote":"원격 호스트 이름","account_scope_local":"로컬 네트워크","account_reset_password":"새 임시 비밀번호","account_resetting_password":"새 임시 비밀번호 생성 중…","temporary_password_title":"일회용 초기 비밀번호","temporary_password_hint":"지금 복사하세요. Fitness는 이 비밀번호를 읽을 수 있는 형태로 저장하지 않으며 다시 표시할 수 없습니다.","copy":"복사","copied":"복사됨","copy_failed":"복사 실패","cloudflare_hint_accounts":"Cloudflare는 한 번만 설정하면 이후 각 원격 Fitness 계정이 자체 서브도메인을 가집니다.","cloudflare_info_steps_accounts":"1. Zone Read와 DNS Edit 권한이 있는 영역 제한 Cloudflare API 토큰을 만드세요.\n2. 영역, Fitness 기본 도메인 및 공인 IPv4를 입력하세요.\n3. Fitness는 nginx나 Certbot을 변경하지 않습니다.\n4. 원격 Fitness 계정을 만들고 서브도메인을 입력하세요.\n5. Fitness가 DNS-only A 레코드를 만들며 URL은 해당 계정의 안전한 로그인 페이지를 엽니다.","fitness_roles_hint":"관리자는 Fitness 전체 권한을 가집니다. 로컬 및 원격 사용자는 자신의 프로필만 제어하며 관리자가 허용한 추가 프로필만 읽기 전용으로 볼 수 있습니다.","no_fitness_accounts":"아직 Fitness 계정이 없습니다","account_profile_optional":"자기 프로필 없음","admin_profile_optional":"관리자는 선택 사항","role_admin_hint":"전체 Fitness 관리","role_remote_hint":"자기 프로필과 안전한 원격 서브도메인","role_local_hint":"자기 프로필, 로컬 네트워크에서만 로그인"},
+}
+
+# Fill any language not explicitly overridden above from the English wording.
+# This branch is intentionally a development-time guard; the shipped language
+# table below covers every supported language except those defined above.
+for _language in ("en", "el", "de"):
+    DASHBOARD_LANGUAGE_AUDIT_TEXT[_language].update(_FITNESS_ACCOUNT_AUDIT_TEXT[_language])
+for _language, _labels in _FITNESS_ACCOUNT_AUDIT_TRANSLATIONS.items():
+    DASHBOARD_LANGUAGE_AUDIT_TEXT[_language].update(_labels)
+
+# Remote administrator / infrastructure guidance added with the account-host
+# model. Keep every supported dashboard language complete so admin-only fields
+# never fall back to a different UI language.
+_REMOTE_ADMIN_INFRA_TRANSLATIONS = {
+    "en": {
+        "admin_remote_access": "Remote access",
+        "admin_remote_access_hint": "Allow this Fitness administrator to sign in from its assigned remote hostname as well as locally.",
+        "role_admin_remote_hint": "Full Fitness administration with local and assigned-host remote sign-in",
+        "remote_base_domain_missing": "Configure the Fitness base domain first.",
+        "remote_server_setup_title": "Reverse proxy and TLS are also required",
+        "remote_server_setup_hint": "DNS alone is not enough. The Home Assistant server must accept the Fitness base domain and wildcard user subdomains through nginx or another reverse proxy, have valid HTTPS certificates (for example Certbot-managed wildcard or per-host certificates), expose port 443, and preserve the original Host header. HA-Fitness does not change these system services automatically.",
+    },
+    "el": {
+        "admin_remote_access": "Απομακρυσμένη πρόσβαση",
+        "admin_remote_access_hint": "Επίτρεψε σε αυτόν τον διαχειριστή Fitness να συνδέεται και τοπικά και από το αποκλειστικά εκχωρημένο απομακρυσμένο hostname του.",
+        "role_admin_remote_hint": "Πλήρης διαχείριση Fitness με τοπική και απομακρυσμένη σύνδεση από το εκχωρημένο hostname",
+        "remote_base_domain_missing": "Ρύθμισε πρώτα το βασικό domain του Fitness.",
+        "remote_server_setup_title": "Απαιτούνται επίσης reverse proxy και TLS",
+        "remote_server_setup_hint": "Το DNS μόνο του δεν αρκεί. Ο server του Home Assistant πρέπει να δέχεται το βασικό domain Fitness και τα wildcard subdomains χρηστών μέσω nginx ή άλλου reverse proxy, να έχει έγκυρα HTTPS certificates (π.χ. wildcard ή ανά-host μέσω Certbot), προσβάσιμη θύρα 443 και να προωθεί το αρχικό Host header. Το HA-Fitness δεν αλλάζει αυτόματα αυτές τις υπηρεσίες συστήματος.",
+    },
+    "de": {
+        "admin_remote_access": "Remote-Zugriff",
+        "admin_remote_access_hint": "Erlaube diesem Fitness-Administrator die Anmeldung lokal und über seinen exklusiv zugewiesenen Remote-Hostnamen.",
+        "role_admin_remote_hint": "Vollständige Fitness-Verwaltung mit lokaler und zugewiesener Remote-Anmeldung",
+        "remote_base_domain_missing": "Konfiguriere zuerst die Fitness-Basisdomain.",
+        "remote_server_setup_title": "Reverse Proxy und TLS sind ebenfalls erforderlich",
+        "remote_server_setup_hint": "DNS allein reicht nicht. Der Home-Assistant-Server muss die Fitness-Basisdomain und Wildcard-Benutzer-Subdomains über nginx oder einen anderen Reverse Proxy annehmen, gültige HTTPS-Zertifikate besitzen (z. B. Wildcard- oder Host-Zertifikate über Certbot), Port 443 bereitstellen und den ursprünglichen Host-Header weitergeben. HA-Fitness ändert diese Systemdienste nicht automatisch.",
+    },
+    "fr": {
+        "admin_remote_access": "Accès distant",
+        "admin_remote_access_hint": "Autoriser cet administrateur Fitness à se connecter localement et depuis son nom d’hôte distant attribué.",
+        "role_admin_remote_hint": "Administration Fitness complète avec connexion locale et distante sur l’hôte attribué",
+        "remote_base_domain_missing": "Configurez d’abord le domaine de base Fitness.",
+        "remote_server_setup_title": "Un proxy inverse et TLS sont également requis",
+        "remote_server_setup_hint": "Le DNS seul ne suffit pas. Le serveur Home Assistant doit accepter le domaine de base Fitness et les sous-domaines utilisateurs wildcard via nginx ou un autre proxy inverse, disposer de certificats HTTPS valides (par exemple wildcard ou par hôte gérés par Certbot), exposer le port 443 et conserver l’en-tête Host d’origine. HA-Fitness ne modifie pas automatiquement ces services système.",
+    },
+    "es": {
+        "admin_remote_access": "Acceso remoto",
+        "admin_remote_access_hint": "Permite que este administrador de Fitness inicie sesión tanto localmente como desde su hostname remoto asignado.",
+        "role_admin_remote_hint": "Administración completa de Fitness con acceso local y remoto desde el hostname asignado",
+        "remote_base_domain_missing": "Configura primero el dominio base de Fitness.",
+        "remote_server_setup_title": "También se requieren proxy inverso y TLS",
+        "remote_server_setup_hint": "El DNS por sí solo no basta. El servidor de Home Assistant debe aceptar el dominio base de Fitness y los subdominios wildcard de usuarios mediante nginx u otro proxy inverso, tener certificados HTTPS válidos (por ejemplo wildcard o por host administrados por Certbot), exponer el puerto 443 y conservar el encabezado Host original. HA-Fitness no modifica automáticamente estos servicios del sistema.",
+    },
+    "it": {
+        "admin_remote_access": "Accesso remoto",
+        "admin_remote_access_hint": "Consenti a questo amministratore Fitness di accedere sia localmente sia dal proprio hostname remoto assegnato.",
+        "role_admin_remote_hint": "Amministrazione Fitness completa con accesso locale e remoto dall’host assegnato",
+        "remote_base_domain_missing": "Configura prima il dominio base Fitness.",
+        "remote_server_setup_title": "Sono necessari anche reverse proxy e TLS",
+        "remote_server_setup_hint": "Il solo DNS non basta. Il server Home Assistant deve accettare il dominio base Fitness e i sottodomini wildcard degli utenti tramite nginx o un altro reverse proxy, avere certificati HTTPS validi (ad esempio wildcard o per-host gestiti da Certbot), esporre la porta 443 e preservare l’header Host originale. HA-Fitness non modifica automaticamente questi servizi di sistema.",
+    },
+    "pt": {
+        "admin_remote_access": "Acesso remoto",
+        "admin_remote_access_hint": "Permita que este administrador Fitness inicie sessão localmente e também pelo hostname remoto que lhe foi atribuído.",
+        "role_admin_remote_hint": "Administração Fitness completa com início de sessão local e remoto no host atribuído",
+        "remote_base_domain_missing": "Configure primeiro o domínio base do Fitness.",
+        "remote_server_setup_title": "Reverse proxy e TLS também são necessários",
+        "remote_server_setup_hint": "DNS sozinho não é suficiente. O servidor Home Assistant deve aceitar o domínio base Fitness e subdomínios wildcard de utilizadores através de nginx ou outro reverse proxy, ter certificados HTTPS válidos (por exemplo wildcard ou por host geridos pelo Certbot), expor a porta 443 e preservar o cabeçalho Host original. O HA-Fitness não altera automaticamente estes serviços do sistema.",
+    },
+    "nl": {
+        "admin_remote_access": "Externe toegang",
+        "admin_remote_access_hint": "Sta deze Fitness-beheerder toe om lokaal én via de toegewezen externe hostnaam aan te melden.",
+        "role_admin_remote_hint": "Volledig Fitness-beheer met lokale en toegewezen externe aanmelding",
+        "remote_base_domain_missing": "Configureer eerst het Fitness-basisdomein.",
+        "remote_server_setup_title": "Reverse proxy en TLS zijn ook vereist",
+        "remote_server_setup_hint": "Alleen DNS is niet genoeg. De Home Assistant-server moet het Fitness-basisdomein en wildcard-gebruikerssubdomeinen via nginx of een andere reverse proxy accepteren, geldige HTTPS-certificaten hebben (bijvoorbeeld wildcard of per host via Certbot), poort 443 bereikbaar maken en de oorspronkelijke Host-header behouden. HA-Fitness wijzigt deze systeemdiensten niet automatisch.",
+    },
+    "pl": {
+        "admin_remote_access": "Dostęp zdalny",
+        "admin_remote_access_hint": "Zezwól temu administratorowi Fitness na logowanie lokalne oraz przez przypisany zdalny hostname.",
+        "role_admin_remote_hint": "Pełna administracja Fitness z logowaniem lokalnym i zdalnym przez przypisany host",
+        "remote_base_domain_missing": "Najpierw skonfiguruj domenę bazową Fitness.",
+        "remote_server_setup_title": "Wymagane są także reverse proxy i TLS",
+        "remote_server_setup_hint": "Sam DNS nie wystarczy. Serwer Home Assistant musi obsługiwać domenę bazową Fitness i wildcard subdomeny użytkowników przez nginx lub inne reverse proxy, mieć ważne certyfikaty HTTPS (np. wildcard lub per-host zarządzane przez Certbot), udostępniać port 443 i zachowywać oryginalny nagłówek Host. HA-Fitness nie zmienia tych usług systemowych automatycznie.",
+    },
+    "ru": {
+        "admin_remote_access": "Удалённый доступ",
+        "admin_remote_access_hint": "Разрешить этому администратору Fitness вход локально и через назначенный удалённый hostname.",
+        "role_admin_remote_hint": "Полное администрирование Fitness с локальным и назначенным удалённым входом",
+        "remote_base_domain_missing": "Сначала настройте базовый домен Fitness.",
+        "remote_server_setup_title": "Также требуются reverse proxy и TLS",
+        "remote_server_setup_hint": "Одного DNS недостаточно. Сервер Home Assistant должен принимать базовый домен Fitness и wildcard-поддомены пользователей через nginx или другой reverse proxy, иметь действующие HTTPS-сертификаты (например wildcard или для каждого хоста через Certbot), открытый порт 443 и передавать исходный заголовок Host. HA-Fitness не изменяет эти системные службы автоматически.",
+    },
+    "uk": {
+        "admin_remote_access": "Віддалений доступ",
+        "admin_remote_access_hint": "Дозволити цьому адміністратору Fitness вхід локально та через призначений віддалений hostname.",
+        "role_admin_remote_hint": "Повне адміністрування Fitness з локальним і призначеним віддаленим входом",
+        "remote_base_domain_missing": "Спочатку налаштуйте базовий домен Fitness.",
+        "remote_server_setup_title": "Також потрібні reverse proxy і TLS",
+        "remote_server_setup_hint": "Лише DNS недостатньо. Сервер Home Assistant має приймати базовий домен Fitness і wildcard-піддомени користувачів через nginx або інший reverse proxy, мати чинні HTTPS-сертифікати (наприклад wildcard або для кожного хоста через Certbot), доступний порт 443 і передавати початковий заголовок Host. HA-Fitness не змінює ці системні служби автоматично.",
+    },
+    "tr": {
+        "admin_remote_access": "Uzak erişim",
+        "admin_remote_access_hint": "Bu Fitness yöneticisinin hem yerel olarak hem de atanmış uzak hostname üzerinden oturum açmasına izin verin.",
+        "role_admin_remote_hint": "Yerel ve atanmış uzak host girişiyle tam Fitness yönetimi",
+        "remote_base_domain_missing": "Önce Fitness temel alan adını yapılandırın.",
+        "remote_server_setup_title": "Reverse proxy ve TLS de gereklidir",
+        "remote_server_setup_hint": "Yalnızca DNS yeterli değildir. Home Assistant sunucusu Fitness temel alan adını ve wildcard kullanıcı alt alan adlarını nginx veya başka bir reverse proxy üzerinden kabul etmeli, geçerli HTTPS sertifikalarına (ör. Certbot ile yönetilen wildcard veya host başına) sahip olmalı, 443 portunu erişilebilir kılmalı ve özgün Host başlığını korumalıdır. HA-Fitness bu sistem hizmetlerini otomatik olarak değiştirmez.",
+    },
+    "zh": {
+        "admin_remote_access": "远程访问",
+        "admin_remote_access_hint": "允许此 Fitness 管理员在本地以及通过其专属远程主机名登录。",
+        "role_admin_remote_hint": "完整 Fitness 管理权限，可本地登录并通过指定远程主机登录",
+        "remote_base_domain_missing": "请先配置 Fitness 基础域名。",
+        "remote_server_setup_title": "还需要反向代理和 TLS",
+        "remote_server_setup_hint": "仅配置 DNS 不够。Home Assistant 服务器必须通过 nginx 或其他反向代理接收 Fitness 基础域名及用户通配符子域名，具备有效 HTTPS 证书（例如由 Certbot 管理的通配符或逐主机证书），开放 443 端口，并保留原始 Host 请求头。HA-Fitness 不会自动修改这些系统服务。",
+    },
+    "ja": {
+        "admin_remote_access": "リモートアクセス",
+        "admin_remote_access_hint": "この Fitness 管理者がローカルと専用に割り当てられたリモートホスト名の両方からサインインできるようにします。",
+        "role_admin_remote_hint": "ローカルおよび割り当て済みリモートホストからログイン可能な完全な Fitness 管理権限",
+        "remote_base_domain_missing": "先に Fitness ベースドメインを設定してください。",
+        "remote_server_setup_title": "リバースプロキシと TLS も必要です",
+        "remote_server_setup_hint": "DNS だけでは不十分です。Home Assistant サーバーは nginx などのリバースプロキシで Fitness ベースドメインとユーザー用ワイルドカードサブドメインを受け、有效な HTTPS 証明書（例: Certbot 管理のワイルドカードまたはホスト別証明書）、到達可能な 443 番ポート、元の Host ヘッダーの転送が必要です。HA-Fitness はこれらのシステムサービスを自動変更しません。",
+    },
+    "ko": {
+        "admin_remote_access": "원격 접근",
+        "admin_remote_access_hint": "이 Fitness 관리자가 로컬 및 전용으로 할당된 원격 호스트 이름에서 모두 로그인하도록 허용합니다.",
+        "role_admin_remote_hint": "로컬 및 할당된 원격 호스트 로그인을 포함한 전체 Fitness 관리",
+        "remote_base_domain_missing": "먼저 Fitness 기본 도메인을 구성하세요.",
+        "remote_server_setup_title": "리버스 프록시와 TLS도 필요합니다",
+        "remote_server_setup_hint": "DNS만으로는 충분하지 않습니다. Home Assistant 서버는 nginx 또는 다른 리버스 프록시를 통해 Fitness 기본 도메인과 사용자 와일드카드 하위 도메인을 받아야 하며, 유효한 HTTPS 인증서(예: Certbot 관리 와일드카드 또는 호스트별 인증서), 접근 가능한 443 포트, 원래 Host 헤더 전달이 필요합니다. HA-Fitness는 이러한 시스템 서비스를 자동으로 변경하지 않습니다.",
+    },
+}
+for _language, _labels in _REMOTE_ADMIN_INFRA_TRANSLATIONS.items():
+    DASHBOARD_LANGUAGE_AUDIT_TEXT[_language].update(_labels)
+
+# Sport-specific workout comparison labels. Personal baselines must never mix
+# running, cycling, swimming, strength, etc.; the comparison card therefore
+# names every sport and metric explicitly in the profile language.
+_add_rows(
+    {
+        "sport_running": (
+            "Running", "Τρέξιμο", "Laufen", "Course", "Carrera", "Corsa", "Corrida", "Hardlopen", "Bieganie", "Бег", "Біг", "Koşu", "跑步", "ランニング", "달리기",
+        ),
+        "sport_cycling": (
+            "Cycling", "Ποδηλασία", "Radfahren", "Cyclisme", "Ciclismo", "Ciclismo", "Ciclismo", "Fietsen", "Jazda na rowerze", "Велоспорт", "Велоспорт", "Bisiklet", "骑行", "サイクリング", "사이클링",
+        ),
+        "sport_walking": (
+            "Walking", "Περπάτημα", "Gehen", "Marche", "Caminata", "Camminata", "Caminhada", "Wandelen", "Chodzenie", "Ходьба", "Ходьба", "Yürüyüş", "步行", "ウォーキング", "걷기",
+        ),
+        "sport_hiking": (
+            "Hiking", "Πεζοπορία", "Wandern", "Randonnée", "Senderismo", "Escursionismo", "Caminhada em trilho", "Hiken", "Wędrówka", "Поход", "Похід", "Doğa yürüyüşü", "徒步", "ハイキング", "하이킹",
+        ),
+        "sport_swimming": (
+            "Swimming", "Κολύμβηση", "Schwimmen", "Natation", "Natación", "Nuoto", "Natação", "Zwemmen", "Pływanie", "Плавание", "Плавання", "Yüzme", "游泳", "水泳", "수영",
+        ),
+        "sport_strength": (
+            "Strength", "Δύναμη", "Krafttraining", "Musculation", "Fuerza", "Forza", "Força", "Krachttraining", "Trening siłowy", "Силовая тренировка", "Силове тренування", "Kuvvet", "力量训练", "筋力トレーニング", "근력 운동",
+        ),
+        "sport_hiit": (
+            "HIIT", "HIIT", "HIIT", "HIIT", "HIIT", "HIIT", "HIIT", "HIIT", "HIIT", "HIIT", "HIIT", "HIIT", "HIIT", "HIIT", "HIIT",
+        ),
+        "sport_rowing": (
+            "Rowing", "Κωπηλασία", "Rudern", "Aviron", "Remo", "Canottaggio", "Remo", "Roeien", "Wioślarstwo", "Гребля", "Веслування", "Kürek", "划船", "ローイング", "로잉",
+        ),
+        "sport_elliptical": (
+            "Elliptical", "Ελλειπτικό", "Ellipsentrainer", "Elliptique", "Elíptica", "Ellittica", "Elíptica", "Crosstrainer", "Orbitrek", "Эллипсоид", "Еліптичний тренажер", "Eliptik", "椭圆机", "エリプティカル", "일립티컬",
+        ),
+        "comparison_speed": (
+            "Average speed", "Μέση ταχύτητα", "Durchschnittstempo", "Vitesse moyenne", "Velocidad media", "Velocità media", "Velocidade média", "Gemiddelde snelheid", "Średnia prędkość", "Средняя скорость", "Середня швидкість", "Ortalama hız", "平均速度", "平均速度", "평균 속도",
+        ),
+        "comparison_power": (
+            "Average power", "Μέση ισχύς", "Durchschnittsleistung", "Puissance moyenne", "Potencia media", "Potenza media", "Potência média", "Gemiddeld vermogen", "Średnia moc", "Средняя мощность", "Середня потужність", "Ortalama güç", "平均功率", "平均パワー", "평균 파워",
+        ),
+        "comparison_heart_rate": (
+            "Average heart rate", "Μέσος καρδιακός ρυθμός", "Durchschnittspuls", "Fréquence cardiaque moyenne", "Frecuencia cardíaca media", "Frequenza cardiaca media", "Frequência cardíaca média", "Gemiddelde hartslag", "Średnie tętno", "Средний пульс", "Середній пульс", "Ortalama nabız", "平均心率", "平均心拍数", "평균 심박수",
+        ),
+        "comparison_efficiency": (
+            "Aerobic efficiency", "Αερόβια αποδοτικότητα", "Aerobe Effizienz", "Efficacité aérobie", "Eficiencia aeróbica", "Efficienza aerobica", "Eficiência aeróbica", "Aerobe efficiëntie", "Wydolność aerobowa", "Аэробная эффективность", "Аеробна ефективність", "Aerobik verimlilik", "有氧效率", "有酸素効率", "유산소 효율",
+        ),
+        "comparison_decoupling": (
+            "Aerobic decoupling", "Αερόβια αποσύζευξη", "Aerobe Entkopplung", "Découplage aérobie", "Desacoplamiento aeróbico", "Disaccoppiamento aerobico", "Desacoplamento aeróbico", "Aerobe ontkoppeling", "Rozsprzężenie aerobowe", "Аэробный дрейф", "Аеробний дрейф", "Aerobik ayrışma", "有氧解耦", "有酸素デカップリング", "유산소 디커플링",
+        ),
+        "comparison_trimp": (
+            "Training load (TRIMP)", "Προπονητικό φορτίο (TRIMP)", "Trainingslast (TRIMP)", "Charge d’entraînement (TRIMP)", "Carga de entrenamiento (TRIMP)", "Carico di allenamento (TRIMP)", "Carga de treino (TRIMP)", "Trainingsbelasting (TRIMP)", "Obciążenie treningowe (TRIMP)", "Тренировочная нагрузка (TRIMP)", "Тренувальне навантаження (TRIMP)", "Antrenman yükü (TRIMP)", "训练负荷 (TRIMP)", "トレーニング負荷 (TRIMP)", "훈련 부하 (TRIMP)",
+        ),
+    },
+    SUPPORTED_DASHBOARD_LANGUAGES,
+)

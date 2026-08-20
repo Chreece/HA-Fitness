@@ -13,14 +13,15 @@ def test_custom_cards_registry_is_never_replaced():
     assert "window.customCards.push(card)" in public
 
 
-def test_only_four_public_cards_are_registered():
+def test_five_public_cards_are_registered_including_wellness():
     public = JS[JS.index("const FITNESS_PUBLIC_CARDS"):JS.index("const publicTypes")]
-    assert public.count('type: "fitness-') == 4
+    assert public.count('type: "fitness-') == 5
     assert 'type: "fitness-live-workout-card"' in public
     for card in (
         "fitness-workout-card",
         "fitness-sleep-recovery-card",
         "fitness-evaluation-card",
+        "fitness-wellness-card",
     ):
         assert f'type: "{card}"' in public
 
@@ -28,7 +29,7 @@ def test_only_four_public_cards_are_registered():
 def test_public_cards_do_not_auto_preview():
     public = JS[JS.index("const FITNESS_PUBLIC_CARDS"):JS.index("const publicTypes")]
     assert "preview: true" not in public
-    assert public.count("preview: false") == 4
+    assert public.count("preview: false") == 5
 
 
 def test_public_cards_still_have_visual_editor_support():

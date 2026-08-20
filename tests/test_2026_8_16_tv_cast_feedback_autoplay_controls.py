@@ -86,7 +86,8 @@ def test_cast_receiver_toolbar_only_exposes_cast_relevant_action_buttons():
     assert 'id="fullscreen"' not in receiver_branch
     assert 'id="cast"' not in receiver_branch
     assert 'id="cards"' not in receiver_branch
-    assert 'id="arrange"' not in receiver_branch
+    assert 'id="arrange"' in receiver_branch
+    assert 'mdi:arrow-all' in receiver_branch
     assert 'id="remote-sensors"' not in receiver_branch
     assert 'id="configure"' in receiver_branch
     assert 'id="backend-config"' in receiver_branch
@@ -98,8 +99,8 @@ def test_cast_receiver_toolbar_only_exposes_cast_relevant_action_buttons():
 def test_tv_profile_payload_and_frontend_revision_expose_new_setting():
     assert DASHBOARD.count('"ignore_lights_when_cast_active": bool(') >= 2
     assert 'CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE' in DASHBOARD
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in FRONTEND
-    assert '?v=unreleased-89' in DASHBOARD
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
+    assert '?v=unreleased-110' in DASHBOARD
 
 
 def test_cast_handoff_does_not_restart_media_that_fresh_receiver_already_resumed():

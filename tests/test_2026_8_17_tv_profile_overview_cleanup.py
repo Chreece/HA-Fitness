@@ -23,11 +23,12 @@ def test_live_card_uses_profile_sensor_assignment_not_active_owner():
 
 
 def test_profile_overview_has_assignment_and_complete_removal_controls():
-    assert 'data-profile-assign' in FRONTEND
+    assert 'data-profile-assign' not in FRONTEND
     assert 'complete-remove-profile' in FRONTEND
     assert 'delete-backend-profile' in FRONTEND
     assert 'type:"fitness/access/profile/delete"' in FRONTEND
-
+    assert 'id="manage-access"' in FRONTEND
+    assert 'type:"fitness/accounts/admin"' in FRONTEND
 
 def test_complete_profile_removal_scrubs_tv_preferences():
     assert "async_remove_profile_preferences" in TV
@@ -56,6 +57,8 @@ def test_backend_flow_main_menu_has_icon_and_button_copy_can_shrink():
 
 
 def test_new_profile_overview_actions_are_localized_in_german():
-    assert '"assign_user":"Home-Assistant-Benutzer zuweisen"' in DASHBOARD
     assert '"complete_remove":"Vollständig entfernen"' in DASHBOARD
     assert '"complete_remove_confirm":"Dieses Fitness-Profil vollständig entfernen?' in DASHBOARD
+    assert '"fitness_accounts":"Fitness-Konten"' in DASHBOARD
+    assert '"account_profile":"Fitness-Profil"' in DASHBOARD
+

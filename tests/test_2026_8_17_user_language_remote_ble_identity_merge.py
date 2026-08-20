@@ -24,7 +24,9 @@ def test_browser_ble_reads_standard_device_information_identity():
     assert 'FITNESS_REMOTE_BLE_DEVICE_INFO_SERVICE' in JS
     assert '"00002a25-0000-1000-8000-00805f9b34fb":"serial_number"' in JS
     assert '"00002a29-0000-1000-8000-00805f9b34fb":"manufacturer"' in JS
-    assert 'optionalServices:[...FITNESS_REMOTE_BLE_OPTIONAL_SERVICES]' in JS
+    assert 'const optionalServices = await this._remoteBleRequestedServices();' in JS
+    assert 'optionalServices,' in JS
+    assert 'remote_ble_optional_services' in JS
     assert 'FITNESS_REMOTE_BLE_BATTERY_SERVICE' in JS
     assert 'FITNESS_REMOTE_BLE_BATTERY_CHARACTERISTIC' in JS
     assert 'identity,' in JS
@@ -39,7 +41,7 @@ def test_remote_browser_route_aliases_to_existing_physical_sensor_and_assigns_pr
     assert 'exact_physical_route_identity' in RUNTIME
     assert 'runtime.endpoint_aliases[endpoint_id] = sensor.sensor_id' in REMOTE
     assert 'runtime.enrich_sensor_capabilities' in REMOTE
-    assert 'await _async_assign_sensor_to_profile(self.hass, runtime, entry, sensor.sensor_id)' in REMOTE
+    assert 'await _async_assign_sensor_to_profile(self.hass, runtime, entry, canonical_sensor_id)' in REMOTE
     assert 'def find_sensor_for_remote_ble_identity' in RUNTIME
     assert 'server-derived exact route identity is strongest' in RUNTIME
     assert 'catalog_product_id' in RUNTIME

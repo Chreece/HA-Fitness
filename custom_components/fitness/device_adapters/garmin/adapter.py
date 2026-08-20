@@ -54,4 +54,10 @@ ARCHIVE_ADAPTER = BluetoothArchiveAdapterSpec(
     # adapter own the first connected session instead of running the generic
     # short-lived DIS identity probe before pairing.
     generic_identity_probe=False,
+    # Garmin watches can hand their single useful Bluetooth connection back to
+    # Garmin Connect within seconds of waking/returning to range.  After a real
+    # absence, let Fitness start the archive handshake immediately so HA gets a
+    # fair chance to sync before the phone reacquires the watch.
+    availability_return_sync_delay=0.0,
+    availability_return_min_gap=60.0,
 )

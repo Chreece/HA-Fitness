@@ -27,7 +27,14 @@ from .bluez_agent import (
     async_bluez_device_pairing_state,
     temporary_bluez_pairing_agent,
 )
-from .fit import MAX_FIT_BYTES, fit_content_kind, fit_message_names, health_history_from_fit, workout_from_fit
+from .fit import (
+    MAX_FIT_BYTES,
+    fit_content_kind,
+    fit_message_names,
+    generic_wellness_from_fit,
+    health_history_from_fit,
+    workout_from_fit,
+)
 from .gfdi import (
     HEALTH_FIT_TYPE_NAMES,
     GarminGfdiSession,
@@ -78,6 +85,10 @@ PARTIAL_BATCH_RETRY_DELAY = 5 * 60.0
 PARTIAL_BATCH_RECENT_WINDOW = 45 * 60.0
 MAX_PARTIAL_BATCH_RETRIES = 3
 MAX_FILE_VALIDATION_FAILURES = 3
+# Increment when the content classifier learns a new non-FIT Garmin family. An
+# older quarantined record is re-probed once after an upgrade instead of being
+# permanently stranded by the decoder that first saw it.
+GARMIN_PAYLOAD_DECODER_REVISION = 3
 # Keep a small private copy of files that fail FIT validation so we can inspect
 # whether a new Garmin health family (SpO2/monitoring/sleep/etc.) is being lost
 # instead of permanently treating every undecodable payload as junk. Captures
@@ -97,6 +108,9 @@ BUSY_RETRY_DELAY = 5 * 60.0
 # bypassing protocol/error backoff.
 UNREACHABLE_RETRY_DELAY = 30 * 60.0
 ADVERTISEMENT_ACTION_MIN_INTERVAL = 30.0
+FRESH_ADVERTISEMENT_MAX_AGE = 120.0
+MANUAL_REQUEST_WINDOW = 3 * 60.0
+PHONE_HOST_RETRY_DELAY = 15 * 60.0
 HANDSHAKE_RECONNECT_DELAY = 1.5
 HANDSHAKE_RECONNECT_ATTEMPTS = 1
 
@@ -375,6 +389,118 @@ def _history_batch_from_record(payload: Any) -> DeviceHistoryBatch:
     return DeviceHistoryBatch.bounded(metric_points=points, sleep_records=sleeps)
 
 
+def _structured_payload_bytes(data: bytes, *, compressed: bool) -> tuple[bytes, str]:
+    """Return one bounded raw/DEFLATE-family structured Garmin payload."""
+    raw = bytes(data)
+    if len(raw) > MAX_FIT_BYTES:
+        raise ValueError("Garmin structured payload exceeds safe size")
+    if not compressed:
+        return raw, "raw"
+    errors: list[str] = []
+    for label, wbits in (
+        ("zlib", zlib.MAX_WBITS),
+        ("gzip", zlib.MAX_WBITS | 16),
+        ("raw-deflate", -zlib.MAX_WBITS),
+    ):
+        try:
+            return _inflate_with_wbits_bounded(raw, wbits), label
+        except (zlib.error, ValueError) as err:
+            errors.append(f"{label}:{type(err).__name__}")
+    raise ValueError(
+        "Garmin structured payload could not be inflated"
+        + (f" ({', '.join(errors)})" if errors else "")
+    )
+
+
+def _bounded_json_number(value: Any, *, low: float = -1_000_000.0, high: float = 1_000_000.0) -> float | int | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if number != number or number in {float("inf"), float("-inf")} or number < low or number > high:
+        return None
+    return int(number) if number.is_integer() else number
+
+
+def _decode_live_activity_payload(data: bytes, *, compressed: bool) -> tuple[dict[str, Any], int]:
+    """Decode Garmin FileSync ``LiveActivity`` JSON without treating it as FIT.
+
+    Real Garmin FileSync captures show this family as zlib-compressed UTF-8
+    JSON describing a workout/live-activity definition. ``steps`` here means
+    workout steps/targets, not the athlete's daily pedometer step count.
+    """
+    payload, container = _structured_payload_bytes(data, compressed=compressed)
+    try:
+        text = payload.decode("utf-8")
+        parsed = json.loads(text, parse_constant=lambda value: (_ for _ in ()).throw(ValueError(f"invalid JSON number {value}")))
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as err:
+        raise ValueError("Garmin LiveActivity payload is not valid UTF-8 JSON") from err
+    if not isinstance(parsed, dict) or not isinstance(parsed.get("steps"), list):
+        raise ValueError("Garmin LiveActivity JSON has no workout step list")
+
+    steps: list[dict[str, Any]] = []
+    for raw_step in parsed.get("steps", [])[:256]:
+        if not isinstance(raw_step, dict):
+            continue
+        step: dict[str, Any] = {}
+        for key, low, high in (
+            ("id", 0, 100_000),
+            ("intensity", -1, 100),
+            ("durationType", -1, 100),
+            ("duration", 0, 604_800),
+        ):
+            number = _bounded_json_number(raw_step.get(key), low=low, high=high)
+            if number is not None:
+                step[key] = number
+        targets: list[dict[str, Any]] = []
+        for raw_target in raw_step.get("targets", [])[:32] if isinstance(raw_step.get("targets"), list) else []:
+            if not isinstance(raw_target, dict):
+                continue
+            target: dict[str, Any] = {}
+            for key, low, high in (
+                ("priority", -1, 100),
+                ("targetType", -1, 1000),
+                ("targetHigh", -1_000_000, 1_000_000),
+                ("targetLow", -1_000_000, 1_000_000),
+            ):
+                number = _bounded_json_number(raw_target.get(key), low=low, high=high)
+                if number is not None:
+                    target[key] = number
+            if target:
+                targets.append(target)
+        if targets:
+            step["targets"] = targets
+        if step:
+            steps.append(step)
+
+    clusters: list[dict[str, Any]] = []
+    for raw_cluster in parsed.get("clusters", [])[:256] if isinstance(parsed.get("clusters"), list) else []:
+        if not isinstance(raw_cluster, dict):
+            continue
+        cluster: dict[str, Any] = {}
+        for key in ("clusterId", "firstStepId", "lastStepId", "activeStepId", "state"):
+            number = _bounded_json_number(raw_cluster.get(key), low=-1, high=100_000)
+            if number is not None:
+                cluster[key] = number
+        if cluster:
+            clusters.append(cluster)
+
+    artifact = {
+        "artifact_type": "live_activity",
+        "uuid": str(parsed.get("uuid") or "")[:128],
+        "name": str(parsed.get("name") or "")[:256],
+        "steps": steps,
+        "clusters": clusters,
+        "container": container,
+    }
+    return {
+        "kind": "device_artifact",
+        "artifact_type": "live_activity",
+        "device_artifact": artifact,
+        "decoder_revision": GARMIN_PAYLOAD_DECODER_REVISION,
+    }, len(payload)
+
+
 def _decode_downloaded_file(
     data: bytes,
     *,
@@ -382,11 +508,15 @@ def _decode_downloaded_file(
     sensor_id: str,
     source_key: str,
     source_label: str | None,
+    file_type: str = "",
 ) -> tuple[dict[str, Any], int]:
-    """Content-classify one Garmin FIT and normalize every supported payload."""
+    """Content-classify one Garmin device file and normalize supported payloads."""
+    normalized_type = str(file_type or "").strip().upper().replace("_", "")
+    if normalized_type == "LIVEACTIVITY":
+        return _decode_live_activity_payload(data, compressed=compressed)
     fit = _inflate_bounded(data) if compressed else bytes(data)
     kind = fit_content_kind(fit)
-    record: dict[str, Any] = {"kind": kind}
+    record: dict[str, Any] = {"kind": kind, "decoder_revision": GARMIN_PAYLOAD_DECODER_REVISION}
     if kind == "activity":
         workout = workout_from_fit(
             fit, sensor_id=sensor_id, source_key=source_key, source_label=source_label
@@ -402,10 +532,21 @@ def _decode_downloaded_file(
         if not batch.metric_points and not batch.sleep_records:
             record["kind"] = "unsupported"
     if record.get("kind") == "unsupported":
-        # Preserve only a small message-name inventory. This lets us recognize a
-        # future Garmin wellness FIT family without retaining opaque payloads or
-        # guessing field semantics.
+        # Firmware can emit FIT messages newer than the parser's named health
+        # catalogue. Conservatively recover metrics from already-named fields
+        # (never numeric/unknown vendor fields), and retain a bounded schema
+        # inventory so future decoder revisions can be targeted precisely.
+        generic_batch, inventory = generic_wellness_from_fit(
+            fit, sensor_id=sensor_id, source_key=source_key, source_label=source_label
+        )
         record["fit_messages"] = list(fit_message_names(fit))[:64]
+        record["fit_inventory"] = inventory
+        if generic_batch.metric_points or generic_batch.sleep_records:
+            record["kind"] = "health"
+            record["history"] = _serialize_history_batch(generic_batch)
+            record["health_metric_points"] = len(generic_batch.metric_points)
+            record["health_sleep_records"] = len(generic_batch.sleep_records)
+            record["generic_wellness_decode"] = True
     return record, len(fit)
 
 
@@ -637,6 +778,30 @@ class GarminLocalCoordinator:
             self._state = {"devices": devices}
         self._initialized = True
 
+        # ``bluetooth_connection_busy`` is an expected transient state for Garmin
+        # watches that are currently connected to Garmin Connect/a phone. Older
+        # builds created a persistent Repair from automatic startup syncs, so the
+        # same notification came back on every Home Assistant restart even after
+        # the user completed the Repair flow. Clear those legacy/stale prompts at
+        # startup; background contention is represented by sync state and retried
+        # quietly. A fresh Repair is created only for an explicit manual sync.
+        for stored_sensor_id in tuple(self._state.setdefault("devices", {})):
+            raw_sensor_id = str(stored_sensor_id)
+            clear_device_user_action(
+                self.hass,
+                adapter_id="garmin_local",
+                sensor_id=raw_sensor_id,
+                action="bluetooth_connection_busy",
+            )
+            canonical_sensor_id = self.runtime.resolve_sensor_id(raw_sensor_id)
+            if canonical_sensor_id != raw_sensor_id:
+                clear_device_user_action(
+                    self.hass,
+                    adapter_id="garmin_local",
+                    sensor_id=canonical_sensor_id,
+                    action="bluetooth_connection_busy",
+                )
+
         def _reconfigure_completed(event) -> None:
             data = event.data
             if str(data.get("adapter_id") or "") != "garmin_local":
@@ -773,6 +938,43 @@ class GarminLocalCoordinator:
             action="pairing_required",
         )
 
+    def _report_connection_busy(self, sensor_id: str) -> None:
+        """Explain one-active-Bluetooth-host contention without deleting pairings."""
+        canonical = self.runtime.resolve_sensor_id(sensor_id)
+        sensor = self.runtime.sensors.get(canonical)
+        device = sensor.label() if sensor is not None else "Garmin device"
+        request_device_user_action(
+            self.hass,
+            adapter_id="garmin_local",
+            sensor_id=canonical,
+            device=device,
+            action="bluetooth_connection_busy",
+            reason="The Garmin is nearby but another Bluetooth host may currently own its active connection.",
+            instructions=(
+                "Keep the existing phone/Garmin pairing saved; do not remove or replace it.",
+                "Some Garmin models accept only one active Bluetooth host at a time.",
+                "Temporarily disconnect Garmin Connect or turn off Bluetooth on the phone, then choose Retry now.",
+                "After Fitness finishes and disconnects, phone Bluetooth can be enabled normally again.",
+            ),
+        )
+
+    def _clear_connection_busy_issue(self, sensor_id: str) -> None:
+        clear_device_user_action(
+            self.hass,
+            adapter_id="garmin_local",
+            sensor_id=self.runtime.resolve_sensor_id(sensor_id),
+            action="bluetooth_connection_busy",
+        )
+
+    @staticmethod
+    def _endpoint_recent(endpoint) -> bool:
+        seen = getattr(endpoint, "last_seen", None)
+        if not isinstance(seen, datetime):
+            return False
+        if seen.tzinfo is None:
+            seen = seen.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - seen.astimezone(timezone.utc)).total_seconds() <= FRESH_ADVERTISEMENT_MAX_AGE
+
     async def _save(self) -> None:
         if not self._initialized:
             return
@@ -826,12 +1028,14 @@ class GarminLocalCoordinator:
                     self.schedule(sensor_id, delay=1.0, force=True)
             return
         self._clear_pairing_issue(sensor_id)
+        self._clear_connection_busy_issue(sensor_id)
         self._cancel(sensor_id)
 
     def assignment_changed(self, sensor_id: str) -> None:
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
         if not self.runtime.sensor_archive_profile_ids(sensor_id):
             self._clear_pairing_issue(sensor_id)
+            self._clear_connection_busy_issue(sensor_id)
             self._cancel(sensor_id)
             state = self._device(sensor_id)
             state.update(sync_state="idle", pending_file_count=0)
@@ -844,6 +1048,7 @@ class GarminLocalCoordinator:
     def forget_sensor(self, sensor_id: str) -> None:
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
         self._clear_pairing_issue(sensor_id)
+        self._clear_connection_busy_issue(sensor_id)
         self._cancel(sensor_id)
         self._last_advertisement_action.pop(sensor_id, None)
         self._progress.pop(sensor_id, None)
@@ -931,6 +1136,7 @@ class GarminLocalCoordinator:
         """Queue a user sync without bypassing Garmin's proven post-session settle."""
         canonical = self.runtime.resolve_sensor_id(sensor_id)
         state = self._device(canonical)
+        state["manual_request_until"] = (datetime.now(timezone.utc) + timedelta(seconds=MANUAL_REQUEST_WINDOW)).isoformat()
         try:
             pending = max(0, int(state.get("pending_file_count") or 0))
         except (TypeError, ValueError):
@@ -1155,6 +1361,18 @@ class GarminLocalCoordinator:
         if not profile_ids:
             state.update(sync_state="idle", pending_file_count=0, last_error_code="none")
             self._publish(sensor_id)
+            return
+        manual_until = _dt(state.get("manual_request_until"))
+        manual_request = bool(manual_until is not None and manual_until > datetime.now(timezone.utc))
+        if not manual_request and not self._endpoint_recent(endpoint):
+            # Home Assistant can retain a connectable BLEDevice long after the
+            # person/watch has left. Automatic timers must wait for a *fresh*
+            # advertisement and must not stamp garmin_last_sync while away.
+            retry_at = datetime.now(timezone.utc) + timedelta(seconds=UNREACHABLE_RETRY_DELAY)
+            state.update(sync_state="waiting", last_error_code="none", next_attempt=retry_at.isoformat())
+            await self._save()
+            self._publish(sensor_id)
+            self._schedule_after_current(sensor_id, UNREACHABLE_RETRY_DELAY)
             return
         if not force:
             last = _dt(state.get("last_successful_sync"))
@@ -1389,6 +1607,8 @@ class GarminLocalCoordinator:
                     if selected_source:
                         state["bluetooth_source"] = selected_source
                         state["bluetooth_route_kind"] = route_kind
+                    self._clear_connection_busy_issue(sensor_id)
+                    state.pop("manual_request_until", None)
                     _LOGGER.info(
                         "Garmin GFDI handshake succeeded via %s (%s/%s) for %s",
                         session.transport.backend,
@@ -1445,7 +1665,16 @@ class GarminLocalCoordinator:
                         if key not in files:
                             return True
                         cached = files.get(key)
-                        if not isinstance(cached, dict) or cached.get("kind") != "invalid":
+                        if not isinstance(cached, dict):
+                            return True
+                        kind = str(cached.get("kind") or "")
+                        # Decoder upgrades re-download both quarantined invalid
+                        # payloads and previously unsupported FIT families. This is
+                        # how new wellness mappings can recover already-catalogued
+                        # data from the watch without clearing the whole archive.
+                        if kind == "unsupported":
+                            return int(cached.get("decoder_revision") or 0) < GARMIN_PAYLOAD_DECODER_REVISION
+                        if kind != "invalid":
                             return False
                         # Re-probe invalid records created before forensic capture
                         # existed, and any quarantined record whose Garmin catalogue
@@ -1453,7 +1682,8 @@ class GarminLocalCoordinator:
                         # be captured after an upgrade instead of becoming permanent
                         # opaque state.
                         return (
-                            not cached.get("capture_token")
+                            int(cached.get("decoder_revision") or 0) < GARMIN_PAYLOAD_DECODER_REVISION
+                            or not cached.get("capture_token")
                             or str(cached.get("catalog_fingerprint") or "")
                             != _catalog_item_fingerprint(item)
                         )
@@ -1545,6 +1775,7 @@ class GarminLocalCoordinator:
                                     sensor_id=sensor_id,
                                     source_key=downloaded.key,
                                     source_label=sensor.name,
+                                    file_type=downloaded.type_name or _catalog_item_type(item),
                                 )
                             )
                         except Exception as err:
@@ -1594,6 +1825,7 @@ class GarminLocalCoordinator:
                                 "error": f"{type(err).__name__}: {err}"[:256],
                                 "capture_token": capture.get("token"),
                                 "diagnostics": capture.get("diagnostics") or {},
+                                "decoder_revision": GARMIN_PAYLOAD_DECODER_REVISION,
                             }
                             quarantined = failure_count >= MAX_FILE_VALIDATION_FAILURES
                             if quarantined:
@@ -1606,6 +1838,7 @@ class GarminLocalCoordinator:
                                     "validation_error": f"{type(err).__name__}: {err}"[:256],
                                     "capture_token": capture.get("token"),
                                     "diagnostics": capture.get("diagnostics") or {},
+                                    "decoder_revision": GARMIN_PAYLOAD_DECODER_REVISION,
                                     "imported_profiles": [],
                                 }
                                 failures.pop(key, None)
@@ -1676,6 +1909,15 @@ class GarminLocalCoordinator:
                             _LOGGER.info(
                                 "Garmin health FIT decoded for %s: type=%s metrics=%s sleep_records=%s",
                                 sensor_id, downloaded.type_name or _catalog_item_type(item), metric_count, sleep_count,
+                            )
+                        elif record.get("kind") == "device_artifact":
+                            artifact = record.get("device_artifact") or {}
+                            _LOGGER.info(
+                                "Garmin structured device artifact decoded for %s: type=%s artifact=%s name=%s",
+                                sensor_id,
+                                downloaded.type_name or _catalog_item_type(item),
+                                record.get("artifact_type") or "unknown",
+                                str(artifact.get("name") or "")[:96] if isinstance(artifact, dict) else "",
                             )
                         elif record.get("kind") == "unsupported":
                             _LOGGER.debug(
@@ -1786,6 +2028,16 @@ class GarminLocalCoordinator:
                 )
             ):
                 error_code = "pairing_required"
+            active_host_contention = bool(
+                stage == "connection"
+                and self._endpoint_recent(endpoint)
+                and error_code != "pairing_required"
+                and any(token in text for token in (
+                    "busy", "in progress", "connection refused", "connection abort",
+                    "le-connection-abort", "not available", "failed to connect",
+                    "org.bluez.error.failed", "operation already",
+                ))
+            )
             # Garmin watches can keep their freshly-closed Multi-Link channel in
             # a short post-sync cooldown.  A partial batch has already proven the
             # bond, GFDI and FileSync path, so a transient connection/handshake or
@@ -1807,10 +2059,24 @@ class GarminLocalCoordinator:
                 and error_code != "pairing_required"
             )
             partial_retries = int(state.get("partial_retry_count") or 0)
-            if recent_partial and partial_retries < MAX_PARTIAL_BATCH_RETRIES:
+            if active_host_contention:
+                self._clear_pairing_issue(sensor_id)
+                # A phone owning the Garmin connection is normal during automatic
+                # background operation. Do not turn that transient contention into
+                # a persistent Repairs notification on every HA restart. Surface a
+                # guided Repair only when the user explicitly pressed Sync now; in
+                # the background keep the state as waiting and retry quietly.
+                if manual_request:
+                    self._report_connection_busy(sensor_id)
+                else:
+                    self._clear_connection_busy_issue(sensor_id)
+                delay = PHONE_HOST_RETRY_DELAY
+                retries = max(0, int(state.get("retry_count") or 0))
+            elif recent_partial and partial_retries < MAX_PARTIAL_BATCH_RETRIES:
                 partial_retry = True
                 partial_retries += 1
                 self._clear_pairing_issue(sensor_id)
+                self._clear_connection_busy_issue(sensor_id)
                 delay = PARTIAL_BATCH_RETRY_DELAY
                 retries = max(0, int(state.get("retry_count") or 0))
             elif error_code == "pairing_required":
@@ -1827,9 +2093,13 @@ class GarminLocalCoordinator:
             retry_at = datetime.now(timezone.utc) + timedelta(seconds=delay)
             state.update(
                 sync_state=(
-                    "cooldown"
-                    if partial_retry
-                    else ("error" if retries >= MAX_RETRIES else "retrying")
+                    "waiting"
+                    if active_host_contention
+                    else (
+                        "cooldown"
+                        if partial_retry
+                        else ("error" if retries >= MAX_RETRIES else "retrying")
+                    )
                 ),
                 # A transient post-batch handshake/catalog miss is a cooldown
                 # condition, not the outcome of the batch that already succeeded.

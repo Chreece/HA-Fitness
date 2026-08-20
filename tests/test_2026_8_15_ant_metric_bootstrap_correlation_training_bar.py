@@ -60,7 +60,7 @@ def test_training_recovery_can_reach_100_but_load_penalties_remain():
 
 
 def test_recovery_card_pairs_readiness_and_recovery_progress_as_matching_score_bars():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in FRONTEND
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
     assert 'class="recovery-score recovery-score-${kind} entity-link"' in FRONTEND
     assert 'class="recovery-score-stack"' in FRONTEND
     assert 'kind:"readiness"' in FRONTEND

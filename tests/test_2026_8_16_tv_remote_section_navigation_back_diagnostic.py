@@ -76,7 +76,7 @@ def test_history_fallback_also_leaves_the_current_section_directly():
 def test_one_physical_back_or_held_repeat_cannot_count_as_second_press():
     remote = _remote_block()
     back = remote[remote.index("  _handleCastRemoteBackPress("):remote.index("  _beginCastRemoteBack(")]
-    assert "FITNESS_TV_BACK_DISTINCT_PRESS_MS = 280" in FRONTEND
+    assert "FITNESS_TV_BACK_DISTINCT_PRESS_MS = 110" in FRONTEND
     assert "this._castRemoteBackLastEventAt" in back
     assert "< FITNESS_TV_BACK_DISTINCT_PRESS_MS" in back
     assert "this._castRemoteBackLastEventAt = now;" in back

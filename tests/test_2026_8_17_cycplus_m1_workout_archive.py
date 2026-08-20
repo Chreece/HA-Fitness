@@ -72,6 +72,7 @@ def test_discovery_requires_both_m1_name_and_vendor_service():
         "archive_adapter": "cycplus_m1",
         "smart_device_default_type": "bike_computer",
         "archive_compatible": True,
+        "archive_discovery_identity_required": "cycplus_gatt_identity_verified",
         "device_number": "98C6",
     }
     assert cycplus.cycplus_m1_name_identity("M1_98C6") == {

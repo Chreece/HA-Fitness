@@ -9,6 +9,7 @@ CYC=(ROOT/'custom_components/fitness/device_adapters/cycplus_m1.py').read_text()
 ARCH=(ROOT/'custom_components/fitness/device_archives.py').read_text()
 CONF=(ROOT/'custom_components/fitness/config_flow.py').read_text()
 ACCESS=(ROOT/'custom_components/fitness/access_control.py').read_text()
+ACCOUNTS=(ROOT/'custom_components/fitness/fitness_accounts.py').read_text()
 
 def test_workouts_card_uses_route_and_compact_sport_specific_summary():
     assert 'extra.gps_track||extra.gps_points' in JS
@@ -41,7 +42,8 @@ def test_tv_plugins_themes_and_remote_portal_are_real_surfaces():
         assert card in JS and card in TV
     for theme in ('fitness_performance','fitness_minimal','fitness_oled','fitness_glass','fitness_classic'):
         assert theme in CONF and theme in JS
-    assert '/fitness-tv/main' in ACCESS
+    assert '/fitness-auth/login' in ACCOUNTS
+    assert '/fitness-auth/app' in ACCOUNTS
     assert 'entries||s.attributes.items||s.attributes.feed||s.attributes.news' in JS
 
 def test_workout_export_only_appears_for_adapter_with_real_writer():

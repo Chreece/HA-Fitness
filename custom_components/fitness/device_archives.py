@@ -72,6 +72,35 @@ class DeviceArchiveRegistry:
             for matcher in adapter.bluetooth_matchers()
         )
 
+
+    def remote_gatt_services(self) -> tuple[str, ...]:
+        """Return adapter-declared services that a remote Web Bluetooth client may expose."""
+        return tuple(sorted({
+            str(service).lower()
+            for adapter in self._adapters.values()
+            for service in getattr(adapter, "remote_gatt_services", frozenset())
+            if str(service).strip()
+        }))
+
+    def match_remote_gatt(
+        self, name: str | None, service_uuids
+    ) -> ArchiveAdvertisement | None:
+        """Match an explicitly selected remote GATT device to an opted-in archive adapter."""
+        services = {str(value).lower() for value in (service_uuids or ())}
+        for adapter in self._adapters.values():
+            allowed = {str(value).lower() for value in getattr(adapter, "remote_gatt_services", frozenset())}
+            if not allowed or not (services & allowed):
+                continue
+            metadata = adapter.match_bluetooth(name, services, None)
+            if metadata is None:
+                continue
+            return ArchiveAdvertisement(
+                adapter_id=adapter.adapter_id,
+                metadata=metadata,
+                capabilities=adapter.advertisement_capabilities,
+            )
+        return None
+
     def match_bluetooth(
         self,
         name: str | None,
@@ -113,10 +142,29 @@ class DeviceArchiveRegistry:
         # that stop advertising while a phone owns the usable GATT connection:
         # once the phone releases them, Fitness gets one immediate opportunity to
         # retry instead of remaining trapped behind an old connection backoff.
-        returned = bool(became_available)
+        adapter = self._adapters.get(advertisement.adapter_id)
+        try:
+            return_min_gap = max(
+                0.0, float(getattr(adapter, "availability_return_min_gap", 0.0))
+            )
+        except (TypeError, ValueError):
+            return_min_gap = 0.0
+        try:
+            return_delay = max(
+                0.0, float(getattr(adapter, "availability_return_sync_delay", 3.0))
+            )
+        except (TypeError, ValueError):
+            return_delay = 3.0
+        gap = (now - previous) if previous is not None else None
+        returned = bool(
+            became_available
+            and (gap is None or gap >= return_min_gap)
+        )
         # Keep the old long-gap check only as a fallback for platforms where an
-        # endpoint-expiry tick did not run while HA was busy/asleep.
-        if previous is not None and now - previous >= 300.0:
+        # endpoint-expiry tick did not run while HA was busy/asleep.  Respect an
+        # adapter's minimum absence too so a transient radio blip cannot trigger
+        # an aggressive return-to-range sync.
+        if gap is not None and gap >= max(300.0, return_min_gap):
             returned = True
         if not returned or now < self._availability_retry_after:
             return
@@ -126,7 +174,7 @@ class DeviceArchiveRegistry:
         self._last_availability_retry[canonical] = now
         self.schedule_archive_sync(
             sensor_id=canonical,
-            delay=3.0,
+            delay=return_delay,
             force=True,
             reason="device_available_again",
         )
@@ -182,6 +230,29 @@ class DeviceArchiveRegistry:
     def coordinator_for_metadata(self, metadata: dict[str, Any] | None):
         adapter_id = str((metadata or {}).get("archive_adapter") or "")
         return self._coordinators.get(adapter_id)
+
+    def discovery_identity_probe_required(
+        self, metadata: dict[str, Any] | None
+    ) -> bool:
+        """Return whether an adapter requires stable connected identity before Add."""
+        required = str(
+            (metadata or {}).get("archive_discovery_identity_required") or ""
+        ).strip()
+        return bool(required and not (metadata or {}).get(required))
+
+    def canonicalize_connected_sensor(
+        self, sensor_id: str, metadata: dict[str, Any] | None
+    ) -> str:
+        """Let the owning adapter collapse exact connected-identity aliases."""
+        coordinator = self.coordinator_for_metadata(metadata)
+        canonicalize = (
+            getattr(coordinator, "canonicalize_connected_sensor", None)
+            if coordinator is not None
+            else None
+        )
+        if not callable(canonicalize):
+            return self.provider.runtime.resolve_sensor_id(sensor_id)
+        return self.provider.runtime.resolve_sensor_id(canonicalize(sensor_id))
 
     def generic_identity_probe_allowed(
         self, metadata: dict[str, Any] | None

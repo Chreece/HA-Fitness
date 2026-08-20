@@ -407,6 +407,7 @@ def async_register_remote_listener(
             gateway_id,
             adapters,
             control_protocol=int(data.get("control_protocol", 0) or 0),
+            remove_missing_immediately=bool(data.get("authoritative", False)),
         )
         capture_states = data.get("capture_states")
         if isinstance(capture_states, dict):

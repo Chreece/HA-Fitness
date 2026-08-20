@@ -33,7 +33,7 @@ def test_unaccepted_merge_skips_registry_reload_and_tombstone_wins():
     assert "requires_reassignment = (" in RUNTIME
     assert 'primary.metadata.pop("accepted", None)' in RUNTIME
     assert "secondary_had_accepted_device" in RUNTIME
-    assert "if secondary_had_accepted_device and not requires_reassignment:" in RUNTIME
+    assert "if not provisional_merge and not requires_reassignment:" in RUNTIME
     assert "self._schedule_merged_registry_cleanup(secondary.sensor_id, secondary_device_id)" in RUNTIME
 
 

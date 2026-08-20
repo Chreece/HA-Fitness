@@ -7,7 +7,7 @@ from homeassistant.components.bluetooth.match import BluetoothCallbackMatcher
 
 from ..base import BluetoothArchiveAdapterSpec
 from .coordinator import MiBand2Coordinator
-from .protocol import MIBAND2_SERVICE_UUID, miband2_identity
+from .protocol import MIBAND2_BASIC_SERVICE_UUID, MIBAND2_SERVICE_UUID, miband2_identity
 
 
 def _bluetooth_matchers() -> tuple[BluetoothCallbackMatcher, ...]:

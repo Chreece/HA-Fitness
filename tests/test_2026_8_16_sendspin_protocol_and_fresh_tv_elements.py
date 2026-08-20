@@ -15,8 +15,8 @@ def test_music_assistant_2913_uses_exact_sendspin_js_320_contract():
 
 
 def test_release_specific_tv_custom_elements_bypass_stale_ha_spa_definitions():
-    assert 'FITNESS_TV_DASHBOARD_CARD_TAG = "fitness-tv-dashboard-card-v76"' in FRONTEND
-    assert 'FITNESS_TV_SETUP_CARD_TAG = "fitness-tv-setup-card-v76"' in FRONTEND
+    assert 'FITNESS_TV_DASHBOARD_CARD_TAG = "fitness-tv-dashboard-card-v110"' in FRONTEND
+    assert 'FITNESS_TV_SETUP_CARD_TAG = "fitness-tv-setup-card-v110"' in FRONTEND
     assert 'FITNESS_TV_LOVELACE_DASHBOARD_CARD_TAG = "fitness-tv-dashboard-card"' in FRONTEND
     assert 'FITNESS_TV_LOVELACE_SETUP_CARD_TAG = "fitness-tv-setup-card"' in FRONTEND
     assert '_fitnessDefineCustomElement(tag, FitnessTvDashboardCard)' in FRONTEND
@@ -39,14 +39,14 @@ def test_managed_lovelace_views_use_fresh_release_specific_card_types():
 
 
 def test_admin_account_profile_selector_is_in_fresh_setup_class_source():
-    assert 'class="access-profile-field ${role === "none" ? "hidden" : ""}"' in FRONTEND
-    assert '<select data-access-profile>' in FRONTEND
-    assert 'profileField?.classList.toggle("hidden", withoutProfile)' in FRONTEND
-    assert 'if (profile) profile.disabled = withoutProfile' in FRONTEND
-
+    assert 'class="access-profile-field"' in FRONTEND
+    assert 'data-account-profile' in FRONTEND
+    assert 'admin_profile_optional' in FRONTEND
+    assert 'profile_entry_id:String(profile?.value || "") || null' in FRONTEND
+    assert 'data-profile-assign' not in FRONTEND
 
 def test_revision_71_is_unique_and_uncached():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in FRONTEND
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
     assert '_RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"' in DASHBOARD
     assert '"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"' in DASHBOARD
 
@@ -62,7 +62,7 @@ def test_versioned_tv_elements_are_actually_registered():
 
 def test_frontend_route_stays_stable_while_version_query_changes():
     assert '_RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"' in DASHBOARD
-    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-89"' in DASHBOARD
+    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-110"' in DASHBOARD
     assert 'FitnessDashboardResourceView(frontend_path / "fitness-dashboard.js")' in DASHBOARD
     assert 'await asyncio.to_thread(self._frontend_file.read_bytes)' in DASHBOARD
 

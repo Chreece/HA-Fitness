@@ -36,7 +36,8 @@ def test_cards_include_rpe_and_beta2_metrics():
     assert 'class FitnessWorkoutRpeCard' in J
     assert 'fitness-workout-rpe-card' in J
     assert 'data-rpe=' in J
-    assert 'callService("number", "set_value"' in J
+    assert 'type:"fitness/workouts/rpe"' in J
+    assert 'workout_id:latest.uid' in J
     live=J[J.index("class FitnessLiveWorkoutCard"):J.index("class FitnessWorkoutRpeCard")]
     assert 'session_rpe' not in live
     assert 'last_workout_session_rpe_load' in J

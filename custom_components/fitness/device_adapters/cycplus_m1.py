@@ -99,6 +99,8 @@ ERROR_CODE_BY_STAGE = {
     "import": "import_failed",
 }
 
+CYCPLUS_CONNECT_TIMEOUT = 35.0
+
 
 def cycplus_m1_name_identity(name: str | None) -> dict[str, str] | None:
     """Return the route identity encoded in an M1 Bluetooth local name.
@@ -190,6 +192,15 @@ def cycplus_m1_identity(
         "cycplus_protocol": "m1_ble_fit_archive_v1",
         **name_identity,
     }
+    # Every local M1 discovery must wait for a verified Device Information
+    # serial, even when the advertised name already contains the short per-unit
+    # suffix.  A single physical M1 can leave multiple local BLE address routes
+    # visible in HA's cache while rotating addresses. Runtime intentionally does
+    # not merge two direct local-BLE routes from a short vendor token alone, so
+    # allowing the suffixed name to unlock Discovery can expose two Add cards for
+    # one bike computer. The adapter's bounded GATT probe supplies the full serial;
+    # exact-serial canonicalization then collapses those routes before Discovery.
+    result["archive_discovery_identity_required"] = "cycplus_gatt_identity_verified"
     if name_identity.get("cycplus_device_number"):
         result["device_number"] = name_identity["cycplus_device_number"]
     return result
@@ -371,6 +382,23 @@ def _number(value: Any) -> float | None:
     return result if math.isfinite(result) else None
 
 
+def _first_number(values: dict[str, Any], *keys: str) -> float | None:
+    """Return the first usable numeric value across FIT aliases.
+
+    fitdecode can expose duplicate FIT fields as a small list.  A list-valued
+    enhanced field must not mask the scalar legacy alias that follows it (the
+    M1 currently does this for enhanced_avg_speed/enhanced_max_speed).
+    """
+    for key in keys:
+        value = values.get(key)
+        candidates = value if isinstance(value, (list, tuple)) else (value,)
+        for candidate in candidates:
+            number = _number(candidate)
+            if number is not None:
+                return number
+    return None
+
+
 def _iso(value: Any) -> str | None:
     parsed = _dt(value)
     return parsed.isoformat() if parsed is not None else None
@@ -547,6 +575,7 @@ def workouts_from_fit_messages(
     if len(sessions) > MAX_FIT_SESSIONS:
         raise ValueError("FIT file exceeds the safe session limit")
     records = [values for name, values in messages if name == "record"]
+    laps = [values for name, values in messages if name == "lap"]
     file_ids = [values for name, values in messages if name == "file_id"]
     timed_records = sorted(
         (
@@ -582,8 +611,11 @@ def workouts_from_fit_messages(
                 except ValueError:
                     pass
         end = _iso(_value(session, "timestamp", "end_time"))
-        duration = _number(_value(session, "total_timer_time", "total_elapsed_time"))
-        elapsed = _number(_value(session, "total_elapsed_time"))
+        duration = _first_number(session, "total_timer_time", "total_elapsed_time")
+        moving = _first_number(
+            session, "total_moving_time", "total_timer_time", "total_elapsed_time"
+        )
+        elapsed = _first_number(session, "total_elapsed_time")
         if end is None and start is not None and duration is not None:
             end = (_dt(start) + timedelta(seconds=duration)).isoformat()
 
@@ -606,8 +638,8 @@ def workouts_from_fit_messages(
         start_latitude = _degrees(first_position.get("position_lat"))
         start_longitude = _degrees(first_position.get("position_long"))
 
-        average_speed = _number(_value(session, "enhanced_avg_speed", "avg_speed"))
-        maximum_speed = _number(_value(session, "enhanced_max_speed", "max_speed"))
+        average_speed = _first_number(session, "enhanced_avg_speed", "avg_speed")
+        maximum_speed = _first_number(session, "enhanced_max_speed", "max_speed")
         if average_speed is None:
             average_speed = _mean(
                 _value(item, "enhanced_speed", "speed") for item in relevant
@@ -630,35 +662,35 @@ def workouts_from_fit_messages(
             start=start,
             end=end,
             duration_s=duration,
-            moving_time_s=duration,
+            moving_time_s=moving,
             elapsed_time_s=elapsed,
-            distance_m=_number(_value(session, "total_distance")),
-            avg_hr=_number(_value(session, "avg_heart_rate"))
+            distance_m=_first_number(session, "total_distance"),
+            avg_hr=_first_number(session, "avg_heart_rate")
             or _mean(item.get("heart_rate") for item in relevant),
-            max_hr=_number(_value(session, "max_heart_rate"))
+            max_hr=_first_number(session, "max_heart_rate")
             or _maximum(item.get("heart_rate") for item in relevant),
-            avg_power=_number(_value(session, "avg_power"))
+            avg_power=_first_number(session, "avg_power")
             or _mean(item.get("power") for item in relevant),
-            max_power=_number(_value(session, "max_power"))
+            max_power=_first_number(session, "max_power")
             or _maximum(item.get("power") for item in relevant),
-            weighted_power=_number(
-                _value(session, "normalized_power", "weighted_average_power")
+            weighted_power=_first_number(
+                session, "normalized_power", "weighted_average_power"
             ),
-            avg_cadence=_number(_value(session, "avg_cadence"))
+            avg_cadence=_first_number(session, "avg_cadence")
             or _mean(item.get("cadence") for item in relevant),
-            max_cadence=_number(_value(session, "max_cadence"))
+            max_cadence=_first_number(session, "max_cadence")
             or _maximum(item.get("cadence") for item in relevant),
-            elevation_gain_m=_number(_value(session, "total_ascent")),
-            elevation_loss_m=_number(_value(session, "total_descent")),
-            calories=_number(_value(session, "total_calories")),
-            aerobic_training_effect=_number(
-                _value(session, "total_training_effect", "aerobic_training_effect")
+            elevation_gain_m=_first_number(session, "total_ascent"),
+            elevation_loss_m=_first_number(session, "total_descent"),
+            calories=_first_number(session, "total_calories"),
+            aerobic_training_effect=_first_number(
+                session, "total_training_effect", "aerobic_training_effect"
             ),
-            anaerobic_training_effect=_number(
-                _value(session, "total_anaerobic_training_effect", "anaerobic_training_effect")
+            anaerobic_training_effect=_first_number(
+                session, "total_anaerobic_training_effect", "anaerobic_training_effect"
             ),
-            training_load=_number(
-                _value(session, "training_stress_score", "training_load")
+            training_load=_first_number(
+                session, "training_stress_score", "training_load"
             ),
             average_speed_m_s=average_speed,
             max_speed_m_s=maximum_speed,
@@ -949,6 +981,228 @@ class CycplusM1Protocol:
         raise RuntimeError("; ".join(errors) or "workout catalogue unavailable")
 
 
+def _number_from_value(value: Any) -> float | None:
+    """Read one scalar from a FIT value that may have duplicate-field values."""
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            number = _number(item)
+            if number is not None:
+                return number
+        return None
+    return _number(value)
+
+
+def _mapping_number(values: dict[str, Any], *keys: str) -> float | None:
+    for key in keys:
+        if key not in values:
+            continue
+        number = _number_from_value(values.get(key))
+        if number is not None:
+            return number
+    return None
+
+
+def _stored_workout_provider(workout: dict[str, Any]) -> dict[str, Any]:
+    provider_values = workout.get("provider_values")
+    if isinstance(provider_values, dict):
+        values = provider_values.get("cycplus_m1")
+        if isinstance(values, dict):
+            return values
+    extra = workout.get("extra")
+    if isinstance(extra, dict):
+        values = extra.get("fit_session")
+        if isinstance(values, dict):
+            return values
+    return {}
+
+
+def _stored_workout_number(
+    workout: dict[str, Any], field: str, *provider_keys: str
+) -> float | None:
+    number = _number_from_value(workout.get(field))
+    if number is not None:
+        return number
+    return _mapping_number(_stored_workout_provider(workout), *provider_keys)
+
+
+def _rounded(value: float | None, digits: int = 2) -> float | int | None:
+    if value is None:
+        return None
+    rounded = round(float(value), digits)
+    return int(rounded) if rounded.is_integer() else rounded
+
+
+def _cycplus_workout_metrics(
+    state: dict[str, Any], *, now: datetime | None = None
+) -> dict[str, Any]:
+    """Build truthful physical-device workout sensors from the cached FIT archive.
+
+    The archive cache is the device-scoped source of truth.  Metrics absent from
+    the latest ride are intentionally omitted, so a bike computer that recorded
+    no HR/cadence/power does not manufacture permanently unavailable entities.
+    Rolling totals use the retained M1 FIT sessions and therefore remain separate
+    from profile-level merged history (Strava/Garmin/etc.).
+    """
+    files = state.get("files")
+    if not isinstance(files, dict):
+        return {}
+
+    workouts: list[tuple[datetime, dict[str, Any]]] = []
+    for record in files.values():
+        if not isinstance(record, dict):
+            continue
+        items = record.get("workouts")
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            started = _dt(item.get("start"))
+            if started is None:
+                continue
+            workouts.append((started, item))
+    if not workouts:
+        return {}
+
+    workouts.sort(key=lambda item: item[0])
+    _latest_start, latest = workouts[-1]
+    provider = _stored_workout_provider(latest)
+
+    duration_s = _stored_workout_number(latest, "duration_s", "total_timer_time")
+    moving_s = _stored_workout_number(
+        latest, "moving_time_s", "total_moving_time", "total_timer_time"
+    )
+    elapsed_s = _stored_workout_number(latest, "elapsed_time_s", "total_elapsed_time")
+    distance_m = _stored_workout_number(latest, "distance_m", "total_distance")
+    avg_speed = _stored_workout_number(
+        latest, "average_speed_m_s", "enhanced_avg_speed", "avg_speed"
+    )
+    max_speed = _stored_workout_number(
+        latest, "max_speed_m_s", "enhanced_max_speed", "max_speed"
+    )
+    kilojoules = _number_from_value(latest.get("kilojoules"))
+    if kilojoules is None:
+        total_work_j = _mapping_number(provider, "total_work")
+        if total_work_j is not None:
+            kilojoules = total_work_j / 1000.0
+
+    values: dict[str, Any] = {
+        "cycplus_workout_duration": _rounded(duration_s / 60.0 if duration_s is not None else None),
+        "cycplus_workout_moving_time": _rounded(moving_s / 60.0 if moving_s is not None else None),
+        "cycplus_workout_elapsed_time": _rounded(elapsed_s / 60.0 if elapsed_s is not None else None),
+        "cycplus_workout_distance": _rounded(distance_m / 1000.0 if distance_m is not None else None, 3),
+        "cycplus_workout_average_speed": _rounded(avg_speed * 3.6 if avg_speed is not None else None),
+        "cycplus_workout_max_speed": _rounded(max_speed * 3.6 if max_speed is not None else None),
+        "cycplus_workout_avg_hr": _rounded(_stored_workout_number(latest, "avg_hr", "avg_heart_rate"), 1),
+        "cycplus_workout_max_hr": _rounded(_stored_workout_number(latest, "max_hr", "max_heart_rate"), 1),
+        "cycplus_workout_avg_power": _rounded(_stored_workout_number(latest, "avg_power", "avg_power"), 1),
+        "cycplus_workout_max_power": _rounded(_stored_workout_number(latest, "max_power", "max_power"), 1),
+        "cycplus_workout_weighted_power": _rounded(
+            _stored_workout_number(
+                latest, "weighted_power", "normalized_power", "weighted_average_power"
+            ),
+            1,
+        ),
+        "cycplus_workout_avg_cadence": _rounded(_stored_workout_number(latest, "avg_cadence", "avg_cadence"), 1),
+        "cycplus_workout_max_cadence": _rounded(_stored_workout_number(latest, "max_cadence", "max_cadence"), 1),
+        "cycplus_workout_elevation_gain": _rounded(
+            _stored_workout_number(latest, "elevation_gain_m", "total_ascent"), 1
+        ),
+        "cycplus_workout_elevation_loss": _rounded(
+            _stored_workout_number(latest, "elevation_loss_m", "total_descent"), 1
+        ),
+        "cycplus_workout_calories": _rounded(
+            _stored_workout_number(latest, "calories", "total_calories"), 1
+        ),
+        "cycplus_workout_training_load": _rounded(
+            _stored_workout_number(latest, "training_load", "training_stress_score", "training_load"),
+            2,
+        ),
+        "cycplus_workout_aerobic_effect": _rounded(
+            _stored_workout_number(
+                latest, "aerobic_training_effect", "total_training_effect", "aerobic_training_effect"
+            ),
+            2,
+        ),
+        "cycplus_workout_anaerobic_effect": _rounded(
+            _stored_workout_number(
+                latest,
+                "anaerobic_training_effect",
+                "total_anaerobic_training_effect",
+                "anaerobic_training_effect",
+            ),
+            2,
+        ),
+        "cycplus_workout_kilojoules": _rounded(kilojoules, 1),
+        "cycplus_workout_avg_altitude": _rounded(
+            _mapping_number(provider, "avg_altitude", "enhanced_avg_altitude"), 1
+        ),
+        "cycplus_workout_max_altitude": _rounded(
+            _mapping_number(provider, "max_altitude", "enhanced_max_altitude"), 1
+        ),
+        "cycplus_workout_min_altitude": _rounded(
+            _mapping_number(provider, "min_altitude", "enhanced_min_altitude"), 1
+        ),
+        "cycplus_workout_avg_temperature": _rounded(
+            _mapping_number(provider, "avg_temperature"), 1
+        ),
+        "cycplus_workout_max_temperature": _rounded(
+            _mapping_number(provider, "max_temperature"), 1
+        ),
+        "cycplus_workout_avg_positive_grade": _rounded(
+            _mapping_number(provider, "avg_pos_grade"), 2
+        ),
+        "cycplus_workout_max_positive_grade": _rounded(
+            _mapping_number(provider, "max_pos_grade"), 2
+        ),
+        "cycplus_workout_avg_negative_grade": _rounded(
+            _mapping_number(provider, "avg_neg_grade"), 2
+        ),
+        "cycplus_workout_max_negative_grade": _rounded(
+            _mapping_number(provider, "max_neg_grade"), 2
+        ),
+        "cycplus_history_workout_count": len(workouts),
+    }
+
+    reference = now or datetime.now(timezone.utc)
+    if reference.tzinfo is None:
+        reference = reference.replace(tzinfo=timezone.utc)
+
+    def _aggregate(cutoff: datetime | None = None) -> tuple[float, float, float]:
+        total_distance = 0.0
+        total_moving = 0.0
+        total_ascent = 0.0
+        for started, workout in workouts:
+            if cutoff is not None and started < cutoff:
+                continue
+            distance = _stored_workout_number(workout, "distance_m", "total_distance")
+            moving = _stored_workout_number(
+                workout, "moving_time_s", "total_moving_time", "total_timer_time"
+            )
+            ascent = _stored_workout_number(workout, "elevation_gain_m", "total_ascent")
+            if distance is not None:
+                total_distance += distance
+            if moving is not None:
+                total_moving += moving
+            if ascent is not None:
+                total_ascent += ascent
+        return total_distance, total_moving, total_ascent
+
+    total_distance, total_moving, total_ascent = _aggregate()
+    distance_7d, moving_7d, _ = _aggregate(reference - timedelta(days=7))
+    distance_30d, moving_30d, _ = _aggregate(reference - timedelta(days=30))
+    values.update({
+        "cycplus_history_total_distance": _rounded(total_distance / 1000.0, 2),
+        "cycplus_history_total_moving_time": _rounded(total_moving / 3600.0, 2),
+        "cycplus_history_total_ascent": _rounded(total_ascent, 1),
+        "cycplus_history_7d_distance": _rounded(distance_7d / 1000.0, 2),
+        "cycplus_history_7d_moving_time": _rounded(moving_7d / 3600.0, 2),
+        "cycplus_history_30d_distance": _rounded(distance_30d / 1000.0, 2),
+        "cycplus_history_30d_moving_time": _rounded(moving_30d / 3600.0, 2),
+    })
+    return {key: value for key, value in values.items() if value is not None}
+
+
 _DETAIL_META: dict[str, dict[str, Any]] = {
     "cycplus_device_number": {"icon": "mdi:identifier", "enabled_default": True},
     "cycplus_sync_state": {
@@ -1013,6 +1267,183 @@ for _key, _meta in _DETAIL_META.items():
         entity_category="diagnostic",
     )
 
+# The newest workout is user fitness information, not protocol diagnostics.
+_DETAIL_META["cycplus_latest_workout"].pop("entity_category", None)
+
+_WORKOUT_META: dict[str, dict[str, Any]] = {
+    "cycplus_workout_duration": {
+        "translation_key": "last_workout_duration", "icon": "mdi:timer-outline",
+        "unit": "min", "device_class": "duration", "state_class": "measurement",
+        "enabled_default": True,
+    },
+    "cycplus_workout_moving_time": {
+        "translation_key": "last_workout_moving_time", "icon": "mdi:timer-play-outline",
+        "unit": "min", "device_class": "duration", "state_class": "measurement",
+        "enabled_default": True,
+    },
+    "cycplus_workout_elapsed_time": {
+        "translation_key": "last_workout_elapsed_time", "icon": "mdi:timer-sand",
+        "unit": "min", "device_class": "duration", "state_class": "measurement",
+        "enabled_default": True,
+    },
+    "cycplus_workout_distance": {
+        "translation_key": "last_workout_distance", "icon": "mdi:map-marker-distance",
+        "unit": "km", "device_class": "distance", "state_class": "measurement",
+        "enabled_default": True,
+    },
+    "cycplus_workout_average_speed": {
+        "translation_key": "last_workout_average_speed", "icon": "mdi:speedometer",
+        "unit": "km/h", "device_class": "speed", "state_class": "measurement",
+        "enabled_default": True,
+    },
+    "cycplus_workout_max_speed": {
+        "translation_key": "last_workout_max_speed", "icon": "mdi:speedometer",
+        "unit": "km/h", "device_class": "speed", "state_class": "measurement",
+        "enabled_default": True,
+    },
+    "cycplus_workout_avg_hr": {
+        "translation_key": "last_workout_avg_hr", "icon": "mdi:heart-pulse",
+        "unit": "bpm", "state_class": "measurement", "enabled_default": True,
+    },
+    "cycplus_workout_max_hr": {
+        "translation_key": "last_workout_max_hr", "icon": "mdi:heart-pulse",
+        "unit": "bpm", "state_class": "measurement", "enabled_default": True,
+    },
+    "cycplus_workout_avg_power": {
+        "translation_key": "last_workout_avg_power", "icon": "mdi:flash",
+        "unit": "W", "device_class": "power", "state_class": "measurement",
+        "enabled_default": True,
+    },
+    "cycplus_workout_max_power": {
+        "translation_key": "last_workout_max_power", "icon": "mdi:flash",
+        "unit": "W", "device_class": "power", "state_class": "measurement",
+        "enabled_default": True,
+    },
+    "cycplus_workout_weighted_power": {
+        "translation_key": "last_workout_weighted_power", "icon": "mdi:flash-outline",
+        "unit": "W", "device_class": "power", "state_class": "measurement",
+        "enabled_default": True,
+    },
+    "cycplus_workout_avg_cadence": {
+        "translation_key": "last_workout_avg_cadence", "icon": "mdi:rotate-right",
+        "unit": "1/min", "state_class": "measurement", "enabled_default": True,
+    },
+    "cycplus_workout_max_cadence": {
+        "translation_key": "last_workout_max_cadence", "icon": "mdi:rotate-right",
+        "unit": "1/min", "state_class": "measurement", "enabled_default": True,
+    },
+    "cycplus_workout_elevation_gain": {
+        "translation_key": "last_workout_elevation_gain", "icon": "mdi:elevation-rise",
+        "unit": "m", "device_class": "distance", "state_class": "measurement",
+        "enabled_default": True,
+    },
+    "cycplus_workout_elevation_loss": {
+        "translation_key": "last_workout_elevation_loss", "icon": "mdi:elevation-decline",
+        "unit": "m", "device_class": "distance", "state_class": "measurement",
+        "enabled_default": True,
+    },
+    "cycplus_workout_calories": {
+        "translation_key": "last_workout_calories", "icon": "mdi:fire",
+        "unit": "kcal", "state_class": "measurement", "enabled_default": True,
+    },
+    "cycplus_workout_training_load": {
+        "translation_key": "last_workout_training_load", "icon": "mdi:chart-bell-curve-cumulative",
+        "state_class": "measurement", "enabled_default": True,
+    },
+    "cycplus_workout_aerobic_effect": {
+        "translation_key": "last_workout_aerobic_effect", "icon": "mdi:lungs",
+        "state_class": "measurement", "enabled_default": True,
+    },
+    "cycplus_workout_anaerobic_effect": {
+        "translation_key": "last_workout_anaerobic_effect", "icon": "mdi:run-fast",
+        "state_class": "measurement", "enabled_default": True,
+    },
+    "cycplus_workout_kilojoules": {
+        "translation_key": "last_workout_kilojoules", "icon": "mdi:lightning-bolt",
+        "unit": "kJ", "state_class": "measurement", "enabled_default": True,
+    },
+    "cycplus_workout_avg_altitude": {
+        "translation_key": "cycplus_workout_avg_altitude", "icon": "mdi:image-filter-hdr",
+        "unit": "m", "device_class": "distance", "state_class": "measurement",
+        "enabled_default": True,
+    },
+    "cycplus_workout_max_altitude": {
+        "translation_key": "cycplus_workout_max_altitude", "icon": "mdi:image-filter-hdr",
+        "unit": "m", "device_class": "distance", "state_class": "measurement",
+        "enabled_default": True,
+    },
+    "cycplus_workout_min_altitude": {
+        "translation_key": "cycplus_workout_min_altitude", "icon": "mdi:image-filter-hdr",
+        "unit": "m", "device_class": "distance", "state_class": "measurement",
+        "enabled_default": False,
+    },
+    "cycplus_workout_avg_temperature": {
+        "translation_key": "cycplus_workout_avg_temperature", "icon": "mdi:thermometer",
+        "unit": "°C", "device_class": "temperature", "state_class": "measurement",
+        "enabled_default": True,
+    },
+    "cycplus_workout_max_temperature": {
+        "translation_key": "cycplus_workout_max_temperature", "icon": "mdi:thermometer-high",
+        "unit": "°C", "device_class": "temperature", "state_class": "measurement",
+        "enabled_default": False,
+    },
+    "cycplus_workout_avg_positive_grade": {
+        "translation_key": "cycplus_workout_avg_positive_grade", "icon": "mdi:slope-uphill",
+        "unit": "%", "state_class": "measurement", "enabled_default": False,
+    },
+    "cycplus_workout_max_positive_grade": {
+        "translation_key": "cycplus_workout_max_positive_grade", "icon": "mdi:slope-uphill",
+        "unit": "%", "state_class": "measurement", "enabled_default": False,
+    },
+    "cycplus_workout_avg_negative_grade": {
+        "translation_key": "cycplus_workout_avg_negative_grade", "icon": "mdi:slope-downhill",
+        "unit": "%", "state_class": "measurement", "enabled_default": False,
+    },
+    "cycplus_workout_max_negative_grade": {
+        "translation_key": "cycplus_workout_max_negative_grade", "icon": "mdi:slope-downhill",
+        "unit": "%", "state_class": "measurement", "enabled_default": False,
+    },
+    "cycplus_history_workout_count": {
+        "translation_key": "cycplus_history_workout_count", "icon": "mdi:bike-fast",
+        "state_class": "measurement", "enabled_default": True,
+    },
+    "cycplus_history_total_distance": {
+        "translation_key": "cycplus_history_total_distance", "icon": "mdi:map-marker-distance",
+        "unit": "km", "device_class": "distance", "state_class": "measurement",
+        "enabled_default": True,
+    },
+    "cycplus_history_total_moving_time": {
+        "translation_key": "cycplus_history_total_moving_time", "icon": "mdi:timer-outline",
+        "unit": "h", "device_class": "duration", "state_class": "measurement",
+        "enabled_default": True,
+    },
+    "cycplus_history_total_ascent": {
+        "translation_key": "cycplus_history_total_ascent", "icon": "mdi:elevation-rise",
+        "unit": "m", "device_class": "distance", "state_class": "measurement",
+        "enabled_default": True,
+    },
+    "cycplus_history_7d_distance": {
+        "translation_key": "cycplus_history_7d_distance", "icon": "mdi:calendar-week",
+        "unit": "km", "device_class": "distance", "state_class": "measurement",
+        "enabled_default": True,
+    },
+    "cycplus_history_7d_moving_time": {
+        "translation_key": "cycplus_history_7d_moving_time", "icon": "mdi:calendar-week",
+        "unit": "h", "device_class": "duration", "state_class": "measurement",
+        "enabled_default": True,
+    },
+    "cycplus_history_30d_distance": {
+        "translation_key": "cycplus_history_30d_distance", "icon": "mdi:calendar-month",
+        "unit": "km", "device_class": "distance", "state_class": "measurement",
+        "enabled_default": True,
+    },
+    "cycplus_history_30d_moving_time": {
+        "translation_key": "cycplus_history_30d_moving_time", "icon": "mdi:calendar-month",
+        "unit": "h", "device_class": "duration", "state_class": "measurement",
+        "enabled_default": True,
+    },
+}
+
 
 class CycplusM1Coordinator:
     """Own automatic, profile-aware and restart-safe M1 synchronization."""
@@ -1038,6 +1469,7 @@ class CycplusM1Coordinator:
         self._initialized = False
         self._stopping = False
         self._progress_publish: dict[str, tuple[int, float]] = {}
+        self._published_workout_metrics: dict[str, dict[str, Any]] = {}
         self._save_lock = asyncio.Lock()
         # One archive connection/decode at a time prevents several accepted M1s
         # from saturating Bluetooth, the executor and profile persistence after
@@ -1065,7 +1497,8 @@ class CycplusM1Coordinator:
                 "device_workout_count", "pending_file_count", "pending_file",
                 "downloaded_bytes", "retry_count", "disk_free_kb",
                 "disk_total_kb", "last_error_code", "latest_workout",
-                "catalog_filename", "device_attributes",
+                "catalog_filename", "device_attributes", "workout_metrics",
+                "workout_metrics_date",
             }
             for raw_sensor_id, raw_state in islice(
                 devices.items(), MAX_STORED_DEVICES
@@ -1141,6 +1574,10 @@ class CycplusM1Coordinator:
         # Rewrite a bounded snapshot even when the old compaction marker exists;
         # this removes oversized/corrupt legacy state before normal scheduling.
         self._state["workout_compaction_version"] = 1
+        for state in self._state.get("devices", {}).values():
+            if isinstance(state, dict):
+                state["workout_metrics"] = _cycplus_workout_metrics(state)
+                state["workout_metrics_date"] = datetime.now(timezone.utc).date().isoformat()
         await self._save()
 
     def _migrate_persisted_m1_route_identities(self) -> None:
@@ -1211,6 +1648,10 @@ class CycplusM1Coordinator:
             )
             self._migrate_sensor_state(restored.sensor_id, merged.sensor_id)
 
+        # Repair duplicate M1 installs created by older rotating-address discovery
+        # before Home Assistant materializes/restores their registry surfaces.
+        self._repair_persisted_duplicate_m1s()
+
         # This migration runs on the provider's control-plane setup task, after
         # the hub restored its HA device links. Materialize the canonical side
         # immediately and remove every now-resolvable discarded alias instead of
@@ -1233,6 +1674,199 @@ class CycplusM1Coordinator:
             ):
                 self.runtime.ensure_sensor_device(sensor.sensor_id)
         self.runtime._cleanup_persisted_sensor_alias_devices()
+
+    @staticmethod
+    def _sensor_gatt_serial(sensor) -> str | None:
+        """Return a verified full M1 Device Information serial for one route."""
+        values = [
+            getattr(sensor, "metadata", {}).get("serial_number"),
+            *(
+                endpoint.metadata.get("serial_number")
+                for endpoint in getattr(sensor, "endpoints", {}).values()
+            ),
+        ]
+        for value in values:
+            serial = str(value or "").strip().upper()
+            if cycplus_m1_serial_identity(serial) is not None:
+                return serial
+        return None
+
+    @staticmethod
+    def _sensor_m1_physical_identity(sensor) -> str | None:
+        """Return the exact M1 route identity already attached to a sensor."""
+        values = [
+            getattr(sensor, "metadata", {}).get("fitness_physical_identity"),
+            *(
+                endpoint.metadata.get("fitness_physical_identity")
+                for endpoint in getattr(sensor, "endpoints", {}).values()
+            ),
+        ]
+        identities = {
+            str(value).strip().lower()
+            for value in values
+            if str(value or "").strip().lower().startswith("cycplus:m1:")
+        }
+        return next(iter(identities)) if len(identities) == 1 else None
+
+    @staticmethod
+    def _is_m1_sensor(sensor) -> bool:
+        endpoint = getattr(sensor, "endpoints", {}).get("bluetooth")
+        metadata = endpoint.metadata if endpoint is not None else {}
+        return bool(
+            str(metadata.get("archive_adapter") or "") == "cycplus_m1"
+            or str(getattr(sensor, "metadata", {}).get("archive_adapter") or "")
+            == "cycplus_m1"
+        )
+
+    def _state_for_existing_sensor(self, sensor_id: str) -> dict[str, Any] | None:
+        state = self._state.get("devices", {}).get(str(sensor_id))
+        return state if isinstance(state, dict) else None
+
+    def _legacy_archive_duplicate(self, a_id: str, b_id: str) -> bool:
+        """Use M1-owned archive evidence to recognize old duplicate installs.
+
+        Older builds could install one rotating-address M1 more than once before
+        the GATT serial was known.  Equal model names are deliberately *not*
+        enough to merge.  A shared device number plus at least one identical FIT
+        filename is adapter-owned evidence that both records came from the same
+        physical archive.
+        """
+        a = self._state_for_existing_sensor(a_id)
+        b = self._state_for_existing_sensor(b_id)
+        if not a or not b:
+            return False
+        a_attrs = a.get("device_attributes") if isinstance(a.get("device_attributes"), dict) else {}
+        b_attrs = b.get("device_attributes") if isinstance(b.get("device_attributes"), dict) else {}
+        a_number = str(a_attrs.get("device_number") or "").strip().upper()
+        b_number = str(b_attrs.get("device_number") or "").strip().upper()
+        if (
+            not a_number
+            or a_number != b_number
+            or re.fullmatch(r"[0-9A-F]{4,16}", a_number) is None
+        ):
+            return False
+        a_files = set((a.get("files") or {}).keys()) if isinstance(a.get("files"), dict) else set()
+        b_files = set((b.get("files") or {}).keys()) if isinstance(b.get("files"), dict) else set()
+        return bool(a_files & b_files)
+
+    def canonicalize_connected_sensor(self, sensor_id: str) -> str:
+        """Collapse rotating-address M1 aliases after one verified GATT identity.
+
+        The generic runtime intentionally refuses to merge two local BLE devices
+        from a short vendor number alone.  M1 can do better: once one route has a
+        verified full GATT serial, exact-serial duplicates are indisputably the
+        same unit.  Legacy accepted routes carrying only the matching M1 physical
+        token are also absorbed when they are currently unavailable, which is the
+        characteristic rotating-address restart case rather than two concurrently
+        observed bike computers.
+        """
+        sensor_id = self.runtime.resolve_sensor_id(sensor_id)
+        current = self.runtime.sensors.get(sensor_id)
+        if current is None or not self._is_m1_sensor(current):
+            return sensor_id
+        serial = self._sensor_gatt_serial(current)
+        if serial is None:
+            return sensor_id
+        # Full Device Information serial is already the strongest M1 identity we
+        # have.  Older accepted records may predate fitness_physical_identity even
+        # though they persisted the same verified GATT serial.  Derive the route
+        # token from that serial instead of refusing to repair those legacy rows.
+        serial_identity = cycplus_m1_serial_identity(serial) or {}
+        physical = (
+            self._sensor_m1_physical_identity(current)
+            or str(serial_identity.get("fitness_physical_identity") or "").lower()
+            or None
+        )
+        if physical:
+            current.metadata.setdefault("fitness_physical_identity", physical)
+            current.metadata.setdefault(
+                "cycplus_device_number", serial_identity.get("cycplus_device_number")
+            )
+        # Keep the endpoint from the connection that just proved the identity.
+        # Generic same-transport merging intentionally prefers an existing local
+        # endpoint, but an M1 rotating its address needs the opposite: the newly
+        # connected route is the only address we know is usable right now.
+        connected_endpoint = current.endpoints.get("bluetooth")
+
+        candidates = []
+        for candidate in tuple(self.runtime.sensors.values()):
+            candidate_id = self.runtime.resolve_sensor_id(candidate.sensor_id)
+            if candidate_id == sensor_id or candidate_id not in self.runtime.sensors:
+                continue
+            candidate = self.runtime.sensors[candidate_id]
+            if not self._is_m1_sensor(candidate):
+                continue
+            candidate_serial = self._sensor_gatt_serial(candidate)
+            candidate_physical = self._sensor_m1_physical_identity(candidate)
+            exact_serial = bool(candidate_serial and candidate_serial == serial)
+            stale_same_route = bool(
+                candidate_serial is None
+                and physical is not None
+                and candidate_physical == physical
+                and not candidate.available
+            )
+            if exact_serial or stale_same_route:
+                # Backfill the stable route token on exact-serial legacy records so
+                # registry materialization after the merge is canonical too.
+                if exact_serial and physical:
+                    candidate.metadata.setdefault("fitness_physical_identity", physical)
+                    candidate.metadata.setdefault(
+                        "cycplus_device_number",
+                        serial_identity.get("cycplus_device_number"),
+                    )
+                candidates.append(candidate)
+
+        canonical = current
+        for duplicate in candidates:
+            if duplicate.sensor_id not in self.runtime.sensors:
+                continue
+            left_id = canonical.sensor_id
+            right_id = duplicate.sensor_id
+            canonical = self.runtime._merge_physical_sensors(canonical, duplicate)
+            for old_id in {left_id, right_id}:
+                if old_id != canonical.sensor_id:
+                    self._migrate_sensor_state(old_id, canonical.sensor_id)
+        if candidates:
+            if connected_endpoint is not None:
+                canonical.endpoints["bluetooth"] = connected_endpoint
+                self.runtime.endpoint_aliases[connected_endpoint.endpoint_id] = (
+                    canonical.sensor_id
+                )
+                canonical.metadata.setdefault("transport_details", {})["bluetooth"] = {
+                    "endpoint_id": connected_endpoint.endpoint_id,
+                    "address": connected_endpoint.address,
+                    **dict(connected_endpoint.metadata),
+                }
+            canonical.metadata["merge_evidence"] = "cycplus_m1_gatt_serial"
+            self.runtime._schedule_save()
+        return canonical.sensor_id
+
+    def _repair_persisted_duplicate_m1s(self) -> None:
+        """Collapse old M1 duplicate installs from exact adapter-owned evidence."""
+        sensors = [
+            sensor
+            for sensor in tuple(self.runtime.sensors.values())
+            if sensor.sensor_id in self.runtime.sensors and self._is_m1_sensor(sensor)
+        ]
+        for sensor in sensors:
+            if sensor.sensor_id not in self.runtime.sensors:
+                continue
+            canonical_id = self.canonicalize_connected_sensor(sensor.sensor_id)
+            canonical = self.runtime.sensors.get(self.runtime.resolve_sensor_id(canonical_id))
+            if canonical is None:
+                continue
+            for duplicate in tuple(self.runtime.sensors.values()):
+                if duplicate.sensor_id == canonical.sensor_id or not self._is_m1_sensor(duplicate):
+                    continue
+                if not self._legacy_archive_duplicate(canonical.sensor_id, duplicate.sensor_id):
+                    continue
+                left_id = canonical.sensor_id
+                right_id = duplicate.sensor_id
+                canonical = self.runtime._merge_physical_sensors(canonical, duplicate)
+                for old_id in {left_id, right_id}:
+                    if old_id != canonical.sensor_id:
+                        self._migrate_sensor_state(old_id, canonical.sensor_id)
+                canonical.metadata["merge_evidence"] = "cycplus_m1_archive_identity"
 
     def _device(self, sensor_id: str) -> dict[str, Any]:
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
@@ -1282,9 +1916,14 @@ class CycplusM1Coordinator:
                 )
                 if latest:
                     merged["latest_workout"] = latest
+                merged["workout_metrics"] = _cycplus_workout_metrics(merged)
+                merged["workout_metrics_date"] = datetime.now(timezone.utc).date().isoformat()
                 devices[new_id] = merged
             else:
                 devices[new_id] = old
+                if isinstance(old, dict):
+                    old["workout_metrics"] = _cycplus_workout_metrics(old)
+                    old["workout_metrics_date"] = datetime.now(timezone.utc).date().isoformat()
 
         task = self._tasks.pop(old_id, None)
         if task is not None and not task.done():
@@ -1295,6 +1934,7 @@ class CycplusM1Coordinator:
         progress = self._progress_publish.pop(old_id, None)
         if progress is not None:
             self._progress_publish[new_id] = progress
+        self._published_workout_metrics.pop(old_id, None)
         return new_id
 
     async def _save(self) -> None:
@@ -1350,6 +1990,8 @@ class CycplusM1Coordinator:
                 if key in eligible_keys and key not in keep:
                     files.pop(key, None)
                     removed += 1
+            state["workout_metrics"] = _cycplus_workout_metrics(state)
+            state["workout_metrics_date"] = datetime.now(timezone.utc).date().isoformat()
         if removed:
             await self._save()
         return removed
@@ -1388,6 +2030,7 @@ class CycplusM1Coordinator:
         sensor_id = self.runtime.resolve_sensor_id(sensor_id)
         task = self._tasks.pop(sensor_id, None)
         self._queued_after_task.pop(sensor_id, None)
+        self._published_workout_metrics.pop(sensor_id, None)
         if task is not None and not task.done():
             task.cancel()
         if self._state.setdefault("devices", {}).pop(sensor_id, None) is not None:
@@ -1497,6 +2140,28 @@ class CycplusM1Coordinator:
             metadata=_DETAIL_META,
             priority=95,
         )
+        today = datetime.now(timezone.utc).date().isoformat()
+        workout_metrics = state.get("workout_metrics")
+        if (
+            not isinstance(workout_metrics, dict)
+            or state.get("workout_metrics_date") != today
+        ):
+            workout_metrics = _cycplus_workout_metrics(state)
+            state["workout_metrics"] = workout_metrics
+            state["workout_metrics_date"] = today
+        previous_metrics = self._published_workout_metrics.get(sensor_id)
+        if previous_metrics != workout_metrics:
+            self.runtime.clear_sensor_details_prefix(sensor_id, "cycplus_workout_")
+            self.runtime.clear_sensor_details_prefix(sensor_id, "cycplus_history_")
+            if workout_metrics:
+                self.runtime.publish_details(
+                    sensor_id,
+                    workout_metrics,
+                    transport="cycplus_m1_archive",
+                    metadata=_WORKOUT_META,
+                    priority=90,
+                )
+            self._published_workout_metrics[sensor_id] = dict(workout_metrics)
 
     def _progress(self, sensor_id: str, size: int) -> None:
         now = self.hass.loop.time()
@@ -1632,14 +2297,17 @@ class CycplusM1Coordinator:
             if last is not None and datetime.now(timezone.utc) - last < SYNC_INTERVAL:
                 return
 
-        ble_device = bluetooth.async_ble_device_from_address(
-            self.hass, endpoint.address, connectable=True
-        )
-        if ble_device is None:
-            state.update(sync_state="waiting", last_error_code="none")
-            self._publish(sensor_id)
-            self._schedule_after_current(sensor_id, 60.0)
-            return
+        remote_client = self.provider.remote_gatt_client(sensor_id)
+        ble_device = None
+        if remote_client is None:
+            ble_device = bluetooth.async_ble_device_from_address(
+                self.hass, endpoint.address, connectable=True
+            )
+            if ble_device is None:
+                state.update(sync_state="waiting", last_error_code="none")
+                self._publish(sensor_id)
+                self._schedule_after_current(sensor_id, 60.0)
+                return
 
         lock = self.provider._connect_lock(sensor_id)
         client = None
@@ -1664,14 +2332,30 @@ class CycplusM1Coordinator:
                     last_error_code="none",
                 )
                 self._publish(sensor_id)
-                client = await self.provider.establish_connection(
-                    ble_device, sensor.name or endpoint.address, max_attempts=4
-                )
+                async with asyncio.timeout(CYCPLUS_CONNECT_TIMEOUT):
+                    if remote_client is not None:
+                        client = remote_client
+                        await client.connect()
+                    else:
+                        client = await self.provider.establish_connection(
+                            ble_device, sensor.name or endpoint.address, max_attempts=2
+                        )
                 previous_id = sensor_id
-                sensor = await self.provider._async_enrich_identity(
-                    sensor, endpoint, client, manage_client_state=False
-                )
-                sensor_id = self._migrate_sensor_state(previous_id, sensor.sensor_id)
+                if remote_client is None:
+                    sensor = await self.provider._async_enrich_identity(
+                        sensor, endpoint, client, manage_client_state=False
+                    )
+                    sensor_id = self._migrate_sensor_state(previous_id, sensor.sensor_id)
+                else:
+                    # Remote registration already performed DIS/service
+                    # verification in the browser and canonicalized that metadata
+                    # before the archive worker was scheduled.
+                    sensor_id = self._migrate_sensor_state(
+                        previous_id,
+                        self.runtime.resolve_sensor_id(
+                            self.runtime.sensors.get(previous_id, sensor).sensor_id
+                        ),
+                    )
                 state = self._device(sensor_id)
                 protocol = CycplusM1Protocol(
                     client, progress=lambda size: self._progress(sensor_id, size)
@@ -1804,6 +2488,8 @@ class CycplusM1Coordinator:
                         latest = max(starts).isoformat()
                         if not state.get("latest_workout") or latest > state["latest_workout"]:
                             state["latest_workout"] = latest
+                    state["workout_metrics"] = _cycplus_workout_metrics(state)
+                    state["workout_metrics_date"] = datetime.now(timezone.utc).date().isoformat()
                     state["pending_file"] = None
                     state["downloaded_bytes"] = payload_size
                     state["pending_file_count"] = len(
@@ -1903,6 +2589,7 @@ class CycplusM1Coordinator:
         self._tasks.clear()
         self._background_tasks.clear()
         self._queued_after_task.clear()
+        self._published_workout_metrics.clear()
         for task in tasks:
             if not task.done():
                 task.cancel()

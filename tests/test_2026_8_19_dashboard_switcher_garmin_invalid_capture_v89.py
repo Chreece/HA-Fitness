@@ -18,8 +18,8 @@ def test_compact_dashboard_switcher_only_exists_for_multiple_dashboards():
 
 
 def test_dashboard_switcher_remains_outside_auto_hidden_toolbar_and_is_tv_navigable():
-    toolbar_close = '</div>\n        ${dashboardNavigator}'
-    assert toolbar_close in JS
+    assert 'class="dashboard-browser-row">${dashboardNavigator}' in JS
+    assert 'class="tv-toolbar' in JS
     assert 'const dashboardSwitcher = this.shadowRoot?.querySelector(".dashboard-switcher")' in JS
     assert 'return "dashboard-switcher"' in JS
     assert ':host([toolbar-hidden]) .dashboard-switcher' in JS
@@ -32,11 +32,11 @@ def test_add_dashboard_copy_no_longer_duplicates_plus_icon():
     assert '<ha-icon icon="mdi:plus"></ha-icon><span>${_fitnessEscape(l.add_dashboard)}</span>' in JS
 
 
-def test_grid_cancels_only_terminal_synthetic_spacing():
-    assert '--fitness-grid-tail-gap:12px' in JS
-    assert 'margin-bottom:calc(-1 * var(--fitness-grid-tail-gap))' in JS
-    assert '--fitness-grid-tail-gap:6px' in JS
-    assert 'const gap = FITNESS_TV_CAST_RECEIVER ? 6 : 12;' in JS
+def test_grid_uses_measured_masonry_gap_without_terminal_row_math():
+    assert 'const skyline = Array(packUnits).fill(0)' in JS
+    assert 'const packUnits = 200' in JS
+    assert 'const gap = FITNESS_TV_CAST_RECEIVER ? 6 :' in JS
+    assert 'const totalHeight = placed.length ? Math.max(0, ...skyline) - gap : 0;' in JS
 
 
 def test_invalid_garmin_payloads_are_preserved_and_probed_privately():
@@ -58,13 +58,15 @@ def test_garmin_full_sync_accepts_standard_deflate_wrappers_only_when_they_revea
 
 
 def test_frontend_cache_revision_is_v89():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in JS
-    assert '?v=unreleased-89' in DASH
-    assert '"frontend_version": "unreleased-89"' in DASH
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in JS
+    assert '?v=unreleased-110' in DASH
+    assert '"frontend_version": "unreleased-110"' in DASH
 
 
 def test_existing_invalid_without_capture_is_reprobed_after_upgrade() -> None:
-    assert 'cached.get("kind") != "invalid"' in COORD
+    assert 'if kind == "unsupported":' in COORD
+    assert 'if kind != "invalid":' in COORD
+    assert 'int(cached.get("decoder_revision") or 0) < GARMIN_PAYLOAD_DECODER_REVISION' in COORD
     assert 'not cached.get("capture_token")' in COORD
     assert '_catalog_item_fingerprint(item)' in COORD
     assert 'uncached_items = [item for item in catalog if _needs_download(item)]' in COORD

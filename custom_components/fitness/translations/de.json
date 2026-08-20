@@ -3521,6 +3521,57 @@
       },
       "garmin_quarantined_file_count": {
         "name": "Übersprungene unlesbare Dateien"
+      },
+      "cycplus_workout_avg_altitude": {
+        "name": "Durchschnittliche Höhe des letzten Trainings"
+      },
+      "cycplus_workout_max_altitude": {
+        "name": "Maximale Höhe des letzten Trainings"
+      },
+      "cycplus_workout_min_altitude": {
+        "name": "Minimale Höhe des letzten Trainings"
+      },
+      "cycplus_workout_avg_temperature": {
+        "name": "Durchschnittstemperatur des letzten Trainings"
+      },
+      "cycplus_workout_max_temperature": {
+        "name": "Maximaltemperatur des letzten Trainings"
+      },
+      "cycplus_workout_avg_positive_grade": {
+        "name": "Durchschnittliche Steigung des letzten Trainings"
+      },
+      "cycplus_workout_max_positive_grade": {
+        "name": "Maximale Steigung des letzten Trainings"
+      },
+      "cycplus_workout_avg_negative_grade": {
+        "name": "Durchschnittliches Gefälle des letzten Trainings"
+      },
+      "cycplus_workout_max_negative_grade": {
+        "name": "Maximales Gefälle des letzten Trainings"
+      },
+      "cycplus_history_workout_count": {
+        "name": "Importierte Trainings"
+      },
+      "cycplus_history_total_distance": {
+        "name": "Gesamte Radfahrdistanz"
+      },
+      "cycplus_history_total_moving_time": {
+        "name": "Gesamte Radfahrzeit"
+      },
+      "cycplus_history_total_ascent": {
+        "name": "Gesamter Anstieg"
+      },
+      "cycplus_history_7d_distance": {
+        "name": "Radfahrdistanz der letzten 7 Tage"
+      },
+      "cycplus_history_7d_moving_time": {
+        "name": "Radfahrzeit der letzten 7 Tage"
+      },
+      "cycplus_history_30d_distance": {
+        "name": "Radfahrdistanz der letzten 30 Tage"
+      },
+      "cycplus_history_30d_moving_time": {
+        "name": "Radfahrzeit der letzten 30 Tage"
       }
     },
     "binary_sensor": {
@@ -3556,11 +3607,11 @@
       "adapter_scan_now": {
         "name": "Jetzt scannen"
       },
-      "sync_device_data": {
-        "name": "Gerätedaten synchronisieren"
-      },
       "sync_device_health_history": {
         "name": "Geräte-Gesundheitsverlauf synchronisieren"
+      },
+      "sync_device_data": {
+        "name": "Gerätedaten synchronisieren"
       }
     },
     "select": {

@@ -275,6 +275,72 @@ SLEEP_SOURCE_MIRROR_KEYS = frozenset({
 SOURCE_MIRROR_KEYS = SLEEP_SOURCE_MIRROR_KEYS
 
 
+# Canonical wellness metrics imported from directly synchronized devices. These
+# entities expose data Fitness already retains; they never trigger additional
+# Bluetooth/USB polling. A fixed descriptor set keeps entity ids stable while
+# materialization remains data-driven, so unsupported metrics do not create
+# unavailable entity clutter.
+WELLNESS_METRICS: tuple[tuple[str, str, str | None], ...] = (
+    ("heart_rate", "Heart rate", "bpm"),
+    ("resting_heart_rate", "Resting heart rate", "bpm"),
+    ("min_heart_rate", "Minimum heart rate", "bpm"),
+    ("max_heart_rate", "Maximum heart rate", "bpm"),
+    ("hrv_ms", "Heart-rate variability", "ms"),
+    ("beat_interval_ms", "Beat interval", "ms"),
+    ("respiratory_rate", "Respiratory rate", "breaths/min"),
+    ("spo2", "Blood oxygen", "%"),
+    ("skin_temperature", "Skin temperature", "°C"),
+    ("skin_temperature_min", "Minimum skin temperature", "°C"),
+    ("skin_temperature_max", "Maximum skin temperature", "°C"),
+    ("skin_temperature_deviation", "Skin temperature deviation", "°C"),
+    ("skin_temperature_7d_deviation", "7-day skin temperature deviation", "°C"),
+    ("body_temperature", "Body temperature", "°C"),
+    ("device_temperature", "Device temperature", "°C"),
+    ("device_temperature_min", "Minimum device temperature", "°C"),
+    ("device_temperature_max", "Maximum device temperature", "°C"),
+    ("steps", "Steps", "steps"),
+    ("distance_m", "Distance", "m"),
+    ("calories", "Calories", "kcal"),
+    ("active_calories", "Active calories", "kcal"),
+    ("active_minutes", "Active minutes", "min"),
+    ("moderate_minutes", "Moderate activity minutes", "min"),
+    ("vigorous_minutes", "Vigorous activity minutes", "min"),
+    ("activity_level", "Activity level", None),
+    ("stress", "Stress", None),
+    ("body_battery", "Body battery", "%"),
+    ("body_battery_charged", "Body battery charged", "points"),
+    ("body_battery_drained", "Body battery drained", "points"),
+    ("sleep_score", "Device sleep score", None),
+    ("vo2_max", "VO₂ max", "mL/kg/min"),
+    ("floors_climbed", "Floors climbed", "floors"),
+    ("systolic_blood_pressure", "Systolic blood pressure", "mmHg"),
+    ("diastolic_blood_pressure", "Diastolic blood pressure", "mmHg"),
+    ("mean_arterial_pressure", "Mean arterial pressure", "mmHg"),
+    ("weight", "Weight", "kg"),
+    ("bmi", "BMI", None),
+    ("body_fat", "Body fat", "%"),
+    ("body_water", "Body water", "%"),
+    ("muscle_mass", "Muscle mass", "kg"),
+    ("bone_mass", "Bone mass", "kg"),
+    ("basal_metabolic_rate", "Basal metabolic rate", "kcal/day"),
+    ("active_metabolic_rate", "Active metabolic rate", "kcal/day"),
+    ("metabolic_age", "Metabolic age", "years"),
+    ("visceral_fat_mass", "Visceral fat mass", "kg"),
+    ("visceral_fat_rating", "Visceral fat rating", None),
+    ("battery", "Device battery", "%"),
+    ("device_battery_voltage", "Device battery voltage", "V"),
+    ("charging", "Charging", None),
+    ("wear_state", "Wear state", None),
+)
+WELLNESS_ADDITIVE_METRICS = frozenset({
+    "steps", "distance_m", "calories", "active_calories", "active_minutes", "moderate_minutes", "vigorous_minutes", "floors_climbed", "body_battery_charged", "body_battery_drained",
+})
+WELLNESS_DESCRIPTIONS = tuple(
+    Desc(key=f"device_{metric}", name=name, kind="wellness", metric=metric, unit=unit)
+    for metric, name, unit in WELLNESS_METRICS
+)
+
+
 def _format_fitness_owned_workout_fact(key: str, value):
     """Format one fact captured by Fitness Live for its own workout entity."""
     if value is None:
@@ -428,6 +494,7 @@ DESCRIPTIONS = (
     Desc(key="active_workout_instruction", name="Active workout instruction", kind="live", metric="active_workout_instruction"),
     Desc(key="active_workout_step", name="Active workout step", kind="live", metric="active_workout_step"),
     Desc(key="evaluation_data", name="Evaluation data", kind="evaluation", metric="evaluation_data"),
+    *WELLNESS_DESCRIPTIONS,
 
 
 )
@@ -570,6 +637,16 @@ async def async_setup_entry(hass, entry, async_add_entities):
         persist=True,
     )
 
+    # Existing direct-device history must become visible immediately after an
+    # upgrade without waiting for the next wearable sync. This bounded check
+    # reads only in-memory persisted history and never touches a radio.
+    existing_wellness_keys = {
+        desc.key for desc in WELLNESS_DESCRIPTIONS
+        if manager.device_intraday_history.get(desc.metric) or manager.metric_history.get(desc.metric)
+    }
+    if existing_wellness_keys:
+        manager.remember_materialized_sensors(existing_wellness_keys, persist=True)
+
     created_keys: set[str] = set()
 
     def collect_new_entities(
@@ -645,7 +722,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     @callback
     def _materialize_general() -> None:
-        _schedule_materialization({"workout", "evaluation"})
+        _schedule_materialization({"workout", "evaluation", "wellness"})
 
     @callback
     def _materialize_sleep() -> None:
@@ -796,6 +873,12 @@ class FitnessSensor(SensorEntity):
 
     @property
     def state_class(self):
+        if self.entity_description.kind == "wellness":
+            if self.entity_description.metric in WELLNESS_ADDITIVE_METRICS:
+                return SensorStateClass.TOTAL_INCREASING
+            if self.entity_description.metric in {"charging", "wear_state"}:
+                return None
+            return SensorStateClass.MEASUREMENT
         textual = {
             "session_status",
             "heart_rate_intensity",
@@ -910,6 +993,25 @@ class FitnessSensor(SensorEntity):
     @property
     def native_value(self):
         m = self.entity_description.metric
+
+        if self.entity_description.kind == "wellness":
+            # Daily cumulative values use the canonical daily summary. Sampled
+            # physiology exposes the newest synchronized point. No read here
+            # performs device I/O.
+            if m in WELLNESS_ADDITIVE_METRICS:
+                points = self.manager.metric_history.get(m) or []
+            else:
+                points = self.manager.device_intraday_history.get(m) or []
+                if not points:
+                    points = self.manager.metric_history.get(m) or []
+            if not points or not isinstance(points[-1], dict):
+                return None
+            value = points[-1].get("value")
+            if value is None:
+                return None
+            if m in {"charging", "wear_state", "steps", "floors_climbed", "activity_minutes", "active_minutes", "moderate_minutes", "vigorous_minutes", "metabolic_age", "sleep_score"}:
+                return int(round(float(value)))
+            return round(float(value), 3)
 
         if self.entity_description.key in DATA_MAP_KEYS:
             return "ready"
@@ -1385,6 +1487,33 @@ class FitnessSensor(SensorEntity):
 
         if self.entity_description.key in DATA_MAP_KEYS:
             return dict(self._data_map_attributes)
+
+        if kind == "wellness":
+            raw_points = self.manager.device_intraday_history.get(m) or []
+            daily_points = self.manager.metric_history.get(m) or []
+            if m in WELLNESS_ADDITIVE_METRICS and daily_points:
+                source = daily_points[-1]
+            elif raw_points:
+                source = raw_points[-1]
+            elif daily_points:
+                source = daily_points[-1]
+            else:
+                source = None
+            if not isinstance(source, dict):
+                return {"metric": m, "data_source": "direct_device_sync"}
+            attrs = {
+                "metric": m,
+                "data_source": str(source.get("source_type") or "direct_device_sync"),
+                "last_synced_sample": source.get("timestamp"),
+                "source_entity": source.get("source_entity"),
+            }
+            sources = source.get("sources") or []
+            if sources:
+                attrs["sources"] = list(sources)[:8]
+            if daily_points and isinstance(daily_points[-1], dict):
+                attrs["daily_summary"] = daily_points[-1].get("value")
+                attrs["daily_summary_at"] = daily_points[-1].get("timestamp")
+            return {key: value for key, value in attrs.items() if value is not None}
 
         if kind == "live":
             source_metric = {

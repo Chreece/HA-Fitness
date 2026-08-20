@@ -3521,6 +3521,57 @@
       },
       "garmin_quarantined_file_count": {
         "name": "Пропущенные нечитаемые файлы"
+      },
+      "cycplus_workout_avg_altitude": {
+        "name": "Средняя высота последней тренировки"
+      },
+      "cycplus_workout_max_altitude": {
+        "name": "Максимальная высота последней тренировки"
+      },
+      "cycplus_workout_min_altitude": {
+        "name": "Минимальная высота последней тренировки"
+      },
+      "cycplus_workout_avg_temperature": {
+        "name": "Средняя температура последней тренировки"
+      },
+      "cycplus_workout_max_temperature": {
+        "name": "Максимальная температура последней тренировки"
+      },
+      "cycplus_workout_avg_positive_grade": {
+        "name": "Средний уклон подъёма последней тренировки"
+      },
+      "cycplus_workout_max_positive_grade": {
+        "name": "Максимальный уклон подъёма последней тренировки"
+      },
+      "cycplus_workout_avg_negative_grade": {
+        "name": "Средний уклон спуска последней тренировки"
+      },
+      "cycplus_workout_max_negative_grade": {
+        "name": "Максимальный уклон спуска последней тренировки"
+      },
+      "cycplus_history_workout_count": {
+        "name": "Импортированные тренировки"
+      },
+      "cycplus_history_total_distance": {
+        "name": "Общая дистанция на велосипеде"
+      },
+      "cycplus_history_total_moving_time": {
+        "name": "Общее время на велосипеде"
+      },
+      "cycplus_history_total_ascent": {
+        "name": "Общий набор высоты"
+      },
+      "cycplus_history_7d_distance": {
+        "name": "Дистанция на велосипеде за 7 дней"
+      },
+      "cycplus_history_7d_moving_time": {
+        "name": "Время на велосипеде за 7 дней"
+      },
+      "cycplus_history_30d_distance": {
+        "name": "Дистанция на велосипеде за 30 дней"
+      },
+      "cycplus_history_30d_moving_time": {
+        "name": "Время на велосипеде за 30 дней"
       }
     },
     "binary_sensor": {
@@ -3556,11 +3607,11 @@
       "adapter_scan_now": {
         "name": "Сканировать сейчас"
       },
-      "sync_device_data": {
-        "name": "Синхронизировать данные устройства"
-      },
       "sync_device_health_history": {
         "name": "Синхронизировать историю здоровья устройства"
+      },
+      "sync_device_data": {
+        "name": "Синхронизировать данные устройства"
       }
     },
     "select": {

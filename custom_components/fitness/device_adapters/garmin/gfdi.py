@@ -868,13 +868,13 @@ class GarminGfdiSession:
 
     @staticmethod
     def _modern_sync_candidate(item: GarminSyncFile) -> bool:
-        """Return whether one FileSync record is a FIT payload worth inspecting.
+        """Return whether one FileSync record is useful bounded device data.
 
         Garmin's FileSync type code is not itself proof that the payload is FIT:
-        full-device listings can contain other internal file families with numeric
-        codes.  Inspect every record Garmin actually labels as FIT, plus the known
-        numeric FIT families when a firmware omits their name.  Payload contents
-        still decide activity/health/unsupported after download.
+        full-device listings can contain structured families such as LiveActivity
+        alongside FIT health/workout files. Inspect labelled FIT records, known FIT
+        numeric families, health/wellness names and activity-related structured
+        records; payload contents decide the final class after download.
         """
         if item.size <= 0:
             return False

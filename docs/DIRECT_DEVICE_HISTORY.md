@@ -35,6 +35,8 @@ The documented recording stream does not provide an explicit sleep-session/stage
 
 Fitness uses the documented Nordic-UART console to retrieve Bangle.js Health records and Recorder files without a vendor cloud. Health records contribute timestamped steps, heart rate and temperature plus explicit light/deep sleep states. Recorder workouts are imported with their recorded metrics and a bounded GPS route when latitude/longitude samples exist. Battery, charging and wear state are retained as device-state history.
 
+Bangle.js is also the first direct **workout delivery** target. When the user explicitly chooses **Send to device**, Fitness opens one bounded local Bluetooth session and installs/updates only `hafit.app.js`, `hafit.info` and `hafit.workout.json`. The watch app guides the bounded canonical workout step list locally. Normal history synchronization remains read-only and never performs these writes in the background.
+
 ### Xiaomi Mi Band 1 / 1A / 1S
 
 Fitness implements the legacy Mi Band activity-history protocol directly. Per-minute records are timestamped from the transfer header and retained as bounded intraday history. Documented activity categories contribute steps, activity intensity, explicit light/deep sleep and not-worn state; battery/charging state and current daily steps are also imported. Missing stages such as REM are never inferred.

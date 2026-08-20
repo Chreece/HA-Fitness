@@ -13,7 +13,7 @@ def _source() -> str:
 def test_laptop_grid_breakpoints_and_live_measurement_are_preserved() -> None:
     source = _source()
 
-    assert ".tv-grid{--tv-columns:4;--tv-row:4px" in source
+    assert ".tv-grid{--tv-columns:4;--tv-row:4px" in source  # legacy declaration is overridden by v106 masonry
     assert "@media(max-width:1500px){:host(:not([fitness-cast-receiver])) .tv-grid{--tv-columns:3}}" in source
     assert ":host(:not([fitness-cast-receiver])) .tv-grid{--tv-columns:2}" in source
     assert "@media(max-width:760px){:host(:not([fitness-cast-receiver])) .tv-grid{--tv-columns:1}" in source

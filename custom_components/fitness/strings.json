@@ -432,7 +432,7 @@
       },
       "garmin_local_guide": {
         "title": "Garmin local workout sync",
-        "description": "Compatible Garmin devices connect directly to Home Assistant over Bluetooth while Garmin Connect and the phone can remain paired. Fitness discovers the device automatically, and after you assign the physical device to a Fitness profile it performs host-side pairing, capability detection, read-only FIT workout import and disconnect automatically. You do not need SSH, bluetoothctl, model text entry, or to turn off phone Bluetooth. If Garmin itself asks for confirmation/code/passkey, approve it. If automatic pairing cannot finish, Fitness shows an action-needed state and tells you to open the Garmin Bluetooth/Phone pairing screen, then offers a bounded Retry now option. If Garmin warns that doing so will replace/remove the existing phone pairing, cancel that action. Sync remains read-only: Fitness does not mark Garmin files synced, archive them or delete them. Detected Garmin devices: {garmin_devices}"
+        "description": "Compatible Garmin devices connect directly to Home Assistant over Bluetooth while the existing phone pairing can remain saved. Some Garmin models allow only one active Bluetooth host, so Fitness may ask you to temporarily disconnect Garmin Connect or phone Bluetooth during a local sync. Fitness discovers the device automatically, and after you assign the physical device to a Fitness profile it performs host-side pairing, capability detection, read-only FIT workout import and disconnect automatically. You do not need SSH, bluetoothctl, or model text entry. Normally no phone change is needed; if the watch is already actively connected to the phone and refuses Home Assistant, Fitness will ask you to temporarily disconnect Garmin Connect or phone Bluetooth without deleting the pairing. If Garmin itself asks for confirmation/code/passkey, approve it. If automatic pairing cannot finish, Fitness shows an action-needed state and tells you to open the Garmin Bluetooth/Phone pairing screen, then offers a bounded Retry now option. If Garmin warns that doing so will replace/remove the existing phone pairing, cancel that action. Sync remains read-only: Fitness does not mark Garmin files synced, archive them or delete them. Detected Garmin devices: {garmin_devices}"
       },
       "smart_workout_devices": {
         "title": "Smart fitness devices",
@@ -3521,6 +3521,57 @@
       },
       "garmin_quarantined_file_count": {
         "name": "Skipped unreadable files"
+      },
+      "cycplus_workout_avg_altitude": {
+        "name": "Last workout average altitude"
+      },
+      "cycplus_workout_max_altitude": {
+        "name": "Last workout maximum altitude"
+      },
+      "cycplus_workout_min_altitude": {
+        "name": "Last workout minimum altitude"
+      },
+      "cycplus_workout_avg_temperature": {
+        "name": "Last workout average temperature"
+      },
+      "cycplus_workout_max_temperature": {
+        "name": "Last workout maximum temperature"
+      },
+      "cycplus_workout_avg_positive_grade": {
+        "name": "Last workout average uphill grade"
+      },
+      "cycplus_workout_max_positive_grade": {
+        "name": "Last workout maximum uphill grade"
+      },
+      "cycplus_workout_avg_negative_grade": {
+        "name": "Last workout average downhill grade"
+      },
+      "cycplus_workout_max_negative_grade": {
+        "name": "Last workout maximum downhill grade"
+      },
+      "cycplus_history_workout_count": {
+        "name": "Imported workouts"
+      },
+      "cycplus_history_total_distance": {
+        "name": "Total cycling distance"
+      },
+      "cycplus_history_total_moving_time": {
+        "name": "Total cycling time"
+      },
+      "cycplus_history_total_ascent": {
+        "name": "Total ascent"
+      },
+      "cycplus_history_7d_distance": {
+        "name": "7-day cycling distance"
+      },
+      "cycplus_history_7d_moving_time": {
+        "name": "7-day cycling time"
+      },
+      "cycplus_history_30d_distance": {
+        "name": "30-day cycling distance"
+      },
+      "cycplus_history_30d_moving_time": {
+        "name": "30-day cycling time"
       }
     },
     "binary_sensor": {
@@ -3556,11 +3607,11 @@
       "adapter_scan_now": {
         "name": "Scan now"
       },
-      "sync_device_data": {
-        "name": "Sync device data"
-      },
       "sync_device_health_history": {
         "name": "Sync device health history"
+      },
+      "sync_device_data": {
+        "name": "Sync device data"
       }
     },
     "select": {

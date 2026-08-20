@@ -3521,6 +3521,57 @@
       },
       "garmin_quarantined_file_count": {
         "name": "Atlanan okunamayan dosyalar"
+      },
+      "cycplus_workout_avg_altitude": {
+        "name": "Son antrenmanın ortalama rakımı"
+      },
+      "cycplus_workout_max_altitude": {
+        "name": "Son antrenmanın maksimum rakımı"
+      },
+      "cycplus_workout_min_altitude": {
+        "name": "Son antrenmanın minimum rakımı"
+      },
+      "cycplus_workout_avg_temperature": {
+        "name": "Son antrenmanın ortalama sıcaklığı"
+      },
+      "cycplus_workout_max_temperature": {
+        "name": "Son antrenmanın maksimum sıcaklığı"
+      },
+      "cycplus_workout_avg_positive_grade": {
+        "name": "Son antrenmanın ortalama çıkış eğimi"
+      },
+      "cycplus_workout_max_positive_grade": {
+        "name": "Son antrenmanın maksimum çıkış eğimi"
+      },
+      "cycplus_workout_avg_negative_grade": {
+        "name": "Son antrenmanın ortalama iniş eğimi"
+      },
+      "cycplus_workout_max_negative_grade": {
+        "name": "Son antrenmanın maksimum iniş eğimi"
+      },
+      "cycplus_history_workout_count": {
+        "name": "İçe aktarılan antrenmanlar"
+      },
+      "cycplus_history_total_distance": {
+        "name": "Toplam bisiklet mesafesi"
+      },
+      "cycplus_history_total_moving_time": {
+        "name": "Toplam bisiklet süresi"
+      },
+      "cycplus_history_total_ascent": {
+        "name": "Toplam tırmanış"
+      },
+      "cycplus_history_7d_distance": {
+        "name": "7 günlük bisiklet mesafesi"
+      },
+      "cycplus_history_7d_moving_time": {
+        "name": "7 günlük bisiklet süresi"
+      },
+      "cycplus_history_30d_distance": {
+        "name": "30 günlük bisiklet mesafesi"
+      },
+      "cycplus_history_30d_moving_time": {
+        "name": "30 günlük bisiklet süresi"
       }
     },
     "binary_sensor": {
@@ -3556,11 +3607,11 @@
       "adapter_scan_now": {
         "name": "Şimdi tara"
       },
-      "sync_device_data": {
-        "name": "Cihaz verilerini eşitle"
-      },
       "sync_device_health_history": {
         "name": "Cihaz sağlık geçmişini eşitle"
+      },
+      "sync_device_data": {
+        "name": "Cihaz verilerini senkronize et"
       }
     },
     "select": {

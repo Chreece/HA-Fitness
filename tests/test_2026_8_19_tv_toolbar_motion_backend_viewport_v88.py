@@ -26,14 +26,14 @@ def test_dashboard_entry_motion_is_gentle_top_edge_unroll():
     assert 'filter:"blur(3px) brightness(.88)"' not in JS
 
 
-def test_profile_backend_submenus_remain_inside_viewport_right_panel():
-    assert 'position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important' in JS
-    assert 'display:flex!important;justify-content:flex-end!important;align-items:flex-start!important' in JS
-    assert 'position:relative!important;inset:auto!important;flex:0 0 auto!important' in JS
+def test_profile_backend_submenus_remain_inside_centered_viewport_panel():
+    assert 'position:fixed!important;top:var(--modal-effective-top)!important;right:0!important;bottom:0!important;left:0!important' in JS
+    assert 'display:flex!important;justify-content:center!important;align-items:center!important' in JS
+    assert 'position:relative!important;inset:auto!important;flex:0 1 auto!important' in JS
     assert '@media(max-width:760px){' in JS
     assert '.backend-flow-backdrop{justify-content:center!important;align-items:stretch!important' in JS
 
 
 def test_frontend_revision_88_is_synchronized():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in JS
-    assert '?v=unreleased-89' in DASH
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in JS
+    assert '?v=unreleased-110' in DASH

@@ -43,5 +43,5 @@ def test_progress_clock_is_provider_specific_and_ytdlp_youtube_is_polled():
 
 
 def test_v81_revision_contract():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in FRONTEND
-    assert '?v=unreleased-89' in DASHBOARD
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
+    assert '?v=unreleased-110' in DASHBOARD

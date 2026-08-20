@@ -34,9 +34,9 @@ def test_main_menu_never_saves_form_selections_implicitly():
     assert 'querySelector("#flow-submit")' in form
 
 
-def test_save_button_is_content_sized_not_full_modal_width():
-    assert ".flow-actions>button{flex:0 0 auto;min-width:110px;max-width:min(220px,100%)}" in FRONTEND
-    assert ".flow-actions>button{flex:1 1 0" not in FRONTEND[FRONTEND.index("  _style() {"):FRONTEND.index("if (!customElements.get", FRONTEND.index("  _style() {"))]
+def test_save_button_wraps_without_clipping_on_narrow_settings_views():
+    assert ".flow-actions>button{flex:0 0 auto;min-width:118px;max-width:min(220px,100%)}" in FRONTEND
+    assert ".flow-actions{display:flex;justify-content:flex-end;gap:8px;padding:8px 0 2px;flex-wrap:wrap" in FRONTEND
 
 
 def test_account_selector_centers_selected_account_across_whole_control():
@@ -67,8 +67,8 @@ def test_registry_cleanup_uses_captured_device_id_and_own_identifiers():
 
 
 def test_frontend_cache_revision_85_matches_backend():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-89"' in FRONTEND
-    assert '?v=unreleased-89' in DASH
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
+    assert '?v=unreleased-110' in DASH
 
 
 def test_mobile_backend_settings_use_viewport_and_compact_nonsticky_header():

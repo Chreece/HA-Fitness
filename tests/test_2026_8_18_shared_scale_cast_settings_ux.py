@@ -82,7 +82,7 @@ def test_shared_scale_confirmation_informs_users_and_admin_with_role_appropriate
 def test_cast_double_back_is_physical_safe_and_does_not_require_matching_key_signature():
     back = _back_block()
     assert 'const physicalBack = source === "keydown" && !!event;' in back
-    assert "FITNESS_TV_BACK_DISTINCT_PRESS_MS = 280" in FRONTEND
+    assert "FITNESS_TV_BACK_DISTINCT_PRESS_MS = 110" in FRONTEND
     assert "< FITNESS_TV_BACK_DISTINCT_PRESS_MS" in back
     assert "startup/system Back detected; guarded exit enabled" in back
     assert "non-physical top-level Back ignored" in back

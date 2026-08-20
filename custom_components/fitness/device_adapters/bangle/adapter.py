@@ -22,7 +22,8 @@ ARCHIVE_ADAPTER = BluetoothArchiveAdapterSpec(
     coordinator_factory=BangleJsCoordinator,
     bluetooth_matchers=_bluetooth_matchers,
     match_bluetooth=_match_bluetooth,
-    advertisement_capabilities=frozenset({"workout_history", "health_history"}),
-    sync_capabilities=frozenset({"health_history", "sleep_history", "workout_history", "gps_tracks", "device_state"}),
+    advertisement_capabilities=frozenset({"workout_history", "health_history", "workout_delivery"}),
+    sync_capabilities=frozenset({"health_history", "sleep_history", "workout_history", "gps_tracks", "device_state", "workout_delivery"}),
+    remote_gatt_services=frozenset({NUS_SERVICE_UUID}),
     generic_identity_probe=False,
 )

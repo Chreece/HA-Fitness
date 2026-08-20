@@ -53,7 +53,12 @@ async def async_resolve(hub: "FitnessTVDashboardHub", media_content_id: str) -> 
     row = rows[0] if isinstance(rows, list) and rows else {}
     normalized = hub._radio_item(row) if isinstance(row, dict) else None
     if isinstance(row, dict):
-        url = url or str(row.get("url_resolved") or row.get("url") or "").strip()
+        # Prefer Radio Browser's verified/resolved stream target over the raw
+        # click URL. The raw URL may be a short playlist/redirect endpoint that
+        # produces a second of audio and then closes; url_resolved is the best
+        # current direct stream endpoint for Cast/browser playback.
+        resolved_url = str(row.get("url_resolved") or "").strip()
+        url = resolved_url or url or str(row.get("url") or "").strip()
         title = title or str(row.get("name") or "").strip()
     if not url:
         raise ValueError("Radio station has no playable stream URL")

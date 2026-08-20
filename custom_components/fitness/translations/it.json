@@ -3521,6 +3521,57 @@
       },
       "garmin_quarantined_file_count": {
         "name": "File illeggibili ignorati"
+      },
+      "cycplus_workout_avg_altitude": {
+        "name": "Altitudine media dell’ultimo allenamento"
+      },
+      "cycplus_workout_max_altitude": {
+        "name": "Altitudine massima dell’ultimo allenamento"
+      },
+      "cycplus_workout_min_altitude": {
+        "name": "Altitudine minima dell’ultimo allenamento"
+      },
+      "cycplus_workout_avg_temperature": {
+        "name": "Temperatura media dell’ultimo allenamento"
+      },
+      "cycplus_workout_max_temperature": {
+        "name": "Temperatura massima dell’ultimo allenamento"
+      },
+      "cycplus_workout_avg_positive_grade": {
+        "name": "Pendenza media in salita dell’ultimo allenamento"
+      },
+      "cycplus_workout_max_positive_grade": {
+        "name": "Pendenza massima in salita dell’ultimo allenamento"
+      },
+      "cycplus_workout_avg_negative_grade": {
+        "name": "Pendenza media in discesa dell’ultimo allenamento"
+      },
+      "cycplus_workout_max_negative_grade": {
+        "name": "Pendenza massima in discesa dell’ultimo allenamento"
+      },
+      "cycplus_history_workout_count": {
+        "name": "Allenamenti importati"
+      },
+      "cycplus_history_total_distance": {
+        "name": "Distanza ciclistica totale"
+      },
+      "cycplus_history_total_moving_time": {
+        "name": "Tempo ciclistico totale"
+      },
+      "cycplus_history_total_ascent": {
+        "name": "Ascesa totale"
+      },
+      "cycplus_history_7d_distance": {
+        "name": "Distanza ciclistica di 7 giorni"
+      },
+      "cycplus_history_7d_moving_time": {
+        "name": "Tempo ciclistico di 7 giorni"
+      },
+      "cycplus_history_30d_distance": {
+        "name": "Distanza ciclistica di 30 giorni"
+      },
+      "cycplus_history_30d_moving_time": {
+        "name": "Tempo ciclistico di 30 giorni"
       }
     },
     "binary_sensor": {
@@ -3556,11 +3607,11 @@
       "adapter_scan_now": {
         "name": "Scansiona ora"
       },
-      "sync_device_data": {
-        "name": "Sincronizza dati del dispositivo"
-      },
       "sync_device_health_history": {
         "name": "Sincronizza cronologia salute del dispositivo"
+      },
+      "sync_device_data": {
+        "name": "Sincronizza dati dispositivo"
       }
     },
     "select": {

@@ -55,34 +55,24 @@ def test_cast_buttons_are_toggles_and_receiver_gets_only_requested_profile_contr
 
 
 def test_main_tv_overview_is_admin_only_castable_and_accounts_stay_account_focused():
-    # The overview itself is an admin-only surface, but admins may cast that whole
-    # overview either through the HA server or a local browser Google Cast chooser.
-    assert 'const isAdmin = Boolean(this._access?.is_admin);' in FRONTEND
-    assert 'if (!isAdmin) {' in FRONTEND
-    assert 'const destination = profiles.find((profile) => profile?.access?.is_own) || profiles[0];' in FRONTEND
-    assert 'id="overview-cast-toggle"' in FRONTEND
-    assert 'getElementById("overview-cast-toggle")?.addEventListener' in FRONTEND
-    assert 'overview:true' in FRONTEND
-    assert 'id="overview-cast-local"' in FRONTEND
-    assert 'class="add-profile-row overview-cast-target ${unavailable ? "unavailable" : ""}"' in FRONTEND
-    assert 'admin-profile-link' in FRONTEND
-    assert 'lastMediaTitle' not in FRONTEND
-    assert 'data-user-cast' not in FRONTEND
-    assert 'data-user-tv-config' not in FRONTEND
-    assert 'data-user-fitness-config' not in FRONTEND
-    assert 'data-user-light-feedback' not in FRONTEND
-    assert 'data-user-tts-announcements' not in FRONTEND
-    assert 'data-profile-entry' not in FRONTEND
-    assert 'data-assign-profile' not in FRONTEND
-    assert 'type:"fitness/access/admin"' in FRONTEND
+    assert 'this._access?.is_admin' in FRONTEND
+    assert 'id="manage-access"' in FRONTEND
+    assert 'type:"fitness/accounts/admin"' in FRONTEND
+    assert 'type:"fitness/accounts/save"' in FRONTEND
+    assert 'type:"fitness/accounts/delete"' in FRONTEND
+    assert 'data-account-language' not in FRONTEND
+    assert 'href="/config/person"' not in FRONTEND
+    assert '_tv_cast_targets(hass, registry) if access.get("is_admin") else []' in DASHBOARD
 
-
-def test_account_language_is_persisted_and_drives_profile_frontend_and_options_flow():
+def test_profile_language_is_authoritative_and_account_settings_have_no_override():
+    # Keep the websocket field readable for upgrade compatibility, but account
+    # assignment must not persist or mutate a second language authority.
     assert 'vol.Optional("language"): vol.In(sorted(SUPPORTED_LANGUAGES))' in ACCESS
-    assert 'options[CONF_LANGUAGE] = selected_language' in ACCESS
-    assert '"supported_languages": dict(SUPPORTED_LANGUAGES)' in ACCESS
-    assert 'data-access-language' in FRONTEND
-    assert 'language:String(language?.value || "en")' in FRONTEND
+    bind = ACCESS[ACCESS.index('async def _async_bind_account'):ACCESS.index('async def async_remove_account')]
+    assert 'options[CONF_LANGUAGE] = selected_language' not in bind
+    assert '"language": selected_language' not in bind
+    assert 'data-access-language' not in FRONTEND
+    assert 'language:String(language?.value || "en")' not in FRONTEND
     assert 'profile?.language || this._access?.language || this._hass?.language || "en"' in FRONTEND
     assert 'language:String(profile?.language || this._access?.language || this._hass?.language || "en")' in FRONTEND
     assert '"account_language":"Γλώσσα"' in DASHBOARD

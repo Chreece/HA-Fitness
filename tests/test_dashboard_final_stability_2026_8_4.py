@@ -32,9 +32,9 @@ def test_map_has_drag_pinch_wheel_and_fit_gestures():
     assert "this._panY" in JS
 
 
-def test_only_four_consolidated_cards_are_public():
+def test_five_consolidated_cards_are_public_with_wellness_snapshot():
     public = JS[JS.index("const FITNESS_PUBLIC_CARDS"):JS.index("console.info(")]
-    assert public.count('type: "fitness-') == 4
+    assert public.count('type: "fitness-') == 5
     assert 'type: "fitness-live-workout-card"' in public
     assert 'type: "fitness-workout-card"' in public
     assert 'type: "fitness-sleep-recovery-card"' in public

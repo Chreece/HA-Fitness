@@ -38,7 +38,9 @@ def test_successful_partial_batch_is_reported_as_cooldown_not_failure():
 
 def test_transient_post_batch_handshake_failure_does_not_poison_last_error():
     sync = _method(COORD, "_async_sync")
-    assert '"cooldown"\n                    if partial_retry' in sync
+    assert '"cooldown"' in sync
+    assert "if partial_retry" in sync
+    assert "active_host_contention" in sync
     assert 'last_error_code="none" if partial_retry else error_code' in sync
     assert 'last_transient_error_code=error_code if partial_retry else "none"' in sync
 

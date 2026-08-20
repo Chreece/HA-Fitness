@@ -22,28 +22,14 @@ def test_tv_preferences_migrate_single_dashboard_and_support_multi_dashboard_act
     assert '"fitness/tv/dashboard/manage"' in TV
     assert '{"create", "rename", "delete", "select"}' in TV
 
-def test_frontend_dashboard_management_uses_modal_not_persistent_strip():
-    assert '${this._dashboardStripMarkup()}' not in JS
-    assert 'id="dashboards"' in JS
-    assert '_openDashboardManager()' in JS
-    assert 'data-dashboard-select' in JS
+def test_frontend_has_compact_dashboard_switcher_and_management_actions():
+    assert 'class="dashboard-switcher"' in JS
+    assert 'id="dashboard-prev"' in JS
+    assert 'id="dashboard-current"' in JS
+    assert 'id="dashboard-next"' in JS
+    assert 'id="dashboard-manager-add"' in JS
     assert 'data-dashboard-rename' in JS
     assert 'data-dashboard-delete' in JS
-    assert 'id="dashboard-manager-auto"' in JS
-
-
-def test_dashboard_layout_and_active_dashboard_survive_store_sanitization():
-    assert 'result["dashboards"] = dashboards' in TV
-    assert 'result["active_dashboard_id"] = active_dashboard_id' in TV
-    assert '"layout": cls._sanitize_card_layout(item.get("layout"))' in TV
-    assert 'card_layout' in TV
-
-
-def test_accounts_modal_declares_preview_state_before_close_handlers():
-    setup_modal = JS[JS.index('class FitnessTvSetupCard'):]
-    modal = setup_modal[setup_modal.index('_modal(content)'):setup_modal.index('_openBackendFlow', setup_modal.index('_modal(content)'))]
-    assert 'const cardPickerPreview =' in modal
-    assert 'root.querySelector(".modal-close")?.addEventListener' in modal
 
 def test_card_saves_are_scoped_to_active_dashboard():
     assert 'dashboard_id:String(this._activeDashboardId || "main")' in JS

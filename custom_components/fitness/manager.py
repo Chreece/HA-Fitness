@@ -170,8 +170,8 @@ SLEEP_COMPACTION_VERSION = 1
 MAX_LIVE_SESSION_SAMPLES = 21_600
 MANAGER_SHUTDOWN_TIMEOUT = 15.0
 MAX_DEVICE_INTRADAY_POINTS_PER_METRIC = 4096
-MAX_DEVICE_INTRADAY_METRICS = 32
-_DEVICE_ADDITIVE_METRICS = frozenset({"steps", "distance_m", "calories", "active_calories", "active_minutes", "body_battery_charged", "body_battery_drained"})
+MAX_DEVICE_INTRADAY_METRICS = 64
+_DEVICE_ADDITIVE_METRICS = frozenset({"steps", "distance_m", "calories", "active_calories", "active_minutes", "moderate_minutes", "vigorous_minutes", "floors_climbed", "body_battery_charged", "body_battery_drained"})
 _DEVICE_MIN_METRICS = frozenset({"min_heart_rate", "skin_temperature_min"})
 _DEVICE_MAX_METRICS = frozenset({"max_heart_rate", "skin_temperature_max"})
 _DEVICE_LATEST_METRICS = frozenset({"battery", "charging", "wear_state", "body_battery", "vo2_max", "device_battery_voltage", "metabolic_age", "visceral_fat_rating", "skin_temperature_deviation", "skin_temperature_7d_deviation"})
@@ -4622,11 +4622,11 @@ class FitnessManager:
             prev_sport = _sport_key(previous.sport)
             generic = {"", "workout", "activity", "exercise", "session"}
 
-            if (
-                current_sport not in generic
-                and prev_sport not in generic
-                and current_sport != prev_sport
-            ):
+            # Personal baselines are sport-specific. A generic/unknown sport is
+            # deliberately not comparable with a known sport: mixing a run into
+            # a cycling speed baseline (or vice versa) produces a numerically
+            # valid but physiologically meaningless result.
+            if current_sport in generic or prev_sport != current_sport:
                 continue
 
             if (
@@ -4674,6 +4674,103 @@ class FitnessManager:
             result.append(previous)
 
         return result[-20:]
+
+    def workout_comparisons_by_sport(
+        self,
+        *,
+        minimum_comparable: int = 3,
+    ) -> list[dict[str, Any]]:
+        """Return fresh, strictly sport-specific personal comparison cards.
+
+        The historical ``last_workout_*_vs_baseline`` entities intentionally
+        describe only the newest workout overall. Dashboard comparison cards
+        need one current comparison per sport, so compute these lightweight
+        summaries directly from canonical history without mutating stored
+        workouts or manufacturing cross-sport baselines.
+        """
+        generic = {"", "workout", "activity", "exercise", "session"}
+        by_sport: dict[str, list[Workout]] = {}
+        for item in self.local_workouts():
+            sport = _sport_key(item.sport)
+            if sport in generic or _dt(item.start) is None:
+                continue
+            by_sport.setdefault(sport, []).append(item)
+
+        groups: list[dict[str, Any]] = []
+        for sport, rows in by_sport.items():
+            rows.sort(key=lambda item: _dt(item.start) or datetime.min.replace(tzinfo=timezone.utc))
+            latest = rows[-1]
+            comparable = self._comparable_local_workouts(latest)
+            if len(comparable) < max(1, int(minimum_comparable)):
+                continue
+
+            def baseline(field_name: str) -> float | None:
+                return self._safe_mean([
+                    getattr(item, field_name)
+                    for item in comparable
+                    if getattr(item, field_name) is not None
+                ])
+
+            metrics: list[dict[str, Any]] = []
+
+            def add_percent(key: str, field_name: str, max_abs: float) -> None:
+                current = getattr(latest, field_name)
+                base = baseline(field_name)
+                delta = self._percent_difference_from_baseline(current, base)
+                if delta is None:
+                    return
+                metrics.append({
+                    "key": key,
+                    "value": round(delta, 1),
+                    "unit": "%",
+                    "max": max_abs,
+                    "current": round(float(current), 3) if current is not None else None,
+                    "baseline": round(float(base), 3) if base is not None else None,
+                })
+
+            add_percent("efficiency", "aerobic_efficiency", 20.0)
+
+            decoupling_base = baseline("aerobic_decoupling_percent")
+            if latest.aerobic_decoupling_percent is not None and decoupling_base is not None:
+                metrics.append({
+                    "key": "decoupling",
+                    "value": round(float(latest.aerobic_decoupling_percent) - float(decoupling_base), 1),
+                    "unit": "%",
+                    "max": 20.0,
+                    "current": round(float(latest.aerobic_decoupling_percent), 2),
+                    "baseline": round(float(decoupling_base), 2),
+                })
+
+            hr_base = baseline("avg_hr")
+            if latest.avg_hr is not None and hr_base is not None:
+                metrics.append({
+                    "key": "heart_rate",
+                    "value": round(float(latest.avg_hr) - float(hr_base), 1),
+                    "unit": "bpm",
+                    "max": 12.0,
+                    "current": round(float(latest.avg_hr), 1),
+                    "baseline": round(float(hr_base), 1),
+                })
+
+            add_percent("power", "avg_power", 30.0)
+            add_percent("speed", "average_speed_m_s", 30.0)
+            add_percent("trimp", "banister_trimp", 50.0)
+
+            if not metrics:
+                continue
+            groups.append({
+                "sport": sport,
+                "latest_start": latest.start,
+                "latest_name": latest.name,
+                "comparable_count": len(comparable),
+                "metrics": metrics,
+            })
+
+        groups.sort(
+            key=lambda item: _dt(item.get("latest_start")) or datetime.min.replace(tzinfo=timezone.utc),
+            reverse=True,
+        )
+        return groups
 
     def _apply_personal_workout_context(
         self,
@@ -4944,6 +5041,59 @@ class FitnessManager:
                     fitness_values[f"derived_{field_name}_method"] = fallback_methods[field_name]
                     workout.provider_values["fitness"] = fitness_values
         return workout
+
+    def _apply_user_rpe_override(self, workout: Workout, value: int) -> Workout:
+        """Apply a user RPE override without changing workout ownership/source."""
+        previous_rpe = workout.session_rpe
+        workout.extra = dict(workout.extra or {})
+        rpe_meta = dict(workout.extra.get("fitness_rpe") or {})
+        if previous_rpe is not None and rpe_meta.get("provider"):
+            rpe_meta.setdefault("provider_base_rpe", int(round(previous_rpe)))
+        rpe_meta["active_source"] = "user_override"
+        rpe_meta["user_override_rpe"] = value
+        workout.extra["fitness_rpe"] = rpe_meta
+        workout.session_rpe = float(value)
+        workout = self._apply_beta2_workout_metrics(workout)
+        return self._apply_personal_workout_context(workout)
+
+    async def async_set_workout_rpe(
+        self, uid: str, entry_id: str, value: int
+    ) -> bool:
+        """Rate one explicitly selected completed workout by canonical UID."""
+        value = max(1, min(10, int(round(value))))
+        target = next(
+            (
+                workout
+                for workout in self.local_workouts()
+                if self._calendar_uid(entry_id, workout) == uid
+            ),
+            None,
+        )
+        if target is None:
+            return False
+
+        changed = False
+        for idx, item in enumerate(list(self.history)):
+            try:
+                candidate = Workout(**item)
+            except TypeError:
+                continue
+            if not _same_real_workout(candidate, target):
+                continue
+            self.history[idx] = self._apply_user_rpe_override(candidate, value).as_persistent_dict()
+            changed = True
+
+        if not changed:
+            self.history.append(self._apply_user_rpe_override(target, value).as_persistent_dict())
+
+        self._local_workouts_cache = None
+        self._latest_workout_cache_ready = False
+        self._invalidate_evaluation_cache()
+        await self._save()
+        self._notify_workout_history()
+        self._notify()
+        await self._async_refresh_long_term_statistics()
+        return True
 
     async def async_set_session_rpe(self, value: int) -> None:
         """Set integer RPE for current session or latest completed workout and recalculate."""
@@ -7932,8 +8082,17 @@ class FitnessManager:
             "Return ONLY one JSON object with keys: recommendation (short title), action (rest|workout), "
             "sport (string or null), duration_minutes (integer or null), intensity (string or null), "
             "rationale (1-3 short sentences), confidence_percent (0-100), and device_workout. "
-            "device_workout must be null for rest, otherwise an object containing sport, duration_minutes, "
-            "intensity, steps (array of simple structured workout steps when appropriate), and notes. "
+            "Machine-control intensity values must use one canonical English token: recovery, very_light, light, "
+            "moderate, vigorous, or near_maximal; user-facing titles/instructions/rationale must still use the mandated output language. "
+            "device_workout must be null for rest. For a workout it MUST be a clear executable prescription containing "
+            "sport, duration_minutes, intensity, training_zone and notes plus 3-12 ordered steps. Every step MUST contain "
+            "a short user-facing name and a concrete instruction telling the athlete what to do, plus duration_seconds, distance_m "
+            "or repetitions when applicable. Every step target MUST contain intensity. For aerobic/cardio steps it MUST also contain "
+            "training_zone using zone_1, zone_2, zone_3, zone_4 or zone_5. Use zone_1 for recovery/very-light work, zone_2 for light/easy "
+            "aerobic work, zone_3 for moderate/tempo work, zone_4 for vigorous/threshold work and zone_5 for near-maximal/VO2/sprint work. "
+            "Warm-up, work intervals, recoveries and cool-down must each state their own appropriate zone/intensity rather than inheriting "
+            "one vague whole-workout intensity. For strength/mobility where an aerobic zone is not meaningful, use training_zone null and "
+            "give a useful target such as RPE, repetitions, load guidance or effort together with intensity. "
             "Do not wrap the JSON in markdown.\n\nEvidence:\n"
             + self._bounded_ai_json(payload, max_bytes=14000)
         )
@@ -7954,14 +8113,29 @@ class FitnessManager:
             "Use only supplied history/readiness/recovery evidence, preserve rest where needed, and never invent measurements. "
             f"MANDATORY OUTPUT LANGUAGE: {strings['language']}. Return ONLY JSON with keys plan_name, goal_summary, generated_for_date, days. "
             "days must be an array of exactly 7 objects with date_offset (0-6), action (rest|workout), title, rationale, and workout. "
-            "For rest, workout must be null. For workout, workout must be a structured prescription with sport, duration_minutes, notes, and steps. "
-            "Each step may include name, instruction, duration_seconds, distance_m, repetitions, target and recovery_seconds."
+            "For rest, workout must be null. For workout, workout must be a structured prescription with sport, duration_minutes, intensity, "
+            "training_zone, notes, and 3-12 ordered steps. Machine-control intensity values must use canonical English tokens recovery, very_light, "
+            "light, moderate, vigorous, or near_maximal while all user-facing text remains in the mandated output language. "
+            "Every step must include a short name, a concrete instruction, duration_seconds/distance_m/repetitions when applicable, target and optional "
+            "recovery_seconds. Every step target must include intensity. Aerobic/cardio targets must also include training_zone as zone_1..zone_5: "
+            "zone_1 recovery/very-light, zone_2 light/easy aerobic, zone_3 moderate/tempo, zone_4 vigorous/threshold, zone_5 near-maximal/VO2/sprint. "
+            "Warm-up, work, recovery and cool-down steps must state their own zone/intensity. For strength/mobility where an aerobic zone is not meaningful, "
+            "use training_zone null and provide RPE/repetitions/load/effort guidance instead."
             "\n\nEvidence:\n" + self._bounded_ai_json(payload, max_bytes=16000)
         )
 
     async def async_generate_training_plan(self, *, force: bool = False) -> dict[str, Any] | None:
         """Generate a bounded rolling seven-day goal-aware plan."""
-        if not self.config.get(CONF_AI_ENABLED) or self._ai_runtime_disabled:
+        if not self.config.get(CONF_AI_ENABLED):
+            return self.ai_training_plan
+        # A user-initiated regeneration is also an explicit request to retry an
+        # AI provider that was temporarily suspended after an earlier failure.
+        # Without this, the Regenerate button could return the cached plan
+        # immediately and look completely inert until a provider state event
+        # happened to re-arm AI in the background.
+        if force:
+            self._ai_runtime_disabled = False
+        elif self._ai_runtime_disabled:
             return self.ai_training_plan
         today = self._today_iso()
         if not force and self.ai_training_plan and self.ai_training_plan.get("generated_for_date") == today:
@@ -8022,7 +8196,13 @@ class FitnessManager:
 
     async def async_generate_daily_training_plan(self, *, force: bool = False) -> dict[str, Any] | None:
         """Generate one bounded structured plan per local day when AI is enabled."""
-        if not self.config.get(CONF_AI_ENABLED) or self._ai_runtime_disabled:
+        if not self.config.get(CONF_AI_ENABLED):
+            return None
+        # Manual regeneration must retry a provider even when a previous
+        # automatic AI request temporarily disabled the runtime.
+        if force:
+            self._ai_runtime_disabled = False
+        elif self._ai_runtime_disabled:
             return None
         today = self._today_iso()
         if not force and self.ai_daily_plan_date == today and self.ai_daily_plan:

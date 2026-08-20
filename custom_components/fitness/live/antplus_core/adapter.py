@@ -75,6 +75,11 @@ class AntUsbAdapter:
     address: int | None = None
     source: str | None = None
     gateway_id: str | None = None
+    # Transient remote-transport evidence. ``serial`` is the canonical physical
+    # serial; WebUSB's descriptor serial may be host/driver-specific and is
+    # retained only long enough to migrate older aliases.
+    serial_source: str | None = None
+    usb_serial: str | None = None
 
     def __post_init__(self) -> None:
         self.vid = self.vid.upper().zfill(4)
@@ -85,6 +90,10 @@ class AntUsbAdapter:
             self.manufacturer = self.manufacturer.rstrip("\x00").strip() or None
         if self.product is not None:
             self.product = self.product.rstrip("\x00").strip() or None
+        if self.serial_source is not None:
+            self.serial_source = self.serial_source.rstrip("\x00").strip().lower() or None
+        if self.usb_serial is not None:
+            self.usb_serial = self.usb_serial.rstrip("\x00").strip() or None
 
     @property
     def stable_key(self) -> str:
@@ -148,6 +157,8 @@ class AntUsbAdapter:
             address=int(data["address"]) if data.get("address") is not None else None,
             source=data.get("source"),
             gateway_id=data.get("gateway_id"),
+            serial_source=data.get("serial_source"),
+            usb_serial=data.get("usb_serial"),
         )
 
 
@@ -1062,6 +1073,113 @@ class AntAdapterManager:
             await self._async_sync_local_capture(stable_key)
             self._notify(stable_key)
 
+    def _migrate_remote_adapter_alias(
+        self,
+        alias_key: str,
+        adapter: AntUsbAdapter,
+    ) -> None:
+        """Collapse an old host-specific WebUSB identity into physical ANT id.
+
+        Some host USB stacks expose a generated descriptor serial while the ANT
+        receiver itself reports its stable hardware serial over the ANT protocol.
+        Once both values are observed on the same open stick, the protocol serial
+        wins and the descriptor identity becomes an alias of that physical device.
+        """
+        canonical_key = adapter.stable_key
+        if not alias_key or alias_key == canonical_key:
+            return
+        old = self._records.get(alias_key)
+        if old is None:
+            return
+
+        target = self._records.get(canonical_key)
+        if target is None:
+            self._records.pop(alias_key, None)
+            old.adapter = adapter
+            self._records[canonical_key] = old
+            target = old
+        else:
+            target.local_present = target.local_present or old.local_present
+            if target.local_missing_since is None:
+                target.local_missing_since = old.local_missing_since
+            target.remote_gateways.update(old.remote_gateways or {})
+            target.remote_missing_since.update(old.remote_missing_since or {})
+            target.remote_capture_states.update(old.remote_capture_states or {})
+            target.desired_capture = target.desired_capture or old.desired_capture
+            target.local_capture_enabled = target.local_capture_enabled or old.local_capture_enabled
+            target.capture_error = target.capture_error or old.capture_error
+            target.adapter = adapter
+            self._records.pop(alias_key, None)
+
+        if alias_key in self._stored_capture_states:
+            self._stored_capture_states[canonical_key] = (
+                self._stored_capture_states.get(canonical_key, False)
+                or self._stored_capture_states.pop(alias_key)
+            )
+            self.hass.async_create_task(self._async_save_capture_states())
+
+        scanner = self._local_scanners.pop(alias_key, None)
+        if scanner is not None and canonical_key not in self._local_scanners:
+            scanner.adapter = adapter
+            self._local_scanners[canonical_key] = scanner
+
+        device_registry = dr.async_get(self.hass)
+        entity_registry = er.async_get(self.hass)
+        old_identifier = (DOMAIN, f"usb_adapter:{alias_key}")
+        new_identifier = adapter.ha_identifier
+        old_device = device_registry.async_get_device_by_identifier(
+            old_identifier, self.entry.entry_id
+        )
+        new_device = device_registry.async_get_device_by_identifier(
+            new_identifier, self.entry.entry_id
+        )
+        if old_device is not None:
+            if new_device is not None and new_device.id != old_device.id:
+                for entity in list(entity_registry.entities.values()):
+                    if entity.device_id == old_device.id:
+                        # If an equivalent canonical entity already exists, the
+                        # stale alias entity can be removed; otherwise preserve
+                        # the entity and only move its device association.
+                        equivalent = None
+                        old_uid = str(getattr(entity, "unique_id", "") or "")
+                        if alias_key in old_uid:
+                            canonical_uid = old_uid.replace(alias_key, canonical_key)
+                            equivalent = entity_registry.async_get_entity_id(
+                                entity.domain, DOMAIN, canonical_uid
+                            )
+                        if equivalent and equivalent != entity.entity_id:
+                            entity_registry.async_remove(entity.entity_id)
+                        else:
+                            entity_registry.async_update_entity(
+                                entity.entity_id, device_id=new_device.id
+                            )
+                device_registry.async_remove_device(old_device.id)
+            elif new_device is None:
+                device_registry.async_update_device(
+                    old_device.id,
+                    new_identifiers={new_identifier},
+                    name=adapter.name,
+                    manufacturer=adapter.manufacturer or "ANT+",
+                    model=adapter.product or f"ANT USB {adapter.vid}:{adapter.pid}",
+                    serial_number=adapter.serial,
+                )
+
+        self._registry_identity_cache.pop(alias_key, None)
+        known = self._known_adapters()
+        if alias_key in known:
+            known.pop(alias_key, None)
+            known[canonical_key] = adapter.identity_storage()
+            runtime = self.hass.data.get(DOMAIN, {}).get("_live_runtime")
+            if runtime is not None:
+                runtime.suppress_entry_reload_once(self.entry.entry_id)
+            self.hass.config_entries.async_update_entry(
+                self.entry,
+                data={**self.entry.data, KNOWN_ADAPTERS_KEY: known},
+            )
+        self._merge_or_register_device(adapter)
+        self._notify(alias_key)
+        self._notify(canonical_key)
+
     def update_remote_gateway(
         self,
         gateway_id: str,
@@ -1069,10 +1187,32 @@ class AntAdapterManager:
         *,
         reconcile_capture: bool = False,
         control_protocol: int = 0,
+        remove_missing_immediately: bool = False,
     ) -> None:
         now = time.monotonic()
         self._remote_gateway_last_seen[gateway_id] = now
         self._remote_gateway_control_protocol[gateway_id] = max(0, int(control_protocol))
+
+        # A protocol-reported ANT hardware serial is the cross-host physical
+        # identity. Migrate any older WebUSB descriptor alias learned for this
+        # exact open device before reconciling route presence.
+        for adapter in adapters:
+            if adapter.serial_source != "ant_protocol" or not adapter.serial:
+                continue
+            aliases: set[str] = set()
+            if adapter.usb_serial and adapter.usb_serial != adapter.serial:
+                aliases.add(f"{adapter.vid}:{adapter.pid}:{adapter.usb_serial}")
+            for stable_key, record in tuple(self._records.items()):
+                if stable_key == adapter.stable_key:
+                    continue
+                old_adapter = record.adapter
+                if old_adapter.vid != adapter.vid or old_adapter.pid != adapter.pid:
+                    continue
+                if gateway_id in (record.remote_gateways or {}):
+                    aliases.add(stable_key)
+            for alias_key in sorted(aliases):
+                self._migrate_remote_adapter_alias(alias_key, adapter)
+
         current_keys = {adapter.stable_key for adapter in adapters}
 
         for stable_key, record in self._records.items():
@@ -1081,6 +1221,13 @@ class AntAdapterManager:
 
             if stable_key in current_keys:
                 record.remote_missing_since.pop(gateway_id, None)
+                continue
+
+            if remove_missing_immediately:
+                record.remote_gateways.pop(gateway_id, None)
+                record.remote_missing_since.pop(gateway_id, None)
+                record.remote_capture_states.pop(gateway_id, None)
+                self._notify(stable_key)
                 continue
 
             record.remote_missing_since.setdefault(gateway_id, now)

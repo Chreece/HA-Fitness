@@ -347,36 +347,6 @@ class FitnessTVDashboardHub:
         return result
 
     @staticmethod
-    def _sanitize_card_layout(layout: Any) -> dict[str, dict[str, int]]:
-        """Return bounded per-card TV layout overrides."""
-        if not isinstance(layout, dict):
-            return {}
-        allowed = set(TV_CARD_IDS)
-        result: dict[str, dict[str, int]] = {}
-        for raw_card_id, raw_settings in layout.items():
-            card_id = str(raw_card_id or "")
-            if card_id not in allowed or not isinstance(raw_settings, dict):
-                continue
-            settings: dict[str, int] = {}
-            try:
-                column_span = int(raw_settings.get("column_span") or 0)
-            except (TypeError, ValueError):
-                column_span = 0
-            if 1 <= column_span <= 12:
-                settings["column_span"] = column_span
-            try:
-                height = int(raw_settings.get("height") or 0)
-            except (TypeError, ValueError):
-                height = 0
-            if 120 <= height <= 1600:
-                settings["height"] = height
-            if settings:
-                result[card_id] = settings
-            if len(result) >= len(TV_CARD_IDS):
-                break
-        return result
-
-    @staticmethod
     def _sanitize_favorites(favorites: Any) -> list[dict[str, str]]:
         result: list[dict[str, str]] = []
         seen: set[str] = set()
@@ -603,12 +573,27 @@ class FitnessTVDashboardHub:
 
     @classmethod
     def _sanitize_profile(cls, raw: Any) -> dict[str, Any]:
-        """Discard unknown or unbounded fields from one persisted TV profile."""
+        """Discard unknown or unbounded fields from one persisted TV profile.
+
+        Dashboard definitions are part of the durable profile state.  Older
+        versions accidentally sanitized them out while loading the Store, which
+        made every restart rewrite the profile back to the legacy single
+        ``Main`` dashboard.  Normalize/migrate them here before the cleaned
+        snapshot is written back.
+        """
         if not isinstance(raw, dict):
             return {}
         result: dict[str, Any] = {}
+        dashboards, active_dashboard_id = cls._sanitize_dashboards(raw)
+        result["dashboards"] = dashboards
+        result["active_dashboard_id"] = active_dashboard_id
+        active_dashboard = next(
+            row for row in dashboards if row["id"] == active_dashboard_id
+        )
+        # Keep the legacy field synchronized for older dashboard clients while
+        # the canonical multi-dashboard definition remains ``dashboards``.
+        result["cards"] = list(active_dashboard["cards"])
         sanitizers = {
-            "cards": cls._sanitize_cards,
             "favorites": cls._sanitize_favorites,
             "user_playlists": cls._sanitize_user_playlists,
             "last_media": cls._sanitize_last_media,
@@ -622,15 +607,12 @@ class FitnessTVDashboardHub:
         for key, sanitizer in sanitizers.items():
             if key in raw:
                 result[key] = sanitizer(raw.get(key))
-        dashboards, active_dashboard_id = cls._sanitize_dashboards(raw)
-        result["dashboards"] = dashboards
-        result["active_dashboard_id"] = active_dashboard_id
         for key in (
             "oled_protection",
             "animations_enabled",
+            "toolbar_auto_hide",
             "light_feedback_enabled",
             "tts_announcements_enabled",
-            "toolbar_auto_hide",
         ):
             if key in raw:
                 result[key] = bool(raw.get(key))
@@ -709,6 +691,47 @@ class FitnessTVDashboardHub:
         profile = self._data.get("profiles", {}).get(str(profile_entry_id))
         return bool(profile.get("tts_announcements_enabled", True)) if isinstance(profile, dict) else True
 
+    @staticmethod
+    def _sanitize_card_layout(value: Any) -> dict[str, dict[str, float | int]]:
+        """Return a bounded, portable per-card layout map."""
+        if not isinstance(value, dict):
+            return {}
+        allowed = set(TV_CARD_IDS)
+        result: dict[str, dict[str, float | int]] = {}
+        for card_id, raw in list(value.items())[: len(TV_CARD_IDS)]:
+            card_id = str(card_id)
+            if card_id not in allowed or not isinstance(raw, dict):
+                continue
+            item: dict[str, float | int] = {}
+            try:
+                width_percent = float(raw.get("width_percent") or 0)
+            except (TypeError, ValueError):
+                width_percent = 0
+            if width_percent > 0:
+                item["width_percent"] = round(max(8.0, min(100.0, width_percent)), 1)
+            try:
+                column_span = int(round(float(raw.get("column_span") or 0)))
+            except (TypeError, ValueError):
+                column_span = 0
+            if column_span > 0:
+                item["column_span"] = max(1, min(12, column_span))
+            try:
+                height = int(round(float(raw.get("height") or 0)))
+            except (TypeError, ValueError):
+                height = 0
+            if height > 0:
+                item["height"] = max(120, min(1600, height))
+            if "x_percent" in raw:
+                try:
+                    x_percent = float(raw.get("x_percent"))
+                except (TypeError, ValueError):
+                    x_percent = float("nan")
+                if x_percent == x_percent and float("-inf") < x_percent < float("inf"):
+                    item["x_percent"] = round(max(0.0, min(100.0, x_percent)), 1)
+            if item:
+                result[card_id] = item
+        return result
+
     @classmethod
     def _sanitize_dashboards(cls, profile: dict[str, Any]) -> tuple[list[dict[str, Any]], str]:
         """Return bounded dashboard definitions, migrating the legacy single cards list."""
@@ -731,7 +754,7 @@ class FitnessTVDashboardHub:
             cards = cls._sanitize_cards(profile.get("cards"))
             if "cards" not in profile:
                 cards = list(DEFAULT_TV_CARD_IDS)
-            dashboards = [{"id": "main", "name": DEFAULT_DASHBOARD_NAME, "cards": cards, "layout": {}, "theme": str(profile.get("fitness_theme") or "performance")[:32]}]
+            dashboards = [{"id": "main", "name": DEFAULT_DASHBOARD_NAME, "cards": cards, "layout": cls._sanitize_card_layout(profile.get("card_layout")), "theme": str(profile.get("fitness_theme") or "performance")[:32]}]
         ids = {row["id"] for row in dashboards}
         active = str(profile.get("active_dashboard_id") or dashboards[0]["id"])
         if active not in ids:
@@ -814,7 +837,6 @@ class FitnessTVDashboardHub:
             "cards": cards,
             "dashboards": dashboards,
             "active_dashboard_id": active_dashboard_id,
-            "card_layout": dict(active_dashboard.get("layout") or {}),
             "favorites": self._sanitize_favorites(profile.get("favorites")),
             "user_playlists": self._sanitize_user_playlists(profile.get("user_playlists")),
             "last_media": self._sanitize_last_media(profile.get("last_media")),
@@ -875,17 +897,15 @@ class FitnessTVDashboardHub:
         if cards is not None or card_layout is not None:
             dashboards, active = self._sanitize_dashboards(updated)
             target_id = str(dashboard_id or active)
-            found_target = False
             for row in dashboards:
                 if row["id"] == target_id:
-                    found_target = True
                     if cards is not None:
                         row["cards"] = self._sanitize_cards(cards)
                     if card_layout is not None:
                         row["layout"] = self._sanitize_card_layout(card_layout)
                     break
             updated["dashboards"] = dashboards
-            updated["active_dashboard_id"] = target_id if found_target else active
+            updated["active_dashboard_id"] = target_id if target_id in {row["id"] for row in dashboards} else active
             active_row = next(row for row in dashboards if row["id"] == updated["active_dashboard_id"])
             updated["cards"] = list(active_row["cards"])
         if favorites is not None:
@@ -1007,7 +1027,22 @@ class FitnessTVDashboardHub:
                 if not ignored:
                     self._ignored_cast_clients.pop(profile_entry_id, None)
             self._cast_established_at.setdefault(profile_entry_id, now)
-            self._claim_audio_owner(profile_entry_id, client_id)
+            owner = self._audio_owner.get(profile_entry_id)
+            owner_meta = clients.get(owner) if owner else None
+            owner_is_live_cast = bool(
+                owner
+                and owner != client_id
+                and owner_meta
+                and bool(owner_meta.get("is_cast_receiver"))
+                and owner not in self._ignored_cast_clients.get(profile_entry_id, set())
+                and now - float(owner_meta.get("last_seen", 0.0)) <= CAST_CLIENT_STALE_SECONDS
+            )
+            # Keep one audible Cast receiver sticky. Multiple receiver/browser
+            # instances can coexist briefly while Google/Android TV replaces a
+            # Lovelace WebView. A later heartbeat must not steal ownership and
+            # stop the receiver that already has the active radio/audio stream.
+            if not owner_is_live_cast:
+                self._claim_audio_owner(profile_entry_id, client_id)
             self._ensure_cast_watchdog(profile_entry_id)
         elif is_cast_receiver and profile_entry_id in self._expected_local_cast:
             # Browser-local Cast has no HA media_player state to reconcile. The
@@ -1022,7 +1057,18 @@ class FitnessTVDashboardHub:
                 if not ignored:
                     self._ignored_cast_clients.pop(profile_entry_id, None)
             self._local_cast_established_at.setdefault(profile_entry_id, now)
-            self._claim_audio_owner(profile_entry_id, client_id)
+            owner = self._audio_owner.get(profile_entry_id)
+            owner_meta = clients.get(owner) if owner else None
+            owner_is_live_cast = bool(
+                owner
+                and owner != client_id
+                and owner_meta
+                and bool(owner_meta.get("is_cast_receiver"))
+                and owner not in self._ignored_cast_clients.get(profile_entry_id, set())
+                and now - float(owner_meta.get("last_seen", 0.0)) <= CAST_CLIENT_STALE_SECONDS
+            )
+            if not owner_is_live_cast:
+                self._claim_audio_owner(profile_entry_id, client_id)
 
     def _prune(self, now: float | None = None) -> None:
         current = time.monotonic() if now is None else now
@@ -2092,11 +2138,12 @@ class FitnessTVDashboardHub:
                             "error": False,
                         },
                     )
-        # A media-selection/play command must silence every other still-live
-        # browser for this profile even when the same client remains owner.
-        # Without this, a stale laptop tab/previous Cast receiver can keep an
-        # old radio stream audible while the active TV starts the new station.
-        if str(command) in {"select", "play"}:
+        # Keep browser playback single-owner even when an old tab/receiver has
+        # missed an earlier owner handoff.  New playback and explicit pause/stop
+        # both silence every non-owner client so one stale Radio Browser stream
+        # cannot remain audible underneath the active player.
+        command_name = str(command)
+        if command_name in {"select", "play"}:
             for other_id in clients:
                 if other_id == client_id:
                     continue
@@ -2107,6 +2154,19 @@ class FitnessTVDashboardHub:
                         "client_id": other_id,
                         "command": "stop",
                         "data": {"reason": "new_media_selected"},
+                    },
+                )
+        elif command_name in {"pause", "stop"}:
+            for other_id in clients:
+                if other_id == client_id:
+                    continue
+                self.hass.bus.async_fire(
+                    TV_MEDIA_EVENT,
+                    {
+                        "profile_entry_id": profile_entry_id,
+                        "client_id": other_id,
+                        "command": "stop",
+                        "data": {"reason": f"{command_name}_non_owner_cleanup"},
                     },
                 )
 
@@ -2835,6 +2895,15 @@ class FitnessMASendspinProxyView(HomeAssistantView):
         return client_ws
 
 
+def _music_adapter_enabled_for_preferences(prefs: dict[str, Any], adapter_id: str) -> bool:
+    """Return whether a profile may use an installed music adapter."""
+    if not bool(prefs.get("music_adapters_configured")):
+        return True
+    return str(adapter_id or "").strip() in {
+        str(item).strip() for item in (prefs.get("music_adapters") or []) if str(item).strip()
+    }
+
+
 def _profile_ytdlp_enabled(hass: HomeAssistant, profile_entry_id: str) -> bool:
     """Return whether the profile explicitly opted into yt-dlp playback."""
     entry = hass.config_entries.async_get_entry(profile_entry_id)
@@ -2897,8 +2966,7 @@ async def websocket_tv_preferences(hass: HomeAssistant, connection, msg) -> None
         vol.Optional("cards"): vol.All([str], vol.Length(max=len(TV_CARD_IDS))),
         vol.Optional("dashboard_id"): vol.All(str, vol.Length(max=64)),
         vol.Optional("card_layout"): vol.All(
-            dict,
-            bounded_websocket_payload(max_nodes=256, max_depth=3, max_string_length=128),
+            dict, bounded_websocket_payload(max_nodes=512, max_depth=4, max_string_length=128)
         ),
         vol.Optional("favorites"): vol.All(
             [dict], vol.Length(max=100),
@@ -3885,9 +3953,14 @@ async def websocket_tv_music_browse(hass: HomeAssistant, connection, msg) -> Non
         connection.send_error(msg["id"], "profile_not_found", "Fitness profile not loaded")
         return
     hub = await _require_profile_control(hass, connection, profile_entry_id)
+    provider = str(msg.get("provider") or "").strip()
+    prefs = await hub.async_preferences(profile_entry_id)
+    if provider == "radio" and not _music_adapter_enabled_for_preferences(prefs, "radio_browser"):
+        connection.send_error(msg["id"], "music_adapter_disabled", "Radio Browser is disabled for this Fitness profile")
+        return
     try:
         result = await hub.async_music_browse(
-            str(msg.get("provider") or ""),
+            provider,
             query=str(msg.get("query") or ""),
             country_code=str(msg.get("country_code") or ""),
             ytdlp_enabled=_profile_ytdlp_enabled(hass, profile_entry_id),
@@ -3914,6 +3987,11 @@ async def websocket_tv_music_resolve(hass: HomeAssistant, connection, msg) -> No
         connection.send_error(msg["id"], "profile_not_found", "Fitness profile not loaded")
         return
     hub = await _require_profile_control(hass, connection, profile_entry_id)
+    media_content_id = str(msg.get("media_content_id") or "")
+    prefs = await hub.async_preferences(profile_entry_id)
+    if media_content_id.startswith(FITNESS_RADIO_PREFIX) and not _music_adapter_enabled_for_preferences(prefs, "radio_browser"):
+        connection.send_error(msg["id"], "music_adapter_disabled", "Radio Browser is disabled for this Fitness profile")
+        return
     if not hub.begin_music_resolution(profile_entry_id):
         connection.send_error(
             msg["id"], "music_resolve_busy", "A media item is already being prepared"
@@ -3921,7 +3999,7 @@ async def websocket_tv_music_resolve(hass: HomeAssistant, connection, msg) -> No
         return
     try:
         result = await hub.async_resolve_fitness_media(
-            str(msg.get("media_content_id") or ""),
+            media_content_id,
             ytdlp_enabled=_profile_ytdlp_enabled(hass, profile_entry_id),
         )
     except Exception as err:  # noqa: BLE001 - invalid/remote media becomes WS error
