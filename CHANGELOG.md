@@ -18,6 +18,8 @@
 - Added a compact multi-dashboard navigator below the main toolbar: when a profile has multiple dashboards it shows the active dashboard name, position and previous/next controls without covering cards; it remains available when the toolbar auto-hides, participates in TV-remote navigation, removes the duplicated textual plus from Add dashboard, and trims the synthetic final grid-row gap that left dead space at the bottom.
 - Garmin invalid-file handling now preserves a small private bounded forensic copy under `.storage/fitness_garmin_invalid`, records FIT/header/compression diagnostics, accepts raw FIT plus zlib/gzip/raw-DEFLATE wrappers only when they reveal a genuine FIT header, and re-probes older invalid records once so potentially useful monitoring/SpO2/sleep files can be investigated instead of silently discarded.
 
+## 2026.8.01a05
+
 - Hardened Garmin full-device sync so successful partial batches enter an explicit cooldown state, manual retries respect the watch settle window, malformed/opaque FileSync records are retried and quarantined individually instead of aborting the archive, and diagnostics expose the last successful batch and next retry time.
 - Expanded the goal-aware AI coach with rolling seven-day structured training plans, guided live execution/TTS, Fitness Tests and capability-driven smartwatch export hooks.
 - Added Fitness TV plugin cards for RSS/news, weather, lights, music, video and TTS plus built-in Performance, Minimal, OLED, Glass and Classic presentation themes.
