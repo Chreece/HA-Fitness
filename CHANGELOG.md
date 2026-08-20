@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+## 2026.8.01a06
 - Fixed release/test contract drift: prerelease validation no longer hard-codes the previous alpha version, Garmin manual-sync safety coverage now verifies the structural background-scheduling contract instead of depending on neighboring class names, and every direct-device manual sync button uses the universal localized `sync_device_data` label.
 - Exposed directly synchronized device wellness data as native Home Assistant sensors without any extra device polling: Fitness now materializes canonical steps, SpO₂, heart rate/HRV, respiration, stress/body battery, activity/intensity minutes, floors, calories, sleep score, temperature, blood pressure, VO₂ max, body composition, battery/wear/charging and every other supported canonical health metric as soon as synchronized data exists; cumulative daily metrics use total-increasing semantics and the persisted per-device metric catalog is expanded safely to 64 metrics.
 - Added a modern synchronized-wellness infographic card, data-aware empty-card layout previews, clipping-safe multiline dashboard/settings actions, and a single hidden-scrollbar TV/Cast viewport so empty cards reclaim layout space outside edit mode and nested TV cards no longer create a second right-side scrollbar.
