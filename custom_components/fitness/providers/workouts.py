@@ -6,6 +6,7 @@ from dataclasses import dataclass, field, fields
 from datetime import datetime, timedelta, timezone
 from itertools import islice
 from typing import Any
+import json
 import math
 import re
 
@@ -297,6 +298,141 @@ def fitness_owned_workout_value(workout: "Workout | None", field_name: str):
     return None
 
 
+
+PERSISTENCE_MAX_ROUTE_POINTS = 2048
+
+
+def _route_points(value: Any) -> list[list[float]] | None:
+    """Return a canonical [lat, lon] route from common provider shapes.
+
+    GPS is factual workout data, not disposable provider provenance.  Older
+    releases often left it under ``extra``/``provider_values`` where generic
+    payload compaction could hide it from the dashboard after the next reload.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        text = value.strip()
+        if not text or "omitted" in text.lower():
+            return None
+        # Older provider adapters commonly persisted route data either as JSON
+        # text or as a Google encoded polyline.  Promote those legacy forms into
+        # the durable first-class gps_track field on load so historic workouts do
+        # not lose their map merely because they predate canonical route storage.
+        if text[:1] in {"[", "{"}:
+            try:
+                return _route_points(json.loads(text))
+            except (TypeError, ValueError, json.JSONDecodeError):
+                return None
+        if len(text) < 8:
+            return None
+        points: list[list[float]] = []
+        index = 0
+        lat = 0
+        lon = 0
+        try:
+            while index < len(text):
+                deltas: list[int] = []
+                for _ in range(2):
+                    result = 0
+                    shift = 0
+                    while True:
+                        if index >= len(text):
+                            raise ValueError("truncated polyline")
+                        value_byte = ord(text[index]) - 63
+                        index += 1
+                        if value_byte < 0 or value_byte > 63:
+                            raise ValueError("invalid polyline byte")
+                        result |= (value_byte & 0x1F) << shift
+                        shift += 5
+                        if value_byte < 0x20:
+                            break
+                        if shift > 30:
+                            raise ValueError("invalid polyline value")
+                    deltas.append(~(result >> 1) if result & 1 else (result >> 1))
+                lat += deltas[0]
+                lon += deltas[1]
+                lat_f = lat / 1e5
+                lon_f = lon / 1e5
+                if not (-90 <= lat_f <= 90 and -180 <= lon_f <= 180):
+                    return None
+                points.append([lat_f, lon_f])
+                if len(points) > PERSISTENCE_MAX_ROUTE_POINTS * 8:
+                    break
+        except (TypeError, ValueError):
+            return None
+        return points if len(points) >= 2 else None
+    if isinstance(value, dict):
+        if str(value.get("type") or "").lower() == "linestring":
+            coords = value.get("coordinates")
+            if isinstance(coords, (list, tuple)):
+                result: list[list[float]] = []
+                for point in coords:
+                    if not isinstance(point, (list, tuple)) or len(point) < 2:
+                        continue
+                    try:
+                        lon, lat = float(point[0]), float(point[1])
+                    except (TypeError, ValueError):
+                        continue
+                    if math.isfinite(lat) and math.isfinite(lon) and -90 <= lat <= 90 and -180 <= lon <= 180:
+                        result.append([lat, lon])
+                return result if len(result) >= 2 else None
+        for key in ("gps_track", "gps_points", "route", "track", "geometry", "coordinates", "polyline", "encoded_polyline", "summary_polyline"):
+            if key in value and (points := _route_points(value.get(key))):
+                return points
+        for key, nested in value.items():
+            suffix = str(key).rsplit(".", 1)[-1].lower()
+            if suffix in {"gps_track", "gps_points", "route", "track", "geometry", "coordinates", "polyline", "encoded_polyline", "summary_polyline"}:
+                if points := _route_points(nested):
+                    return points
+        return None
+    if isinstance(value, (list, tuple)):
+        result: list[list[float]] = []
+        for point in value:
+            if isinstance(point, dict):
+                lat = point.get("lat", point.get("latitude", point.get("position_lat")))
+                lon = point.get("lon", point.get("lng", point.get("longitude", point.get("position_long"))))
+            elif isinstance(point, (list, tuple)) and len(point) >= 2:
+                lat, lon = point[0], point[1]
+            else:
+                continue
+            try:
+                lat_f, lon_f = float(lat), float(lon)
+            except (TypeError, ValueError):
+                continue
+            if math.isfinite(lat_f) and math.isfinite(lon_f) and -90 <= lat_f <= 90 and -180 <= lon_f <= 180:
+                result.append([lat_f, lon_f])
+        return result if len(result) >= 2 else None
+    return None
+
+
+def _find_route(*containers: Any) -> list[list[float]] | None:
+    """Find a route recursively in bounded workout/provenance containers."""
+    stack = list(containers)
+    seen: set[int] = set()
+    while stack:
+        value = stack.pop()
+        if isinstance(value, (dict, list, tuple)):
+            ident = id(value)
+            if ident in seen:
+                continue
+            seen.add(ident)
+        if points := _route_points(value):
+            return points
+        if isinstance(value, dict):
+            stack.extend(v for v in value.values() if isinstance(v, (dict, list, tuple)))
+    return None
+
+
+def _persistent_route(points: Any) -> list[list[float]] | None:
+    """Persist a representative whole-course route independently of payload budgets."""
+    canonical = _route_points(points)
+    if not canonical:
+        return None
+    indexes = _sample_indexes(len(canonical), PERSISTENCE_MAX_ROUTE_POINTS)
+    return [canonical[index] for index in indexes]
+
+
 @dataclass(slots=True)
 class Workout:
     source: str
@@ -345,6 +481,9 @@ class Workout:
     device_name: str | None = None
     gear_name: str | None = None
     sample_count: int | None = None
+    # Canonical durable route. GPS/course geometry must survive provider-payload
+    # compaction and HA restarts independently of FIT cache retention.
+    gps_track: list[list[float]] | None = None
 
     # Scientifically/descriptively derived Fitness workout fields.
     banister_trimp: float | None = None
@@ -382,6 +521,15 @@ class Workout:
     field_sources: dict[str, str] = field(default_factory=dict)
     provider_values: dict[str, dict[str, Any]] = field(default_factory=dict)
     extra: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        # Migration/recovery for workouts persisted by older builds. If GPS was
+        # stored only in extra/provider provenance, promote it immediately to the
+        # first-class route field so future saves can no longer lose it.
+        if not _route_points(self.gps_track):
+            self.gps_track = _find_route(self.extra, self.provider_values)
+        else:
+            self.gps_track = _route_points(self.gps_track)
 
     def as_dict(self) -> dict:
         """Serialize without recursively deep-copying provider payloads.
@@ -424,8 +572,10 @@ class Workout:
                 "sources",
                 "provider_domains",
                 "field_sources",
+                "gps_track",
             }
         }
+        result["gps_track"] = _persistent_route(self.gps_track)
         budget = _PersistenceBudget()
         result["provider_values"] = _compact_persistent_value(
             self.provider_values or {}, budget
@@ -792,6 +942,13 @@ def _extract_record(
             "provider": provider_domain,
             "provider_capability": capability,
         }
+
+    route = _find_route(raw)
+    if route:
+        kwargs["gps_track"] = route
+        # Keep a compatibility copy for older frontend/backend readers, but the
+        # canonical field above is now authoritative and durable.
+        extra.setdefault("gps_track", route)
 
     kwargs["extra"] = extra
     kwargs["provider_values"] = {

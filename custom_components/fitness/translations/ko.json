@@ -8,18 +8,14 @@
         "data": {
           "profile_name": "이름",
           "language": "언어",
-          "birth_day": "생일",
-          "birth_month": "출생 월",
-          "birth_year": "출생 연도",
-          "sex": "성별"
+          "sex": "성별",
+          "date_of_birth": "생년월일"
         },
         "data_description": {
           "profile_name": "이 사람의 별도 Fitness 프로필과 엔티티를 만들 때 사용하는 이름입니다.",
           "language": "알림, 코칭, 설명용 센서 속성의 언어입니다. 지원되는 경우 Home Assistant UI 언어가 미리 선택됩니다.",
-          "birth_day": "생년월일의 일. 월/년과 함께 나이 의존 방법에서 나이를 계산하는 데 사용합니다.",
-          "birth_month": "출생 월. 전체 생년월일과 함께 나이 관련 기준 계산에 사용합니다.",
-          "birth_year": "출생 연도. 나이 의존 피트니스 기준 방법에서 나이를 계산하는 데 사용합니다.",
-          "sex": "선택적 생물학적 성별. 성별별 계수를 명시적으로 요구하는 과학 방법에서만 사용합니다."
+          "sex": "선택적 생물학적 성별. 성별별 계수를 명시적으로 요구하는 과학 방법에서만 사용합니다.",
+          "date_of_birth": "전체 생년월일을 선택하세요. 날짜 선택기에서 연도를 직접 선택할 수 있습니다."
         }
       },
       "required": {
@@ -167,7 +163,7 @@
         "description": "먼저 추가할 항목을 선택하세요. 기존 프로필 설정 흐름을 바꾸지 않고 나머지 항목을 나중에 추가할 수 있습니다.",
         "menu_options": {
           "add_user": "사용자 프로필 추가",
-          "manage_protocols": "센서 프로토콜 관리"
+          "add_protocol": "센서 프로토콜 추가 / 관리"
         }
       },
       "add_user": {
@@ -229,6 +225,30 @@
           "bluetooth_hardware": "수동 모드에서 Fitness가 사용할 수 있는 지원 어댑터를 선택합니다.",
           "antplus_hardware": "수동 모드에서 Fitness가 사용할 수 있는 지원 어댑터를 선택합니다."
         }
+      },
+      "account_access": {
+        "title": "Fitness 사용자 역할 및 접근",
+        "description": "관리자 전용입니다. 새 Fitness 계정의 역할과 로그인 접근 범위를 먼저 설정하세요.",
+        "data": {
+          "fitness_account_role": "역할",
+          "fitness_network_access": "네트워크 접근",
+          "fitness_account_display_name": "계정 이름",
+          "fitness_account_username": "로그인 이름",
+          "fitness_remote_slug": "원격 호스트 이름",
+          "fitness_view_profile_entry_ids": "계정 보기 권한"
+        },
+        "data_description": {
+          "fitness_account_role": "관리자는 Fitness 전체 권한을 가집니다. 로컬 및 원격 사용자는 자신의 프로필만 제어하며 관리자가 허용한 추가 프로필만 읽기 전용으로 볼 수 있습니다.",
+          "fitness_network_access": "지정된 원격 호스트 이름으로만 로그인하며 HA LAN 하드웨어는 노출되지 않습니다. 로컬과 원격 모두 로그인할 수 있으며 LAN 하드웨어는 실제 로컬 연결일 때만 표시됩니다.",
+          "fitness_account_display_name": "이 계정은 자신의 Fitness 프로필만 제어합니다.",
+          "fitness_account_username": "원격 계정은 기본적으로 서브도메인을 사용합니다. 사용자는 나중에 로그인 이름을 변경할 수 있습니다.",
+          "fitness_remote_slug": "이 호스트 이름은 이 원격 Fitness 계정 전용입니다.",
+          "fitness_view_profile_entry_ids": "선택한 계정은 보기 전용이며 설정, 운동 또는 기기를 변경할 수 없습니다."
+        }
+      },
+      "account_credentials": {
+        "title": "일회용 초기 비밀번호",
+        "description": "일회용 초기 비밀번호: **{temporary_password}**. 지금 복사하세요. Fitness는 이 비밀번호를 읽을 수 있는 형태로 저장하지 않으며 다시 표시할 수 없습니다."
       }
     },
     "error": {
@@ -236,7 +256,11 @@
       "invalid_number_or_entity": "올바른 숫자 값 또는 Home Assistant 엔티티 ID를 입력하세요.",
       "select_profile": "Fitness 사용자를 한 명 이상 선택하세요.",
       "select_smart_device_owner": "저장된 운동의 소유자로 Fitness 프로필 하나만 선택하세요. 라이브 센서 기능은 나중에 다른 프로필과 공유할 수 있습니다.",
-      "invalid_protocol": "지원되는 센서 프로토콜을 선택하세요."
+      "invalid_protocol": "지원되는 센서 프로토콜을 선택하세요.",
+      "invalid_role": "역할: 이 필드는 필수입니다.",
+      "invalid_network_access": "네트워크 접근: 이 필드는 필수입니다.",
+      "profile_not_found": "선택한 계정은 보기 전용이며 설정, 운동 또는 기기를 변경할 수 없습니다.",
+      "required": "이 필드는 필수입니다."
     },
     "abort": {
       "already_configured": "같은 이름의 Fitness 프로필이 이미 있습니다.",
@@ -247,7 +271,8 @@
       "adapters_already_configured": "모든 Fitness 실시간 어댑터가 이미 구성되었습니다. 각 어댑터 기기에서 활성화하거나 비활성화하세요.",
       "adapters_managed_on_devices": "로컬 센서 어댑터는 ANT+ 및 Bluetooth 어댑터 기기에서 구성합니다.",
       "protocol_enabled": "선택한 연결 프로토콜이 활성화되었습니다.",
-      "protocols_updated": "Fitness 센서 프로토콜이 업데이트되었습니다."
+      "protocols_updated": "Fitness 센서 프로토콜이 업데이트되었습니다.",
+      "fitness_admin_created": "지금 복사하세요. Fitness는 이 비밀번호를 읽을 수 있는 형태로 저장하지 않으며 다시 표시할 수 없습니다."
     }
   },
   "options": {
@@ -275,17 +300,13 @@
         "description": "사용자의 프로필 정보를 편집합니다.",
         "data": {
           "language": "언어",
-          "birth_day": "생일",
-          "birth_month": "출생 월",
-          "birth_year": "출생 연도",
-          "sex": "성별"
+          "sex": "성별",
+          "date_of_birth": "생년월일"
         },
         "data_description": {
           "language": "알림, 코칭, 설명용 센서 속성의 언어입니다. 지원되는 경우 Home Assistant UI 언어가 미리 선택됩니다.",
-          "birth_day": "생년월일의 일. 월/년과 함께 나이 의존 방법에서 나이를 계산하는 데 사용합니다.",
-          "birth_month": "출생 월. 전체 생년월일과 함께 나이 관련 기준 계산에 사용합니다.",
-          "birth_year": "출생 연도. 나이 의존 피트니스 기준 방법에서 나이를 계산하는 데 사용합니다.",
-          "sex": "선택적 생물학적 성별. 성별별 계수를 명시적으로 요구하는 과학 방법에서만 사용합니다."
+          "sex": "선택적 생물학적 성별. 성별별 계수를 명시적으로 요구하는 과학 방법에서만 사용합니다.",
+          "date_of_birth": "전체 생년월일을 선택하세요. 날짜 선택기에서 연도를 직접 선택할 수 있습니다."
         }
       },
       "fitness_inputs": {
@@ -3572,6 +3593,156 @@
       },
       "cycplus_history_30d_moving_time": {
         "name": "30일 사이클링 시간"
+      },
+      "device_heart_rate": {
+        "name": "심박수"
+      },
+      "device_resting_heart_rate": {
+        "name": "안정 시 심박수"
+      },
+      "device_min_heart_rate": {
+        "name": "최소 heart rate"
+      },
+      "device_max_heart_rate": {
+        "name": "최대 heart rate"
+      },
+      "device_hrv_ms": {
+        "name": "심박 변이도"
+      },
+      "device_beat_interval_ms": {
+        "name": "박동 간격"
+      },
+      "device_respiratory_rate": {
+        "name": "호흡수"
+      },
+      "device_spo2": {
+        "name": "혈중 산소"
+      },
+      "device_skin_temperature": {
+        "name": "피부 온도"
+      },
+      "device_skin_temperature_min": {
+        "name": "최소 skin temperature"
+      },
+      "device_skin_temperature_max": {
+        "name": "최대 skin temperature"
+      },
+      "device_skin_temperature_deviation": {
+        "name": "피부 온도 편차"
+      },
+      "device_skin_temperature_7d_deviation": {
+        "name": "7일 피부 온도 편차"
+      },
+      "device_body_temperature": {
+        "name": "체온"
+      },
+      "device_device_temperature": {
+        "name": "기기 temperature"
+      },
+      "device_device_temperature_min": {
+        "name": "최소 device temperature"
+      },
+      "device_device_temperature_max": {
+        "name": "최대 device temperature"
+      },
+      "device_steps": {
+        "name": "걸음 수"
+      },
+      "device_distance_m": {
+        "name": "거리"
+      },
+      "device_calories": {
+        "name": "칼로리"
+      },
+      "device_active_calories": {
+        "name": "활동 calories"
+      },
+      "device_active_minutes": {
+        "name": "활동 시간"
+      },
+      "device_moderate_minutes": {
+        "name": "중강도 활동 minutes"
+      },
+      "device_vigorous_minutes": {
+        "name": "고강도 활동 minutes"
+      },
+      "device_activity_level": {
+        "name": "활동 수준"
+      },
+      "device_stress": {
+        "name": "스트레스"
+      },
+      "device_body_battery": {
+        "name": "신체 battery"
+      },
+      "device_body_battery_charged": {
+        "name": "신체 battery charged"
+      },
+      "device_body_battery_drained": {
+        "name": "신체 battery drained"
+      },
+      "device_sleep_score": {
+        "name": "기기 수면 점수"
+      },
+      "device_vo2_max": {
+        "name": "최대 산소 섭취량 (VO₂ max)"
+      },
+      "device_floors_climbed": {
+        "name": "오른 층 수"
+      },
+      "device_systolic_blood_pressure": {
+        "name": "수축기 blood pressure"
+      },
+      "device_diastolic_blood_pressure": {
+        "name": "이완기 blood pressure"
+      },
+      "device_mean_arterial_pressure": {
+        "name": "평균 동맥 pressure"
+      },
+      "device_weight": {
+        "name": "체중"
+      },
+      "device_bmi": {
+        "name": "체질량지수 (BMI)"
+      },
+      "device_body_fat": {
+        "name": "체지방"
+      },
+      "device_body_water": {
+        "name": "체수분"
+      },
+      "device_muscle_mass": {
+        "name": "근육량"
+      },
+      "device_bone_mass": {
+        "name": "골량"
+      },
+      "device_basal_metabolic_rate": {
+        "name": "기초 대사량"
+      },
+      "device_active_metabolic_rate": {
+        "name": "활동 대사량"
+      },
+      "device_metabolic_age": {
+        "name": "대사 나이"
+      },
+      "device_visceral_fat_mass": {
+        "name": "내장 fat mass"
+      },
+      "device_visceral_fat_rating": {
+        "name": "내장 fat rating"
+      },
+      "device_battery": {
+        "name": "기기 배터리"
+      },
+      "device_device_battery_voltage": {
+        "name": "기기 battery voltage"
+      },
+      "device_charging": {
+        "name": "충전 중"
+      },
+      "device_wear_state": {
+        "name": "착용 상태"
       }
     },
     "binary_sensor": {
@@ -3665,6 +3836,20 @@
         "lights": "조명",
         "video": "TV / 비디오",
         "weather": "날씨"
+      }
+    },
+    "fitness_account_role": {
+      "options": {
+        "admin_user": "관리자 + Fitness 사용자",
+        "user": "사용자",
+        "admin": "전체 Fitness 관리"
+      }
+    },
+    "fitness_network_access": {
+      "options": {
+        "local_only": "로컬 전용",
+        "remote_only": "원격 전용",
+        "local_remote": "로컬 + 원격"
       }
     }
   },

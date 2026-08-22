@@ -124,16 +124,16 @@ def test_text_action_menus_wrap_and_backend_flow_keeps_last_line_reachable():
         '.cast-section-actions{display:flex;gap:8px;flex-wrap:wrap',
         '.remote-actions{display:flex;gap:8px;flex-wrap:wrap',
         '.flow-home{min-width:126px;max-width:min(240px,45vw);padding:7px 11px;font:inherit;white-space:normal',
-        '.flow-actions{display:flex;justify-content:flex-end;gap:8px;padding:8px 0 2px;flex-wrap:wrap',
-        '.flow-body{display:grid;gap:9px;padding:15px 15px max(22px,env(safe-area-inset-bottom))',
+        '.flow-actions{display:flex;justify-content:flex-end;align-items:center;align-self:stretch;gap:8px;margin-top:auto;position:sticky',
+        '.flow-body{display:flex;flex-direction:column;align-items:stretch;gap:9px;padding:15px 15px max(22px,env(safe-area-inset-bottom))',
     ):
         assert fragment in FRONTEND
 
 
 def test_frontend_cache_revision_is_consistent_for_this_feature_batch():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
-    assert '?v=unreleased-110' in DASHBOARD
-    assert 'frontend_version = "unreleased-110"' in ACCOUNTS
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in FRONTEND
+    assert '?v=unreleased-138' in DASHBOARD
+    assert 'frontend_version = "unreleased-138"' in ACCOUNTS
 
 
 def test_remote_browser_gateway_is_permission_checked_and_resource_bounded():

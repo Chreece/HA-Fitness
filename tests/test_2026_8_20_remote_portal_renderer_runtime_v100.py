@@ -54,7 +54,7 @@ def _renderer():
             },
         },
         "_portal_language": lambda value: str(value or "en").split("-")[0] if str(value or "en").split("-")[0] in {"en", "el"} else "en",
-        "_security_headers": lambda nonce="": {"Content-Security-Policy": f"nonce-{nonce}"},
+        "_security_headers": lambda nonce="", **_kwargs: {"Content-Security-Policy": f"nonce-{nonce}"},
         "html": html,
         "json": json,
         "secrets": secrets,

@@ -51,9 +51,36 @@ _EXTERNAL_GATE_PATH = "/fitness-external/start"
 _LOGGER = logging.getLogger(__name__)
 
 ROLE_ADMIN = "admin"
+ROLE_ADMIN_USER = "admin_user"
+ROLE_USER = "user"
 ROLE_LOCAL = "local"
 ROLE_REMOTE = "remote"
-ROLES = {ROLE_ADMIN, ROLE_LOCAL, ROLE_REMOTE}
+ROLE_REMOTE_LOCAL = "remote_local"
+ROLES = {ROLE_ADMIN, ROLE_ADMIN_USER, ROLE_USER, ROLE_LOCAL, ROLE_REMOTE, ROLE_REMOTE_LOCAL}
+ADMIN_ROLES = {ROLE_ADMIN, ROLE_ADMIN_USER}
+NETWORK_LOCAL_ONLY = "local_only"
+NETWORK_REMOTE_ONLY = "remote_only"
+NETWORK_LOCAL_REMOTE = "local_remote"
+
+
+def _is_admin_role(role: Any) -> bool:
+    return str(role or "") in ADMIN_ROLES
+
+
+def _principal_network_access(principal: dict[str, Any] | None) -> str:
+    if not isinstance(principal, dict):
+        return NETWORK_LOCAL_ONLY
+    value = str(principal.get("network_access") or "").strip().lower()
+    if value in {NETWORK_LOCAL_ONLY, NETWORK_REMOTE_ONLY, NETWORK_LOCAL_REMOTE}:
+        return value
+    role = str(principal.get("role") or "")
+    if role == ROLE_REMOTE:
+        return NETWORK_REMOTE_ONLY
+    if role == ROLE_REMOTE_LOCAL:
+        return NETWORK_LOCAL_REMOTE
+    if role == ROLE_ADMIN and bool(principal.get("remote_enabled")):
+        return NETWORK_LOCAL_REMOTE
+    return NETWORK_LOCAL_ONLY
 
 _CAST_SYSTEM_USER_NAMES = {"Home Assistant Cast", "Fitness TV Cast"}
 _SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
@@ -206,7 +233,7 @@ class FitnessAccessController:
                         # sole Fitness language source; old account values migrate
                         # away simply by not copying them into the sanitized store.
                         slug = _normalize_slug(raw_account.get("remote_slug"))
-                        if role == ROLE_REMOTE and slug:
+                        if role in {ROLE_REMOTE, ROLE_REMOTE_LOCAL} and slug:
                             clean["remote_slug"] = slug
                         if "previous_local_only" in raw_account:
                             clean["previous_local_only"] = bool(
@@ -481,6 +508,9 @@ class FitnessAccessController:
             return bool(expected and self._refresh_token_client_host(connection) == expected)
         if role == ROLE_REMOTE:
             expected = self._remote_account_host(account)
+            return bool(expected and self._refresh_token_client_host(connection) == expected)
+        if role == ROLE_REMOTE_LOCAL:
+            expected = self._remote_account_host(account)
             return bool(
                 _is_local_remote(getattr(connection, "remote", None))
                 or (expected and self._refresh_token_client_host(connection) == expected)
@@ -556,24 +586,28 @@ class FitnessAccessController:
         Home Assistant user bindings.
         """
         await self.async_load()
+        is_local_connection = _is_local_remote(getattr(connection, "remote", None))
         principal = self._fitness_principal(connection)
         if principal is not None:
             role = str(principal.get("role") or "none")
             profile_id = str(principal.get("profile_entry_id") or "") or None
             entry = self.hass.config_entries.async_get_entry(profile_id) if profile_id else None
             remote_slug = str(principal.get("remote_slug") or "") or None
-            remote_enabled = bool(principal.get("remote_enabled")) or role == ROLE_REMOTE
+            network_access = _principal_network_access(principal)
+            remote_enabled = network_access in {NETWORK_REMOTE_ONLY, NETWORK_LOCAL_REMOTE}
+            is_admin_role = _is_admin_role(role)
             return {
                 "account_id": str(principal.get("account_id") or "") or None,
                 "username": str(principal.get("username") or "") or None,
                 "display_name": str(principal.get("display_name") or "") or None,
                 "role": role,
-                "is_admin": role == ROLE_ADMIN,
+                "network_access": network_access,
+                "is_admin": is_admin_role,
                 "ha_admin": False,
-                "can_manage": role == ROLE_ADMIN,
+                "can_manage": is_admin_role,
                 "profile_entry_id": profile_id,
                 "view_profile_entry_ids": (
-                    [] if role == ROLE_ADMIN else sorted(self._view_profile_ids(principal))
+                    [] if is_admin_role else sorted(self._view_profile_ids(principal))
                 ),
                 "remote_slug": remote_slug,
                 "remote_url": (
@@ -583,12 +617,16 @@ class FitnessAccessController:
                 ),
                 "external_access": (
                     self.external_account_descriptor(str(principal.get("account_id") or ""))
-                    if role == ROLE_ADMIN and remote_enabled
+                    if is_admin_role and remote_enabled
                     else self.external_profile_descriptor(profile_id)
-                    if profile_id and role == ROLE_REMOTE
+                    if profile_id and remote_enabled
                     else None
                 ),
                 "language": self._profile_language(entry),
+                "is_local_connection": is_local_connection,
+                "local_ha_hardware_allowed": bool(
+                    is_local_connection and network_access in {NETWORK_LOCAL_ONLY, NETWORK_LOCAL_REMOTE}
+                ),
                 "session_allowed": True,
             }
 
@@ -602,6 +640,7 @@ class FitnessAccessController:
         if native_admin:
             return {
                 "role": ROLE_ADMIN,
+                "network_access": NETWORK_LOCAL_ONLY,
                 "is_admin": True,
                 "ha_admin": True,
                 "native_ha_admin": True,
@@ -612,6 +651,8 @@ class FitnessAccessController:
                 "remote_url": None,
                 "external_access": None,
                 "language": _normalize_language(getattr(self.hass.config, "language", "en")),
+                "is_local_connection": is_local_connection,
+                "local_ha_hardware_allowed": is_local_connection,
                 "session_allowed": True,
             }
 
@@ -626,6 +667,8 @@ class FitnessAccessController:
             "remote_url": None,
             "external_access": None,
             "language": _normalize_language(getattr(self.hass.config, "language", "en")),
+            "is_local_connection": is_local_connection,
+            "local_ha_hardware_allowed": False,
             "session_allowed": False,
         }
 
@@ -643,7 +686,7 @@ class FitnessAccessController:
 
         principal = self._fitness_principal(connection)
         if principal is not None:
-            if str(principal.get("role")) == ROLE_ADMIN:
+            if _is_admin_role(principal.get("role")):
                 return self._all_profile_ids()
             visible = self._view_profile_ids(principal)
             profile_id = str(principal.get("profile_entry_id") or "")
@@ -663,7 +706,7 @@ class FitnessAccessController:
 
         principal = self._fitness_principal(connection)
         if principal is not None:
-            if str(principal.get("role")) == ROLE_ADMIN:
+            if _is_admin_role(principal.get("role")):
                 return self._all_profile_ids()
             profile_id = str(principal.get("profile_entry_id") or "")
             return {profile_id} if profile_id and profile_id in self._all_profile_ids() else set()
@@ -698,7 +741,7 @@ class FitnessAccessController:
         await self.async_load()
         principal = self._fitness_principal(connection)
         if principal is not None:
-            if str(principal.get("role")) != ROLE_ADMIN:
+            if not _is_admin_role(principal.get("role")):
                 raise Unauthorized
             return principal
         if not await self._ha_native_admin(connection):
@@ -709,6 +752,7 @@ class FitnessAccessController:
         # administrators.
         return {
             "role": ROLE_ADMIN,
+            "network_access": NETWORK_LOCAL_ONLY,
             "ha_user_id": str(getattr(user, "id", "") or ""),
             "enabled": True,
             "native_ha_admin": True,
@@ -1436,12 +1480,12 @@ class FitnessAccessController:
                     continue
                 if (
                     existing.get("enabled", True)
-                    and existing.get("role") in {ROLE_ADMIN, ROLE_LOCAL, ROLE_REMOTE}
+                    and existing.get("role") in {ROLE_ADMIN, ROLE_LOCAL, ROLE_REMOTE, ROLE_REMOTE_LOCAL}
                     and existing.get("profile_entry_id") == requested_profile_id
                 ):
                     raise ValueError("profile_already_assigned")
             row["profile_entry_id"] = requested_profile_id
-        elif role in {ROLE_LOCAL, ROLE_REMOTE}:
+        elif role in {ROLE_LOCAL, ROLE_REMOTE, ROLE_REMOTE_LOCAL}:
             raise ValueError("profile_not_found")
 
         # Account assignment never mutates profile language. The profile's own
@@ -1467,7 +1511,7 @@ class FitnessAccessController:
         if role == ROLE_ADMIN:
             if not user.is_admin:
                 raise ValueError("admin_requires_ha_admin")
-            if isinstance(current, dict) and current.get("role") in {ROLE_LOCAL, ROLE_REMOTE}:
+            if isinstance(current, dict) and current.get("role") in {ROLE_LOCAL, ROLE_REMOTE, ROLE_REMOTE_LOCAL}:
                 await self.hass.auth.async_update_user(
                     user, local_only=bool(previous_local_only)
                 )
@@ -1516,7 +1560,7 @@ class FitnessAccessController:
         account = self._account(user_id)
         profile_id = str((account or {}).get("profile_entry_id") or "")
         removed = self._data["accounts"].pop(user_id, None)
-        if isinstance(removed, dict) and removed.get("role") in {ROLE_LOCAL, ROLE_REMOTE}:
+        if isinstance(removed, dict) and removed.get("role") in {ROLE_LOCAL, ROLE_REMOTE, ROLE_REMOTE_LOCAL}:
             user = await self.hass.auth.async_get_user(user_id)
             if user is not None and "previous_local_only" in removed:
                 await self.hass.auth.async_update_user(

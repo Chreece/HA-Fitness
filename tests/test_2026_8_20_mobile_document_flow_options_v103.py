@@ -45,6 +45,6 @@ def test_desktop_saved_layout_is_preserved():
     assert "--fitness-manual-card-height" in FRONTEND
 
 def test_frontend_cache_revision_v104_is_synchronized():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
-    assert "?v=unreleased-110" in DASHBOARD
-    assert 'frontend_version = "unreleased-110"' in ACCOUNTS
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in FRONTEND
+    assert "?v=unreleased-138" in DASHBOARD
+    assert 'frontend_version = "unreleased-138"' in ACCOUNTS

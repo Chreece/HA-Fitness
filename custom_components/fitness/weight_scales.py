@@ -15,6 +15,7 @@ import math
 from typing import Any
 
 from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
 
@@ -49,6 +50,10 @@ def _parse_dt(value: Any) -> datetime | None:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
+
+
+def _source_label(value: Any, limit: int = 96) -> str:
+    return " ".join(str(value or "").strip().split())[:limit]
 
 
 class SharedWeightScaleRouter:
@@ -107,6 +112,10 @@ class SharedWeightScaleRouter:
                             str(item) for item in raw.get("dismissed_profile_ids") or []
                             if str(item) in candidates
                         ][:32],
+                        "source_kind": _source_label(raw.get("source_kind"), 32),
+                        "source_integration": _source_label(raw.get("source_integration"), 64),
+                        "source_device": _source_label(raw.get("source_device"), 96),
+                        "source_display": _source_label(raw.get("source_display"), 192),
                     }
                 )
             self._pending = pending[-MAX_PENDING_MEASUREMENTS:]
@@ -161,6 +170,110 @@ class SharedWeightScaleRouter:
 
     def _configured_scale(self, manager) -> str:
         return str(manager.config.get(CONF_WEIGHT_SCALE_ENTITY) or "").strip()
+
+    def _measurement_source(self, entity_id: str) -> dict[str, str]:
+        """Describe the real Home Assistant source behind a weight entity.
+
+        Classification is deliberately vendor-neutral.  A provider, wearable,
+        phone or other device that happens to expose a weight value remains a
+        provider/device source; it is called a physical scale only when Home
+        Assistant's device metadata or the device's sibling composition sensors
+        provide scale-specific evidence.
+        """
+        state = self.hass.states.get(entity_id)
+        friendly = _source_label(
+            state.attributes.get("friendly_name") if state is not None else ""
+        )
+        platform = ""
+        device_name = ""
+        manufacturer = ""
+        model = ""
+        device_id = ""
+        sibling_evidence: list[str] = []
+        try:
+            registry = er.async_get(self.hass)
+            entity_entry = registry.async_get(entity_id)
+        except Exception:  # noqa: BLE001 - registry metadata is optional context
+            registry = None
+            entity_entry = None
+        if entity_entry is not None:
+            platform = _source_label(getattr(entity_entry, "platform", ""), 64).lower()
+            device_id = str(getattr(entity_entry, "device_id", "") or "")
+            if device_id:
+                try:
+                    device = dr.async_get(self.hass).async_get(device_id)
+                except Exception:  # noqa: BLE001 - never block a measurement on metadata
+                    device = None
+                if device is not None:
+                    device_name = _source_label(
+                        getattr(device, "name_by_user", None)
+                        or getattr(device, "name", None)
+                        or getattr(device, "model", None)
+                    )
+                    manufacturer = _source_label(getattr(device, "manufacturer", None), 64)
+                    model = _source_label(getattr(device, "model", None), 96)
+                if registry is not None:
+                    for sibling in registry.entities.values():
+                        if str(getattr(sibling, "device_id", "") or "") != device_id:
+                            continue
+                        sibling_state = self.hass.states.get(sibling.entity_id)
+                        sibling_evidence.extend(
+                            str(value or "")
+                            for value in (
+                                sibling.entity_id,
+                                getattr(sibling, "name", None),
+                                getattr(sibling, "original_name", None),
+                                getattr(sibling, "translation_key", None),
+                                (sibling_state.attributes.get("friendly_name") if sibling_state is not None else None),
+                                (sibling_state.attributes.get("device_class") if sibling_state is not None else None),
+                            )
+                            if value
+                        )
+
+        evidence = " ".join(
+            part.casefold()
+            for part in (platform, device_name, manufacturer, model, friendly, entity_id)
+            if part
+        )
+        scale_markers = (
+            "scale", "weighing", "body composition", "body_comp", "impedance",
+            "waage", "bilancia", "báscula", "balance", "weegschaal", "waga",
+        )
+        wearable_markers = (
+            "watch", "forerunner", "fenix", "epix", "vivoactive", "venu",
+            "band", "ring", "tracker", "phone", "smartphone", "bike computer",
+            "cycling computer", "edge ",
+        )
+        composition_markers = (
+            "body_fat", "body fat", "impedance", "body_water", "body water",
+            "muscle_mass", "muscle mass", "bone_mass", "bone mass",
+            "visceral_fat", "visceral fat", "fat_free_mass", "fat free mass",
+        )
+        sibling_text = " ".join(value.casefold() for value in sibling_evidence)
+        composition_hits = sum(1 for marker in composition_markers if marker in sibling_text)
+        explicit_scale = any(marker in evidence for marker in scale_markers)
+        explicit_non_scale_device = any(marker in evidence for marker in wearable_markers)
+        is_physical_scale = explicit_scale or (
+            composition_hits >= 2 and not explicit_non_scale_device
+        )
+
+        provider = platform.replace("_", " ").strip().title() if platform else ""
+        kind = "scale" if is_physical_scale else ("provider" if platform else "entity")
+
+        parts: list[str] = []
+        if provider:
+            parts.append(provider)
+        if device_name and device_name.casefold() not in {part.casefold() for part in parts}:
+            parts.append(device_name)
+        elif not device_name and friendly and friendly.casefold() not in {part.casefold() for part in parts}:
+            parts.append(friendly)
+        display = " · ".join(parts) or friendly or entity_id
+        return {
+            "source_kind": kind,
+            "source_integration": provider[:64],
+            "source_device": device_name[:96],
+            "source_display": display[:192],
+        }
 
     def _rebind_listener(self) -> None:
         entities = tuple(
@@ -282,6 +395,7 @@ class SharedWeightScaleRouter:
         timestamp = measured_at if isinstance(measured_at, datetime) else now
         if timestamp.tzinfo is None:
             timestamp = timestamp.replace(tzinfo=timezone.utc)
+        source = self._measurement_source(entity_id)
         item = {
             "id": f"scale-{self._sequence}",
             "entity_id": entity_id,
@@ -291,6 +405,7 @@ class SharedWeightScaleRouter:
             "suggested_profile_id": suggested,
             "match_delta_kg": round(nearest[0], 3) if nearest is not None else None,
             "dismissed_profile_ids": [],
+            **source,
         }
         # A scale can chatter while a person remains standing on it. Keep only
         # the newest unconfirmed measurement for that physical source.
@@ -357,6 +472,14 @@ class SharedWeightScaleRouter:
                 )
             if not candidate_rows:
                 continue
+            source = {
+                "source_kind": _source_label(item.get("source_kind"), 32),
+                "source_integration": _source_label(item.get("source_integration"), 64),
+                "source_device": _source_label(item.get("source_device"), 96),
+                "source_display": _source_label(item.get("source_display"), 192),
+            }
+            if not source["source_display"]:
+                source = self._measurement_source(str(item.get("entity_id") or ""))
             result.append(
                 {
                     "id": str(item.get("id") or ""),
@@ -367,6 +490,7 @@ class SharedWeightScaleRouter:
                     "match_delta_kg": item.get("match_delta_kg"),
                     "dismissed_profile_ids": sorted(dismissed),
                     "candidates": candidate_rows,
+                    **source,
                 }
             )
         return result[:MAX_PENDING_MEASUREMENTS]

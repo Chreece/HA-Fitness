@@ -138,8 +138,8 @@ def test_browser_local_cast_handoff_moves_audio_owner_to_receiver_and_stop_is_li
     assert 'type:"fitness/tv/local_cast_stopped"' in JS
     assert 'this._localCastSessionActive()' in JS
     assert 'this._localCastServerActive = Boolean(result?.local_cast_active)' in JS
-    assert 'stopCast.hidden = !FITNESS_TV_CAST_RECEIVER || !anyCastActive' in JS
-    assert 'stopCast.disabled = !anyCastActive' in JS
+    assert 'stopCast.hidden = !FITNESS_TV_CAST_RECEIVER || !castConnected' in JS
+    assert 'stopCast.disabled = !castConnected' in JS
     assert 'if self.is_any_cast_active(profile_entry_id)' in TV
     assert 'cast_expected = self.has_cast_expectation(profile_entry_id)' in TV
     assert 'if (this._audioOwner && FITNESS_TV_CAST_RECEIVER)' in JS
@@ -154,5 +154,5 @@ def test_local_cast_handoff_preserves_playing_state_for_receiver_resume():
     assert '["session_replaced","cast_handoff"]' in handler
 
 def test_frontend_cache_revision_bumped_for_gateway_release():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in JS
-    assert '?v=unreleased-110' in DASH
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in JS
+    assert '?v=unreleased-138' in DASH

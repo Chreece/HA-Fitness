@@ -2182,13 +2182,20 @@ class LiveRuntime:
         # finished registering. Discovery is assignment-driven, so once a profile
         # exists, surface every currently observed unaccepted physical sensor.
         for sensor in tuple(self.sensors.values()):
-            if sensor.capabilities and not self.sensor_is_accepted(sensor.sensor_id):
+            accepted = self.sensor_is_accepted(sensor.sensor_id)
+            if accepted:
+                # Radio discovery can run before this profile finishes registering.
+                # If this profile already owns the sensor, any Add flow opened in
+                # that startup window became invalid the instant the profile was
+                # registered. Abort queued and visible discovery generically; do
+                # not wait for another radio packet to notice the assignment.
+                self._abort_discovery_flows_after_accepted_merge(
+                    sensor.sensor_id, {sensor.sensor_id}
+                )
+                if CAPABILITY_WORKOUT_HISTORY in sensor.capabilities:
+                    self.notify_sensor_assignment_changed(sensor.sensor_id)
+            elif sensor.capabilities:
                 self._schedule_sensor_discovery(sensor.sensor_id)
-            elif (
-                CAPABILITY_WORKOUT_HISTORY in sensor.capabilities
-                and self.sensor_is_accepted(sensor.sensor_id)
-            ):
-                self.notify_sensor_assignment_changed(sensor.sensor_id)
         # Person/profile entries never start radio providers. Live transports
         # are owned exclusively by the Local Sensors hub entry.
 
@@ -3248,8 +3255,12 @@ class LiveRuntime:
     def _cleanup_merged_registry_sensor(
         self, old_sensor_id: str, *, old_device_id: str | None = None
     ) -> None:
-        if self.hub_entry is None:
+        # Physical live sensors are owned by the dedicated Fitness Devices entry,
+        # not the Protocols/hub entry. Looking them up under ``hub_entry`` leaves
+        # discarded per-route devices and their entities orphaned after a merge.
+        if self.devices_entry is None:
             return
+        devices_entry_id = self.devices_entry.entry_id
         from homeassistant.helpers import device_registry as dr
         from homeassistant.helpers import entity_registry as er
         device_registry = dr.async_get(self.hass)
@@ -3258,7 +3269,7 @@ class LiveRuntime:
             if old_device_id
             else device_registry.async_get_device_by_identifier(
                 (DOMAIN, f"live_sensor:{old_sensor_id}"),
-                self.hub_entry.entry_id,
+                devices_entry_id,
             )
         )
         if device is None:
@@ -3275,7 +3286,7 @@ class LiveRuntime:
         # surviving canonical device.
         for entity in list(entity_registry.entities.values()):
             if (
-                entity.config_entry_id == self.hub_entry.entry_id
+                entity.config_entry_id == devices_entry_id
                 and entity.platform == DOMAIN
                 and entity.device_id == device.id
             ):
@@ -3854,18 +3865,16 @@ class LiveRuntime:
         observed_name: str | None,
         incoming_metadata: dict[str, Any],
     ) -> bool:
-        """Repair a deleted/reassignment record whose persisted title is another vendor.
+        """Repair a tombstone whose persisted generated title no longer fits its route.
 
-        A deleted physical sensor intentionally remains as a reassignment tombstone.
-        Older builds could leave an address-derived sensor ID named for the previous
-        device even after its only endpoint had been enriched with a different,
-        protocol-backed vendor. That made a new vendor advertisement reopen the old
-        product's discovery card.
+        Deleted physical sensors intentionally remain as reassignment tombstones.
+        Older builds could leave an address-derived sensor ID with a generated product
+        title from an earlier presentation of that endpoint. A later advertisement may
+        carry either a conflicting protocol-backed vendor or a different meaningful
+        local name even when no manufacturer field is present.
 
-        Only a tombstoned, single-route record is eligible. A catalog vendor implied
-        by the old semantic name must contradict the sole endpoint's strong vendor
-        evidence. Accepted devices and multi-transport correlations are never
-        rewritten here.
+        Only a tombstoned, single-route record is eligible. Accepted devices and
+        multi-transport correlations are never rewritten here.
         """
         if sensor.sensor_id not in self._requires_reassignment:
             return False
@@ -3876,16 +3885,47 @@ class LiveRuntime:
             return False
         incoming_vendor = _vendor_identity(incoming_metadata)
         stale_name_vendor = catalog_name_vendor(sensor.name)
-        if not incoming_vendor or not stale_name_vendor or incoming_vendor == stale_name_vendor:
-            return False
 
         candidate_name = str(observed_name or incoming_metadata.get("advertised_name") or "").strip()
+        candidate_is_meaningful = bool(
+            candidate_name
+            and candidate_name != "Fitness sensor"
+            and not re.fullmatch(
+                r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}", candidate_name
+            )
+        )
+
+        # A persisted generated product title can also be stale when the current
+        # endpoint has no manufacturer field at all.  Prefer a meaningful current
+        # advertised name when it no longer resolves to the same catalog product.
+        # This catches same-vendor/address-reuse cases without adding any
+        # vendor/model-specific rule to the runtime.
+        stale_product = catalog_product_id(sensor.name, sensor.endpoints)
+        observed_product = (
+            catalog_product_id(candidate_name, {transport: endpoint})
+            if candidate_is_meaningful
+            else None
+        )
+        catalog_name_conflict = bool(
+            stale_product
+            and candidate_is_meaningful
+            and re.sub(r"[^a-z0-9]+", "", candidate_name.lower())
+            != re.sub(r"[^a-z0-9]+", "", str(sensor.name or "").lower())
+            and observed_product != stale_product
+        )
+
         if (
-            not candidate_name
-            or candidate_name == "Fitness sensor"
-            or re.fullmatch(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}", candidate_name)
-        ):
-            candidate_name = str(incoming_metadata.get("manufacturer") or "Fitness sensor").strip() or "Fitness sensor"
+            not incoming_vendor
+            or not stale_name_vendor
+            or incoming_vendor == stale_name_vendor
+        ) and not catalog_name_conflict:
+            return False
+
+        if not candidate_is_meaningful:
+            candidate_name = (
+                str(incoming_metadata.get("manufacturer") or "Fitness sensor").strip()
+                or "Fitness sensor"
+            )
 
         # This tombstone represented the wrong physical device. Drop generated
         # identity/capability facts that belonged to that old presentation, while
@@ -3903,7 +3943,14 @@ class LiveRuntime:
         endpoint.capabilities.clear()
         sensor.active_transport = None
         sensor.name = candidate_name[:256]
-        sensor.metadata["identity_reclassified"] = f"{stale_name_vendor}->{incoming_vendor}"
+        if catalog_name_conflict:
+            sensor.metadata["identity_reclassified"] = (
+                f"catalog:{stale_product}->{observed_product or candidate_name}"[:256]
+            )
+        else:
+            sensor.metadata["identity_reclassified"] = (
+                f"{stale_name_vendor}->{incoming_vendor}"[:256]
+            )
         return True
 
     def register_transport_sensor(
@@ -3959,10 +4006,10 @@ class LiveRuntime:
                 self.sensor_detail_sources.pop(known_sensor.sensor_id, None)
                 self.sensor_detail_source.pop(known_sensor.sensor_id, None)
                 _LOGGER.warning(
-                    "Fitness reclassified tombstoned %s from stale catalog vendor to %s using endpoint %s",
+                    "Fitness reclassified tombstoned %s from stale generated identity using endpoint %s (%s)",
                     known_sensor.sensor_id,
-                    _vendor_identity(metadata) or "unknown",
                     endpoint_id,
+                    known_sensor.name,
                 )
         normalized_name = _normalize_name(name)
         current_name = str(known_sensor.name if known_sensor is not None else "")
@@ -4271,6 +4318,32 @@ class LiveRuntime:
             for flow in self.hass.config_entries.flow.async_progress()
         )
 
+    def sensor_discovery_visible(self, sensor_id: str) -> bool:
+        """Return whether an unaccepted sensor should be offered to a local user.
+
+        Persisted sensor memory is not discovery. A dashboard/config-flow offer
+        requires the same identity/readiness gates as HA discovery plus either a
+        fresh transmission or an actually active HA discovery flow. This prevents
+        stale MAC-only vendor rows from surviving after the radio device vanished.
+        """
+        sensor_id = self.resolve_sensor_id(sensor_id)
+        sensor = self.sensors.get(sensor_id)
+        if sensor is None or self.sensor_is_accepted(sensor_id):
+            return False
+        if not self._discovery_allowed_for_sensor(sensor):
+            return False
+        if not self._sensor_discovery_ready(sensor_id):
+            return False
+        # The user-visible contract is HA discovery itself, not merely an RF/BLE
+        # packet retained in Fitness memory. This keeps dropdowns/notifications
+        # exactly aligned with Home Assistant's active discovery surface.
+        return self._discovery_flow_active(sensor_id)
+
+    def dismiss_sensor_discovery(self, sensor_id: str) -> None:
+        """Cancel queued/open discovery UI after a dashboard acceptance."""
+        sensor_id = self.resolve_sensor_id(sensor_id)
+        self._abort_discovery_flows_after_accepted_merge(sensor_id, {sensor_id})
+
     def _sensor_discovery_ready(self, sensor_id: str) -> bool:
         """Return whether a physical sensor has enough stable identity to offer.
 
@@ -4357,11 +4430,81 @@ class LiveRuntime:
             )
         )
 
+    def _accepted_verified_serial_owner(self, sensor_id: str) -> LiveSensor | None:
+        """Return one installed sensor with the same verified serial identity.
+
+        This is intentionally stronger than model/name/address correlation.  It is
+        primarily a final safety net for rotating-address archive devices such as
+        CYCPLUS M1: after GATT has verified the full Device Information serial, a
+        newly observed BLE route must join the already-installed physical device
+        instead of opening another Add flow.
+        """
+        sensor_id = self.resolve_sensor_id(sensor_id)
+        sensor = self.sensors.get(sensor_id)
+        if sensor is None:
+            return None
+        serial = _serial(sensor.metadata) or next(
+            (
+                value
+                for endpoint in sensor.endpoints.values()
+                if (value := _serial(endpoint.metadata))
+            ),
+            None,
+        )
+        verified = bool(
+            sensor.metadata.get("fitness_serial_identity_verified")
+            or any(
+                endpoint.metadata.get("fitness_serial_identity_verified")
+                for endpoint in sensor.endpoints.values()
+            )
+        )
+        if not serial or not verified:
+            return None
+        matches: list[LiveSensor] = []
+        for candidate in tuple(self.sensors.values()):
+            candidate_id = self.resolve_sensor_id(candidate.sensor_id)
+            if candidate_id == sensor_id or candidate_id not in self.sensors:
+                continue
+            candidate = self.sensors[candidate_id]
+            if not self.sensor_is_accepted(candidate_id):
+                continue
+            candidate_serial = _serial(candidate.metadata) or next(
+                (
+                    value
+                    for endpoint in candidate.endpoints.values()
+                    if (value := _serial(endpoint.metadata))
+                ),
+                None,
+            )
+            candidate_verified = bool(
+                candidate.metadata.get("fitness_serial_identity_verified")
+                or any(
+                    endpoint.metadata.get("fitness_serial_identity_verified")
+                    for endpoint in candidate.endpoints.values()
+                )
+            )
+            if candidate_verified and candidate_serial == serial:
+                matches.append(candidate)
+        return matches[0] if len(matches) == 1 else None
+
     def _schedule_sensor_discovery(self, sensor_id: str) -> None:
         """Start one discovery flow for an observed, unaccepted physical sensor."""
         sensor_id = self.resolve_sensor_id(sensor_id)
         sensor = self.sensors.get(sensor_id)
         if sensor is None or self.sensor_is_accepted(sensor_id):
+            return
+
+        # Final post-GATT dedupe before Home Assistant can expose an Add card.
+        # A rotating BLE address may create a provisional physical object before
+        # its full serial is known. Once the serial is verified, merge it into an
+        # already accepted owner immediately. This guard is generic and exact: it
+        # never relies on a product name, short advertised suffix or BLE address.
+        installed_owner = self._accepted_verified_serial_owner(sensor_id)
+        if installed_owner is not None:
+            merged = self._merge_physical_sensors(installed_owner, sensor)
+            self._abort_discovery_flows_after_accepted_merge(
+                merged.sensor_id, {sensor_id, installed_owner.sensor_id}
+            )
             return
         if not self._discovery_allowed_for_sensor(sensor):
             return
@@ -4436,11 +4579,64 @@ class LiveRuntime:
 
         async def _start_discovery() -> None:
             try:
-                await self.hass.config_entries.flow.async_init(
+                # Identity reconciliation can finish after this task was queued but
+                # before FlowManager sees it. Never start a flow from the captured
+                # pre-merge ID: resolve it again at the last possible moment.
+                canonical_id = self.resolve_sensor_id(sensor_id)
+                canonical_sensor = self.sensors.get(canonical_id)
+                if canonical_sensor is None or self.sensor_is_accepted(canonical_id):
+                    self._discovery_started.discard(sensor_id)
+                    self._discovery_started.discard(canonical_id)
+                    return
+                if canonical_id != sensor_id:
+                    self._discovery_started.discard(sensor_id)
+                    self.hass.loop.call_soon(
+                        self._schedule_sensor_discovery, canonical_id
+                    )
+                    return
+
+                result = await self.hass.config_entries.flow.async_init(
                     DOMAIN,
                     context={"source": "integration_discovery"},
                     data={"sensor_id": sensor_id},
                 )
+
+                # ``async_init`` itself can yield while a radio identity probe
+                # merges this provisional route into another physical sensor. The
+                # accepted-merge cleanup may have scanned FlowManager just before
+                # this flow became visible. Re-check after async_init returns, when
+                # any newly-created form has a concrete flow_id, and remove it if
+                # its source identity has since disappeared, changed or become
+                # assigned. This closes the queued-task/FlowManager race without
+                # any device-specific knowledge in the runtime.
+                canonical_id = self.resolve_sensor_id(sensor_id)
+                canonical_sensor = self.sensors.get(canonical_id)
+                stale = (
+                    canonical_sensor is None
+                    or canonical_id != sensor_id
+                    or self.sensor_is_accepted(canonical_id)
+                )
+                if stale:
+                    flow_id = str((result or {}).get("flow_id") or "")
+                    if flow_id:
+                        try:
+                            self.hass.config_entries.flow.async_abort(flow_id)
+                        except Exception:
+                            _LOGGER.debug(
+                                "Unable to abort superseded Fitness discovery flow %s",
+                                flow_id,
+                                exc_info=True,
+                            )
+                    self._discovery_started.discard(sensor_id)
+                    self._discovery_started.discard(canonical_id)
+                    if (
+                        canonical_sensor is not None
+                        and canonical_id != sensor_id
+                        and not self.sensor_is_accepted(canonical_id)
+                    ):
+                        self.hass.loop.call_soon(
+                            self._schedule_sensor_discovery, canonical_id
+                        )
             except asyncio.CancelledError:
                 raise
             except Exception:

@@ -8,30 +8,31 @@ AUTOFILL = (ROOT / "custom_components/fitness/providers/autofill.py").read_text(
 TRANSLATIONS = ROOT / "custom_components/fitness/translations"
 
 
-def test_sex_and_month_selectors_use_translation_keys():
+def test_sex_selector_and_birthday_datepicker_are_used():
     assert FLOW.count('translation_key="sex"') == 1
     assert FLOW.count('_sex_selector()') >= 2
-    assert FLOW.count('translation_key="birth_month"') == 2
+    assert FLOW.count('selector.DateSelector()') >= 4
+    assert 'vol.Required(CONF_DATE_OF_BIRTH, default="1980-01-01"): selector.DateSelector()' in FLOW
+    assert 'translation_key="birth_month"' not in FLOW
     assert '"label": "Female"' not in FLOW
     assert '"January"' not in FLOW
 
 
-def test_greek_selector_values_are_localized():
+def test_greek_sex_and_birthday_are_localized():
     data = json.loads((TRANSLATIONS / "el.json").read_text(encoding="utf-8"))
     assert data["selector"]["sex"]["options"]["male"] == "Άνδρας"
     assert data["selector"]["sex"]["options"]["female"] == "Γυναίκα"
-    assert data["selector"]["birth_month"]["options"]["8"] == "Αύγουστος"
+    assert data["config"]["step"]["user"]["data"]["date_of_birth"] == "Ημερομηνία γέννησης"
 
 
-def test_all_languages_have_full_selector_options():
+def test_all_languages_have_sex_and_birthday_date_labels():
     for path in TRANSLATIONS.glob("*.json"):
         data = json.loads(path.read_text(encoding="utf-8"))
         assert set(data["selector"]["sex"]["options"]) == {
             "female", "male", "other", "prefer_not_to_say"
         }
-        assert set(data["selector"]["birth_month"]["options"]) == {
-            str(i) for i in range(1, 13)
-        }
+        assert data["config"]["step"]["user"]["data"]["date_of_birth"].strip()
+        assert data["options"]["step"]["profile"]["data"]["date_of_birth"].strip()
 
 
 def test_garmin_middle_dot_vo2max_unit_is_normalized():

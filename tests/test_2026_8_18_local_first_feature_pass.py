@@ -18,7 +18,7 @@ def test_phone_mediated_gadgetbridge_adapter_is_removed():
 
 def test_first_install_offers_protocol_manager_or_user_without_rewriting_profile_flow():
     assert "async_step_first_install" in FLOW
-    assert 'menu_options=["manage_protocols", "add_user"]' in FLOW
+    assert 'menu_options=["add_protocol", "add_user"]' in FLOW
     assert "async_step_manage_protocols" in FLOW
     assert "async_step_add_protocol" in FLOW  # backward-compatible alias
     assert "async_step_add_user" in FLOW

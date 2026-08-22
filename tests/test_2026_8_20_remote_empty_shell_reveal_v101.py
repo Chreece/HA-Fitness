@@ -32,6 +32,6 @@ def test_restricted_portal_has_real_chevron_glyph_not_fallback_diamond():
 
 
 def test_frontend_cache_revision_is_consistent():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
-    assert 'frontend_version = "unreleased-110"' in ACCOUNTS
-    assert '?v=unreleased-110' in DASHBOARD
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in FRONTEND
+    assert 'frontend_version = "unreleased-138"' in ACCOUNTS
+    assert '?v=unreleased-138' in DASHBOARD

@@ -8,18 +8,14 @@
         "data": {
           "profile_name": "Имя",
           "language": "Язык",
-          "birth_day": "День рождения",
-          "birth_month": "Месяц рождения",
-          "birth_year": "Год рождения",
-          "sex": "Пол"
+          "sex": "Пол",
+          "date_of_birth": "Дата рождения"
         },
         "data_description": {
           "profile_name": "Имя для создания отдельного профиля Fitness и сущностей этого человека.",
           "language": "Язык объявлений, коучинга и поясняющих атрибутов. Если поддерживается, заранее выбирается язык интерфейса Home Assistant.",
-          "birth_day": "День рождения; вместе с месяцем и годом используется для расчёта возраста в возрастных методах.",
-          "birth_month": "Месяц рождения, используемый с полной датой для возрастных справочных расчётов.",
-          "birth_year": "Год рождения, используемый для расчёта возраста в фитнес-методах.",
-          "sex": "Необязательный биологический пол, используемый только научными методами с явно половыми коэффициентами."
+          "sex": "Необязательный биологический пол, используемый только научными методами с явно половыми коэффициентами.",
+          "date_of_birth": "Выберите полную дату рождения. В календаре можно напрямую выбрать год."
         }
       },
       "required": {
@@ -167,7 +163,7 @@
         "description": "Выберите, что добавить сначала. Вторую часть можно добавить позже, не меняя существующий процесс создания профиля.",
         "menu_options": {
           "add_user": "Добавить профиль пользователя",
-          "manage_protocols": "Управление протоколами датчиков"
+          "add_protocol": "Добавить / настроить протокол датчика"
         }
       },
       "add_user": {
@@ -229,6 +225,30 @@
           "bluetooth_hardware": "Выберите поддерживаемые адаптеры, которые Fitness может использовать в ручном режиме.",
           "antplus_hardware": "Выберите поддерживаемые адаптеры, которые Fitness может использовать в ручном режиме."
         }
+      },
+      "account_access": {
+        "title": "Роль и доступ пользователя Fitness",
+        "description": "Только для администраторов: сначала задайте роль и доступ для входа новой учётной записи Fitness.",
+        "data": {
+          "fitness_account_role": "Роль",
+          "fitness_network_access": "Сетевой доступ",
+          "fitness_account_display_name": "Имя учётной записи",
+          "fitness_account_username": "Имя входа",
+          "fitness_remote_slug": "Удалённый hostname",
+          "fitness_view_profile_entry_ids": "Права просмотра аккаунтов"
+        },
+        "data_description": {
+          "fitness_account_role": "Администраторы имеют полный доступ Fitness. Локальные и удалённые пользователи управляют только своим профилем и могут просматривать дополнительные профили только в режиме чтения после разрешения администратора.",
+          "fitness_network_access": "Вход только через удалённый hostname; локальное оборудование HA не раскрывается. Вход локально и удалённо; LAN-оборудование видно только при реальном локальном подключении.",
+          "fitness_account_display_name": "Эта учётная запись управляет только своим профилем Fitness.",
+          "fitness_account_username": "Для удалённых учётных записей по умолчанию используется поддомен. Пользователь может изменить имя входа позже.",
+          "fitness_remote_slug": "Это имя хоста принадлежит только этой удалённой учётной записи Fitness.",
+          "fitness_view_profile_entry_ids": "Выбранные аккаунты доступны только для просмотра; настройки, тренировки и устройства нельзя менять."
+        }
+      },
+      "account_credentials": {
+        "title": "Одноразовый первый пароль",
+        "description": "Одноразовый первый пароль: **{temporary_password}**. Скопируйте его сейчас. Fitness никогда не хранит этот пароль в читаемом виде и не сможет показать его снова."
       }
     },
     "error": {
@@ -236,7 +256,11 @@
       "invalid_number_or_entity": "Введите корректное число или идентификатор сущности Home Assistant.",
       "select_profile": "Выберите хотя бы одного пользователя Fitness.",
       "select_smart_device_owner": "Выберите ровно один профиль Fitness как владельца сохранённых тренировок. Live-функции можно позже назначить и другим профилям.",
-      "invalid_protocol": "Выберите поддерживаемый протокол датчиков."
+      "invalid_protocol": "Выберите поддерживаемый протокол датчиков.",
+      "invalid_role": "Роль: Это поле обязательно.",
+      "invalid_network_access": "Сетевой доступ: Это поле обязательно.",
+      "profile_not_found": "Выбранные аккаунты доступны только для просмотра; настройки, тренировки и устройства нельзя менять.",
+      "required": "Это поле обязательно."
     },
     "abort": {
       "already_configured": "Профиль Fitness с таким именем уже существует.",
@@ -247,7 +271,8 @@
       "adapters_already_configured": "Все адаптеры Fitness для данных в реальном времени уже настроены. Включайте или отключайте их на устройствах адаптеров.",
       "adapters_managed_on_devices": "Локальные адаптеры датчиков настраиваются на устройствах адаптеров ANT+ и Bluetooth.",
       "protocol_enabled": "Выбранный протокол подключения включён.",
-      "protocols_updated": "Протоколы датчиков Fitness обновлены."
+      "protocols_updated": "Протоколы датчиков Fitness обновлены.",
+      "fitness_admin_created": "Скопируйте его сейчас. Fitness никогда не хранит этот пароль в читаемом виде и не сможет показать его снова."
     }
   },
   "options": {
@@ -275,17 +300,13 @@
         "description": "Измените данные профиля человека.",
         "data": {
           "language": "Язык",
-          "birth_day": "День рождения",
-          "birth_month": "Месяц рождения",
-          "birth_year": "Год рождения",
-          "sex": "Пол"
+          "sex": "Пол",
+          "date_of_birth": "Дата рождения"
         },
         "data_description": {
           "language": "Язык объявлений, коучинга и поясняющих атрибутов. Если поддерживается, заранее выбирается язык интерфейса Home Assistant.",
-          "birth_day": "День рождения; вместе с месяцем и годом используется для расчёта возраста в возрастных методах.",
-          "birth_month": "Месяц рождения, используемый с полной датой для возрастных справочных расчётов.",
-          "birth_year": "Год рождения, используемый для расчёта возраста в фитнес-методах.",
-          "sex": "Необязательный биологический пол, используемый только научными методами с явно половыми коэффициентами."
+          "sex": "Необязательный биологический пол, используемый только научными методами с явно половыми коэффициентами.",
+          "date_of_birth": "Выберите полную дату рождения. В календаре можно напрямую выбрать год."
         }
       },
       "fitness_inputs": {
@@ -3572,6 +3593,156 @@
       },
       "cycplus_history_30d_moving_time": {
         "name": "Время на велосипеде за 30 дней"
+      },
+      "device_heart_rate": {
+        "name": "Пульс"
+      },
+      "device_resting_heart_rate": {
+        "name": "Пульс в покое"
+      },
+      "device_min_heart_rate": {
+        "name": "Минимальная heart rate"
+      },
+      "device_max_heart_rate": {
+        "name": "Максимальная heart rate"
+      },
+      "device_hrv_ms": {
+        "name": "Вариабельность сердечного ритма"
+      },
+      "device_beat_interval_ms": {
+        "name": "Интервал между ударами"
+      },
+      "device_respiratory_rate": {
+        "name": "Частота дыхания"
+      },
+      "device_spo2": {
+        "name": "Кислород в крови"
+      },
+      "device_skin_temperature": {
+        "name": "Температура кожи"
+      },
+      "device_skin_temperature_min": {
+        "name": "Минимальная skin temperature"
+      },
+      "device_skin_temperature_max": {
+        "name": "Максимальная skin temperature"
+      },
+      "device_skin_temperature_deviation": {
+        "name": "Отклонение температуры кожи"
+      },
+      "device_skin_temperature_7d_deviation": {
+        "name": "Отклонение температуры кожи за 7 дней"
+      },
+      "device_body_temperature": {
+        "name": "Температура тела"
+      },
+      "device_device_temperature": {
+        "name": "Устройство temperature"
+      },
+      "device_device_temperature_min": {
+        "name": "Минимальная device temperature"
+      },
+      "device_device_temperature_max": {
+        "name": "Максимальная device temperature"
+      },
+      "device_steps": {
+        "name": "Шаги"
+      },
+      "device_distance_m": {
+        "name": "Расстояние"
+      },
+      "device_calories": {
+        "name": "Калории"
+      },
+      "device_active_calories": {
+        "name": "Активные calories"
+      },
+      "device_active_minutes": {
+        "name": "Активные минуты"
+      },
+      "device_moderate_minutes": {
+        "name": "Умеренная активность minutes"
+      },
+      "device_vigorous_minutes": {
+        "name": "Интенсивная активность minutes"
+      },
+      "device_activity_level": {
+        "name": "Уровень активности"
+      },
+      "device_stress": {
+        "name": "Стресс"
+      },
+      "device_body_battery": {
+        "name": "Тела battery"
+      },
+      "device_body_battery_charged": {
+        "name": "Тела battery charged"
+      },
+      "device_body_battery_drained": {
+        "name": "Тела battery drained"
+      },
+      "device_sleep_score": {
+        "name": "Оценка сна устройства"
+      },
+      "device_vo2_max": {
+        "name": "Максимальное потребление кислорода (VO₂ max)"
+      },
+      "device_floors_climbed": {
+        "name": "Поднятые этажи"
+      },
+      "device_systolic_blood_pressure": {
+        "name": "Систолическое blood pressure"
+      },
+      "device_diastolic_blood_pressure": {
+        "name": "Диастолическое blood pressure"
+      },
+      "device_mean_arterial_pressure": {
+        "name": "Среднее артериальное pressure"
+      },
+      "device_weight": {
+        "name": "Вес"
+      },
+      "device_bmi": {
+        "name": "ИМТ"
+      },
+      "device_body_fat": {
+        "name": "Жир тела"
+      },
+      "device_body_water": {
+        "name": "Вода в организме"
+      },
+      "device_muscle_mass": {
+        "name": "Мышечная масса"
+      },
+      "device_bone_mass": {
+        "name": "Костная масса"
+      },
+      "device_basal_metabolic_rate": {
+        "name": "Базальный метаболизм"
+      },
+      "device_active_metabolic_rate": {
+        "name": "Активный метаболизм"
+      },
+      "device_metabolic_age": {
+        "name": "Метаболический возраст"
+      },
+      "device_visceral_fat_mass": {
+        "name": "Висцеральный fat mass"
+      },
+      "device_visceral_fat_rating": {
+        "name": "Висцеральный fat rating"
+      },
+      "device_battery": {
+        "name": "Батарея устройства"
+      },
+      "device_device_battery_voltage": {
+        "name": "Устройство battery voltage"
+      },
+      "device_charging": {
+        "name": "Зарядка"
+      },
+      "device_wear_state": {
+        "name": "Состояние ношения"
       }
     },
     "binary_sensor": {
@@ -3665,6 +3836,20 @@
         "lights": "Освещение",
         "video": "TV / видео",
         "weather": "Погода"
+      }
+    },
+    "fitness_account_role": {
+      "options": {
+        "admin_user": "Администратор + пользователь Fitness",
+        "user": "Пользователь",
+        "admin": "Полное администрирование Fitness"
+      }
+    },
+    "fitness_network_access": {
+      "options": {
+        "local_only": "Только локально",
+        "remote_only": "Только удалённо",
+        "local_remote": "Локально + удалённо"
       }
     }
   },

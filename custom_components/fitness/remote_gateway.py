@@ -10,16 +10,21 @@ import asyncio
 from collections import defaultdict
 from datetime import datetime, timezone
 from itertools import islice
+import json
 import logging
 import time
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
+
+from aiohttp import web
 
 import voluptuous as vol
 
 from homeassistant.components import websocket_api
+from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.network import NoURLAvailableError, get_url
+from homeassistant.helpers.storage import Store
 
 from .access_control import get_fitness_access_controller
 from .const import CONF_LIVE_SENSOR_IDS, DOMAIN
@@ -67,6 +72,13 @@ REMOTE_GATEWAY_KEY = "_remote_gateway_runtime"
 LEGACY_LOCAL_CAST_USER_NAMES = {"Fitness TV Cast", "Home Assistant Cast"}
 LOCAL_CAST_APP_ID = "A078F6B0"
 LOCAL_CAST_NAMESPACE = "urn:x-cast:com.nabucasa.hast"
+LOCAL_CAST_DIRECT_NAMESPACE = "urn:x-cast:io.hafitness.local"
+LOCAL_CAST_RECEIVER_PATH = "/fitness/cast/receiver.html"
+LOCAL_CAST_STORE_VERSION = 1
+LOCAL_CAST_STORE_KEY = "fitness.local_cast"
+LOCAL_CAST_SETTINGS_KEY = "_local_cast_settings_store"
+LOCAL_CAST_VIEW_KEY = "_local_cast_receiver_view_registered"
+LOCAL_CAST_MODES = {"auto", "direct", "official"}
 REMOTE_BLE_DEVICE_LIMIT = 256
 REMOTE_BLE_STALE_SECONDS = 300.0
 REMOTE_ASSIGNMENT_GATEWAY_LIMIT = 16
@@ -79,6 +91,229 @@ REMOTE_BLE_IDENTITY_FIELDS = {
     "hw_version",
     "sw_version",
 }
+
+
+def _normalize_local_cast_app_id(value: Any) -> str:
+    value = str(value or "").strip().upper()
+    if not value:
+        return ""
+    if len(value) != 8 or any(char not in "0123456789ABCDEF" for char in value):
+        raise ValueError("invalid_cast_app_id")
+    return value
+
+
+def _normalize_local_cast_receiver_url(value: Any, *, allow_origin: bool = True) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    if len(raw) > 2048:
+        raise ValueError("invalid_cast_receiver_url")
+    try:
+        parsed = urlparse(raw)
+        port = parsed.port
+    except ValueError as err:
+        raise ValueError("invalid_cast_receiver_url") from err
+    if (
+        parsed.scheme.lower() not in {"http", "https"}
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.params
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError("invalid_cast_receiver_url")
+    path = parsed.path.rstrip("/")
+    if allow_origin and path in {"", "/"}:
+        path = LOCAL_CAST_RECEIVER_PATH
+    if path != LOCAL_CAST_RECEIVER_PATH:
+        raise ValueError("invalid_cast_receiver_url")
+    host = parsed.hostname.lower().rstrip(".")
+    authority = f"[{host}]" if ":" in host else host
+    if port is not None:
+        default = 80 if parsed.scheme.lower() == "http" else 443
+        if port != default:
+            authority = f"{authority}:{port}"
+    return urlunparse((parsed.scheme.lower(), authority, LOCAL_CAST_RECEIVER_PATH, "", "", ""))
+
+
+def _local_cast_receiver_origin(receiver_url: str) -> str:
+    parsed = urlparse(receiver_url)
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+class LocalCastSettingsStore:
+    """Persist one installation-wide local Cast receiver configuration."""
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        self._hass = hass
+        self._store = Store[dict[str, Any]](hass, LOCAL_CAST_STORE_VERSION, LOCAL_CAST_STORE_KEY)
+        self._loaded = False
+        self._lock = asyncio.Lock()
+        self._data: dict[str, Any] = {"mode": "auto", "app_id": "", "receiver_url": ""}
+
+    async def async_load(self) -> None:
+        if self._loaded:
+            return
+        async with self._lock:
+            if self._loaded:
+                return
+            saved = await self._store.async_load()
+            if isinstance(saved, dict):
+                mode = str(saved.get("mode") or "auto").strip().lower()
+                self._data["mode"] = mode if mode in LOCAL_CAST_MODES else "auto"
+                try:
+                    self._data["app_id"] = _normalize_local_cast_app_id(saved.get("app_id"))
+                except ValueError:
+                    self._data["app_id"] = ""
+                try:
+                    self._data["receiver_url"] = _normalize_local_cast_receiver_url(saved.get("receiver_url"))
+                except ValueError:
+                    self._data["receiver_url"] = ""
+            self._loaded = True
+
+    async def async_config(self, browser_origin: str = "") -> dict[str, Any]:
+        await self.async_load()
+        mode = str(self._data.get("mode") or "auto")
+        app_id = str(self._data.get("app_id") or "")
+        receiver_url = str(self._data.get("receiver_url") or "")
+        suggested = ""
+        # Prefer Home Assistant's configured internal URL for a receiver that is
+        # meant to stay on the LAN. Fall back to the current local browser origin
+        # because many Container/reverse-proxy installs do not set internal_url.
+        try:
+            suggested = _normalize_local_cast_receiver_url(
+                get_url(self._hass, allow_external=False)
+            )
+        except (NoURLAvailableError, ValueError):
+            suggested = ""
+        if not suggested and browser_origin:
+            try:
+                suggested = _normalize_local_cast_receiver_url(browser_origin)
+            except ValueError:
+                suggested = ""
+        direct_ready = bool(app_id and receiver_url)
+        if mode == "official":
+            effective_mode = "official"
+        elif direct_ready:
+            effective_mode = "direct"
+        elif mode == "direct":
+            effective_mode = "unconfigured"
+        else:
+            effective_mode = "official"
+        return {
+            "mode": mode,
+            "effective_mode": effective_mode,
+            "app_id": app_id,
+            "receiver_url": receiver_url,
+            "suggested_receiver_url": suggested,
+            "direct_ready": direct_ready,
+            "receiver_application_id": app_id if effective_mode == "direct" else LOCAL_CAST_APP_ID,
+            "namespace": LOCAL_CAST_DIRECT_NAMESPACE if effective_mode == "direct" else LOCAL_CAST_NAMESPACE,
+            "official_receiver_application_id": LOCAL_CAST_APP_ID,
+            "receiver_path": LOCAL_CAST_RECEIVER_PATH,
+            "requires_external_https": effective_mode != "direct",
+        }
+
+    async def async_save(self, *, mode: str, app_id: str, receiver_url: str) -> dict[str, Any]:
+        await self.async_load()
+        clean_mode = str(mode or "auto").strip().lower()
+        if clean_mode not in LOCAL_CAST_MODES:
+            raise ValueError("invalid_cast_mode")
+        clean_app_id = _normalize_local_cast_app_id(app_id)
+        clean_receiver_url = _normalize_local_cast_receiver_url(receiver_url) if receiver_url else ""
+        if clean_mode == "direct" and not (clean_app_id and clean_receiver_url):
+            raise ValueError("local_cast_direct_not_configured")
+        self._data = {"mode": clean_mode, "app_id": clean_app_id, "receiver_url": clean_receiver_url}
+        await self._store.async_save(self._data)
+        return await self.async_config()
+
+
+def get_local_cast_settings_store(hass: HomeAssistant) -> LocalCastSettingsStore:
+    data = hass.data.setdefault(DOMAIN, {})
+    store = data.get(LOCAL_CAST_SETTINGS_KEY)
+    if not isinstance(store, LocalCastSettingsStore):
+        store = LocalCastSettingsStore(hass)
+        data[LOCAL_CAST_SETTINGS_KEY] = store
+    return store
+
+
+def _local_cast_receiver_html() -> str:
+    namespace = json.dumps(LOCAL_CAST_DIRECT_NAMESPACE)
+    template = r'''<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>HA-Fitness Local Cast</title>
+<style>html,body,#fitness-cast-frame{margin:0;width:100%;height:100%;border:0;background:#101418;overflow:hidden}#fitness-cast-status{position:fixed;inset:0;display:grid;place-items:center;color:#d9e2e8;background:#101418;font:600 30px/1.3 sans-serif;z-index:2}#fitness-cast-frame{position:fixed;inset:0;display:none}body.ready #fitness-cast-frame{display:block}body.ready #fitness-cast-status{display:none}</style>
+</head>
+<body>
+<div id="fitness-cast-status">Waiting for HA-Fitness…</div>
+<iframe id="fitness-cast-frame" allow="autoplay; fullscreen"></iframe>
+<script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
+<script>
+(() => {
+  const NS = __NAMESPACE__;
+  const context = cast.framework.CastReceiverContext.getInstance();
+  const frame = document.getElementById("fitness-cast-frame");
+  const status = document.getElementById("fitness-cast-status");
+  const clean = (value) => String(value || "").replace(/\/$/, "");
+  const send = (senderId, payload) => { try { context.sendCustomMessage(NS, senderId, payload); } catch (_err) {} };
+  const fail = (senderId, code, message) => { status.textContent = message; send(senderId, {type:"receiver_error",error_code:code,error_message:message}); };
+  context.addCustomMessageListener(NS, (event) => {
+    let data = event.data;
+    if (typeof data === "string") { try { data = JSON.parse(data); } catch (_err) { return; } }
+    if (!data || typeof data !== "object") return;
+    if (data.type === "fitness_connect") {
+      if (clean(data.hassUrl) !== clean(location.origin)) { fail(event.senderId, 20, "The local Cast receiver URL does not match this Home Assistant instance."); return; }
+      if (!data.refreshToken || !data.accessToken || !data.clientId) { fail(event.senderId, 2, "HA-Fitness did not provide valid local receiver credentials."); return; }
+      const expiresIn = Math.max(1, Number(data.expiresIn || 1800));
+      const tokens = {
+        hassUrl: clean(location.origin),
+        clientId: String(data.clientId),
+        expires: Number(data.expires || (Date.now() + expiresIn * 1000)),
+        refresh_token: String(data.refreshToken),
+        access_token: String(data.accessToken),
+        expires_in: expiresIn
+      };
+      try {
+        localStorage.setItem("hassTokens", JSON.stringify(tokens));
+        window.__tokenCache = {tokens, writeEnabled:true};
+      } catch (_err) { fail(event.senderId, 2, "The Cast receiver could not store Home Assistant credentials."); return; }
+      send(event.senderId, {type:"receiver_status",connected:true,hassUrl:clean(location.origin),receiver:"ha_fitness_local"});
+      return;
+    }
+    if (data.type === "fitness_show_dashboard") {
+      const urlPath = String(data.urlPath || "fitness-tv");
+      const viewPath = String(data.viewPath || "");
+      if (!/^[A-Za-z0-9_-]+$/.test(urlPath) || !/^[A-Za-z0-9_-]+$/.test(viewPath)) { fail(event.senderId, 22, "Invalid Fitness dashboard path."); return; }
+      frame.addEventListener("load", () => document.body.classList.add("ready"), {once:true});
+      frame.src = `/${urlPath}/${viewPath}?fitness_cast_receiver=1&storeToken=true`;
+      return;
+    }
+  });
+  context.start();
+})();
+</script>
+</body>
+</html>'''
+    return template.replace("__NAMESPACE__", namespace)
+
+
+class FitnessLocalCastReceiverView(HomeAssistantView):
+    """Unauthenticated shell for a user-registered LAN Cast receiver."""
+
+    url = LOCAL_CAST_RECEIVER_PATH
+    name = "api:fitness:local-cast-receiver"
+    requires_auth = False
+
+    async def get(self, request: web.Request) -> web.Response:
+        return web.Response(
+            text=_local_cast_receiver_html(),
+            content_type="text/html",
+            headers={"Cache-Control": "no-store"},
+        )
 
 # Characteristic -> stable capability set / decoder name. The backend decodes raw
 # standard Bluetooth SIG measurements so browser and native senders stay tiny.
@@ -876,9 +1111,11 @@ async def websocket_remote_gateway_capabilities(hass: HomeAssistant, connection,
         "remote_ble_optional_services": remote_archive_services,
         "antplus_payload": "decoded_ant_serial_extended_packet",
         "local_cast": {
-            "receiver_application_id": LOCAL_CAST_APP_ID,
-            "namespace": LOCAL_CAST_NAMESPACE,
-            "requires_external_https": True,
+            "official_receiver_application_id": LOCAL_CAST_APP_ID,
+            "direct_namespace": LOCAL_CAST_DIRECT_NAMESPACE,
+            "receiver_path": LOCAL_CAST_RECEIVER_PATH,
+            "direct_http_supported_for_unpublished_receiver": True,
+            "requires_external_https_for_official_fallback": True,
         },
     })
 
@@ -1223,12 +1460,12 @@ async def websocket_remote_gateway_status(hass: HomeAssistant, connection, msg) 
 
 
 async def _async_cleanup_legacy_local_cast_tokens(hass: HomeAssistant) -> None:
-    """Remove temporary Cast tokens created by pre-unreleased-59 Fitness.
+    """Remove temporary Cast tokens created by older Fitness versions.
 
-    Browser-local Cast now reuses the already-authenticated browser session's
-    refresh token, exactly like Home Assistant's own Web Sender. Do not remove
-    the Home Assistant Cast integration's normal token; only remove tokens whose
-    client name proves they were created by the old Fitness implementation.
+    Direct-LAN Cast reuses the already-authenticated browser session's refresh
+    token, matching Home Assistant's browser Web Sender permission model.  Only
+    remove credentials whose system-user/client-name identity proves that they
+    came from the retired Fitness token-minting implementation.
     """
     for user in await hass.auth.async_get_users():
         if not user.system_generated or user.name not in LEGACY_LOCAL_CAST_USER_NAMES:
@@ -1251,13 +1488,60 @@ def _current_browser_refresh_token(hass: HomeAssistant, connection):
 
 
 @websocket_api.websocket_command({
+    vol.Required("type"): "fitness/tv/local_cast/config",
+    vol.Optional("browser_origin", default=""): vol.All(str, vol.Length(max=2_048)),
+})
+@websocket_api.async_response
+async def websocket_tv_local_cast_config(hass: HomeAssistant, connection, msg) -> None:
+    """Return the installation-wide Cast mode and receiver registration data."""
+    access = await get_fitness_access_controller(hass).async_descriptor(connection)
+    config = await get_local_cast_settings_store(hass).async_config(
+        str(msg.get("browser_origin") or "")
+    )
+    config["can_configure"] = bool(access.get("is_admin") and access.get("local_ha_hardware_allowed"))
+    connection.send_result(msg["id"], config)
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "fitness/tv/local_cast/config/save",
+    vol.Required("mode"): vol.In(sorted(LOCAL_CAST_MODES)),
+    vol.Optional("app_id", default=""): vol.All(str, vol.Length(max=32)),
+    vol.Optional("receiver_url", default=""): vol.All(str, vol.Length(max=2_048)),
+    vol.Optional("browser_origin", default=""): vol.All(str, vol.Length(max=2_048)),
+})
+@websocket_api.async_response
+async def websocket_tv_local_cast_config_save(hass: HomeAssistant, connection, msg) -> None:
+    """Persist direct-LAN Cast registration; local administrators only."""
+    controller = get_fitness_access_controller(hass)
+    await controller.async_require_admin(connection)
+    access = await controller.async_descriptor(connection)
+    if not access.get("local_ha_hardware_allowed"):
+        connection.send_error(msg["id"], "local_network_required", "Local Cast receiver setup is available only from the Home Assistant local network")
+        return
+    try:
+        store = get_local_cast_settings_store(hass)
+        await store.async_save(
+            mode=str(msg.get("mode") or "auto"),
+            app_id=str(msg.get("app_id") or ""),
+            receiver_url=str(msg.get("receiver_url") or ""),
+        )
+        result = await store.async_config(str(msg.get("browser_origin") or ""))
+        result["can_configure"] = True
+        connection.send_result(msg["id"], result)
+    except ValueError as err:
+        connection.send_error(msg["id"], str(err), "Invalid local Cast receiver configuration")
+
+
+@websocket_api.websocket_command({
     vol.Required("type"): "fitness/tv/local_cast_credentials",
     vol.Optional("profile_entry_id", default=""): vol.All(str, vol.Length(max=128)),
     vol.Optional("overview", default=False): bool,
     vol.Optional("browser_origin", default=""): vol.All(str, vol.Length(max=2_048)),
+    vol.Optional("cast_mode", default="auto"): vol.In(sorted(LOCAL_CAST_MODES)),
 })
 @websocket_api.async_response
 async def websocket_tv_local_cast_credentials(hass: HomeAssistant, connection, msg) -> None:
+    """Prepare Cast credentials without minting or elevating a new HA session."""
     overview = bool(msg.get("overview"))
     entry = None
     if overview:
@@ -1268,32 +1552,57 @@ async def websocket_tv_local_cast_credentials(hass: HomeAssistant, connection, m
             connection.send_error(msg["id"], "profile_not_found", "Fitness profile not found")
             return
         await _require_profile_access(hass, connection, entry.entry_id)
-    user = getattr(connection, "user", None)
-    if user is None:
-        connection.send_error(msg["id"], "auth_required", "Authenticated Home Assistant user required")
+
+    refresh = _current_browser_refresh_token(hass, connection)
+    if refresh is None:
+        connection.send_error(
+            msg["id"],
+            "local_cast_session_auth_unavailable",
+            "Local Cast needs a normal authenticated Home Assistant browser session. Reload Home Assistant and sign in again.",
+        )
         return
+
     try:
-        refresh = _current_browser_refresh_token(hass, connection)
-        if refresh is None:
-            connection.send_error(
-                msg["id"],
-                "local_cast_session_auth_unavailable",
-                "Local Cast needs a normal authenticated Home Assistant browser session. Reload Home Assistant and sign in again.",
-            )
+        settings = await get_local_cast_settings_store(hass).async_config(
+            str(msg.get("browser_origin") or "")
+        )
+        requested_mode = str(msg.get("cast_mode") or "auto")
+        if requested_mode == "auto":
+            requested_mode = str(settings.get("effective_mode") or "official")
+
+        if requested_mode == "direct":
+            if not settings.get("direct_ready"):
+                raise ValueError("local_cast_direct_not_configured")
+            receiver_url = _normalize_local_cast_receiver_url(settings.get("receiver_url"))
+            hass_url = _local_cast_receiver_origin(receiver_url)
+            access_token = hass.auth.async_create_access_token(refresh)
+            expires_in = max(1, int(refresh.access_token_expiration.total_seconds()))
+            connection.send_result(msg["id"], {
+                "cast_mode": "direct",
+                "receiver_application_id": settings["app_id"],
+                "namespace": LOCAL_CAST_DIRECT_NAMESPACE,
+                "refresh_token": refresh.token,
+                "access_token": access_token,
+                "expires_in": expires_in,
+                "expires": int(time.time() * 1000) + expires_in * 1000,
+                "client_id": refresh.client_id,
+                "credential_source": "current_browser_session",
+                "hass_url": hass_url,
+                "receiver_url": receiver_url,
+                "dashboard_path": "fitness-tv",
+                "view_path": "cast-overview" if overview else f"cast-{entry.entry_id}",
+            })
             return
+
+        if requested_mode not in {"official", "unconfigured"}:
+            raise ValueError("invalid_cast_mode")
         hass_url = _external_hass_url(
             hass,
             str(msg.get("browser_origin") or ""),
             str(refresh.client_id or ""),
         )
-
-        # This is intentionally the *current browser user's* refresh token and
-        # its matching client id. Home Assistant frontend's Web Sender uses these
-        # exact credentials for Home Assistant Cast. It also preserves the current
-        # user's permissions on the TV instead of elevating Cast to an admin-only
-        # system account. The token belongs to the existing browser session, so
-        # Fitness must never revoke it when the Cast session ends.
         connection.send_result(msg["id"], {
+            "cast_mode": "official",
             "receiver_application_id": LOCAL_CAST_APP_ID,
             "namespace": LOCAL_CAST_NAMESPACE,
             "refresh_token": refresh.token,
@@ -1304,8 +1613,13 @@ async def websocket_tv_local_cast_credentials(hass: HomeAssistant, connection, m
             "view_path": "cast-overview" if overview else f"cast-{entry.entry_id}",
         })
     except ValueError as err:
-        connection.send_error(msg["id"], str(err), "Local Cast requires an externally reachable HTTPS Home Assistant URL")
-    except Exception as err:  # noqa: BLE001
+        message = (
+            "Direct local Cast needs a registered custom app ID and this HA-Fitness receiver URL"
+            if str(err) == "local_cast_direct_not_configured"
+            else "Official Home Assistant Cast requires an externally reachable HTTPS Home Assistant URL"
+        )
+        connection.send_error(msg["id"], str(err), message)
+    except Exception:  # noqa: BLE001
         _LOGGER.exception("Unable to prepare browser-local Fitness Cast")
         connection.send_error(msg["id"], "local_cast_error", "Unable to prepare local Cast")
 
@@ -1316,11 +1630,10 @@ async def websocket_tv_local_cast_credentials(hass: HomeAssistant, connection, m
 })
 @websocket_api.async_response
 async def websocket_tv_local_cast_release(hass: HomeAssistant, connection, msg) -> None:
-    """Backward-compatible cleanup for old Fitness-created Cast tokens only.
+    """Backward-compatible cleanup for retired Fitness-created Cast tokens.
 
-    unreleased-59 and newer never return a token_id and never call this command.
-    Explicitly refuse to remove the refresh token backing the caller's current
-    Home Assistant session.
+    Current Local Cast never returns a token id and never revokes the refresh
+    token backing the sender's authenticated Home Assistant browser session.
     """
     await get_fitness_access_controller(hass).async_require_admin(connection)
     token_id = str(msg["token_id"])
@@ -1347,6 +1660,9 @@ def async_register_remote_gateway_websocket_commands(hass: HomeAssistant) -> Non
     if data.get(key):
         return
     data[key] = True
+    if not data.get(LOCAL_CAST_VIEW_KEY):
+        hass.http.register_view(FitnessLocalCastReceiverView())
+        data[LOCAL_CAST_VIEW_KEY] = True
     hass.async_create_background_task(
         _async_cleanup_legacy_local_cast_tokens(hass),
         "fitness cleanup legacy local cast tokens",
@@ -1363,6 +1679,8 @@ def async_register_remote_gateway_websocket_commands(hass: HomeAssistant) -> Non
         websocket_remote_gateway_gatt_notify,
         websocket_remote_gateway_ant_packets,
         websocket_remote_gateway_status,
+        websocket_tv_local_cast_config,
+        websocket_tv_local_cast_config_save,
         websocket_tv_local_cast_credentials,
         websocket_tv_local_cast_release,
     ):

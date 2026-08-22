@@ -31,7 +31,7 @@ def test_successful_remote_login_persists_selected_portal_language_to_profile_op
 
 def test_ai_today_and_weekly_plan_have_in_card_regenerate_controls():
     assert 'vol.Required("type"): "fitness/training/daily_plan"' in DASHBOARD
-    assert 'await manager.async_generate_daily_training_plan(force=True)' in DASHBOARD
+    assert 'await manager.async_generate_daily_training_plan(force=True, user_text=str(msg.get("user_text") or ""))' in DASHBOARD
     assert 'class="regenerate-ai"' in JS
     assert 'this.shadowRoot.querySelector(".regenerate-ai")?.addEventListener("click",()=>this._regenerateDaily())' in JS
     assert 'class="regen"' in JS

@@ -28,7 +28,7 @@ def test_radio_browser_source_requires_profile_enabled_adapter_on_frontend_and_b
 
 def test_cast_media_browser_is_bounded_and_owns_its_scroll_region():
     assert ':host([fitness-cast-receiver]) .browser-modal{height:min(760px,calc(100dvh - 24px))!important' in FRONTEND
-    assert ':host([fitness-cast-receiver]) .browser-modal>.media-list{flex:1 1 0!important;min-height:0!important;max-height:none!important;overflow-y:auto!important;overflow-x:hidden!important}' in FRONTEND
+    assert '.browser-modal>.fitness-modal-scroll-region{flex:1 1 auto!important;min-height:0!important;height:auto!important;max-height:none!important;overflow-y:auto!important;overflow-x:hidden!important}' in FRONTEND
     assert ':host([fitness-cast-receiver]) .browser-modal .browser-head-actions' in FRONTEND
 
 
@@ -46,7 +46,7 @@ def test_radio_recovery_is_cancelable_and_pause_cleans_up_other_browser_players(
     assert "this._radioRecoveryGeneration = Number(this._radioRecoveryGeneration || 0) + 1" in FRONTEND
     assert "const stillWanted = () => generation === Number(this._radioRecoveryGeneration || 0)" in FRONTEND
     assert "playbackAllowed && !playbackAllowed()" in FRONTEND
-    assert 'if (["select","play"].includes(String(command || ""))) {' in FRONTEND
+    assert 'if (["select","play"].includes(commandName)) {' in FRONTEND
     assert "this._cancelRadioRecovery();" in FRONTEND
     assert 'elif command_name in {"pause", "stop"}:' in BACKEND
     assert 'f"{command_name}_non_owner_cleanup"' in BACKEND

@@ -6,7 +6,7 @@ CYC=(ROOT/'custom_components/fitness/device_adapters/cycplus_m1.py').read_text()
 RUNTIME=(ROOT/'custom_components/fitness/live/runtime.py').read_text()
 
 def test_v109_frontend_and_no_outer_overflow_lock():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONT
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in FRONT
     block=FRONT.split('  _claimDashboardScrollOwner() {',1)[1].split('  _scheduleDashboardScrollOwnerClaim() {',1)[0]
     assert 'element.style.overflowY = "hidden"' not in block
     assert 'scrollbarWidth = "none"' in block
@@ -30,8 +30,8 @@ def test_cast_modals_are_bounded_and_remote_focusable():
 def test_music_sources_and_search_footer():
     assert '.music-source{display:grid;grid-template-columns:34px minmax(0,1fr)' in FRONT
     search=FRONT.split('async _openMusicSearch()',1)[1].split('const root =',1)[0]
-    assert search.index('music-search-error') < search.index('run-music-search')
-    assert '.music-search-form>.modal-actions{position:sticky!important;bottom:0!important;margin-top:auto!important' in FRONT
+    assert search.index('music-search-query') < search.index('run-music-search') < search.index('music-search-error')
+    assert '.music-search-query-row{display:grid;grid-template-columns:minmax(0,1fr) auto' in FRONT
 
 def test_garmin_automatic_sync_requires_fresh_advertisement_and_handles_phone_owner():
     assert 'FRESH_ADVERTISEMENT_MAX_AGE = 120.0' in GARMIN

@@ -4,18 +4,13 @@ ROOT = Path(__file__).resolve().parents[1]
 JS = (ROOT / "custom_components/fitness/frontend/fitness-dashboard.js").read_text(encoding="utf-8")
 
 
-def test_card_frames_stay_stationary_while_entities_animate_individually():
-    assert "Card frames are intentionally stationary" in JS
+def test_card_motion_is_limited_to_semantic_movement_icons():
     assert ':host([fitness-animations]) .tv-card-slot:not(.fitness-remote-section-selected)' not in JS
-    assert 'const values = this._cardMotionElements(card' in JS
-    assert 'const fills = this._cardMotionElements(card' in JS
-    assert 'semantic = "heart"' in JS
-    assert 'semantic = "motion"' in JS
-    assert 'semantic = "recovery"' in JS
-    assert 'semantic = "energy"' in JS
-    assert 'semantic = "score"' in JS
-    assert 'semantic = "time"' in JS
-    assert 'semantic = "status"' in JS
+    assert 'card.__fitnessLivingMode = this._motionEnabled() ? "movement-icons-only" : "static"' in JS
+    assert 'const icons = this._cardMotionElements(card, "ha-icon")' in JS
+    assert '/heart|pulse|cardio|speedometer|gauge|run|walk|shoe|bike|bicycle|rowing|swim|motion|cadence|rotate/' in JS
+    assert 'data-fitness-motion-lite' in JS
+    assert 'animation:none!important;transition:none!important' in JS
 
 
 def test_chart_motion_is_type_specific_and_cannot_create_horizontal_scrollbars():

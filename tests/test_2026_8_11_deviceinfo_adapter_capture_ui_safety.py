@@ -90,7 +90,12 @@ def test_hr_baseline_has_explicit_baseline_current_difference_and_heat_axis():
     assert "labels.current" in comparison
     assert "labels.difference" in comparison
     assert "heat-axis" in comparison
-    assert "linear-gradient(90deg,#e53935" in comparison
+    # HR comparisons now prefer the user's real HR-reserve zones when available,
+    # with the translated legacy heat axis retained only as the fallback.
+    assert "_heartRateGradient" in comparison
+    assert "heart_rate_zones" in comparison
+    assert "user-zone-axis" in comparison
+    assert "linear-gradient(90deg,#42a5f5" in comparison
     assert "baseline = current - value" in comparison
 
 

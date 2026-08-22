@@ -8,18 +8,14 @@
         "data": {
           "profile_name": "Naam",
           "language": "Taal",
-          "birth_day": "Geboortedag",
-          "birth_month": "Geboortemaand",
-          "birth_year": "Geboortejaar",
-          "sex": "Geslacht"
+          "sex": "Geslacht",
+          "date_of_birth": "Geboortedatum"
         },
         "data_description": {
           "profile_name": "Naam waarmee het aparte Fitness-profiel en de entiteiten van deze persoon worden aangemaakt.",
           "language": "Taal voor aankondigingen, coaching en verklarende sensorattributen. De Home Assistant-UI-taal wordt gekozen als die wordt ondersteund.",
-          "birth_day": "Geboortedag, samen met maand en jaar gebruikt om leeftijd te berekenen voor leeftijdsafhankelijke methoden.",
-          "birth_month": "Geboortemaand, gebruikt met de volledige geboortedatum voor leeftijdsafhankelijke referentieberekeningen.",
-          "birth_year": "Geboortejaar, gebruikt voor leeftijdsberekening in fitnessreferentiemethoden.",
-          "sex": "Optioneel biologisch geslacht, alleen gebruikt door wetenschappelijke methoden die expliciet geslachtsspecifieke coëfficiënten vereisen."
+          "sex": "Optioneel biologisch geslacht, alleen gebruikt door wetenschappelijke methoden die expliciet geslachtsspecifieke coëfficiënten vereisen.",
+          "date_of_birth": "Selecteer de volledige geboortedatum. In de kalender kan het jaar rechtstreeks worden gekozen."
         }
       },
       "required": {
@@ -167,7 +163,7 @@
         "description": "Kies wat je eerst wilt toevoegen. Je kunt het andere onderdeel later toevoegen zonder de bestaande profielstroom te wijzigen.",
         "menu_options": {
           "add_user": "Gebruikersprofiel toevoegen",
-          "manage_protocols": "Sensorprotocollen beheren"
+          "add_protocol": "Sensorprotocol toevoegen / beheren"
         }
       },
       "add_user": {
@@ -229,6 +225,30 @@
           "bluetooth_hardware": "Kies de ondersteunde adapters die Fitness in handmatige modus mag gebruiken.",
           "antplus_hardware": "Kies de ondersteunde adapters die Fitness in handmatige modus mag gebruiken."
         }
+      },
+      "account_access": {
+        "title": "Fitness-gebruikersrol en toegang",
+        "description": "Alleen voor beheerders: kies eerst de rol en aanmeldtoegang van het nieuwe Fitness-account.",
+        "data": {
+          "fitness_account_role": "Rol",
+          "fitness_network_access": "Netwerktoegang",
+          "fitness_account_display_name": "Accountnaam",
+          "fitness_account_username": "Inlognaam",
+          "fitness_remote_slug": "Externe hostnaam",
+          "fitness_view_profile_entry_ids": "Kijkrechten voor accounts"
+        },
+        "data_description": {
+          "fitness_account_role": "Beheerders hebben volledige Fitness-toegang. Lokale en externe gebruikers beheren alleen hun eigen profiel en kunnen extra profielen alleen-lezen bekijken als een beheerder toegang geeft.",
+          "fitness_network_access": "Aanmelden alleen via de externe hostnaam; lokale HA-hardware wordt nooit blootgesteld. Lokaal en extern aanmelden; LAN-hardware verschijnt alleen bij een echte lokale verbinding.",
+          "fitness_account_display_name": "Dit account beheert alleen het eigen Fitness-profiel.",
+          "fitness_account_username": "Bij externe accounts is het subdomein de standaard. De gebruiker kan de inlognaam later wijzigen.",
+          "fitness_remote_slug": "Deze hostnaam hoort uitsluitend bij dit externe Fitness-account.",
+          "fitness_view_profile_entry_ids": "Geselecteerde accounts zijn alleen-lezen; instellingen, trainingen en apparaten kunnen niet worden gewijzigd."
+        }
+      },
+      "account_credentials": {
+        "title": "Eenmalig eerste wachtwoord",
+        "description": "Eenmalig eerste wachtwoord: **{temporary_password}**. Kopieer het nu. Fitness slaat dit wachtwoord nooit leesbaar op en kan het later niet opnieuw tonen."
       }
     },
     "error": {
@@ -236,7 +256,11 @@
       "invalid_number_or_entity": "Voer een geldige numerieke waarde of Home Assistant-entiteits-ID in.",
       "select_profile": "Selecteer minstens één Fitness-gebruiker.",
       "select_smart_device_owner": "Kies precies één Fitness-profiel als eigenaar van opgeslagen trainingen. Livefuncties kunnen later met meer profielen worden gedeeld.",
-      "invalid_protocol": "Kies een ondersteund sensorprotocol."
+      "invalid_protocol": "Kies een ondersteund sensorprotocol.",
+      "invalid_role": "Rol: Dit veld is verplicht.",
+      "invalid_network_access": "Netwerktoegang: Dit veld is verplicht.",
+      "profile_not_found": "Geselecteerde accounts zijn alleen-lezen; instellingen, trainingen en apparaten kunnen niet worden gewijzigd.",
+      "required": "Dit veld is verplicht."
     },
     "abort": {
       "already_configured": "Er bestaat al een Fitness-profiel met deze naam.",
@@ -247,7 +271,8 @@
       "adapters_already_configured": "Alle Fitness-liveadapters zijn al geconfigureerd. Schakel ze in of uit via hun adapterapparaten.",
       "adapters_managed_on_devices": "Lokale sensoradapters worden ingesteld via de ANT+- en Bluetooth-adapterapparaten.",
       "protocol_enabled": "Het geselecteerde verbindingsprotocol is ingeschakeld.",
-      "protocols_updated": "De Fitness-sensorprotocollen zijn bijgewerkt."
+      "protocols_updated": "De Fitness-sensorprotocollen zijn bijgewerkt.",
+      "fitness_admin_created": "Kopieer het nu. Fitness slaat dit wachtwoord nooit leesbaar op en kan het later niet opnieuw tonen."
     }
   },
   "options": {
@@ -275,17 +300,13 @@
         "description": "Bewerk de profielgegevens van de persoon.",
         "data": {
           "language": "Taal",
-          "birth_day": "Geboortedag",
-          "birth_month": "Geboortemaand",
-          "birth_year": "Geboortejaar",
-          "sex": "Geslacht"
+          "sex": "Geslacht",
+          "date_of_birth": "Geboortedatum"
         },
         "data_description": {
           "language": "Taal voor aankondigingen, coaching en verklarende sensorattributen. De Home Assistant-UI-taal wordt gekozen als die wordt ondersteund.",
-          "birth_day": "Geboortedag, samen met maand en jaar gebruikt om leeftijd te berekenen voor leeftijdsafhankelijke methoden.",
-          "birth_month": "Geboortemaand, gebruikt met de volledige geboortedatum voor leeftijdsafhankelijke referentieberekeningen.",
-          "birth_year": "Geboortejaar, gebruikt voor leeftijdsberekening in fitnessreferentiemethoden.",
-          "sex": "Optioneel biologisch geslacht, alleen gebruikt door wetenschappelijke methoden die expliciet geslachtsspecifieke coëfficiënten vereisen."
+          "sex": "Optioneel biologisch geslacht, alleen gebruikt door wetenschappelijke methoden die expliciet geslachtsspecifieke coëfficiënten vereisen.",
+          "date_of_birth": "Selecteer de volledige geboortedatum. In de kalender kan het jaar rechtstreeks worden gekozen."
         }
       },
       "fitness_inputs": {
@@ -3572,6 +3593,156 @@
       },
       "cycplus_history_30d_moving_time": {
         "name": "Fietstijd over 30 dagen"
+      },
+      "device_heart_rate": {
+        "name": "Hartslag"
+      },
+      "device_resting_heart_rate": {
+        "name": "Rusthartslag"
+      },
+      "device_min_heart_rate": {
+        "name": "Minimale heart rate"
+      },
+      "device_max_heart_rate": {
+        "name": "Maximale heart rate"
+      },
+      "device_hrv_ms": {
+        "name": "Hartslagvariabiliteit"
+      },
+      "device_beat_interval_ms": {
+        "name": "Slaginterval"
+      },
+      "device_respiratory_rate": {
+        "name": "Ademhalingsfrequentie"
+      },
+      "device_spo2": {
+        "name": "Bloedzuurstof"
+      },
+      "device_skin_temperature": {
+        "name": "Huidtemperatuur"
+      },
+      "device_skin_temperature_min": {
+        "name": "Minimale skin temperature"
+      },
+      "device_skin_temperature_max": {
+        "name": "Maximale skin temperature"
+      },
+      "device_skin_temperature_deviation": {
+        "name": "Afwijking huidtemperatuur"
+      },
+      "device_skin_temperature_7d_deviation": {
+        "name": "7-daagse afwijking huidtemperatuur"
+      },
+      "device_body_temperature": {
+        "name": "Lichaamstemperatuur"
+      },
+      "device_device_temperature": {
+        "name": "Apparaat temperature"
+      },
+      "device_device_temperature_min": {
+        "name": "Minimale device temperature"
+      },
+      "device_device_temperature_max": {
+        "name": "Maximale device temperature"
+      },
+      "device_steps": {
+        "name": "Stappen"
+      },
+      "device_distance_m": {
+        "name": "Afstand"
+      },
+      "device_calories": {
+        "name": "Calorieën"
+      },
+      "device_active_calories": {
+        "name": "Actieve calories"
+      },
+      "device_active_minutes": {
+        "name": "Actieve minuten"
+      },
+      "device_moderate_minutes": {
+        "name": "Matige activiteit minutes"
+      },
+      "device_vigorous_minutes": {
+        "name": "Intensieve activiteit minutes"
+      },
+      "device_activity_level": {
+        "name": "Activiteitsniveau"
+      },
+      "device_stress": {
+        "name": "Stressniveau"
+      },
+      "device_body_battery": {
+        "name": "Lichaamsbattery"
+      },
+      "device_body_battery_charged": {
+        "name": "Lichaamsbattery charged"
+      },
+      "device_body_battery_drained": {
+        "name": "Lichaamsbattery drained"
+      },
+      "device_sleep_score": {
+        "name": "Slaapscore apparaat"
+      },
+      "device_vo2_max": {
+        "name": "VO₂max"
+      },
+      "device_floors_climbed": {
+        "name": "Verdiepingen geklommen"
+      },
+      "device_systolic_blood_pressure": {
+        "name": "Systolische blood pressure"
+      },
+      "device_diastolic_blood_pressure": {
+        "name": "Diastolische blood pressure"
+      },
+      "device_mean_arterial_pressure": {
+        "name": "Gemiddelde arteriële pressure"
+      },
+      "device_weight": {
+        "name": "Gewicht"
+      },
+      "device_bmi": {
+        "name": "Body-mass index (BMI)"
+      },
+      "device_body_fat": {
+        "name": "Lichaamsvet"
+      },
+      "device_body_water": {
+        "name": "Lichaamswater"
+      },
+      "device_muscle_mass": {
+        "name": "Spiermassa"
+      },
+      "device_bone_mass": {
+        "name": "Botmassa"
+      },
+      "device_basal_metabolic_rate": {
+        "name": "Basaal metabolisme"
+      },
+      "device_active_metabolic_rate": {
+        "name": "Actief metabolisme"
+      },
+      "device_metabolic_age": {
+        "name": "Metabole leeftijd"
+      },
+      "device_visceral_fat_mass": {
+        "name": "Viscerale fat mass"
+      },
+      "device_visceral_fat_rating": {
+        "name": "Viscerale fat rating"
+      },
+      "device_battery": {
+        "name": "Apparaatbatterij"
+      },
+      "device_device_battery_voltage": {
+        "name": "Apparaat battery voltage"
+      },
+      "device_charging": {
+        "name": "Opladen"
+      },
+      "device_wear_state": {
+        "name": "Draagstatus"
       }
     },
     "binary_sensor": {
@@ -3665,6 +3836,20 @@
         "lights": "Lampen",
         "video": "TV / videoweergave",
         "weather": "Weer"
+      }
+    },
+    "fitness_account_role": {
+      "options": {
+        "admin_user": "Admin + Fitness-gebruiker",
+        "user": "Gebruiker",
+        "admin": "Volledig Fitness-beheer"
+      }
+    },
+    "fitness_network_access": {
+      "options": {
+        "local_only": "Alleen lokaal",
+        "remote_only": "Alleen extern",
+        "local_remote": "Lokaal + extern"
       }
     }
   },

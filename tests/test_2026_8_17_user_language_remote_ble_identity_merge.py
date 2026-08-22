@@ -10,7 +10,10 @@ def test_backend_options_flow_keeps_explicit_profile_language_across_main_menu_r
     assert 'this._language = String(language || this._hass?.language || "en")' in JS
     assert 'language:this._language' in JS
     restart = JS[JS.index("  async _restartOptionsFlow() {"):JS.index("  async _saveAndReturnToMenu() {")]
-    assert 'language:this._language' in restart
+    assert 'await this._startUnderlyingFlow();' in restart
+    # v141 keeps the already loaded profile-language translation catalog in the
+    # same flow component instead of recreating it with the HA UI language.
+    assert 'this._language =' not in restart
 
 
 def test_backend_flow_prefers_requested_fitness_language_over_ha_ui_language():

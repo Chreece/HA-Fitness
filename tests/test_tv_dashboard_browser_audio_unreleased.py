@@ -51,9 +51,10 @@ def test_fitness_creates_sidebar_fullscreen_cast_dashboard_with_profile_specific
     assert '_TV_DASHBOARD_CARD_TYPE = "custom:fitness-tv-dashboard-card"' in DASHBOARD
     assert 'strategy_type in {"custom:fitness-tv", "fitness-tv"}' in DASHBOARD
     assert 'current != expected_config' in DASHBOARD
-    assert '"cast", "show_lovelace_view", cast_data, blocking=True' in DASHBOARD
-    assert '"dashboard_path": TV_DASHBOARD_PATH' in DASHBOARD
-    assert '"view_path": f"cast-{entry.entry_id}"' in DASHBOARD
+    assert 'DASHCAST_APP_ID = "84912283"' in DASHBOARD
+    assert 'DashCastController' in DASHBOARD
+    assert 'controller.load_url(url, force=True' in DASHBOARD
+    assert '?fitness_cast_receiver=1' in DASHBOARD
     strategy_profile = FRONTEND[FRONTEND.index('for (const profile of profiles) {', FRONTEND.index('class FitnessTvDashboardStrategy')):FRONTEND.index('return {title, views};', FRONTEND.index('class FitnessTvDashboardStrategy'))]
     assert 'panel:true' not in strategy_profile
     assert 'FITNESS_TV_CAST_RECEIVER' in FRONTEND
@@ -82,7 +83,7 @@ def test_card_selection_is_per_profile_and_persisted_server_side():
 def test_tv_dashboard_cast_button_lists_native_cast_targets_and_casts_selected_profile():
     assert 'def _tv_cast_targets' in DASHBOARD
     assert 'registry_entry.platform != "cast"' in DASHBOARD
-    assert '"cast_targets": _tv_cast_targets(hass, registry)' in DASHBOARD
+    assert '"cast_targets": (' in DASHBOARD
     assert 'this._castTargets = Array.isArray(data?.cast_targets)' in FRONTEND
     assert 'id="cast"' in FRONTEND
     assert 'id="cast-target"' in FRONTEND
@@ -92,12 +93,13 @@ def test_tv_dashboard_cast_button_lists_native_cast_targets_and_casts_selected_p
     assert 'entity_id:entityId' in FRONTEND
     assert 'media_player_override' in DASHBOARD
     assert 'CAST_APP_ID_HOMEASSISTANT_LOVELACE' in DASHBOARD
+    assert 'DASHCAST_APP_ID = "84912283"' in DASHBOARD
     assert 'for attempt in range(1, 4)' in DASHBOARD
     assert '_async_cast_receiver_is_stable' in DASHBOARD
     assert 'state is None or state.state == "unavailable"' not in DASHBOARD
     assert 'state is None or state.state in {"off", "standby", "unknown", "unavailable"}' in DASHBOARD
     assert 'Fitness TV cast requested for profile %s to %s' in DASHBOARD
-    assert 'Fitness TV cast attempt %d/3 to %s failed' in DASHBOARD
+    assert 'Fitness TV local DashCast attempt %d/3 to %s failed' in DASHBOARD
     assert 'async _openCastPicker()' in FRONTEND
     assert 'if (Array.isArray(data?.cast_targets)) this._castTargets = data.cast_targets' in FRONTEND
     assert 'target.available === false ? "disabled"' in FRONTEND
@@ -213,8 +215,8 @@ def test_tv_audio_core_has_no_required_extra_ha_integration_and_dashboard_revisi
         (BASE / name).read_text(encoding="utf-8")
         for name in ("__init__.py", "config_flow.py", "dashboard.py", "manager.py", "tv_dashboard.py")
     ) + "\n" + FRONTEND
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
-    assert '?v=unreleased-110' in DASHBOARD
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in FRONTEND
+    assert '?v=unreleased-138' in DASHBOARD
     assert 'fitness/tv/music/browse' in runtime
     assert 'FITNESS_RADIO_PREFIX = "fitness-radio://"' in RADIO_ADAPTER
     # SoundCloud/YouTube helpers are loaded only when selected; account-backed
@@ -243,14 +245,14 @@ def test_tv_frontend_resource_is_cross_origin_safe_for_home_assistant_cast():
 def test_cast_launch_does_not_loop_after_receiver_has_started():
     assert 'async def _async_wait_for_cast_receiver_launch(' in DASHBOARD
     assert 'Do not continuously tear down/relaunch a receiver that has already started.' in DASHBOARD
-    assert 'Fitness TV Cast receiver active on %s for profile %s (%s)' in DASHBOARD
+    assert 'Fitness TV local DashCast receiver active on %s for profile %s (%s)' in DASHBOARD
 
 
 def test_toolbar_exposes_direct_stop_cast_control():
     assert 'id="stop-cast"' in FRONTEND
     assert 'mdi:cast-off' in FRONTEND
-    assert 'const activeTarget = String(this._activeCastTarget || "")' in FRONTEND
-    assert 'this._stopCastDashboard(activeTarget)' in FRONTEND
+    assert 'async _stopCurrentCast()' in FRONTEND
+    assert 'await this._stopCastDashboard(String(this._activeCastTarget));' in FRONTEND
 
 
 def test_tv_music_commands_prefer_cast_receiver_and_profiles_are_independent():
@@ -280,9 +282,9 @@ def test_tv_music_uses_absolute_home_assistant_media_urls_on_cast_receiver():
 
 
 def test_tv_modals_anchor_under_toolbar_and_cards_pack_without_row_gaps():
-    assert 'toolbar?.scrollIntoView?.({block:"nearest"})' in FRONTEND
-    assert 'const compactFocus = Boolean(globalThis.matchMedia?.("(max-width: 900px)")?.matches);' in FRONTEND
-    assert 'const topAnchor = compactFocus ? (toolbarRect?.top ?? this.getBoundingClientRect?.().top ?? 0) : (toolbarRect?.bottom ?? 64);' in FRONTEND
+    assert 'const toolbarWasHidden = Boolean(this._toolbarHidden || this.hasAttribute("toolbar-hidden"));' in FRONTEND
+    assert 'this.setAttribute("modal-focus-open", "");' in FRONTEND
+    assert 'const topAnchor = castModal ? 0 : (toolbarRect?.top ?? this.getBoundingClientRect?.().top ?? 0);' in FRONTEND
     assert 'const top = castModal ? 6 : Math.max(6, Math.round(Number(topAnchor || 0) + 4));' in FRONTEND
     assert 'top:var(--modal-top,68px);left:0;right:0;bottom:0' in FRONTEND
     assert '.tv-toolbar{position:sticky;top:0' in FRONTEND
@@ -311,7 +313,7 @@ def test_browser_profile_views_are_full_width_panels_and_cast_uses_separate_safe
     assert 'path=f"cast-{entry.entry_id}"' in profile_block
     cast_view = profile_block[profile_block.index('path=f"cast-{entry.entry_id}"'): ]
     assert 'panel=True' not in cast_view
-    assert '"view_path": f"cast-{entry.entry_id}"' in DASHBOARD
+    assert '?fitness_cast_receiver=1' in DASHBOARD
     assert 'path.startswith("cast-")' in DASHBOARD
 
 
@@ -339,7 +341,7 @@ def test_tv_setup_page_and_per_profile_reconfigure_are_first_class():
     assert 'class FitnessTvSetupCard extends HTMLElement' in FRONTEND
     assert '[FITNESS_TV_SETUP_CARD_TAG, "fitness-tv-setup-card", "fitness-tv-setup-card-v70"' in FRONTEND
     assert 'customElements.define(tag, class extends BaseClass {});' in FRONTEND
-    assert 'id="add-profile"' in FRONTEND
+    assert 'id="add-fitness-account"' in FRONTEND
     assert 'class="tool configure-profile"' in FRONTEND
     assert 'id="configure"' in FRONTEND
     assert 'type:"fitness/tv/profile/configure"' in FRONTEND
@@ -390,7 +392,7 @@ def test_tv_media_browser_search_favorites_and_single_audio_owner():
     assert '_ignored_cast_clients' in TV
     assert '"command": "stop"' in TV
     assert '"reason": "new_media_selected"' in TV
-    assert 'command === "stop"' in FRONTEND
+    assert 'commandName === "stop"' in FRONTEND
     assert 'this._hardStopMusic();' in FRONTEND
     assert 'this._hardStopAudio(this._ttsAudio);' in FRONTEND
     assert 'Route changes remove this Lovelace card from the DOM.' in FRONTEND
@@ -401,16 +403,19 @@ def test_tv_profile_toolbar_and_inline_backend_flows():
     assert 'tv-toolbar ${fixedProfile ? "fixed-profile" : ""}' in FRONTEND
     assert 'grid-template-areas:"brand identity actions" "music music music"' in FRONTEND
     assert 'id="backend-config"' in FRONTEND
-    assert 'id="add-backend-profile"' in FRONTEND
+    assert 'id="add-fitness-account"' in FRONTEND
     assert 'class FitnessBackendFlow extends HTMLElement' in FRONTEND
-    assert 'config/config_entries/flow' in FRONTEND
+    assert 'fitness/dashboard/config_flow/start' in FRONTEND
+    assert 'fitness/dashboard/config_flow/step' in FRONTEND
+    assert 'fitness/dashboard/config_flow/cancel' in FRONTEND
+    assert 'config/config_entries/flow' not in FRONTEND
     assert 'fitness/dashboard/options_flow/start' in FRONTEND
     assert 'fitness/dashboard/options_flow/step' in FRONTEND
     assert 'fitness/dashboard/options_flow/cancel' in FRONTEND
     assert 'config/config_entries/options/flow' not in FRONTEND
     assert 'next_step_id:button.dataset.next' in FRONTEND
     assert 'document.createElement("fitness-backend-flow")' in FRONTEND
-    assert '_openBackendFlow("add")' in FRONTEND
+    assert '_openBackendFlow("add", "", "", "add_user")' in FRONTEND
     assert '_openBackendFlow("options", entryId' in FRONTEND
 
 
@@ -421,7 +426,7 @@ def test_unreleased_38_flow_modal_is_scrollable_translated_and_has_main_menu_but
     assert 'class="flow-home"' in FRONTEND
     assert 'mdi:view-dashboard-outline' in FRONTEND
     assert '_restartOptionsFlow()' in FRONTEND
-    assert '.flow-body{display:grid;gap:9px;padding:15px 15px max(22px,env(safe-area-inset-bottom));overflow-y:auto;overflow-x:hidden;min-height:0' in FRONTEND
+    assert '.flow-body{display:flex;flex-direction:column;align-items:stretch;gap:9px;padding:15px 15px max(22px,env(safe-area-inset-bottom));overflow-y:auto;overflow-x:hidden;min-height:0' in FRONTEND
     assert ':host{display:block;color:var(--primary-text-color);height:100%;max-height:100%;min-height:0;overflow:hidden}' in FRONTEND
     assert 'flowBody.scrollTop += Number(event.deltaY || 0);' in FRONTEND
     assert 'settings_main_menu' in DASHBOARD
@@ -433,7 +438,8 @@ def test_unreleased_38_cast_takes_over_existing_music_and_laptop_controls_target
     assert '_ensureCastMusicPlayback(state = {})' in FRONTEND
     assert 'if (this._audioOwner && FITNESS_TV_CAST_RECEIVER)' in FRONTEND
     assert 'await this._playResolvedMedia(mediaContentId' in FRONTEND
-    assert 'this._activeCastTarget = String(result?.cast_target || "")' in FRONTEND
+    assert 'this._applyCastDescriptor(descriptor || {})' in FRONTEND
+    assert 'this._castState === "connected"' in FRONTEND
     assert '"cast_target": hub.cast_target(profile_entry_id)' in TV
 
 
@@ -506,7 +512,7 @@ def test_live_card_localizes_session_state_and_includes_pause_stop_controls():
 
 
 def test_unreleased_44_live_controls_use_native_service_and_stable_more_info():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in FRONTEND
     assert 'this._hass.callService("button", "press", {}, {entity_id:entityId})' in FRONTEND
     assert '_liveStateSignature(hass)' in FRONTEND
     assert 'metric.addEventListener("click"' in FRONTEND
@@ -566,9 +572,9 @@ def test_unreleased_44_cast_lifecycle_tracks_real_tv_receiver_and_pauses_phantom
     assert 'return None' in TV
     assert '"cast_active": hub.is_cast_active(profile_entry_id)' in TV
     assert 'this._serverCastActive = Boolean(result?.cast_active)' in FRONTEND
-    assert '["off", "standby", "unknown", "unavailable"].includes(String(state.state || ""))' in FRONTEND
-    assert 'stopCast.hidden = !FITNESS_TV_CAST_RECEIVER || !anyCastActive' in FRONTEND
-    assert 'stopCast.disabled = !anyCastActive' in FRONTEND
+    assert 'receiver heartbeat may turn Cast green' in FRONTEND
+    assert 'stopCast.hidden = !FITNESS_TV_CAST_RECEIVER || !castConnected' in FRONTEND
+    assert 'stopCast.disabled = !castConnected' in FRONTEND
     assert 'reason="manual_cast_stop"' in DASHBOARD
     assert 'return True' in DASHBOARD
 
@@ -734,7 +740,7 @@ def test_unreleased_49_tv_setup_icons_and_labels_are_native_mdi():
     assert 'fitness:logo' not in DASHBOARD
     assert "l.backend_profile" in FRONTEND
     assert 'class="tool enable-profile"><ha-icon icon="mdi:television-play"' in FRONTEND
-    assert 'id="add-profile"><ha-icon icon="mdi:plus-circle-outline"' in FRONTEND
+    assert 'id="add-fitness-account"><ha-icon icon="mdi:account-plus-outline"' in FRONTEND
 
 
 def test_unreleased_49_music_link_copy_explains_that_it_is_not_a_provider_account():

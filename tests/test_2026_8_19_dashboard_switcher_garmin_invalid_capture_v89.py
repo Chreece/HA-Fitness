@@ -58,9 +58,9 @@ def test_garmin_full_sync_accepts_standard_deflate_wrappers_only_when_they_revea
 
 
 def test_frontend_cache_revision_is_v89():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in JS
-    assert '?v=unreleased-110' in DASH
-    assert '"frontend_version": "unreleased-110"' in DASH
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in JS
+    assert '?v=unreleased-138' in DASH
+    assert '"frontend_version": "unreleased-138"' in DASH
 
 
 def test_existing_invalid_without_capture_is_reprobed_after_upgrade() -> None:

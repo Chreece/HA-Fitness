@@ -149,6 +149,7 @@ from .providers.sleep_adapters.sleep_as_android import record_from_event_history
 from .strength import analyze_strength
 from .tv_dashboard import get_tv_dashboard_hub
 from .resource_safety import async_call_service
+from .providers.wellness import discover_profile_wellness
 from .providers.workouts import (
     Workout,
     FITNESS_CALCULATED_SOURCE,
@@ -1438,6 +1439,7 @@ class FitnessManager:
         # Current provider history, provider-specific historical APIs and HA
         # Recorder snapshots all pass through the same workout merger.
         await self._async_reconcile_external_workouts()
+        await self._async_reconcile_supported_wellness()
         await self.async_import_provider_workout_history()
         await self.async_import_workouts_from_ha_history()
 
@@ -4035,7 +4037,7 @@ class FitnessManager:
 
     async def async_start_fitness_test(self, test_id: str) -> dict[str, Any]:
         """Launch a built-in Fitness test through the same live workout engine."""
-        return await self.async_start_prescription(fitness_test(test_id))
+        return await self.async_start_prescription(fitness_test(test_id, self._ai_language()))
 
     async def async_start_ai_daily_workout(self) -> dict[str, Any] | None:
         """Launch today's AI workout when it contains an executable prescription."""
@@ -4675,6 +4677,35 @@ class FitnessManager:
 
         return result[-20:]
 
+    def dashboard_heart_rate_zones(self) -> list[dict[str, Any]]:
+        """Return the athlete's five HRR bands when usable HR inputs exist.
+
+        Fitness already classifies live HR intensity from heart-rate reserve.  The
+        comparison chart reuses those exact boundaries rather than inventing a
+        separate colour scale.  No zones are returned unless both resting and
+        maximum heart rate can be resolved for this profile.
+        """
+        provider = collect_provider_metrics(self.hass, self.config)
+        resting = provider.get("resting_hr") or self.input_value(CONF_RESTING_HR)
+        max_hr = provider.get("max_hr") or self.input_value(CONF_MAX_HR)
+        try:
+            resting_f = float(resting)
+            max_f = float(max_hr)
+        except (TypeError, ValueError):
+            return []
+        reserve = max_f - resting_f
+        if not math.isfinite(resting_f) or not math.isfinite(max_f) or reserve <= 0:
+            return []
+        boundaries = (0.0, 0.30, 0.40, 0.60, 0.90, 1.0)
+        zones: list[dict[str, Any]] = []
+        for index, (lower, upper) in enumerate(zip(boundaries, boundaries[1:]), start=1):
+            zones.append({
+                "key": f"zone_{index}",
+                "min_bpm": round(resting_f + reserve * lower, 1),
+                "max_bpm": round(resting_f + reserve * upper, 1),
+            })
+        return zones
+
     def workout_comparisons_by_sport(
         self,
         *,
@@ -4754,6 +4785,15 @@ class FitnessManager:
 
             add_percent("power", "avg_power", 30.0)
             add_percent("speed", "average_speed_m_s", 30.0)
+            add_percent("cadence", "avg_cadence", 30.0)
+            add_percent("distance", "distance_m", 50.0)
+            add_percent("duration", "duration_s", 50.0)
+            add_percent("calories", "calories", 50.0)
+            add_percent("elevation", "elevation_gain_m", 60.0)
+            add_percent("relative_effort", "relative_effort", 50.0)
+            add_percent("repetitions", "total_reps", 60.0)
+            add_percent("volume", "volume_kg", 60.0)
+            add_percent("strength_sets", "strength_total_sets", 60.0)
             add_percent("trimp", "banister_trimp", 50.0)
 
             if not metrics:
@@ -5382,6 +5422,20 @@ class FitnessManager:
             self._notify()
         return deleted
 
+    async def _async_reconcile_supported_wellness(self) -> bool:
+        """Merge current wellness totals from profile-owned supported integrations.
+
+        Direct-device history and cloud/provider entities share the same canonical
+        daily store. For additive metrics such as steps, the newest explicit
+        current_total wins instead of summing two views of the same wearable day.
+        """
+        batch = discover_profile_wellness(self.hass, self.config)
+        if not batch.metric_points:
+            return False
+        before = {key: list(value) for key, value in self.metric_history.items()}
+        result = await self.async_import_device_history(batch)
+        return bool(result.get("metrics")) or before != self.metric_history
+
     async def _async_reconcile_external_workouts(self) -> bool:
         """Merge every currently exposed provider workout into history."""
         candidates = discover_external_workouts(self.hass, self.config)
@@ -5482,7 +5536,7 @@ class FitnessManager:
             if signature not in signatures:
                 signatures.add(signature)
                 bucket.append(raw)
-                bucket.sort(key=lambda item: str(item.get("timestamp") or ""))
+                bucket.sort(key=lambda item: parse_timestamp(item.get("timestamp")) or datetime.min.replace(tzinfo=timezone.utc))
                 del bucket[:-MAX_DEVICE_INTRADAY_POINTS_PER_METRIC]
                 metrics_changed = True
                 metric_count += 1
@@ -5515,7 +5569,7 @@ class FitnessManager:
             ]
             if not raw_points:
                 continue
-            raw_points.sort(key=lambda item: str(item.get("timestamp") or ""))
+            raw_points.sort(key=lambda item: parse_timestamp(item.get("timestamp")) or datetime.min.replace(tzinfo=timezone.utc))
             total_points = [
                 item for item in raw_points
                 if str((item.get("context") or {}).get("measurement_context") or "") == "current_total"
@@ -5539,12 +5593,18 @@ class FitnessManager:
             else:
                 selected = raw_points[-1]
                 daily_value = mean(float(item["value"]) for item in raw_points)
+            selected_source_type = str(selected.get("source_type") or "direct_device_history")
+            daily_source_type = (
+                f"{selected_source_type}:daily_summary"
+                if selected_source_type.startswith("integration:")
+                else "direct_device_daily_summary"
+            )
             remember(
                 self.metric_history,
                 metric_key,
                 daily_value,
                 selected["timestamp"],
-                source_type="direct_device_daily_summary",
+                source_type=daily_source_type,
                 source_entity=selected.get("source_entity"),
                 sources=selected.get("sources") or (),
                 imported=True,
@@ -5887,6 +5947,7 @@ class FitnessManager:
         await self._save()
         # Rebuild immediately from sources that are already available in HA.
         await self._async_reconcile_external_workouts()
+        await self._async_reconcile_supported_wellness()
         self._notify_workout_history()
         self._notify()
         return count
@@ -6203,15 +6264,24 @@ class FitnessManager:
             if is_entity_reference(raw):
                 entity_to_metric[str(raw).strip()] = metric
 
-        # First persist the already normalized/selected Fitness facts. They
-        # outrank any imported Recorder observation for the same day.
+        # Persist normalized/selected Fitness facts with the observation time of
+        # their underlying entity. Never stamp a stale integration value with
+        # ``now``: direct-device history must remain newer when it really is.
+        def _source_stamp(entity_id: Any) -> datetime:
+            if not isinstance(entity_id, str) or not entity_id:
+                return now
+            state = self.hass.states.get(entity_id)
+            if state is None:
+                return now
+            return parse_timestamp(getattr(state, "last_changed", None)) or now
+
         for metric in metric_keys:
             value = provider.get(metric)
             if value is None:
                 continue
             source_entity = provider.get(f"{metric}_entity")
             remember(
-                self.metric_history, metric, value, now,
+                self.metric_history, metric, value, _source_stamp(source_entity),
                 source_type="fitness_merged_current",
                 source_entity=source_entity,
                 sources=[str(source_entity)] if source_entity else [],
@@ -6220,7 +6290,13 @@ class FitnessManager:
         for config_key, metric in ((CONF_WEIGHT,"weight"),(CONF_RESTING_HR,"resting_hr"),(CONF_VO2MAX,"vo2max")):
             value = self.input_value(config_key)
             if value is not None:
-                remember(self.metric_history, metric, value, now, source_type="fitness_merged_current", imported=False, now=now)
+                raw_source = self.config.get(config_key)
+                source_entity = str(raw_source).strip() if is_entity_reference(raw_source) else None
+                remember(
+                    self.metric_history, metric, value, _source_stamp(source_entity),
+                    source_type="fitness_merged_current", source_entity=source_entity,
+                    sources=[source_entity] if source_entity else [], imported=False, now=now,
+                )
 
         # Existing installations retain up to 90 days by importing Recorder
         # rows into Fitness storage. Recorder never directly produces a result.
@@ -7800,6 +7876,45 @@ class FitnessManager:
         code = language.split("-")[0].split("_")[0]
         return code if code in SUPPORTED_LANGUAGES else "en"
 
+    def _ai_language_style_guidance(self) -> str:
+        """Return language-specific writing guidance without changing training logic."""
+        lang = self._ai_language()
+        names = {
+            "en":"English", "el":"Greek", "de":"German", "fr":"French",
+            "es":"Spanish", "it":"Italian", "pt":"Portuguese", "nl":"Dutch",
+            "pl":"Polish", "ru":"Russian", "uk":"Ukrainian", "tr":"Turkish",
+            "zh":"Chinese", "ja":"Japanese", "ko":"Korean",
+        }
+        language = names.get(lang, "English")
+        specific = {
+            "el": (
+                "Use natural contemporary Greek coaching language, not word-for-word English syntax. "
+                "Prefer familiar Greek sports terms such as αερόβια αντοχή, αποκατάσταση, χαμηλή/μέτρια ένταση, "
+                "σταθερός ρυθμός and προθέρμανση. Keep standard technical abbreviations such as VO2max, FTP and RPE "
+                "when athletes normally use them. Avoid awkward nominal phrases and unnecessary repetition of measurements."
+            ),
+            "de": "Use idiomatic contemporary German fitness/coaching language, concise verbs and familiar sports terminology; avoid literal English compounds or translated jargon.",
+            "fr": "Use natural contemporary French coaching language and established sport terminology; avoid calques from English and overly formal prose.",
+            "es": "Use natural contemporary Spanish coaching language and common fitness terminology; avoid literal English syntax and redundant explanations.",
+            "it": "Use natural contemporary Italian coaching language and established sport terminology; avoid literal English constructions and verbose phrasing.",
+            "pt": "Use natural contemporary Portuguese coaching language and common fitness terminology; avoid literal English syntax and verbose explanations.",
+            "nl": "Use natural contemporary Dutch coaching language and familiar sports terminology; avoid English-style sentence structure where it sounds unnatural.",
+            "pl": "Use natural contemporary Polish coaching language and established sports terminology; avoid literal English constructions.",
+            "ru": "Use natural contemporary Russian coaching language and established sports terminology; avoid literal English constructions.",
+            "uk": "Use natural contemporary Ukrainian coaching language and established sports terminology; avoid literal English constructions.",
+            "tr": "Use natural contemporary Turkish coaching language and established sports terminology; avoid literal English constructions.",
+            "zh": "Use concise, natural Simplified Chinese fitness coaching language; use established Chinese sport terminology and avoid English sentence patterns.",
+            "ja": "Use concise, natural Japanese fitness coaching language; use established Japanese sport terminology and avoid literal English sentence structure.",
+            "ko": "Use concise, natural Korean fitness coaching language; use established Korean sport terminology and avoid literal English sentence structure.",
+        }
+        local = specific.get(lang, "Use natural, concise coaching language appropriate for a native speaker.")
+        return (
+            f"USER-FACING LANGUAGE STYLE: Write every user-facing title, rationale, summary, note and step instruction in {language}. "
+            f"{local} Keep titles short enough for one UI line where practical. Keep summaries/rationales to 1-3 short sentences. "
+            "Use direct, actionable workout instructions. Do not translate JSON keys, enum values, machine tokens, zone_1..zone_5, "
+            "or other control-schema identifiers. Do not repeat the same readiness/sleep evidence in multiple fields unless needed for safety."
+        )
+
     def _prompt_strings(self) -> dict[str, str]:
         """Localized AI instructions."""
         # AI prompts use English language names for unambiguous model
@@ -8059,11 +8174,12 @@ class FitnessManager:
             if str(self.config.get(CONF_TRAINING_GOAL) or "").strip():
                 await self.async_generate_training_plan(force=True)
 
-    def _daily_training_plan_prompt(self) -> str:
+    def _daily_training_plan_prompt(self, user_text: str = "") -> str:
         strings = self._prompt_strings()
         context = self._ai_evaluation_context()
         readiness = self.readiness_evaluation()
         recovery = self.recovery_time_evaluation()
+        user_text = str(user_text or "").strip()[:2000]
         payload = {
             "date": self._today_iso(),
             "readiness": readiness,
@@ -8072,6 +8188,7 @@ class FitnessManager:
             "goal_date": str(self.config.get(CONF_TRAINING_GOAL_DATE) or "")[:32] or None,
             "preferred_training_days_per_week": int(self.config.get(CONF_TRAINING_DAYS_PER_WEEK, 4) or 4),
             "fitness_evidence": context,
+            "user_request": user_text or None,
         }
         return (
             "Act as a conservative fitness training planner. Decide whether today should be rest, "
@@ -8081,7 +8198,7 @@ class FitnessManager:
             f"MANDATORY OUTPUT LANGUAGE for user-facing strings: {strings['language']}. "
             "Return ONLY one JSON object with keys: recommendation (short title), action (rest|workout), "
             "sport (string or null), duration_minutes (integer or null), intensity (string or null), "
-            "rationale (1-3 short sentences), confidence_percent (0-100), and device_workout. "
+            "rationale (1-2 short sentences, preferably under 240 characters), confidence_percent (0-100), and device_workout. "
             "Machine-control intensity values must use one canonical English token: recovery, very_light, light, "
             "moderate, vigorous, or near_maximal; user-facing titles/instructions/rationale must still use the mandated output language. "
             "device_workout must be null for rest. For a workout it MUST be a clear executable prescription containing "
@@ -8097,9 +8214,10 @@ class FitnessManager:
             + self._bounded_ai_json(payload, max_bytes=14000)
         )
 
-    def _training_plan_prompt(self) -> str:
+    def _training_plan_prompt(self, user_text: str = "") -> str:
         """Build a bounded goal-aware seven-day training-plan request."""
         strings = self._prompt_strings()
+        user_text = str(user_text or "").strip()[:2000]
         payload = {
             "goal": str(self.config.get(CONF_TRAINING_GOAL) or "")[:1000],
             "goal_date": str(self.config.get(CONF_TRAINING_GOAL_DATE) or "")[:32] or None,
@@ -8107,12 +8225,15 @@ class FitnessManager:
             "readiness": self.readiness_evaluation(),
             "recovery": self.recovery_time_evaluation(),
             "fitness_evidence": self._ai_evaluation_context(),
+            "canonical_today_plan": self.ai_daily_plan if self.ai_daily_plan_date == self._today_iso() else None,
+            "user_request": user_text or None,
         }
         return (
             "Create a conservative rolling 7-day training plan for the athlete's stated goal. "
             "Use only supplied history/readiness/recovery evidence, preserve rest where needed, and never invent measurements. "
+            "If canonical_today_plan is supplied, day date_offset 0 MUST match its rest/workout decision and structured prescription; plan the remaining days around it. "
             f"MANDATORY OUTPUT LANGUAGE: {strings['language']}. Return ONLY JSON with keys plan_name, goal_summary, generated_for_date, days. "
-            "days must be an array of exactly 7 objects with date_offset (0-6), action (rest|workout), title, rationale, and workout. "
+            "days must be an array of exactly 7 objects with date_offset (0-6), action (rest|workout), title, rationale, and workout. Keep each title concise and each rationale to 1-2 short sentences, preferably under 240 characters. "
             "For rest, workout must be null. For workout, workout must be a structured prescription with sport, duration_minutes, intensity, "
             "training_zone, notes, and 3-12 ordered steps. Machine-control intensity values must use canonical English tokens recovery, very_light, "
             "light, moderate, vigorous, or near_maximal while all user-facing text remains in the mandated output language. "
@@ -8124,7 +8245,7 @@ class FitnessManager:
             "\n\nEvidence:\n" + self._bounded_ai_json(payload, max_bytes=16000)
         )
 
-    async def async_generate_training_plan(self, *, force: bool = False) -> dict[str, Any] | None:
+    async def async_generate_training_plan(self, *, force: bool = False, user_text: str = "") -> dict[str, Any] | None:
         """Generate a bounded rolling seven-day goal-aware plan."""
         if not self.config.get(CONF_AI_ENABLED):
             return self.ai_training_plan
@@ -8140,7 +8261,7 @@ class FitnessManager:
         today = self._today_iso()
         if not force and self.ai_training_plan and self.ai_training_plan.get("generated_for_date") == today:
             return self.ai_training_plan
-        result = await self._call_ai(self._training_plan_prompt(), f"Fitness training plan {self.config.get(CONF_PROFILE_NAME)}")
+        result = await self._call_ai(self._training_plan_prompt(user_text), f"Fitness training plan {self.config.get(CONF_PROFILE_NAME)}")
         if not result:
             return self.ai_training_plan
         text = str(result).strip()
@@ -8164,7 +8285,7 @@ class FitnessManager:
                 "date_offset": max(0, min(6, int(raw.get("date_offset") or len(days)))),
                 "action": "workout" if action == "workout" else "rest",
                 "title": str(raw.get("title") or ("Workout" if action == "workout" else "Rest"))[:160],
-                "rationale": str(raw.get("rationale") or "")[:800],
+                "rationale": str(raw.get("rationale") or "")[:420],
                 "workout": None,
             }
             if item["action"] == "workout" and isinstance(raw.get("workout"), dict):
@@ -8180,9 +8301,10 @@ class FitnessManager:
             "days": days,
         }
         self.ai_training_plan = plan
+        self._sync_training_plan_today_from_daily()
         await self._save()
         self._notify()
-        return plan
+        return self.ai_training_plan
 
     async def async_start_training_plan_day(self, day_index: int) -> dict[str, Any] | None:
         plan = self.ai_training_plan or {}
@@ -8194,7 +8316,29 @@ class FitnessManager:
             return None
         return await self.async_start_prescription(workout)
 
-    async def async_generate_daily_training_plan(self, *, force: bool = False) -> dict[str, Any] | None:
+    def _sync_training_plan_today_from_daily(self) -> bool:
+        """Keep day 0 of the rolling plan identical to today's canonical plan."""
+        daily = self.ai_daily_plan if self.ai_daily_plan_date == self._today_iso() else None
+        plan = self.ai_training_plan
+        if not isinstance(daily, dict) or not isinstance(plan, dict):
+            return False
+        days = plan.get("days")
+        if not isinstance(days, list) or not days:
+            return False
+        action = "workout" if str(daily.get("action") or "").lower() == "workout" else "rest"
+        replacement = {
+            "date_offset": 0,
+            "action": action,
+            "title": str(daily.get("recommendation") or ("Workout" if action == "workout" else "Rest"))[:160],
+            "rationale": str(daily.get("rationale") or "")[:800],
+            "workout": daily.get("device_workout") if action == "workout" and isinstance(daily.get("device_workout"), dict) else None,
+        }
+        if days[0] == replacement:
+            return False
+        days[0] = replacement
+        return True
+
+    async def async_generate_daily_training_plan(self, *, force: bool = False, user_text: str = "") -> dict[str, Any] | None:
         """Generate one bounded structured plan per local day when AI is enabled."""
         if not self.config.get(CONF_AI_ENABLED):
             return None
@@ -8207,7 +8351,7 @@ class FitnessManager:
         today = self._today_iso()
         if not force and self.ai_daily_plan_date == today and self.ai_daily_plan:
             return self.ai_daily_plan
-        result = await self._call_ai(self._daily_training_plan_prompt(), f"Fitness daily training plan {self.config.get(CONF_PROFILE_NAME)}")
+        result = await self._call_ai(self._daily_training_plan_prompt(user_text), f"Fitness daily training plan {self.config.get(CONF_PROFILE_NAME)}")
         if not result:
             return self.ai_daily_plan
         text = str(result).strip()
@@ -8235,6 +8379,7 @@ class FitnessManager:
         self.ai_daily_plan = plan
         self.ai_daily_plan_date = today
         self.ai_daily_plan_sleep_key = self._sleep_plan_key()
+        self._sync_training_plan_today_from_daily()
         await self._save()
         self._notify()
         return plan
@@ -8390,7 +8535,8 @@ class FitnessManager:
         return None
 
     async def _call_ai(self, prompt: str, task_name: str) -> str | None:
-        """Serialize AI and prevent overlap with audible Fitness TTS."""
+        """Serialize AI and apply one profile-language style contract to every AI task."""
+        prompt = str(prompt or "").rstrip() + "\n\n" + self._ai_language_style_guidance()
         async with self._ai_lock:
             async with self._tts_playback_lock:
                 return await self._call_ai_unlocked(prompt, task_name)

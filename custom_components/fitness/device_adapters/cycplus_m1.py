@@ -695,6 +695,7 @@ def workouts_from_fit_messages(
             average_speed_m_s=average_speed,
             max_speed_m_s=maximum_speed,
             kilojoules=(total_work / 1000.0) if total_work is not None else None,
+            gps_track=_gps_points(relevant),
             start_latitude=start_latitude,
             start_longitude=start_longitude,
             device_name="CYCPLUS M1",
@@ -1749,6 +1750,60 @@ class CycplusM1Coordinator:
         b_files = set((b.get("files") or {}).keys()) if isinstance(b.get("files"), dict) else set()
         return bool(a_files & b_files)
 
+    def _accepted_registry_serial_owner_id(self, serial: str) -> str | None:
+        """Return the installed Fitness sensor ID owning this exact M1 serial.
+
+        The Device Registry is the durable source of truth for an already-added
+        physical device.  Older Fitness builds can lose the matching live-runtime
+        topology while the HA device, profile assignment and entities continue to
+        exist.  Recovery therefore must *not* require that the registry owner's
+        ``live_sensor:<id>`` is already present in ``runtime.sensors``; that was the
+        hole which let the same M1 reopen Discovery after restart.
+
+        This lookup is intentionally strict: the current route has already proved
+        the full M1 GATT serial and vendor service, and exactly one Fitness Devices
+        registry row must carry that same full serial plus an M1 model identity.
+        """
+        devices_entry = getattr(self.runtime, "devices_entry", None)
+        if devices_entry is None:
+            return None
+
+        from homeassistant.helpers import device_registry as dr
+
+        wanted = str(serial or "").strip().upper()
+        if cycplus_m1_serial_identity(wanted) is None:
+            return None
+
+        registry = dr.async_get(self.hass)
+        matches: set[str] = set()
+        for device in tuple(registry.devices.values()):
+            if devices_entry.entry_id not in set(
+                getattr(device, "config_entries", set())
+            ):
+                continue
+            if (
+                str(getattr(device, "serial_number", None) or "")
+                .strip()
+                .upper()
+                != wanted
+            ):
+                continue
+
+            model_id = str(getattr(device, "model_id", None) or "").strip().upper()
+            model = str(getattr(device, "model", None) or "").strip().upper()
+            if model_id != "M1" and "CYCPLUS M1" not in model:
+                continue
+
+            for domain, identifier in set(getattr(device, "identifiers", set())):
+                identifier = str(identifier)
+                if domain != DOMAIN or not identifier.startswith("live_sensor:sensor:"):
+                    continue
+                matches.add(identifier.removeprefix("live_sensor:"))
+
+        if len(matches) != 1:
+            return None
+        return next(iter(matches))
+
     def canonicalize_connected_sensor(self, sensor_id: str) -> str:
         """Collapse rotating-address M1 aliases after one verified GATT identity.
 
@@ -1815,6 +1870,57 @@ class CycplusM1Coordinator:
                         serial_identity.get("cycplus_device_number"),
                     )
                 candidates.append(candidate)
+
+        # Legacy recovery: HA may still have the installed M1 device and profile
+        # assignment even when Fitness's private live-topology store no longer has
+        # the corresponding runtime object.  The previous repair tried to use the
+        # Device Registry but then required that registry owner to already exist in
+        # runtime.sensors, which made the fallback useless in exactly this restart
+        # failure mode.
+        #
+        # Recreate a tiny accepted canonical witness under the durable installed
+        # sensor ID, then let the normal merge transaction move this freshly proved
+        # Bluetooth endpoint onto it.  This preserves all existing HA entity unique
+        # IDs/profile references and aborts any discovery flow opened for the new
+        # provisional ID.
+        registry_owner_id = self._accepted_registry_serial_owner_id(serial)
+        if registry_owner_id is not None and registry_owner_id != sensor_id:
+            owner_id = self.runtime.resolve_sensor_id(registry_owner_id)
+            registry_owner = self.runtime.sensors.get(owner_id)
+            if registry_owner is None:
+                registry_owner = type(current)(
+                    sensor_id=registry_owner_id,
+                    name=current.name,
+                    capabilities=set(),
+                    metadata={
+                        "accepted": True,
+                        "manufacturer": "CYCPLUS",
+                        "model": "CYCPLUS M1 GPS Bike Computer",
+                        "model_id": "M1",
+                        "serial_number": serial,
+                        "fitness_vendor_identity": "cycplus",
+                        "archive_adapter": "cycplus_m1",
+                        "fitness_serial_identity_verified": True,
+                        "cycplus_gatt_identity_verified": True,
+                        **(
+                            {
+                                "fitness_physical_identity": physical,
+                                "cycplus_device_number": serial_identity.get(
+                                    "cycplus_device_number"
+                                ),
+                            }
+                            if physical
+                            else {}
+                        ),
+                    },
+                )
+                self.runtime.sensors[registry_owner_id] = registry_owner
+
+            if all(
+                item.sensor_id != registry_owner.sensor_id
+                for item in candidates
+            ):
+                candidates.append(registry_owner)
 
         canonical = current
         for duplicate in candidates:

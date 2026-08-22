@@ -27,13 +27,13 @@ def test_embedded_backend_settings_respect_visible_tv_viewport_and_compact_save(
     assert '.backend-flow-backdrop{background:rgba(0,0,0,.18)!important;position:fixed!important;top:var(--modal-effective-top)!important' in JS
     assert 'height:min(860px,calc(100% - 2px))!important;max-height:calc(100% - 2px)!important' in JS
     flow = JS[JS.index("class FitnessBackendFlow"):JS.index('if (!customElements.get("fitness-backend-flow")')]
-    assert '.flow-actions>button{flex:0 0 auto;min-width:118px;max-width:min(220px,100%)}' in flow
+    assert '.flow-actions>button{flex:0 0 auto;align-self:center;height:auto;min-width:118px;max-width:min(220px,100%)}' in flow
     assert '.flow-head{flex:0 0 auto;position:sticky;top:0' in flow
     assert 'if (cardPickerPreview) backdrop?.style?.setProperty("--modal-top", "4px")' in JS
     assert 'if (backendFlowModal) backdrop?.style?.setProperty("--modal-top", "4px")' not in JS
-    assert '.flow-body{display:grid;gap:9px' in flow and 'overflow-y:auto' in flow
+    assert '.flow-body{display:flex;flex-direction:column;align-items:stretch;gap:9px' in flow and 'overflow-y:auto' in flow
 
 
 def test_frontend_revision_95_is_synchronized():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in JS
-    assert 'frontend_version = "unreleased-110"' in ACCOUNTS
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in JS
+    assert 'frontend_version = "unreleased-138"' in ACCOUNTS

@@ -15,7 +15,7 @@ def test_unsolicited_startup_back_marks_session_unreliable_instead_of_arming_exi
     assert "this._castRemoteBackUnreliable = true" in block
     assert "startup/system Back detected; guarded exit enabled" in block
     startup_start = block.index("if (!this._castRemoteUserEngaged")
-    startup_end = block.index("if (Number(this._castRemoteExitArmedUntil", startup_start)
+    startup_end = block.index("const exitNotice = this.shadowRoot?.getElementById", startup_start)
     startup = block[startup_start:startup_end]
     assert "this._showCastExitConfirmation()" not in startup
     assert '_quitCastFromRemote("double back"' not in startup

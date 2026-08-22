@@ -8,18 +8,14 @@
         "data": {
           "profile_name": "Name",
           "language": "Language",
-          "birth_day": "Day of birth",
-          "birth_month": "Month of birth",
-          "birth_year": "Year of birth",
-          "sex": "Sex (optional; used only by methods requiring sex-specific reference data)"
+          "sex": "Sex (optional; used only by methods requiring sex-specific reference data)",
+          "date_of_birth": "Date of birth"
         },
         "data_description": {
           "profile_name": "Name used to create this person's separate Fitness profile and entities.",
           "language": "Language used for Fitness announcements, coaching and explanatory sensor attributes. The Home Assistant UI language is preselected when supported.",
-          "birth_day": "Day of birth. Together with month and year it is used to calculate age for age-dependent reference methods.",
-          "birth_month": "Month of birth. Used with the full date of birth for age-dependent reference calculations.",
-          "birth_year": "Year of birth. Used to calculate age for age-dependent fitness reference methods.",
-          "sex": "Optional biological sex input used only by scientific/reference methods that explicitly require sex-specific coefficients."
+          "sex": "Optional biological sex input used only by scientific/reference methods that explicitly require sex-specific coefficients.",
+          "date_of_birth": "Select the full date of birth. The calendar supports direct year selection and Fitness uses the date for age-dependent reference methods."
         }
       },
       "required": {
@@ -164,15 +160,15 @@
       },
       "first_install": {
         "title": "Set up Fitness",
-        "description": "Start by connecting fitness devices or by creating a fitness profile. Fitness stays idle until at least one connection protocol or profile is configured.",
+        "description": "Choose whether to add a Fitness user/account or manage Fitness sensor protocols.",
         "menu_options": {
-          "add_user": "Create fitness profile",
-          "manage_protocols": "Manage sensor protocols"
+          "add_protocol": "Add / manage sensor protocol",
+          "add_user": "Add Fitness user"
         }
       },
       "add_user": {
-        "title": "Add user profile",
-        "description": "Continue with the normal Fitness profile setup."
+        "title": "Add Fitness user",
+        "description": "Administrators choose the new account role and access first; profile setup follows only when the role owns a personal Fitness profile."
       },
       "add_protocol": {
         "title": "Manage sensor protocols",
@@ -229,6 +225,30 @@
           "bluetooth_hardware": "Select the supported Bluetooth adapters Fitness may use while hardware selection is manual.",
           "antplus_hardware": "Select the supported ANT+ receivers Fitness may use while hardware selection is manual."
         }
+      },
+      "account_access": {
+        "title": "Fitness user role and access",
+        "description": "Administrator-only account setup. Choose the role and where this Fitness account may sign in before configuring its personal profile.",
+        "data": {
+          "fitness_account_role": "Role",
+          "fitness_network_access": "Connection access",
+          "fitness_account_display_name": "Account display name",
+          "fitness_account_username": "Local username",
+          "fitness_remote_slug": "Remote hostname / subdomain",
+          "fitness_view_profile_entry_ids": "Profiles this user may view"
+        },
+        "data_description": {
+          "fitness_account_role": "Admin manages all Fitness accounts; Admin + Fitness User also owns a personal profile; User controls only their own profile and may view explicitly shared profiles.",
+          "fitness_network_access": "Remote-only accounts never receive Home Assistant LAN hardware controls. Local + Remote accounts may use local hardware only while connected locally.",
+          "fitness_account_display_name": "Required for a pure administrator account. For profile-owning users, the profile name is used when this is left empty.",
+          "fitness_account_username": "Optional local login name. Remote-only accounts use their assigned remote hostname instead.",
+          "fitness_remote_slug": "Required when remote access is enabled. This identifies the account remote hostname.",
+          "fitness_view_profile_entry_ids": "Optional read-only access to existing Fitness profiles. Applies only to the User role."
+        }
+      },
+      "account_credentials": {
+        "title": "Save the first-login password",
+        "description": "Copy this one-time first password now: **{temporary_password}**. The account will require a password change on first sign-in. Continue to configure the personal Fitness profile."
       }
     },
     "error": {
@@ -236,7 +256,11 @@
       "invalid_number_or_entity": "Enter a valid numeric value or Home Assistant entity ID.",
       "select_profile": "Select at least one Fitness user.",
       "select_smart_device_owner": "Choose exactly one Fitness profile as the stored-workout owner. You can share live sensor capabilities with more profiles later.",
-      "invalid_protocol": "Choose a supported sensor protocol."
+      "invalid_protocol": "Choose a supported sensor protocol.",
+      "invalid_role": "Select a valid Fitness role.",
+      "invalid_network_access": "Select a valid connection access mode.",
+      "profile_not_found": "One of the selected Fitness profiles no longer exists.",
+      "required": "This field is required."
     },
     "abort": {
       "already_configured": "A Fitness profile with this name already exists.",
@@ -247,7 +271,8 @@
       "adapters_already_configured": "All Fitness live adapters are already configured. Enable or disable them from their adapter devices.",
       "adapters_managed_on_devices": "Local sensor adapters are configured from the ANT+ and Bluetooth adapter devices.",
       "protocol_enabled": "The selected connection protocol is enabled.",
-      "protocols_updated": "Fitness sensor protocols were updated."
+      "protocols_updated": "Fitness sensor protocols were updated.",
+      "fitness_admin_created": "Fitness administrator account created. Copy the first-login password you were shown and use it to sign in."
     }
   },
   "options": {
@@ -275,17 +300,13 @@
         "description": "Edit the person's profile information.",
         "data": {
           "language": "Language",
-          "birth_day": "Day of birth",
-          "birth_month": "Month of birth",
-          "birth_year": "Year of birth",
-          "sex": "Sex"
+          "sex": "Sex",
+          "date_of_birth": "Date of birth"
         },
         "data_description": {
           "language": "Language used for Fitness announcements, coaching and explanatory sensor attributes. The Home Assistant UI language is preselected when supported.",
-          "birth_day": "Day of birth. Together with month and year it is used to calculate age for age-dependent reference methods.",
-          "birth_month": "Month of birth. Used with the full date of birth for age-dependent reference calculations.",
-          "birth_year": "Year of birth. Used to calculate age for age-dependent fitness reference methods.",
-          "sex": "Optional biological sex input used only by scientific/reference methods that explicitly require sex-specific coefficients."
+          "sex": "Optional biological sex input used only by scientific/reference methods that explicitly require sex-specific coefficients.",
+          "date_of_birth": "Select the full date of birth. The calendar supports direct year selection."
         }
       },
       "fitness_inputs": {
@@ -3572,6 +3593,156 @@
       },
       "cycplus_history_30d_moving_time": {
         "name": "30-day cycling time"
+      },
+      "device_heart_rate": {
+        "name": "Heart rate"
+      },
+      "device_resting_heart_rate": {
+        "name": "Resting heart rate"
+      },
+      "device_min_heart_rate": {
+        "name": "Minimum heart rate"
+      },
+      "device_max_heart_rate": {
+        "name": "Maximum heart rate"
+      },
+      "device_hrv_ms": {
+        "name": "Heart-rate variability"
+      },
+      "device_beat_interval_ms": {
+        "name": "Beat interval"
+      },
+      "device_respiratory_rate": {
+        "name": "Respiratory rate"
+      },
+      "device_spo2": {
+        "name": "Blood oxygen"
+      },
+      "device_skin_temperature": {
+        "name": "Skin temperature"
+      },
+      "device_skin_temperature_min": {
+        "name": "Minimum skin temperature"
+      },
+      "device_skin_temperature_max": {
+        "name": "Maximum skin temperature"
+      },
+      "device_skin_temperature_deviation": {
+        "name": "Skin temperature deviation"
+      },
+      "device_skin_temperature_7d_deviation": {
+        "name": "7-day skin temperature deviation"
+      },
+      "device_body_temperature": {
+        "name": "Body temperature"
+      },
+      "device_device_temperature": {
+        "name": "Device temperature"
+      },
+      "device_device_temperature_min": {
+        "name": "Minimum device temperature"
+      },
+      "device_device_temperature_max": {
+        "name": "Maximum device temperature"
+      },
+      "device_steps": {
+        "name": "Steps"
+      },
+      "device_distance_m": {
+        "name": "Distance"
+      },
+      "device_calories": {
+        "name": "Calories"
+      },
+      "device_active_calories": {
+        "name": "Active calories"
+      },
+      "device_active_minutes": {
+        "name": "Active minutes"
+      },
+      "device_moderate_minutes": {
+        "name": "Moderate activity minutes"
+      },
+      "device_vigorous_minutes": {
+        "name": "Vigorous activity minutes"
+      },
+      "device_activity_level": {
+        "name": "Activity level"
+      },
+      "device_stress": {
+        "name": "Stress"
+      },
+      "device_body_battery": {
+        "name": "Body battery"
+      },
+      "device_body_battery_charged": {
+        "name": "Body battery charged"
+      },
+      "device_body_battery_drained": {
+        "name": "Body battery drained"
+      },
+      "device_sleep_score": {
+        "name": "Device sleep score"
+      },
+      "device_vo2_max": {
+        "name": "VO₂ max"
+      },
+      "device_floors_climbed": {
+        "name": "Floors climbed"
+      },
+      "device_systolic_blood_pressure": {
+        "name": "Systolic blood pressure"
+      },
+      "device_diastolic_blood_pressure": {
+        "name": "Diastolic blood pressure"
+      },
+      "device_mean_arterial_pressure": {
+        "name": "Mean arterial pressure"
+      },
+      "device_weight": {
+        "name": "Weight"
+      },
+      "device_bmi": {
+        "name": "BMI"
+      },
+      "device_body_fat": {
+        "name": "Body fat"
+      },
+      "device_body_water": {
+        "name": "Body water"
+      },
+      "device_muscle_mass": {
+        "name": "Muscle mass"
+      },
+      "device_bone_mass": {
+        "name": "Bone mass"
+      },
+      "device_basal_metabolic_rate": {
+        "name": "Basal metabolic rate"
+      },
+      "device_active_metabolic_rate": {
+        "name": "Active metabolic rate"
+      },
+      "device_metabolic_age": {
+        "name": "Metabolic age"
+      },
+      "device_visceral_fat_mass": {
+        "name": "Visceral fat mass"
+      },
+      "device_visceral_fat_rating": {
+        "name": "Visceral fat rating"
+      },
+      "device_battery": {
+        "name": "Device battery"
+      },
+      "device_device_battery_voltage": {
+        "name": "Device battery voltage"
+      },
+      "device_charging": {
+        "name": "Charging"
+      },
+      "device_wear_state": {
+        "name": "Wear state"
       }
     },
     "binary_sensor": {
@@ -3665,6 +3836,20 @@
         "lights": "Lights",
         "video": "TV / video",
         "weather": "Weather"
+      }
+    },
+    "fitness_account_role": {
+      "options": {
+        "admin_user": "Admin + Fitness User",
+        "user": "User",
+        "admin": "Admin"
+      }
+    },
+    "fitness_network_access": {
+      "options": {
+        "local_only": "Local only",
+        "remote_only": "Remote only",
+        "local_remote": "Local + Remote"
       }
     }
   },

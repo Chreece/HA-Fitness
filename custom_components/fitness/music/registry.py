@@ -28,18 +28,20 @@ async def async_music_adapters(
     ytdlp_enabled: bool,
     adapter_options: dict[str, dict[str, Any]] | None = None,
     current_player_id: str = "",
+    allow_music_assistant: bool = True,
 ) -> list[MusicAdapter]:
     """Return only currently installed and usable adapters."""
     adapters: list[MusicAdapter] = [RadioBrowserMusicAdapter(hub)]
     options = adapter_options or {}
-    created = await asyncio.gather(
-        MusicAssistantMusicAdapter.async_create(
-            hass,
-            profile_options=options.get("music_assistant"),
-            current_player_id=current_player_id,
-        ),
-    )
-    adapters.extend(adapter for adapter in created if adapter is not None)
+    if allow_music_assistant:
+        created = await asyncio.gather(
+            MusicAssistantMusicAdapter.async_create(
+                hass,
+                profile_options=options.get("music_assistant"),
+                current_player_id=current_player_id,
+            ),
+        )
+        adapters.extend(adapter for adapter in created if adapter is not None)
     if ytdlp_enabled and YTDLPMusicAdapter.available():
         adapters.append(YTDLPMusicAdapter(hass))
     adapters.sort(key=lambda adapter: (adapter.info.adapter_id != "radio_browser", adapter.info.name.casefold()))
@@ -51,12 +53,14 @@ async def async_music_provider_catalog(
     *,
     adapter_options: dict[str, dict[str, Any]] | None = None,
     ytdlp_enabled: bool = False,
+    allow_music_assistant: bool = True,
 ) -> list[dict[str, Any]]:
     """Return install/configure choices separately from active adapters."""
     return await async_provider_catalog(
         hass,
         adapter_options=adapter_options,
         ytdlp_enabled=ytdlp_enabled,
+        allow_music_assistant=allow_music_assistant,
     )
 
 
@@ -72,6 +76,7 @@ async def async_search_music(
     search_scopes: dict[str, list[str]] | None = None,
     media_types: list[str] | None = None,
     current_player_id: str = "",
+    allow_music_assistant: bool = True,
 ) -> dict[str, Any]:
     """Search selected installed adapters concurrently."""
     query = str(query or "").strip()[:256]
@@ -84,6 +89,7 @@ async def async_search_music(
         ytdlp_enabled=ytdlp_enabled,
         adapter_options=adapter_options,
         current_player_id=current_player_id,
+        allow_music_assistant=allow_music_assistant,
     )
     searchable = [adapter for adapter in adapters if adapter.info.can_search and adapter.info.available]
     selected_media_types = (

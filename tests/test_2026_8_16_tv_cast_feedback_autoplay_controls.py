@@ -13,7 +13,9 @@ def test_ignore_workout_lights_while_cast_is_alive_defaults_on_everywhere():
     assert 'CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE = "tv_dashboard_ignore_lights_when_cast_active"' in CONST
     assert "DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE = True" in CONST
     assert "default=DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE" in FLOW
-    assert "current.get(\n                        CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,\n                        DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE" in FLOW
+    assert "default=bool(current.get(" in FLOW
+    assert "CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE," in FLOW
+    assert "DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE," in FLOW
     assert 'vol.Optional(\n            "ignore_lights_when_cast_active",\n            default=DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE' in TV
     assert 'current.ignore_lights_when_cast_active ?? true' in FRONTEND
     assert 'tv.ignore_lights_when_cast_active ?? true' in FRONTEND
@@ -99,8 +101,8 @@ def test_cast_receiver_toolbar_only_exposes_cast_relevant_action_buttons():
 def test_tv_profile_payload_and_frontend_revision_expose_new_setting():
     assert DASHBOARD.count('"ignore_lights_when_cast_active": bool(') >= 2
     assert 'CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE' in DASHBOARD
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
-    assert '?v=unreleased-110' in DASHBOARD
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in FRONTEND
+    assert '?v=unreleased-138' in DASHBOARD
 
 
 def test_cast_handoff_does_not_restart_media_that_fresh_receiver_already_resumed():

@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from datetime import date
-from pathlib import Path
 import asyncio
-import json
+import secrets
 
 import voluptuous as vol
 
@@ -24,9 +23,6 @@ from .const import (
     CONF_TRAINING_GOAL_DATE,
     CONF_TRAINING_DAYS_PER_WEEK,
     AI_ENTITY_SYSTEM_DEFAULT,
-    CONF_BIRTH_DAY,
-    CONF_BIRTH_MONTH,
-    CONF_BIRTH_YEAR,
     CONF_FEEDBACK_AREA_IDS,
     CONF_FEEDBACK_LIGHT_IDS,
     CONF_NOTIFY_ENTITY_IDS,
@@ -435,6 +431,12 @@ def _dashboard_theme_selector():
                 {"value": "fitness_oled", "label": "Fitness · OLED"},
                 {"value": "fitness_glass", "label": "Fitness · Glass"},
                 {"value": "fitness_classic", "label": "Fitness · Classic"},
+                {"value": "fitness_neon", "label": "Fitness · Neon"},
+                {"value": "fitness_forest", "label": "Fitness · Forest"},
+                {"value": "fitness_sunset", "label": "Fitness · Sunset"},
+                {"value": "fitness_arctic", "label": "Fitness · Arctic"},
+                {"value": "fitness_high_contrast", "label": "Fitness · High Contrast"},
+                {"value": "fitness_violet", "label": "Fitness · Violet"},
             ],
             custom_value=True,
             mode=selector.SelectSelectorMode.DROPDOWN,
@@ -442,27 +444,49 @@ def _dashboard_theme_selector():
     )
 
 
-def _about_payload() -> tuple[str, str]:
-    """Read bounded local release metadata without network work."""
-    base = Path(__file__).resolve().parent
-    version = "unknown"
-    try:
-        manifest = json.loads((base / "manifest.json").read_text(encoding="utf-8"))
-        version = str(manifest.get("version") or version)
-    except (OSError, ValueError, TypeError):
-        pass
-    changelog = "Changelog is unavailable in this installation."
-    try:
-        text = (base / "changelog.md").read_text(encoding="utf-8")
-        # Config-flow descriptions should stay bounded on phones. Keep the current
-        # Unreleased section rather than pushing the entire historical changelog.
-        end = text.find("\n## ", text.find("## Unreleased") + 3)
-        if end > 0:
-            text = text[:end]
-        changelog = text.strip()[:12_000]
-    except OSError:
-        pass
-    return version, changelog
+
+_ACCOUNT_ROLE = "fitness_account_role"
+_ACCOUNT_NETWORK_ACCESS = "fitness_network_access"
+_ACCOUNT_DISPLAY_NAME = "fitness_account_display_name"
+_ACCOUNT_USERNAME = "fitness_account_username"
+_ACCOUNT_REMOTE_SLUG = "fitness_remote_slug"
+_ACCOUNT_VIEW_PROFILE_IDS = "fitness_view_profile_entry_ids"
+_PENDING_ACCOUNT_KEY = "_pending_fitness_account"
+
+
+def _fitness_account_role_selector():
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=["admin_user", "user", "admin"],
+            translation_key="fitness_account_role",
+            mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )
+
+
+def _fitness_network_access_selector():
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=["local_only", "remote_only", "local_remote"],
+            translation_key="fitness_network_access",
+            mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )
+
+
+def _temporary_fitness_password() -> str:
+    """Generate a strong first-login password shown once during native setup."""
+    groups = (
+        "ABCDEFGHJKLMNPQRSTUVWXYZ",
+        "abcdefghijkmnopqrstuvwxyz",
+        "23456789",
+        "!@#$%",
+    )
+    chars = [secrets.choice(group) for group in groups]
+    alphabet = "".join(groups)
+    chars.extend(secrets.choice(alphabet) for _ in range(16))
+    secrets.SystemRandom().shuffle(chars)
+    return "".join(chars)
 
 
 class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -472,11 +496,50 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._data = {}
         self._autofill_defaults: dict[str, str] | None = None
         self._first_install_choice = False
+        self._pending_account_access: dict[str, object] | None = None
+        self._native_temporary_password = ""
 
     def _profile_autofill(self) -> dict[str, str]:
         if self._autofill_defaults is None:
             self._autofill_defaults = exact_profile_defaults(self.hass)
         return self._autofill_defaults
+
+    def _setup_network_access(self) -> str:
+        """Return the access mode selected before creating this profile."""
+        pending = self._pending_account_access or {}
+        value = str(pending.get("network_access") or self.context.get("fitness_network_access") or "")
+        return value if value in {"local_only", "remote_only", "local_remote"} else "local_only"
+
+    def _remote_only_profile_setup(self) -> bool:
+        return self._setup_network_access() == "remote_only"
+
+    def _native_account_profiles(self) -> list[dict[str, str]]:
+        return [
+            {"value": entry.entry_id, "label": entry.title}
+            for entry in self.hass.config_entries.async_entries(DOMAIN)
+            if entry.data.get("entry_type") not in {"live_hub", "devices_hub"}
+        ]
+
+    async def _async_prepare_pending_profile_account(self) -> None:
+        """Persist only a password hash with the new entry, never plaintext."""
+        if not self._pending_account_access:
+            return
+        from .fitness_accounts import get_fitness_account_controller
+
+        spec = dict(self._pending_account_access)
+        password = str(self._native_temporary_password or "")
+        if not password:
+            return
+        controller = get_fitness_account_controller(self.hass)
+        prepared = await controller.async_prepare_initial_password(
+            password,
+            username=str(spec.get("username") or ""),
+            remote_slug=str(spec.get("remote_slug") or ""),
+            profile_name=str(self._data.get(CONF_PROFILE_NAME) or ""),
+        )
+        spec.update(prepared)
+        self._data[_PENDING_ACCOUNT_KEY] = spec
+        self._native_temporary_password = ""
 
     async def async_step_integration_discovery(self, discovery_info):
         """Create Local Sensors infrastructure or assign a discovered sensor."""
@@ -659,18 +722,113 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_first_install(self, user_input=None):
-        """Offer infrastructure or profile setup without doing radio work."""
+        """Offer account/profile creation or protocol setup first."""
         del user_input
         return self.async_show_menu(
             step_id="first_install",
-            menu_options=["manage_protocols", "add_user"],
+            menu_options=["add_protocol", "add_user"],
         )
 
     async def async_step_add_user(self, user_input=None):
-        """Continue through the existing person/profile flow unchanged."""
+        """Start admin-only account access setup before native profile creation."""
         del user_input
         self._first_install_choice = True
-        return await self.async_step_user()
+        # The Fitness dashboard has its own richer administrator prelude. Marked
+        # dashboard flows pass the selected network mode in their context and must
+        # not receive a second role form. Native HA Add Integration flows do.
+        if self.context.get("fitness_dashboard_flow"):
+            return await self.async_step_user()
+        return await self.async_step_account_access()
+
+    async def async_step_account_access(self, user_input=None):
+        """Collect role/network rights before creating a native Fitness profile."""
+        from .fitness_accounts import (
+            NETWORK_ACCESS_MODES, NETWORK_LOCAL_ONLY, NETWORK_REMOTE_ONLY,
+            ROLE_ADMIN, ROLE_USER, ROLES,
+        )
+
+        errors: dict[str, str] = {}
+        profiles = self._native_account_profiles()
+        if user_input is not None:
+            role = str(user_input.get(_ACCOUNT_ROLE) or "")
+            network_access = str(user_input.get(_ACCOUNT_NETWORK_ACCESS) or "")
+            display_name = str(user_input.get(_ACCOUNT_DISPLAY_NAME) or "").strip()
+            username = str(user_input.get(_ACCOUNT_USERNAME) or "").strip()
+            remote_slug = str(user_input.get(_ACCOUNT_REMOTE_SLUG) or "").strip()
+            views = [str(item) for item in (user_input.get(_ACCOUNT_VIEW_PROFILE_IDS) or []) if str(item)]
+            known_profiles = {item["value"] for item in profiles}
+            if role not in ROLES:
+                errors[_ACCOUNT_ROLE] = "invalid_role"
+            if network_access not in NETWORK_ACCESS_MODES:
+                errors[_ACCOUNT_NETWORK_ACCESS] = "invalid_network_access"
+            if role == ROLE_ADMIN and not display_name:
+                errors[_ACCOUNT_DISPLAY_NAME] = "required"
+            if network_access in {NETWORK_REMOTE_ONLY, "local_remote"} and not remote_slug:
+                errors[_ACCOUNT_REMOTE_SLUG] = "required"
+            if role == ROLE_USER and any(item not in known_profiles for item in views):
+                errors[_ACCOUNT_VIEW_PROFILE_IDS] = "profile_not_found"
+            if not errors:
+                self._pending_account_access = {
+                    "role": role,
+                    "network_access": network_access,
+                    "display_name": display_name,
+                    "username": username,
+                    "remote_slug": remote_slug,
+                    "view_profile_entry_ids": views if role == ROLE_USER else [],
+                    "enabled": True,
+                }
+                self._native_temporary_password = _temporary_fitness_password()
+                return await self.async_step_account_credentials()
+
+        schema: dict = {
+            vol.Required(_ACCOUNT_ROLE, default=ROLE_USER): _fitness_account_role_selector(),
+            vol.Required(_ACCOUNT_NETWORK_ACCESS, default=NETWORK_LOCAL_ONLY): _fitness_network_access_selector(),
+            vol.Optional(_ACCOUNT_DISPLAY_NAME): _text(),
+            vol.Optional(_ACCOUNT_USERNAME): _text(),
+            vol.Optional(_ACCOUNT_REMOTE_SLUG): _text(),
+        }
+        if profiles:
+            schema[vol.Optional(_ACCOUNT_VIEW_PROFILE_IDS)] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=profiles, multiple=True, mode=selector.SelectSelectorMode.DROPDOWN
+                )
+            )
+        return self.async_show_form(
+            step_id="account_access", data_schema=vol.Schema(schema), errors=errors
+        )
+
+    async def async_step_account_credentials(self, user_input=None):
+        """Show the native administrator the one-time first password."""
+        from .fitness_accounts import ROLE_ADMIN, get_fitness_account_controller
+
+        spec = self._pending_account_access or {}
+        if user_input is not None:
+            if str(spec.get("role") or "") == ROLE_ADMIN:
+                controller = get_fitness_account_controller(self.hass)
+                account = await controller.async_save_account(
+                    account_id=None,
+                    display_name=str(spec.get("display_name") or "Fitness admin"),
+                    role=str(spec.get("role") or ""),
+                    network_access=str(spec.get("network_access") or ""),
+                    profile_entry_id=None,
+                    view_profile_entry_ids=[],
+                    remote_slug=str(spec.get("remote_slug") or "") or None,
+                    username=str(spec.get("username") or "") or None,
+                    enabled=True,
+                )
+                await controller.async_set_initial_password(
+                    str(account.get("account_id") or ""), self._native_temporary_password
+                )
+                self._native_temporary_password = ""
+                return self.async_abort(reason="fitness_admin_created")
+            return await self.async_step_user()
+        if not self._native_temporary_password:
+            self._native_temporary_password = _temporary_fitness_password()
+        return self.async_show_form(
+            step_id="account_credentials",
+            data_schema=vol.Schema({}),
+            description_placeholders={"temporary_password": self._native_temporary_password},
+        )
 
     async def async_step_add_protocol(self, user_input=None):
         """Backward-compatible alias for the protocol manager."""
@@ -820,20 +978,15 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             try:
-                dob = date(
-                    int(user_input[CONF_BIRTH_YEAR]),
-                    int(user_input[CONF_BIRTH_MONTH]),
-                    int(user_input[CONF_BIRTH_DAY]),
-                )
+                raw_dob = user_input[CONF_DATE_OF_BIRTH]
+                dob = raw_dob if isinstance(raw_dob, date) else date.fromisoformat(str(raw_dob))
                 if dob >= date.today():
                     errors["base"] = "invalid_date"
                 else:
                     self._data.update(user_input)
                     self._data[CONF_DATE_OF_BIRTH] = dob.isoformat()
-                    for key in (CONF_BIRTH_DAY, CONF_BIRTH_MONTH, CONF_BIRTH_YEAR):
-                        self._data.pop(key, None)
                     return await self.async_step_required()
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, KeyError):
                 errors["base"] = "invalid_date"
 
         schema = vol.Schema(
@@ -843,14 +996,7 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_LANGUAGE,
                     default=_default_language(self.hass),
                 ): _language_selector(),
-                vol.Required(CONF_BIRTH_DAY, default=1): _number(1, 31),
-                vol.Required(CONF_BIRTH_MONTH, default="1"): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=[str(i) for i in range(1, 13)],
-                        translation_key="birth_month",
-                    )
-                ),
-                vol.Required(CONF_BIRTH_YEAR, default=1980): _number(1900, date.today().year),
+                vol.Required(CONF_DATE_OF_BIRTH, default="1980-01-01"): selector.DateSelector(),
                 vol.Optional(CONF_SEX): _sex_selector(),
             }
         )
@@ -1127,11 +1273,13 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self.hass, self._data.get(CONF_LANGUAGE) or "en"
         )
 
-        schema = {
-            vol.Optional(CONF_FEEDBACK_AREA_IDS): _area_multi(),
-            vol.Optional(CONF_FEEDBACK_LIGHT_IDS): _entity_multi("light"),
-            vol.Optional(CONF_NOTIFY_ENTITY_IDS): _entity_multi("notify"),
-        }
+        schema = {}
+        if not self._remote_only_profile_setup():
+            schema.update({
+                vol.Optional(CONF_FEEDBACK_AREA_IDS): _area_multi(),
+                vol.Optional(CONF_FEEDBACK_LIGHT_IDS): _entity_multi("light"),
+                vol.Optional(CONF_NOTIFY_ENTITY_IDS): _entity_multi("notify"),
+            })
 
         schema[
             vol.Optional(
@@ -1154,18 +1302,19 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
         )
 
-        if default_tts:
-            schema[
-                _optional_suggested(
-                    CONF_TTS_ENTITY_ID, default_tts
-                )
-            ] = _entity_single("tts")
-        else:
-            schema[vol.Optional(CONF_TTS_ENTITY_ID)] = _entity_single("tts")
+        if not self._remote_only_profile_setup():
+            if default_tts:
+                schema[
+                    _optional_suggested(
+                        CONF_TTS_ENTITY_ID, default_tts
+                    )
+                ] = _entity_single("tts")
+            else:
+                schema[vol.Optional(CONF_TTS_ENTITY_ID)] = _entity_single("tts")
 
-        schema[
-            vol.Optional(CONF_TTS_MEDIA_PLAYER_IDS)
-        ] = _entity_multi("media_player")
+            schema[
+                vol.Optional(CONF_TTS_MEDIA_PLAYER_IDS)
+            ] = _entity_multi("media_player")
 
         return self.async_show_form(
             step_id="feedback",
@@ -1184,30 +1333,27 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     DEFAULT_TV_DUCKING_PERCENT,
                 )
             )
-            self._data[CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE] = bool(
-                user_input.get(
-                    CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
-                    DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+            if not self._remote_only_profile_setup():
+                self._data[CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE] = bool(
+                    user_input.get(
+                        CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+                        DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+                    )
                 )
-            )
-            target = str(user_input.get(CONF_TV_MEDIA_PLAYER_ID) or "").strip()
-            if target:
-                self._data[CONF_TV_MEDIA_PLAYER_ID] = target
+                target = str(user_input.get(CONF_TV_MEDIA_PLAYER_ID) or "").strip()
+                if target:
+                    self._data[CONF_TV_MEDIA_PLAYER_ID] = target
 
             name = self._data[CONF_PROFILE_NAME]
             await self.async_set_unique_id(
                 f"fitness_{name.strip().lower().replace(' ', '_')}"
             )
             self._abort_if_unique_id_configured()
+            await self._async_prepare_pending_profile_account()
             return self.async_create_entry(title=name, data=self._data)
 
         schema = {
             vol.Optional(CONF_TV_DASHBOARD_ENABLED, default=False): bool,
-            vol.Optional(
-                CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
-                default=DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
-            ): bool,
-            vol.Optional(CONF_TV_MEDIA_PLAYER_ID): _cast_media_player_single(),
             vol.Optional(
                 CONF_TV_DUCKING_PERCENT,
                 default=DEFAULT_TV_DUCKING_PERCENT,
@@ -1221,6 +1367,12 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
             ),
         }
+        if not self._remote_only_profile_setup():
+            schema[vol.Optional(
+                CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+                default=DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+            )] = bool
+            schema[vol.Optional(CONF_TV_MEDIA_PLAYER_ID)] = _cast_media_player_single()
         return self.async_show_form(
             step_id="tv_dashboard",
             data_schema=vol.Schema(schema),
@@ -1241,6 +1393,15 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
             **self.config_entry.options,
         }
 
+    async def _remote_only_account(self) -> bool:
+        """Return whether this profile belongs to a remote-only Fitness user."""
+        from .fitness_accounts import NETWORK_REMOTE_ONLY, get_fitness_account_controller
+
+        controller = get_fitness_account_controller(self.hass)
+        await controller.async_load()
+        account = controller.account_by_profile(self.config_entry.entry_id)
+        return bool(account) and str(account.get("network_access") or "") == NETWORK_REMOTE_ONLY
+
     async def _save_merge(self, values):
         options = dict(self.config_entry.options)
         options.update(values)
@@ -1256,7 +1417,7 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
         await runtime.async_initialize()
         if self.config_entry.data.get("entry_type") == HUB_ENTRY_TYPE:
             menu_options=["sensor_assignments"]
-            menu_options = ["protocols", *menu_options, "about"]
+            menu_options = ["protocols", *menu_options]
             return self.async_show_menu(
                 step_id="init",
                 menu_options=menu_options,
@@ -1267,7 +1428,6 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
         menu.extend(["workout_devices", "sleep_devices", "ai", "feedback", "tv_dashboard"])
         menu.insert(menu.index("workout_devices") + 1, "smart_workout_devices")
         menu.insert(menu.index("tv_dashboard"), "features")
-        menu.append("about")
         return self.async_show_menu(step_id="init", menu_options=menu)
 
     async def async_step_protocols(self, user_input=None):
@@ -1473,17 +1633,6 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
             ),
         )
 
-    async def async_step_about(self, user_input=None):
-        """Show installed version and bundled changelog without internet access."""
-        if user_input is not None:
-            return await self.async_step_init()
-        version, changelog = await self.hass.async_add_executor_job(_about_payload)
-        return self.async_show_form(
-            step_id="about",
-            data_schema=vol.Schema({}),
-            description_placeholders={"version": version, "changelog": changelog},
-        )
-
     async def _async_prepare_smart_device_discovery(self, runtime) -> tuple[str, ...]:
         """Enable usable protocols and automatic discovery for this setup flow.
 
@@ -1530,11 +1679,16 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
             return "action_needed", error
         if error == "unsupported_transport" or state == "unsupported":
             return "unsupported", error
-        if state in {"connecting", "syncing", "waiting", "retrying"}:
-            return state, error
+        accepted = runtime.sensor_is_accepted(sensor_id)
+        if state in {"connecting", "syncing", "retrying"}:
+            return "syncing", error
+        # ``waiting`` is the archive worker's idle/wait state, not hardware
+        # discovery. Never expose that internal implementation word to users.
+        if state == "waiting" and accepted:
+            return "configured", error
         if state == "ready" or details.get("garmin_last_successful_sync"):
             return "ready", error
-        if runtime.sensor_is_accepted(sensor_id):
+        if accepted:
             return "configured", error
         return "discovered", error
 
@@ -1545,8 +1699,17 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
             (sensor for sensor in runtime.sensors.values() if is_smart_workout_candidate(sensor)),
             key=lambda item: item.label().lower(),
         )
-        for sensor in sensors[:MAX_SMART_WORKOUT_DEVICE_CHOICES]:
+        seen_sensor_ids: set[str] = set()
+        for sensor in sensors:
             sensor_id = runtime.resolve_sensor_id(sensor.sensor_id)
+            if sensor_id in seen_sensor_ids:
+                continue
+            seen_sensor_ids.add(sensor_id)
+            # Accepted devices stay manageable even while offline. Unaccepted
+            # rows exist only while HA discovery is genuinely fresh/active; a
+            # persisted MAC or old archive worker must never look "discovered".
+            if not runtime.sensor_is_accepted(sensor_id) and not runtime.sensor_discovery_visible(sensor_id):
+                continue
             owner_id = runtime.smart_device_owner_profile_id(sensor_id)
             owner = runtime.profile_entries.get(owner_id) if owner_id else None
             owner_label = owner.title if owner is not None else "unowned"
@@ -1557,6 +1720,8 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 "value": f"sensor:{sensor_id}",
                 "label": f"{vendor} · {model} · {status.replace('_', ' ')} · {owner_label}",
             })
+            if len(choices) >= MAX_SMART_WORKOUT_DEVICE_CHOICES:
+                break
         # Vendor entries are fallback guides, never runtime protocol routing.
         for vendor in SUPPORTED_SETUP_VENDORS:
             choices.append({
@@ -1976,11 +2141,8 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
 
         if user_input is not None:
             try:
-                new_dob = date(
-                    int(user_input[CONF_BIRTH_YEAR]),
-                    int(user_input[CONF_BIRTH_MONTH]),
-                    int(user_input[CONF_BIRTH_DAY]),
-                )
+                raw_dob = user_input[CONF_DATE_OF_BIRTH]
+                new_dob = raw_dob if isinstance(raw_dob, date) else date.fromisoformat(str(raw_dob))
                 if new_dob >= date.today():
                     errors["base"] = "invalid_date"
                 else:
@@ -1995,7 +2157,7 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                     else:
                         values[CONF_SEX] = None
                     return await self._save_merge(values)
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, KeyError):
                 errors["base"] = "invalid_date"
 
         schema = vol.Schema(
@@ -2010,22 +2172,8 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                     ),
                 ): _language_selector(),
                 vol.Required(
-                    CONF_BIRTH_DAY,
-                    default=dob.day,
-                ): _number(1, 31),
-                vol.Required(
-                    CONF_BIRTH_MONTH,
-                    default=str(dob.month),
-                ): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=[str(i) for i in range(1, 13)],
-                        translation_key="birth_month",
-                    )
-                ),
-                vol.Required(
-                    CONF_BIRTH_YEAR,
-                    default=dob.year,
-                ): _number(1900, date.today().year),
+                    CONF_DATE_OF_BIRTH, default=dob.isoformat()
+                ): selector.DateSelector(),
                 _optional_suggested(
                     CONF_SEX, _normalize_sex(current.get(CONF_SEX))
                 ): _sex_selector(),
@@ -2403,135 +2551,102 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
     async def async_step_feedback(self, user_input=None):
         """Edit coaching/announcement targets."""
         current = self._current()
+        remote_only = await self._remote_only_account()
 
         if user_input is not None:
-            return await self._save_merge(
-                {
-                    CONF_FEEDBACK_AREA_IDS: list(
-                        user_input.get(CONF_FEEDBACK_AREA_IDS) or []
-                    ),
-                    CONF_FEEDBACK_LIGHT_IDS: list(
-                        user_input.get(CONF_FEEDBACK_LIGHT_IDS) or []
-                    ),
-                    CONF_NOTIFY_ENTITY_IDS: list(
-                        user_input.get(CONF_NOTIFY_ENTITY_IDS) or []
-                    ),
-                    CONF_PERIODIC_LIVE_ANNOUNCEMENTS: bool(
-                        user_input.get(CONF_PERIODIC_LIVE_ANNOUNCEMENTS)
-                    ),
-                    CONF_PERIODIC_LIVE_INTERVAL_MINUTES: int(
-                        user_input.get(
-                            CONF_PERIODIC_LIVE_INTERVAL_MINUTES,
-                            5,
-                        )
-                    ),
-                    CONF_TTS_ENTITY_ID: (
-                        user_input.get(CONF_TTS_ENTITY_ID) or ""
-                    ),
-                    CONF_TTS_MEDIA_PLAYER_IDS: list(
-                        user_input.get(CONF_TTS_MEDIA_PLAYER_IDS) or []
-                    ),
-                }
-            )
+            values = {
+                CONF_PERIODIC_LIVE_ANNOUNCEMENTS: bool(
+                    user_input.get(CONF_PERIODIC_LIVE_ANNOUNCEMENTS)
+                ),
+                CONF_PERIODIC_LIVE_INTERVAL_MINUTES: int(
+                    user_input.get(CONF_PERIODIC_LIVE_INTERVAL_MINUTES, 5)
+                ),
+            }
+            if not remote_only:
+                values.update({
+                    CONF_FEEDBACK_AREA_IDS: list(user_input.get(CONF_FEEDBACK_AREA_IDS) or []),
+                    CONF_FEEDBACK_LIGHT_IDS: list(user_input.get(CONF_FEEDBACK_LIGHT_IDS) or []),
+                    CONF_NOTIFY_ENTITY_IDS: list(user_input.get(CONF_NOTIFY_ENTITY_IDS) or []),
+                    CONF_TTS_ENTITY_ID: user_input.get(CONF_TTS_ENTITY_ID) or "",
+                    CONF_TTS_MEDIA_PLAYER_IDS: list(user_input.get(CONF_TTS_MEDIA_PLAYER_IDS) or []),
+                })
+            return await self._save_merge(values)
 
-        schema = {
-            _optional_suggested(
-                CONF_FEEDBACK_AREA_IDS, list(current.get(CONF_FEEDBACK_AREA_IDS) or [])
-            ): _area_multi(),
-            _optional_suggested(
-                CONF_FEEDBACK_LIGHT_IDS, list(current.get(CONF_FEEDBACK_LIGHT_IDS) or [])
-            ): _entity_multi("light"),
-            _optional_suggested(
-                CONF_NOTIFY_ENTITY_IDS, list(current.get(CONF_NOTIFY_ENTITY_IDS) or [])
-            ): _entity_multi("notify"),
-        }
+        schema = {}
+        if not remote_only:
+            schema.update({
+                _optional_suggested(
+                    CONF_FEEDBACK_AREA_IDS, list(current.get(CONF_FEEDBACK_AREA_IDS) or [])
+                ): _area_multi(),
+                _optional_suggested(
+                    CONF_FEEDBACK_LIGHT_IDS, list(current.get(CONF_FEEDBACK_LIGHT_IDS) or [])
+                ): _entity_multi("light"),
+                _optional_suggested(
+                    CONF_NOTIFY_ENTITY_IDS, list(current.get(CONF_NOTIFY_ENTITY_IDS) or [])
+                ): _entity_multi("notify"),
+            })
 
         schema[
             vol.Optional(
                 CONF_PERIODIC_LIVE_ANNOUNCEMENTS,
-                default=bool(
-                    current.get(
-                        CONF_PERIODIC_LIVE_ANNOUNCEMENTS,
-                        False,
-                    )
-                ),
+                default=bool(current.get(CONF_PERIODIC_LIVE_ANNOUNCEMENTS, False)),
             )
         ] = bool
         schema[
             vol.Optional(
                 CONF_PERIODIC_LIVE_INTERVAL_MINUTES,
-                default=int(
-                    current.get(
-                        CONF_PERIODIC_LIVE_INTERVAL_MINUTES,
-                        5,
-                    )
-                ),
+                default=int(current.get(CONF_PERIODIC_LIVE_INTERVAL_MINUTES, 5)),
             )
         ] = selector.NumberSelector(
             selector.NumberSelectorConfig(
-                min=1,
-                max=120,
-                step=1,
-                unit_of_measurement="min",
+                min=1, max=120, step=1, unit_of_measurement="min",
                 mode=selector.NumberSelectorMode.BOX,
             )
         )
 
-        if CONF_TTS_ENTITY_ID in current:
-            # An explicit empty option means the user intentionally removed the
-            # previously suggested TTS provider.  Do not silently reselect one.
-            current_tts = current.get(CONF_TTS_ENTITY_ID) or None
-        else:
-            current_tts = _preferred_profile_tts_entity(
-                self.hass, current.get(CONF_LANGUAGE) or "en"
-            )
-
-        if current_tts:
-            schema[
-                _optional_suggested(
-                    CONF_TTS_ENTITY_ID, current_tts
+        if not remote_only:
+            if CONF_TTS_ENTITY_ID in current:
+                current_tts = current.get(CONF_TTS_ENTITY_ID) or None
+            else:
+                current_tts = _preferred_profile_tts_entity(
+                    self.hass, current.get(CONF_LANGUAGE) or "en"
                 )
-            ] = _entity_single("tts")
-        else:
-            schema[vol.Optional(CONF_TTS_ENTITY_ID)] = _entity_single("tts")
-
-        schema[
-            _optional_suggested(
+            if current_tts:
+                schema[_optional_suggested(CONF_TTS_ENTITY_ID, current_tts)] = _entity_single("tts")
+            else:
+                schema[vol.Optional(CONF_TTS_ENTITY_ID)] = _entity_single("tts")
+            schema[_optional_suggested(
                 CONF_TTS_MEDIA_PLAYER_IDS, list(current.get(CONF_TTS_MEDIA_PLAYER_IDS) or [])
-            )
-        ] = _entity_multi("media_player")
+            )] = _entity_multi("media_player")
 
-        return self.async_show_form(
-            step_id="feedback",
-            data_schema=vol.Schema(schema),
-        )
+        return self.async_show_form(step_id="feedback", data_schema=vol.Schema(schema))
 
     async def async_step_tv_dashboard(self, user_input=None):
         """Edit the optional full-screen Fitness TV dashboard."""
         current = self._current()
+        remote_only = await self._remote_only_account()
         if user_input is not None:
-            return await self._save_merge(
-                {
-                    CONF_TV_DASHBOARD_ENABLED: bool(
-                        user_input.get(CONF_TV_DASHBOARD_ENABLED, False)
-                    ),
+            values = {
+                CONF_TV_DASHBOARD_ENABLED: bool(
+                    user_input.get(CONF_TV_DASHBOARD_ENABLED, False)
+                ),
+                CONF_TV_DUCKING_PERCENT: int(
+                    user_input.get(CONF_TV_DUCKING_PERCENT, DEFAULT_TV_DUCKING_PERCENT)
+                ),
+            }
+            if not remote_only:
+                values.update({
                     CONF_TV_MEDIA_PLAYER_ID: str(
                         user_input.get(CONF_TV_MEDIA_PLAYER_ID) or ""
                     ).strip(),
-                    CONF_TV_DUCKING_PERCENT: int(
-                        user_input.get(
-                            CONF_TV_DUCKING_PERCENT,
-                            DEFAULT_TV_DUCKING_PERCENT,
-                        )
-                    ),
                     CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE: bool(
                         user_input.get(
                             CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
                             DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
                         )
                     ),
-                }
-            )
+                })
+            return await self._save_merge(values)
 
         schema = {
             vol.Optional(
@@ -2539,37 +2654,26 @@ class FitnessOptionsFlow(config_entries.OptionsFlow):
                 default=bool(current.get(CONF_TV_DASHBOARD_ENABLED, False)),
             ): bool,
             vol.Optional(
-                CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
-                default=bool(
-                    current.get(
-                        CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
-                        DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
-                    )
-                ),
-            ): bool,
-            _optional_suggested(
-                CONF_TV_MEDIA_PLAYER_ID,
-                str(current.get(CONF_TV_MEDIA_PLAYER_ID) or ""),
-            ): _cast_media_player_single(),
-            vol.Optional(
                 CONF_TV_DUCKING_PERCENT,
-                default=int(
-                    current.get(
-                        CONF_TV_DUCKING_PERCENT,
-                        DEFAULT_TV_DUCKING_PERCENT,
-                    )
-                ),
+                default=int(current.get(CONF_TV_DUCKING_PERCENT, DEFAULT_TV_DUCKING_PERCENT)),
             ): selector.NumberSelector(
                 selector.NumberSelectorConfig(
-                    min=0,
-                    max=100,
-                    step=5,
-                    unit_of_measurement="%",
+                    min=0, max=100, step=5, unit_of_measurement="%",
                     mode=selector.NumberSelectorMode.SLIDER,
                 )
             ),
         }
+        if not remote_only:
+            schema[vol.Optional(
+                CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+                default=bool(current.get(
+                    CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+                    DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE,
+                )),
+            )] = bool
+            schema[_optional_suggested(
+                CONF_TV_MEDIA_PLAYER_ID, str(current.get(CONF_TV_MEDIA_PLAYER_ID) or "")
+            )] = _cast_media_player_single()
         return self.async_show_form(
-            step_id="tv_dashboard",
-            data_schema=vol.Schema(schema),
+            step_id="tv_dashboard", data_schema=vol.Schema(schema)
         )

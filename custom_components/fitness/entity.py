@@ -1,5 +1,6 @@
 """Shared Fitness entity helpers."""
 
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import DeviceInfo
 
 from .const import CONF_LANGUAGE, DOMAIN
@@ -33,3 +34,20 @@ def device_info(entry, kind: str) -> DeviceInfo:
         manufacturer="Fitness",
         model=label,
     )
+
+
+def reconcile_profile_device_names(hass, entry) -> None:
+    """Refresh localized logical-device names without touching user overrides."""
+    registry = dr.async_get(hass)
+    language = _entry_language(entry)
+    for kind in ("evaluation", "sleep", "live", "workout", "wellness"):
+        identifier = (DOMAIN, f"{entry.entry_id}_{kind}")
+        device = next(
+            (item for item in registry.devices.values() if identifier in item.identifiers),
+            None,
+        )
+        if device is None or getattr(device, "name_by_user", None):
+            continue
+        label = device_name(language, kind)
+        if device.name != label or getattr(device, "model", None) != label:
+            registry.async_update_device(device.id, name=label, model=label)

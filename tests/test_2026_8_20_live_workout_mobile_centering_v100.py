@@ -17,4 +17,4 @@ def test_multiple_live_items_keep_responsive_grid():
 
 
 def test_frontend_cache_bumped_for_centering_fix():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in JS
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in JS

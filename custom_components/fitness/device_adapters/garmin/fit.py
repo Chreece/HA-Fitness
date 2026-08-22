@@ -967,6 +967,7 @@ def workout_from_fit(
         start_longitude=_degrees(first_position.get("position_long")),
         device_name=str(source_label or product or "Garmin"),
         sample_count=len(relevant),
+        gps_track=_gps_points(relevant),
         sources=[source],
         provider_domains=[provider_id],
         extra={

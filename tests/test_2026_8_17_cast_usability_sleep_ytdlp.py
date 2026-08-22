@@ -120,8 +120,9 @@ def test_cast_focus_navigation_and_tooltips_are_lightweight_and_localized():
 
 
 def test_cast_targets_and_buttons_remain_readable_and_safe():
-    assert '${unavailable ? "disabled" : ""}' in FRONTEND
-    assert 'class="add-profile-row overview-cast-target ${unavailable ? "unavailable" : ""}' in FRONTEND
+    assert 'target.available === false ? "disabled" : ""' in FRONTEND
+    assert 'data-available="${target?.available === false ? "0" : "1"}"' in FRONTEND
+    assert 'class="overview-cast-section cast-section ha-cast-section"' in FRONTEND
     assert ".overview-cast-target.unavailable" in FRONTEND
     assert "font-size:clamp(10px" in FRONTEND
     assert "white-space:nowrap" in FRONTEND

@@ -46,6 +46,7 @@ def test_live_workout_motion_changes_with_zone_without_disabling_reduced_motion(
     assert 'this.toggleAttribute("fitness-live-ambient", Boolean(tone?.live))' in JS
     assert 'this.setAttribute("fitness-workout-zone"' in JS
     assert ':host([fitness-live-ambient][fitness-animations]) .tv-card-slot' not in JS
-    assert 'root.host?.toggleAttribute?.("fitness-motion-live", this.hasAttribute("fitness-live-ambient"))' in JS
-    assert 'const mode = live ? `live:${this.getAttribute("fitness-workout-zone") || "light"}` : "idle"' in JS
+    assert 'this.setAttribute("fitness-session-state"' in JS
+    assert 'card.setAttribute("fitness-workout-zone"' in JS
+    assert 'card.__fitnessLivingMode = this._motionEnabled() ? "movement-icons-only" : "static"' in JS
     assert '@media(prefers-reduced-motion:reduce)' in JS

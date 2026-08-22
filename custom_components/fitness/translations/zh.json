@@ -8,18 +8,14 @@
         "data": {
           "profile_name": "姓名",
           "language": "语言",
-          "birth_day": "出生日期",
-          "birth_month": "出生月份",
-          "birth_year": "出生年份",
-          "sex": "性别"
+          "sex": "性别",
+          "date_of_birth": "出生日期"
         },
         "data_description": {
           "profile_name": "用于为此人创建独立 Fitness 档案和实体的名称。",
           "language": "用于播报、训练指导和传感器说明属性的语言。若支持，将预选 Home Assistant 界面语言。",
-          "birth_day": "出生日期中的“日”，与月和年一起用于依赖年龄的方法。",
-          "birth_month": "出生月份，与完整出生日期一起用于年龄相关参考计算。",
-          "birth_year": "出生年份，用于计算依赖年龄的健身参考值。",
-          "sex": "可选生理性别，仅用于明确需要性别特定系数的科学方法。"
+          "sex": "可选生理性别，仅用于明确需要性别特定系数的科学方法。",
+          "date_of_birth": "请选择完整的出生日期。日期选择器支持直接选择年份。"
         }
       },
       "required": {
@@ -167,7 +163,7 @@
         "description": "请选择首先要添加的内容。以后仍可添加另一部分，而无需改变现有的用户档案设置流程。",
         "menu_options": {
           "add_user": "添加用户档案",
-          "manage_protocols": "管理传感器协议"
+          "add_protocol": "添加 / 管理传感器协议"
         }
       },
       "add_user": {
@@ -229,6 +225,30 @@
           "bluetooth_hardware": "选择 Fitness 在手动模式下可以使用的受支持适配器。",
           "antplus_hardware": "选择 Fitness 在手动模式下可以使用的受支持适配器。"
         }
+      },
+      "account_access": {
+        "title": "Fitness 用户角色与访问权限",
+        "description": "仅管理员可用：请先设置新 Fitness 帐户的角色和登录访问范围。",
+        "data": {
+          "fitness_account_role": "角色",
+          "fitness_network_access": "网络访问",
+          "fitness_account_display_name": "账户名称",
+          "fitness_account_username": "登录名",
+          "fitness_remote_slug": "远程主机名",
+          "fitness_view_profile_entry_ids": "帐户查看权限"
+        },
+        "data_description": {
+          "fitness_account_role": "管理员拥有完整 Fitness 权限。本地和远程用户只能控制自己的个人资料；只有管理员授权后，才能以只读方式查看其他个人资料。",
+          "fitness_network_access": "仅允许通过远程主机名登录；不会暴露 HA 局域网硬件。 可本地或远程登录；只有实际本地连接时才显示 LAN 硬件。",
+          "fitness_account_display_name": "此账户只能控制自己的 Fitness 个人资料。",
+          "fitness_account_username": "远程账户默认使用子域名，用户之后可以更改登录名。",
+          "fitness_remote_slug": "此主机名仅属于这个远程 Fitness 账户。",
+          "fitness_view_profile_entry_ids": "所选帐户仅可查看，不能更改其设置、训练或设备。"
+        }
+      },
+      "account_credentials": {
+        "title": "一次性初始密码",
+        "description": "一次性初始密码: **{temporary_password}**. 请立即复制。Fitness 从不以可读形式保存该密码，也无法再次显示。"
       }
     },
     "error": {
@@ -236,7 +256,11 @@
       "invalid_number_or_entity": "请输入有效数值或 Home Assistant 实体 ID。",
       "select_profile": "请至少选择一个 Fitness 用户。",
       "select_smart_device_owner": "请选择恰好一个 Fitness 配置文件作为已保存训练的所有者。实时传感器能力之后仍可共享给其他配置文件。",
-      "invalid_protocol": "请选择受支持的传感器协议。"
+      "invalid_protocol": "请选择受支持的传感器协议。",
+      "invalid_role": "角色: 此字段为必填项。",
+      "invalid_network_access": "网络访问: 此字段为必填项。",
+      "profile_not_found": "所选帐户仅可查看，不能更改其设置、训练或设备。",
+      "required": "此字段为必填项。"
     },
     "abort": {
       "already_configured": "已存在同名的 Fitness 个人资料。",
@@ -247,7 +271,8 @@
       "adapters_already_configured": "所有 Fitness 实时适配器均已配置。请在相应适配器设备中启用或停用它们。",
       "adapters_managed_on_devices": "本地传感器适配器通过 ANT+ 和蓝牙适配器设备进行配置。",
       "protocol_enabled": "所选连接协议已启用。",
-      "protocols_updated": "Fitness 传感器协议已更新。"
+      "protocols_updated": "Fitness 传感器协议已更新。",
+      "fitness_admin_created": "请立即复制。Fitness 从不以可读形式保存该密码，也无法再次显示。"
     }
   },
   "options": {
@@ -275,17 +300,13 @@
         "description": "编辑此人的个人资料信息。",
         "data": {
           "language": "语言",
-          "birth_day": "出生日期",
-          "birth_month": "出生月份",
-          "birth_year": "出生年份",
-          "sex": "性别"
+          "sex": "性别",
+          "date_of_birth": "出生日期"
         },
         "data_description": {
           "language": "用于播报、训练指导和传感器说明属性的语言。若支持，将预选 Home Assistant 界面语言。",
-          "birth_day": "出生日期中的“日”，与月和年一起用于依赖年龄的方法。",
-          "birth_month": "出生月份，与完整出生日期一起用于年龄相关参考计算。",
-          "birth_year": "出生年份，用于计算依赖年龄的健身参考值。",
-          "sex": "可选生理性别，仅用于明确需要性别特定系数的科学方法。"
+          "sex": "可选生理性别，仅用于明确需要性别特定系数的科学方法。",
+          "date_of_birth": "请选择完整的出生日期。日期选择器支持直接选择年份。"
         }
       },
       "fitness_inputs": {
@@ -3572,6 +3593,156 @@
       },
       "cycplus_history_30d_moving_time": {
         "name": "30 天骑行时间"
+      },
+      "device_heart_rate": {
+        "name": "心率"
+      },
+      "device_resting_heart_rate": {
+        "name": "静息心率"
+      },
+      "device_min_heart_rate": {
+        "name": "最低heart rate"
+      },
+      "device_max_heart_rate": {
+        "name": "最高heart rate"
+      },
+      "device_hrv_ms": {
+        "name": "心率变异性"
+      },
+      "device_beat_interval_ms": {
+        "name": "心搏间期"
+      },
+      "device_respiratory_rate": {
+        "name": "呼吸频率"
+      },
+      "device_spo2": {
+        "name": "血氧"
+      },
+      "device_skin_temperature": {
+        "name": "皮肤温度"
+      },
+      "device_skin_temperature_min": {
+        "name": "最低skin temperature"
+      },
+      "device_skin_temperature_max": {
+        "name": "最高skin temperature"
+      },
+      "device_skin_temperature_deviation": {
+        "name": "皮肤温度偏差"
+      },
+      "device_skin_temperature_7d_deviation": {
+        "name": "7 天皮肤温度偏差"
+      },
+      "device_body_temperature": {
+        "name": "体温"
+      },
+      "device_device_temperature": {
+        "name": "设备temperature"
+      },
+      "device_device_temperature_min": {
+        "name": "最低device temperature"
+      },
+      "device_device_temperature_max": {
+        "name": "最高device temperature"
+      },
+      "device_steps": {
+        "name": "步数"
+      },
+      "device_distance_m": {
+        "name": "距离"
+      },
+      "device_calories": {
+        "name": "卡路里"
+      },
+      "device_active_calories": {
+        "name": "活动calories"
+      },
+      "device_active_minutes": {
+        "name": "活动分钟"
+      },
+      "device_moderate_minutes": {
+        "name": "中等强度活动minutes"
+      },
+      "device_vigorous_minutes": {
+        "name": "高强度活动minutes"
+      },
+      "device_activity_level": {
+        "name": "活动水平"
+      },
+      "device_stress": {
+        "name": "压力"
+      },
+      "device_body_battery": {
+        "name": "身体battery"
+      },
+      "device_body_battery_charged": {
+        "name": "身体battery charged"
+      },
+      "device_body_battery_drained": {
+        "name": "身体battery drained"
+      },
+      "device_sleep_score": {
+        "name": "设备睡眠评分"
+      },
+      "device_vo2_max": {
+        "name": "最大摄氧量"
+      },
+      "device_floors_climbed": {
+        "name": "爬楼层数"
+      },
+      "device_systolic_blood_pressure": {
+        "name": "收缩压blood pressure"
+      },
+      "device_diastolic_blood_pressure": {
+        "name": "舒张压blood pressure"
+      },
+      "device_mean_arterial_pressure": {
+        "name": "平均动脉压pressure"
+      },
+      "device_weight": {
+        "name": "体重"
+      },
+      "device_bmi": {
+        "name": "身体质量指数 (BMI)"
+      },
+      "device_body_fat": {
+        "name": "体脂"
+      },
+      "device_body_water": {
+        "name": "体水分"
+      },
+      "device_muscle_mass": {
+        "name": "肌肉量"
+      },
+      "device_bone_mass": {
+        "name": "骨量"
+      },
+      "device_basal_metabolic_rate": {
+        "name": "基础代谢率"
+      },
+      "device_active_metabolic_rate": {
+        "name": "活动代谢率"
+      },
+      "device_metabolic_age": {
+        "name": "代谢年龄"
+      },
+      "device_visceral_fat_mass": {
+        "name": "内脏fat mass"
+      },
+      "device_visceral_fat_rating": {
+        "name": "内脏fat rating"
+      },
+      "device_battery": {
+        "name": "设备电量"
+      },
+      "device_device_battery_voltage": {
+        "name": "设备battery voltage"
+      },
+      "device_charging": {
+        "name": "充电中"
+      },
+      "device_wear_state": {
+        "name": "佩戴状态"
       }
     },
     "binary_sensor": {
@@ -3665,6 +3836,20 @@
         "lights": "灯光",
         "video": "电视 / 视频",
         "weather": "天气"
+      }
+    },
+    "fitness_account_role": {
+      "options": {
+        "admin_user": "管理员 + Fitness 用户",
+        "user": "用户",
+        "admin": "完整 Fitness 管理权限"
+      }
+    },
+    "fitness_network_access": {
+      "options": {
+        "local_only": "仅本地",
+        "remote_only": "仅远程",
+        "local_remote": "本地 + 远程"
       }
     }
   },

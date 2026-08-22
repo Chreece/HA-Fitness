@@ -72,7 +72,8 @@ def test_manager_preserves_bounded_intraday_device_samples_and_daily_summary():
     assert "device_intraday_history" in manager
     assert "MAX_DEVICE_INTRADAY_POINTS_PER_METRIC = 4096" in manager
     assert '"measurement_context") or "") == "current_total"' in manager
-    assert 'source_type="direct_device_daily_summary"' in manager
+    assert 'else "direct_device_daily_summary"' in manager
+    assert 'selected_source_type.startswith("integration:")' in manager
 
 
 def test_miband1_coordinator_never_partially_acks_a_history_block():

@@ -71,5 +71,5 @@ def test_vo2_card_has_heat_colours_and_three_clear_history_references():
 
 
 def test_dashboard_cache_version_bumped_for_visual_change():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
-    assert '?v=unreleased-110' in BACKEND
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in FRONTEND
+    assert '?v=unreleased-138' in BACKEND

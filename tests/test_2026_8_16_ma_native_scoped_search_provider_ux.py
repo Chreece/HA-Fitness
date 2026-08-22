@@ -143,11 +143,15 @@ def test_music_assistant_search_is_independent_and_play_unlocks_before_connectin
     select_start = FRONTEND.index('async _selectMusic(item, options = {})')
     select_end = FRONTEND.index('async _playMusic()', select_start)
     select_body = FRONTEND[select_start:select_end]
-    assert 'const player = this._maSendspinPlayer || this._createMASendspinPlayer();' in select_body
-    assert 'await player.unlock?.();' in select_body
-    assert 'await this._connectMASendspinPlayer(player);' in select_body
-    assert select_body.index('await player.unlock?.();') < select_body.index('await this._connectMASendspinPlayer(player);')
-    assert select_body.index('await this._connectMASendspinPlayer(player);') < select_body.index('await this._sendMediaCommand("select"')
+    assert 'await this._prepareMALocalAudioFromGesture();' in select_body
+    helper_start = FRONTEND.index('_browserMayOwnLocalAudio()')
+    helper_end = FRONTEND.index('async _selectMusic(item, options = {})', helper_start)
+    helper_body = FRONTEND[helper_start:helper_end]
+    assert 'const player = this._maSendspinPlayer || this._createMASendspinPlayer();' in helper_body
+    assert 'await player.unlock?.();' in helper_body
+    assert 'await this._connectMASendspinPlayer(player);' in helper_body
+    assert helper_body.index('await player.unlock?.();') < helper_body.index('await this._connectMASendspinPlayer(player);')
+    assert select_body.index('await this._prepareMALocalAudioFromGesture();') < select_body.index('await this._sendMediaCommand("select"')
 
     assert '_createMASendspinPlayer()' in FRONTEND
     assert 'async _connectMASendspinPlayer(' in FRONTEND

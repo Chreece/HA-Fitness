@@ -9,7 +9,8 @@ def test_cast_picker_checks_the_entity_selected_in_the_picker_not_only_profile_d
     block = FRONTEND[FRONTEND.index("  async _castDashboard(entityId)"):FRONTEND.index("  async _stopCastDashboard", FRONTEND.index("  async _castDashboard(entityId)"))]
     assert 'this._hass?.states?.[entityId]' not in block
     assert 'entity_id:entityId' in block
-    assert 'this._activeCastTarget = entityId' in block
+    assert 'this._applyCastDescriptor({state:"connecting",mode:"server",target:entityId})' in block
+    assert 'await this._heartbeat();' in block
 
 
 def test_cast_picker_does_not_guess_physical_tv_readiness_from_media_player_state():
@@ -30,7 +31,7 @@ def test_cast_receiver_error_is_latched_against_heartbeat_replay_loops():
     assert 'if (!state.playing || state.error || !mediaContentId) return;' in ensure
     assert 'if (this._castFailedMediaContentId === mediaContentId) return;' in ensure
     handle = FRONTEND[FRONTEND.index("  async _handleMediaCommand(command, data = {})"):FRONTEND.index("  async _ackTts", FRONTEND.index("  async _handleMediaCommand(command, data = {})"))]
-    assert '["select","play"].includes(String(command || ""))' in handle
+    assert '["select","play"].includes(commandName)' in handle
     assert 'this._castFailedMediaContentId = "";' in handle
 
 

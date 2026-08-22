@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
 import re
+import shlex
+import time
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from aiohttp import web
 import voluptuous as vol
@@ -31,7 +36,9 @@ from homeassistant.components.lovelace.const import (
 from homeassistant.components.http import HomeAssistantView, StaticPathConfig
 from homeassistant.const import CAST_APP_ID_HOMEASSISTANT_LOVELACE
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import Unauthorized
 from homeassistant.helpers import config_validation as cv, entity_registry as er
+from homeassistant.helpers.network import NoURLAvailableError, get_url
 from homeassistant.setup import async_when_setup
 
 from .access_control import (
@@ -45,10 +52,19 @@ from .fitness_accounts import (
 )
 from .const import (
     CONF_LANGUAGE,
+    CONF_LIVE_SENSOR_IDS,
+    CONF_LIVE_DEVICE_IDS,
     CONF_HEIGHT,
+    CONF_RESTING_HR,
+    CONF_MAX_HR,
+    CONF_VO2MAX,
+    CONF_THRESHOLD_HR,
+    CONF_THRESHOLD_PACE,
+    CONF_THRESHOLD_POWER,
     CONF_WEIGHT_SCALE_ENTITY,
     CONF_PROFILE_NAME,
     CONF_WORKOUT_DEVICE_IDS,
+    CONF_SLEEP_DEVICE_IDS,
     CONF_TV_DASHBOARD_ENABLED,
     CONF_TV_MEDIA_PLAYER_ID,
     CONF_TV_DUCKING_PERCENT,
@@ -59,9 +75,13 @@ from .const import (
     CONF_DASHBOARD_RSS_ENTITY_IDS,
     CONF_DASHBOARD_MUSIC_ENTITY_IDS,
     CONF_DASHBOARD_LIGHT_ENTITY_IDS,
+    CONF_FEEDBACK_AREA_IDS,
+    CONF_FEEDBACK_LIGHT_IDS,
     CONF_DASHBOARD_VIDEO_ENTITY_IDS,
     CONF_DASHBOARD_WEATHER_ENTITY_ID,
     CONF_TTS_ENTITY_ID,
+    CONF_NOTIFY_ENTITY_IDS,
+    CONF_AI_ENTITY,
     CONF_TTS_MEDIA_PLAYER_IDS,
     DEFAULT_DASHBOARD_MODULES,
     DEFAULT_TV_DUCKING_PERCENT,
@@ -91,6 +111,7 @@ from .providers.workouts import (
     FITNESS_LIVE_SOURCE,
     SOURCE_RECONSTRUCTED_SOURCE,
     _FIELD_KEYS,
+    _route_points,
     fitness_owned_workout_value,
     workout_is_fitness_owned,
     workout_sport_kind,
@@ -104,13 +125,20 @@ from .tv_dashboard import (
 
 _LOGGER = logging.getLogger(__name__)
 
+DASHCAST_APP_ID = "84912283"
+DASHCAST_POST_LOAD_SETTLE = 15.0
+
+
 _LEGACY_RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"
 _LEGACY_CAST_RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard-cast.js"
 _RESOURCE_PREFIX = "/fitness/frontend/fitness-dashboard-"
 _RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"
-_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-110"
+_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-138"
+_RESOURCE_URL += "&build=cast-ui-146"
 _SETUP_KEY = "_dashboard_frontend_setup"
 _RECONCILE_TASK_KEY = "_dashboard_reconcile_task"
+_RECONCILE_LAST_KEY = "_dashboard_reconcile_last"
+_RECONCILE_MIN_INTERVAL = 300.0
 _TV_DASHBOARD_CARD_TYPE = "custom:fitness-tv-dashboard-card"
 _TV_SETUP_CARD_TYPE = "custom:fitness-tv-setup-card"
 _TV_OVERVIEW_CAST_STATE_KEY = "_tv_overview_cast_state"
@@ -1214,7 +1242,7 @@ _RPE_DASHBOARD_TEXT: dict[str, dict[str, str]] = {
 for _code, _rpe_labels in _RPE_DASHBOARD_TEXT.items():
     _DASHBOARD_TEXT.setdefault(_code, {}).update(_rpe_labels)
 
-_WEIGHT_SCALE_DASHBOARD_TEXT: dict[str, dict[str, str]] = {'en': {'scale_measurement_title': 'New scale measurement',
+_WEIGHT_SCALE_DASHBOARD_TEXT: dict[str, dict[str, str]] = {'en': {'scale_measurement_title': 'New weight measurement',
         'scale_measurement_guess': 'Fitness matched this measurement. Is it correct?',
         'scale_measurement_select_user': 'Who was weighed?',
         'scale_measurement_confirm': 'Confirm',
@@ -1227,7 +1255,7 @@ _WEIGHT_SCALE_DASHBOARD_TEXT: dict[str, dict[str, str]] = {'en': {'scale_measure
         'scale_measurement_admin_question': 'New weight value detected: {weight}. Which Fitness user should receive it?',
         'scale_measurement_yes': 'Yes, update',
         'scale_measurement_no': 'No'},
- 'el': {'scale_measurement_title': 'Νέα μέτρηση ζυγαριάς',
+ 'el': {'scale_measurement_title': 'Νέα μέτρηση βάρους',
         'scale_measurement_guess': 'Το Fitness αντιστοίχισε αυτή τη μέτρηση. Είναι σωστό;',
         'scale_measurement_select_user': 'Ποιος ζυγίστηκε;',
         'scale_measurement_confirm': 'Επιβεβαίωση',
@@ -1241,7 +1269,7 @@ _WEIGHT_SCALE_DASHBOARD_TEXT: dict[str, dict[str, str]] = {'en': {'scale_measure
         'scale_measurement_admin_question': 'Εντοπίστηκε νέα τιμή βάρους: {weight}. Σε ποιον χρήστη Fitness ανήκει;',
         'scale_measurement_yes': 'Ναι, ενημέρωση',
         'scale_measurement_no': 'Όχι'},
- 'de': {'scale_measurement_title': 'Neue Waagenmessung',
+ 'de': {'scale_measurement_title': 'Neue Gewichtsmessung',
         'scale_measurement_guess': 'Fitness hat diese Messung zugeordnet. Ist das richtig?',
         'scale_measurement_select_user': 'Wer wurde gewogen?',
         'scale_measurement_confirm': 'Bestätigen',
@@ -1255,7 +1283,7 @@ _WEIGHT_SCALE_DASHBOARD_TEXT: dict[str, dict[str, str]] = {'en': {'scale_measure
         'scale_measurement_admin_question': 'Neuer Gewichtswert erkannt: {weight}. Welchem Fitness-Benutzer gehört er?',
         'scale_measurement_yes': 'Ja, aktualisieren',
         'scale_measurement_no': 'Nein'},
- 'fr': {'scale_measurement_title': 'Nouvelle mesure de balance',
+ 'fr': {'scale_measurement_title': 'Nouvelle mesure de poids',
         'scale_measurement_guess': 'Fitness a associé cette mesure. Est-ce correct ?',
         'scale_measurement_select_user': 'Qui s’est pesé ?',
         'scale_measurement_confirm': 'Confirmer',
@@ -1269,7 +1297,7 @@ _WEIGHT_SCALE_DASHBOARD_TEXT: dict[str, dict[str, str]] = {'en': {'scale_measure
         'scale_measurement_admin_question': 'Nouvelle valeur de poids détectée : {weight}. À quel utilisateur Fitness appartient-elle ?',
         'scale_measurement_yes': 'Oui, mettre à jour',
         'scale_measurement_no': 'Non'},
- 'es': {'scale_measurement_title': 'Nueva medición de báscula',
+ 'es': {'scale_measurement_title': 'Nueva medición de peso',
         'scale_measurement_guess': 'Fitness ha asociado esta medición. ¿Es correcto?',
         'scale_measurement_select_user': '¿Quién se pesó?',
         'scale_measurement_confirm': 'Confirmar',
@@ -1283,7 +1311,7 @@ _WEIGHT_SCALE_DASHBOARD_TEXT: dict[str, dict[str, str]] = {'en': {'scale_measure
         'scale_measurement_admin_question': 'Nuevo valor de peso detectado: {weight}. ¿A qué usuario de Fitness pertenece?',
         'scale_measurement_yes': 'Sí, actualizar',
         'scale_measurement_no': 'No'},
- 'it': {'scale_measurement_title': 'Nuova misurazione della bilancia',
+ 'it': {'scale_measurement_title': 'Nuova misurazione del peso',
         'scale_measurement_guess': 'Fitness ha associato questa misurazione. È corretto?',
         'scale_measurement_select_user': 'Chi si è pesato?',
         'scale_measurement_confirm': 'Conferma',
@@ -1297,7 +1325,7 @@ _WEIGHT_SCALE_DASHBOARD_TEXT: dict[str, dict[str, str]] = {'en': {'scale_measure
         'scale_measurement_admin_question': 'Rilevato un nuovo valore di peso: {weight}. A quale utente Fitness appartiene?',
         'scale_measurement_yes': 'Sì, aggiorna',
         'scale_measurement_no': 'No'},
- 'pt': {'scale_measurement_title': 'Nova medição da balança',
+ 'pt': {'scale_measurement_title': 'Nova medição de peso',
         'scale_measurement_guess': 'O Fitness associou esta medição. Está correto?',
         'scale_measurement_select_user': 'Quem se pesou?',
         'scale_measurement_confirm': 'Confirmar',
@@ -1311,7 +1339,7 @@ _WEIGHT_SCALE_DASHBOARD_TEXT: dict[str, dict[str, str]] = {'en': {'scale_measure
         'scale_measurement_admin_question': 'Novo valor de peso detetado: {weight}. A que utilizador Fitness pertence?',
         'scale_measurement_yes': 'Sim, atualizar',
         'scale_measurement_no': 'Não'},
- 'nl': {'scale_measurement_title': 'Nieuwe weegschaalmeting',
+ 'nl': {'scale_measurement_title': 'Nieuwe gewichtsmeting',
         'scale_measurement_guess': 'Fitness heeft deze meting gekoppeld. Klopt dat?',
         'scale_measurement_select_user': 'Wie is gewogen?',
         'scale_measurement_confirm': 'Bevestigen',
@@ -1325,7 +1353,7 @@ _WEIGHT_SCALE_DASHBOARD_TEXT: dict[str, dict[str, str]] = {'en': {'scale_measure
         'scale_measurement_admin_question': 'Nieuwe gewichtswaarde gedetecteerd: {weight}. Bij welke Fitness-gebruiker hoort deze?',
         'scale_measurement_yes': 'Ja, bijwerken',
         'scale_measurement_no': 'Nee'},
- 'pl': {'scale_measurement_title': 'Nowy pomiar z wagi',
+ 'pl': {'scale_measurement_title': 'Nowy pomiar masy ciała',
         'scale_measurement_guess': 'Fitness dopasował ten pomiar. Czy to poprawne?',
         'scale_measurement_select_user': 'Kto się ważył?',
         'scale_measurement_confirm': 'Potwierdź',
@@ -1339,7 +1367,7 @@ _WEIGHT_SCALE_DASHBOARD_TEXT: dict[str, dict[str, str]] = {'en': {'scale_measure
         'scale_measurement_admin_question': 'Wykryto nową wartość wagi: {weight}. Do którego użytkownika Fitness należy?',
         'scale_measurement_yes': 'Tak, zaktualizuj',
         'scale_measurement_no': 'Nie'},
- 'ru': {'scale_measurement_title': 'Новое измерение весов',
+ 'ru': {'scale_measurement_title': 'Новое измерение веса',
         'scale_measurement_guess': 'Fitness сопоставил это измерение. Всё верно?',
         'scale_measurement_select_user': 'Кто взвешивался?',
         'scale_measurement_confirm': 'Подтвердить',
@@ -1365,7 +1393,7 @@ _WEIGHT_SCALE_DASHBOARD_TEXT: dict[str, dict[str, str]] = {'en': {'scale_measure
         'scale_measurement_admin_question': 'Виявлено нове значення ваги: {weight}. Якому користувачу Fitness воно належить?',
         'scale_measurement_yes': 'Так, оновити',
         'scale_measurement_no': 'Ні'},
- 'tr': {'scale_measurement_title': 'Yeni tartı ölçümü',
+ 'tr': {'scale_measurement_title': 'Yeni kilo ölçümü',
         'scale_measurement_guess': 'Fitness bu ölçümü eşleştirdi. Doğru mu?',
         'scale_measurement_select_user': 'Kim tartıldı?',
         'scale_measurement_confirm': 'Onayla',
@@ -1378,7 +1406,7 @@ _WEIGHT_SCALE_DASHBOARD_TEXT: dict[str, dict[str, str]] = {'en': {'scale_measure
         'scale_measurement_admin_question': 'Yeni kilo değeri algılandı: {weight}. Hangi Fitness kullanıcısına ait?',
         'scale_measurement_yes': 'Evet, güncelle',
         'scale_measurement_no': 'Hayır'},
- 'zh': {'scale_measurement_title': '新的体重秤测量',
+ 'zh': {'scale_measurement_title': '新的体重测量',
         'scale_measurement_guess': 'Fitness 已匹配此测量。是否正确？',
         'scale_measurement_select_user': '是谁称重？',
         'scale_measurement_confirm': '确认',
@@ -1391,7 +1419,7 @@ _WEIGHT_SCALE_DASHBOARD_TEXT: dict[str, dict[str, str]] = {'en': {'scale_measure
         'scale_measurement_admin_question': '检测到新的体重值：{weight}。它属于哪个 Fitness 用户？',
         'scale_measurement_yes': '是，更新',
         'scale_measurement_no': '否'},
- 'ja': {'scale_measurement_title': '新しい体重計測定',
+ 'ja': {'scale_measurement_title': '新しい体重測定',
         'scale_measurement_guess': 'Fitness がこの測定を割り当てました。正しいですか？',
         'scale_measurement_select_user': '誰が測定しましたか？',
         'scale_measurement_confirm': '確認',
@@ -1404,7 +1432,7 @@ _WEIGHT_SCALE_DASHBOARD_TEXT: dict[str, dict[str, str]] = {'en': {'scale_measure
         'scale_measurement_admin_question': '新しい体重値を検出しました: {weight}。どの Fitness ユーザーの測定ですか？',
         'scale_measurement_yes': 'はい、更新',
         'scale_measurement_no': 'いいえ'},
- 'ko': {'scale_measurement_title': '새 체중계 측정',
+ 'ko': {'scale_measurement_title': '새 체중 측정',
         'scale_measurement_guess': 'Fitness가 이 측정을 사용자와 매칭했습니다. 맞나요?',
         'scale_measurement_select_user': '누가 측정했나요?',
         'scale_measurement_confirm': '확인',
@@ -1418,6 +1446,26 @@ _WEIGHT_SCALE_DASHBOARD_TEXT: dict[str, dict[str, str]] = {'en': {'scale_measure
         'scale_measurement_yes': '예, 업데이트',
         'scale_measurement_no': '아니요'}}
 for _code, _labels in _WEIGHT_SCALE_DASHBOARD_TEXT.items():
+    _DASHBOARD_TEXT.setdefault(_code, {}).update(_labels)
+
+_FITNESS_NOTIFICATION_DASHBOARD_TEXT: dict[str, dict[str, str]] = {
+    "en": {"notifications":"Fitness notifications","notification_previous":"Previous notification","notification_next":"Next notification","notification_apply":"Apply","notification_ignore":"Ignore","notification_pair":"Pair + assign to this profile","notification_device_found":"Fitness device found","notification_device_found_body":"{device} is available. Pair it with your Fitness profile?","notification_workout_step":"Workout instruction","notification_count":"{current} of {total}"},
+    "el": {"notifications":"Ειδοποιήσεις Fitness","notification_previous":"Προηγούμενη ειδοποίηση","notification_next":"Επόμενη ειδοποίηση","notification_apply":"Εφαρμογή","notification_ignore":"Αγνόηση","notification_pair":"Σύζευξη + αντιστοίχιση σε αυτό το προφίλ","notification_device_found":"Βρέθηκε συσκευή Fitness","notification_device_found_body":"Η συσκευή {device} είναι διαθέσιμη. Να αντιστοιχιστεί στο προφίλ Fitness σου;","notification_workout_step":"Οδηγία προπόνησης","notification_count":"{current} από {total}"},
+    "de": {"notifications":"Fitness-Benachrichtigungen","notification_previous":"Vorherige Benachrichtigung","notification_next":"Nächste Benachrichtigung","notification_apply":"Anwenden","notification_ignore":"Ignorieren","notification_pair":"Koppeln + diesem Profil zuweisen","notification_device_found":"Fitness-Gerät gefunden","notification_device_found_body":"{device} ist verfügbar. Deinem Fitness-Profil zuordnen?","notification_workout_step":"Trainingsanweisung","notification_count":"{current} von {total}"},
+    "fr": {"notifications":"Notifications Fitness","notification_previous":"Notification précédente","notification_next":"Notification suivante","notification_apply":"Appliquer","notification_ignore":"Ignorer","notification_pair":"Associer + attribuer à ce profil","notification_device_found":"Appareil Fitness détecté","notification_device_found_body":"{device} est disponible. L’associer à votre profil Fitness ?","notification_workout_step":"Instruction d’entraînement","notification_count":"{current} sur {total}"},
+    "es": {"notifications":"Notificaciones Fitness","notification_previous":"Notificación anterior","notification_next":"Notificación siguiente","notification_apply":"Aplicar","notification_ignore":"Ignorar","notification_pair":"Emparejar + asignar a este perfil","notification_device_found":"Dispositivo Fitness encontrado","notification_device_found_body":"{device} está disponible. ¿Asignarlo a tu perfil Fitness?","notification_workout_step":"Instrucción de entrenamiento","notification_count":"{current} de {total}"},
+    "it": {"notifications":"Notifiche Fitness","notification_previous":"Notifica precedente","notification_next":"Notifica successiva","notification_apply":"Applica","notification_ignore":"Ignora","notification_pair":"Associa + assegna a questo profilo","notification_device_found":"Dispositivo Fitness trovato","notification_device_found_body":"{device} è disponibile. Associarlo al tuo profilo Fitness?","notification_workout_step":"Istruzione allenamento","notification_count":"{current} di {total}"},
+    "pt": {"notifications":"Notificações Fitness","notification_previous":"Notificação anterior","notification_next":"Notificação seguinte","notification_apply":"Aplicar","notification_ignore":"Ignorar","notification_pair":"Emparelhar + atribuir a este perfil","notification_device_found":"Dispositivo Fitness encontrado","notification_device_found_body":"{device} está disponível. Associar ao seu perfil Fitness?","notification_workout_step":"Instrução de treino","notification_count":"{current} de {total}"},
+    "nl": {"notifications":"Fitness-meldingen","notification_previous":"Vorige melding","notification_next":"Volgende melding","notification_apply":"Toepassen","notification_ignore":"Negeren","notification_pair":"Koppelen + aan dit profiel toewijzen","notification_device_found":"Fitness-apparaat gevonden","notification_device_found_body":"{device} is beschikbaar. Aan je Fitness-profiel koppelen?","notification_workout_step":"Trainingsinstructie","notification_count":"{current} van {total}"},
+    "pl": {"notifications":"Powiadomienia Fitness","notification_previous":"Poprzednie powiadomienie","notification_next":"Następne powiadomienie","notification_apply":"Zastosuj","notification_ignore":"Ignoruj","notification_pair":"Sparuj + przypisz do tego profilu","notification_device_found":"Znaleziono urządzenie Fitness","notification_device_found_body":"{device} jest dostępne. Przypisać je do Twojego profilu Fitness?","notification_workout_step":"Instrukcja treningu","notification_count":"{current} z {total}"},
+    "ru": {"notifications":"Уведомления Fitness","notification_previous":"Предыдущее уведомление","notification_next":"Следующее уведомление","notification_apply":"Применить","notification_ignore":"Игнорировать","notification_pair":"Сопрячь + назначить этому профилю","notification_device_found":"Найдено устройство Fitness","notification_device_found_body":"{device} доступно. Назначить его вашему профилю Fitness?","notification_workout_step":"Инструкция тренировки","notification_count":"{current} из {total}"},
+    "uk": {"notifications":"Сповіщення Fitness","notification_previous":"Попереднє сповіщення","notification_next":"Наступне сповіщення","notification_apply":"Застосувати","notification_ignore":"Ігнорувати","notification_pair":"Спарити + призначити цьому профілю","notification_device_found":"Знайдено пристрій Fitness","notification_device_found_body":"{device} доступний. Призначити його вашому профілю Fitness?","notification_workout_step":"Інструкція тренування","notification_count":"{current} з {total}"},
+    "tr": {"notifications":"Fitness bildirimleri","notification_previous":"Önceki bildirim","notification_next":"Sonraki bildirim","notification_apply":"Uygula","notification_ignore":"Yoksay","notification_pair":"Eşleştir + bu profile ata","notification_device_found":"Fitness cihazı bulundu","notification_device_found_body":"{device} kullanılabilir. Fitness profilinle eşleştirilsin mi?","notification_workout_step":"Antrenman talimatı","notification_count":"{current} / {total}"},
+    "zh": {"notifications":"Fitness 通知","notification_previous":"上一条通知","notification_next":"下一条通知","notification_apply":"应用","notification_ignore":"忽略","notification_pair":"配对并分配给此配置文件","notification_device_found":"发现 Fitness 设备","notification_device_found_body":"{device} 可用。要与您的 Fitness 个人资料配对吗？","notification_workout_step":"训练指令","notification_count":"{current} / {total}"},
+    "ja": {"notifications":"Fitness 通知","notification_previous":"前の通知","notification_next":"次の通知","notification_apply":"適用","notification_ignore":"無視","notification_pair":"ペアリングしてこのプロフィールに割り当て","notification_device_found":"Fitness デバイスを検出","notification_device_found_body":"{device} が利用できます。Fitness プロフィールに割り当てますか？","notification_workout_step":"ワークアウト指示","notification_count":"{current} / {total}"},
+    "ko": {"notifications":"Fitness 알림","notification_previous":"이전 알림","notification_next":"다음 알림","notification_apply":"적용","notification_ignore":"무시","notification_pair":"페어링 + 이 프로필에 할당","notification_device_found":"Fitness 기기 발견","notification_device_found_body":"{device}을(를) 사용할 수 있습니다. Fitness 프로필에 연결할까요?","notification_workout_step":"운동 지시","notification_count":"{current} / {total}"},
+}
+for _code, _labels in _FITNESS_NOTIFICATION_DASHBOARD_TEXT.items():
     _DASHBOARD_TEXT.setdefault(_code, {}).update(_labels)
 
 _SETTINGS_FLOW_FEEDBACK_TEXT: dict[str, dict[str, str]] = {
@@ -1580,21 +1628,21 @@ _DASHBOARD_UI_TEXT: dict[str, dict[str, str]] = {
     "ko": {"difference":"차이","history":"기록","measurements":"측정","actual":"실제","trend":"추세","predicted":"예측","zoom_in":"확대","zoom_out":"축소","reset_zoom":"확대/축소 초기화","workout":"운동","exercise":"운동 종목","exercises":"종목","sets":"세트","reps":"회","volume":"볼륨","strength_progression":"근력 향상","total_volume":"총 볼륨","awake":"깨어 있음","light_sleep":"얕은 수면","deep_sleep":"깊은 수면","rem_sleep":"REM 수면","current_marker":"현재","predicted_marker":"예측","date_axis":"날짜"},
 }
 _TV_DASHBOARD_TEXT: dict[str, dict[str, str]] = {
-    "en": {"tv_dashboard":"Fitness TV","tv_profile":"Profile","add_cards":"Add cards","arrange_cards":"Arrange","move_earlier":"Move earlier","move_later":"Move later","card_picker":"Cards on this TV","play":"Play","pause":"Pause","media_browser":"Media browser","now_playing":"Now playing","media_selected":"Selected","nothing_playing":"No music selected","media_browser_back":"Back","media_browser_empty":"No media is available here.","music_only":"Select an audio item to play music.","media_error":"Unable to play this media.","tv_no_profiles":"No Fitness profile has the TV dashboard enabled.","card_today":"Today","card_live_workout":"Live workout","card_workout":"Workouts","card_workout_highlights":"Workout highlights","card_workout_rpe":"Workout RPE","card_strength_details":"Strength details","card_sleep_recovery":"Sleep & recovery","card_sleep_stages":"Sleep stages","card_recovery":"Recovery","card_evaluation":"Evaluation","card_progress":"Progress","card_training_adaptation":"Training adaptation","card_training_load":"Training load","card_route":"Route","card_comparison":"Workout comparison","cast_dashboard":'Cast',"cast_dashboard_title":'Cast Fitness TV',"cast_to":'Cast to',"cast_now":'Cast now',"cast_default":'default',"cast_unavailable":'unavailable',"cast_no_targets":'No Google Cast displays are available.',"cast_connecting":"Connecting to TV…","cast_sent":'Dashboard sent to TV.',"cast_failed":'Unable to cast the dashboard.',"cast_stop":"Stop Cast","cast_restarting":"Restarting Cast session…","cast_stopping":"Stopping Cast…","cast_stopped":"Fitness Cast stopped.","cast_stop_failed":"Unable to stop Fitness Cast."},
-    "el": {"tv_dashboard":"Fitness TV","tv_profile":"Προφίλ","add_cards":"Προσθήκη καρτών","arrange_cards":"Τακτοποίηση","move_earlier":"Μετακίνηση πριν","move_later":"Μετακίνηση μετά","card_picker":"Κάρτες σε αυτή την TV","play":"Αναπαραγωγή","pause":"Παύση","media_browser":"Περιήγηση πολυμέσων","now_playing":"Αναπαράγεται τώρα","media_selected":"Επιλεγμένο","nothing_playing":"Δεν έχει επιλεγεί μουσική","media_browser_back":"Πίσω","media_browser_empty":"Δεν υπάρχουν διαθέσιμα πολυμέσα εδώ.","music_only":"Επίλεξε ένα στοιχείο ήχου για αναπαραγωγή μουσικής.","media_error":"Δεν ήταν δυνατή η αναπαραγωγή αυτού του πολυμέσου.","tv_no_profiles":"Κανένα προφίλ Fitness δεν έχει ενεργοποιημένο τον πίνακα TV.","card_today":"Σήμερα","card_live_workout":"Ζωντανή προπόνηση","card_workout":"Προπόνηση","card_workout_highlights":"Κύρια στοιχεία προπόνησης","card_workout_rpe":"RPE προπόνησης","card_strength_details":"Λεπτομέρειες δύναμης","card_sleep_recovery":"Ύπνος & αποκατάσταση","card_sleep_stages":"Στάδια ύπνου","card_recovery":"Αποκατάσταση","card_evaluation":"Αξιολόγηση","card_progress":"Πρόοδος","card_training_adaptation":"Προσαρμογή προπόνησης","card_training_load":"Προπονητικό φορτίο","card_route":"Διαδρομή","card_comparison":"Σύγκριση προπόνησης","cast_dashboard":'Μετάδοση',"cast_dashboard_title":'Μετάδοση Fitness TV',"cast_to":'Μετάδοση σε',"cast_now":'Μετάδοση τώρα',"cast_default":'προεπιλογή',"cast_unavailable":'μη διαθέσιμο',"cast_no_targets":'Δεν υπάρχουν διαθέσιμες οθόνες Google Cast.',"cast_connecting":"Σύνδεση με την TV…","cast_sent":'Ο πίνακας στάλθηκε στην TV.',"cast_failed":'Δεν ήταν δυνατή η μετάδοση του πίνακα.',"cast_stop":"Διακοπή μετάδοσης","cast_restarting":"Επανεκκίνηση συνεδρίας Cast…","cast_stopping":"Διακοπή μετάδοσης…","cast_stopped":"Η μετάδοση Fitness σταμάτησε.","cast_stop_failed":"Δεν ήταν δυνατή η διακοπή της μετάδοσης Fitness."},
-    "de": {"tv_dashboard":"Fitness TV","tv_profile":"Profil","add_cards":"Karten hinzufügen","arrange_cards":"Anordnen","move_earlier":"Nach vorne","move_later":"Nach hinten","card_picker":"Karten auf diesem TV","play":"Wiedergabe","pause":"Pause","media_browser":"Medienbrowser","now_playing":"Aktuelle Wiedergabe","media_selected":"Ausgewählt","nothing_playing":"Keine Musik ausgewählt","media_browser_back":"Zurück","media_browser_empty":"Hier sind keine Medien verfügbar.","music_only":"Wähle ein Audioelement zum Abspielen von Musik.","media_error":"Dieses Medium kann nicht wiedergegeben werden.","tv_no_profiles":"Für kein Fitness-Profil ist das TV-Dashboard aktiviert.","card_today":"Heute","card_live_workout":"Live-Training","card_workout":"Training","card_workout_highlights":"Trainingshighlights","card_workout_rpe":"Training-RPE","card_strength_details":"Kraftdetails","card_sleep_recovery":"Schlaf & Erholung","card_sleep_stages":"Schlafphasen","card_recovery":"Erholung","card_evaluation":"Auswertung","card_progress":"Fortschritt","card_training_adaptation":"Trainingsanpassung","card_training_load":"Trainingsbelastung","card_route":"Route","card_comparison":"Trainingsvergleich","cast_dashboard":'Cast',"cast_dashboard_title":'Fitness TV übertragen',"cast_to":'Übertragen auf',"cast_now":'Jetzt übertragen',"cast_default":'Standard',"cast_unavailable":'nicht verfügbar',"cast_no_targets":'Keine Google-Cast-Anzeigen verfügbar.',"cast_connecting":"Verbindung zum TV…","cast_sent":'Dashboard an TV gesendet.',"cast_failed":'Dashboard konnte nicht übertragen werden.',"cast_stop":"Cast beenden","cast_restarting":"Cast-Sitzung wird neu gestartet…","cast_stopping":"Cast wird beendet…","cast_stopped":"Fitness-Cast beendet.","cast_stop_failed":"Fitness-Cast konnte nicht beendet werden."},
-    "fr": {"tv_dashboard":"Fitness TV","tv_profile":"Profil","add_cards":"Ajouter des cartes","arrange_cards":"Organiser","move_earlier":"Déplacer avant","move_later":"Déplacer après","card_picker":"Cartes sur ce téléviseur","play":"Lecture","pause":"Pause","media_browser":"Navigateur multimédia","now_playing":"Lecture en cours","media_selected":"Sélectionné","nothing_playing":"Aucune musique sélectionnée","media_browser_back":"Retour","media_browser_empty":"Aucun média disponible ici.","music_only":"Sélectionnez un élément audio pour écouter de la musique.","media_error":"Impossible de lire ce média.","tv_no_profiles":"Aucun profil Fitness n’a activé le tableau de bord TV.","card_today":"Aujourd’hui","card_live_workout":"Entraînement en direct","card_workout":"Entraînement","card_workout_highlights":"Points forts de l’entraînement","card_workout_rpe":"RPE de l’entraînement","card_strength_details":"Détails de force","card_sleep_recovery":"Sommeil et récupération","card_sleep_stages":"Phases du sommeil","card_recovery":"Récupération","card_evaluation":"Évaluation","card_progress":"Progression","card_training_adaptation":"Adaptation à l’entraînement","card_training_load":"Charge d’entraînement","card_route":"Parcours","card_comparison":"Comparaison d’entraînement","cast_dashboard":'Caster',"cast_dashboard_title":'Caster Fitness TV',"cast_to":'Caster vers',"cast_now":'Caster maintenant',"cast_default":'par défaut',"cast_unavailable":'indisponible',"cast_no_targets":'Aucun écran Google Cast disponible.',"cast_connecting":"Connexion au téléviseur…","cast_sent":'Tableau de bord envoyé au téléviseur.',"cast_failed":'Impossible de caster le tableau de bord.',"cast_stop":"Arrêter le Cast","cast_restarting":"Redémarrage de la session Cast…","cast_stopping":"Arrêt du Cast…","cast_stopped":"Cast Fitness arrêté.","cast_stop_failed":"Impossible d’arrêter le Cast Fitness."},
-    "es": {"tv_dashboard":"Fitness TV","tv_profile":"Perfil","add_cards":"Añadir tarjetas","arrange_cards":"Ordenar","move_earlier":"Mover antes","move_later":"Mover después","card_picker":"Tarjetas en este TV","play":"Reproducir","pause":"Pausa","media_browser":"Explorador multimedia","now_playing":"Reproduciendo","media_selected":"Seleccionado","nothing_playing":"No hay música seleccionada","media_browser_back":"Atrás","media_browser_empty":"No hay contenido multimedia disponible aquí.","music_only":"Selecciona un elemento de audio para reproducir música.","media_error":"No se puede reproducir este contenido.","tv_no_profiles":"Ningún perfil de Fitness tiene activado el panel de TV.","card_today":"Hoy","card_live_workout":"Entrenamiento en vivo","card_workout":"Entrenamiento","card_workout_highlights":"Destacados del entrenamiento","card_workout_rpe":"RPE del entrenamiento","card_strength_details":"Detalles de fuerza","card_sleep_recovery":"Sueño y recuperación","card_sleep_stages":"Fases del sueño","card_recovery":"Recuperación","card_evaluation":"Evaluación","card_progress":"Progreso","card_training_adaptation":"Adaptación al entrenamiento","card_training_load":"Carga de entrenamiento","card_route":"Ruta","card_comparison":"Comparación del entrenamiento","cast_dashboard":'Enviar',"cast_dashboard_title":'Enviar Fitness TV',"cast_to":'Enviar a',"cast_now":'Enviar ahora',"cast_default":'predeterminado',"cast_unavailable":'no disponible',"cast_no_targets":'No hay pantallas Google Cast disponibles.',"cast_connecting":"Conectando al televisor…","cast_sent":'Panel enviado al televisor.',"cast_failed":'No se pudo enviar el panel.',"cast_stop":"Detener envío","cast_restarting":"Reiniciando sesión de Cast…","cast_stopping":"Deteniendo envío…","cast_stopped":"Envío de Fitness detenido.","cast_stop_failed":"No se pudo detener el envío de Fitness."},
-    "it": {"tv_dashboard":"Fitness TV","tv_profile":"Profilo","add_cards":"Aggiungi schede","arrange_cards":"Disponi","move_earlier":"Sposta prima","move_later":"Sposta dopo","card_picker":"Schede su questa TV","play":"Riproduci","pause":"Pausa","media_browser":"Browser multimediale","now_playing":"In riproduzione","media_selected":"Selezionato","nothing_playing":"Nessuna musica selezionata","media_browser_back":"Indietro","media_browser_empty":"Nessun contenuto multimediale disponibile qui.","music_only":"Seleziona un elemento audio per riprodurre musica.","media_error":"Impossibile riprodurre questo contenuto.","tv_no_profiles":"Nessun profilo Fitness ha la dashboard TV attivata.","card_today":"Oggi","card_live_workout":"Allenamento live","card_workout":"Allenamento","card_workout_highlights":"Momenti salienti allenamento","card_workout_rpe":"RPE allenamento","card_strength_details":"Dettagli forza","card_sleep_recovery":"Sonno e recupero","card_sleep_stages":"Fasi del sonno","card_recovery":"Recupero","card_evaluation":"Valutazione","card_progress":"Progresso","card_training_adaptation":"Adattamento all’allenamento","card_training_load":"Carico di allenamento","card_route":"Percorso","card_comparison":"Confronto allenamento","cast_dashboard":'Trasmetti',"cast_dashboard_title":'Trasmetti Fitness TV',"cast_to":'Trasmetti su',"cast_now":'Trasmetti ora',"cast_default":'predefinito',"cast_unavailable":'non disponibile',"cast_no_targets":'Nessun display Google Cast disponibile.',"cast_connecting":"Connessione alla TV…","cast_sent":'Dashboard inviata alla TV.',"cast_failed":'Impossibile trasmettere la dashboard.',"cast_stop":"Interrompi Cast","cast_restarting":"Riavvio della sessione Cast…","cast_stopping":"Interruzione Cast…","cast_stopped":"Cast Fitness interrotto.","cast_stop_failed":"Impossibile interrompere il Cast Fitness."},
-    "pt": {"tv_dashboard":"Fitness TV","tv_profile":"Perfil","add_cards":"Adicionar cartões","arrange_cards":"Organizar","move_earlier":"Mover antes","move_later":"Mover depois","card_picker":"Cartões nesta TV","play":"Reproduzir","pause":"Pausar","media_browser":"Navegador de mídia","now_playing":"Reproduzindo agora","media_selected":"Selecionado","nothing_playing":"Nenhuma música selecionada","media_browser_back":"Voltar","media_browser_empty":"Nenhuma mídia disponível aqui.","music_only":"Selecione um item de áudio para tocar música.","media_error":"Não foi possível reproduzir esta mídia.","tv_no_profiles":"Nenhum perfil Fitness tem o painel de TV ativado.","card_today":"Hoje","card_live_workout":"Treino ao vivo","card_workout":"Treino","card_workout_highlights":"Destaques do treino","card_workout_rpe":"RPE do treino","card_strength_details":"Detalhes de força","card_sleep_recovery":"Sono e recuperação","card_sleep_stages":"Fases do sono","card_recovery":"Recuperação","card_evaluation":"Avaliação","card_progress":"Progresso","card_training_adaptation":"Adaptação ao treino","card_training_load":"Carga de treino","card_route":"Rota","card_comparison":"Comparação do treino","cast_dashboard":'Transmitir',"cast_dashboard_title":'Transmitir Fitness TV',"cast_to":'Transmitir para',"cast_now":'Transmitir agora',"cast_default":'predefinido',"cast_unavailable":'indisponível',"cast_no_targets":'Nenhum ecrã Google Cast disponível.',"cast_connecting":"A ligar à TV…","cast_sent":'Painel enviado para a TV.',"cast_failed":'Não foi possível transmitir o painel.',"cast_stop":"Parar transmissão","cast_restarting":"Reiniciando sessão de Cast…","cast_stopping":"Parando transmissão…","cast_stopped":"Transmissão Fitness parada.","cast_stop_failed":"Não foi possível parar a transmissão Fitness."},
-    "nl": {"tv_dashboard":"Fitness TV","tv_profile":"Profiel","add_cards":"Kaarten toevoegen","arrange_cards":"Ordenen","move_earlier":"Naar voren","move_later":"Naar achteren","card_picker":"Kaarten op deze tv","play":"Afspelen","pause":"Pauze","media_browser":"Mediabrowser","now_playing":"Nu afspelen","media_selected":"Geselecteerd","nothing_playing":"Geen muziek geselecteerd","media_browser_back":"Terug","media_browser_empty":"Hier is geen media beschikbaar.","music_only":"Selecteer een audio-item om muziek af te spelen.","media_error":"Deze media kan niet worden afgespeeld.","tv_no_profiles":"Geen Fitness-profiel heeft het tv-dashboard ingeschakeld.","card_today":"Vandaag","card_live_workout":"Live training","card_workout":"Training","card_workout_highlights":"Trainingshoogtepunten","card_workout_rpe":"Training-RPE","card_strength_details":"Krachtdetails","card_sleep_recovery":"Slaap & herstel","card_sleep_stages":"Slaapfasen","card_recovery":"Herstel","card_evaluation":"Evaluatie","card_progress":"Voortgang","card_training_adaptation":"Trainingsadaptatie","card_training_load":"Trainingsbelasting","card_route":"Route","card_comparison":"Trainingsvergelijking","cast_dashboard":'Casten',"cast_dashboard_title":'Fitness TV casten',"cast_to":'Casten naar',"cast_now":'Nu casten',"cast_default":'standaard',"cast_unavailable":'niet beschikbaar',"cast_no_targets":'Geen Google Cast-schermen beschikbaar.',"cast_connecting":"Verbinden met tv…","cast_sent":'Dashboard naar tv gestuurd.',"cast_failed":'Dashboard kon niet worden gecast.',"cast_stop":"Cast stoppen","cast_restarting":"Cast-sessie wordt opnieuw gestart…","cast_stopping":"Cast wordt gestopt…","cast_stopped":"Fitness-cast gestopt.","cast_stop_failed":"Fitness-cast kon niet worden gestopt."},
-    "pl": {"tv_dashboard":"Fitness TV","tv_profile":"Profil","add_cards":"Dodaj karty","arrange_cards":"Ułóż","move_earlier":"Przesuń wcześniej","move_later":"Przesuń później","card_picker":"Karty na tym TV","play":"Odtwórz","pause":"Pauza","media_browser":"Przeglądarka multimediów","now_playing":"Teraz odtwarzane","media_selected":"Wybrano","nothing_playing":"Nie wybrano muzyki","media_browser_back":"Wstecz","media_browser_empty":"Brak dostępnych multimediów.","music_only":"Wybierz element audio, aby odtwarzać muzykę.","media_error":"Nie można odtworzyć tych multimediów.","tv_no_profiles":"Żaden profil Fitness nie ma włączonego panelu TV.","card_today":"Dzisiaj","card_live_workout":"Trening na żywo","card_workout":"Trening","card_workout_highlights":"Najważniejsze dane treningu","card_workout_rpe":"RPE treningu","card_strength_details":"Szczegóły siłowe","card_sleep_recovery":"Sen i regeneracja","card_sleep_stages":"Fazy snu","card_recovery":"Regeneracja","card_evaluation":"Ocena","card_progress":"Postęp","card_training_adaptation":"Adaptacja treningowa","card_training_load":"Obciążenie treningowe","card_route":"Trasa","card_comparison":"Porównanie treningu","cast_dashboard":'Przesyłaj',"cast_dashboard_title":'Przesyłaj Fitness TV',"cast_to":'Przesyłaj do',"cast_now":'Przesyłaj teraz',"cast_default":'domyślne',"cast_unavailable":'niedostępne',"cast_no_targets":'Brak dostępnych ekranów Google Cast.',"cast_connecting":"Łączenie z telewizorem…","cast_sent":'Panel wysłany na telewizor.',"cast_failed":'Nie udało się przesłać panelu.',"cast_stop":"Zatrzymaj Cast","cast_restarting":"Ponowne uruchamianie sesji Cast…","cast_stopping":"Zatrzymywanie Cast…","cast_stopped":"Cast Fitness zatrzymany.","cast_stop_failed":"Nie udało się zatrzymać Cast Fitness."},
-    "ru": {"tv_dashboard":"Fitness TV","tv_profile":"Профиль","add_cards":"Добавить карточки","arrange_cards":"Расставить","move_earlier":"Переместить раньше","move_later":"Переместить позже","card_picker":"Карточки на этом ТВ","play":"Воспроизвести","pause":"Пауза","media_browser":"Медиабраузер","now_playing":"Сейчас играет","media_selected":"Выбрано","nothing_playing":"Музыка не выбрана","media_browser_back":"Назад","media_browser_empty":"Здесь нет доступных медиа.","music_only":"Выберите аудиозапись для воспроизведения музыки.","media_error":"Не удалось воспроизвести медиа.","tv_no_profiles":"Ни в одном профиле Fitness не включена ТВ-панель.","card_today":"Сегодня","card_live_workout":"Тренировка в реальном времени","card_workout":"Тренировка","card_workout_highlights":"Основные данные тренировки","card_workout_rpe":"RPE тренировки","card_strength_details":"Силовые показатели","card_sleep_recovery":"Сон и восстановление","card_sleep_stages":"Фазы сна","card_recovery":"Восстановление","card_evaluation":"Оценка","card_progress":"Прогресс","card_training_adaptation":"Адаптация к тренировкам","card_training_load":"Тренировочная нагрузка","card_route":"Маршрут","card_comparison":"Сравнение тренировки","cast_dashboard":'Трансляция',"cast_dashboard_title":'Трансляция Fitness TV',"cast_to":'Транслировать на',"cast_now":'Транслировать',"cast_default":'по умолчанию',"cast_unavailable":'недоступно',"cast_no_targets":'Нет доступных экранов Google Cast.',"cast_connecting":"Подключение к ТВ…","cast_sent":'Панель отправлена на ТВ.',"cast_failed":'Не удалось транслировать панель.',"cast_stop":"Остановить трансляцию","cast_restarting":"Перезапуск сеанса Cast…","cast_stopping":"Остановка трансляции…","cast_stopped":"Трансляция Fitness остановлена.","cast_stop_failed":"Не удалось остановить трансляцию Fitness."},
-    "uk": {"tv_dashboard":"Fitness TV","tv_profile":"Профіль","add_cards":"Додати картки","arrange_cards":"Упорядкувати","move_earlier":"Перемістити раніше","move_later":"Перемістити пізніше","card_picker":"Картки на цьому ТВ","play":"Відтворити","pause":"Пауза","media_browser":"Медіабраузер","now_playing":"Зараз відтворюється","media_selected":"Вибрано","nothing_playing":"Музику не вибрано","media_browser_back":"Назад","media_browser_empty":"Тут немає доступних медіа.","music_only":"Виберіть аудіо для відтворення музики.","media_error":"Не вдалося відтворити медіа.","tv_no_profiles":"У жодному профілі Fitness не ввімкнено ТВ-панель.","card_today":"Сьогодні","card_live_workout":"Тренування наживо","card_workout":"Тренування","card_workout_highlights":"Основні дані тренування","card_workout_rpe":"RPE тренування","card_strength_details":"Силові показники","card_sleep_recovery":"Сон і відновлення","card_sleep_stages":"Фази сну","card_recovery":"Відновлення","card_evaluation":"Оцінка","card_progress":"Прогрес","card_training_adaptation":"Адаптація до тренувань","card_training_load":"Тренувальне навантаження","card_route":"Маршрут","card_comparison":"Порівняння тренування","cast_dashboard":'Трансляція',"cast_dashboard_title":'Трансляція Fitness TV',"cast_to":'Транслювати на',"cast_now":'Транслювати',"cast_default":'за замовчуванням',"cast_unavailable":'недоступно',"cast_no_targets":'Немає доступних екранів Google Cast.',"cast_connecting":"Підключення до ТВ…","cast_sent":'Панель надіслано на ТВ.',"cast_failed":'Не вдалося транслювати панель.',"cast_stop":"Зупинити трансляцію","cast_restarting":"Перезапуск сеансу Cast…","cast_stopping":"Зупинка трансляції…","cast_stopped":"Трансляцію Fitness зупинено.","cast_stop_failed":"Не вдалося зупинити трансляцію Fitness."},
-    "tr": {"tv_dashboard":"Fitness TV","tv_profile":"Profil","add_cards":"Kart ekle","arrange_cards":"Düzenle","move_earlier":"Öne taşı","move_later":"Arkaya taşı","card_picker":"Bu TV'deki kartlar","play":"Oynat","pause":"Duraklat","media_browser":"Medya tarayıcısı","now_playing":"Şimdi çalıyor","media_selected":"Seçildi","nothing_playing":"Müzik seçilmedi","media_browser_back":"Geri","media_browser_empty":"Burada kullanılabilir medya yok.","music_only":"Müzik çalmak için bir ses öğesi seçin.","media_error":"Bu medya oynatılamadı.","tv_no_profiles":"Hiçbir Fitness profilinde TV paneli etkin değil.","card_today":"Bugün","card_live_workout":"Canlı antrenman","card_workout":"Antrenman","card_workout_highlights":"Antrenman öne çıkanları","card_workout_rpe":"Antrenman RPE","card_strength_details":"Kuvvet ayrıntıları","card_sleep_recovery":"Uyku ve toparlanma","card_sleep_stages":"Uyku evreleri","card_recovery":"Toparlanma","card_evaluation":"Değerlendirme","card_progress":"İlerleme","card_training_adaptation":"Antrenman adaptasyonu","card_training_load":"Antrenman yükü","card_route":"Rota","card_comparison":"Antrenman karşılaştırması","cast_dashboard":'Yayınla',"cast_dashboard_title":'Fitness TV yayınla',"cast_to":'Şuraya yayınla',"cast_now":'Şimdi yayınla',"cast_default":'varsayılan',"cast_unavailable":'kullanılamıyor',"cast_no_targets":'Kullanılabilir Google Cast ekranı yok.',"cast_connecting":"TV’ye bağlanıyor…","cast_sent":'Panel TV’ye gönderildi.',"cast_failed":'Panel yayınlanamadı.',"cast_stop":"Yayını durdur","cast_restarting":"Cast oturumu yeniden başlatılıyor…","cast_stopping":"Yayın durduruluyor…","cast_stopped":"Fitness yayını durduruldu.","cast_stop_failed":"Fitness yayını durdurulamadı."},
-    "zh": {"tv_dashboard":"Fitness TV","tv_profile":"个人资料","add_cards":"添加卡片","arrange_cards":"排列","move_earlier":"向前移动","move_later":"向后移动","card_picker":"此电视上的卡片","play":"播放","pause":"暂停","media_browser":"媒体浏览器","now_playing":"正在播放","media_selected":"已选择","nothing_playing":"未选择音乐","media_browser_back":"返回","media_browser_empty":"此处没有可用媒体。","music_only":"选择音频项目以播放音乐。","media_error":"无法播放此媒体。","tv_no_profiles":"没有 Fitness 个人资料启用电视仪表板。","card_today":"今天","card_live_workout":"实时训练","card_workout":"训练","card_workout_highlights":"训练亮点","card_workout_rpe":"训练 RPE","card_strength_details":"力量详情","card_sleep_recovery":"睡眠与恢复","card_sleep_stages":"睡眠阶段","card_recovery":"恢复","card_evaluation":"评估","card_progress":"进度","card_training_adaptation":"训练适应","card_training_load":"训练负荷","card_route":"路线","card_comparison":"训练对比","cast_dashboard":'投屏',"cast_dashboard_title":'投屏 Fitness TV',"cast_to":'投屏到',"cast_now":'立即投屏',"cast_default":'默认',"cast_unavailable":'不可用',"cast_no_targets":'没有可用的 Google Cast 显示设备。',"cast_connecting":"正在连接电视…","cast_sent":'仪表板已发送到电视。',"cast_failed":'无法投屏仪表板。',"cast_stop":"停止投屏","cast_restarting":"正在重新启动 Cast 会话…","cast_stopping":"正在停止投屏…","cast_stopped":"Fitness 投屏已停止。","cast_stop_failed":"无法停止 Fitness 投屏。"},
-    "ja": {"tv_dashboard":"Fitness TV","tv_profile":"プロフィール","add_cards":"カードを追加","arrange_cards":"並べ替え","move_earlier":"前へ移動","move_later":"後ろへ移動","card_picker":"このテレビのカード","play":"再生","pause":"一時停止","media_browser":"メディアブラウザー","now_playing":"再生中","media_selected":"選択済み","nothing_playing":"音楽が選択されていません","media_browser_back":"戻る","media_browser_empty":"ここには利用可能なメディアがありません。","music_only":"音楽を再生するにはオーディオ項目を選択してください。","media_error":"このメディアを再生できません。","tv_no_profiles":"TVダッシュボードが有効なFitnessプロフィールはありません。","card_today":"今日","card_live_workout":"ライブワークアウト","card_workout":"ワークアウト","card_workout_highlights":"ワークアウトのハイライト","card_workout_rpe":"ワークアウトRPE","card_strength_details":"筋力の詳細","card_sleep_recovery":"睡眠と回復","card_sleep_stages":"睡眠ステージ","card_recovery":"回復","card_evaluation":"評価","card_progress":"進捗","card_training_adaptation":"トレーニング適応","card_training_load":"トレーニング負荷","card_route":"ルート","card_comparison":"ワークアウト比較","cast_dashboard":'キャスト',"cast_dashboard_title":'Fitness TV をキャスト',"cast_to":'キャスト先',"cast_now":'今すぐキャスト',"cast_default":'デフォルト',"cast_unavailable":'利用不可',"cast_no_targets":'利用可能な Google Cast ディスプレイがありません。',"cast_connecting":"テレビに接続中…","cast_sent":'ダッシュボードをテレビに送信しました。',"cast_failed":'ダッシュボードをキャストできませんでした。',"cast_stop":"キャストを停止","cast_restarting":"Cast セッションを再起動中…","cast_stopping":"キャストを停止中…","cast_stopped":"Fitness キャストを停止しました。","cast_stop_failed":"Fitness キャストを停止できませんでした。"},
-    "ko": {"tv_dashboard":"Fitness TV","tv_profile":"프로필","add_cards":"카드 추가","arrange_cards":"정렬","move_earlier":"앞으로 이동","move_later":"뒤로 이동","card_picker":"이 TV의 카드","play":"재생","pause":"일시정지","media_browser":"미디어 브라우저","now_playing":"지금 재생 중","media_selected":"선택됨","nothing_playing":"선택된 음악 없음","media_browser_back":"뒤로","media_browser_empty":"여기에 사용 가능한 미디어가 없습니다.","music_only":"음악을 재생하려면 오디오 항목을 선택하세요.","media_error":"이 미디어를 재생할 수 없습니다.","tv_no_profiles":"TV 대시보드를 활성화한 Fitness 프로필이 없습니다.","card_today":"오늘","card_live_workout":"실시간 운동","card_workout":"운동","card_workout_highlights":"운동 주요 정보","card_workout_rpe":"운동 RPE","card_strength_details":"근력 세부 정보","card_sleep_recovery":"수면 및 회복","card_sleep_stages":"수면 단계","card_recovery":"회복","card_evaluation":"평가","card_progress":"진행","card_training_adaptation":"훈련 적응","card_training_load":"훈련 부하","card_route":"경로","card_comparison":"운동 비교","cast_dashboard":'캐스트',"cast_dashboard_title":'Fitness TV 캐스트',"cast_to":'캐스트 대상',"cast_now":'지금 캐스트',"cast_default":'기본값',"cast_unavailable":'사용 불가',"cast_no_targets":'사용 가능한 Google Cast 디스플레이가 없습니다.',"cast_connecting":"TV에 연결 중…","cast_sent":'대시보드를 TV로 보냈습니다.',"cast_failed":'대시보드를 캐스트할 수 없습니다.',"cast_stop":"캐스트 중지","cast_restarting":"Cast 세션 다시 시작 중…","cast_stopping":"캐스트 중지 중…","cast_stopped":"Fitness 캐스트가 중지되었습니다.","cast_stop_failed":"Fitness 캐스트를 중지할 수 없습니다."},
+    "en": {"tv_dashboard":"Fitness TV","tv_profile":"Profile","add_cards":"Add cards","arrange_cards":"Arrange","move_earlier":"Move earlier","move_later":"Move later","card_picker":"Cards on this TV","play":"Play","pause":"Pause","media_browser":"Media browser","now_playing":"Now playing","media_selected":"Selected","nothing_playing":"No music selected","media_browser_back":"Back","media_browser_empty":"No media is available here.","music_only":"Select an audio item to play music.","media_error":"Unable to play this media.","tv_no_profiles":"No Fitness profile has the TV dashboard enabled.","card_today":"Today","card_live_workout":"Live workout","card_workout":"Workouts","card_workout_highlights":"Workout highlights","card_workout_rpe":"Workout RPE","card_strength_details":"Strength details","card_sleep_recovery":"Sleep & recovery","card_sleep_stages":"Sleep stages","card_recovery":"Recovery","card_evaluation":"Evaluation","card_progress":"Progress","card_training_adaptation":"Training adaptation","card_training_load":"Training load","card_route":"Route","card_comparison":"Workout comparison","cast_dashboard":'Cast',"cast_dashboard_title":'Cast Fitness TV',"cast_to":'Cast to',"cast_now":'Cast now',"cast_default":'default',"cast_available":'available',"cast_unavailable":'unavailable',"cast_no_targets":'No Google Cast displays are available.',"cast_connecting":"Connecting to TV…","cast_sent":'Dashboard sent to TV.',"cast_failed":'Unable to cast the dashboard.',"cast_stop":"Stop Cast","cast_restarting":"Restarting Cast session…","cast_stopping":"Stopping Cast…","cast_stopped":"Fitness Cast stopped.","cast_stop_failed":"Unable to stop Fitness Cast."},
+    "el": {"tv_dashboard":"Fitness TV","tv_profile":"Προφίλ","add_cards":"Προσθήκη καρτών","arrange_cards":"Τακτοποίηση","move_earlier":"Μετακίνηση πριν","move_later":"Μετακίνηση μετά","card_picker":"Κάρτες σε αυτή την TV","play":"Αναπαραγωγή","pause":"Παύση","media_browser":"Περιήγηση πολυμέσων","now_playing":"Αναπαράγεται τώρα","media_selected":"Επιλεγμένο","nothing_playing":"Δεν έχει επιλεγεί μουσική","media_browser_back":"Πίσω","media_browser_empty":"Δεν υπάρχουν διαθέσιμα πολυμέσα εδώ.","music_only":"Επίλεξε ένα στοιχείο ήχου για αναπαραγωγή μουσικής.","media_error":"Δεν ήταν δυνατή η αναπαραγωγή αυτού του πολυμέσου.","tv_no_profiles":"Κανένα προφίλ Fitness δεν έχει ενεργοποιημένο τον πίνακα TV.","card_today":"Σήμερα","card_live_workout":"Ζωντανή προπόνηση","card_workout":"Προπόνηση","card_workout_highlights":"Κύρια στοιχεία προπόνησης","card_workout_rpe":"RPE προπόνησης","card_strength_details":"Λεπτομέρειες δύναμης","card_sleep_recovery":"Ύπνος & αποκατάσταση","card_sleep_stages":"Στάδια ύπνου","card_recovery":"Αποκατάσταση","card_evaluation":"Αξιολόγηση","card_progress":"Πρόοδος","card_training_adaptation":"Προσαρμογή προπόνησης","card_training_load":"Προπονητικό φορτίο","card_route":"Διαδρομή","card_comparison":"Σύγκριση προπόνησης","cast_dashboard":'Μετάδοση',"cast_dashboard_title":'Μετάδοση Fitness TV',"cast_to":'Μετάδοση σε',"cast_now":'Μετάδοση τώρα',"cast_default":'προεπιλογή',"cast_available":'διαθέσιμη',"cast_unavailable":'μη διαθέσιμο',"cast_no_targets":'Δεν υπάρχουν διαθέσιμες οθόνες Google Cast.',"cast_connecting":"Σύνδεση με την TV…","cast_sent":'Ο πίνακας στάλθηκε στην TV.',"cast_failed":'Δεν ήταν δυνατή η μετάδοση του πίνακα.',"cast_stop":"Διακοπή μετάδοσης","cast_restarting":"Επανεκκίνηση συνεδρίας Cast…","cast_stopping":"Διακοπή μετάδοσης…","cast_stopped":"Η μετάδοση Fitness σταμάτησε.","cast_stop_failed":"Δεν ήταν δυνατή η διακοπή της μετάδοσης Fitness."},
+    "de": {"tv_dashboard":"Fitness TV","tv_profile":"Profil","add_cards":"Karten hinzufügen","arrange_cards":"Anordnen","move_earlier":"Nach vorne","move_later":"Nach hinten","card_picker":"Karten auf diesem TV","play":"Wiedergabe","pause":"Pause","media_browser":"Medienbrowser","now_playing":"Aktuelle Wiedergabe","media_selected":"Ausgewählt","nothing_playing":"Keine Musik ausgewählt","media_browser_back":"Zurück","media_browser_empty":"Hier sind keine Medien verfügbar.","music_only":"Wähle ein Audioelement zum Abspielen von Musik.","media_error":"Dieses Medium kann nicht wiedergegeben werden.","tv_no_profiles":"Für kein Fitness-Profil ist das TV-Dashboard aktiviert.","card_today":"Heute","card_live_workout":"Live-Training","card_workout":"Training","card_workout_highlights":"Trainingshighlights","card_workout_rpe":"Training-RPE","card_strength_details":"Kraftdetails","card_sleep_recovery":"Schlaf & Erholung","card_sleep_stages":"Schlafphasen","card_recovery":"Erholung","card_evaluation":"Auswertung","card_progress":"Fortschritt","card_training_adaptation":"Trainingsanpassung","card_training_load":"Trainingsbelastung","card_route":"Route","card_comparison":"Trainingsvergleich","cast_dashboard":'Cast',"cast_dashboard_title":'Fitness TV übertragen',"cast_to":'Übertragen auf',"cast_now":'Jetzt übertragen',"cast_default":'Standard',"cast_available":'verfügbar',"cast_unavailable":'nicht verfügbar',"cast_no_targets":'Keine Google-Cast-Anzeigen verfügbar.',"cast_connecting":"Verbindung zum TV…","cast_sent":'Dashboard an TV gesendet.',"cast_failed":'Dashboard konnte nicht übertragen werden.',"cast_stop":"Cast beenden","cast_restarting":"Cast-Sitzung wird neu gestartet…","cast_stopping":"Cast wird beendet…","cast_stopped":"Fitness-Cast beendet.","cast_stop_failed":"Fitness-Cast konnte nicht beendet werden."},
+    "fr": {"tv_dashboard":"Fitness TV","tv_profile":"Profil","add_cards":"Ajouter des cartes","arrange_cards":"Organiser","move_earlier":"Déplacer avant","move_later":"Déplacer après","card_picker":"Cartes sur ce téléviseur","play":"Lecture","pause":"Pause","media_browser":"Navigateur multimédia","now_playing":"Lecture en cours","media_selected":"Sélectionné","nothing_playing":"Aucune musique sélectionnée","media_browser_back":"Retour","media_browser_empty":"Aucun média disponible ici.","music_only":"Sélectionnez un élément audio pour écouter de la musique.","media_error":"Impossible de lire ce média.","tv_no_profiles":"Aucun profil Fitness n’a activé le tableau de bord TV.","card_today":"Aujourd’hui","card_live_workout":"Entraînement en direct","card_workout":"Entraînement","card_workout_highlights":"Points forts de l’entraînement","card_workout_rpe":"RPE de l’entraînement","card_strength_details":"Détails de force","card_sleep_recovery":"Sommeil et récupération","card_sleep_stages":"Phases du sommeil","card_recovery":"Récupération","card_evaluation":"Évaluation","card_progress":"Progression","card_training_adaptation":"Adaptation à l’entraînement","card_training_load":"Charge d’entraînement","card_route":"Parcours","card_comparison":"Comparaison d’entraînement","cast_dashboard":'Caster',"cast_dashboard_title":'Caster Fitness TV',"cast_to":'Caster vers',"cast_now":'Caster maintenant',"cast_default":'par défaut',"cast_available":'disponible',"cast_unavailable":'indisponible',"cast_no_targets":'Aucun écran Google Cast disponible.',"cast_connecting":"Connexion au téléviseur…","cast_sent":'Tableau de bord envoyé au téléviseur.',"cast_failed":'Impossible de caster le tableau de bord.',"cast_stop":"Arrêter le Cast","cast_restarting":"Redémarrage de la session Cast…","cast_stopping":"Arrêt du Cast…","cast_stopped":"Cast Fitness arrêté.","cast_stop_failed":"Impossible d’arrêter le Cast Fitness."},
+    "es": {"tv_dashboard":"Fitness TV","tv_profile":"Perfil","add_cards":"Añadir tarjetas","arrange_cards":"Ordenar","move_earlier":"Mover antes","move_later":"Mover después","card_picker":"Tarjetas en este TV","play":"Reproducir","pause":"Pausa","media_browser":"Explorador multimedia","now_playing":"Reproduciendo","media_selected":"Seleccionado","nothing_playing":"No hay música seleccionada","media_browser_back":"Atrás","media_browser_empty":"No hay contenido multimedia disponible aquí.","music_only":"Selecciona un elemento de audio para reproducir música.","media_error":"No se puede reproducir este contenido.","tv_no_profiles":"Ningún perfil de Fitness tiene activado el panel de TV.","card_today":"Hoy","card_live_workout":"Entrenamiento en vivo","card_workout":"Entrenamiento","card_workout_highlights":"Destacados del entrenamiento","card_workout_rpe":"RPE del entrenamiento","card_strength_details":"Detalles de fuerza","card_sleep_recovery":"Sueño y recuperación","card_sleep_stages":"Fases del sueño","card_recovery":"Recuperación","card_evaluation":"Evaluación","card_progress":"Progreso","card_training_adaptation":"Adaptación al entrenamiento","card_training_load":"Carga de entrenamiento","card_route":"Ruta","card_comparison":"Comparación del entrenamiento","cast_dashboard":'Enviar',"cast_dashboard_title":'Enviar Fitness TV',"cast_to":'Enviar a',"cast_now":'Enviar ahora',"cast_default":'predeterminado',"cast_available":'disponible',"cast_unavailable":'no disponible',"cast_no_targets":'No hay pantallas Google Cast disponibles.',"cast_connecting":"Conectando al televisor…","cast_sent":'Panel enviado al televisor.',"cast_failed":'No se pudo enviar el panel.',"cast_stop":"Detener envío","cast_restarting":"Reiniciando sesión de Cast…","cast_stopping":"Deteniendo envío…","cast_stopped":"Envío de Fitness detenido.","cast_stop_failed":"No se pudo detener el envío de Fitness."},
+    "it": {"tv_dashboard":"Fitness TV","tv_profile":"Profilo","add_cards":"Aggiungi schede","arrange_cards":"Disponi","move_earlier":"Sposta prima","move_later":"Sposta dopo","card_picker":"Schede su questa TV","play":"Riproduci","pause":"Pausa","media_browser":"Browser multimediale","now_playing":"In riproduzione","media_selected":"Selezionato","nothing_playing":"Nessuna musica selezionata","media_browser_back":"Indietro","media_browser_empty":"Nessun contenuto multimediale disponibile qui.","music_only":"Seleziona un elemento audio per riprodurre musica.","media_error":"Impossibile riprodurre questo contenuto.","tv_no_profiles":"Nessun profilo Fitness ha la dashboard TV attivata.","card_today":"Oggi","card_live_workout":"Allenamento live","card_workout":"Allenamento","card_workout_highlights":"Momenti salienti allenamento","card_workout_rpe":"RPE allenamento","card_strength_details":"Dettagli forza","card_sleep_recovery":"Sonno e recupero","card_sleep_stages":"Fasi del sonno","card_recovery":"Recupero","card_evaluation":"Valutazione","card_progress":"Progresso","card_training_adaptation":"Adattamento all’allenamento","card_training_load":"Carico di allenamento","card_route":"Percorso","card_comparison":"Confronto allenamento","cast_dashboard":'Trasmetti',"cast_dashboard_title":'Trasmetti Fitness TV',"cast_to":'Trasmetti su',"cast_now":'Trasmetti ora',"cast_default":'predefinito',"cast_available":'disponibile',"cast_unavailable":'non disponibile',"cast_no_targets":'Nessun display Google Cast disponibile.',"cast_connecting":"Connessione alla TV…","cast_sent":'Dashboard inviata alla TV.',"cast_failed":'Impossibile trasmettere la dashboard.',"cast_stop":"Interrompi Cast","cast_restarting":"Riavvio della sessione Cast…","cast_stopping":"Interruzione Cast…","cast_stopped":"Cast Fitness interrotto.","cast_stop_failed":"Impossibile interrompere il Cast Fitness."},
+    "pt": {"tv_dashboard":"Fitness TV","tv_profile":"Perfil","add_cards":"Adicionar cartões","arrange_cards":"Organizar","move_earlier":"Mover antes","move_later":"Mover depois","card_picker":"Cartões nesta TV","play":"Reproduzir","pause":"Pausar","media_browser":"Navegador de mídia","now_playing":"Reproduzindo agora","media_selected":"Selecionado","nothing_playing":"Nenhuma música selecionada","media_browser_back":"Voltar","media_browser_empty":"Nenhuma mídia disponível aqui.","music_only":"Selecione um item de áudio para tocar música.","media_error":"Não foi possível reproduzir esta mídia.","tv_no_profiles":"Nenhum perfil Fitness tem o painel de TV ativado.","card_today":"Hoje","card_live_workout":"Treino ao vivo","card_workout":"Treino","card_workout_highlights":"Destaques do treino","card_workout_rpe":"RPE do treino","card_strength_details":"Detalhes de força","card_sleep_recovery":"Sono e recuperação","card_sleep_stages":"Fases do sono","card_recovery":"Recuperação","card_evaluation":"Avaliação","card_progress":"Progresso","card_training_adaptation":"Adaptação ao treino","card_training_load":"Carga de treino","card_route":"Rota","card_comparison":"Comparação do treino","cast_dashboard":'Transmitir',"cast_dashboard_title":'Transmitir Fitness TV',"cast_to":'Transmitir para',"cast_now":'Transmitir agora',"cast_default":'predefinido',"cast_available":'disponível',"cast_unavailable":'indisponível',"cast_no_targets":'Nenhum ecrã Google Cast disponível.',"cast_connecting":"A ligar à TV…","cast_sent":'Painel enviado para a TV.',"cast_failed":'Não foi possível transmitir o painel.',"cast_stop":"Parar transmissão","cast_restarting":"Reiniciando sessão de Cast…","cast_stopping":"Parando transmissão…","cast_stopped":"Transmissão Fitness parada.","cast_stop_failed":"Não foi possível parar a transmissão Fitness."},
+    "nl": {"tv_dashboard":"Fitness TV","tv_profile":"Profiel","add_cards":"Kaarten toevoegen","arrange_cards":"Ordenen","move_earlier":"Naar voren","move_later":"Naar achteren","card_picker":"Kaarten op deze tv","play":"Afspelen","pause":"Pauze","media_browser":"Mediabrowser","now_playing":"Nu afspelen","media_selected":"Geselecteerd","nothing_playing":"Geen muziek geselecteerd","media_browser_back":"Terug","media_browser_empty":"Hier is geen media beschikbaar.","music_only":"Selecteer een audio-item om muziek af te spelen.","media_error":"Deze media kan niet worden afgespeeld.","tv_no_profiles":"Geen Fitness-profiel heeft het tv-dashboard ingeschakeld.","card_today":"Vandaag","card_live_workout":"Live training","card_workout":"Training","card_workout_highlights":"Trainingshoogtepunten","card_workout_rpe":"Training-RPE","card_strength_details":"Krachtdetails","card_sleep_recovery":"Slaap & herstel","card_sleep_stages":"Slaapfasen","card_recovery":"Herstel","card_evaluation":"Evaluatie","card_progress":"Voortgang","card_training_adaptation":"Trainingsadaptatie","card_training_load":"Trainingsbelasting","card_route":"Route","card_comparison":"Trainingsvergelijking","cast_dashboard":'Casten',"cast_dashboard_title":'Fitness TV casten',"cast_to":'Casten naar',"cast_now":'Nu casten',"cast_default":'standaard',"cast_available":'beschikbaar',"cast_unavailable":'niet beschikbaar',"cast_no_targets":'Geen Google Cast-schermen beschikbaar.',"cast_connecting":"Verbinden met tv…","cast_sent":'Dashboard naar tv gestuurd.',"cast_failed":'Dashboard kon niet worden gecast.',"cast_stop":"Cast stoppen","cast_restarting":"Cast-sessie wordt opnieuw gestart…","cast_stopping":"Cast wordt gestopt…","cast_stopped":"Fitness-cast gestopt.","cast_stop_failed":"Fitness-cast kon niet worden gestopt."},
+    "pl": {"tv_dashboard":"Fitness TV","tv_profile":"Profil","add_cards":"Dodaj karty","arrange_cards":"Ułóż","move_earlier":"Przesuń wcześniej","move_later":"Przesuń później","card_picker":"Karty na tym TV","play":"Odtwórz","pause":"Pauza","media_browser":"Przeglądarka multimediów","now_playing":"Teraz odtwarzane","media_selected":"Wybrano","nothing_playing":"Nie wybrano muzyki","media_browser_back":"Wstecz","media_browser_empty":"Brak dostępnych multimediów.","music_only":"Wybierz element audio, aby odtwarzać muzykę.","media_error":"Nie można odtworzyć tych multimediów.","tv_no_profiles":"Żaden profil Fitness nie ma włączonego panelu TV.","card_today":"Dzisiaj","card_live_workout":"Trening na żywo","card_workout":"Trening","card_workout_highlights":"Najważniejsze dane treningu","card_workout_rpe":"RPE treningu","card_strength_details":"Szczegóły siłowe","card_sleep_recovery":"Sen i regeneracja","card_sleep_stages":"Fazy snu","card_recovery":"Regeneracja","card_evaluation":"Ocena","card_progress":"Postęp","card_training_adaptation":"Adaptacja treningowa","card_training_load":"Obciążenie treningowe","card_route":"Trasa","card_comparison":"Porównanie treningu","cast_dashboard":'Przesyłaj',"cast_dashboard_title":'Przesyłaj Fitness TV',"cast_to":'Przesyłaj do',"cast_now":'Przesyłaj teraz',"cast_default":'domyślne',"cast_available":'dostępne',"cast_unavailable":'niedostępne',"cast_no_targets":'Brak dostępnych ekranów Google Cast.',"cast_connecting":"Łączenie z telewizorem…","cast_sent":'Panel wysłany na telewizor.',"cast_failed":'Nie udało się przesłać panelu.',"cast_stop":"Zatrzymaj Cast","cast_restarting":"Ponowne uruchamianie sesji Cast…","cast_stopping":"Zatrzymywanie Cast…","cast_stopped":"Cast Fitness zatrzymany.","cast_stop_failed":"Nie udało się zatrzymać Cast Fitness."},
+    "ru": {"tv_dashboard":"Fitness TV","tv_profile":"Профиль","add_cards":"Добавить карточки","arrange_cards":"Расставить","move_earlier":"Переместить раньше","move_later":"Переместить позже","card_picker":"Карточки на этом ТВ","play":"Воспроизвести","pause":"Пауза","media_browser":"Медиабраузер","now_playing":"Сейчас играет","media_selected":"Выбрано","nothing_playing":"Музыка не выбрана","media_browser_back":"Назад","media_browser_empty":"Здесь нет доступных медиа.","music_only":"Выберите аудиозапись для воспроизведения музыки.","media_error":"Не удалось воспроизвести медиа.","tv_no_profiles":"Ни в одном профиле Fitness не включена ТВ-панель.","card_today":"Сегодня","card_live_workout":"Тренировка в реальном времени","card_workout":"Тренировка","card_workout_highlights":"Основные данные тренировки","card_workout_rpe":"RPE тренировки","card_strength_details":"Силовые показатели","card_sleep_recovery":"Сон и восстановление","card_sleep_stages":"Фазы сна","card_recovery":"Восстановление","card_evaluation":"Оценка","card_progress":"Прогресс","card_training_adaptation":"Адаптация к тренировкам","card_training_load":"Тренировочная нагрузка","card_route":"Маршрут","card_comparison":"Сравнение тренировки","cast_dashboard":'Трансляция',"cast_dashboard_title":'Трансляция Fitness TV',"cast_to":'Транслировать на',"cast_now":'Транслировать',"cast_default":'по умолчанию',"cast_available":'доступно',"cast_unavailable":'недоступно',"cast_no_targets":'Нет доступных экранов Google Cast.',"cast_connecting":"Подключение к ТВ…","cast_sent":'Панель отправлена на ТВ.',"cast_failed":'Не удалось транслировать панель.',"cast_stop":"Остановить трансляцию","cast_restarting":"Перезапуск сеанса Cast…","cast_stopping":"Остановка трансляции…","cast_stopped":"Трансляция Fitness остановлена.","cast_stop_failed":"Не удалось остановить трансляцию Fitness."},
+    "uk": {"tv_dashboard":"Fitness TV","tv_profile":"Профіль","add_cards":"Додати картки","arrange_cards":"Упорядкувати","move_earlier":"Перемістити раніше","move_later":"Перемістити пізніше","card_picker":"Картки на цьому ТВ","play":"Відтворити","pause":"Пауза","media_browser":"Медіабраузер","now_playing":"Зараз відтворюється","media_selected":"Вибрано","nothing_playing":"Музику не вибрано","media_browser_back":"Назад","media_browser_empty":"Тут немає доступних медіа.","music_only":"Виберіть аудіо для відтворення музики.","media_error":"Не вдалося відтворити медіа.","tv_no_profiles":"У жодному профілі Fitness не ввімкнено ТВ-панель.","card_today":"Сьогодні","card_live_workout":"Тренування наживо","card_workout":"Тренування","card_workout_highlights":"Основні дані тренування","card_workout_rpe":"RPE тренування","card_strength_details":"Силові показники","card_sleep_recovery":"Сон і відновлення","card_sleep_stages":"Фази сну","card_recovery":"Відновлення","card_evaluation":"Оцінка","card_progress":"Прогрес","card_training_adaptation":"Адаптація до тренувань","card_training_load":"Тренувальне навантаження","card_route":"Маршрут","card_comparison":"Порівняння тренування","cast_dashboard":'Трансляція',"cast_dashboard_title":'Трансляція Fitness TV',"cast_to":'Транслювати на',"cast_now":'Транслювати',"cast_default":'за замовчуванням',"cast_available":'доступно',"cast_unavailable":'недоступно',"cast_no_targets":'Немає доступних екранів Google Cast.',"cast_connecting":"Підключення до ТВ…","cast_sent":'Панель надіслано на ТВ.',"cast_failed":'Не вдалося транслювати панель.',"cast_stop":"Зупинити трансляцію","cast_restarting":"Перезапуск сеансу Cast…","cast_stopping":"Зупинка трансляції…","cast_stopped":"Трансляцію Fitness зупинено.","cast_stop_failed":"Не вдалося зупинити трансляцію Fitness."},
+    "tr": {"tv_dashboard":"Fitness TV","tv_profile":"Profil","add_cards":"Kart ekle","arrange_cards":"Düzenle","move_earlier":"Öne taşı","move_later":"Arkaya taşı","card_picker":"Bu TV'deki kartlar","play":"Oynat","pause":"Duraklat","media_browser":"Medya tarayıcısı","now_playing":"Şimdi çalıyor","media_selected":"Seçildi","nothing_playing":"Müzik seçilmedi","media_browser_back":"Geri","media_browser_empty":"Burada kullanılabilir medya yok.","music_only":"Müzik çalmak için bir ses öğesi seçin.","media_error":"Bu medya oynatılamadı.","tv_no_profiles":"Hiçbir Fitness profilinde TV paneli etkin değil.","card_today":"Bugün","card_live_workout":"Canlı antrenman","card_workout":"Antrenman","card_workout_highlights":"Antrenman öne çıkanları","card_workout_rpe":"Antrenman RPE","card_strength_details":"Kuvvet ayrıntıları","card_sleep_recovery":"Uyku ve toparlanma","card_sleep_stages":"Uyku evreleri","card_recovery":"Toparlanma","card_evaluation":"Değerlendirme","card_progress":"İlerleme","card_training_adaptation":"Antrenman adaptasyonu","card_training_load":"Antrenman yükü","card_route":"Rota","card_comparison":"Antrenman karşılaştırması","cast_dashboard":'Yayınla',"cast_dashboard_title":'Fitness TV yayınla',"cast_to":'Şuraya yayınla',"cast_now":'Şimdi yayınla',"cast_default":'varsayılan',"cast_available":'kullanılabilir',"cast_unavailable":'kullanılamıyor',"cast_no_targets":'Kullanılabilir Google Cast ekranı yok.',"cast_connecting":"TV’ye bağlanıyor…","cast_sent":'Panel TV’ye gönderildi.',"cast_failed":'Panel yayınlanamadı.',"cast_stop":"Yayını durdur","cast_restarting":"Cast oturumu yeniden başlatılıyor…","cast_stopping":"Yayın durduruluyor…","cast_stopped":"Fitness yayını durduruldu.","cast_stop_failed":"Fitness yayını durdurulamadı."},
+    "zh": {"tv_dashboard":"Fitness TV","tv_profile":"个人资料","add_cards":"添加卡片","arrange_cards":"排列","move_earlier":"向前移动","move_later":"向后移动","card_picker":"此电视上的卡片","play":"播放","pause":"暂停","media_browser":"媒体浏览器","now_playing":"正在播放","media_selected":"已选择","nothing_playing":"未选择音乐","media_browser_back":"返回","media_browser_empty":"此处没有可用媒体。","music_only":"选择音频项目以播放音乐。","media_error":"无法播放此媒体。","tv_no_profiles":"没有 Fitness 个人资料启用电视仪表板。","card_today":"今天","card_live_workout":"实时训练","card_workout":"训练","card_workout_highlights":"训练亮点","card_workout_rpe":"训练 RPE","card_strength_details":"力量详情","card_sleep_recovery":"睡眠与恢复","card_sleep_stages":"睡眠阶段","card_recovery":"恢复","card_evaluation":"评估","card_progress":"进度","card_training_adaptation":"训练适应","card_training_load":"训练负荷","card_route":"路线","card_comparison":"训练对比","cast_dashboard":'投屏',"cast_dashboard_title":'投屏 Fitness TV',"cast_to":'投屏到',"cast_now":'立即投屏',"cast_default":'默认',"cast_available":'可用',"cast_unavailable":'不可用',"cast_no_targets":'没有可用的 Google Cast 显示设备。',"cast_connecting":"正在连接电视…","cast_sent":'仪表板已发送到电视。',"cast_failed":'无法投屏仪表板。',"cast_stop":"停止投屏","cast_restarting":"正在重新启动 Cast 会话…","cast_stopping":"正在停止投屏…","cast_stopped":"Fitness 投屏已停止。","cast_stop_failed":"无法停止 Fitness 投屏。"},
+    "ja": {"tv_dashboard":"Fitness TV","tv_profile":"プロフィール","add_cards":"カードを追加","arrange_cards":"並べ替え","move_earlier":"前へ移動","move_later":"後ろへ移動","card_picker":"このテレビのカード","play":"再生","pause":"一時停止","media_browser":"メディアブラウザー","now_playing":"再生中","media_selected":"選択済み","nothing_playing":"音楽が選択されていません","media_browser_back":"戻る","media_browser_empty":"ここには利用可能なメディアがありません。","music_only":"音楽を再生するにはオーディオ項目を選択してください。","media_error":"このメディアを再生できません。","tv_no_profiles":"TVダッシュボードが有効なFitnessプロフィールはありません。","card_today":"今日","card_live_workout":"ライブワークアウト","card_workout":"ワークアウト","card_workout_highlights":"ワークアウトのハイライト","card_workout_rpe":"ワークアウトRPE","card_strength_details":"筋力の詳細","card_sleep_recovery":"睡眠と回復","card_sleep_stages":"睡眠ステージ","card_recovery":"回復","card_evaluation":"評価","card_progress":"進捗","card_training_adaptation":"トレーニング適応","card_training_load":"トレーニング負荷","card_route":"ルート","card_comparison":"ワークアウト比較","cast_dashboard":'キャスト',"cast_dashboard_title":'Fitness TV をキャスト',"cast_to":'キャスト先',"cast_now":'今すぐキャスト',"cast_default":'デフォルト',"cast_available":'利用可能',"cast_unavailable":'利用不可',"cast_no_targets":'利用可能な Google Cast ディスプレイがありません。',"cast_connecting":"テレビに接続中…","cast_sent":'ダッシュボードをテレビに送信しました。',"cast_failed":'ダッシュボードをキャストできませんでした。',"cast_stop":"キャストを停止","cast_restarting":"Cast セッションを再起動中…","cast_stopping":"キャストを停止中…","cast_stopped":"Fitness キャストを停止しました。","cast_stop_failed":"Fitness キャストを停止できませんでした。"},
+    "ko": {"tv_dashboard":"Fitness TV","tv_profile":"프로필","add_cards":"카드 추가","arrange_cards":"정렬","move_earlier":"앞으로 이동","move_later":"뒤로 이동","card_picker":"이 TV의 카드","play":"재생","pause":"일시정지","media_browser":"미디어 브라우저","now_playing":"지금 재생 중","media_selected":"선택됨","nothing_playing":"선택된 음악 없음","media_browser_back":"뒤로","media_browser_empty":"여기에 사용 가능한 미디어가 없습니다.","music_only":"음악을 재생하려면 오디오 항목을 선택하세요.","media_error":"이 미디어를 재생할 수 없습니다.","tv_no_profiles":"TV 대시보드를 활성화한 Fitness 프로필이 없습니다.","card_today":"오늘","card_live_workout":"실시간 운동","card_workout":"운동","card_workout_highlights":"운동 주요 정보","card_workout_rpe":"운동 RPE","card_strength_details":"근력 세부 정보","card_sleep_recovery":"수면 및 회복","card_sleep_stages":"수면 단계","card_recovery":"회복","card_evaluation":"평가","card_progress":"진행","card_training_adaptation":"훈련 적응","card_training_load":"훈련 부하","card_route":"경로","card_comparison":"운동 비교","cast_dashboard":'캐스트',"cast_dashboard_title":'Fitness TV 캐스트',"cast_to":'캐스트 대상',"cast_now":'지금 캐스트',"cast_default":'기본값',"cast_available":'사용 가능',"cast_unavailable":'사용 불가',"cast_no_targets":'사용 가능한 Google Cast 디스플레이가 없습니다.',"cast_connecting":"TV에 연결 중…","cast_sent":'대시보드를 TV로 보냈습니다.',"cast_failed":'대시보드를 캐스트할 수 없습니다.',"cast_stop":"캐스트 중지","cast_restarting":"Cast 세션 다시 시작 중…","cast_stopping":"캐스트 중지 중…","cast_stopped":"Fitness 캐스트가 중지되었습니다.","cast_stop_failed":"Fitness 캐스트를 중지할 수 없습니다."},
 }
 
 _TV_DASHBOARD_SETTINGS_TEXT: dict[str, dict[str, str]] = {
@@ -1824,19 +1872,44 @@ _TV_DASHBOARD_REMOTE_TEXT: dict[str, dict[str, str]] = {
         "remote_ant_scanning": "Scanning",
         "remote_gateway_protocol": "Gateway protocol v{version}",
         "remote_failed": "Connection failed",
-        "local_cast": "Local network TV",
-        "local_cast_hint": "Use this phone/laptop to choose a Google Cast TV on its current Wi-Fi network, even when Home Assistant is elsewhere.",
-        "local_cast_choose": "Choose local TV",
+        "local_cast": "Google Cast from this browser",
+        "local_cast_hint": "Use the browser Google Cast chooser for a nearby Chromecast / Google TV. Home Assistant-discovered Cast devices and Smart-TV browser receivers are available separately below.",
+        "local_cast_setup": "Local Cast receiver setup",
+        "local_cast_mode": "Cast mode",
+        "local_cast_mode_auto": "Auto (Direct LAN when configured)",
+        "local_cast_mode_direct": "Direct LAN only",
+        "local_cast_mode_official": "Official Home Assistant Cast",
+        "local_cast_app_id": "Custom Cast app ID",
+        "local_cast_receiver_url": "Receiver URL",
+        "local_cast_setup_hint": "For direct HTTP LAN Cast, register this receiver URL as a Custom Receiver in the Google Cast SDK Developer Console and register each test Cast device. Published receiver URLs must use HTTPS.",
+        "local_cast_save": "Save Local Cast setup",
+        "local_cast_saved": "Local Cast setup saved.",
+        "local_cast_setup_failed": "Could not save Local Cast setup.",
+        "local_cast_direct_active": "Direct LAN receiver",
+        "local_cast_official_fallback": "Official HA Cast fallback",
+        "local_cast_direct_setup_needed": "Direct LAN not configured",
+        "local_cast_choose": "Choose Google Cast TV",
         "local_cast_stop": "Stop local Cast",
         "local_cast_connecting": "Opening local Google Cast chooser…",
         "local_cast_authenticating": "TV selected. Connecting it to Home Assistant…",
         "local_cast_loading": "Connected. Loading Fitness TV…",
         "local_cast_connected": "Fitness TV sent to local TV",
-        "local_cast_no_https": "Local Cast needs an externally reachable HTTPS Home Assistant URL.",
+        "local_cast_no_https": "Official HA Cast needs an externally reachable HTTPS Home Assistant URL. Direct LAN mode does not.",
         "local_cast_receiver_failed": "The local Cast receiver did not connect to Home Assistant.",
         "local_cast_cancelled": "No Cast session was selected.",
         "cast_ha_devices": "Home Assistant network devices",
         "cast_ha_devices_hint": "TVs discovered by the Home Assistant server itself.",
+        "smart_tv_browser": "Smart TV browser",
+        "smart_tv_browser_hint": "For LG webOS, Samsung Tizen and other TVs with a web browser. Create a short-lived local receiver link and open it on the TV.",
+        "smart_tv_platform": "TV platform",
+        "smart_tv_lg": "LG webOS",
+        "smart_tv_samsung": "Samsung Tizen",
+        "smart_tv_other": "Other Smart TV",
+        "smart_tv_create_link": "Create TV link",
+        "smart_tv_open_hint": "Open this address in the TV browser within 3 minutes. After it connects, the receiver is bound to that TV session.",
+        "smart_tv_copy": "Copy link",
+        "smart_tv_link_ready": "TV receiver link ready.",
+        "smart_tv_local_only": "Smart TV receiver links can only be created from the local Home Assistant network.",
     },
     "el": {
         "remote_sensors": "Απομακρυσμένοι αισθητήρες",
@@ -1863,19 +1936,44 @@ _TV_DASHBOARD_REMOTE_TEXT: dict[str, dict[str, str]] = {
         "remote_ant_scanning": "Σάρωση",
         "remote_gateway_protocol": "Πρωτόκολλο gateway v{version}",
         "remote_failed": "Η σύνδεση απέτυχε",
-        "local_cast": "TV στο τοπικό δίκτυο",
-        "local_cast_hint": "Χρησιμοποίησε αυτό το κινητό/laptop για να επιλέξεις Google Cast TV στο τρέχον Wi-Fi του, ακόμη κι αν το Home Assistant βρίσκεται αλλού.",
-        "local_cast_choose": "Επιλογή τοπικής TV",
+        "local_cast": "Google Cast από αυτόν τον browser",
+        "local_cast_hint": "Χρησιμοποίησε τον επιλογέα Google Cast του browser για κοντινό Chromecast / Google TV. Οι Cast συσκευές που γνωρίζει το Home Assistant και οι Smart-TV browser receivers εμφανίζονται ξεχωριστά παρακάτω.",
+        "local_cast_setup": "Ρύθμιση τοπικού Cast receiver",
+        "local_cast_mode": "Λειτουργία Cast",
+        "local_cast_mode_auto": "Αυτόματα (Direct LAN όταν έχει ρυθμιστεί)",
+        "local_cast_mode_direct": "Μόνο Direct LAN",
+        "local_cast_mode_official": "Επίσημο Home Assistant Cast",
+        "local_cast_app_id": "Custom Cast app ID",
+        "local_cast_receiver_url": "URL receiver",
+        "local_cast_setup_hint": "Για άμεσο HTTP Cast στο LAN, καταχώρισε αυτό το URL receiver ως Custom Receiver στο Google Cast SDK Developer Console και καταχώρισε κάθε δοκιμαστική Cast συσκευή. Τα δημοσιευμένα receiver URLs πρέπει να χρησιμοποιούν HTTPS.",
+        "local_cast_save": "Αποθήκευση ρύθμισης Local Cast",
+        "local_cast_saved": "Η ρύθμιση Local Cast αποθηκεύτηκε.",
+        "local_cast_setup_failed": "Η ρύθμιση Local Cast δεν αποθηκεύτηκε.",
+        "local_cast_direct_active": "Direct LAN receiver",
+        "local_cast_official_fallback": "Εφεδρικό επίσημο HA Cast",
+        "local_cast_direct_setup_needed": "Το Direct LAN δεν έχει ρυθμιστεί",
+        "local_cast_choose": "Επιλογή Google Cast TV",
         "local_cast_stop": "Διακοπή τοπικού Cast",
         "local_cast_connecting": "Άνοιγμα τοπικού Google Cast…",
         "local_cast_authenticating": "Η TV επιλέχθηκε. Σύνδεση με το Home Assistant…",
         "local_cast_loading": "Συνδέθηκε. Φόρτωση Fitness TV…",
         "local_cast_connected": "Το Fitness TV στάλθηκε στην τοπική TV",
-        "local_cast_no_https": "Το Local Cast χρειάζεται εξωτερικά προσβάσιμο HTTPS URL του Home Assistant.",
+        "local_cast_no_https": "Το επίσημο HA Cast χρειάζεται εξωτερικά προσβάσιμο HTTPS URL του Home Assistant. Το Direct LAN δεν το χρειάζεται.",
         "local_cast_receiver_failed": "Ο τοπικός Cast receiver δεν συνδέθηκε στο Home Assistant.",
         "local_cast_cancelled": "Δεν επιλέχθηκε Cast συσκευή.",
         "cast_ha_devices": "Συσκευές δικτύου Home Assistant",
         "cast_ha_devices_hint": "TV που ανακαλύπτονται από το ίδιο το Home Assistant server.",
+        "smart_tv_browser": "Browser Smart TV",
+        "smart_tv_browser_hint": "Για LG webOS, Samsung Tizen και άλλες TV με browser. Δημιούργησε έναν προσωρινό τοπικό σύνδεσμο receiver και άνοιξέ τον στην TV.",
+        "smart_tv_platform": "Πλατφόρμα TV",
+        "smart_tv_lg": "LG webOS",
+        "smart_tv_samsung": "Samsung Tizen",
+        "smart_tv_other": "Άλλη Smart TV",
+        "smart_tv_create_link": "Δημιουργία συνδέσμου TV",
+        "smart_tv_open_hint": "Άνοιξε αυτή τη διεύθυνση στον browser της TV μέσα σε 3 λεπτά. Μετά τη σύνδεση, ο receiver δεσμεύεται σε αυτή τη συνεδρία TV.",
+        "smart_tv_copy": "Αντιγραφή συνδέσμου",
+        "smart_tv_link_ready": "Ο σύνδεσμος receiver της TV είναι έτοιμος.",
+        "smart_tv_local_only": "Οι σύνδεσμοι Smart TV receiver δημιουργούνται μόνο από το τοπικό δίκτυο του Home Assistant.",
     },
     "de": {
         "remote_sensors": "Remote-Sensoren",
@@ -1902,21 +2000,206 @@ _TV_DASHBOARD_REMOTE_TEXT: dict[str, dict[str, str]] = {
         "remote_ant_scanning": "Scannt",
         "remote_gateway_protocol": "Gateway-Protokoll v{version}",
         "remote_failed": "Verbindung fehlgeschlagen",
-        "local_cast": "TV im lokalen Netzwerk",
-        "local_cast_hint": "Wähle mit diesem Handy/Laptop einen Google-Cast-TV im aktuellen WLAN, auch wenn Home Assistant sich in einem anderen Netzwerk befindet.",
-        "local_cast_choose": "Lokalen TV auswählen",
+        "local_cast": "Google Cast aus diesem Browser",
+        "local_cast_hint": "Nutze die Google-Cast-Auswahl des Browsers für einen nahen Chromecast / Google TV. Von Home Assistant erkannte Cast-Geräte und Smart-TV-Browser-Empfänger werden unten separat angeboten.",
+        "local_cast_setup": "Lokalen Cast-Receiver einrichten",
+        "local_cast_mode": "Cast-Modus",
+        "local_cast_mode_auto": "Auto (Direct LAN wenn eingerichtet)",
+        "local_cast_mode_direct": "Nur Direct LAN",
+        "local_cast_mode_official": "Offizielles Home Assistant Cast",
+        "local_cast_app_id": "Custom-Cast-App-ID",
+        "local_cast_receiver_url": "Receiver-URL",
+        "local_cast_setup_hint": "Für direktes HTTP-Cast im LAN registriere diese Receiver-URL als Custom Receiver in der Google Cast SDK Developer Console und registriere jedes Test-Cast-Gerät. Veröffentlichte Receiver-URLs müssen HTTPS verwenden.",
+        "local_cast_save": "Local-Cast-Einrichtung speichern",
+        "local_cast_saved": "Local-Cast-Einrichtung gespeichert.",
+        "local_cast_setup_failed": "Local-Cast-Einrichtung konnte nicht gespeichert werden.",
+        "local_cast_direct_active": "Direct-LAN-Receiver",
+        "local_cast_official_fallback": "Offizielles HA-Cast-Fallback",
+        "local_cast_direct_setup_needed": "Direct LAN nicht eingerichtet",
+        "local_cast_choose": "Google-Cast-TV auswählen",
         "local_cast_stop": "Lokales Cast stoppen",
         "local_cast_connecting": "Lokale Google-Cast-Auswahl wird geöffnet…",
         "local_cast_authenticating": "TV ausgewählt. Verbindung mit Home Assistant wird hergestellt…",
         "local_cast_loading": "Verbunden. Fitness TV wird geladen…",
         "local_cast_connected": "Fitness TV wurde an den lokalen TV gesendet",
-        "local_cast_no_https": "Local Cast benötigt eine extern erreichbare HTTPS-URL von Home Assistant.",
+        "local_cast_no_https": "Offizielles HA Cast benötigt eine extern erreichbare HTTPS-URL von Home Assistant. Direct LAN nicht.",
         "local_cast_receiver_failed": "Der lokale Cast-Receiver konnte Home Assistant nicht erreichen.",
         "local_cast_cancelled": "Es wurde kein Cast-Gerät ausgewählt.",
         "cast_ha_devices": "Geräte im Home-Assistant-Netzwerk",
         "cast_ha_devices_hint": "TVs, die vom Home-Assistant-Server selbst entdeckt werden.",
+        "smart_tv_browser": "Smart-TV-Browser",
+        "smart_tv_browser_hint": "Für LG webOS, Samsung Tizen und andere Fernseher mit Webbrowser. Erstelle einen kurzlebigen lokalen Receiver-Link und öffne ihn am TV.",
+        "smart_tv_platform": "TV-Plattform",
+        "smart_tv_lg": "LG webOS",
+        "smart_tv_samsung": "Samsung Tizen",
+        "smart_tv_other": "Anderer Smart TV",
+        "smart_tv_create_link": "TV-Link erstellen",
+        "smart_tv_open_hint": "Öffne diese Adresse innerhalb von 3 Minuten im TV-Browser. Nach der Verbindung wird der Receiver an diese TV-Sitzung gebunden.",
+        "smart_tv_copy": "Link kopieren",
+        "smart_tv_link_ready": "TV-Receiver-Link ist bereit.",
+        "smart_tv_local_only": "Smart-TV-Receiver-Links können nur aus dem lokalen Home-Assistant-Netzwerk erstellt werden.",
     },
 }
+
+# Smart-TV receiver strings use native translations above where available.
+# Add English fallback text directly to every remaining complete dashboard
+# catalog so runtime and the dependency-free translation audit stay identical.
+_DASHBOARD_TEXT["fr"].update({
+    "smart_tv_browser": "Smart TV browser",
+    "smart_tv_browser_hint": "For LG webOS, Samsung Tizen and other TVs with a web browser. Create a short-lived local receiver link and open it on the TV.",
+    "smart_tv_platform": "TV platform",
+    "smart_tv_lg": "LG webOS",
+    "smart_tv_samsung": "Samsung Tizen",
+    "smart_tv_other": "Other Smart TV",
+    "smart_tv_create_link": "Create TV link",
+    "smart_tv_open_hint": "Open this address in the TV browser within 3 minutes. After connection, the receiver is bound to that TV session.",
+    "smart_tv_copy": "Copy link",
+    "smart_tv_link_ready": "TV receiver link is ready.",
+    "smart_tv_local_only": "Smart-TV receiver links can only be created from the local Home Assistant network.",
+})
+_DASHBOARD_TEXT["es"].update({
+    "smart_tv_browser": "Smart TV browser",
+    "smart_tv_browser_hint": "For LG webOS, Samsung Tizen and other TVs with a web browser. Create a short-lived local receiver link and open it on the TV.",
+    "smart_tv_platform": "TV platform",
+    "smart_tv_lg": "LG webOS",
+    "smart_tv_samsung": "Samsung Tizen",
+    "smart_tv_other": "Other Smart TV",
+    "smart_tv_create_link": "Create TV link",
+    "smart_tv_open_hint": "Open this address in the TV browser within 3 minutes. After connection, the receiver is bound to that TV session.",
+    "smart_tv_copy": "Copy link",
+    "smart_tv_link_ready": "TV receiver link is ready.",
+    "smart_tv_local_only": "Smart-TV receiver links can only be created from the local Home Assistant network.",
+})
+_DASHBOARD_TEXT["it"].update({
+    "smart_tv_browser": "Smart TV browser",
+    "smart_tv_browser_hint": "For LG webOS, Samsung Tizen and other TVs with a web browser. Create a short-lived local receiver link and open it on the TV.",
+    "smart_tv_platform": "TV platform",
+    "smart_tv_lg": "LG webOS",
+    "smart_tv_samsung": "Samsung Tizen",
+    "smart_tv_other": "Other Smart TV",
+    "smart_tv_create_link": "Create TV link",
+    "smart_tv_open_hint": "Open this address in the TV browser within 3 minutes. After connection, the receiver is bound to that TV session.",
+    "smart_tv_copy": "Copy link",
+    "smart_tv_link_ready": "TV receiver link is ready.",
+    "smart_tv_local_only": "Smart-TV receiver links can only be created from the local Home Assistant network.",
+})
+_DASHBOARD_TEXT["pt"].update({
+    "smart_tv_browser": "Smart TV browser",
+    "smart_tv_browser_hint": "For LG webOS, Samsung Tizen and other TVs with a web browser. Create a short-lived local receiver link and open it on the TV.",
+    "smart_tv_platform": "TV platform",
+    "smart_tv_lg": "LG webOS",
+    "smart_tv_samsung": "Samsung Tizen",
+    "smart_tv_other": "Other Smart TV",
+    "smart_tv_create_link": "Create TV link",
+    "smart_tv_open_hint": "Open this address in the TV browser within 3 minutes. After connection, the receiver is bound to that TV session.",
+    "smart_tv_copy": "Copy link",
+    "smart_tv_link_ready": "TV receiver link is ready.",
+    "smart_tv_local_only": "Smart-TV receiver links can only be created from the local Home Assistant network.",
+})
+_DASHBOARD_TEXT["nl"].update({
+    "smart_tv_browser": "Smart TV browser",
+    "smart_tv_browser_hint": "For LG webOS, Samsung Tizen and other TVs with a web browser. Create a short-lived local receiver link and open it on the TV.",
+    "smart_tv_platform": "TV platform",
+    "smart_tv_lg": "LG webOS",
+    "smart_tv_samsung": "Samsung Tizen",
+    "smart_tv_other": "Other Smart TV",
+    "smart_tv_create_link": "Create TV link",
+    "smart_tv_open_hint": "Open this address in the TV browser within 3 minutes. After connection, the receiver is bound to that TV session.",
+    "smart_tv_copy": "Copy link",
+    "smart_tv_link_ready": "TV receiver link is ready.",
+    "smart_tv_local_only": "Smart-TV receiver links can only be created from the local Home Assistant network.",
+})
+_DASHBOARD_TEXT["pl"].update({
+    "smart_tv_browser": "Smart TV browser",
+    "smart_tv_browser_hint": "For LG webOS, Samsung Tizen and other TVs with a web browser. Create a short-lived local receiver link and open it on the TV.",
+    "smart_tv_platform": "TV platform",
+    "smart_tv_lg": "LG webOS",
+    "smart_tv_samsung": "Samsung Tizen",
+    "smart_tv_other": "Other Smart TV",
+    "smart_tv_create_link": "Create TV link",
+    "smart_tv_open_hint": "Open this address in the TV browser within 3 minutes. After connection, the receiver is bound to that TV session.",
+    "smart_tv_copy": "Copy link",
+    "smart_tv_link_ready": "TV receiver link is ready.",
+    "smart_tv_local_only": "Smart-TV receiver links can only be created from the local Home Assistant network.",
+})
+_DASHBOARD_TEXT["ru"].update({
+    "smart_tv_browser": "Smart TV browser",
+    "smart_tv_browser_hint": "For LG webOS, Samsung Tizen and other TVs with a web browser. Create a short-lived local receiver link and open it on the TV.",
+    "smart_tv_platform": "TV platform",
+    "smart_tv_lg": "LG webOS",
+    "smart_tv_samsung": "Samsung Tizen",
+    "smart_tv_other": "Other Smart TV",
+    "smart_tv_create_link": "Create TV link",
+    "smart_tv_open_hint": "Open this address in the TV browser within 3 minutes. After connection, the receiver is bound to that TV session.",
+    "smart_tv_copy": "Copy link",
+    "smart_tv_link_ready": "TV receiver link is ready.",
+    "smart_tv_local_only": "Smart-TV receiver links can only be created from the local Home Assistant network.",
+})
+_DASHBOARD_TEXT["uk"].update({
+    "smart_tv_browser": "Smart TV browser",
+    "smart_tv_browser_hint": "For LG webOS, Samsung Tizen and other TVs with a web browser. Create a short-lived local receiver link and open it on the TV.",
+    "smart_tv_platform": "TV platform",
+    "smart_tv_lg": "LG webOS",
+    "smart_tv_samsung": "Samsung Tizen",
+    "smart_tv_other": "Other Smart TV",
+    "smart_tv_create_link": "Create TV link",
+    "smart_tv_open_hint": "Open this address in the TV browser within 3 minutes. After connection, the receiver is bound to that TV session.",
+    "smart_tv_copy": "Copy link",
+    "smart_tv_link_ready": "TV receiver link is ready.",
+    "smart_tv_local_only": "Smart-TV receiver links can only be created from the local Home Assistant network.",
+})
+_DASHBOARD_TEXT["tr"].update({
+    "smart_tv_browser": "Smart TV browser",
+    "smart_tv_browser_hint": "For LG webOS, Samsung Tizen and other TVs with a web browser. Create a short-lived local receiver link and open it on the TV.",
+    "smart_tv_platform": "TV platform",
+    "smart_tv_lg": "LG webOS",
+    "smart_tv_samsung": "Samsung Tizen",
+    "smart_tv_other": "Other Smart TV",
+    "smart_tv_create_link": "Create TV link",
+    "smart_tv_open_hint": "Open this address in the TV browser within 3 minutes. After connection, the receiver is bound to that TV session.",
+    "smart_tv_copy": "Copy link",
+    "smart_tv_link_ready": "TV receiver link is ready.",
+    "smart_tv_local_only": "Smart-TV receiver links can only be created from the local Home Assistant network.",
+})
+_DASHBOARD_TEXT["zh"].update({
+    "smart_tv_browser": "Smart TV browser",
+    "smart_tv_browser_hint": "For LG webOS, Samsung Tizen and other TVs with a web browser. Create a short-lived local receiver link and open it on the TV.",
+    "smart_tv_platform": "TV platform",
+    "smart_tv_lg": "LG webOS",
+    "smart_tv_samsung": "Samsung Tizen",
+    "smart_tv_other": "Other Smart TV",
+    "smart_tv_create_link": "Create TV link",
+    "smart_tv_open_hint": "Open this address in the TV browser within 3 minutes. After connection, the receiver is bound to that TV session.",
+    "smart_tv_copy": "Copy link",
+    "smart_tv_link_ready": "TV receiver link is ready.",
+    "smart_tv_local_only": "Smart-TV receiver links can only be created from the local Home Assistant network.",
+})
+_DASHBOARD_TEXT["ja"].update({
+    "smart_tv_browser": "Smart TV browser",
+    "smart_tv_browser_hint": "For LG webOS, Samsung Tizen and other TVs with a web browser. Create a short-lived local receiver link and open it on the TV.",
+    "smart_tv_platform": "TV platform",
+    "smart_tv_lg": "LG webOS",
+    "smart_tv_samsung": "Samsung Tizen",
+    "smart_tv_other": "Other Smart TV",
+    "smart_tv_create_link": "Create TV link",
+    "smart_tv_open_hint": "Open this address in the TV browser within 3 minutes. After connection, the receiver is bound to that TV session.",
+    "smart_tv_copy": "Copy link",
+    "smart_tv_link_ready": "TV receiver link is ready.",
+    "smart_tv_local_only": "Smart-TV receiver links can only be created from the local Home Assistant network.",
+})
+_DASHBOARD_TEXT["ko"].update({
+    "smart_tv_browser": "Smart TV browser",
+    "smart_tv_browser_hint": "For LG webOS, Samsung Tizen and other TVs with a web browser. Create a short-lived local receiver link and open it on the TV.",
+    "smart_tv_platform": "TV platform",
+    "smart_tv_lg": "LG webOS",
+    "smart_tv_samsung": "Samsung Tizen",
+    "smart_tv_other": "Other Smart TV",
+    "smart_tv_create_link": "Create TV link",
+    "smart_tv_open_hint": "Open this address in the TV browser within 3 minutes. After connection, the receiver is bound to that TV session.",
+    "smart_tv_copy": "Copy link",
+    "smart_tv_link_ready": "TV receiver link is ready.",
+    "smart_tv_local_only": "Smart-TV receiver links can only be created from the local Home Assistant network.",
+})
 
 _TV_DASHBOARD_ACCESS_TEXT: dict[str, dict[str, str]] = {
     "en": {
@@ -2197,6 +2480,43 @@ _TV_DASHBOARD_CLOUDFLARE_TEXT: dict[str, dict[str, str]] = {
 }
 
 
+
+_REMOTE_ROLE_TEXT = {
+    "en": {"role_remote":"Remote only","role_remote_local":"Remote + local user","role_remote_local_hint":"Own profile remotely; Home Assistant local resources appear only while connected from the home network"},
+    "el": {"role_remote":"Μόνο απομακρυσμένος χρήστης","role_remote_local":"Απομακρυσμένος + τοπικός χρήστης","role_remote_local_hint":"Δικό του προφίλ απομακρυσμένα· οι τοπικοί πόροι του Home Assistant εμφανίζονται μόνο όταν είναι συνδεδεμένος στο οικιακό δίκτυο"},
+    "de": {"role_remote":"Nur Remote-Benutzer","role_remote_local":"Remote- + lokaler Benutzer","role_remote_local_hint":"Eigenes Profil remote; lokale Home-Assistant-Ressourcen erscheinen nur im Heimnetz"},
+    "fr": {"role_remote":"Utilisateur distant uniquement","role_remote_local":"Utilisateur distant + local","role_remote_local_hint":"Profil propre à distance ; les ressources locales Home Assistant n’apparaissent que sur le réseau domestique"},
+    "es": {"role_remote":"Usuario solo remoto","role_remote_local":"Usuario remoto + local","role_remote_local_hint":"Perfil propio en remoto; los recursos locales de Home Assistant solo aparecen en la red doméstica"},
+    "it": {"role_remote":"Utente solo remoto","role_remote_local":"Utente remoto + locale","role_remote_local_hint":"Profilo proprio da remoto; le risorse locali di Home Assistant compaiono solo sulla rete di casa"},
+    "pt": {"role_remote":"Utilizador apenas remoto","role_remote_local":"Utilizador remoto + local","role_remote_local_hint":"Perfil próprio remotamente; os recursos locais do Home Assistant só aparecem na rede doméstica"},
+    "nl": {"role_remote":"Alleen externe gebruiker","role_remote_local":"Externe + lokale gebruiker","role_remote_local_hint":"Eigen profiel op afstand; lokale Home Assistant-bronnen verschijnen alleen op het thuisnetwerk"},
+    "pl": {"role_remote":"Tylko użytkownik zdalny","role_remote_local":"Użytkownik zdalny + lokalny","role_remote_local_hint":"Własny profil zdalnie; lokalne zasoby Home Assistant są widoczne tylko w sieci domowej"},
+    "ru": {"role_remote":"Только удалённый пользователь","role_remote_local":"Удалённый + локальный пользователь","role_remote_local_hint":"Свой профиль удалённо; локальные ресурсы Home Assistant доступны только в домашней сети"},
+    "uk": {"role_remote":"Лише віддалений користувач","role_remote_local":"Віддалений + локальний користувач","role_remote_local_hint":"Власний профіль віддалено; локальні ресурси Home Assistant доступні лише в домашній мережі"},
+    "tr": {"role_remote":"Yalnızca uzak kullanıcı","role_remote_local":"Uzak + yerel kullanıcı","role_remote_local_hint":"Kendi profiline uzaktan erişir; yerel Home Assistant kaynakları yalnızca ev ağında görünür"},
+    "zh": {"role_remote":"仅远程用户","role_remote_local":"远程 + 本地用户","role_remote_local_hint":"可远程访问自己的配置文件；Home Assistant 本地资源仅在家庭网络中显示"},
+    "ja": {"role_remote":"リモート専用ユーザー","role_remote_local":"リモート + ローカルユーザー","role_remote_local_hint":"自分のプロフィールへリモートアクセスでき、Home Assistant のローカル資源はホームネットワーク接続時のみ表示されます"},
+    "ko": {"role_remote":"원격 전용 사용자","role_remote_local":"원격 + 로컬 사용자","role_remote_local_hint":"자신의 프로필에 원격으로 접근하며 Home Assistant 로컬 리소스는 홈 네트워크에서만 표시됩니다"},
+}
+
+_DEVICE_MANAGEMENT_DASHBOARD_TEXT: dict[str, dict[str, str]] = {
+    "en": {"add_fitness_account":"Add Fitness account","manage_fitness_protocols":"Manage Fitness protocols","fitness_devices":"Fitness devices"},
+    "el": {"add_fitness_account":"Προσθήκη λογαριασμού Fitness","manage_fitness_protocols":"Διαχείριση πρωτοκόλλων Fitness","fitness_devices":"Συσκευές Fitness"},
+    "de": {"add_fitness_account":"Fitness-Konto hinzufügen","manage_fitness_protocols":"Fitness-Protokolle verwalten","fitness_devices":"Fitness-Geräte"},
+    "fr": {"add_fitness_account":"Ajouter un compte Fitness","manage_fitness_protocols":"Gérer les protocoles Fitness","fitness_devices":"Appareils Fitness"},
+    "es": {"add_fitness_account":"Añadir cuenta Fitness","manage_fitness_protocols":"Gestionar protocolos Fitness","fitness_devices":"Dispositivos Fitness"},
+    "it": {"add_fitness_account":"Aggiungi account Fitness","manage_fitness_protocols":"Gestisci protocolli Fitness","fitness_devices":"Dispositivi Fitness"},
+    "pt": {"add_fitness_account":"Adicionar conta Fitness","manage_fitness_protocols":"Gerir protocolos Fitness","fitness_devices":"Dispositivos Fitness"},
+    "nl": {"add_fitness_account":"Fitness-account toevoegen","manage_fitness_protocols":"Fitness-protocollen beheren","fitness_devices":"Fitness-apparaten"},
+    "pl": {"add_fitness_account":"Dodaj konto Fitness","manage_fitness_protocols":"Zarządzaj protokołami Fitness","fitness_devices":"Urządzenia Fitness"},
+    "ru": {"add_fitness_account":"Добавить аккаунт Fitness","manage_fitness_protocols":"Управление протоколами Fitness","fitness_devices":"Устройства Fitness"},
+    "uk": {"add_fitness_account":"Додати обліковий запис Fitness","manage_fitness_protocols":"Керувати протоколами Fitness","fitness_devices":"Пристрої Fitness"},
+    "tr": {"add_fitness_account":"Fitness hesabı ekle","manage_fitness_protocols":"Fitness protokollerini yönet","fitness_devices":"Fitness cihazları"},
+    "zh": {"add_fitness_account":"添加 Fitness 帐户","manage_fitness_protocols":"管理 Fitness 协议","fitness_devices":"Fitness 设备"},
+    "ja": {"add_fitness_account":"Fitness アカウントを追加","manage_fitness_protocols":"Fitness プロトコルを管理","fitness_devices":"Fitness デバイス"},
+    "ko": {"add_fitness_account":"Fitness 계정 추가","manage_fitness_protocols":"Fitness 프로토콜 관리","fitness_devices":"Fitness 기기"},
+}
+
 _WELLNESS_DASHBOARD_TEXT: dict[str, dict[str, str]] = {
     "en": {"card_wellness":"Health snapshot","synced_device_health":"Synced device health","empty_card_preview":"No data yet · available while arranging","send_to_device":"Send to device","start_with_live":"Start with live sensors"},
     "el": {"card_wellness":"Εικόνα υγείας","synced_device_health":"Υγεία από συγχρονισμένες συσκευές","empty_card_preview":"Δεν υπάρχουν ακόμη δεδομένα · διαθέσιμη κατά την τακτοποίηση","send_to_device":"Αποστολή στη συσκευή","start_with_live":"Έναρξη με ζωντανούς αισθητήρες"},
@@ -2217,6 +2537,8 @@ _WELLNESS_DASHBOARD_TEXT: dict[str, dict[str, str]] = {
 
 _DASHBOARD_LABEL_GROUPS = (
     _DASHBOARD_UI_TEXT,
+    _REMOTE_ROLE_TEXT,
+    _DEVICE_MANAGEMENT_DASHBOARD_TEXT,
     _WELLNESS_DASHBOARD_TEXT,
     _TV_DASHBOARD_TEXT,
     _TV_DASHBOARD_SETTINGS_TEXT,
@@ -2894,18 +3216,73 @@ def _tv_overview_cast_state(hass: HomeAssistant) -> dict[str, Any]:
     domain_data = hass.data.setdefault(DOMAIN, {})
     state = domain_data.get(_TV_OVERVIEW_CAST_STATE_KEY)
     if not isinstance(state, dict):
-        state = {"active": False, "target": ""}
+        state = {
+            "active": False,
+            "target": "",
+            "transport": "",
+            "receiver_client_id": "",
+            "stop_receiver_client_id": "",
+            "connecting": False,
+            "started_at": 0.0,
+            "last_seen": 0.0,
+        }
         domain_data[_TV_OVERVIEW_CAST_STATE_KEY] = state
     return state
 
 
 def _tv_overview_cast_descriptor(hass: HomeAssistant) -> dict[str, Any]:
-    """Return dashboard-safe overview Cast state."""
+    """Return receiver-heartbeat-authoritative overview Cast state."""
     state = _tv_overview_cast_state(hass)
+    now = time.monotonic()
+    target = str(state.get("target") or "")
+    last_seen = float(state.get("last_seen") or 0.0)
+    started_at = float(state.get("started_at") or 0.0)
+    receiver_alive = bool(target and last_seen and now - last_seen <= 14.0)
+    connecting = bool(
+        target
+        and state.get("connecting")
+        and started_at
+        and now - started_at <= 35.0
+        and not receiver_alive
+    )
+    if receiver_alive:
+        state["active"] = True
+        state["connecting"] = False
+    elif not connecting:
+        state.update({
+            "active": False,
+            "target": "",
+            "transport": "",
+            "receiver_client_id": "",
+            "connecting": False,
+            "started_at": 0.0,
+            "last_seen": 0.0,
+        })
+        target = ""
+    active = receiver_alive
     return {
-        "active": bool(state.get("active")),
-        "target": str(state.get("target") or "") or None,
+        "active": active,
+        "target": target or None,
+        "transport": str(state.get("transport") or "") or None,
+        "client_id": str(state.get("receiver_client_id") or "") or None,
+        "state": "connected" if active else ("connecting" if connecting else "idle"),
+        "pending": connecting,
+        "busy": bool(active or connecting),
     }
+
+
+async def _async_wait_overview_cast_active(
+    hass: HomeAssistant, *, target: str, timeout: float = 15.0
+) -> bool:
+    """Wait for the actual overview receiver page to heartbeat."""
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + max(0.0, timeout)
+    while loop.time() < deadline:
+        descriptor = _tv_overview_cast_descriptor(hass)
+        if descriptor.get("active") and str(descriptor.get("target") or "") == target:
+            return True
+        await asyncio.sleep(0.2)
+    return False
 
 
 def _tv_cast_targets(hass: HomeAssistant, registry: er.EntityRegistry) -> list[dict[str, Any]]:
@@ -2931,6 +3308,70 @@ def _tv_cast_targets(hass: HomeAssistant, registry: er.EntityRegistry) -> list[d
             }
         )
     return sorted(targets, key=lambda item: (str(item["name"]).casefold(), item["entity_id"]))
+
+
+def _tv_browser_launch_targets(hass: HomeAssistant, registry: er.EntityRegistry) -> list[dict[str, Any]]:
+    """Return HA-managed Android/Google TV targets able to open a receiver URL.
+
+    Fitness never installs or shells out to a host ADB binary.  The official
+    Home Assistant Android TV Remote integration can open an URL as an
+    ``activity`` and the Android Debug Bridge integration exposes
+    ``androidtv.adb_command`` using HA's own ADB transport.
+    """
+    candidates: list[dict[str, Any]] = []
+    seen_devices: set[str] = set()
+
+    def _name(registry_entry, state) -> str:
+        return str(
+            (state.attributes.get("friendly_name") if state is not None else None)
+            or registry_entry.name
+            or registry_entry.entity_id
+        )
+
+    # Prefer Android TV Remote when both integrations represent the same TV.
+    ordered = sorted(
+        registry.entities.values(),
+        key=lambda item: (0 if item.platform == "androidtv_remote" else 1, item.entity_id),
+    )
+    for registry_entry in ordered:
+        if registry_entry.disabled_by is not None:
+            continue
+        method = ""
+        if registry_entry.platform == "androidtv_remote" and registry_entry.entity_id.startswith("remote."):
+            method = "androidtv_remote_url"
+        elif registry_entry.platform == "androidtv" and registry_entry.entity_id.startswith("media_player."):
+            method = "androidtv_adb"
+        if not method:
+            continue
+        device_key = str(registry_entry.device_id or registry_entry.entity_id)
+        if device_key in seen_devices:
+            continue
+        seen_devices.add(device_key)
+        state = hass.states.get(registry_entry.entity_id)
+        available = state is not None and state.state not in {"unavailable", "unknown", "off"}
+        candidates.append({
+            "entity_id": registry_entry.entity_id,
+            "name": _name(registry_entry, state),
+            "method": method,
+            "available": available,
+            "state": state.state if state is not None else "unavailable",
+        })
+    return sorted(candidates, key=lambda item: (str(item["name"]).casefold(), item["entity_id"]))
+
+
+def _validated_browser_receiver_origin(value: Any, *, expected_host: str = "") -> str:
+    """Return a safe HTTP(S) origin supplied by the authenticated frontend."""
+    raw = str(value or "").strip().rstrip("/")
+    parsed = urlparse(raw)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.username or parsed.password:
+        raise ValueError("invalid_receiver_origin")
+    # Only an origin is accepted; callers cannot ask the backend to launch an
+    # arbitrary path/query on a television.
+    if parsed.path not in {"", "/"} or parsed.params or parsed.query or parsed.fragment:
+        raise ValueError("invalid_receiver_origin")
+    if expected_host and parsed.netloc.casefold() != str(expected_host).strip().casefold():
+        raise ValueError("invalid_receiver_origin")
+    return f"{parsed.scheme}://{parsed.netloc}"
 
 
 @websocket_api.websocket_command(
@@ -2964,8 +3405,15 @@ async def websocket_dashboard_flow_translations(hass: HomeAssistant, connection,
     connection.send_result(msg["id"], await hass.async_add_executor_job(_read))
 
 
-def _serialize_fitness_options_flow_result(result: dict[str, Any]) -> dict[str, Any]:
-    """Serialize an options-flow result using Home Assistant's frontend contract."""
+def _serialize_fitness_options_flow_result(
+    result: dict[str, Any], *, hidden_fields: set[str] | None = None,
+    allowed_values: dict[str, set[str]] | None = None,
+) -> dict[str, Any]:
+    """Serialize an options-flow result using Home Assistant's frontend contract.
+
+    Remote sessions do not receive selectors for HA-local lights/areas or
+    Home Assistant-managed Cast targets.
+    """
     if result.get("type") is data_entry_flow.FlowResultType.CREATE_ENTRY:
         data = {
             key: value
@@ -2983,10 +3431,160 @@ def _serialize_fitness_options_flow_result(result: dict[str, Any]) -> dict[str, 
                     schema, custom_serializer=cv.custom_serializer
                 )
             )
+            if hidden_fields and isinstance(data["data_schema"], list):
+                data["data_schema"] = [
+                    field
+                    for field in data["data_schema"]
+                    if str(field.get("name") or "") not in hidden_fields
+                ]
+            if allowed_values and isinstance(data["data_schema"], list):
+                for field in data["data_schema"]:
+                    name = str(field.get("name") or "")
+                    allowed = allowed_values.get(name)
+                    if allowed is None:
+                        continue
+                    selector_data = field.get("selector")
+                    select = selector_data.get("select") if isinstance(selector_data, dict) else None
+                    options = select.get("options") if isinstance(select, dict) else None
+                    if isinstance(options, list):
+                        select["options"] = [
+                            option for option in options
+                            if str(option.get("value") if isinstance(option, dict) else option) in allowed
+                        ]
     flow_type = data.get("type")
     if hasattr(flow_type, "value"):
         data["type"] = flow_type.value
     return data
+
+
+def _fitness_config_flow_active(hass: HomeAssistant, flow_id: str) -> bool:
+    """Return whether an active config flow belongs to HA-Fitness."""
+    needle = str(flow_id or "")
+    if not needle:
+        return False
+    try:
+        progress = hass.config_entries.flow.async_progress()
+    except Exception:
+        return False
+    return any(
+        str(item.get("flow_id") or "") == needle
+        and str(item.get("handler") or "") == DOMAIN
+        for item in progress
+        if isinstance(item, dict)
+    )
+
+
+def _serialize_fitness_config_flow_result(result: dict[str, Any]) -> dict[str, Any]:
+    """Serialize a Fitness config-flow result for the restricted dashboard bridge."""
+    data = _serialize_fitness_options_flow_result(result)
+    created = data.get("result")
+    if created is not None and not isinstance(created, (str, int, float, bool, dict, list, tuple)):
+        entry_id = str(getattr(created, "entry_id", "") or "")
+        data["result"] = {
+            "entry_id": entry_id,
+            "title": str(getattr(created, "title", "") or ""),
+        } if entry_id else None
+    return data
+
+
+async def _require_fitness_config_flow_admin(hass: HomeAssistant, connection) -> dict[str, Any]:
+    """Require a Fitness or native Home Assistant administrator."""
+    access = await get_fitness_access_controller(hass).async_descriptor(connection)
+    if not access.get("is_admin"):
+        raise Unauthorized
+    return access
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/dashboard/config_flow/start",
+        vol.Optional("network_access"): vol.In({"local_only", "remote_only", "local_remote"}),
+    }
+)
+@websocket_api.async_response
+async def websocket_dashboard_config_flow_start(
+    hass: HomeAssistant, connection, msg
+) -> None:
+    """Start the HA-Fitness config flow without exposing Home Assistant's REST API."""
+    try:
+        await _require_fitness_config_flow_admin(hass, connection)
+        context = {"source": "user", "fitness_dashboard_flow": True}
+        network_access = str(msg.get("network_access") or "")
+        if network_access:
+            context["fitness_network_access"] = network_access
+        result = await hass.config_entries.flow.async_init(DOMAIN, context=context)
+    except Unauthorized:
+        connection.send_error(msg["id"], "unauthorized", "Fitness administrator access required")
+        return
+    connection.send_result(msg["id"], _serialize_fitness_config_flow_result(result))
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/dashboard/config_flow/step",
+        vol.Required("flow_id"): vol.All(str, vol.Length(max=128)),
+        vol.Optional("user_input"): vol.All(
+            dict,
+            bounded_websocket_payload(max_nodes=2_048, max_depth=8, max_string_length=8_192),
+        ),
+    }
+)
+@websocket_api.async_response
+async def websocket_dashboard_config_flow_step(
+    hass: HomeAssistant, connection, msg
+) -> None:
+    """Continue or poll an administrator-owned HA-Fitness config flow."""
+    try:
+        await _require_fitness_config_flow_admin(hass, connection)
+    except Unauthorized:
+        connection.send_error(msg["id"], "unauthorized", "Fitness administrator access required")
+        return
+    flow_id = str(msg["flow_id"] or "")
+    if not _fitness_config_flow_active(hass, flow_id):
+        connection.send_error(msg["id"], "invalid_flow", "Fitness config flow not found")
+        return
+    try:
+        if "user_input" in msg:
+            result = await hass.config_entries.flow.async_configure(
+                flow_id, dict(msg["user_input"])
+            )
+        else:
+            result = await hass.config_entries.flow.async_configure(flow_id)
+    except data_entry_flow.UnknownFlow:
+        connection.send_error(msg["id"], "invalid_flow", "Fitness config flow not found")
+        return
+    except data_entry_flow.InvalidData as err:
+        connection.send_error(msg["id"], "invalid_data", str(err))
+        return
+    connection.send_result(msg["id"], _serialize_fitness_config_flow_result(result))
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/dashboard/config_flow/cancel",
+        vol.Required("flow_id"): vol.All(str, vol.Length(max=128)),
+    }
+)
+@websocket_api.async_response
+async def websocket_dashboard_config_flow_cancel(
+    hass: HomeAssistant, connection, msg
+) -> None:
+    """Abort an active administrator-owned HA-Fitness config flow."""
+    try:
+        await _require_fitness_config_flow_admin(hass, connection)
+    except Unauthorized:
+        connection.send_error(msg["id"], "unauthorized", "Fitness administrator access required")
+        return
+    flow_id = str(msg["flow_id"] or "")
+    if not _fitness_config_flow_active(hass, flow_id):
+        connection.send_error(msg["id"], "invalid_flow", "Fitness config flow not found")
+        return
+    try:
+        hass.config_entries.flow.async_abort(flow_id)
+    except data_entry_flow.UnknownFlow:
+        connection.send_error(msg["id"], "invalid_flow", "Fitness config flow not found")
+        return
+    connection.send_result(msg["id"], {"aborted": True})
 
 
 def _fitness_options_profile_entry(hass: HomeAssistant, profile_entry_id: str):
@@ -3025,6 +3623,115 @@ def _fitness_options_flow_matches_profile(
     return str(flow.get("handler") or "") == str(profile_entry_id)
 
 
+_REMOTE_LOCAL_HARDWARE_FIELDS_BY_STEP: dict[str, set[str]] = {
+    "feedback": {CONF_FEEDBACK_AREA_IDS, CONF_FEEDBACK_LIGHT_IDS},
+    "features": {CONF_DASHBOARD_LIGHT_ENTITY_IDS},
+    "tv_dashboard": {CONF_TV_MEDIA_PLAYER_ID, CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE},
+}
+# Non-local Fitness sessions must never enumerate arbitrary HA entities/devices.
+# Provider devices already assigned to the profile are handled separately and
+# may remain usable as owned cloud data sources.
+_REMOTE_SYSTEM_SOURCE_FIELDS_BY_STEP: dict[str, set[str]] = {
+    "fitness_inputs": {
+        CONF_WEIGHT_SCALE_ENTITY, CONF_RESTING_HR, CONF_HEIGHT, CONF_MAX_HR,
+        CONF_VO2MAX, CONF_THRESHOLD_HR, CONF_THRESHOLD_PACE, CONF_THRESHOLD_POWER,
+    },
+    "live_devices": {CONF_LIVE_DEVICE_IDS},
+    "ai": {CONF_AI_ENTITY},
+    "feedback": {CONF_NOTIFY_ENTITY_IDS, CONF_TTS_ENTITY_ID, CONF_TTS_MEDIA_PLAYER_IDS},
+    "features": {
+        CONF_DASHBOARD_RSS_ENTITY_IDS, CONF_DASHBOARD_MUSIC_ENTITY_IDS,
+        CONF_DASHBOARD_LIGHT_ENTITY_IDS, CONF_DASHBOARD_VIDEO_ENTITY_IDS,
+        CONF_DASHBOARD_WEATHER_ENTITY_ID,
+    },
+}
+_REMOTE_OPTIONS_FLOW_STEPS_KEY = "_fitness_remote_options_flow_steps"
+
+
+def _remote_options_flow_steps(hass: HomeAssistant) -> dict[str, str]:
+    return hass.data.setdefault(DOMAIN, {}).setdefault(_REMOTE_OPTIONS_FLOW_STEPS_KEY, {})
+
+
+def _local_hardware_hidden_fields(step_id: str, *, allowed: bool) -> set[str]:
+    if allowed:
+        return set()
+    step = str(step_id or "")
+    return (
+        set(_REMOTE_LOCAL_HARDWARE_FIELDS_BY_STEP.get(step, set()))
+        | set(_REMOTE_SYSTEM_SOURCE_FIELDS_BY_STEP.get(step, set()))
+    )
+
+
+def _preserve_remote_local_hardware_input(
+    hass: HomeAssistant, entry, step_id: str, user_input: dict[str, Any]
+) -> dict[str, Any]:
+    """Keep HA-local hardware settings immutable from a remote options flow."""
+    step = str(step_id or "")
+    protected = (
+        set(_REMOTE_LOCAL_HARDWARE_FIELDS_BY_STEP.get(step, set()))
+        | set(_REMOTE_SYSTEM_SOURCE_FIELDS_BY_STEP.get(step, set()))
+    )
+    if not protected:
+        return dict(user_input)
+    current = {**entry.data, **entry.options}
+    clean = dict(user_input)
+    for key in protected:
+        if key in current:
+            clean[key] = current.get(key)
+        elif key in {CONF_FEEDBACK_AREA_IDS, CONF_FEEDBACK_LIGHT_IDS, CONF_DASHBOARD_LIGHT_ENTITY_IDS}:
+            clean[key] = []
+        elif key == CONF_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE:
+            clean[key] = DEFAULT_TV_IGNORE_LIGHTS_WHEN_CAST_ACTIVE
+        else:
+            clean[key] = ""
+
+    # Provider devices are personal sources. From outside the HA LAN a user may
+    # keep/remove only sources already assigned to the profile; they cannot
+    # enumerate or claim another account's/system device by forging a flow post.
+    current = {**entry.data, **entry.options}
+    if step == "workout_devices" and CONF_WORKOUT_DEVICE_IDS in clean:
+        owned = {str(x) for x in current.get(CONF_WORKOUT_DEVICE_IDS, []) if x}
+        clean[CONF_WORKOUT_DEVICE_IDS] = [str(x) for x in clean.get(CONF_WORKOUT_DEVICE_IDS, []) if str(x) in owned]
+    if step == "sleep_devices" and CONF_SLEEP_DEVICE_IDS in clean:
+        owned = {str(x) for x in current.get(CONF_SLEEP_DEVICE_IDS, []) if x}
+        clean[CONF_SLEEP_DEVICE_IDS] = [str(x) for x in clean.get(CONF_SLEEP_DEVICE_IDS, []) if str(x) in owned]
+    if step == "live_devices" and CONF_LIVE_SENSOR_IDS in clean:
+        runtime = get_live_runtime(hass)
+        owned_remote = set()
+        for raw_id in current.get(CONF_LIVE_SENSOR_IDS, []) or []:
+            sensor_id = runtime.resolve_sensor_id(str(raw_id))
+            sensor = runtime.sensors.get(sensor_id)
+            if sensor is not None and _remote_sensor_owned(sensor):
+                owned_remote.add(sensor_id)
+        clean[CONF_LIVE_SENSOR_IDS] = [
+            runtime.resolve_sensor_id(str(x)) for x in clean.get(CONF_LIVE_SENSOR_IDS, [])
+            if runtime.resolve_sensor_id(str(x)) in owned_remote
+        ]
+    return clean
+
+
+def _remote_allowed_option_values(hass: HomeAssistant, entry, step_id: str, *, local_allowed: bool) -> dict[str, set[str]]:
+    """Restrict non-local selectors to sources already owned by this profile."""
+    if local_allowed:
+        return {}
+    current = {**entry.data, **entry.options}
+    step = str(step_id or "")
+    if step == "workout_devices":
+        return {CONF_WORKOUT_DEVICE_IDS: {str(x) for x in current.get(CONF_WORKOUT_DEVICE_IDS, []) if x}}
+    if step == "sleep_devices":
+        return {CONF_SLEEP_DEVICE_IDS: {str(x) for x in current.get(CONF_SLEEP_DEVICE_IDS, []) if x}}
+    if step == "live_devices":
+        runtime = get_live_runtime(hass)
+        allowed = set()
+        for raw_id in current.get(CONF_LIVE_SENSOR_IDS, []) or []:
+            sensor_id = runtime.resolve_sensor_id(str(raw_id))
+            sensor = runtime.sensors.get(sensor_id)
+            if sensor is not None and _remote_sensor_owned(sensor):
+                allowed.add(sensor_id)
+        return {CONF_LIVE_SENSOR_IDS: allowed}
+    return {}
+
+
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "fitness/dashboard/options_flow/start",
@@ -3041,10 +3748,23 @@ async def websocket_dashboard_options_flow_start(
             hass, connection, msg["profile_entry_id"]
         )
         result = await hass.config_entries.options.async_init(entry.entry_id)
+        access = await get_fitness_access_controller(hass).async_descriptor(connection)
     except ValueError as err:
         connection.send_error(msg["id"], "profile_not_found", str(err))
         return
-    connection.send_result(msg["id"], _serialize_fitness_options_flow_result(result))
+    step_id = str(result.get("step_id") or "")
+    _remote_options_flow_steps(hass)[str(result.get("flow_id") or "")] = step_id
+    hidden = _local_hardware_hidden_fields(
+        step_id, allowed=bool(access.get("local_ha_hardware_allowed"))
+    )
+    allowed_values = _remote_allowed_option_values(
+        hass, entry, step_id, local_allowed=bool(access.get("local_ha_hardware_allowed"))
+    )
+    connection.send_result(
+        msg["id"], _serialize_fitness_options_flow_result(
+            result, hidden_fields=hidden, allowed_values=allowed_values
+        )
+    )
 
 
 @websocket_api.websocket_command(
@@ -3069,10 +3789,19 @@ async def websocket_dashboard_options_flow_step(
     if not _fitness_options_flow_matches_profile(hass, msg["flow_id"], entry.entry_id):
         connection.send_error(msg["id"], "invalid_flow", "Fitness options flow not found")
         return
+    access = await get_fitness_access_controller(hass).async_descriptor(connection)
+    local_hardware_allowed = bool(access.get("local_ha_hardware_allowed"))
+    flow_steps = _remote_options_flow_steps(hass)
+    current_step = str(flow_steps.get(str(msg["flow_id"])) or "")
     try:
         if "user_input" in msg:
+            user_input = dict(msg["user_input"])
+            if not local_hardware_allowed:
+                user_input = _preserve_remote_local_hardware_input(
+                    hass, entry, current_step, user_input
+                )
             result = await hass.config_entries.options.async_configure(
-                msg["flow_id"], msg["user_input"]
+                msg["flow_id"], user_input
             )
         else:
             result = await hass.config_entries.options.async_configure(msg["flow_id"])
@@ -3082,7 +3811,25 @@ async def websocket_dashboard_options_flow_step(
     except data_entry_flow.InvalidData as err:
         connection.send_error(msg["id"], "invalid_data", str(err))
         return
-    connection.send_result(msg["id"], _serialize_fitness_options_flow_result(result))
+    next_step = str(result.get("step_id") or "")
+    flow_id = str(result.get("flow_id") or msg["flow_id"])
+    result_type = result.get("type")
+    result_type_value = result_type.value if hasattr(result_type, "value") else str(result_type or "")
+    if result_type_value in {"create_entry", "abort"}:
+        flow_steps.pop(str(msg["flow_id"]), None)
+    else:
+        flow_steps[flow_id] = next_step
+    hidden = _local_hardware_hidden_fields(
+        next_step, allowed=local_hardware_allowed
+    )
+    allowed_values = _remote_allowed_option_values(
+        hass, entry, next_step, local_allowed=local_hardware_allowed
+    )
+    connection.send_result(
+        msg["id"], _serialize_fitness_options_flow_result(
+            result, hidden_fields=hidden, allowed_values=allowed_values
+        )
+    )
 
 
 @websocket_api.websocket_command(
@@ -3105,10 +3852,263 @@ async def websocket_dashboard_options_flow_cancel(
         return
     try:
         hass.config_entries.options.async_abort(msg["flow_id"])
+        _remote_options_flow_steps(hass).pop(str(msg["flow_id"]), None)
     except data_entry_flow.UnknownFlow:
         connection.send_error(msg["id"], "invalid_flow", "Fitness options flow not found")
         return
     connection.send_result(msg["id"], {"aborted": True})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/tv/browser_receiver",
+        vol.Optional("profile_entry_id", default=""): vol.All(str, vol.Length(max=128)),
+        vol.Optional("overview", default=False): bool,
+        vol.Optional("launch_entity_id", default=""): vol.All(str, vol.Length(max=255)),
+        vol.Optional("launch_method", default=""): vol.In({"", "androidtv_remote_url", "androidtv_adb"}),
+        vol.Optional("origin", default=""): vol.All(str, vol.Length(max=512)),
+    }
+)
+@websocket_api.async_response
+async def websocket_tv_browser_receiver(hass: HomeAssistant, connection, msg) -> None:
+    """Create a restricted browser receiver; HA-driven TV launch stays local-only."""
+    access_controller = get_fitness_access_controller(hass)
+    access = await access_controller.async_descriptor(connection)
+    if not access.get("session_allowed"):
+        connection.send_error(msg["id"], "unauthorized", "Fitness access required")
+        return
+    overview = bool(msg.get("overview"))
+    profile_entry_id = str(msg.get("profile_entry_id") or "").strip()
+    if overview:
+        if not access.get("is_admin"):
+            connection.send_error(msg["id"], "unauthorized", "Fitness administrator access required")
+            return
+        if _tv_overview_cast_descriptor(hass).get("busy"):
+            connection.send_error(
+                msg["id"], "cast_already_active", "Fitness overview is already casting"
+            )
+            return
+    else:
+        entry = _fitness_options_profile_entry(hass, profile_entry_id)
+        if entry is None:
+            connection.send_error(msg["id"], "profile_not_found", "Fitness profile not found")
+            return
+        try:
+            await access_controller.async_require_profile_control(
+                connection, entry.entry_id, cast_hub=get_tv_dashboard_hub(hass)
+            )
+        except Exception:
+            connection.send_error(msg["id"], "unauthorized", "Fitness profile control required")
+            return
+        cast_state = get_tv_dashboard_hub(hass).cast_descriptor(profile_entry_id)
+        if cast_state.get("busy"):
+            connection.send_error(
+                msg["id"], "cast_already_active", "This Fitness profile is already casting"
+            )
+            return
+
+    launch_entity_id = str(msg.get("launch_entity_id") or "").strip()
+    launch_method = str(msg.get("launch_method") or "").strip()
+    launch_target: dict[str, Any] | None = None
+    if launch_entity_id or launch_method:
+        # Android TV Remote / ADB targets belong to the Home Assistant server's
+        # LAN. Never disclose or invoke them for a remote Fitness session.
+        if not access.get("local_ha_hardware_allowed"):
+            connection.send_error(msg["id"], "local_network_required", "Automatic TV launch is available only on the Home Assistant local network")
+            return
+        registry = er.async_get(hass)
+        launch_target = next(
+            (target for target in _tv_browser_launch_targets(hass, registry)
+             if target["entity_id"] == launch_entity_id and target["method"] == launch_method),
+            None,
+        )
+        if launch_target is None:
+            connection.send_error(msg["id"], "invalid_launch_target", "Android TV launch target is not available")
+            return
+        if not launch_target.get("available"):
+            connection.send_error(msg["id"], "launch_target_unavailable", "Android TV launch target is unavailable")
+            return
+        try:
+            request_host = str(getattr(getattr(connection, "request", None), "host", "") or "")
+            origin = _validated_browser_receiver_origin(msg.get("origin"), expected_host=request_host)
+        except ValueError as err:
+            connection.send_error(msg["id"], str(err), "A valid local Fitness origin is required for automatic TV launch")
+            return
+    else:
+        origin = ""
+
+    target_key = f"browser:{launch_entity_id or 'manual'}:{'overview' if overview else profile_entry_id}"
+    account_controller = get_fitness_account_controller(hass)
+    try:
+        ticket = account_controller.issue_cast_bootstrap(
+            profile_entry_id=profile_entry_id,
+            target_entity_id=target_key,
+            overview=overview,
+            network_access=(
+                "local_only" if access.get("is_local_connection") else "remote_only"
+            ),
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], str(err), "Unable to create TV browser receiver")
+        return
+    path = f"/fitness/cast/{ticket}?fitness_cast_receiver=1"
+    launch_attempted = launch_target is not None
+    launch_succeeded = False
+    launch_error = ""
+    if launch_target is not None:
+        receiver_url = f"{origin}{path}"
+        try:
+            if launch_method == "androidtv_remote_url":
+                await hass.services.async_call(
+                    "remote", "turn_on",
+                    {"entity_id": launch_entity_id, "activity": receiver_url},
+                    blocking=True,
+                )
+            elif launch_method == "androidtv_adb":
+                # The HA Android Debug Bridge integration performs the ADB
+                # transport.  Quoting protects the generated URL from shell
+                # interpretation by the Android command parser.
+                command = (
+                    "am start --activity-clear-top --activity-single-top "
+                    f"-a android.intent.action.VIEW -d {shlex.quote(receiver_url)}"
+                )
+                await hass.services.async_call(
+                    "androidtv", "adb_command",
+                    {"entity_id": launch_entity_id, "command": command},
+                    blocking=True,
+                )
+            # A successful HA service call proves only that the command was
+            # accepted.  Do not tell the sender that the TV opened Fitness
+            # until the receiver itself redeems its short-lived bootstrap URL.
+            launch_succeeded = await account_controller.async_wait_cast_bootstrap_redeemed(
+                ticket, timeout=12.0
+            )
+            if not launch_succeeded:
+                launch_error = "receiver_not_connected"
+        except Exception as err:  # noqa: BLE001 - HA service boundary
+            _LOGGER.warning("Fitness Smart-TV auto-open failed for %s: %s", launch_entity_id, err)
+            launch_error = "launch_failed"
+
+        # An automatic launch is a send operation, not a 180-second manual link.
+        # If the TV never redeems the bootstrap URL, revoke it immediately so a
+        # powered-off/stale target cannot reserve the Cast slot or later surface
+        # as a phantom receiver. Manual link creation deliberately keeps its TTL.
+        if not launch_succeeded:
+            account_controller.revoke_cast_sessions(
+                profile_entry_id=profile_entry_id,
+                target_entity_id=target_key,
+            )
+
+    connection.send_result(msg["id"], {
+        "path": path,
+        "overview": overview,
+        "expires_in_seconds": 180,
+        "launch_attempted": launch_attempted,
+        "launch_succeeded": launch_succeeded,
+        "launch_error": launch_error or None,
+        "launch_target": launch_target,
+        "remote_receiver": not bool(access.get("is_local_connection")),
+    })
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/tv/overview/heartbeat",
+        vol.Optional("client_id", default=""): vol.All(str, vol.Length(max=240)),
+    }
+)
+@websocket_api.async_response
+async def websocket_tv_overview_heartbeat(hass: HomeAssistant, connection, msg) -> None:
+    """Confirm that the casted administrator overview page is really alive."""
+    access = await get_fitness_access_controller(hass).async_descriptor(connection)
+    if not access.get("is_admin"):
+        connection.send_error(msg["id"], "unauthorized", "Fitness administrator access required")
+        return
+    state = _tv_overview_cast_state(hass)
+    client_id = str(msg.get("client_id") or "").strip()[:240]
+    if client_id and client_id == str(state.get("stop_receiver_client_id") or ""):
+        result = dict(_tv_overview_cast_descriptor(hass))
+        result["stop_requested"] = True
+        connection.send_result(msg["id"], result)
+        return
+    descriptor = _tv_overview_cast_descriptor(hass)
+    current_receiver = str(state.get("receiver_client_id") or "")
+
+    # A receiver opened directly in a browser/Google Cast session can be the
+    # first observable part of the Cast lifecycle. Adopt it as the overview
+    # receiver rather than requiring a sender-side target to have been stored.
+    if not descriptor.get("busy"):
+        state.update({
+            "active": True,
+            "target": "browser",
+            "transport": "browser_receiver",
+            "receiver_client_id": client_id,
+            "stop_receiver_client_id": "",
+            "connecting": False,
+            "started_at": time.monotonic(),
+            "last_seen": time.monotonic(),
+        })
+        descriptor = _tv_overview_cast_descriptor(hass)
+    elif current_receiver and client_id and current_receiver != client_id:
+        # An old/reused receiver URL must not be able to steal an already-live
+        # overview session. The new receiver is explicitly told it conflicts.
+        result = dict(descriptor)
+        result["cast_conflict"] = True
+        connection.send_result(msg["id"], result)
+        return
+    else:
+        state["last_seen"] = time.monotonic()
+        state["active"] = True
+        state["connecting"] = False
+        if client_id:
+            state["receiver_client_id"] = client_id
+            state["stop_receiver_client_id"] = ""
+        descriptor = _tv_overview_cast_descriptor(hass)
+    connection.send_result(msg["id"], descriptor)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/tv/overview/status",
+    }
+)
+@websocket_api.async_response
+async def websocket_tv_overview_status(hass: HomeAssistant, connection, msg) -> None:
+    """Return receiver-authoritative overview Cast state to sender dashboards."""
+    access = await get_fitness_access_controller(hass).async_descriptor(connection)
+    if not access.get("is_admin"):
+        connection.send_error(msg["id"], "unauthorized", "Fitness administrator access required")
+        return
+    connection.send_result(msg["id"], _tv_overview_cast_descriptor(hass))
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/tv/overview/browser_handoff",
+    }
+)
+@websocket_api.async_response
+async def websocket_tv_overview_browser_handoff(hass: HomeAssistant, connection, msg) -> None:
+    """Reserve the single overview Cast slot for a browser Google Cast sender."""
+    access = await get_fitness_access_controller(hass).async_descriptor(connection)
+    if not access.get("is_admin"):
+        connection.send_error(msg["id"], "unauthorized", "Fitness administrator access required")
+        return
+    if _tv_overview_cast_descriptor(hass).get("busy"):
+        connection.send_error(msg["id"], "cast_already_active", "Fitness overview is already casting")
+        return
+    state = _tv_overview_cast_state(hass)
+    state.update({
+        "active": False,
+        "target": "browser",
+        "transport": "browser_cast",
+        "receiver_client_id": "",
+        "stop_receiver_client_id": "",
+        "connecting": True,
+        "started_at": time.monotonic(),
+        "last_seen": 0.0,
+    })
+    connection.send_result(msg["id"], _tv_overview_cast_descriptor(hass))
 
 
 @websocket_api.websocket_command(
@@ -3119,10 +4119,13 @@ async def websocket_dashboard_options_flow_cancel(
 )
 @websocket_api.async_response
 async def websocket_tv_overview_cast(hass: HomeAssistant, connection, msg) -> None:
-    """Cast the complete Fitness TV user overview to one HA Cast target."""
+    """Cast the complete Fitness TV overview with verified DashCast fallback."""
     access = await get_fitness_access_controller(hass).async_descriptor(connection)
     if not access.get("is_admin"):
         connection.send_error(msg["id"], "unauthorized", "Fitness administrator access required")
+        return
+    if not access.get("local_ha_hardware_allowed"):
+        connection.send_error(msg["id"], "local_network_required", "Home Assistant Cast targets are available only on the local network")
         return
     target = str(msg.get("entity_id") or "").strip()
     registry = er.async_get(hass)
@@ -3136,30 +4139,118 @@ async def websocket_tv_overview_cast(hass: HomeAssistant, connection, msg) -> No
     ):
         connection.send_error(msg["id"], "invalid_cast_target", "Google Cast media player required")
         return
-    if not hass.services.has_service("cast", "show_lovelace_view"):
-        connection.send_error(msg["id"], "cast_unavailable", "Home Assistant Cast service unavailable")
-        return
-    try:
-        await _async_wake_cast_target(hass, target)
-        await async_call_service(
-            hass,
-            "cast",
-            "show_lovelace_view",
-            {
-                "entity_id": target,
-                "dashboard_path": TV_DASHBOARD_PATH,
-                "view_path": "cast-overview",
-            },
-            blocking=True,
-            timeout=30.0,
-        )
-    except Exception as err:  # noqa: BLE001 - keep provider details in server logs
-        _LOGGER.warning("Unable to start Fitness overview Cast", exc_info=err)
-        connection.send_error(msg["id"], "cast_failed", "Unable to start Fitness Cast")
-        return
+
     state = _tv_overview_cast_state(hass)
-    state.update({"active": True, "target": target})
-    connection.send_result(msg["id"], _tv_overview_cast_descriptor(hass))
+    existing = _tv_overview_cast_descriptor(hass)
+    if existing.get("busy"):
+        connection.send_error(msg["id"], "cast_already_active", "Fitness overview is already casting")
+        return
+    state.update({
+        "active": False,
+        "target": target,
+        "transport": "home_assistant_cast",
+        "receiver_client_id": "",
+        "stop_receiver_client_id": "",
+        "connecting": True,
+        "started_at": time.monotonic(),
+        "last_seen": 0.0,
+    })
+    await _async_wake_cast_target(hass, target)
+    current = hass.states.get(target)
+    current_app_id = str(current.attributes.get("app_id") or "") if current is not None else ""
+    if current_app_id:
+        try:
+            await _async_stop_existing_ha_cast_receiver(hass, target, replace_active_app=True)
+            await asyncio.sleep(0.6)
+        except Exception:
+            _LOGGER.debug("Unable to clear existing Cast app before Fitness overview", exc_info=True)
+
+    # Prefer Home Assistant's official Lovelace Cast path, but do not mark the
+    # UI active merely because the service call returned. The receiver must stay
+    # alive long enough to be observable or we transparently fall back to the
+    # restricted local DashCast portal.
+    official_error: Exception | None = None
+    if hass.services.has_service("cast", "show_lovelace_view"):
+        try:
+            await async_call_service(
+                hass,
+                "cast",
+                "show_lovelace_view",
+                {
+                    "entity_id": target,
+                    "dashboard_path": TV_DASHBOARD_PATH,
+                    "view_path": "cast-overview",
+                },
+                blocking=True,
+                timeout=30.0,
+            )
+            if await _async_wait_overview_cast_active(hass, target=target, timeout=14.0):
+                connection.send_result(msg["id"], _tv_overview_cast_descriptor(hass))
+                return
+            official_error = RuntimeError("Home Assistant Cast receiver did not heartbeat")
+        except Exception as err:  # noqa: BLE001 - provider details stay in server logs
+            official_error = err
+    else:
+        official_error = RuntimeError("Home Assistant Cast service unavailable")
+
+    _LOGGER.info(
+        "Fitness overview official Cast unavailable on %s; trying DashCast: %s",
+        target,
+        official_error,
+    )
+    try:
+        await _async_stop_existing_ha_cast_receiver(hass, target, replace_active_app=True)
+    except Exception:
+        _LOGGER.debug("Unable to stop failed official Cast before DashCast fallback", exc_info=True)
+
+    account_controller = get_fitness_account_controller(hass)
+    ticket = ""
+    try:
+        state.update({
+            "active": False,
+            "target": target,
+            "transport": "dashcast",
+            "receiver_client_id": "",
+            "stop_receiver_client_id": "",
+            "connecting": True,
+            "started_at": time.monotonic(),
+            "last_seen": 0.0,
+        })
+        ticket, url = await _async_dashcast_overview_url(hass, target)
+        launched = await _async_launch_dashcast(hass, entry, url)
+        redeemed = bool(
+            launched
+            and await account_controller.async_wait_cast_bootstrap_redeemed(
+                ticket, timeout=18.0
+            )
+        )
+        if redeemed and await _async_wait_overview_cast_active(
+            hass, target=target, timeout=15.0
+        ):
+            connection.send_result(msg["id"], _tv_overview_cast_descriptor(hass))
+            return
+    except Exception as err:  # noqa: BLE001 - keep transport details in server logs
+        _LOGGER.warning("Unable to start Fitness overview DashCast fallback", exc_info=err)
+    finally:
+        if ticket and not account_controller.cast_bootstrap_redeemed(ticket):
+            account_controller.revoke_cast_sessions(target_entity_id=target)
+
+    state.update({
+        "active": False,
+        "target": "",
+        "transport": "",
+        "receiver_client_id": "",
+        "connecting": False,
+        "started_at": 0.0,
+        "last_seen": 0.0,
+    })
+    if ticket:
+        account_controller.revoke_cast_sessions(target_entity_id=target)
+    try:
+        await _async_stop_existing_ha_cast_receiver(hass, target, replace_active_app=True)
+    except Exception:
+        pass
+    connection.send_error(msg["id"], "cast_failed", "Unable to start Fitness Cast")
 
 
 @websocket_api.websocket_command(
@@ -3177,12 +4268,32 @@ async def websocket_tv_overview_stop(hass: HomeAssistant, connection, msg) -> No
         return
     state = _tv_overview_cast_state(hass)
     target = str(msg.get("entity_id") or state.get("target") or "").strip()
-    if target:
+    transport = str(state.get("transport") or "")
+    stopped_receiver_client_id = str(state.get("receiver_client_id") or "")
+    if target and target != "browser":
+        if not access.get("local_ha_hardware_allowed"):
+            connection.send_error(msg["id"], "local_network_required", "Home Assistant Cast targets are available only on the local network")
+            return
+        get_fitness_account_controller(hass).revoke_cast_sessions(target_entity_id=target)
         try:
             await _async_stop_existing_ha_cast_receiver(hass, target)
         except Exception:  # noqa: BLE001 - stopping the overview is best-effort
             _LOGGER.debug("Unable to stop Fitness TV overview Cast on %s", target, exc_info=True)
-    state.update({"active": False, "target": ""})
+    elif target == "browser" or transport == "browser_receiver":
+        # Browser/local Google Cast receivers have no HA media_player to stop.
+        # Clearing the authoritative server state makes their next heartbeat a
+        # new session; sender-side Google Cast termination closes the receiver.
+        get_fitness_account_controller(hass).revoke_cast_sessions()
+    state.update({
+        "active": False,
+        "target": "",
+        "transport": "",
+        "receiver_client_id": "",
+        "stop_receiver_client_id": stopped_receiver_client_id,
+        "connecting": False,
+        "started_at": 0.0,
+        "last_seen": 0.0,
+    })
     connection.send_result(msg["id"], _tv_overview_cast_descriptor(hass))
 
 
@@ -3308,6 +4419,135 @@ async def websocket_weight_dismiss(hass: HomeAssistant, connection, msg) -> None
     connection.send_result(msg["id"], {"dismissed": True})
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/sensor/claim",
+        vol.Required("profile_entry_id"): str,
+        vol.Required("sensor_id"): str,
+    }
+)
+@websocket_api.async_response
+async def websocket_sensor_claim(hass: HomeAssistant, connection, msg) -> None:
+    """Accept and assign one freshly discovered local Fitness sensor."""
+    profile_id = str(msg["profile_entry_id"] or "")
+    access_controller = get_fitness_access_controller(hass)
+    allowed = set(await access_controller.async_control_profile_ids(connection))
+    access = await access_controller.async_descriptor(connection)
+    if profile_id not in allowed:
+        connection.send_error(msg["id"], "unauthorized", "Fitness profile control access required")
+        return
+    if not access.get("local_ha_hardware_allowed"):
+        connection.send_error(msg["id"], "local_network_required", "Local Fitness sensors can be assigned only on the Home Assistant local network")
+        return
+    runtime = get_live_runtime(hass)
+    await runtime.async_initialize()
+    sensor_id = runtime.resolve_sensor_id(str(msg["sensor_id"] or ""))
+    sensor = runtime.sensors.get(sensor_id)
+    entry = _fitness_options_profile_entry(hass, profile_id)
+    if sensor is None or entry is None:
+        connection.send_error(msg["id"], "sensor_unavailable", "Fitness sensor is unavailable")
+        return
+
+    was_accepted = runtime.sensor_is_accepted(sensor_id)
+    if not was_accepted and not runtime.sensor_discovery_visible(sensor_id):
+        connection.send_error(msg["id"], "sensor_unavailable", "Fitness sensor is no longer actively discovered")
+        return
+    assigned = runtime.sensor_assigned_profile_ids(sensor_id)
+    if assigned and profile_id not in assigned:
+        connection.send_error(msg["id"], "sensor_already_assigned", "Fitness sensor is already assigned")
+        return
+
+    ids = list(({**entry.data, **entry.options}.get(CONF_LIVE_SENSOR_IDS) or []))
+    ids = [item for item in ids if runtime.resolve_sensor_id(str(item)) != sensor_id]
+    ids.append(sensor_id)
+    options = dict(entry.options)
+    options[CONF_LIVE_SENSOR_IDS] = ids
+    if getattr(getattr(entry, "state", None), "value", None) == "loaded":
+        runtime.suppress_entry_reload_once(entry.entry_id)
+    hass.config_entries.async_update_entry(entry, options=options)
+
+    # Smart archive devices need the same ownership metadata whether they were
+    # accepted from the config flow or directly from the local dashboard notice.
+    from .smart_workout_devices import (
+        is_smart_workout_candidate,
+        smart_workout_device_type,
+        smart_workout_model_label,
+    )
+    if is_smart_workout_candidate(sensor):
+        runtime.configure_smart_workout_device(
+            sensor_id,
+            owner_profile_id=entry.entry_id,
+            device_type=smart_workout_device_type(sensor),
+            model_label=smart_workout_model_label(sensor),
+        )
+    if not was_accepted:
+        runtime.mark_sensor_accepted(sensor_id)
+    runtime.dismiss_sensor_discovery(sensor_id)
+
+    async def _finalize_claim() -> None:
+        if not was_accepted:
+            await asyncio.sleep(0.5)
+            runtime.finalize_sensor_acceptance(runtime.resolve_sensor_id(sensor_id))
+        runtime.schedule_profile_assignment_refresh([entry.entry_id])
+        runtime.notify_sensor_assignment_changed(runtime.resolve_sensor_id(sensor_id))
+        runtime._notify_values_throttled({(runtime.resolve_sensor_id(sensor_id), "workout_owner", None)})
+        runtime._notify_structure_throttled()
+
+    hass.async_create_background_task(
+        _finalize_claim(),
+        f"fitness finalize dashboard sensor claim {sensor_id}",
+        eager_start=False,
+    )
+    connection.send_result(msg["id"], {"assigned": True, "sensor_id": runtime.resolve_sensor_id(sensor_id)})
+
+
+def _notification_sensor_candidates(runtime, profile_id: str) -> list[dict[str, str]]:
+    """Return fresh, unowned HA-local discovery candidates for one profile."""
+    rows: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for candidate in sorted(runtime.sensors.values(), key=lambda item: item.label().lower()):
+        sensor_id = runtime.resolve_sensor_id(candidate.sensor_id)
+        if sensor_id in seen:
+            continue
+        seen.add(sensor_id)
+        if runtime.sensor_is_accepted(sensor_id) or not runtime.sensor_discovery_visible(sensor_id):
+            continue
+        if runtime.sensor_assigned_profile_ids(sensor_id):
+            continue
+        rows.append({
+            "sensor_id": sensor_id,
+            "name": str(candidate.label() or sensor_id)[:128],
+            "transport": "+".join(sorted(candidate.endpoints))[:32],
+        })
+        if len(rows) >= 8:
+            break
+    return rows
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/sensor/discovery_candidates",
+        vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+    }
+)
+@websocket_api.async_response
+async def websocket_sensor_discovery_candidates(hass: HomeAssistant, connection, msg) -> None:
+    """Return a tiny local-only discovery snapshot for notification refreshes."""
+    profile_id = str(msg["profile_entry_id"] or "")
+    access_controller = get_fitness_access_controller(hass)
+    access = await access_controller.async_descriptor(connection)
+    allowed = set(await access_controller.async_control_profile_ids(connection))
+    if profile_id not in allowed:
+        connection.send_error(msg["id"], "unauthorized", "Fitness profile control access required")
+        return
+    if not access.get("local_ha_hardware_allowed"):
+        connection.send_result(msg["id"], {"candidates": []})
+        return
+    runtime = get_live_runtime(hass)
+    await runtime.async_initialize()
+    connection.send_result(msg["id"], {"candidates": _notification_sensor_candidates(runtime, profile_id)})
+
+
 async def _dashboard_profile_for_view(
     hass: HomeAssistant, connection, profile_entry_id: str
 ):
@@ -3332,18 +4572,18 @@ def _dashboard_workout_item(manager, entry_id: str, workout) -> dict[str, Any]:
     # Merge canonicalization namespaces provider extras (for example
     # ``garmin_direct.gps_track``). Promote any real route back to the
     # dashboard's canonical key so old and newly merged workouts render maps.
-    track = extra.get("gps_track") or extra.get("gps_points")
-    if not isinstance(track, list) or len(track) < 2:
-        for key, value in extra.items():
-            suffix = str(key).rsplit(".", 1)[-1]
-            if suffix in {"gps_track", "gps_points"} and isinstance(value, list) and len(value) >= 2:
-                track = value
-                break
-    if isinstance(track, list) and len(track) >= 2:
+    # Canonicalize every route shape accepted by workout persistence. This is
+    # deliberately independent from the map-tile renderer: a workout carrying
+    # route evidence must keep that evidence when browsed, no matter how old it is.
+    track = _route_points(data.get("gps_track")) or _route_points(extra)
+    if not track:
+        track = _route_points(data.get("provider_values") or {})
+    if track:
         if len(track) > 1500:
             step = max(1, len(track) // 1500)
             track = track[::step][:1500]
         extra["gps_track"] = track
+    data["has_map"] = bool(track)
     data["extra"] = extra
     data["uid"] = manager._calendar_uid(entry_id, workout)
     return data
@@ -3354,11 +4594,17 @@ def _dashboard_workout_item(manager, entry_id: str, workout) -> dict[str, Any]:
         vol.Required("type"): "fitness/workouts/list",
         vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
         vol.Optional("limit", default=100): vol.All(int, vol.Range(min=1, max=500)),
+        vol.Optional("cursor"): vol.All(str, vol.Length(min=1, max=768)),
     }
 )
 @websocket_api.async_response
 async def websocket_workouts_list(hass: HomeAssistant, connection, msg) -> None:
-    """Return a bounded newest-first canonical workout list."""
+    """Return a bounded newest-first canonical workout page.
+
+    Cursor pagination keeps the browser payload bounded while still allowing the
+    user to walk the complete retained workout history.  The cursor is a signed-
+    by-shape (not secret) opaque key containing only the final start/uid pair.
+    """
     try:
         entry, manager = await _dashboard_profile_for_view(
             hass, connection, msg["profile_entry_id"]
@@ -3366,20 +4612,49 @@ async def websocket_workouts_list(hass: HomeAssistant, connection, msg) -> None:
     except ValueError as err:
         connection.send_error(msg["id"], str(err), str(err))
         return
+
+    def workout_key(item) -> tuple[str, str]:
+        return (str(item.start or ""), str(getattr(item, "uid", "") or ""))
+
+    def decode_cursor(raw: str | None) -> tuple[str, str] | None:
+        if not raw:
+            return None
+        try:
+            padding = "=" * (-len(raw) % 4)
+            value = json.loads(base64.urlsafe_b64decode(raw + padding).decode("utf-8"))
+            if not isinstance(value, list) or len(value) != 2:
+                return None
+            return (str(value[0])[:128], str(value[1])[:256])
+        except (ValueError, TypeError, json.JSONDecodeError, UnicodeDecodeError):
+            return None
+
+    def encode_cursor(key: tuple[str, str]) -> str:
+        raw = json.dumps([key[0], key[1]], separators=(",", ":")).encode("utf-8")
+        return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
     all_workouts = manager.local_workouts()
-    workouts = sorted(
-        all_workouts,
-        key=lambda item: str(item.start or ""),
-        reverse=True,
-    )[: int(msg.get("limit", 100))]
+    ordered = sorted(all_workouts, key=workout_key, reverse=True)
+    cursor = decode_cursor(msg.get("cursor"))
+    if msg.get("cursor") and cursor is None:
+        connection.send_error(msg["id"], "invalid_cursor", "Invalid workout history cursor")
+        return
+    if cursor is not None:
+        ordered = [item for item in ordered if workout_key(item) < cursor]
+
+    limit = int(msg.get("limit", 100))
+    page = ordered[:limit]
+    has_more = len(ordered) > len(page)
+    next_cursor = encode_cursor(workout_key(page[-1])) if has_more and page else None
     connection.send_result(
         msg["id"],
         {
             "workouts": [
                 _dashboard_workout_item(manager, entry.entry_id, workout)
-                for workout in workouts
+                for workout in page
             ],
             "total": len(all_workouts),
+            "next_cursor": next_cursor,
+            "has_more": has_more,
         },
     )
 
@@ -3658,16 +4933,17 @@ def _dashboard_today_summary(manager) -> dict[str, Any]:
 async def websocket_training_tests(hass: HomeAssistant, connection, msg) -> None:
     """Return built-in structured tests available to this athlete."""
     try:
-        await _dashboard_profile_for_view(hass, connection, msg["profile_entry_id"])
+        entry, _manager = await _dashboard_profile_for_view(hass, connection, msg["profile_entry_id"])
     except ValueError as err:
         connection.send_error(msg["id"], str(err), str(err)); return
-    connection.send_result(msg["id"], {"tests": fitness_test_catalog()})
+    connection.send_result(msg["id"], {"tests": fitness_test_catalog(_language(entry))})
 
 
 @websocket_api.websocket_command({
     vol.Required("type"): "fitness/training/daily_plan",
     vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
     vol.Optional("regenerate", default=False): bool,
+    vol.Optional("user_text", default=""): vol.All(str, vol.Length(max=2000)),
 })
 @websocket_api.async_response
 async def websocket_training_daily_plan(hass: HomeAssistant, connection, msg) -> None:
@@ -3682,7 +4958,7 @@ async def websocket_training_daily_plan(hass: HomeAssistant, connection, msg) ->
         if profile_id not in allowed:
             connection.send_error(msg["id"], "unauthorized", "Fitness profile control required"); return
         before_generated_at = str((manager.ai_daily_plan or {}).get("generated_at") or "")
-        plan = await manager.async_generate_daily_training_plan(force=True)
+        plan = await manager.async_generate_daily_training_plan(force=True, user_text=str(msg.get("user_text") or ""))
         after_generated_at = str((plan or {}).get("generated_at") or "")
         if not after_generated_at or after_generated_at == before_generated_at:
             connection.send_error(
@@ -3701,6 +4977,7 @@ async def websocket_training_daily_plan(hass: HomeAssistant, connection, msg) ->
     vol.Required("type"): "fitness/training/plan",
     vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
     vol.Optional("regenerate", default=False): bool,
+    vol.Optional("user_text", default=""): vol.All(str, vol.Length(max=2000)),
 })
 @websocket_api.async_response
 async def websocket_training_plan(hass: HomeAssistant, connection, msg) -> None:
@@ -3715,7 +4992,7 @@ async def websocket_training_plan(hass: HomeAssistant, connection, msg) -> None:
         if profile_id not in allowed:
             connection.send_error(msg["id"], "unauthorized", "Fitness profile control required"); return
         before_generated_at = str((manager.ai_training_plan or {}).get("generated_at") or "")
-        plan = await manager.async_generate_training_plan(force=True)
+        plan = await manager.async_generate_training_plan(force=True, user_text=str(msg.get("user_text") or ""))
         after_generated_at = str((plan or {}).get("generated_at") or "")
         if not after_generated_at or after_generated_at == before_generated_at:
             connection.send_error(
@@ -3847,6 +5124,101 @@ async def websocket_training_start(hass: HomeAssistant, connection, msg) -> None
     connection.send_result(msg["id"], {"started": True, "prescription": result})
 
 
+def _remote_safe_metric_routes(routes: dict[str, Any]) -> dict[str, Any]:
+    """Return normalized route values without exposing HA entity handles."""
+    safe: dict[str, Any] = {}
+    for key, route in (routes or {}).items():
+        if not isinstance(route, dict):
+            continue
+        safe[str(key)] = {
+            k: v for k, v in route.items()
+            if k not in {"entity_id", "source_entity", "owner_entity_id", "device_id"}
+        }
+    return safe
+
+
+def _remote_sensor_owned(sensor) -> bool:
+    """Return whether a live sensor has a remote/browser-owned endpoint."""
+    for endpoint in getattr(sensor, "endpoints", {}).values():
+        source = str(getattr(endpoint, "source", "") or "").lower()
+        metadata = getattr(endpoint, "metadata", {}) or {}
+        endpoint_id = str(getattr(endpoint, "endpoint_id", "") or "")
+        if source.startswith("remote") or metadata.get("browser_remote") or ":web:" in endpoint_id:
+            return True
+    return False
+
+
+def _dashboard_about_payload() -> dict[str, str]:
+    """Return bounded local Fitness TV project metadata for the admin About dialog."""
+    base = Path(__file__).resolve().parent
+    manifest: dict[str, Any] = {}
+    try:
+        manifest = json.loads((base / "manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        manifest = {}
+
+    changelog = "Changelog is unavailable in this installation."
+    for candidate in (base / "changelog.md", base / "CHANGELOG.md"):
+        try:
+            changelog = candidate.read_text(encoding="utf-8").strip()[:60_000]
+            break
+        except OSError:
+            continue
+
+    license_name = "MIT License"
+    copyright_text = "Copyright (c) 2026 Chreece"
+    license_path = base.parent.parent / "LICENSE"
+    try:
+        license_lines = [line.strip() for line in license_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if license_lines:
+            license_name = license_lines[0][:160]
+        if len(license_lines) > 1:
+            copyright_text = license_lines[1][:240]
+    except OSError:
+        pass
+
+    return {
+        "name": "Fitness TV",
+        "project": "HA-Fitness",
+        "version": str(manifest.get("version") or "unknown")[:80],
+        "changelog": changelog,
+        "documentation": str(manifest.get("documentation") or "https://github.com/Chreece/HA-Fitness")[:512],
+        "issue_tracker": str(manifest.get("issue_tracker") or "https://github.com/Chreece/HA-Fitness/issues")[:512],
+        "license": license_name,
+        "copyright": copyright_text,
+    }
+
+
+@websocket_api.websocket_command({vol.Required("type"): "fitness/dashboard/about"})
+@websocket_api.async_response
+async def websocket_dashboard_about(hass: HomeAssistant, connection, msg) -> None:
+    """Return Fitness TV About metadata to Fitness/HA administrators only."""
+    access = await get_fitness_access_controller(hass).async_descriptor(connection)
+    if not access.get("is_admin"):
+        connection.send_error(msg["id"], "unauthorized", "Fitness administrator access required")
+        return
+    payload = await hass.async_add_executor_job(_dashboard_about_payload)
+    connection.send_result(msg["id"], payload)
+
+
+@websocket_api.websocket_command({vol.Required("type"): "fitness/dashboard/cast_targets"})
+@websocket_api.async_response
+async def websocket_dashboard_cast_targets(hass: HomeAssistant, connection, msg) -> None:
+    """Return current local Cast/browser-TV availability without rebuilding config."""
+    access = await get_fitness_access_controller(hass).async_descriptor(connection)
+    if not access.get("local_ha_hardware_allowed"):
+        connection.send_result(msg["id"], {"cast_targets": [], "browser_launch_targets": []})
+        return
+    registry = er.async_get(hass)
+    connection.send_result(
+        msg["id"],
+        {
+            "cast_targets": _tv_cast_targets(hass, registry),
+            "browser_launch_targets": _tv_browser_launch_targets(hass, registry),
+        },
+    )
+
+
 @websocket_api.websocket_command({vol.Required("type"): "fitness/dashboard/config"})
 @websocket_api.async_response
 async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> None:
@@ -3868,6 +5240,7 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
         connection, cast_hub=tv_hub
     )
     access = await access_controller.async_descriptor(connection)
+    local_ha_hardware_allowed = bool(access.get("local_ha_hardware_allowed"))
     for entry in hass.config_entries.async_entries(DOMAIN):
         if entry.entry_id not in visible_profile_ids:
             continue
@@ -3925,13 +5298,22 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                     "tv_dashboard": {
                         "enabled": bool(config.get(CONF_TV_DASHBOARD_ENABLED, False)),
                         "ytdlp_enabled": bool(config.get(CONF_TV_YTDLP_ENABLED, False)),
-                        "cast_media_player_id": str(
-                            config.get(CONF_TV_MEDIA_PLAYER_ID) or ""
-                        )
-                        or None,
-                        "cast_active": tv_hub.is_cast_active(entry.entry_id),
+                        "cast_media_player_id": (
+                            str(config.get(CONF_TV_MEDIA_PLAYER_ID) or "") or None
+                            if local_ha_hardware_allowed
+                            else None
+                        ),
+                        "cast_active": (
+                            tv_hub.is_cast_active(entry.entry_id)
+                            if local_ha_hardware_allowed
+                            else False
+                        ),
                         "local_cast_active": tv_hub.is_local_cast_active(entry.entry_id),
-                        "cast_target": tv_hub.cast_target(entry.entry_id),
+                        "cast_target": (
+                            tv_hub.cast_target(entry.entry_id)
+                            if local_ha_hardware_allowed
+                            else None
+                        ),
                         "ducking_percent": max(
                             0,
                             min(
@@ -4031,19 +5413,27 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
             for key, route in evaluation_routes.items()
         }
 
+        if not local_ha_hardware_allowed:
+            live_routes = _remote_safe_metric_routes(live_routes)
+            workout_source_metrics = _remote_safe_metric_routes(workout_source_metrics)
+            sleep_source_metrics = _remote_safe_metric_routes(sleep_source_metrics)
+            evaluation_source_metrics = _remote_safe_metric_routes(evaluation_source_metrics)
+
         # Compatibility aliases for existing Live card code. These keys point
         # directly at the physical/source entities from live_data; they are not
         # Fitness mirrors and can change without recreating profile entities.
-        for key in LIVE_RAW_ROUTE_KEYS:
-            source = (live_routes.get(key) or {}).get("entity_id")
-            if source:
-                entities[key] = source
+        if local_ha_hardware_allowed:
+            for key in LIVE_RAW_ROUTE_KEYS:
+                source = (live_routes.get(key) or {}).get("entity_id")
+                if source:
+                    entities[key] = source
 
         runtime = get_live_runtime(hass)
         assigned_live_sensors = [
             sensor
             for sensor in runtime.sensors_for_profile(entry)
             if runtime.sensor_is_accepted(runtime.resolve_sensor_id(sensor.sensor_id))
+            and (local_ha_hardware_allowed or _remote_sensor_owned(sensor))
         ]
         assigned_live_sensor_ids = list(
             dict.fromkeys(
@@ -4074,6 +5464,13 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                         "metric": str(metric),
                     }
                 )
+
+        notification_sensor_candidates: list[dict[str, str]] = []
+        if local_ha_hardware_allowed and entry.entry_id in control_profile_ids:
+            # Dashboard notifications are about *pending HA discovery*. Accepted
+            # devices already have a registry/configuration surface and must not
+            # masquerade as newly discovered hardware.
+            notification_sensor_candidates = _notification_sensor_candidates(runtime, entry.entry_id)
 
         tv_preferences = await get_tv_dashboard_hub(hass).async_preferences(entry.entry_id)
 
@@ -4116,6 +5513,7 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                 "has_assigned_live_sensor": bool(assigned_live_sensor_ids),
                 "assigned_live_sensor_ids": assigned_live_sensor_ids,
                 "live_sensor_metrics": live_sensor_metrics,
+                "notification_sensor_candidates": notification_sensor_candidates,
                 "live_entity_keys": [
                     key for key in entities
                     if key in {
@@ -4145,16 +5543,29 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                     "fitness_owned": workout_is_fitness_owned(latest_workout),
                 },
                 "workout_comparisons": manager.workout_comparisons_by_sport(),
+                "heart_rate_zones": manager.dashboard_heart_rate_zones(),
                 "workout_source_metrics": workout_source_metrics,
                 "sleep_source_metrics": sleep_source_metrics,
                 "evaluation_source_metrics": evaluation_source_metrics,
                 "tv_dashboard": {
                     "enabled": bool(manager.config.get(CONF_TV_DASHBOARD_ENABLED, False)),
                     "ytdlp_enabled": bool(manager.config.get(CONF_TV_YTDLP_ENABLED, False)),
-                    "cast_media_player_id": str(manager.config.get(CONF_TV_MEDIA_PLAYER_ID) or "") or None,
-                    "cast_active": get_tv_dashboard_hub(hass).is_cast_active(entry.entry_id),
+                    "cast_media_player_id": (
+                        str(manager.config.get(CONF_TV_MEDIA_PLAYER_ID) or "") or None
+                        if local_ha_hardware_allowed
+                        else None
+                    ),
+                    "cast_active": (
+                        get_tv_dashboard_hub(hass).is_cast_active(entry.entry_id)
+                        if local_ha_hardware_allowed
+                        else False
+                    ),
                     "local_cast_active": get_tv_dashboard_hub(hass).is_local_cast_active(entry.entry_id),
-                    "cast_target": get_tv_dashboard_hub(hass).cast_target(entry.entry_id),
+                    "cast_target": (
+                        get_tv_dashboard_hub(hass).cast_target(entry.entry_id)
+                        if local_ha_hardware_allowed
+                        else None
+                    ),
                     "ducking_percent": max(
                         0,
                         min(
@@ -4182,13 +5593,15 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                     "last_media": dict(tv_preferences.get("last_media") or {}),
                     "audio_output_id": str(tv_preferences.get("audio_output_id") or "__fitness_browser__"),
                 },
-                "route_candidates": _route_candidates(hass, manager),
+                "route_candidates": (
+                    _route_candidates(hass, manager) if local_ha_hardware_allowed else {}
+                ),
             }
         )
     connection.send_result(
         msg["id"],
         {
-            "frontend_version": "unreleased-110",
+            "frontend_version": "unreleased-138",
             "profiles": profiles,
             "access": access,
             # Access-denied and administrator overview screens can render
@@ -4210,9 +5623,26 @@ async def websocket_dashboard_config(hass: HomeAssistant, connection, msg) -> No
                 code: {**labels, "pace": _PACE_TEXT[code]}
                 for code, labels in _DASHBOARD_TEXT.items()
             },
-            "cast_targets": _tv_cast_targets(hass, registry) if access.get("is_admin") else [],
-            "overview_cast": _tv_overview_cast_descriptor(hass) if access.get("is_admin") else {"active": False, "target": None},
-            "audio_outputs": _fitness_audio_outputs(hass, registry),
+            "cast_targets": (
+                _tv_cast_targets(hass, registry)
+                if access.get("local_ha_hardware_allowed")
+                else []
+            ),
+            "browser_launch_targets": (
+                _tv_browser_launch_targets(hass, registry)
+                if access.get("local_ha_hardware_allowed")
+                else []
+            ),
+            "overview_cast": (
+                _tv_overview_cast_descriptor(hass)
+                if access.get("is_admin") and access.get("local_ha_hardware_allowed")
+                else {"active": False, "target": None}
+            ),
+            "audio_outputs": (
+                _fitness_audio_outputs(hass, registry)
+                if access.get("local_ha_hardware_allowed")
+                else []
+            ),
             "intensity_colors": {
                 key: list(rgb)
                 for key, rgb in INTENSITY_RGB.items()
@@ -4501,7 +5931,7 @@ async def async_ensure_tv_dashboard(hass: HomeAssistant) -> bool:
     except ValueError:
         _LOGGER.warning("Unable to register/update the Fitness TV sidebar panel")
 
-    _LOGGER.info(
+    _LOGGER.debug(
         "Fitness TV dashboard ready at /%s with %d explicit Cast-compatible views",
         TV_DASHBOARD_PATH,
         len(expected_config["views"]),
@@ -4553,6 +5983,115 @@ async def _async_wake_cast_target(
     return False
 
 
+async def _async_dashcast_overview_url(
+    hass: HomeAssistant, media_player: str
+) -> tuple[str, str]:
+    """Create an opaque LAN-only DashCast URL for the read-only admin overview."""
+    controller = get_fitness_account_controller(hass)
+    await controller.async_load()
+    ticket = controller.issue_cast_bootstrap(
+        target_entity_id=media_player, overview=True
+    )
+    try:
+        base = get_url(hass, allow_external=False).rstrip("/")
+    except NoURLAvailableError as err:
+        controller.revoke_cast_sessions(target_entity_id=media_player)
+        raise RuntimeError("Home Assistant has no LAN URL for Fitness overview Cast") from err
+    return ticket, f"{base}/fitness/cast/{ticket}?fitness_cast_receiver=1"
+
+
+async def _async_dashcast_profile_url(
+    hass: HomeAssistant, profile_entry_id: str, media_player: str
+) -> tuple[str, str]:
+    """Create one opaque LAN-only Fitness URL for a DashCast receiver."""
+    controller = get_fitness_account_controller(hass)
+    await controller.async_load()
+    ticket = controller.issue_cast_bootstrap(
+        profile_entry_id=profile_entry_id, target_entity_id=media_player
+    )
+    try:
+        base = get_url(hass, allow_external=False).rstrip("/")
+    except NoURLAvailableError as err:
+        controller.revoke_cast_sessions(
+            profile_entry_id=profile_entry_id, target_entity_id=media_player
+        )
+        raise RuntimeError("Home Assistant has no LAN URL for Fitness Cast") from err
+    return ticket, f"{base}/fitness/cast/{ticket}?fitness_cast_receiver=1"
+
+
+def _launch_dashcast_sync(target_uuid: str, url: str) -> bool:
+    """Deliver one LAN URL through DashCast using its native single-launch path.
+
+    ``DashCastController.load_url`` already launches the DashCast receiver and,
+    only after that launch succeeds, sends the URL over DashCast's namespace.
+    Launching the receiver separately before ``load_url`` causes a second launch
+    and can reset the receiver just as the URL is being delivered. Keep this
+    sequence identical to PyChromecast's intended API and to the proven manual
+    Fitness probe: register controller -> load_url(force=True) -> keep sender
+    alive while the forced navigation leaves DashCast for the local page.
+    """
+    try:
+        import pychromecast
+        from pychromecast.controllers.dashcast import DashCastController
+    except ImportError:
+        return False
+
+    casts = []
+    browser = None
+    target = None
+    try:
+        casts, browser = pychromecast.get_chromecasts()
+        target = next(
+            (cast for cast in casts if str(cast.cast_info.uuid) == target_uuid),
+            None,
+        )
+        if target is None:
+            return False
+        target.wait(timeout=15)
+        controller = DashCastController()
+        target.register_handler(controller)
+
+        # load_url() already performs the DashCast launch internally. Calling
+        # a separate explicit launch first causes a second launch and can reset the
+        # receiver just as the forced URL is being delivered.
+        controller.load_url(url, force=True)
+
+        # Match the known-good manual probe: keep the sender connected while the
+        # receiver navigates away from DashCast and into the local Fitness page.
+        time.sleep(DASHCAST_POST_LOAD_SETTLE)
+        return True
+    finally:
+        if browser is not None:
+            try:
+                browser.stop_discovery()
+            except Exception:
+                pass
+        if target is not None:
+            try:
+                target.disconnect()
+            except Exception:
+                pass
+
+
+async def _async_launch_dashcast(
+    hass: HomeAssistant, registry_entry, url: str
+) -> bool:
+    """Launch DashCast for the exact HA Cast entity without name matching."""
+    try:
+        target_uuid = str(uuid.UUID(str(registry_entry.unique_id)))
+    except (ValueError, TypeError, AttributeError):
+        _LOGGER.warning(
+            "Fitness cannot resolve Cast UUID from entity %s",
+            getattr(registry_entry, "entity_id", "unknown"),
+        )
+        return False
+    return await hass.async_add_executor_job(_launch_dashcast_sync, target_uuid, url)
+
+
+def _fitness_cast_app_active(app_id: str) -> bool:
+    return str(app_id or "") in {CAST_APP_ID_HOMEASSISTANT_LOVELACE, DASHCAST_APP_ID}
+
+
 async def _async_wait_for_cast_receiver_exit(
     hass: HomeAssistant,
     media_player: str,
@@ -4565,7 +6104,7 @@ async def _async_wait_for_cast_receiver_exit(
     while loop.time() < deadline:
         state = hass.states.get(media_player)
         app_id = str(state.attributes.get("app_id") or "") if state is not None else ""
-        if app_id != CAST_APP_ID_HOMEASSISTANT_LOVELACE:
+        if not _fitness_cast_app_active(app_id):
             return True
         await asyncio.sleep(0.25)
     return False
@@ -4576,18 +6115,21 @@ async def _async_stop_existing_ha_cast_receiver(
     media_player: str,
     *,
     force: bool = False,
+    replace_active_app: bool = False,
 ) -> bool:
-    """Quit a stale Home Assistant Lovelace receiver without powering off the TV.
+    """Quit the Cast receiver on one explicitly selected target.
 
-    The Cast media-player implementation maps ``turn_off`` to ``quit_app``.
-    We only issue it automatically when the active Cast app is Home Assistant,
-    so Fitness never deliberately kills an unrelated Cast application.
+    Normal cleanup only quits Home Assistant's Lovelace Cast application.
+    ``replace_active_app`` is reserved for an explicit *start Fitness Cast*
+    action: the user has selected this exact target, so Fitness may replace a
+    stale/foreign Cast application on that target before launching its own.
+    It never scans or clears other Cast devices.
     """
     state = hass.states.get(media_player)
     app_id = str(state.attributes.get("app_id") or "") if state is not None else ""
-    if not force and app_id != CAST_APP_ID_HOMEASSISTANT_LOVELACE:
+    if not replace_active_app and not force and not _fitness_cast_app_active(app_id):
         return True
-    if force and app_id and app_id != CAST_APP_ID_HOMEASSISTANT_LOVELACE:
+    if force and not replace_active_app and app_id and not _fitness_cast_app_active(app_id):
         _LOGGER.info(
             "Fitness TV stop ignored on %s because active Cast app is %s",
             media_player, app_id,
@@ -4599,7 +6141,11 @@ async def _async_stop_existing_ha_cast_receiver(
         _LOGGER.warning("media_player.turn_off is unavailable; cannot reset %s", media_player)
         return False
 
-    _LOGGER.info("Stopping existing Home Assistant Cast receiver on %s", media_player)
+    _LOGGER.info(
+        "Stopping existing Cast receiver on %s before %s",
+        media_player,
+        "Fitness launch" if replace_active_app else "Fitness cleanup",
+    )
     try:
         await async_call_service(
             hass,
@@ -4657,6 +6203,9 @@ async def async_stop_tv_dashboard(
             entry.entry_id, {"playing": False, "error": False}
         )
 
+    get_fitness_account_controller(hass).revoke_cast_sessions(
+        profile_entry_id=entry.entry_id, target_entity_id=media_player
+    )
     stopped = await _async_stop_existing_ha_cast_receiver(
         hass, media_player, force=True,
     )
@@ -4684,7 +6233,7 @@ async def _async_cast_receiver_is_stable(
     while loop.time() < deadline:
         state = hass.states.get(media_player)
         app_id = str(state.attributes.get("app_id") or "") if state is not None else ""
-        if app_id == CAST_APP_ID_HOMEASSISTANT_LOVELACE:
+        if _fitness_cast_app_active(app_id):
             if stable_since is None:
                 stable_since = loop.time()
             if loop.time() - stable_since >= stable_for:
@@ -4713,7 +6262,7 @@ async def _async_wait_for_cast_receiver_launch(
     while loop.time() < deadline:
         state = hass.states.get(media_player)
         app_id = str(state.attributes.get("app_id") or "") if state is not None else ""
-        if app_id == CAST_APP_ID_HOMEASSISTANT_LOVELACE:
+        if _fitness_cast_app_active(app_id):
             return True
         await asyncio.sleep(0.35)
     return False
@@ -4752,22 +6301,24 @@ async def async_cast_tv_dashboard(
     # gives the Cast integration the chance to launch/reconnect the receiver.
     if not await async_ensure_tv_dashboard(hass):
         return False
-    if not hass.services.has_service("cast", "show_lovelace_view"):
-        return False
 
-    cast_data = {
-        "entity_id": media_player,
-        "dashboard_path": TV_DASHBOARD_PATH,
-        "view_path": f"cast-{entry.entry_id}",
-    }
     started_off = state is None or state.state in {"off", "standby", "unknown", "unavailable"}
     hub = get_tv_dashboard_hub(hass)
     await hub.async_load()
+    if hub.cast_descriptor(entry.entry_id).get("busy"):
+        _LOGGER.info(
+            "Ignoring duplicate Fitness TV Cast request for profile %s; one Cast is already active or connecting",
+            entry.entry_id,
+        )
+        return False
     # Claim this profile's Cast launch before any wake/cooldown awaits. A newer
     # target selection increments the generation and immediately makes this
     # coroutine stale, so its later retry/failure path cannot affect that newer
     # receiver.
-    cast_generation = hub.expect_cast(entry.entry_id, media_player)
+    try:
+        cast_generation = hub.expect_cast(entry.entry_id, media_player)
+    except ValueError:
+        return False
     if started_off:
         # A powered-off TV must never leave the laptop showing a phantom
         # "playing" state. Preserve only the persistent station selection.
@@ -4839,13 +6390,19 @@ async def async_cast_tv_dashboard(
         current_app_id = (
             str(current.attributes.get("app_id") or "") if current is not None else ""
         )
-        if current_app_id == CAST_APP_ID_HOMEASSISTANT_LOVELACE:
-            reset_ok = await _async_stop_existing_ha_cast_receiver(hass, media_player)
+        # An explicit Fitness launch owns this selected target. Clear whichever
+        # Cast app is still attached to *this target* before launching Fitness;
+        # this recovers stale sessions left by Fitness or another sender. Never
+        # touch any other Cast device.
+        if current_app_id:
+            reset_ok = await _async_stop_existing_ha_cast_receiver(
+                hass, media_player, replace_active_app=True
+            )
             if reset_ok:
-                await asyncio.sleep(0.6)
+                await asyncio.sleep(0.75)
             else:
                 _LOGGER.warning(
-                    "Continuing Fitness TV cast after receiver reset failed on %s",
+                    "Continuing Fitness TV cast after target reset failed on %s",
                     media_player,
                 )
             if not hub.cast_attempt_is_current(
@@ -4862,19 +6419,27 @@ async def async_cast_tv_dashboard(
             return False
         hub.arm_cast_receiver(entry.entry_id)
         try:
-            # Formerly: "cast", "show_lovelace_view", cast_data, blocking=True.
-            # The shared wrapper now adds a hard deadline to that same action.
-            await async_call_service(
-                hass,
-                "cast",
-                "show_lovelace_view",
-                cast_data,
-                blocking=True,
-                timeout=30.0,
+            dashcast_ticket, dashcast_url = await _async_dashcast_profile_url(
+                hass, entry.entry_id, media_player
             )
+            launched = await _async_launch_dashcast(hass, registry_entry, dashcast_url)
+            if not launched:
+                raise RuntimeError("DashCast receiver did not launch")
+            # URL redemption proves DashCast successfully navigated to Fitness.
+            # The subsequent profile heartbeat remains authoritative for the
+            # connected state, but give a redeemed page extra startup time rather
+            # than declaring a visibly loaded receiver failed too early.
+            redeemed = await get_fitness_account_controller(hass).async_wait_cast_bootstrap_redeemed(
+                dashcast_ticket, timeout=18.0
+            )
+            if not redeemed:
+                raise RuntimeError("DashCast Fitness URL was not redeemed")
         except Exception as err:  # noqa: BLE001 - retry transient Cast startup failures
+            get_fitness_account_controller(hass).revoke_cast_sessions(
+                profile_entry_id=entry.entry_id, target_entity_id=media_player
+            )
             _LOGGER.warning(
-                "Fitness TV cast attempt %d/3 to %s failed: %s",
+                "Fitness TV local DashCast attempt %d/3 to %s failed: %s",
                 attempt,
                 media_player,
                 err,
@@ -4894,39 +6459,36 @@ async def async_cast_tv_dashboard(
             entry.entry_id, media_player, cast_generation
         ):
             return False
-        if await _async_wait_for_cast_receiver_launch(
-            hass, media_player, timeout=10.0 if started_off and attempt == 1 else 8.0,
+        # ``force=True`` deliberately navigates DashCast away from its own web
+        # receiver and into the requested Fitness LAN page.  At that point the
+        # Cast media_player may stop reporting app id 84912283 immediately.
+        # Therefore app-id persistence is *not* a valid post-load success
+        # condition and must never trigger another forced DashCast launch.
+        # The loaded Fitness page's fresh profile-scoped heartbeat is the only
+        # authoritative success signal after _async_launch_dashcast() returns.
+        if not hub.cast_attempt_is_current(
+            entry.entry_id, media_player, cast_generation
         ):
-            if not hub.cast_attempt_is_current(
-                entry.entry_id, media_player, cast_generation
-            ):
-                return False
-            # app_id alone is not enough: Android/Google TV may leave a stale
-            # Home Assistant Cast app_id behind after the display powers off.
-            # Confirm that the fresh Fitness receiver page itself is alive and
-            # still belongs to this exact launch generation.
-            cast_client = await hub.async_wait_cast_active(
-                entry.entry_id,
-                timeout=10.0 if started_off and attempt == 1 else 8.0,
-                media_player=media_player,
-                generation=cast_generation,
+            return False
+        cast_client = await hub.async_wait_cast_active(
+            entry.entry_id,
+            timeout=28.0 if started_off and attempt == 1 else 24.0,
+            media_player=media_player,
+            generation=cast_generation,
+        )
+        if cast_client is not None:
+            _LOGGER.info(
+                "Fitness TV local DashCast receiver active on %s for profile %s (%s)",
+                media_player, entry.entry_id, cast_client,
             )
-            if cast_client is not None:
-                _LOGGER.info(
-                    "Fitness TV Cast receiver active on %s for profile %s (%s)",
-                    media_player, entry.entry_id, cast_client,
-                )
-                return True
-            _LOGGER.warning(
-                "Fitness TV Cast app launched on %s but no live Fitness receiver heartbeat arrived",
-                media_player,
-            )
-        if attempt < 3:
-            await asyncio.sleep(5.0 if started_off and attempt == 1 else 2.0)
-            if not hub.cast_attempt_is_current(
-                entry.entry_id, media_player, cast_generation
-            ):
-                return False
+            return True
+        _LOGGER.warning(
+            "Fitness TV DashCast URL was delivered on %s but no live Fitness receiver heartbeat arrived",
+            media_player,
+        )
+        # The URL has already been sent. Retrying force=True here just bounces
+        # the TV back through DashCast and destroys the page we are waiting for.
+        break
 
     if not hub.cast_attempt_is_current(
         entry.entry_id, media_player, cast_generation
@@ -4934,7 +6496,7 @@ async def async_cast_tv_dashboard(
         return False
     final_state = hass.states.get(media_player)
     _LOGGER.warning(
-        "Fitness TV Cast receiver did not remain active on %s (state=%s, app_id=%s)",
+        "Fitness TV local Cast receiver did not remain active on %s (state=%s, app_id=%s)",
         media_player,
         final_state.state if final_state is not None else "missing",
         final_state.attributes.get("app_id") if final_state is not None else None,
@@ -4991,12 +6553,16 @@ async def _async_register_resource(hass: HomeAssistant) -> None:
         for duplicate in matches[1:]:
             await resources.async_delete_item(duplicate["id"])
 
-        _LOGGER.info(
-            "Reconciled Fitness dashboard resource id=%s type=module url=%s; removed=%s duplicate(s)",
-            primary["id"],
-            _RESOURCE_URL,
-            max(0, len(matches) - 1),
-        )
+        removed = max(0, len(matches) - 1)
+        if update or removed:
+            _LOGGER.info(
+                "Reconciled Fitness dashboard resource id=%s type=module url=%s; removed=%s duplicate(s)",
+                primary["id"],
+                _RESOURCE_URL,
+                removed,
+            )
+        else:
+            _LOGGER.debug("Fitness dashboard resource already canonical: %s", _RESOURCE_URL)
         return
 
     created = await resources.async_create_item(
@@ -5009,11 +6575,22 @@ async def _async_register_resource(hass: HomeAssistant) -> None:
     )
 
 
-def _schedule_dashboard_reconcile(hass: HomeAssistant) -> None:
-    """Debounce optional Lovelace storage work outside profile request paths."""
+def _schedule_dashboard_reconcile(hass: HomeAssistant, *, force: bool = False) -> None:
+    """Coalesce and rate-limit optional Lovelace storage reconciliation.
+
+    Dashboard config is requested frequently by every open Fitness client.  It
+    must never turn those reads into repeated Lovelace collection loads/writes.
+    A full reconcile is therefore allowed at most once per five minutes unless
+    an explicit lifecycle event requests ``force=True``.
+    """
     domain_data = hass.data.setdefault(DOMAIN, {})
     task = domain_data.get(_RECONCILE_TASK_KEY)
     if isinstance(task, asyncio.Task) and not task.done():
+        return
+
+    now = asyncio.get_running_loop().time()
+    last = float(domain_data.get(_RECONCILE_LAST_KEY) or 0.0)
+    if not force and last and (now - last) < _RECONCILE_MIN_INTERVAL:
         return
 
     async def _reconcile() -> None:
@@ -5021,6 +6598,7 @@ def _schedule_dashboard_reconcile(hass: HomeAssistant) -> None:
         try:
             await _async_register_resource(hass)
             await async_ensure_tv_dashboard(hass)
+            domain_data[_RECONCILE_LAST_KEY] = asyncio.get_running_loop().time()
         except Exception:  # noqa: BLE001 - Fitness itself does not require Lovelace
             _LOGGER.exception("Unable to reconcile the Fitness TV dashboard")
 
@@ -5051,6 +6629,8 @@ async def async_setup_dashboard(hass: HomeAssistant) -> None:
 
     frontend_path = Path(__file__).parent / "frontend"
     websocket_api.async_register_command(hass, websocket_dashboard_config)
+    websocket_api.async_register_command(hass, websocket_dashboard_cast_targets)
+    websocket_api.async_register_command(hass, websocket_dashboard_about)
     websocket_api.async_register_command(hass, websocket_workouts_list)
     websocket_api.async_register_command(hass, websocket_workouts_delete)
     websocket_api.async_register_command(hass, websocket_workouts_rpe)
@@ -5069,9 +6649,18 @@ async def async_setup_dashboard(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, websocket_weight_admin_subscribe)
     websocket_api.async_register_command(hass, websocket_weight_confirm)
     websocket_api.async_register_command(hass, websocket_weight_dismiss)
+    websocket_api.async_register_command(hass, websocket_sensor_claim)
+    websocket_api.async_register_command(hass, websocket_sensor_discovery_candidates)
+    websocket_api.async_register_command(hass, websocket_tv_browser_receiver)
+    websocket_api.async_register_command(hass, websocket_tv_overview_heartbeat)
+    websocket_api.async_register_command(hass, websocket_tv_overview_status)
+    websocket_api.async_register_command(hass, websocket_tv_overview_browser_handoff)
     websocket_api.async_register_command(hass, websocket_tv_overview_cast)
     websocket_api.async_register_command(hass, websocket_tv_overview_stop)
     websocket_api.async_register_command(hass, websocket_dashboard_flow_translations)
+    websocket_api.async_register_command(hass, websocket_dashboard_config_flow_start)
+    websocket_api.async_register_command(hass, websocket_dashboard_config_flow_step)
+    websocket_api.async_register_command(hass, websocket_dashboard_config_flow_cancel)
     websocket_api.async_register_command(hass, websocket_dashboard_options_flow_start)
     websocket_api.async_register_command(hass, websocket_dashboard_options_flow_step)
     websocket_api.async_register_command(hass, websocket_dashboard_options_flow_cancel)

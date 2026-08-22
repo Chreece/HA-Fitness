@@ -92,6 +92,7 @@ async def async_provider_catalog(
     *,
     adapter_options: dict[str, dict[str, Any]] | None = None,
     ytdlp_enabled: bool = False,
+    allow_music_assistant: bool = True,
 ) -> list[dict[str, Any]]:
     """Return explicit setup choices; never mix them into installed adapters."""
     entries = music_assistant_entries(hass, loaded_only=True)
@@ -149,6 +150,9 @@ async def async_provider_catalog(
             "external": bool((ma_settings_path if ma_installed else MUSIC_ASSISTANT_INSTALL_URL).startswith(("http://", "https://"))),
         },
     ]
+
+    if not allow_music_assistant:
+        return [row for row in rows if row.get("id") != "music_assistant"]
 
     # Do not show dozens of unavailable MA sources when MA itself is not installed.
     if not ma_installed or not ma_path:

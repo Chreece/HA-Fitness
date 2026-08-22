@@ -23,7 +23,7 @@ def test_natural_cards_expand_instead_of_clipping_across_environments():
 
 
 def test_mobile_option_panels_take_focus_without_full_tv_toolbar():
-    assert 'const compactFocus = Boolean(globalThis.matchMedia?.("(max-width: 900px)")?.matches);' in FRONTEND
+    assert 'const toolbarWasHidden = Boolean(this._toolbarHidden || this.hasAttribute("toolbar-hidden"));' in FRONTEND
     assert 'this.setAttribute("modal-focus-open", "");' in FRONTEND
     assert ':host([modal-focus-open]) .tv-toolbar' in FRONTEND
     assert ':host([modal-focus-open]) .dashboard-switcher' in FRONTEND
@@ -36,4 +36,4 @@ def test_modal_focus_is_released_for_programmatic_and_button_closes():
 
 
 def test_frontend_cache_revision_v102():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in FRONTEND

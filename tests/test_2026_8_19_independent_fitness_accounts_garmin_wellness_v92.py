@@ -34,16 +34,19 @@ def test_native_ha_admin_remains_global_fitness_admin_alongside_independent_admi
 
 def test_roles_acl_and_view_only_tv_have_expected_security_boundaries():
     assert 'ROLE_ADMIN = "admin"' in ACCOUNTS
-    assert 'ROLE_LOCAL = "local"' in ACCOUNTS
-    assert 'ROLE_REMOTE = "remote"' in ACCOUNTS
-    assert 'if role == ROLE_LOCAL and not _client_is_local(remote)' in ACCOUNTS
-    assert 'if role == ROLE_ADMIN and not _client_is_local(remote) and not exact_remote_host' in ACCOUNTS
-    assert 'if role == ROLE_REMOTE and not exact_remote_host:' in ACCOUNTS
+    assert 'ROLE_ADMIN_USER = "admin_user"' in ACCOUNTS
+    assert 'ROLE_USER = "user"' in ACCOUNTS
+    assert 'NETWORK_LOCAL_ONLY = "local_only"' in ACCOUNTS
+    assert 'NETWORK_REMOTE_ONLY = "remote_only"' in ACCOUNTS
+    assert 'NETWORK_LOCAL_REMOTE = "local_remote"' in ACCOUNTS
+    assert 'network_access == NETWORK_LOCAL_ONLY and not local_client' in ACCOUNTS
+    assert 'network_access == NETWORK_REMOTE_ONLY and not exact_remote_host' in ACCOUNTS
     assert 'remote_host_mismatch' in ACCOUNTS
     assert 'return {profile_id} if profile_id' in ACCESS
-    assert ':host([fitness-view-only]) .tv-toolbar{display:none!important}' in JS
+    assert ':host([fitness-view-only]) .tv-toolbar{display:grid}' in JS
+    assert '_readOnlyCardHass()' in JS
+    assert 'Fitness view-only profile' in JS
     assert 'view_profile_entry_ids' in ACCESS
-
 
 def test_remote_login_is_secure_browser_session_and_public_hostname_is_confined():
     login = ACCOUNTS[ACCOUNTS.index("class FitnessPortalLoginView"):ACCOUNTS.index("class FitnessPortalPasswordView")]
@@ -139,7 +142,7 @@ def test_ai_training_suggestion_has_clickable_detail_reveal():
 
 
 def test_v92_cache_contract():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in JS
-    assert '?v=unreleased-110' in DASH
-    assert '"frontend_version": "unreleased-110"' in DASH
-    assert 'frontend_version = "unreleased-110"' in ACCOUNTS
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in JS
+    assert '?v=unreleased-138' in DASH
+    assert '"frontend_version": "unreleased-138"' in DASH
+    assert 'frontend_version = "unreleased-138"' in ACCOUNTS

@@ -153,11 +153,27 @@ def validate_series(metric: str, raw: list[dict[str, Any]] | None, now: datetime
         }
         day = dt.date()
         old = by_day.get(day)
-        # Current merged Fitness facts always supersede imported bootstrap data.
-        rank = (point["source_type"] == "fitness_merged_current", not point["imported"], dt.timestamp())
+        # Freshness is authoritative. Source type/import status only break an
+        # exact timestamp tie; stale integration/merged values must never
+        # overwrite a newer direct-device measurement from the same day.
+        source_type = point["source_type"]
+        source_tie = (
+            source_type.startswith("direct_"),
+            source_type == "fitness_merged_current",
+            not source_type.startswith("integration:"),
+            not point["imported"],
+        )
+        rank = (dt.timestamp(), *source_tie)
         if old is not None:
             old_dt = parse_timestamp(old["timestamp"])
-            old_rank = (old["source_type"] == "fitness_merged_current", not old["imported"], old_dt.timestamp())
+            old_source_type = old["source_type"]
+            old_tie = (
+                old_source_type.startswith("direct_"),
+                old_source_type == "fitness_merged_current",
+                not old_source_type.startswith("integration:"),
+                not old["imported"],
+            )
+            old_rank = (old_dt.timestamp(), *old_tie)
             reject("duplicate_day")
             if rank <= old_rank:
                 continue

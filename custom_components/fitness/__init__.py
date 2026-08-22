@@ -66,6 +66,138 @@ _DELETE_WORKOUTS_BEFORE_SCHEMA = vol.Schema(
 # This integration is configured exclusively through config entries.
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
+
+async def _async_unpair_fitness_bluetooth_device(
+    hass: HomeAssistant,
+    runtime,
+    device,
+    *,
+    strict: bool,
+) -> bool:
+    """Disconnect and remove a Fitness-owned local BlueZ bond when possible.
+
+    Device deletion must still forget Fitness state when the hardware is
+    offline. Destructive BlueZ unpairing is therefore best-effort for registry
+    deletion, but explicit service calls keep their actionable errors.
+    """
+    sensor_id = next(
+        (
+            value.split(":", 1)[1]
+            for domain, value in device.identifiers
+            if domain == DOMAIN and value.startswith("live_sensor:")
+        ),
+        None,
+    )
+    sensor_id = runtime.resolve_sensor_id(sensor_id or "") if sensor_id else ""
+    sensor = runtime.sensors.get(sensor_id) if sensor_id else None
+    endpoint = sensor.endpoints.get("bluetooth") if sensor is not None else None
+    if sensor is None or endpoint is None:
+        if strict:
+            raise HomeAssistantError("Selected Fitness device has no local Bluetooth route")
+        return False
+
+    provider = runtime.providers.get("bluetooth")
+    if provider is not None:
+        for profile_id in runtime.sensor_assigned_profile_ids(sensor.sensor_id):
+            try:
+                await provider.async_disconnect_sensor(profile_id, sensor.sensor_id)
+            except Exception:
+                _LOGGER.debug(
+                    "Unable to disconnect Fitness Bluetooth device %s before forget",
+                    sensor.sensor_id,
+                    exc_info=True,
+                )
+
+    # Never remove a system bond that another integration also owns.
+    fitness_entry_ids = {entry.entry_id for entry in hass.config_entries.async_entries(DOMAIN)}
+    if any(entry_id not in fitness_entry_ids for entry_id in device.config_entries):
+        if strict:
+            raise HomeAssistantError(
+                "This Bluetooth device is shared with another integration; Fitness only disconnected it"
+            )
+        _LOGGER.info(
+            "Fitness forgot %s but kept its shared Bluetooth bond",
+            sensor.sensor_id,
+        )
+        return False
+
+    from homeassistant.components import bluetooth
+
+    ble_device = bluetooth.async_ble_device_from_address(
+        hass, endpoint.address, connectable=True
+    )
+    if ble_device is None:
+        if strict:
+            raise HomeAssistantError(
+                "Bluetooth device is not currently known to the local adapter; it was disconnected but not unpaired"
+            )
+        _LOGGER.debug(
+            "Fitness device %s is offline; forgetting state without a BlueZ unpair",
+            sensor.sensor_id,
+        )
+        return False
+
+    from .device_adapters.garmin.coordinator import _bluez_device_path
+    from .device_adapters.garmin.bluez_agent import async_bluez_remove_device
+
+    path = _bluez_device_path(ble_device, endpoint.address)
+    if not path:
+        if strict:
+            raise HomeAssistantError(
+                "The selected Bluetooth route is not a local BlueZ device and cannot be unpaired by Fitness"
+            )
+        return False
+    try:
+        await async_bluez_remove_device(path)
+    except Exception:
+        if strict:
+            raise
+        _LOGGER.warning(
+            "Unable to remove BlueZ bond for Fitness device %s; Fitness state will still be forgotten",
+            sensor.sensor_id,
+            exc_info=True,
+        )
+        return False
+    return True
+
+async def _async_manage_bluetooth_device(hass: HomeAssistant, call: ServiceCall) -> None:
+    """Handle an explicit Bluetooth device action without touching startup."""
+    from homeassistant.helpers import device_registry as dr
+
+    runtime_module = importlib.import_module(".live.runtime", __package__)
+    runtime = getattr(runtime_module, "get_live_" + "runtime")(hass)
+    await runtime.async_initialize()
+    device_id = str(call.data.get("device_id") or "")
+    device = dr.async_get(hass).async_get(device_id)
+    if device is None:
+        raise HomeAssistantError("Fitness Bluetooth device was not found")
+    sensor_id = next(
+        (
+            value.split(":", 1)[1]
+            for domain, value in device.identifiers
+            if domain == DOMAIN and value.startswith("live_sensor:")
+        ),
+        None,
+    )
+    sensor = (
+        runtime.sensors.get(runtime.resolve_sensor_id(sensor_id or ""))
+        if sensor_id
+        else None
+    )
+    endpoint = sensor.endpoints.get("bluetooth") if sensor is not None else None
+    if sensor is None or endpoint is None:
+        raise HomeAssistantError("Selected Fitness device has no local Bluetooth route")
+    if str(call.data.get("action") or "disconnect") == "unpair":
+        await _async_unpair_fitness_bluetooth_device(
+            hass, runtime, device, strict=True
+        )
+        return
+    provider = runtime.providers.get("bluetooth")
+    if provider is not None:
+        for profile_id in runtime.sensor_assigned_profile_ids(sensor.sensor_id):
+            await provider.async_disconnect_sensor(profile_id, sensor.sensor_id)
+
+
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up integration-level Fitness actions."""
     del config
@@ -245,38 +377,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.services.async_register(DOMAIN, SERVICE_CLEAR_FIT_FILES, _clear_fit_files, schema=vol.Schema({vol.Required(ATTR_CONFIG_ENTRY_ID): str, vol.Optional("retain_count"): vol.All(vol.Coerce(int), vol.Range(min=0, max=500)), vol.Optional("ownership", default="profile"): vol.In({"profile", "all_fitness_owned"})}))
 
     async def _manage_bluetooth_device(call: ServiceCall) -> None:
-        from homeassistant.helpers import device_registry as dr
-        runtime_module = importlib.import_module(".live.runtime", __package__)
-        runtime = getattr(runtime_module, "get_live_" + "runtime")(hass)
-        device_id = str(call.data.get("device_id") or "")
-        device = dr.async_get(hass).async_get(device_id)
-        if device is None:
-            raise HomeAssistantError("Fitness Bluetooth device was not found")
-        sensor_id = next((value.split(":", 1)[1] for domain, value in device.identifiers if domain == DOMAIN and value.startswith("live_sensor:")), None)
-        sensor = runtime.sensors.get(runtime.resolve_sensor_id(sensor_id or "")) if sensor_id else None
-        endpoint = sensor.endpoints.get("bluetooth") if sensor is not None else None
-        if sensor is None or endpoint is None:
-            raise HomeAssistantError("Selected Fitness device has no local Bluetooth route")
-        provider = runtime.providers.get("bluetooth")
-        if provider is not None:
-            for profile_id in runtime.sensor_assigned_profile_ids(sensor.sensor_id):
-                await provider.async_disconnect_sensor(profile_id, sensor.sensor_id)
-        if str(call.data.get("action") or "disconnect") != "unpair":
-            return
-        # Unpairing is destructive. Refuse whenever another config entry shares this HA device.
-        fitness_entry_ids = {entry.entry_id for entry in hass.config_entries.async_entries(DOMAIN)}
-        if any(entry_id not in fitness_entry_ids for entry_id in device.config_entries):
-            raise HomeAssistantError("This Bluetooth device is shared with another integration; Fitness only disconnected it")
-        from homeassistant.components import bluetooth
-        ble_device = bluetooth.async_ble_device_from_address(hass, endpoint.address, connectable=True)
-        if ble_device is None:
-            raise HomeAssistantError("Bluetooth device is not currently known to the local adapter; it was disconnected but not unpaired")
-        from .device_adapters.garmin.coordinator import _bluez_device_path
-        from .device_adapters.garmin.bluez_agent import async_bluez_remove_device
-        path = _bluez_device_path(ble_device, endpoint.address)
-        if not path:
-            raise HomeAssistantError("The selected Bluetooth route is not a local BlueZ device and cannot be unpaired by Fitness")
-        await async_bluez_remove_device(path)
+        await _async_manage_bluetooth_device(hass, call)
 
     hass.services.async_register(DOMAIN, SERVICE_MANAGE_BLUETOOTH_DEVICE, _manage_bluetooth_device, schema=vol.Schema({vol.Required("device_id"): str, vol.Required("action", default="disconnect"): vol.In({"disconnect", "unpair"})}))
 
@@ -456,6 +557,31 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.config_entries.async_update_entry(entry, title=profile_name)
 
     await async_setup_dashboard(hass)
+
+    # Native HA Add Integration can create the Fitness account before the profile
+    # entry exists. The flow stores only a prepared password hash in the entry.
+    # Finalize it after the dashboard/portal router exists so remote-account
+    # publication sees the same runtime as accounts created from the dashboard.
+    pending_account = entry.data.get("_pending_fitness_account")
+    if isinstance(pending_account, dict):
+        try:
+            from .fitness_accounts import get_fitness_account_controller
+
+            controller = get_fitness_account_controller(hass)
+            await controller.async_finalize_pending_profile_account(
+                entry.entry_id, pending_account
+            )
+            data = dict(entry.data)
+            data.pop("_pending_fitness_account", None)
+            hass.config_entries.async_update_entry(entry, data=data)
+        except Exception as err:  # noqa: BLE001
+            # Keep the prepared hash on the entry so a later reload can retry the
+            # binding; never discard a newly-created user's access configuration.
+            _LOGGER.error(
+                "Unable to finalize pending Fitness account for %s: %s",
+                entry.entry_id, err,
+            )
+
     await runtime.async_register_profile(entry)
     # The Live Workout device is permanent profile infrastructure.  Do not
     # create/delete it as sensors or adapters appear and disappear.
@@ -468,6 +594,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await get_weight_scale_router(hass).async_register_profile(entry, manager)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    # DeviceInfo names are not retroactively rewritten by HA for already-created
+    # registry devices. Reconcile them after entity setup so Wellness and the
+    # other logical devices follow the configured profile language immediately.
+    from .entity import reconcile_profile_device_names
+    reconcile_profile_device_names(hass, entry)
     _schedule_sensors_adapters_entry(hass)
     return True
 
@@ -618,6 +749,12 @@ async def async_remove_config_entry_device(hass, config_entry, device_entry) -> 
         None,
     )
     if sensor_identifier is not None:
+        # Remove a Fitness-owned local bond first when BlueZ can still resolve it.
+        # Forgetting is unconditional: an offline device must still return to a
+        # genuinely fresh discovery/install state on its next advertisement.
+        await _async_unpair_fitness_bluetooth_device(
+            hass, runtime, device_entry, strict=False
+        )
         # Persist revocation before Home Assistant finishes removing the device.
         # Continuous BLE/ANT advertisements may arrive during deletion; they must
         # only start a fresh discovery flow, never recreate an accepted device.

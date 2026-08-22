@@ -39,14 +39,14 @@ def test_managed_lovelace_views_use_fresh_release_specific_card_types():
 
 
 def test_admin_account_profile_selector_is_in_fresh_setup_class_source():
-    assert 'class="access-profile-field"' in FRONTEND
+    assert 'class="access-profile-field ${role === "admin" ? "hidden" : ""}"' in FRONTEND
     assert 'data-account-profile' in FRONTEND
-    assert 'admin_profile_optional' in FRONTEND
-    assert 'profile_entry_id:String(profile?.value || "") || null' in FRONTEND
+    assert 'role_admin_user' in FRONTEND
+    assert 'profile_entry_id:currentRole === "admin" ? null' in FRONTEND
     assert 'data-profile-assign' not in FRONTEND
 
 def test_revision_71_is_unique_and_uncached():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in FRONTEND
     assert '_RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"' in DASHBOARD
     assert '"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"' in DASHBOARD
 
@@ -62,7 +62,7 @@ def test_versioned_tv_elements_are_actually_registered():
 
 def test_frontend_route_stays_stable_while_version_query_changes():
     assert '_RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"' in DASHBOARD
-    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-110"' in DASHBOARD
+    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-138"' in DASHBOARD
     assert 'FitnessDashboardResourceView(frontend_path / "fitness-dashboard.js")' in DASHBOARD
     assert 'await asyncio.to_thread(self._frontend_file.read_bytes)' in DASHBOARD
 

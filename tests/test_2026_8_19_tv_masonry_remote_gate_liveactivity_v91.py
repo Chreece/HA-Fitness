@@ -42,11 +42,13 @@ def test_tv_remote_selection_uses_depth_and_unselected_sections_recede():
     assert 'translateZ(52px) scale(1.018)' in JS
 
 
-def test_recovery_score_width_is_static_on_tv_instead_of_transforming_the_fill_layer():
+def test_recovery_score_and_all_cast_card_motion_are_static_on_tv():
     assert ':host([fitness-tv-display]) .recovery-score-track i' in JS
     assert 'transform:none!important' in JS
-    cast_motion = _method("_ensureCastCardLivingMotion", "_ensureCardLivingMotion")
-    assert '.filter((fill) => !fill.closest?.(".recovery-score-track"))' in cast_motion
+    cast_motion = _method("_applyCastMotionPolicy", "_ensureCastCardLivingMotion")
+    assert 'data-fitness-cast-static' in cast_motion
+    assert 'animation:none!important;transition:none!important' in cast_motion
+    assert 'card.removeAttribute("fitness-animations")' in cast_motion
 
 
 def test_double_back_uses_distinct_physical_presses_and_ignores_focus_trail_for_physical_back():
@@ -66,9 +68,9 @@ def test_accounts_use_profile_domain_and_language_and_admins_have_no_redundant_v
     assert "data-account-language" not in account_ui
     assert "data-account-slug" in account_ui
     assert 'const remoteUrl = String(account.remote_url' in account_ui
-    assert 'const viewOptions = role === "admin" ? ""' in account_ui
+    assert 'const viewOptions = role !== "user" ? ""' in account_ui
     assert 'remote_url = f"https://{slug}.{base}"' in ACCOUNTS
-    assert 'if role == ROLE_ADMIN:' in ACCOUNTS
+    assert 'if _is_admin_role(role):' in ACCOUNTS
     assert 'views.clear()' in ACCOUNTS
 
 def test_view_only_grants_can_browse_all_dashboards_without_persisting_selection():
@@ -119,6 +121,6 @@ def test_liveactivity_is_structured_device_data_not_invalid_fit_and_old_quaranti
 
 
 def test_frontend_cache_bumped_for_tv_and_public_gate_changes():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in JS
-    assert '?v=unreleased-110' in DASH
-    assert '"frontend_version": "unreleased-110"' in DASH
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in JS
+    assert '?v=unreleased-138' in DASH
+    assert '"frontend_version": "unreleased-138"' in DASH

@@ -80,9 +80,9 @@ def test_host_router_maps_exact_hostname_to_exact_profile_and_blocks_disabled_na
     assert 'raise web.HTTPNotFound(text="This hostname serves the restricted HA-Fitness portal only")' in ACCOUNTS
 
 def test_dashboard_contract_exposes_secret_free_external_state_and_v90_cache():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in JS
-    assert '?v=unreleased-110' in DASH
-    assert '"frontend_version": "unreleased-110"' in DASH
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in JS
+    assert '?v=unreleased-138' in DASH
+    assert '"frontend_version": "unreleased-138"' in DASH
     assert '"api_token_configured"' in ACCESS
     assert '"api_token":' not in ACCESS[ACCESS.index('async def async_admin_snapshot'):ACCESS.index('async def async_set_access_settings')]
 
@@ -99,14 +99,12 @@ def test_remote_access_document_matches_managed_cloudflare_model():
         assert phrase in DOC
 
 def test_external_access_relaxes_and_restores_ha_local_only_gate_for_local_role():
-    assert 'async def _async_sync_bound_profile_user_local_only' in ACCESS
-    helper = ACCESS[ACCESS.index('async def _async_sync_bound_profile_user_local_only'):ACCESS.index('def _external_profile_host')]
-    assert 'Fitness accounts no longer mutate HA users' in helper
-    assert 'async_update_user' not in helper
-    assert 'local_only' in helper
-    assert 'if role == ROLE_LOCAL and not _client_is_local(remote):' in ACCOUNTS
-    assert 'if role == ROLE_ADMIN and not _client_is_local(remote) and not exact_remote_host:' in ACCOUNTS
-    assert 'remote_host_mismatch' in ACCOUNTS
+    assert 'NETWORK_LOCAL_ONLY = "local_only"' in ACCOUNTS
+    assert 'NETWORK_REMOTE_ONLY = "remote_only"' in ACCOUNTS
+    assert 'NETWORK_LOCAL_REMOTE = "local_remote"' in ACCOUNTS
+    assert 'network_access == NETWORK_LOCAL_ONLY and not local_client' in ACCOUNTS
+    assert 'network_access == NETWORK_REMOTE_ONLY and not exact_remote_host' in ACCOUNTS
+    assert 'network_access == NETWORK_LOCAL_REMOTE and not (local_client or exact_remote_host)' in ACCOUNTS
 
 def test_active_external_profiles_cannot_orphan_dns_by_clearing_token():
     settings = ACCESS[

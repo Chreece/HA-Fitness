@@ -69,6 +69,7 @@ async def async_resolve(hub: "FitnessTVDashboardHub", media_content_id: str) -> 
         "artist": "",
         "thumbnail": str((normalized or {}).get("thumbnail") or ""),
         "duration": 0.0,
+        "is_live": True,
         "details": str((normalized or {}).get("details") or ""),
         "provider": "radio_browser",
         "provider_name": "Radio Browser",

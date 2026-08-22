@@ -14,13 +14,11 @@ def test_account_enabled_toggle_lives_in_account_header():
 
 
 def test_remote_only_users_do_not_get_editable_login_name():
-    assert 'access-username-field ${role === "remote" ? "hidden" : ""}' in FRONTEND
-    assert 'username:currentRole === "remote" ? null' in FRONTEND
-    assert 'if role == ROLE_REMOTE:' in ACCOUNTS
+    assert 'access-username-field ${networkAccess === "remote_only" ? "hidden" : ""}' in FRONTEND
+    assert 'username:currentNetwork === "remote_only" ? null' in FRONTEND
+    assert 'if network_access == NETWORK_REMOTE_ONLY:' in ACCOUNTS
     assert 'requested_username = _normalize_username(slug)' in ACCOUNTS
-    assert 'new_username=None' in ACCOUNTS
     assert 'name="username"' not in ACCOUNTS[ACCOUNTS.index('def _password_page'):ACCOUNTS.index('def _portal_app_page')]
-
 
 def test_remote_portal_top_bar_keeps_profile_selector_and_logout_only():
     portal = ACCOUNTS[ACCOUNTS.index('def _portal_app_page'):ACCOUNTS.index('class FitnessPortalLoginView')]
@@ -53,8 +51,8 @@ def test_toolbar_reveal_is_normal_flow_and_cannot_overlap_dashboard_switcher():
 
 
 def test_v105_frontend_resource_and_portal_are_synchronized():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
-    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-110"' in DASHBOARD
-    assert 'frontend_version = "unreleased-110"' in ACCOUNTS
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in FRONTEND
+    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-138"' in DASHBOARD
+    assert 'frontend_version = "unreleased-138"' in ACCOUNTS
     assert 'fitness-tv-dashboard-card-v109' in FRONTEND
     assert 'fitness-tv-setup-card-v109' in FRONTEND

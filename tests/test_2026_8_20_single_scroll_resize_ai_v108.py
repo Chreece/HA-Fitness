@@ -8,9 +8,9 @@ ACCOUNTS = (ROOT / "custom_components/fitness/fitness_accounts.py").read_text()
 
 
 def test_v108_cache_is_synchronized():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
-    assert '?v=unreleased-110' in DASHBOARD
-    assert 'frontend_version = "unreleased-110"' in ACCOUNTS
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in FRONTEND
+    assert '?v=unreleased-138' in DASHBOARD
+    assert 'frontend_version = "unreleased-138"' in ACCOUNTS
 
 
 def test_dashboard_claims_one_ha_scroll_owner_and_restores_outer_scroll():

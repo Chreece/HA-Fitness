@@ -57,5 +57,5 @@ def test_dashboard_uses_sources_for_raw_sleep_and_current_evaluation_inputs():
 
 
 def test_dashboard_version_bumped_for_no_mirror_routing():
-    assert '?v=unreleased-110' in DASHBOARD
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
+    assert '?v=unreleased-138' in DASHBOARD
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in FRONTEND

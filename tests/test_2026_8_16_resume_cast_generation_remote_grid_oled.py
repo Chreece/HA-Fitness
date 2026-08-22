@@ -39,11 +39,12 @@ def test_resume_audit_keeps_provider_specific_seek_only_where_transport_needs_it
     assert "event.target.seekTo?.(resumePosition, true)" in youtube
     assert "widget.seekTo?.(resumePosition * 1000)" in soundcloud
 
-    # yt-dlp does not get a hard-coded frontend seek path. Finite tracks resolve
-    # to generic HTMLAudio; playlist/live/fallback items use YouTube semantics.
+    # yt-dlp does not get a hard-coded frontend seek path. Every exposed item
+    # now resolves to browser-playable HTMLAudio; failed/live entries are filtered.
     assert '"kind": "audio"' in YTDLP
     assert '"fallback_kind": "youtube"' in YTDLP
-    assert 'if marker in {"playlist", "live"}' in YTDLP
+    assert 'if marker == "live":' in YTDLP
+    assert '"playlist_items": playlist_items' in YTDLP
     assert "resume" not in YTDLP.lower()
 
 
@@ -83,4 +84,5 @@ def test_oled_pixel_shift_moves_toolbar_and_cards_as_one_safe_stage():
 
 def test_stop_cast_toolbar_dispatches_only_one_stop_request():
     render = _method(FRONTEND, "  _render()", "  async _toggleFullscreen(")
-    assert render.count("if (activeTarget) this._stopCastDashboard(activeTarget);") == 1
+    assert render.count('if (this._castState === "connected") { void this._stopCurrentCast(); return; }') == 1
+    assert render.count('if (this._castState === "connected") void this._stopCurrentCast();') == 1

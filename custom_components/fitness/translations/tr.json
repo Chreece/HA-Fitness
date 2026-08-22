@@ -8,18 +8,14 @@
         "data": {
           "profile_name": "Ad",
           "language": "Dil",
-          "birth_day": "Doğum günü",
-          "birth_month": "Doğum ayı",
-          "birth_year": "Doğum yılı",
-          "sex": "Cinsiyet"
+          "sex": "Cinsiyet",
+          "date_of_birth": "Doğum tarihi"
         },
         "data_description": {
           "profile_name": "Bu kişi için ayrı Fitness profili ve entity'leri oluşturmakta kullanılan ad.",
           "language": "Duyurular, coaching ve açıklayıcı sensör özniteliklerinin dili. Destekleniyorsa Home Assistant arayüz dili önceden seçilir.",
-          "birth_day": "Yaşa bağlı yöntemlerde yaş hesaplamak için ay ve yılla birlikte kullanılan doğum günü.",
-          "birth_month": "Yaşa bağlı referans hesaplarında tam doğum tarihiyle kullanılan doğum ayı.",
-          "birth_year": "Fitness referans yöntemlerinde yaş hesaplamak için kullanılan doğum yılı.",
-          "sex": "Yalnızca açıkça cinsiyete özgü katsayı isteyen bilimsel yöntemlerde kullanılan isteğe bağlı biyolojik cinsiyet."
+          "sex": "Yalnızca açıkça cinsiyete özgü katsayı isteyen bilimsel yöntemlerde kullanılan isteğe bağlı biyolojik cinsiyet.",
+          "date_of_birth": "Tam doğum tarihini seçin. Takvimden yılı doğrudan seçebilirsiniz."
         }
       },
       "required": {
@@ -167,7 +163,7 @@
         "description": "Önce ne eklemek istediğinizi seçin. Diğer bölümü mevcut profil akışını değiştirmeden daha sonra ekleyebilirsiniz.",
         "menu_options": {
           "add_user": "Kullanıcı profili ekle",
-          "manage_protocols": "Sensör protokollerini yönet"
+          "add_protocol": "Sensör protokolü ekle / yönet"
         }
       },
       "add_user": {
@@ -229,6 +225,30 @@
           "bluetooth_hardware": "Fitness’ın manuel modda kullanabileceği desteklenen adaptörleri seçin.",
           "antplus_hardware": "Fitness’ın manuel modda kullanabileceği desteklenen adaptörleri seçin."
         }
+      },
+      "account_access": {
+        "title": "Fitness kullanıcı rolü ve erişimi",
+        "description": "Yalnızca yöneticiler: yeni Fitness hesabının rolünü ve oturum açma erişimini önce belirleyin.",
+        "data": {
+          "fitness_account_role": "Rol",
+          "fitness_network_access": "Ağ erişimi",
+          "fitness_account_display_name": "Hesap adı",
+          "fitness_account_username": "Oturum açma adı",
+          "fitness_remote_slug": "Uzak hostname",
+          "fitness_view_profile_entry_ids": "Hesap görüntüleme hakları"
+        },
+        "data_description": {
+          "fitness_account_role": "Yöneticiler tam Fitness erişimine sahiptir. Yerel ve uzak kullanıcılar yalnızca kendi profillerini kontrol eder ve ek profilleri ancak yönetici izin verirse salt okunur olarak görebilir.",
+          "fitness_network_access": "Giriş yalnızca uzak hostname üzerinden; HA LAN donanımı açılmaz. Yerel ve uzaktan giriş; LAN donanımı yalnızca gerçek yerel bağlantıda görünür.",
+          "fitness_account_display_name": "Bu hesap yalnızca kendi Fitness profilini kontrol eder.",
+          "fitness_account_username": "Uzak hesaplarda varsayılan olarak alt alan adı kullanılır. Kullanıcı daha sonra oturum açma adını değiştirebilir.",
+          "fitness_remote_slug": "Bu hostname yalnızca bu uzak Fitness hesabına aittir.",
+          "fitness_view_profile_entry_ids": "Seçilen hesaplar yalnızca görüntülenebilir; ayar, antrenman veya cihazları değiştirilemez."
+        }
+      },
+      "account_credentials": {
+        "title": "Tek kullanımlık ilk parola",
+        "description": "Tek kullanımlık ilk parola: **{temporary_password}**. Şimdi kopyalayın. Fitness bu parolayı hiçbir zaman okunabilir biçimde saklamaz ve tekrar gösteremez."
       }
     },
     "error": {
@@ -236,7 +256,11 @@
       "invalid_number_or_entity": "Geçerli bir sayı veya Home Assistant varlık kimliği gir.",
       "select_profile": "En az bir Fitness kullanıcısı seç.",
       "select_smart_device_owner": "Kayıtlı antrenmanların sahibi olarak tam bir Fitness profili seçin. Canlı sensör özellikleri daha sonra başka profillerle paylaşılabilir.",
-      "invalid_protocol": "Desteklenen bir sensör protokolü seçin."
+      "invalid_protocol": "Desteklenen bir sensör protokolü seçin.",
+      "invalid_role": "Rol: Bu alan zorunludur.",
+      "invalid_network_access": "Ağ erişimi: Bu alan zorunludur.",
+      "profile_not_found": "Seçilen hesaplar yalnızca görüntülenebilir; ayar, antrenman veya cihazları değiştirilemez.",
+      "required": "Bu alan zorunludur."
     },
     "abort": {
       "already_configured": "Bu ada sahip bir Fitness profili zaten var.",
@@ -247,7 +271,8 @@
       "adapters_already_configured": "Tüm Fitness canlı adaptörleri zaten yapılandırılmış. Bunları adaptör cihazlarından etkinleştir veya devre dışı bırak.",
       "adapters_managed_on_devices": "Yerel sensör adaptörleri ANT+ ve Bluetooth adaptör cihazlarından yapılandırılır.",
       "protocol_enabled": "Seçilen bağlantı protokolü etkinleştirildi.",
-      "protocols_updated": "Fitness sensör protokolleri güncellendi."
+      "protocols_updated": "Fitness sensör protokolleri güncellendi.",
+      "fitness_admin_created": "Şimdi kopyalayın. Fitness bu parolayı hiçbir zaman okunabilir biçimde saklamaz ve tekrar gösteremez."
     }
   },
   "options": {
@@ -275,17 +300,13 @@
         "description": "Kişinin profil bilgilerini düzenle.",
         "data": {
           "language": "Dil",
-          "birth_day": "Doğum günü",
-          "birth_month": "Doğum ayı",
-          "birth_year": "Doğum yılı",
-          "sex": "Cinsiyet"
+          "sex": "Cinsiyet",
+          "date_of_birth": "Doğum tarihi"
         },
         "data_description": {
           "language": "Duyurular, coaching ve açıklayıcı sensör özniteliklerinin dili. Destekleniyorsa Home Assistant arayüz dili önceden seçilir.",
-          "birth_day": "Yaşa bağlı yöntemlerde yaş hesaplamak için ay ve yılla birlikte kullanılan doğum günü.",
-          "birth_month": "Yaşa bağlı referans hesaplarında tam doğum tarihiyle kullanılan doğum ayı.",
-          "birth_year": "Fitness referans yöntemlerinde yaş hesaplamak için kullanılan doğum yılı.",
-          "sex": "Yalnızca açıkça cinsiyete özgü katsayı isteyen bilimsel yöntemlerde kullanılan isteğe bağlı biyolojik cinsiyet."
+          "sex": "Yalnızca açıkça cinsiyete özgü katsayı isteyen bilimsel yöntemlerde kullanılan isteğe bağlı biyolojik cinsiyet.",
+          "date_of_birth": "Tam doğum tarihini seçin. Takvimden yılı doğrudan seçebilirsiniz."
         }
       },
       "fitness_inputs": {
@@ -3572,6 +3593,156 @@
       },
       "cycplus_history_30d_moving_time": {
         "name": "30 günlük bisiklet süresi"
+      },
+      "device_heart_rate": {
+        "name": "Kalp hızı"
+      },
+      "device_resting_heart_rate": {
+        "name": "Dinlenik kalp hızı"
+      },
+      "device_min_heart_rate": {
+        "name": "Minimum kalp hızı"
+      },
+      "device_max_heart_rate": {
+        "name": "Maksimum heart rate"
+      },
+      "device_hrv_ms": {
+        "name": "Kalp hızı değişkenliği"
+      },
+      "device_beat_interval_ms": {
+        "name": "Atım aralığı"
+      },
+      "device_respiratory_rate": {
+        "name": "Solunum hızı"
+      },
+      "device_spo2": {
+        "name": "Kan oksijeni"
+      },
+      "device_skin_temperature": {
+        "name": "Cilt sıcaklığı"
+      },
+      "device_skin_temperature_min": {
+        "name": "Minimum cilt sıcaklığı"
+      },
+      "device_skin_temperature_max": {
+        "name": "Maksimum skin temperature"
+      },
+      "device_skin_temperature_deviation": {
+        "name": "Cilt sıcaklığı sapması"
+      },
+      "device_skin_temperature_7d_deviation": {
+        "name": "7 günlük cilt sıcaklığı sapması"
+      },
+      "device_body_temperature": {
+        "name": "Vücut sıcaklığı"
+      },
+      "device_device_temperature": {
+        "name": "Cihaz temperature"
+      },
+      "device_device_temperature_min": {
+        "name": "Minimum cihaz sıcaklığı"
+      },
+      "device_device_temperature_max": {
+        "name": "Maksimum device temperature"
+      },
+      "device_steps": {
+        "name": "Adımlar"
+      },
+      "device_distance_m": {
+        "name": "Mesafe"
+      },
+      "device_calories": {
+        "name": "Kalori"
+      },
+      "device_active_calories": {
+        "name": "Aktif calories"
+      },
+      "device_active_minutes": {
+        "name": "Aktif dakika"
+      },
+      "device_moderate_minutes": {
+        "name": "Orta aktivite minutes"
+      },
+      "device_vigorous_minutes": {
+        "name": "Yoğun aktivite minutes"
+      },
+      "device_activity_level": {
+        "name": "Aktivite düzeyi"
+      },
+      "device_stress": {
+        "name": "Stres"
+      },
+      "device_body_battery": {
+        "name": "Vücut battery"
+      },
+      "device_body_battery_charged": {
+        "name": "Vücut battery charged"
+      },
+      "device_body_battery_drained": {
+        "name": "Vücut battery drained"
+      },
+      "device_sleep_score": {
+        "name": "Cihaz uyku puanı"
+      },
+      "device_vo2_max": {
+        "name": "VO₂ maks."
+      },
+      "device_floors_climbed": {
+        "name": "Çıkılan kat"
+      },
+      "device_systolic_blood_pressure": {
+        "name": "Sistolik blood pressure"
+      },
+      "device_diastolic_blood_pressure": {
+        "name": "Diyastolik blood pressure"
+      },
+      "device_mean_arterial_pressure": {
+        "name": "Ortalama arteriyel pressure"
+      },
+      "device_weight": {
+        "name": "Kilo"
+      },
+      "device_bmi": {
+        "name": "VKİ"
+      },
+      "device_body_fat": {
+        "name": "Vücut yağı"
+      },
+      "device_body_water": {
+        "name": "Vücut suyu"
+      },
+      "device_muscle_mass": {
+        "name": "Kas kütlesi"
+      },
+      "device_bone_mass": {
+        "name": "Kemik kütlesi"
+      },
+      "device_basal_metabolic_rate": {
+        "name": "Bazal metabolizma"
+      },
+      "device_active_metabolic_rate": {
+        "name": "Aktif metabolizma"
+      },
+      "device_metabolic_age": {
+        "name": "Metabolik yaş"
+      },
+      "device_visceral_fat_mass": {
+        "name": "Visseral fat mass"
+      },
+      "device_visceral_fat_rating": {
+        "name": "Visseral fat rating"
+      },
+      "device_battery": {
+        "name": "Cihaz pili"
+      },
+      "device_device_battery_voltage": {
+        "name": "Cihaz battery voltage"
+      },
+      "device_charging": {
+        "name": "Şarj oluyor"
+      },
+      "device_wear_state": {
+        "name": "Takma durumu"
       }
     },
     "binary_sensor": {
@@ -3665,6 +3836,20 @@
         "lights": "Işıklar",
         "video": "TV / görüntü",
         "weather": "Hava durumu"
+      }
+    },
+    "fitness_account_role": {
+      "options": {
+        "admin_user": "Yönetici + Fitness kullanıcısı",
+        "user": "Kullanıcı",
+        "admin": "Tam Fitness yönetimi"
+      }
+    },
+    "fitness_network_access": {
+      "options": {
+        "local_only": "Yalnızca yerel",
+        "remote_only": "Yalnızca uzaktan",
+        "local_remote": "Yerel + uzaktan"
       }
     }
   },

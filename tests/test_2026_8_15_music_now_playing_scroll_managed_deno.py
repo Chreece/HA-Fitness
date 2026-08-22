@@ -63,5 +63,5 @@ def test_home_assistant_manages_a_musl_compatible_node_fallback_for_ytdlp():
 
 
 def test_frontend_revision_bumped_for_now_playing_and_scroll_fix():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
-    assert '?v=unreleased-110' in DASHBOARD
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in FRONTEND
+    assert '?v=unreleased-138' in DASHBOARD

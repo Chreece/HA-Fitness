@@ -72,12 +72,13 @@ def test_live_card_has_heartbeat_and_speed_motion_visuals():
 
 def test_access_role_controls_hide_profile_and_extra_views_for_no_profile_role():
     assert '<option value="admin"' in JS
-    assert '<option value="local"' in JS
-    assert '<option value="remote"' in JS
-    assert 'const current = String(role?.value || "local");' in JS
-    assert 'const remoteActive = current === "remote" || (current === "admin" && Boolean(adminRemote?.checked));' in JS
-    assert 'field.classList.toggle("hidden", !remoteActive)' in JS
-    assert 'current === "admin"' in JS
+    assert '<option value="admin_user"' in JS
+    assert '<option value="user"' in JS
+    assert 'const currentRole = String(role?.value || "user");' in JS
+    assert 'const currentNetwork = String(network?.value || "local_only");' in JS
+    assert 'const remoteActive = currentNetwork !== "local_only";' in JS
+    assert 'currentRole === "admin"' in JS
+    assert 'currentRole !== "user"' in JS
     assert 'value="none"' not in JS[JS.index('data-account-role'):JS.index('data-account-profile')]
 
 def test_structured_modals_scroll_the_body_and_keep_config_save_footer_reachable():

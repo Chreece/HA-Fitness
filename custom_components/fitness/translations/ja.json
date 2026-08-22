@@ -8,18 +8,14 @@
         "data": {
           "profile_name": "名前",
           "language": "言語",
-          "birth_day": "生まれた日",
-          "birth_month": "生まれた月",
-          "birth_year": "生まれた年",
-          "sex": "性別"
+          "sex": "性別",
+          "date_of_birth": "生年月日"
         },
         "data_description": {
           "profile_name": "この人専用の Fitness プロフィールとエンティティを作成するための名前です。",
           "language": "アナウンス、コーチング、説明用センサー属性の言語です。対応している場合は Home Assistant の UI 言語が事前選択されます。",
-          "birth_day": "生年月日の「日」。月・年と合わせて年齢依存の方法で年齢計算に使用します。",
-          "birth_month": "出生月。完全な生年月日と合わせて年齢依存の参照計算に使用します。",
-          "birth_year": "出生年。年齢依存のフィットネス参照方法で年齢を計算するために使用します。",
-          "sex": "任意の生物学的性別。性別固有係数を明示的に必要とする科学的方法だけで使用します。"
+          "sex": "任意の生物学的性別。性別固有係数を明示的に必要とする科学的方法だけで使用します。",
+          "date_of_birth": "完全な生年月日を選択してください。日付選択画面では年を直接選べます。"
         }
       },
       "required": {
@@ -167,7 +163,7 @@
         "description": "最初に追加する項目を選択してください。既存のプロフィール設定手順を変えずに、もう一方は後から追加できます。",
         "menu_options": {
           "add_user": "ユーザープロフィールを追加",
-          "manage_protocols": "センサープロトコルを管理"
+          "add_protocol": "センサープロトコルを追加 / 管理"
         }
       },
       "add_user": {
@@ -229,6 +225,30 @@
           "bluetooth_hardware": "手動モードで Fitness が使用できる対応アダプターを選択します。",
           "antplus_hardware": "手動モードで Fitness が使用できる対応アダプターを選択します。"
         }
+      },
+      "account_access": {
+        "title": "Fitness ユーザーの役割とアクセス",
+        "description": "管理者専用です。新しい Fitness アカウントの役割とサインイン範囲を先に設定します。",
+        "data": {
+          "fitness_account_role": "ロール",
+          "fitness_network_access": "ネットワークアクセス",
+          "fitness_account_display_name": "アカウント名",
+          "fitness_account_username": "ログイン名",
+          "fitness_remote_slug": "リモートホスト名",
+          "fitness_view_profile_entry_ids": "アカウント閲覧権限"
+        },
+        "data_description": {
+          "fitness_account_role": "管理者は Fitness の全権限を持ちます。ローカルおよびリモートユーザーは自分のプロフィールだけを操作し、管理者が許可した追加プロフィールのみ読み取り専用で閲覧できます。",
+          "fitness_network_access": "指定されたリモートホスト名からのみログインでき、HAのLAN機器は公開されません。 ローカルとリモートの両方でログインでき、LAN機器は実際にローカル接続中のみ表示されます。",
+          "fitness_account_display_name": "このアカウントは自分の Fitness プロフィールだけを操作できます。",
+          "fitness_account_username": "リモートアカウントではサブドメインが既定です。ユーザーは後からログイン名を変更できます。",
+          "fitness_remote_slug": "このホスト名は、このリモート Fitness アカウント専用です。",
+          "fitness_view_profile_entry_ids": "選択したアカウントは表示専用で、設定・ワークアウト・機器は変更できません。"
+        }
+      },
+      "account_credentials": {
+        "title": "初回ワンタイムパスワード",
+        "description": "初回ワンタイムパスワード: **{temporary_password}**. 今すぐコピーしてください。Fitness はこのパスワードを読める形式で保存せず、後から再表示できません。"
       }
     },
     "error": {
@@ -236,7 +256,11 @@
       "invalid_number_or_entity": "有効な数値または Home Assistant エンティティ ID を入力してください。",
       "select_profile": "Fitness ユーザーを1人以上選択してください。",
       "select_smart_device_owner": "保存済みワークアウトの所有者として Fitness プロファイルを1つだけ選んでください。ライブセンサー機能は後から他のプロファイルと共有できます。",
-      "invalid_protocol": "対応しているセンサープロトコルを選択してください。"
+      "invalid_protocol": "対応しているセンサープロトコルを選択してください。",
+      "invalid_role": "ロール: この項目は必須です。",
+      "invalid_network_access": "ネットワークアクセス: この項目は必須です。",
+      "profile_not_found": "選択したアカウントは表示専用で、設定・ワークアウト・機器は変更できません。",
+      "required": "この項目は必須です。"
     },
     "abort": {
       "already_configured": "同じ名前の Fitness プロフィールがすでに存在します。",
@@ -247,7 +271,8 @@
       "adapters_already_configured": "Fitness ライブアダプターはすべて設定済みです。各アダプターデバイスから有効または無効にしてください。",
       "adapters_managed_on_devices": "ローカルセンサーアダプターは ANT+ および Bluetooth アダプターデバイスから設定します。",
       "protocol_enabled": "選択した接続プロトコルを有効にしました。",
-      "protocols_updated": "Fitness のセンサープロトコルを更新しました。"
+      "protocols_updated": "Fitness のセンサープロトコルを更新しました。",
+      "fitness_admin_created": "今すぐコピーしてください。Fitness はこのパスワードを読める形式で保存せず、後から再表示できません。"
     }
   },
   "options": {
@@ -275,17 +300,13 @@
         "description": "個人のプロフィール情報を編集します。",
         "data": {
           "language": "言語",
-          "birth_day": "生まれた日",
-          "birth_month": "生まれた月",
-          "birth_year": "生まれた年",
-          "sex": "性別"
+          "sex": "性別",
+          "date_of_birth": "生年月日"
         },
         "data_description": {
           "language": "アナウンス、コーチング、説明用センサー属性の言語です。対応している場合は Home Assistant の UI 言語が事前選択されます。",
-          "birth_day": "生年月日の「日」。月・年と合わせて年齢依存の方法で年齢計算に使用します。",
-          "birth_month": "出生月。完全な生年月日と合わせて年齢依存の参照計算に使用します。",
-          "birth_year": "出生年。年齢依存のフィットネス参照方法で年齢を計算するために使用します。",
-          "sex": "任意の生物学的性別。性別固有係数を明示的に必要とする科学的方法だけで使用します。"
+          "sex": "任意の生物学的性別。性別固有係数を明示的に必要とする科学的方法だけで使用します。",
+          "date_of_birth": "完全な生年月日を選択してください。日付選択画面では年を直接選べます。"
         }
       },
       "fitness_inputs": {
@@ -3572,6 +3593,156 @@
       },
       "cycplus_history_30d_moving_time": {
         "name": "30日間のサイクリング時間"
+      },
+      "device_heart_rate": {
+        "name": "心拍数"
+      },
+      "device_resting_heart_rate": {
+        "name": "安静時心拍数"
+      },
+      "device_min_heart_rate": {
+        "name": "最小heart rate"
+      },
+      "device_max_heart_rate": {
+        "name": "最大heart rate"
+      },
+      "device_hrv_ms": {
+        "name": "心拍変動"
+      },
+      "device_beat_interval_ms": {
+        "name": "拍動間隔"
+      },
+      "device_respiratory_rate": {
+        "name": "呼吸数"
+      },
+      "device_spo2": {
+        "name": "血中酸素"
+      },
+      "device_skin_temperature": {
+        "name": "皮膚温度"
+      },
+      "device_skin_temperature_min": {
+        "name": "最小skin temperature"
+      },
+      "device_skin_temperature_max": {
+        "name": "最大skin temperature"
+      },
+      "device_skin_temperature_deviation": {
+        "name": "皮膚温度偏差"
+      },
+      "device_skin_temperature_7d_deviation": {
+        "name": "7日間の皮膚温度偏差"
+      },
+      "device_body_temperature": {
+        "name": "体温"
+      },
+      "device_device_temperature": {
+        "name": "デバイスtemperature"
+      },
+      "device_device_temperature_min": {
+        "name": "最小device temperature"
+      },
+      "device_device_temperature_max": {
+        "name": "最大device temperature"
+      },
+      "device_steps": {
+        "name": "歩数"
+      },
+      "device_distance_m": {
+        "name": "距離"
+      },
+      "device_calories": {
+        "name": "カロリー"
+      },
+      "device_active_calories": {
+        "name": "アクティブcalories"
+      },
+      "device_active_minutes": {
+        "name": "アクティブ時間"
+      },
+      "device_moderate_minutes": {
+        "name": "中強度活動minutes"
+      },
+      "device_vigorous_minutes": {
+        "name": "高強度活動minutes"
+      },
+      "device_activity_level": {
+        "name": "活動レベル"
+      },
+      "device_stress": {
+        "name": "ストレス"
+      },
+      "device_body_battery": {
+        "name": "身体battery"
+      },
+      "device_body_battery_charged": {
+        "name": "身体battery charged"
+      },
+      "device_body_battery_drained": {
+        "name": "身体battery drained"
+      },
+      "device_sleep_score": {
+        "name": "デバイス睡眠スコア"
+      },
+      "device_vo2_max": {
+        "name": "最大酸素摂取量 (VO₂ max)"
+      },
+      "device_floors_climbed": {
+        "name": "上った階数"
+      },
+      "device_systolic_blood_pressure": {
+        "name": "収縮期blood pressure"
+      },
+      "device_diastolic_blood_pressure": {
+        "name": "拡張期blood pressure"
+      },
+      "device_mean_arterial_pressure": {
+        "name": "平均動脈pressure"
+      },
+      "device_weight": {
+        "name": "体重"
+      },
+      "device_bmi": {
+        "name": "体格指数 (BMI)"
+      },
+      "device_body_fat": {
+        "name": "体脂肪"
+      },
+      "device_body_water": {
+        "name": "体水分"
+      },
+      "device_muscle_mass": {
+        "name": "筋肉量"
+      },
+      "device_bone_mass": {
+        "name": "骨量"
+      },
+      "device_basal_metabolic_rate": {
+        "name": "基礎代謝量"
+      },
+      "device_active_metabolic_rate": {
+        "name": "活動代謝量"
+      },
+      "device_metabolic_age": {
+        "name": "代謝年齢"
+      },
+      "device_visceral_fat_mass": {
+        "name": "内臓fat mass"
+      },
+      "device_visceral_fat_rating": {
+        "name": "内臓fat rating"
+      },
+      "device_battery": {
+        "name": "デバイスのバッテリー"
+      },
+      "device_device_battery_voltage": {
+        "name": "デバイスbattery voltage"
+      },
+      "device_charging": {
+        "name": "充電中"
+      },
+      "device_wear_state": {
+        "name": "装着状態"
       }
     },
     "binary_sensor": {
@@ -3665,6 +3836,20 @@
         "lights": "ライト",
         "video": "TV / 動画",
         "weather": "天気"
+      }
+    },
+    "fitness_account_role": {
+      "options": {
+        "admin_user": "管理者 + Fitnessユーザー",
+        "user": "ユーザー",
+        "admin": "Fitness の完全管理"
+      }
+    },
+    "fitness_network_access": {
+      "options": {
+        "local_only": "ローカルのみ",
+        "remote_only": "リモートのみ",
+        "local_remote": "ローカル + リモート"
       }
     }
   },

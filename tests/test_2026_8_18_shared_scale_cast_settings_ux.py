@@ -59,13 +59,13 @@ def test_shared_scale_confirmation_informs_users_and_admin_with_role_appropriate
     assert 'vol.Required("type"): "fitness/weight/dismiss"' in DASH
     assert "async_control_profile_ids(connection)" in DASH
     assert 'id="weight-confirmation-host"' in FRONTEND
-    prompt_start = FRONTEND.index("  _updateWeightMeasurementPrompt()")
+    prompt_start = FRONTEND.index("  _normalFitnessNotifications()")
     prompt_end = FRONTEND.index("  async _confirmWeightMeasurement", prompt_start)
     prompt = FRONTEND[prompt_start:prompt_end]
     assert "<select" not in prompt
     assert "scale_measurement_user_question" in prompt
-    assert "scale_measurement_yes" in prompt
-    assert "scale_measurement_no" in prompt
+    assert "notification_apply" in prompt
+    assert "notification_ignore" in prompt
     assert "this._profile?.entry_id" in FRONTEND
     dismiss_start = FRONTEND.index("  async _dismissWeightMeasurement")
     dismiss_end = FRONTEND.index("  async _load()", dismiss_start)

@@ -336,7 +336,7 @@ WELLNESS_ADDITIVE_METRICS = frozenset({
     "steps", "distance_m", "calories", "active_calories", "active_minutes", "moderate_minutes", "vigorous_minutes", "floors_climbed", "body_battery_charged", "body_battery_drained",
 })
 WELLNESS_DESCRIPTIONS = tuple(
-    Desc(key=f"device_{metric}", name=name, kind="wellness", metric=metric, unit=unit)
+    Desc(key=f"device_{metric}", translation_key=f"device_{metric}", kind="wellness", metric=metric, unit=unit)
     for metric, name, unit in WELLNESS_METRICS
 )
 

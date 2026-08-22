@@ -19,11 +19,10 @@ def test_toolbar_hides_with_transition_instead_of_display_none():
     assert 'transition:opacity .24s ease,transform .38s cubic-bezier(.22,.72,.18,1),max-height .38s' in JS
 
 
-def test_dashboard_entry_motion_is_gentle_top_edge_unroll():
-    assert 'clipPath:"inset(0 0 96% 0 round 16px)"' in JS
-    assert 'const unroll = wrapper.animate([' in JS
-    assert 'translate3d(0,18px,0) scale(.68)' not in JS
-    assert 'filter:"blur(3px) brightness(.88)"' not in JS
+def test_dashboard_entry_does_not_animate_card_frames():
+    assert 'const unroll = wrapper.animate([' not in JS
+    assert 'clipPath:"inset(0 0 96% 0 round 16px)"' not in JS
+    assert 'cards.forEach((card, index) => this._ensureCardLivingMotion(card, index))' in JS
 
 
 def test_profile_backend_submenus_remain_inside_centered_viewport_panel():
@@ -35,5 +34,5 @@ def test_profile_backend_submenus_remain_inside_centered_viewport_panel():
 
 
 def test_frontend_revision_88_is_synchronized():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in JS
-    assert '?v=unreleased-110' in DASH
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in JS
+    assert '?v=unreleased-138' in DASH

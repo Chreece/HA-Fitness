@@ -39,7 +39,7 @@ def test_dashboard_config_only_returns_profiles_current_user_may_see():
     assert 'control_profile_ids = await access_controller.async_control_profile_ids(' in DASH
     assert 'if entry.entry_id not in visible_profile_ids:' in DASH
     assert '"can_control": entry.entry_id in control_profile_ids' in DASH
-    assert '_tv_cast_targets(hass, registry) if access.get("is_admin") else []' in DASH
+    assert 'access.get("is_admin") and access.get("local_ha_hardware_allowed")' in DASH
 
 
 def test_unauthorized_and_view_only_pages_have_explicit_ui_and_no_control_tools():
@@ -59,12 +59,12 @@ def test_unauthorized_and_view_only_pages_have_explicit_ui_and_no_control_tools(
 
 
 def test_access_admin_can_assign_owner_and_additional_view_only_profiles():
-    assert 'class="access-profile-field"' in JS
+    assert 'class="access-profile-field ${role === "admin" ? "hidden" : ""}"' in JS
     assert 'data-account-profile' in JS
     assert 'data-account-view' in JS
-    assert 'view_profile_entry_ids:[...row.querySelectorAll("[data-account-view]:checked")]' in JS
+    assert 'view_profile_entry_ids:currentRole === "user" ? [...row.querySelectorAll("[data-account-view]:checked")]' in JS
     assert 'vol.Optional("view_profile_entry_ids", default=[])' in ACCOUNTS
-    assert 'role === "admin" ? ""' in JS
+    assert 'const viewOptions = role !== "user" ? ""' in JS
 
 def test_lovelace_uses_stable_card_contract_and_current_module_registers_aliases():
     assert '_TV_DASHBOARD_CARD_TYPE = "custom:fitness-tv-dashboard-card"' in DASH
@@ -76,7 +76,7 @@ def test_lovelace_uses_stable_card_contract_and_current_module_registers_aliases
 
 
 def test_frontend_server_version_contract_can_force_reload_after_future_update():
-    assert '"frontend_version": "unreleased-110"' in DASH
+    assert '"frontend_version": "unreleased-138"' in DASH
     assert '_fitnessEnsureFrontendVersion' in JS
     assert 'location.reload();' in JS
 
@@ -96,7 +96,7 @@ def test_owned_profile_backend_options_flow_uses_fitness_authorized_websocket_pr
 
 
 def test_normal_profile_options_ui_does_not_use_home_assistant_admin_only_options_rest_api():
-    options_start = JS.index('this._fitnessOptionsFlow = mode !== "add";')
+    options_start = JS.index('this._fitnessOptionsFlow = this._mode !== "add";')
     options_end = JS.index('await this._renderFlow();', options_start)
     options_block = JS[options_start:options_end]
     assert 'fitness/dashboard/options_flow/start' in options_block

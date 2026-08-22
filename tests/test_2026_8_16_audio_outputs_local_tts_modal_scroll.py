@@ -13,7 +13,7 @@ def test_audio_output_is_persisted_per_fitness_profile_and_exposed_to_both_setti
     assert 'async def async_audio_output_id(self, profile_entry_id: str)' in TV
     assert '"audio_output_id": self._sanitize_audio_output_id(profile.get("audio_output_id"))' in TV
     assert 'vol.Optional("audio_output_id"): str' in TV
-    assert '"audio_outputs": _fitness_audio_outputs(hass, registry)' in DASH
+    assert '"audio_outputs": (' in DASH and '_fitness_audio_outputs(hass, registry)' in DASH and 'local_ha_hardware_allowed' in DASH
     assert JS.count('id="cfg-audio-output"') >= 2
     assert JS.count('audio_output_id:') >= 2
 

@@ -9,7 +9,9 @@ CONFIG=(FIT/'config_flow.py').read_text()
 
 
 def test_workouts_card_owns_calendar_popup_and_navigation():
-    assert 'this.config.title||"Workouts"' in JS
+    # The browser title/history labels are localized, so validate the translated
+    # ownership and popup wiring rather than the removed English literal.
+    assert 't.workout_history' in JS
     assert 'class="history"' in JS
     assert '<dialog><fitness-workout-browser-card>' in JS
     assert 'fitness-workout-selected' in JS

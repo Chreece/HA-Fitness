@@ -7,9 +7,9 @@ ACCOUNTS = (ROOT / "custom_components/fitness/fitness_accounts.py").read_text()
 
 
 def test_v106_resource_is_synchronized():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in JS
-    assert '?v=unreleased-110' in DASHBOARD
-    assert 'frontend_version = "unreleased-110"' in ACCOUNTS
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in JS
+    assert '?v=unreleased-138' in DASHBOARD
+    assert 'frontend_version = "unreleased-138"' in ACCOUNTS
     assert 'FITNESS_TV_DASHBOARD_CARD_TAG = "fitness-tv-dashboard-card-v110"' in JS
 
 
@@ -29,7 +29,9 @@ def test_non_cast_dashboard_has_one_document_scroll_owner():
 
 def test_manual_resize_never_clips_card_content():
     assert '.tv-card-slot[data-manual-height]{height:auto!important;min-height:var(--fitness-manual-card-height,120px)!important' in JS
-    assert 'const visualHeight = Math.max(contentVisualHeight, manualHeight > 0' in JS
+    assert 'const manualVisualHeight = manualHeight > 0 ? Math.ceil' in JS
+    assert 'const requestedVisualHeight = Math.max(contentVisualHeight, manualVisualHeight)' in JS
+    assert 'const settleTolerance = aiSettlingCard ? 6 : 2' in JS
     assert 'A saved height is a minimum canvas size, never a clipping box.' in JS
 
 

@@ -31,6 +31,6 @@ def test_phone_tv_toolbar_grows_and_actions_cannot_spill_over_cards():
 
 
 def test_frontend_cache_revision_is_v96_everywhere():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in JS
-    assert '?v=unreleased-110' in DASH
-    assert 'frontend_version = "unreleased-110"' in ACCOUNTS
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in JS
+    assert '?v=unreleased-138' in DASH
+    assert 'frontend_version = "unreleased-138"' in ACCOUNTS

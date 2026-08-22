@@ -28,8 +28,9 @@ def test_workout_viewer_has_per_workout_rpe_and_real_osm_map_tiles():
     assert 'class="workout-map-tile"' in card
     assert 'class="map-attribution"' in card
     assert 'class="workout-meta"' in card
-    assert 'Avg speed' in card
-    assert 'Moving time' in card
+    # Metric names are localized; validate the actual translation-key usage.
+    assert 't.avg_speed' in card
+    assert 't.moving_time' in card
 
 
 def test_backend_rates_selected_workout_without_turning_it_into_manual_edit():

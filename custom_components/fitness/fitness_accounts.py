@@ -45,19 +45,87 @@ PORTAL_MIDDLEWARE_KEY = "_fitness_account_portal_middleware"
 ACCOUNT_WS_REGISTERED_KEY = "_fitness_account_ws_registered"
 
 ROLE_ADMIN = "admin"
-ROLE_LOCAL = "local"
-ROLE_REMOTE = "remote"
-ROLES = {ROLE_ADMIN, ROLE_LOCAL, ROLE_REMOTE}
+ROLE_ADMIN_USER = "admin_user"
+ROLE_USER = "user"
+ROLES = {ROLE_ADMIN, ROLE_ADMIN_USER, ROLE_USER}
+ADMIN_ROLES = {ROLE_ADMIN, ROLE_ADMIN_USER}
+
+NETWORK_LOCAL_ONLY = "local_only"
+NETWORK_REMOTE_ONLY = "remote_only"
+NETWORK_LOCAL_REMOTE = "local_remote"
+NETWORK_ACCESS_MODES = {NETWORK_LOCAL_ONLY, NETWORK_REMOTE_ONLY, NETWORK_LOCAL_REMOTE}
+
+# Accepted only while loading/migrating stores from the pre-v139 model where
+# role and network reachability were encoded in the same field.
+_LEGACY_ROLE_LOCAL = "local"
+_LEGACY_ROLE_REMOTE = "remote"
+_LEGACY_ROLE_REMOTE_LOCAL = "remote_local"
+_LEGACY_ROLES = {_LEGACY_ROLE_LOCAL, _LEGACY_ROLE_REMOTE, _LEGACY_ROLE_REMOTE_LOCAL}
+
+
+def _is_admin_role(role: Any) -> bool:
+    return str(role or "") in ADMIN_ROLES
+
+
+def _role_requires_profile(role: Any) -> bool:
+    return str(role or "") in {ROLE_ADMIN_USER, ROLE_USER}
+
+
+def _normalized_role_and_network(
+    role: Any,
+    network_access: Any = None,
+    *,
+    remote_enabled: bool = False,
+    profile_entry_id: Any = None,
+) -> tuple[str, str]:
+    """Normalize new role/network fields and migrate the old combined roles."""
+    raw_role = str(role or "").strip().lower()
+    raw_network = str(network_access or "").strip().lower()
+    if raw_role == _LEGACY_ROLE_LOCAL:
+        return ROLE_USER, NETWORK_LOCAL_ONLY
+    if raw_role == _LEGACY_ROLE_REMOTE:
+        return ROLE_USER, NETWORK_REMOTE_ONLY
+    if raw_role == _LEGACY_ROLE_REMOTE_LOCAL:
+        return ROLE_USER, NETWORK_LOCAL_REMOTE
+    if raw_role not in ROLES:
+        return raw_role, raw_network
+    if raw_network not in NETWORK_ACCESS_MODES:
+        # Old administrators had only a remote_enabled flag. An administrator
+        # with a bound profile was effectively also a Fitness user.
+        if raw_role == ROLE_ADMIN and profile_entry_id:
+            raw_role = ROLE_ADMIN_USER
+        raw_network = NETWORK_LOCAL_REMOTE if remote_enabled else NETWORK_LOCAL_ONLY
+    return raw_role, raw_network
 
 
 def _account_remote_enabled(row: dict[str, Any] | None) -> bool:
     """Return whether this account is allowed to use its assigned remote host."""
     if not isinstance(row, dict):
         return False
-    role = str(row.get("role") or "")
-    return role == ROLE_REMOTE or (role == ROLE_ADMIN and bool(row.get("remote_enabled")))
+    _role, network = _normalized_role_and_network(
+        row.get("role"),
+        row.get("network_access"),
+        remote_enabled=bool(row.get("remote_enabled", False)),
+        profile_entry_id=row.get("profile_entry_id"),
+    )
+    return network in {NETWORK_REMOTE_ONLY, NETWORK_LOCAL_REMOTE}
+
+
+def _account_local_enabled(row: dict[str, Any] | None) -> bool:
+    """Return whether this account is allowed to authenticate from the LAN."""
+    if not isinstance(row, dict):
+        return False
+    _role, network = _normalized_role_and_network(
+        row.get("role"),
+        row.get("network_access"),
+        remote_enabled=bool(row.get("remote_enabled", False)),
+        profile_entry_id=row.get("profile_entry_id"),
+    )
+    return network in {NETWORK_LOCAL_ONLY, NETWORK_LOCAL_REMOTE}
 
 _SESSION_COOKIE = "__Host-fitness_session"
+_CAST_SESSION_COOKIE = "fitness_cast_session"
+_CAST_BOOTSTRAP_TTL = timedelta(minutes=3)
 _LANGUAGE_COOKIE = "__Host-fitness_language"
 _LOGIN_CSRF_COOKIE = "__Host-fitness_login_csrf"
 _SESSION_MAX_AGE = timedelta(hours=12)
@@ -361,6 +429,7 @@ class FitnessSession:
     host: str
     user_agent_hash: str
     language: str = "en"
+    state_entity_ids: tuple[str, ...] = ()
 
 
 class FitnessPortalConnection:
@@ -441,6 +510,11 @@ class FitnessAccountController:
         self._load_lock = asyncio.Lock()
         self._mutation_lock = asyncio.Lock()
         self._accounts: dict[str, dict[str, Any]] = {}
+        # Cast-only accounts never touch persistent storage. They exist only so
+        # the already-hardened restricted Fitness portal bridge can serve one
+        # profile to a LAN Cast receiver without exposing a Home Assistant token.
+        self._ephemeral_cast_accounts: dict[str, dict[str, Any]] = {}
+        self._cast_bootstrap: dict[str, dict[str, Any]] = {}
         self._sessions: dict[str, FitnessSession] = {}
         self._login_attempts: dict[str, list[datetime]] = {}
 
@@ -465,11 +539,16 @@ class FitnessAccountController:
         if not isinstance(row, dict):
             return None
         account_id = _safe_text(account_id or row.get("account_id"), 64)
-        role = _safe_text(row.get("role"), 16).lower()
-        username = _normalize_username(row.get("username"))
-        if not account_id or role not in ROLES or not username:
-            return None
         profile_id = _safe_text(row.get("profile_entry_id"), 128)
+        role, network_access = _normalized_role_and_network(
+            _safe_text(row.get("role"), 24).lower(),
+            row.get("network_access"),
+            remote_enabled=bool(row.get("remote_enabled", False)),
+            profile_entry_id=profile_id,
+        )
+        username = _normalize_username(row.get("username"))
+        if not account_id or role not in ROLES or network_access not in NETWORK_ACCESS_MODES or not username:
+            return None
         views = sorted(
             {
                 _safe_text(item, 128)
@@ -482,8 +561,9 @@ class FitnessAccountController:
             "display_name": _safe_text(row.get("display_name") or username, 128),
             "username": username,
             "role": role,
+            "network_access": network_access,
             "enabled": bool(row.get("enabled", True)),
-            "remote_enabled": bool(row.get("remote_enabled", False)) if role == ROLE_ADMIN else role == ROLE_REMOTE,
+            "remote_enabled": network_access in {NETWORK_REMOTE_ONLY, NETWORK_LOCAL_REMOTE},
             "profile_entry_id": profile_id,
             "view_profile_entry_ids": views,
             "remote_slug": _normalize_slug(row.get("remote_slug")),
@@ -518,14 +598,18 @@ class FitnessAccountController:
         if not isinstance(rows, dict) or not rows:
             return
         for legacy_user_id, old in rows.items():
-            if not isinstance(old, dict) or old.get("role") not in ROLES:
+            if not isinstance(old, dict) or old.get("role") not in (ROLES | _LEGACY_ROLES):
                 continue
             user = await self.hass.auth.async_get_user(str(legacy_user_id))
             display = _safe_text(getattr(user, "name", "") or f"Fitness {str(legacy_user_id)[:8]}", 128)
-            role = str(old.get("role"))
             profile_id = _safe_text(old.get("profile_entry_id"), 128)
+            role, network_access = _normalized_role_and_network(
+                old.get("role"), old.get("network_access"),
+                remote_enabled=bool(old.get("remote_enabled", False)),
+                profile_entry_id=profile_id,
+            )
             remote_slug = _normalize_slug(old.get("remote_slug"))
-            if role == ROLE_REMOTE and profile_id:
+            if network_access in {NETWORK_REMOTE_ONLY, NETWORK_LOCAL_REMOTE} and profile_id:
                 desc = legacy.external_profile_descriptor(profile_id)
                 remote_slug = _normalize_slug(desc.get("subdomain")) or remote_slug
             seed = remote_slug or re.sub(r"[^A-Za-z0-9_.-]+", "-", display).strip("-._")[:48]
@@ -537,8 +621,9 @@ class FitnessAccountController:
                 "display_name": display,
                 "username": username,
                 "role": role,
+                "network_access": network_access,
                 "enabled": bool(old.get("enabled", True)),
-                "remote_enabled": role == ROLE_REMOTE,
+                "remote_enabled": network_access in {NETWORK_REMOTE_ONLY, NETWORK_LOCAL_REMOTE},
                 "profile_entry_id": profile_id,
                 "view_profile_entry_ids": sorted(
                     {_safe_text(item, 128) for item in old.get("view_profile_entry_ids", []) if _safe_text(item, 128)}
@@ -581,7 +666,10 @@ class FitnessAccountController:
         raise ValueError("username_in_use")
 
     def account(self, account_id: str | None) -> dict[str, Any] | None:
-        row = self._accounts.get(str(account_id or ""))
+        key = str(account_id or "")
+        row = self._accounts.get(key)
+        if row is None:
+            row = self._ephemeral_cast_accounts.get(key)
         if not isinstance(row, dict) or not row.get("enabled", True):
             return None
         return row
@@ -590,6 +678,19 @@ class FitnessAccountController:
         needle = str(username or "").casefold()
         for row in self._accounts.values():
             if row.get("enabled", True) and str(row.get("username") or "").casefold() == needle:
+                return row
+        return None
+
+    def account_by_profile(self, profile_entry_id: str) -> dict[str, Any] | None:
+        """Return the enabled Fitness account that owns a profile."""
+        needle = str(profile_entry_id or "").strip()
+        if not needle:
+            return None
+        for row in self._accounts.values():
+            if (
+                row.get("enabled", True)
+                and str(row.get("profile_entry_id") or "") == needle
+            ):
                 return row
         return None
 
@@ -613,13 +714,14 @@ class FitnessAccountController:
         return {
             "account_id": str(row.get("account_id") or ""),
             "role": str(row.get("role") or "none"),
+            "network_access": str(row.get("network_access") or NETWORK_LOCAL_ONLY),
             "username": str(row.get("username") or ""),
             "display_name": str(row.get("display_name") or row.get("username") or "Fitness"),
             "profile_entry_id": str(row.get("profile_entry_id") or "") or None,
             "view_profile_entry_ids": list(row.get("view_profile_entry_ids") or []),
             "remote_slug": str(row.get("remote_slug") or "") or None,
             "remote_enabled": _account_remote_enabled(row),
-            "is_admin": row.get("role") == ROLE_ADMIN,
+            "is_admin": str(row.get("role") or "") in {"admin", "admin_user"},
             "enabled": bool(row.get("enabled", True)),
         }
 
@@ -633,7 +735,7 @@ class FitnessAccountController:
         """
         return any(
             row.get("enabled", True)
-            and row.get("role") == ROLE_ADMIN
+            and _is_admin_role(row.get("role"))
             and bool(str(row.get("password_hash") or ""))
             for row in self._accounts.values()
         )
@@ -678,7 +780,7 @@ class FitnessAccountController:
         access = get_fitness_access_controller(self.hass)
         profile_id = str(row.get("profile_entry_id") or "")
         remote_enabled = _account_remote_enabled(row)
-        if remote_enabled and row.get("role") == ROLE_ADMIN:
+        if remote_enabled and _is_admin_role(row.get("role")):
             dns = access.external_account_descriptor(account_id)
         elif remote_enabled and profile_id:
             dns = access.external_profile_descriptor(profile_id)
@@ -707,6 +809,7 @@ class FitnessAccountController:
             "display_name": str(row.get("display_name") or ""),
             "username": str(row.get("username") or ""),
             "role": str(row.get("role") or ""),
+            "network_access": str(row.get("network_access") or NETWORK_LOCAL_ONLY),
             "enabled": bool(row.get("enabled", True)),
             "profile_entry_id": str(row.get("profile_entry_id") or "") or None,
             "view_profile_entry_ids": list(row.get("view_profile_entry_ids") or []),
@@ -729,11 +832,79 @@ class FitnessAccountController:
                 "dns_state": dns.get("dns_state") if dns else None,
                 "dns_error": dns.get("last_error") if dns else None,
                 "dns_url": dns.get("url") if dns else remote_url,
-                "login_scope": "remote_hostname" if remote_enabled else "local_network",
+                "login_scope": str(row.get("network_access") or NETWORK_LOCAL_ONLY),
                 "password_change_required": bool(row.get("password_change_required", True)),
                 "credentials_configured": bool(row.get("password_hash")),
             }
         return result
+
+    def sharing_snapshot(self, owner_account_id: str) -> dict[str, Any]:
+        """Return view-only sharing choices for one account's own dashboard."""
+        owner = self._accounts.get(str(owner_account_id or ""))
+        if not isinstance(owner, dict):
+            raise ValueError("account_not_found")
+        owner_profile = str(owner.get("profile_entry_id") or "")
+        if not owner_profile:
+            raise ValueError("profile_not_found")
+        viewers: list[dict[str, Any]] = []
+        for account_id, row in self._accounts.items():
+            if account_id == owner_account_id or not row.get("enabled", True):
+                continue
+            # Administrators already have global visibility; listing them as a
+            # share target would imply that this checkbox grants admin access.
+            if _is_admin_role(row.get("role")):
+                continue
+            viewers.append({
+                "account_id": account_id,
+                "display_name": str(row.get("display_name") or row.get("username") or account_id),
+                "selected": owner_profile in {str(item) for item in (row.get("view_profile_entry_ids") or [])},
+            })
+        viewers.sort(key=lambda item: (str(item["display_name"]).casefold(), item["account_id"]))
+        return {
+            "owner_account_id": owner_account_id,
+            "profile_entry_id": owner_profile,
+            "viewers": viewers,
+        }
+
+    async def async_set_shared_viewers(
+        self, owner_account_id: str, viewer_account_ids: list[str]
+    ) -> dict[str, Any]:
+        """Grant/revoke view-only access to the caller's own Fitness profile.
+
+        This operation edits only the owner's profile ID inside other users'
+        view lists. It can never change roles, network access, ownership or any
+        other viewer setting.
+        """
+        await self.async_load()
+        async with self._mutation_lock:
+            owner = self._accounts.get(str(owner_account_id or ""))
+            if not isinstance(owner, dict) or not owner.get("enabled", True):
+                raise ValueError("account_not_found")
+            owner_profile = str(owner.get("profile_entry_id") or "")
+            if not owner_profile:
+                raise ValueError("profile_not_found")
+            requested = {str(item) for item in (viewer_account_ids or []) if str(item)}
+            allowed = {
+                account_id
+                for account_id, row in self._accounts.items()
+                if account_id != owner_account_id
+                and row.get("enabled", True)
+                and not _is_admin_role(row.get("role"))
+            }
+            if not requested.issubset(allowed):
+                raise ValueError("account_not_found")
+            for account_id, row in self._accounts.items():
+                if account_id not in allowed:
+                    continue
+                views = {str(item) for item in (row.get("view_profile_entry_ids") or []) if str(item)}
+                if account_id in requested:
+                    views.add(owner_profile)
+                else:
+                    views.discard(owner_profile)
+                row["view_profile_entry_ids"] = sorted(views)
+                row["updated_at"] = _iso()
+            await self._async_save()
+        return self.sharing_snapshot(owner_account_id)
 
     async def async_save_account(
         self,
@@ -741,6 +912,7 @@ class FitnessAccountController:
         account_id: str | None,
         display_name: str,
         role: str,
+        network_access: str | None,
         profile_entry_id: str | None,
         view_profile_entry_ids: list[str] | None,
         remote_slug: str | None,
@@ -751,16 +923,23 @@ class FitnessAccountController:
         await self.async_load()
         async with self._mutation_lock:
             role = str(role or "").lower().strip()
-            if role not in ROLES:
-                raise ValueError("invalid_role")
             account_id = str(account_id or "").strip()
             current = self._accounts.get(account_id) if account_id else None
             if not account_id:
                 account_id = uuid.uuid4().hex
             profile_id = _safe_text(profile_entry_id, 128)
-            if role in {ROLE_LOCAL, ROLE_REMOTE} and not profile_id:
+            role, network_access = _normalized_role_and_network(
+                role, network_access, remote_enabled=bool(remote_enabled), profile_entry_id=profile_id
+            )
+            if role not in ROLES:
+                raise ValueError("invalid_role")
+            if network_access not in NETWORK_ACCESS_MODES:
+                raise ValueError("invalid_network_access")
+            if _role_requires_profile(role) and not profile_id:
                 raise ValueError("profile_not_found")
-            remote_enabled = role == ROLE_REMOTE or (role == ROLE_ADMIN and bool(remote_enabled))
+            if role == ROLE_ADMIN and profile_id:
+                raise ValueError("admin_profile_not_allowed")
+            remote_enabled = network_access in {NETWORK_REMOTE_ONLY, NETWORK_LOCAL_REMOTE}
             if profile_id:
                 entry = self.hass.config_entries.async_get_entry(profile_id)
                 if entry is None or entry.domain != DOMAIN or entry.data.get("entry_type") in {"live_hub", "devices_hub"}:
@@ -785,7 +964,7 @@ class FitnessAccountController:
             }
             if not views.issubset(known):
                 raise ValueError("profile_not_found")
-            if role == ROLE_ADMIN:
+            if _is_admin_role(role):
                 views.clear()
             slug = _normalize_slug(remote_slug)
             if remote_enabled and not slug:
@@ -812,7 +991,7 @@ class FitnessAccountController:
             else:
                 slug = ""
             requested_username = _normalize_username(username)
-            if role == ROLE_REMOTE:
+            if network_access == NETWORK_REMOTE_ONLY:
                 # A dedicated remote hostname selects the account, so a second
                 # user-editable login name is redundant and confusing. Keep an
                 # internal identifier derived from the assigned hostname.
@@ -827,10 +1006,10 @@ class FitnessAccountController:
                     or f"fitness-{secrets.token_hex(4)}"
                 )
             requested_username = self._unique_username(requested_username, exclude_account_id=account_id)
-            if current and current.get("role") == ROLE_ADMIN and current.get("enabled", True) and (role != ROLE_ADMIN or not enabled):
+            if current and _is_admin_role(current.get("role")) and current.get("enabled", True) and (not _is_admin_role(role) or not enabled):
                 other_admins = [
                     other for aid, other in self._accounts.items()
-                    if aid != account_id and other.get("enabled", True) and other.get("role") == ROLE_ADMIN
+                    if aid != account_id and other.get("enabled", True) and _is_admin_role(other.get("role"))
                 ]
                 if not other_admins:
                     raise ValueError("last_admin")
@@ -840,6 +1019,7 @@ class FitnessAccountController:
                 "display_name": _safe_text(display_name or requested_username, 128),
                 "username": requested_username,
                 "role": role,
+                "network_access": network_access,
                 "enabled": bool(enabled),
                 "remote_enabled": remote_enabled,
                 "profile_entry_id": profile_id,
@@ -881,7 +1061,7 @@ class FitnessAccountController:
             async def _set_remote_dns(*, old: bool, publish: bool, target_slug: str | None) -> None:
                 target_role = old_role if old else role
                 target_profile = old_profile if old else profile_id
-                if target_role == ROLE_ADMIN:
+                if _is_admin_role(target_role):
                     await access._async_set_external_account(  # noqa: SLF001
                         account_id=account_id, enabled=publish, subdomain=target_slug
                     )
@@ -902,7 +1082,10 @@ class FitnessAccountController:
                         err,
                     )
 
-            same_ledger = old_role == role and (role == ROLE_ADMIN or old_profile == profile_id)
+            same_ledger = (
+                (_is_admin_role(old_role) and _is_admin_role(role))
+                or (old_role == role and old_profile == profile_id)
+            )
             old_same_binding = (
                 old_remote_enabled and wants_remote and same_ledger and old_slug == slug
             )
@@ -943,10 +1126,10 @@ class FitnessAccountController:
             if not row:
                 raise ValueError("account_not_found")
             # Do not allow the last explicit Fitness administrator to be removed.
-            if row.get("role") == ROLE_ADMIN:
+            if _is_admin_role(row.get("role")):
                 others = [
                     a for aid, a in self._accounts.items()
-                    if aid != account_id and a.get("enabled", True) and a.get("role") == ROLE_ADMIN
+                    if aid != account_id and a.get("enabled", True) and _is_admin_role(a.get("role"))
                 ]
                 if not others:
                     raise ValueError("last_admin")
@@ -955,7 +1138,7 @@ class FitnessAccountController:
 
                 try:
                     access = get_fitness_access_controller(self.hass)
-                    if row.get("role") == ROLE_ADMIN:
+                    if _is_admin_role(row.get("role")):
                         await access._async_set_external_account(  # noqa: SLF001
                             account_id=str(account_id), enabled=False, subdomain=None
                         )
@@ -968,6 +1151,91 @@ class FitnessAccountController:
             self._accounts.pop(str(account_id), None)
             self._revoke_account_sessions(str(account_id))
             await self._async_save()
+
+    async def async_prepare_initial_password(
+        self, password: str, *, username: str = "", remote_slug: str = "", profile_name: str = ""
+    ) -> dict[str, Any]:
+        """Hash a first-login password without persisting its plaintext."""
+        code = _password_policy(
+            str(password or ""),
+            username=str(username or ""),
+            subdomain=str(remote_slug or ""),
+            profile_name=str(profile_name or ""),
+        )
+        if code:
+            raise ValueError(code)
+        salt = secrets.token_bytes(16)
+        digest = await self.hass.async_add_executor_job(_scrypt_hash, str(password), salt)
+        now = _iso()
+        return {
+            "password_salt": salt.hex(),
+            "password_hash": digest,
+            "password_change_required": True,
+            "password_changed_at": now,
+        }
+
+    async def async_set_initial_password(self, account_id: str, password: str) -> None:
+        """Install a first-login password and require it to be changed."""
+        await self.async_load()
+        async with self._mutation_lock:
+            row = self.account(account_id)
+            if row is None:
+                raise ValueError("account_not_found")
+            await self._async_set_password(row, str(password or ""), force_change=True)
+            row["last_error_code"] = ""
+            row["last_error_at"] = ""
+            await self._async_save()
+            self._revoke_account_sessions(account_id)
+
+    async def async_finalize_pending_profile_account(
+        self, profile_entry_id: str, spec: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Bind a native config-flow account to its newly created profile."""
+        profile_entry_id = _safe_text(profile_entry_id, 128)
+        entry = self.hass.config_entries.async_get_entry(profile_entry_id)
+        if entry is None:
+            raise ValueError("profile_not_found")
+        config = {**entry.data, **entry.options}
+        display_name = _safe_text(
+            spec.get("display_name") or config.get(CONF_PROFILE_NAME) or entry.title, 128
+        )
+        account = await self.async_save_account(
+            account_id=None,
+            display_name=display_name,
+            role=str(spec.get("role") or ""),
+            network_access=str(spec.get("network_access") or ""),
+            profile_entry_id=profile_entry_id,
+            view_profile_entry_ids=[
+                str(item) for item in (spec.get("view_profile_entry_ids") or []) if str(item)
+            ],
+            remote_slug=str(spec.get("remote_slug") or "") or None,
+            username=str(spec.get("username") or "") or None,
+            enabled=bool(spec.get("enabled", True)),
+        )
+        salt = str(spec.get("password_salt") or "")
+        digest = str(spec.get("password_hash") or "")
+        try:
+            salt_bytes = bytes.fromhex(salt)
+            digest_bytes = bytes.fromhex(digest)
+        except ValueError as err:
+            raise ValueError("invalid_prepared_password") from err
+        if len(salt_bytes) != 16 or len(digest_bytes) != 32:
+            raise ValueError("invalid_prepared_password")
+        account_id = str(account.get("account_id") or "")
+        async with self._mutation_lock:
+            row = self.account(account_id)
+            if row is None:
+                raise ValueError("account_not_found")
+            row["password_salt"] = salt
+            row["password_hash"] = digest
+            row["password_change_required"] = True
+            row["password_changed_at"] = str(spec.get("password_changed_at") or _iso())
+            row["last_error_code"] = ""
+            row["last_error_at"] = ""
+            row["updated_at"] = _iso()
+            await self._async_save()
+            self._revoke_account_sessions(account_id)
+            return self.public_account(row, include_diagnostics=True)
 
     async def async_generate_temporary_password(self, account_id: str) -> str:
         await self.async_load()
@@ -1050,7 +1318,7 @@ class FitnessAccountController:
             if not first_login:
                 if not current_password or not await self._async_verify_password(row, current_password):
                     raise ValueError("invalid_current_password")
-            if new_username is not None and row.get("role") != ROLE_REMOTE:
+            if new_username is not None and str(row.get("network_access") or "") != NETWORK_REMOTE_ONLY:
                 username = _normalize_username(new_username)
                 if not username:
                     raise ValueError("invalid_username")
@@ -1126,20 +1394,21 @@ class FitnessAccountController:
         lockout = _parse_dt(row.get("lockout_until"))
         if lockout and lockout > _utcnow():
             raise ValueError("account_locked")
-        role = str(row.get("role") or "")
+        network_access = str(row.get("network_access") or NETWORK_LOCAL_ONLY)
+        local_client = _client_is_local(remote)
         expected = self.account_by_remote_host(host)
         exact_remote_host = bool(
             expected is not None and expected.get("account_id") == row.get("account_id")
         )
-        if role == ROLE_LOCAL and not _client_is_local(remote):
+        if network_access == NETWORK_LOCAL_ONLY and not local_client:
             self._record_error(row, "local_network_required")
             await self._async_save()
             raise ValueError("local_network_required")
-        if role == ROLE_ADMIN and not _client_is_local(remote) and not exact_remote_host:
-            self._record_error(row, "local_network_required")
+        if network_access == NETWORK_REMOTE_ONLY and not exact_remote_host:
+            self._record_error(row, "remote_host_mismatch")
             await self._async_save()
-            raise ValueError("local_network_required")
-        if role == ROLE_REMOTE and not exact_remote_host:
+            raise ValueError("remote_host_mismatch")
+        if network_access == NETWORK_LOCAL_REMOTE and not (local_client or exact_remote_host):
             self._record_error(row, "remote_host_mismatch")
             await self._async_save()
             raise ValueError("remote_host_mismatch")
@@ -1159,8 +1428,17 @@ class FitnessAccountController:
         row["last_error_code"] = ""
         row["last_error_at"] = ""
         await self._async_save()
+        # The language chosen on a successful Fitness login becomes the
+        # persistent language of the bound Fitness profile.  The profile is the
+        # single source of truth for dashboard strings, AI and TTS; the session
+        # merely mirrors that persisted value.
         self._persist_login_language(row, language)
-        session = self._create_session(row, host=host, user_agent=user_agent, language=language)
+        session = self._create_session(
+            row,
+            host=host,
+            user_agent=user_agent,
+            language=self.account_language(row),
+        )
         return row, session
 
     def _record_error(self, row: dict[str, Any], code: str) -> None:
@@ -1190,6 +1468,179 @@ class FitnessAccountController:
         for token, session in list(self._sessions.items()):
             if session.expires_at <= now or session.last_seen_at + _SESSION_IDLE_MAX <= now:
                 self._sessions.pop(token, None)
+        live_accounts = {session.account_id for session in self._sessions.values()}
+        for account_id in tuple(self._ephemeral_cast_accounts):
+            if account_id not in live_accounts:
+                self._ephemeral_cast_accounts.pop(account_id, None)
+        self._prune_cast_bootstrap(now)
+
+    def _prune_cast_bootstrap(self, now: datetime | None = None) -> None:
+        now = now or _utcnow()
+        for ticket, spec in list(self._cast_bootstrap.items()):
+            expires = spec.get("expires_at")
+            session_token = str(spec.get("session_token") or "")
+            if not isinstance(expires, datetime) or expires <= now:
+                self._cast_bootstrap.pop(ticket, None)
+                continue
+            if session_token and session_token not in self._sessions:
+                self._cast_bootstrap.pop(ticket, None)
+
+    def issue_cast_bootstrap(
+        self,
+        *,
+        profile_entry_id: str = "",
+        target_entity_id: str,
+        overview: bool = False,
+        network_access: str = NETWORK_LOCAL_ONLY,
+    ) -> str:
+        """Issue an opaque short-lived URL ticket for a restricted Fitness TV receiver."""
+        self._prune_sessions()
+        overview = bool(overview)
+        profile_entry_id = str(profile_entry_id or "").strip()
+        target_entity_id = str(target_entity_id or "").strip()
+        network_access = str(network_access or NETWORK_LOCAL_ONLY).strip().lower()
+        if network_access not in {NETWORK_LOCAL_ONLY, NETWORK_REMOTE_ONLY}:
+            raise ValueError("invalid_network_access")
+        if not target_entity_id or (not overview and not profile_entry_id):
+            raise ValueError("invalid_cast_session")
+        if not overview:
+            entry = self.hass.config_entries.async_get_entry(profile_entry_id)
+            if entry is None or entry.domain != DOMAIN or entry.data.get("entry_type") in {"live_hub", "devices_hub"}:
+                raise ValueError("profile_not_found")
+        # A new launch supersedes old bootstrap URLs for the same profile/TV.
+        self.revoke_cast_sessions(profile_entry_id=profile_entry_id, target_entity_id=target_entity_id)
+        ticket = secrets.token_urlsafe(36)
+        self._cast_bootstrap[ticket] = {
+            "profile_entry_id": profile_entry_id,
+            "target_entity_id": target_entity_id,
+            "overview": overview,
+            "created_at": _utcnow(),
+            "expires_at": _utcnow() + _CAST_BOOTSTRAP_TTL,
+            "session_token": "",
+            "remote": "",
+            "user_agent_hash": "",
+            "network_access": network_access,
+        }
+        return ticket
+
+    def cast_bootstrap_redeemed(self, ticket: str) -> bool:
+        """Return whether a short-lived TV bootstrap URL reached its receiver."""
+        self._prune_sessions()
+        spec = self._cast_bootstrap.get(str(ticket or ""))
+        if not isinstance(spec, dict):
+            return False
+        token = str(spec.get("session_token") or "")
+        return bool(token and token in self._sessions)
+
+    async def async_wait_cast_bootstrap_redeemed(
+        self, ticket: str, *, timeout: float = 18.0
+    ) -> bool:
+        """Wait for the TV browser/DashCast receiver to redeem its opaque URL."""
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + max(0.0, float(timeout))
+        while loop.time() < deadline:
+            if self.cast_bootstrap_redeemed(ticket):
+                return True
+            await asyncio.sleep(0.35)
+        return self.cast_bootstrap_redeemed(ticket)
+
+    async def async_redeem_cast_bootstrap(
+        self, request: web.Request, ticket: str
+    ) -> tuple[dict[str, Any], FitnessSession] | None:
+        """Redeem/reload one DashCast bootstrap URL from the local TV only."""
+        await self.async_load()
+        self._prune_sessions()
+        spec = self._cast_bootstrap.get(str(ticket or ""))
+        if not isinstance(spec, dict):
+            return None
+        remote = _effective_remote(request)
+        ticket_network = str(spec.get("network_access") or NETWORK_LOCAL_ONLY)
+        if ticket_network == NETWORK_LOCAL_ONLY and not _client_is_local(remote):
+            return None
+        if ticket_network == NETWORK_REMOTE_ONLY and _client_is_local(remote):
+            return None
+        ua_hash = hashlib.sha256(str(request.headers.get("User-Agent") or "").encode()).hexdigest()[:24]
+        bound_remote = str(spec.get("remote") or "")
+        bound_ua = str(spec.get("user_agent_hash") or "")
+        if bound_remote and bound_remote != str(remote or ""):
+            return None
+        if bound_ua and not hmac.compare_digest(bound_ua, ua_hash):
+            return None
+        session_token = str(spec.get("session_token") or "")
+        if session_token:
+            session = self._sessions.get(session_token)
+            row = self.account(session.account_id) if session is not None else None
+            if session is None or row is None:
+                self._cast_bootstrap.pop(str(ticket), None)
+                return None
+            session.last_seen_at = _utcnow()
+            return row, session
+
+        overview = bool(spec.get("overview"))
+        profile_entry_id = str(spec.get("profile_entry_id") or "")
+        if not overview:
+            entry = self.hass.config_entries.async_get_entry(profile_entry_id)
+            if entry is None or entry.domain != DOMAIN:
+                self._cast_bootstrap.pop(str(ticket), None)
+                return None
+        account_id = f"cast-{uuid.uuid4().hex}"
+        row = {
+            "account_id": account_id,
+            "role": ROLE_USER,
+            "network_access": ticket_network,
+            "username": f"cast-{uuid.uuid4().hex[:12]}",
+            "display_name": "Fitness TV",
+            "profile_entry_id": profile_entry_id,
+            "view_profile_entry_ids": [],
+            "remote_slug": "",
+            "remote_enabled": False,
+            "enabled": True,
+            "password_change_required": False,
+            "_cast_target_entity_id": str(spec.get("target_entity_id") or ""),
+            "_cast_overview_only": overview,
+        }
+        if overview:
+            row["role"] = ROLE_ADMIN
+            row["network_access"] = ticket_network
+        self._ephemeral_cast_accounts[account_id] = row
+        session = self._create_session(
+            row,
+            host=request.host,
+            user_agent=str(request.headers.get("User-Agent") or ""),
+            language=self.account_language(row),
+        )
+        spec["session_token"] = session.token
+        spec["remote"] = str(remote or "")
+        spec["user_agent_hash"] = ua_hash
+        spec["expires_at"] = session.expires_at
+        return row, session
+
+    def revoke_cast_sessions(
+        self, *, profile_entry_id: str = "", target_entity_id: str = ""
+    ) -> None:
+        """Revoke ephemeral Cast portal sessions matching a profile/target."""
+        profile_entry_id = str(profile_entry_id or "")
+        target_entity_id = str(target_entity_id or "")
+        account_ids = {
+            account_id
+            for account_id, row in self._ephemeral_cast_accounts.items()
+            if (not profile_entry_id or str(row.get("profile_entry_id") or "") == profile_entry_id)
+            and (not target_entity_id or str(row.get("_cast_target_entity_id") or "") == target_entity_id)
+        }
+        for token, session in list(self._sessions.items()):
+            if session.account_id in account_ids:
+                self._sessions.pop(token, None)
+        for account_id in account_ids:
+            self._ephemeral_cast_accounts.pop(account_id, None)
+        for ticket, spec in list(self._cast_bootstrap.items()):
+            if (
+                not profile_entry_id
+                or str(spec.get("profile_entry_id") or "") == profile_entry_id
+            ) and (
+                not target_entity_id
+                or str(spec.get("target_entity_id") or "") == target_entity_id
+            ):
+                self._cast_bootstrap.pop(ticket, None)
 
     def _revoke_account_sessions(self, account_id: str) -> None:
         for token, session in list(self._sessions.items()):
@@ -1202,10 +1653,39 @@ class FitnessAccountController:
             if session.account_id == str(account_id) and token != keep:
                 self._sessions.pop(token, None)
 
+    def _cast_session_token_from_request(self, request: web.Request) -> str:
+        """Return a bound ephemeral Cast session token without relying on cookies."""
+        ticket = str(request.headers.get("X-Fitness-Cast-Ticket") or "").strip()
+        if not ticket:
+            return ""
+        spec = self._cast_bootstrap.get(ticket)
+        if not isinstance(spec, dict):
+            return ""
+        remote = _effective_remote(request)
+        if not _client_is_local(remote):
+            return ""
+        expires = spec.get("expires_at")
+        if not isinstance(expires, datetime) or expires <= _utcnow():
+            return ""
+        bound_remote = str(spec.get("remote") or "")
+        if bound_remote and bound_remote != str(remote or ""):
+            return ""
+        ua_hash = hashlib.sha256(str(request.headers.get("User-Agent") or "").encode()).hexdigest()[:24]
+        bound_ua = str(spec.get("user_agent_hash") or "")
+        if bound_ua and not hmac.compare_digest(bound_ua, ua_hash):
+            return ""
+        session_token = str(spec.get("session_token") or "")
+        return session_token if session_token in self._sessions else ""
+
     async def async_session(self, request: web.Request, *, touch: bool = True) -> tuple[dict[str, Any], FitnessSession] | None:
         await self.async_load()
         self._prune_sessions()
-        token = str(request.cookies.get(_SESSION_COOKIE) or "")
+        token = str(
+            request.cookies.get(_SESSION_COOKIE)
+            or request.cookies.get(_CAST_SESSION_COOKIE)
+            or self._cast_session_token_from_request(request)
+            or ""
+        )
         session = self._sessions.get(token)
         if session is None:
             return None
@@ -1221,25 +1701,37 @@ class FitnessAccountController:
             self._sessions.pop(token, None)
             return None
         role = str(row.get("role") or "")
+        network_access = str(row.get("network_access") or NETWORK_LOCAL_ONLY)
         local_client = _client_is_local(_effective_remote(request))
         host_row = self.account_by_remote_host(request.host)
         exact_remote_host = bool(
             host_row is not None and host_row.get("account_id") == row.get("account_id")
         )
-        if role == ROLE_LOCAL and not local_client:
+        if network_access == NETWORK_LOCAL_ONLY and not local_client:
             return None
-        if role == ROLE_ADMIN and not local_client and not exact_remote_host:
+        if network_access == NETWORK_REMOTE_ONLY and not exact_remote_host:
             return None
-        if role == ROLE_REMOTE and not exact_remote_host:
+        if network_access == NETWORK_LOCAL_REMOTE and not (local_client or exact_remote_host):
             return None
+        # A profile-language change made from Fitness settings immediately
+        # becomes authoritative for subsequent portal requests.  Do not keep a
+        # second, stale language preference on the remote session.
+        session.language = self.account_language(row)
         if touch:
             session.last_seen_at = _utcnow()
             row["last_seen_at"] = _iso(session.last_seen_at)
         return row, session
 
     async def async_logout(self, request: web.Request) -> None:
-        token = str(request.cookies.get(_SESSION_COOKIE) or "")
-        self._sessions.pop(token, None)
+        token = str(
+            request.cookies.get(_SESSION_COOKIE)
+            or request.cookies.get(_CAST_SESSION_COOKIE)
+            or ""
+        )
+        session = self._sessions.pop(token, None)
+        if session is not None and session.account_id in self._ephemeral_cast_accounts:
+            self._ephemeral_cast_accounts.pop(session.account_id, None)
+        self._prune_cast_bootstrap()
 
     async def async_reconcile_remote_dns(self) -> None:
         await self.async_load()
@@ -1252,7 +1744,7 @@ class FitnessAccountController:
         async def _set_dns(row: dict[str, Any], enabled: bool) -> None:
             account_id = str(row.get("account_id") or "")
             slug = _normalize_slug(row.get("remote_slug"))
-            if row.get("role") == ROLE_ADMIN:
+            if _is_admin_role(row.get("role")):
                 await access._async_set_external_account(  # noqa: SLF001
                     account_id=account_id, enabled=enabled, subdomain=(slug if enabled else None)
                 )
@@ -1301,6 +1793,21 @@ class FitnessAccountController:
 
 _PUBLIC_WS_NAMES: dict[str, tuple[str, str]] = {
     "fitness/dashboard/config": ("dashboard", "websocket_dashboard_config"),
+    "fitness/dashboard/cast_targets": ("dashboard", "websocket_dashboard_cast_targets"),
+    "fitness/dashboard/about": ("dashboard", "websocket_dashboard_about"),
+    "fitness/dashboard/flow_translations": ("dashboard", "websocket_dashboard_flow_translations"),
+    "fitness/dashboard/config_flow/start": ("dashboard", "websocket_dashboard_config_flow_start"),
+    "fitness/dashboard/config_flow/step": ("dashboard", "websocket_dashboard_config_flow_step"),
+    "fitness/dashboard/config_flow/cancel": ("dashboard", "websocket_dashboard_config_flow_cancel"),
+    "fitness/dashboard/options_flow/start": ("dashboard", "websocket_dashboard_options_flow_start"),
+    "fitness/dashboard/options_flow/step": ("dashboard", "websocket_dashboard_options_flow_step"),
+    "fitness/dashboard/options_flow/cancel": ("dashboard", "websocket_dashboard_options_flow_cancel"),
+    "fitness/tv/browser_receiver": ("dashboard", "websocket_tv_browser_receiver"),
+    "fitness/tv/overview/heartbeat": ("dashboard", "websocket_tv_overview_heartbeat"),
+    "fitness/tv/overview/status": ("dashboard", "websocket_tv_overview_status"),
+    "fitness/tv/overview/browser_handoff": ("dashboard", "websocket_tv_overview_browser_handoff"),
+    "fitness/tv/overview/cast": ("dashboard", "websocket_tv_overview_cast"),
+    "fitness/tv/overview/stop": ("dashboard", "websocket_tv_overview_stop"),
     "fitness/workouts/list": ("dashboard", "websocket_workouts_list"),
     "fitness/workouts/delete": ("dashboard", "websocket_workouts_delete"),
     "fitness/workouts/edit": ("dashboard", "websocket_workouts_edit"),
@@ -1315,11 +1822,16 @@ _PUBLIC_WS_NAMES: dict[str, tuple[str, str]] = {
     "fitness/training/start": ("dashboard", "websocket_training_start"),
     "fitness/weight/confirm": ("dashboard", "websocket_weight_confirm"),
     "fitness/weight/dismiss": ("dashboard", "websocket_weight_dismiss"),
+    "fitness/sensor/claim": ("dashboard", "websocket_sensor_claim"),
     "fitness/tv/preferences": ("tv_dashboard", "websocket_tv_preferences"),
     "fitness/tv/preferences/save": ("tv_dashboard", "websocket_tv_preferences_save"),
     "fitness/tv/dashboard/manage": ("tv_dashboard", "websocket_tv_dashboard_manage"),
     "fitness/tv/profile/configure": ("tv_dashboard", "websocket_tv_profile_configure"),
     "fitness/tv/heartbeat": ("tv_dashboard", "websocket_tv_heartbeat"),
+    "fitness/tv/cast/status": ("tv_dashboard", "websocket_tv_cast_status"),
+    "fitness/tv/cast/rearm": ("tv_dashboard", "websocket_tv_cast_rearm"),
+    "fitness/tv/local_cast_handoff": ("tv_dashboard", "websocket_tv_local_cast_handoff"),
+    "fitness/tv/local_cast_stopped": ("tv_dashboard", "websocket_tv_local_cast_stopped"),
     "fitness/tv/ack": ("tv_dashboard", "websocket_tv_ack"),
     "fitness/tv/media_command": ("tv_dashboard", "websocket_tv_media_command"),
     "fitness/tv/media_state": ("tv_dashboard", "websocket_tv_media_state"),
@@ -1332,16 +1844,20 @@ _PUBLIC_WS_NAMES: dict[str, tuple[str, str]] = {
     "fitness/tv/music/ma/queue": ("tv_dashboard", "websocket_tv_music_ma_queue"),
     "fitness/tv/music/ma/playlist": ("tv_dashboard", "websocket_tv_music_ma_playlist"),
     "fitness/tv/music/ma/playlist/remove": ("tv_dashboard", "websocket_tv_music_ma_playlist_remove"),
+    "fitness/tv/music/ma/sendspin": ("tv_dashboard", "websocket_tv_music_ma_sendspin"),
     "fitness/tv/music/browse": ("tv_dashboard", "websocket_tv_music_browse"),
     "fitness/tv/music/resolve": ("tv_dashboard", "websocket_tv_music_resolve"),
     "fitness/tv/start_workout": ("tv_dashboard", "websocket_tv_start_workout"),
     # Fitness-administrator-only commands. Their handlers still perform the
     # same role check against the synthetic Fitness principal.
+    "fitness/accounts/share": ("fitness_accounts", "websocket_fitness_accounts_share"),
+    "fitness/accounts/share/save": ("fitness_accounts", "websocket_fitness_accounts_share_save"),
     "fitness/accounts/admin": ("fitness_accounts", "websocket_fitness_accounts_admin"),
     "fitness/accounts/save": ("fitness_accounts", "websocket_fitness_accounts_save"),
     "fitness/accounts/delete": ("fitness_accounts", "websocket_fitness_accounts_delete"),
     "fitness/accounts/reset_password": ("fitness_accounts", "websocket_fitness_accounts_reset_password"),
     "fitness/access/settings/save": ("access_control", "websocket_fitness_access_settings_save"),
+    "fitness/access/profile/delete": ("access_control", "websocket_fitness_access_profile_delete"),
 }
 
 
@@ -1390,8 +1906,10 @@ async def _run_fitness_handler(hass: HomeAssistant, principal: dict[str, Any], r
 # HTTP views / HTML shell
 
 
-def _security_headers(nonce: str = "") -> dict[str, str]:
+def _security_headers(nonce: str = "", *, cast_receiver: bool = False) -> dict[str, str]:
     script = f"'nonce-{nonce}' " if nonce else ""
+    external_images = " https:" if cast_receiver else ""
+    external_media = " https:" if cast_receiver else ""
     return {
         "Cache-Control": "no-store, max-age=0",
         "Pragma": "no-cache",
@@ -1406,8 +1924,8 @@ def _security_headers(nonce: str = "") -> dict[str, str]:
         "X-DNS-Prefetch-Control": "off",
         "Content-Security-Policy": (
             "default-src 'none'; "
-            f"script-src 'self' {script}; style-src 'unsafe-inline'; img-src 'self' data:; "
-            "connect-src 'self'; media-src 'self' blob:; font-src 'self'; form-action 'self'; "
+            f"script-src 'self' {script}; style-src 'unsafe-inline'; img-src 'self' data:{external_images}; "
+            f"connect-src 'self'; media-src 'self' blob:{external_media}; font-src 'self'; form-action 'self'; "
             "base-uri 'none'; frame-ancestors 'none'"
         ),
     }
@@ -1468,7 +1986,17 @@ def _password_page(row: dict[str, Any], *, error: str = "", csrf_token: str = ""
     return web.Response(text=body, content_type="text/html", charset="utf-8", headers=_security_headers(nonce))
 
 
-def _portal_app_page(row: dict[str, Any], session: FitnessSession, visible_profiles: list[dict[str, str]]) -> web.Response:
+def _portal_app_page(
+    row: dict[str, Any],
+    session: FitnessSession,
+    visible_profiles: list[dict[str, str]],
+    *,
+    cast_receiver: bool = False,
+    bootstrap_config: dict[str, Any] | None = None,
+    bootstrap_states: dict[str, Any] | None = None,
+    bootstrap_preferences: dict[str, Any] | None = None,
+    cast_overview_only: bool = False,
+) -> web.Response:
     nonce = secrets.token_urlsafe(18)
     language = _portal_language(session.language)
     app_text = _PORTAL_APP_TEXT.get(language, _PORTAL_APP_TEXT["en"])
@@ -1480,33 +2008,153 @@ def _portal_app_page(row: dict[str, Any], session: FitnessSession, visible_profi
         "display_name": row.get("display_name") or row["username"],
         "profile_entry_id": row.get("profile_entry_id") or None,
         "view_profile_entry_ids": list(row.get("view_profile_entry_ids") or []),
-        "is_admin": row.get("role") == ROLE_ADMIN,
+        "is_admin": str(row.get("role") or "") in {"admin", "admin_user"},
         "csrf": session.csrf,
         "visible_profiles": visible_profiles,
         "language": language,
     }
     payload = json.dumps(principal, separators=(",", ":")).replace("</", "<\\/")
-    frontend_version = "unreleased-110"
+    bootstrap_payload = json.dumps(
+        {
+            "config": bootstrap_config if cast_receiver else None,
+            "states": bootstrap_states if cast_receiver else None,
+            "preferences": bootstrap_preferences if cast_receiver else None,
+            "overview": bool(cast_receiver and cast_overview_only),
+        },
+        separators=(",", ":"),
+    ).replace("</", "<\\/")
+    frontend_version = "unreleased-138"
+    frontend_cache_version = f"{frontend_version}-cast-ui-146"
+    cast_receiver_js = "true" if cast_receiver else "false"
+    portal_top_display = "none" if cast_receiver else "flex"
     body = f"""<!doctype html><html lang="{html.escape(language)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark light"><title>HA-Fitness</title><style nonce="{nonce}">
-:root{{--primary-color:#03a9f4;--primary-background-color:#0b0f14;--primary-text-color:#f3f5f7;--secondary-text-color:#aab4bf;--disabled-text-color:#78828c;--card-background-color:#1c1f22;--ha-card-background:#1c1f22;--secondary-background-color:#25292d;--divider-color:#3b4147;--error-color:#ef5350;--success-color:#43a047;--warning-color:#ffb300;--info-color:#039be5;color-scheme:dark;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0b0f14;color:var(--primary-text-color)}}*{{box-sizing:border-box}}html,body{{margin:0;min-height:100dvh;background:#0b0f14;color:var(--primary-text-color);overscroll-behavior-y:none}}body{{overflow-x:hidden;touch-action:pan-y;background:var(--fitness-portal-background,#0b0f14)}}ha-card{{display:block;background:var(--card-background-color);color:var(--primary-text-color)}}#portal-top{{position:sticky;z-index:10000;top:0;width:100%;display:flex;justify-content:flex-end;gap:7px;align-items:center;padding:max(8px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) 8px max(10px,env(safe-area-inset-left));background:color-mix(in srgb,#0b0f14 88%,transparent);border-bottom:1px solid #252c34;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}}#portal-top button,#portal-top select{{min-height:40px;max-width:min(42vw,240px);border-radius:12px;border:1px solid var(--divider-color);background:#171b20;color:#fff;padding:0 11px;font:inherit;overflow:hidden;text-overflow:ellipsis}}#app{{min-height:calc(100dvh - var(--fitness-portal-top-height,57px));width:100%;overflow-x:hidden;touch-action:pan-y;background:var(--fitness-tv-ambient,var(--fitness-portal-background,#0b0f14));--fitness-tv-toolbar-reveal-top:calc(var(--fitness-portal-top-height,57px) + 4px)}}#app>fitness-tv-dashboard-card,#app>fitness-tv-setup-card{{display:block;min-height:calc(100dvh - var(--fitness-portal-top-height,57px));background:var(--fitness-tv-ambient,var(--fitness-portal-background,#0b0f14))}}</style></head><body><div id="portal-top"><select id="profile-nav" aria-label="{html.escape(app_text['profile'])}"></select><button id="logout-btn">{html.escape(app_text['sign_out'])}</button></div><main id="app"></main><script nonce="{nonce}">window.__FITNESS_PUBLIC_SESSION__={payload};window.__FITNESS_PORTAL_TEXT__={app_text_payload};
+:root{{--primary-color:#03a9f4;--accent-color:#03a9f4;--primary-background-color:#0b0f14;--primary-text-color:#f3f5f7;--text-primary-color:#ffffff;--secondary-text-color:#aab4bf;--disabled-text-color:#78828c;--card-background-color:#1c1f22;--ha-card-background:#1c1f22;--secondary-background-color:#25292d;--divider-color:#3b4147;--error-color:#ef5350;--success-color:#43a047;--warning-color:#ffb300;--info-color:#039be5;--ha-card-box-shadow:0 2px 8px rgba(0,0,0,.20);--ha-card-border-radius:12px;--state-icon-color:#aab4bf;--state-icon-active-color:#03a9f4;--paper-item-icon-color:#aab4bf;--paper-item-icon-active-color:#03a9f4;--mdc-theme-primary:#03a9f4;--mdc-theme-on-primary:#ffffff;--mdc-theme-surface:#1c1f22;--mdc-theme-on-surface:#f3f5f7;color-scheme:dark;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0b0f14;color:var(--primary-text-color)}}*{{box-sizing:border-box}}html,body{{margin:0;min-height:100dvh;background:#0b0f14;color:var(--primary-text-color);overscroll-behavior-y:none}}body{{overflow-x:hidden;touch-action:pan-y;background:var(--fitness-portal-background,#0b0f14)}}ha-card{{display:block;background:var(--card-background-color);color:var(--primary-text-color)}}#portal-top{{position:sticky;z-index:10000;top:0;width:100%;display:{portal_top_display};justify-content:flex-end;gap:7px;align-items:center;padding:max(8px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) 8px max(10px,env(safe-area-inset-left));background:color-mix(in srgb,#0b0f14 88%,transparent);border-bottom:1px solid #252c34;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}}#portal-top button,#portal-top select{{min-height:40px;max-width:min(42vw,240px);border-radius:12px;border:1px solid var(--divider-color);background:#171b20;color:#fff;padding:0 11px;font:inherit;overflow:hidden;text-overflow:ellipsis}}#app{{min-height:calc(100dvh - var(--fitness-portal-top-height,57px));width:100%;overflow-x:hidden;touch-action:pan-y;background:var(--fitness-tv-ambient,var(--fitness-portal-background,#0b0f14));--fitness-tv-toolbar-reveal-top:calc(var(--fitness-portal-top-height,57px) + 4px)}}#app>fitness-tv-dashboard-card,#app>fitness-tv-setup-card{{display:block;min-height:calc(100dvh - var(--fitness-portal-top-height,57px));background:var(--fitness-tv-ambient,var(--fitness-portal-background,#0b0f14))}}</style></head><body><div id="portal-top"><select id="profile-nav" aria-label="{html.escape(app_text['profile'])}"></select><button id="logout-btn">{html.escape(app_text['sign_out'])}</button></div><main id="app"></main><script nonce="{nonce}">window.__FITNESS_PUBLIC_SESSION__={payload};window.__FITNESS_PORTAL_TEXT__={app_text_payload};window.__FITNESS_CAST_PORTAL__={cast_receiver_js};window.__FITNESS_CAST_BOOTSTRAP__={bootstrap_payload};
+</script><script nonce="{nonce}" src="/fitness/frontend/fitness-mdi-icons.js?v=7.4.47-fitness-1"></script><script nonce="{nonce}">
 const FITNESS_PORTAL_ICON_GLYPHS={{
 "mdi:account-multiple-outline":"♙♙","mdi:account-circle-outline":"●","mdi:account-cog-outline":"⚙","mdi:cog-outline":"⚙","mdi:view-dashboard-edit-outline":"▦","mdi:view-dashboard-outline":"▦","mdi:view-grid-plus-outline":"⊞","mdi:drag":"☷","mdi:access-point":"◉","mdi:fullscreen":"⛶","mdi:fullscreen-exit":"⛶","mdi:cast":"▣","mdi:cast-off":"□","mdi:play":"▶","mdi:pause":"Ⅱ","mdi:folder-music-outline":"♫","mdi:album":"♪","mdi:skip-previous":"◀|","mdi:skip-next":"|▶","mdi:shuffle":"⇄","mdi:repeat":"↻","mdi:playlist-edit":"☷","mdi:chevron-left":"‹","mdi:chevron-right":"›","mdi:chevron-down":"⌄","mdi:chevron-up":"⌃","mdi:close":"×","mdi:eye-outline":"◉","mdi:content-save-outline":"✓","mdi:plus":"+","mdi:minus-circle-outline":"−","mdi:refresh":"↻","mdi:bluetooth-connect":"ᛒ","mdi:bluetooth-off":"ᛒ","mdi:usb":"⌁","mdi:usb-off":"⌁","mdi:check-circle":"✓","mdi:shield-lock-outline":"◆","mdi:loading":"◌","mdi:run-fast":"➤","mdi:sleep":"☾","mdi:heart-pulse":"♥"
 }};
-if(!customElements.get("ha-icon"))customElements.define("ha-icon",class extends HTMLElement{{static get observedAttributes(){{return["icon"]}}connectedCallback(){{this._draw()}}attributeChangedCallback(){{this._draw()}}_draw(){{const key=String(this.getAttribute("icon")||"");this.textContent=FITNESS_PORTAL_ICON_GLYPHS[key]||"◇";this.setAttribute("aria-hidden","true");this.style.cssText="display:inline-grid;place-items:center;width:var(--mdc-icon-size,22px);height:var(--mdc-icon-size,22px);font-size:calc(var(--mdc-icon-size,22px) * .78);line-height:1;flex:0 0 auto;font-family:system-ui,sans-serif;font-weight:800"}}}});
+const fitnessPortalIconPath=(key)=>String(window.__FITNESS_MDI_PATHS__?.[key]||"");
+const fitnessPortalGlyph=(key)=>FITNESS_PORTAL_ICON_GLYPHS[key]||"●";
+if(!customElements.get("ha-icon"))customElements.define("ha-icon",class extends HTMLElement{{static get observedAttributes(){{return["icon"]}}connectedCallback(){{if(!this.shadowRoot)this.attachShadow({{mode:"open"}});this._draw()}}attributeChangedCallback(){{if(this.isConnected)this._draw()}}_draw(){{const key=String(this.getAttribute("icon")||"");const root=this.shadowRoot||this.attachShadow({{mode:"open"}});const path=fitnessPortalIconPath(key);this.setAttribute("aria-hidden","true");this.style.cssText="display:inline-flex;align-items:center;justify-content:center;width:var(--mdc-icon-size,22px);height:var(--mdc-icon-size,22px);line-height:1;flex:0 0 auto;color:inherit";if(path){{root.innerHTML='<svg viewBox="0 0 512 512" aria-hidden="true" focusable="false" style="display:block;width:100%;height:100%;fill:currentColor"><g transform="translate(0 448) scale(1 -1)"><path d="'+path+'"></path></g></svg>';return}}const glyph=fitnessPortalGlyph(key);root.innerHTML='<span aria-hidden="true" style="display:grid;place-items:center;width:100%;height:100%;font:800 78%/1 system-ui,sans-serif">'+glyph+'</span>'}}}});
 if(!customElements.get("ha-card"))customElements.define("ha-card",class extends HTMLElement{{}});
 if(!customElements.get("ha-circular-progress"))customElements.define("ha-circular-progress",class extends HTMLElement{{connectedCallback(){{this.setAttribute("aria-hidden","true");this.style.cssText="display:inline-block;width:22px;height:22px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%"}}}});
-</script><script type="module" nonce="{nonce}" src="/fitness/frontend/fitness-dashboard.js?v={frontend_version}"></script><script type="module" nonce="{nonce}">
-const session=window.__FITNESS_PUBLIC_SESSION__;const portalText=window.__FITNESS_PORTAL_TEXT__||{{}};const csrf=session.csrf;const ADMIN_VIEW="__fitness_admin__";let currentProfile=session.is_admin?ADMIN_VIEW:(session.profile_entry_id||session.visible_profiles?.[0]?.entry_id||"");const app=document.getElementById("app");const nav=document.getElementById("profile-nav");
-const syncPortalGeometry=()=>{{const top=document.getElementById("portal-top");const h=Math.max(48,Math.ceil(top?.getBoundingClientRect?.().height||57));document.documentElement.style.setProperty("--fitness-portal-top-height",`${{h}}px`)}};syncPortalGeometry();addEventListener("resize",syncPortalGeometry,{{passive:true}});
-if(session.is_admin){{const o=document.createElement("option");o.value=ADMIN_VIEW;o.textContent=portalText.administration||"Fitness administration";o.selected=currentProfile===ADMIN_VIEW;nav.appendChild(o)}}for(const p of session.visible_profiles||[]){{const o=document.createElement("option");o.value=p.entry_id;o.textContent=p.name+(p.mode==="view"?` · ${{portalText.view_only||"view only"}}`:"");o.selected=p.entry_id===currentProfile;nav.appendChild(o)}}if((session.visible_profiles||[]).length+(session.is_admin?1:0)<2)nav.hidden=true;
-const hass={{states:{{}},language:session.language||"en",user:{{name:session.display_name,is_admin:session.is_admin}},connection:null,callWS:async(msg)=>{{const r=await fetch("/fitness-auth/ws",{{method:"POST",credentials:"same-origin",headers:{{"Content-Type":"application/json","X-Fitness-CSRF":csrf}},body:JSON.stringify(msg)}});const data=await r.json().catch(()=>({{}}));if(!r.ok)throw new Error(data.message||data.error||`HTTP ${{r.status}}`);const result=data.result;if(msg?.type==="fitness/dashboard/config"&&result&&Array.isArray(result.profiles)){{const lang=String(session.language||"en").toLowerCase().split("-")[0];result.profiles=result.profiles.map(p=>({{...p,language:lang,labels:p?.labels_by_language?.[lang]||p?.labels_by_language?.en||p?.labels}}));result.labels=result.labels_by_language?.[lang]||result.labels_by_language?.en||result.labels;}}return result;}},callService:async(domain,service,serviceData={{}},target={{}})=>{{const r=await fetch("/fitness-auth/service",{{method:"POST",credentials:"same-origin",headers:{{"Content-Type":"application/json","X-Fitness-CSRF":csrf}},body:JSON.stringify({{domain,service,service_data:serviceData,target}})}});const data=await r.json().catch(()=>({{}}));if(!r.ok)throw new Error(data.message||data.error||`HTTP ${{r.status}}`);return data.result;}}}};
-async function refreshStates(){{try{{if(currentProfile===ADMIN_VIEW)return;const r=await fetch("/fitness-auth/states",{{credentials:"same-origin",cache:"no-store"}});if(!r.ok)return;const data=await r.json();hass.states=data.states||{{}};if(card)card.hass=hass;}}catch(_e){{}}}}
-let card=null;function mount(profileId){{currentProfile=profileId;app.replaceChildren();if(profileId===ADMIN_VIEW&&session.is_admin){{card=document.createElement("fitness-tv-setup-card");card.setConfig?.({{}})}}else{{card=document.createElement("fitness-tv-dashboard-card");card.setConfig?.({{profile_entry_id:profileId}})}}card.setAttribute("fitness-public-portal","");card.hass=hass;app.appendChild(card);syncPortalGeometry();refreshStates();}}
-nav.onchange=()=>mount(nav.value);mount(currentProfile);setInterval(refreshStates,3000);
-document.getElementById("logout-btn").onclick=async()=>{{await fetch("/fitness-auth/logout",{{method:"POST",headers:{{"X-Fitness-CSRF":csrf}}}});location.href="/"}};
+</script><script type="module" nonce="{nonce}" src="/fitness/frontend/fitness-dashboard.js?v={frontend_cache_version}"></script><script type="module" nonce="{nonce}">
+const session=window.__FITNESS_PUBLIC_SESSION__;const portalText=window.__FITNESS_PORTAL_TEXT__||{{}};const castBootstrap=window.__FITNESS_CAST_BOOTSTRAP__||{{}};const csrf=session.csrf;const castPortal=Boolean(window.__FITNESS_CAST_PORTAL__);const castTicket=castPortal?String(location.pathname.split("/").filter(Boolean).pop()||""):"";const ADMIN_VIEW="__fitness_admin__";let currentProfile=session.is_admin?ADMIN_VIEW:(session.profile_entry_id||session.visible_profiles?.[0]?.entry_id||"");const app=document.getElementById("app");const nav=document.getElementById("profile-nav");
+const syncPortalGeometry=()=>{{if(castPortal){{document.documentElement.style.setProperty("--fitness-portal-top-height","0px");return;}}const top=document.getElementById("portal-top");const h=Math.max(48,Math.ceil(top?.getBoundingClientRect?.().height||57));document.documentElement.style.setProperty("--fitness-portal-top-height",`${{h}}px`)}};syncPortalGeometry();addEventListener("resize",syncPortalGeometry,{{passive:true}});
+if(session.is_admin&&!castPortal){{const o=document.createElement("option");o.value=ADMIN_VIEW;o.textContent=portalText.administration||"Fitness administration";o.selected=currentProfile===ADMIN_VIEW;nav.appendChild(o)}}for(const p of session.visible_profiles||[]){{const o=document.createElement("option");o.value=p.entry_id;o.textContent=p.name+(p.mode==="view"?` · ${{portalText.view_only||"view only"}}`:"");o.selected=p.entry_id===currentProfile;nav.appendChild(o)}}if(castPortal||(session.visible_profiles||[]).length+(session.is_admin?1:0)<2)nav.hidden=true;
+const castHeaders=()=>castTicket?{{"X-Fitness-Cast-Ticket":castTicket}}:{{}};const portalReadCache=new Map();const portalInflight=new Map();
+const normalizeDashboardConfig=(result)=>{{if(result&&Array.isArray(result.profiles)){{result.profiles=result.profiles.map(p=>{{const lang=String(p?.language||session.language||"en").toLowerCase().split("-")[0];return {{...p,language:lang,labels:p?.labels_by_language?.[lang]||p?.labels_by_language?.en||p?.labels}};}});const active=result.profiles.find(p=>String(p?.entry_id||"")===String(currentProfile||""))||result.profiles.find(p=>p?.access?.is_own)||result.profiles[0];const lang=String(active?.language||session.language||"en").toLowerCase().split("-")[0];hass.language=lang;result.labels=result.labels_by_language?.[lang]||result.labels_by_language?.en||result.labels;}}return result;}};
+const cacheTtl=(msg)=>castPortal&&msg?.type==="fitness/dashboard/config"?15000:0;
+const hass={{states:(castBootstrap.states||{{}}),language:session.language||"en",user:{{name:session.display_name,is_admin:session.is_admin}},connection:null,callWS:async(msg)=>{{const key=JSON.stringify(msg||{{}});if(castPortal&&msg?.type==="fitness/dashboard/config"&&castBootstrap.config){{if(!portalReadCache.has(key))portalReadCache.set(key,{{at:Date.now(),value:normalizeDashboardConfig(castBootstrap.config)}});return portalReadCache.get(key).value;}}if(castPortal&&msg?.type==="fitness/tv/preferences"&&castBootstrap.preferences&&String(msg?.profile_entry_id||"")===String(currentProfile||""))return castBootstrap.preferences;const ttl=cacheTtl(msg);const hit=portalReadCache.get(key);if(ttl&&hit&&Date.now()-hit.at<ttl)return hit.value;if(portalInflight.has(key))return portalInflight.get(key);const task=(async()=>{{const r=await fetch("/fitness-auth/ws",{{method:"POST",credentials:"same-origin",headers:{{"Content-Type":"application/json","X-Fitness-CSRF":csrf,...castHeaders()}},body:JSON.stringify(msg)}});const data=await r.json().catch(()=>({{}}));if(!r.ok){{expireCastPortal(r.status,data);const err=new Error(data.message||data.error||`HTTP ${{r.status}}`);err.code=String(data.error||"");throw err;}}const result=msg?.type==="fitness/dashboard/config"?normalizeDashboardConfig(data.result):data.result;if(ttl)portalReadCache.set(key,{{at:Date.now(),value:result}});return result;}})();portalInflight.set(key,task);try{{return await task;}}finally{{portalInflight.delete(key);}}}},callService:async(domain,service,serviceData={{}},target={{}})=>{{const r=await fetch("/fitness-auth/service",{{method:"POST",credentials:"same-origin",headers:{{"Content-Type":"application/json","X-Fitness-CSRF":csrf,...castHeaders()}},body:JSON.stringify({{domain,service,service_data:serviceData,target}})}});const data=await r.json().catch(()=>({{}}));if(!r.ok){{expireCastPortal(r.status,data);const err=new Error(data.message||data.error||`HTTP ${{r.status}}`);err.code=String(data.error||"");throw err;}}return data.result;}}}};
+let statesRefreshInFlight=false;let statesEtag="";async function refreshStates(){{if(statesRefreshInFlight)return;try{{if(currentProfile===ADMIN_VIEW)return;statesRefreshInFlight=true;const headers={{...castHeaders()}};if(statesEtag)headers["If-None-Match"]=statesEtag;const r=await fetch("/fitness-auth/states",{{credentials:"same-origin",cache:"no-store",headers}});if(r.status===304)return;if(!r.ok){{expireCastPortal(r.status);return;}}statesEtag=String(r.headers.get("ETag")||"");const data=await r.json();const next=data.states||{{}};hass.states=next;if(card)card.hass=hass;}}catch(_e){{}}finally{{statesRefreshInFlight=false;}}}}
+const overviewCastPortal=Boolean(castPortal&&castBootstrap?.overview);
+let portalStateTimer=null;let portalHeartbeatTimer=null;let castPortalExpired=false;
+const quitCastPortal=()=>{{if(castPortalExpired)return;castPortalExpired=true;if(portalStateTimer)clearInterval(portalStateTimer);if(portalHeartbeatTimer)clearInterval(portalHeartbeatTimer);try{{globalThis.cast?.framework?.CastReceiverContext?.getInstance?.()?.stop?.();}}catch(_e){{}}try{{globalThis.close?.();}}catch(_e){{}}setTimeout(()=>{{try{{globalThis.location?.replace?.("about:blank");}}catch(_e){{}}}},250);}};
+const expireCastPortal=(status,data={{}})=>{{if(!castPortal||castPortalExpired)return false;const expired=Number(status||0)===410||String(data?.error||"")==="cast_session_expired";if(expired){{quitCastPortal();return true;}}return false;}};
+async function armCastBootstrap(){{if(!castPortal||castPortalExpired)return null;const clientId=String(window.__fitnessTvClientId||`fitness-tv-${{Date.now()}}-${{Math.random().toString(36).slice(2)}}`);window.__fitnessTvClientId=clientId;if(overviewCastPortal){{const result=await hass.callWS({{type:"fitness/tv/overview/heartbeat",client_id:clientId}});if(result?.stop_requested||result?.cast_conflict){{quitCastPortal();return result;}}if(currentProfile&&currentProfile!==ADMIN_VIEW){{const profileResult=await hass.callWS({{type:"fitness/tv/heartbeat",profile_entry_id:currentProfile,client_id:clientId,is_cast_receiver:true}});if(profileResult?.stop_requested||profileResult?.cast_conflict)quitCastPortal();}}return result;}}if(!currentProfile||currentProfile===ADMIN_VIEW)return null;const result=await hass.callWS({{type:"fitness/tv/heartbeat",profile_entry_id:currentProfile,client_id:clientId,is_cast_receiver:true}});if(result?.stop_requested||result?.cast_conflict)quitCastPortal();return result;}}
+const visibleProfileIds=new Set((session.visible_profiles||[]).map((p)=>String(p.entry_id||"")));
+const routeProfile=()=>{{const path=String(location.pathname||"");if(session.is_admin&&(path==="/fitness-tv"||path==="/fitness-tv/"||path==="/fitness-tv/main"))return ADMIN_VIEW;const prefix="/fitness-tv/profile-";if(path.startsWith(prefix)){{const entryId=String(path.slice(prefix.length)||"");if(visibleProfileIds.has(entryId))return entryId;}}return "";}};
+let card=null;function mount(profileId){{const requested=String(profileId||"");const allowed=requested===ADMIN_VIEW?Boolean(session.is_admin):visibleProfileIds.has(requested);if(!allowed)return;currentProfile=requested;statesEtag="";portalReadCache.clear();app.replaceChildren();if(requested===ADMIN_VIEW&&session.is_admin){{card=document.createElement("fitness-tv-setup-card");card.setConfig?.({{}})}}else{{card=document.createElement("fitness-tv-dashboard-card");card.setConfig?.({{profile_entry_id:requested}})}}card.setAttribute("fitness-public-portal","");if(castPortal)card.setAttribute("fitness-cast-receiver","");card.hass=hass;app.appendChild(card);if(!nav.hidden&&[...nav.options].some((o)=>o.value===requested))nav.value=requested;syncPortalGeometry();if(requested!==ADMIN_VIEW)void refreshStates();}}
+const syncRoute=()=>{{const routed=routeProfile();if(routed&&routed!==currentProfile)mount(routed);}};
+async function startPortal(){{const routed=routeProfile();if(routed)currentProfile=routed;if(castPortal){{try{{await armCastBootstrap();}}catch(err){{console.error("[Fitness TV] Cast bootstrap heartbeat failed",err);}}}}mount(currentProfile);if(castPortal)setTimeout(()=>void refreshStates(),1000);}}
+nav.onchange=()=>mount(nav.value);addEventListener("location-changed",syncRoute);addEventListener("popstate",syncRoute);void startPortal();portalStateTimer=setInterval(refreshStates,castPortal?2500:3000);if(castPortal)portalHeartbeatTimer=setInterval(()=>void armCastBootstrap().catch((err)=>console.debug("[Fitness TV] portal heartbeat unavailable",err)),4000);
+document.getElementById("logout-btn").onclick=async()=>{{await fetch("/fitness-auth/logout",{{method:"POST",headers:{{"X-Fitness-CSRF":csrf,...castHeaders()}}}});location.href="/"}};
 
 </script></body></html>"""
-    return web.Response(text=body, content_type="text/html", charset="utf-8", headers=_security_headers(nonce))
+    return web.Response(
+        text=body,
+        content_type="text/html",
+        charset="utf-8",
+        headers=_security_headers(nonce, cast_receiver=cast_receiver),
+    )
+
+
+class FitnessDashCastBootstrapView(HomeAssistantView):
+    """Serve one profile through the restricted local Fitness portal for DashCast."""
+
+    url = "/fitness/cast/{ticket}"
+    name = "api:fitness:dashcast-bootstrap"
+    requires_auth = False
+
+    async def get(self, request: web.Request, ticket: str) -> web.Response:
+        controller = get_fitness_account_controller(request.app["hass"])
+        redeemed = await controller.async_redeem_cast_bootstrap(
+            request, str(ticket or "")
+        )
+        if redeemed is None:
+            raise web.HTTPNotFound(text="Fitness Cast session is unavailable")
+        row, session = redeemed
+        hass: HomeAssistant = request.app["hass"]
+        if not row.get("_cast_overview_only") and not row.get("_cast_receiver_armed"):
+            profile_entry_id = str(row.get("profile_entry_id") or "")
+            if profile_entry_id:
+                from .tv_dashboard import get_tv_dashboard_hub  # noqa: PLC0415
+                hub = get_tv_dashboard_hub(hass)
+                await hub.async_load()
+                hub.expect_local_cast(profile_entry_id, f"smart-tv:{str(ticket)[:18]}")
+                row["_cast_receiver_armed"] = True
+        principal = controller.principal(row)
+        remote = _effective_remote(request)
+        visible = await _visible_profile_rows(hass, principal, remote)
+        bootstrap_config: dict[str, Any] | None = None
+        bootstrap_preferences: dict[str, Any] | None = None
+        bootstrap_states: dict[str, Any] = {}
+        try:
+            config_result = await _run_fitness_handler(
+                hass, principal, remote, {"type": "fitness/dashboard/config"}
+            )
+            if isinstance(config_result, dict):
+                bootstrap_config = config_result
+                entity_ids = tuple(sorted(_collect_entity_ids(config_result)))
+                session.state_entity_ids = entity_ids
+                for entity_id in entity_ids:
+                    state = hass.states.get(entity_id)
+                    if state is None:
+                        continue
+                    bootstrap_states[entity_id] = {
+                        "entity_id": entity_id,
+                        "state": state.state,
+                        "attributes": _json_safe(dict(state.attributes)),
+                        "last_changed": state.last_changed.isoformat(),
+                        "last_updated": state.last_updated.isoformat(),
+                    }
+            profile_entry_id = str(row.get("profile_entry_id") or "")
+            if profile_entry_id:
+                prefs_result = await _run_fitness_handler(
+                    hass,
+                    principal,
+                    remote,
+                    {
+                        "type": "fitness/tv/preferences",
+                        "profile_entry_id": profile_entry_id,
+                    },
+                )
+                if isinstance(prefs_result, dict):
+                    bootstrap_preferences = prefs_result
+        except Exception as err:  # noqa: BLE001 - preloading is a performance hint only
+            _LOGGER.debug("Fitness Cast bootstrap preload unavailable: %s", err)
+        response = _portal_app_page(
+            row,
+            session,
+            visible,
+            cast_receiver=True,
+            bootstrap_config=bootstrap_config,
+            bootstrap_states=bootstrap_states,
+            bootstrap_preferences=bootstrap_preferences,
+            cast_overview_only=bool(row.get("_cast_overview_only")),
+        )
+        # LAN receivers may use HTTP; remote receivers use the HTTPS portal.
+        # In both cases the random in-memory session is bound to the first
+        # receiver IP + user agent.
+        response.set_cookie(
+            _CAST_SESSION_COOKIE,
+            session.token,
+            path="/",
+            secure=bool(request.secure or str(request.headers.get("X-Forwarded-Proto") or "").lower() == "https"),
+            httponly=True,
+            samesite="Strict",
+        )
+        return response
 
 
 class FitnessPortalLoginView(HomeAssistantView):
@@ -1649,6 +2297,16 @@ class FitnessPortalAppView(HomeAssistantView):
         return _portal_app_page(row, session, visible)
 
 
+def _raise_missing_portal_session(request: web.Request) -> None:
+    """End stale Cast pages cleanly instead of producing repeated auth failures."""
+    if str(request.headers.get("X-Fitness-Cast-Ticket") or "").strip():
+        raise web.HTTPGone(
+            text=json.dumps({"error": "cast_session_expired"}),
+            content_type="application/json",
+        )
+    raise web.HTTPUnauthorized()
+
+
 class FitnessPortalSessionView(HomeAssistantView):
     url = "/fitness-auth/session"
     name = "api:fitness:portal-session"
@@ -1658,9 +2316,31 @@ class FitnessPortalSessionView(HomeAssistantView):
         controller = get_fitness_account_controller(request.app["hass"])
         auth = await controller.async_session(request)
         if auth is None:
-            raise web.HTTPUnauthorized()
+            _raise_missing_portal_session(request)
         row, session = auth
         return self.json({"account": controller.public_account(row), "csrf": session.csrf, "language": session.language})
+
+
+def _sanitize_cast_overview_config(config: dict[str, Any]) -> dict[str, Any]:
+    """Strip HA-local hardware/control metadata from the read-only TV overview."""
+    safe = _json_safe(config)
+    if not isinstance(safe, dict):
+        return {}
+    safe["cast_targets"] = []
+    safe["audio_outputs"] = []
+    safe["overview_cast"] = {"active": False, "target": None}
+    access = safe.get("access")
+    if isinstance(access, dict):
+        access["local_ha_hardware_allowed"] = False
+    for profile in safe.get("profiles") or []:
+        if not isinstance(profile, dict):
+            continue
+        profile["route_candidates"] = {}
+        tv = profile.get("tv_dashboard")
+        if isinstance(tv, dict):
+            tv["cast_media_player_id"] = ""
+            tv["cast_target"] = None
+    return safe
 
 
 class FitnessPortalWSView(HomeAssistantView):
@@ -1672,7 +2352,7 @@ class FitnessPortalWSView(HomeAssistantView):
         controller = get_fitness_account_controller(request.app["hass"])
         auth = await controller.async_session(request)
         if auth is None:
-            raise web.HTTPUnauthorized()
+            _raise_missing_portal_session(request)
         row, session = auth
         if not hmac.compare_digest(str(request.headers.get("X-Fitness-CSRF") or ""), session.csrf):
             raise web.HTTPForbidden(text="CSRF validation failed")
@@ -1692,19 +2372,38 @@ class FitnessPortalStatesView(HomeAssistantView):
         controller = get_fitness_account_controller(request.app["hass"])
         auth = await controller.async_session(request)
         if auth is None:
-            raise web.HTTPUnauthorized()
-        row, _session = auth
+            _raise_missing_portal_session(request)
+        row, session = auth
         principal = controller.principal(row)
-        config = await _run_fitness_handler(
-            request.app["hass"], principal, _effective_remote(request), {"type": "fitness/dashboard/config"}
-        )
-        entity_ids = _collect_entity_ids(config)
+        entity_ids = set(session.state_entity_ids)
+        if not entity_ids:
+            config = await _run_fitness_handler(
+                request.app["hass"], principal, _effective_remote(request), {"type": "fitness/dashboard/config"}
+            )
+            entity_ids = _collect_entity_ids(config)
+            if str(row.get("account_id") or "") in controller._ephemeral_cast_accounts:  # noqa: SLF001
+                session.state_entity_ids = tuple(sorted(entity_ids))
         states: dict[str, Any] = {}
+        revision_parts: list[str] = []
         hass: HomeAssistant = request.app["hass"]
+        selected_states: list[tuple[str, Any]] = []
         for entity_id in sorted(entity_ids):
             state = hass.states.get(entity_id)
             if state is None:
+                revision_parts.append(f"{entity_id}:missing")
                 continue
+            selected_states.append((entity_id, state))
+            revision_parts.append(
+                f"{entity_id}:{state.state}:{state.last_updated.isoformat()}"
+            )
+        revision = hashlib.sha256("\n".join(revision_parts).encode("utf-8")).hexdigest()[:24]
+        etag = f'"fitness-{revision}"'
+        if str(request.headers.get("If-None-Match") or "").strip() == etag:
+            return web.Response(
+                status=304,
+                headers={"ETag": etag, "Cache-Control": "no-store"},
+            )
+        for entity_id, state in selected_states:
             states[entity_id] = {
                 "entity_id": entity_id,
                 "state": state.state,
@@ -1712,7 +2411,10 @@ class FitnessPortalStatesView(HomeAssistantView):
                 "last_changed": state.last_changed.isoformat(),
                 "last_updated": state.last_updated.isoformat(),
             }
-        return self.json({"states": states})
+        response = self.json({"states": states})
+        response.headers["ETag"] = etag
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
 
 def _controlled_entity_ids(config: Any, controlled: set[str]) -> set[str]:
@@ -1735,7 +2437,7 @@ class FitnessPortalServiceView(HomeAssistantView):
         controller = get_fitness_account_controller(hass)
         auth = await controller.async_session(request)
         if auth is None:
-            raise web.HTTPUnauthorized()
+            _raise_missing_portal_session(request)
         row, session = auth
         if not hmac.compare_digest(str(request.headers.get("X-Fitness-CSRF") or ""), session.csrf):
             raise web.HTTPForbidden(text="CSRF validation failed")
@@ -1761,6 +2463,8 @@ class FitnessPortalServiceView(HomeAssistantView):
             if not entity_ids or any(entity_id not in allowed_entities for entity_id in entity_ids):
                 raise web.HTTPForbidden(text="Entity is outside this Fitness profile")
         elif domain == "fitness" and service in {"cast_tv_dashboard", "stop_tv_dashboard"}:
+            if not _client_is_local(_effective_remote(request)):
+                raise web.HTTPForbidden(text="Home Assistant TV control is available only on the local network")
             requested = str(service_data.get("profile_entry_id") or "")
             if requested not in controlled:
                 raise web.HTTPForbidden(text="Fitness profile control required")
@@ -1779,7 +2483,7 @@ class FitnessPortalAccountView(HomeAssistantView):
         controller = get_fitness_account_controller(request.app["hass"])
         auth = await controller.async_session(request)
         if auth is None:
-            raise web.HTTPUnauthorized()
+            _raise_missing_portal_session(request)
         row, session = auth
         if not hmac.compare_digest(str(request.headers.get("X-Fitness-CSRF") or ""), session.csrf):
             raise web.HTTPForbidden(text="CSRF validation failed")
@@ -1813,6 +2517,7 @@ class FitnessPortalLogoutView(HomeAssistantView):
         await controller.async_logout(request)
         response = self.json({"ok": True})
         response.del_cookie(_SESSION_COOKIE, path="/")
+        response.del_cookie(_CAST_SESSION_COOKIE, path="/")
         return response
 
 
@@ -1856,6 +2561,50 @@ async def _require_fitness_admin(hass: HomeAssistant, connection) -> None:
     await get_fitness_access_controller(hass).async_require_admin(connection)
 
 
+async def _sharing_owner_account_id(hass: HomeAssistant, connection) -> str:
+    """Return the authenticated Fitness account allowed to share its own profile."""
+    from .access_control import get_fitness_access_controller
+
+    descriptor = await get_fitness_access_controller(hass).async_descriptor(connection)
+    account_id = str(descriptor.get("account_id") or "")
+    profile_id = str(descriptor.get("profile_entry_id") or "")
+    if not account_id or not profile_id or not descriptor.get("session_allowed"):
+        raise PermissionError("fitness_account_required")
+    return account_id
+
+
+@websocket_api.websocket_command({vol.Required("type"): "fitness/accounts/share"})
+@websocket_api.async_response
+async def websocket_fitness_accounts_share(hass: HomeAssistant, connection, msg) -> None:
+    """Return accounts the current Fitness user may grant view-only access to."""
+    try:
+        account_id = await _sharing_owner_account_id(hass, connection)
+        controller = get_fitness_account_controller(hass)
+        connection.send_result(msg["id"], controller.sharing_snapshot(account_id))
+    except (PermissionError, ValueError) as err:
+        connection.send_error(msg["id"], "unauthorized", str(err))
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/accounts/share/save",
+        vol.Optional("viewer_account_ids", default=[]): [vol.All(str, vol.Length(max=64))],
+    }
+)
+@websocket_api.async_response
+async def websocket_fitness_accounts_share_save(hass: HomeAssistant, connection, msg) -> None:
+    """Update only view grants for the current Fitness user's own profile."""
+    try:
+        account_id = await _sharing_owner_account_id(hass, connection)
+        controller = get_fitness_account_controller(hass)
+        result = await controller.async_set_shared_viewers(
+            account_id, [str(item) for item in (msg.get("viewer_account_ids") or [])]
+        )
+        connection.send_result(msg["id"], result)
+    except (PermissionError, ValueError) as err:
+        connection.send_error(msg["id"], "unauthorized", str(err))
+
+
 @websocket_api.websocket_command({vol.Required("type"): "fitness/accounts/admin"})
 @websocket_api.async_response
 async def websocket_fitness_accounts_admin(hass: HomeAssistant, connection, msg) -> None:
@@ -1870,6 +2619,7 @@ async def websocket_fitness_accounts_admin(hass: HomeAssistant, connection, msg)
         vol.Optional("account_id"): vol.All(str, vol.Length(max=64)),
         vol.Required("display_name"): vol.All(str, vol.Length(min=1, max=128)),
         vol.Required("role"): vol.In(sorted(ROLES)),
+        vol.Required("network_access"): vol.In(sorted(NETWORK_ACCESS_MODES)),
         vol.Optional("profile_entry_id"): vol.Any(None, vol.All(str, vol.Length(max=128))),
         vol.Optional("view_profile_entry_ids", default=[]): [vol.All(str, vol.Length(max=128))],
         vol.Optional("remote_slug"): vol.Any(None, vol.All(str, vol.Length(max=63))),
@@ -1888,6 +2638,7 @@ async def websocket_fitness_accounts_save(hass: HomeAssistant, connection, msg) 
             account_id=(str(msg.get("account_id") or "") or None),
             display_name=str(msg.get("display_name") or ""),
             role=str(msg.get("role") or ""),
+            network_access=str(msg.get("network_access") or ""),
             profile_entry_id=(str(msg.get("profile_entry_id") or "") or None),
             view_profile_entry_ids=[str(item) for item in (msg.get("view_profile_entry_ids") or [])],
             remote_slug=(str(msg.get("remote_slug") or "") or None),
@@ -1966,6 +2717,8 @@ def async_register_fitness_account_websocket_commands(hass: HomeAssistant) -> No
     if data.get(ACCOUNT_WS_REGISTERED_KEY):
         return
     for command in (
+        websocket_fitness_accounts_share,
+        websocket_fitness_accounts_share_save,
         websocket_fitness_accounts_admin,
         websocket_fitness_accounts_save,
         websocket_fitness_accounts_delete,
@@ -1988,6 +2741,7 @@ def async_register_fitness_account_http_views(hass: HomeAssistant) -> None:
     if data.get(PORTAL_REGISTERED_KEY):
         return
     for view in (
+        FitnessDashCastBootstrapView(),
         FitnessPortalLoginView(), FitnessPortalPasswordView(), FitnessPortalAppView(),
         FitnessPortalSessionView(), FitnessPortalWSView(), FitnessPortalStatesView(),
         FitnessPortalServiceView(), FitnessPortalAccountView(), FitnessPortalLogoutView(),

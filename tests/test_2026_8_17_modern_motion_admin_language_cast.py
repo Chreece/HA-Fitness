@@ -8,33 +8,17 @@ MANAGER = (ROOT / "custom_components/fitness/manager.py").read_text(encoding="ut
 TV = (ROOT / "custom_components/fitness/tv_dashboard.py").read_text(encoding="utf-8")
 
 
-def test_modern_dashboard_motion_is_entity_first_data_aware_and_continuously_alive():
+def test_modern_dashboard_motion_is_lightweight_icon_only_and_cast_static():
     assert "_startDashboardEntryMotion()" in FRONTEND
-    assert "Card frames are intentionally stationary" in FRONTEND
-    assert "innerDelay = slideDuration" not in FRONTEND
+    assert 'cards.forEach((card, index) => this._ensureCardLivingMotion(card, index))' in FRONTEND
     assert "_cardMotionRoots(card)" in FRONTEND
-    assert 'tag.startsWith("fitness-")' in FRONTEND
-    assert "_animateChartReveal(root" in FRONTEND
-    assert "getTotalLength?.()" in FRONTEND
-    assert 'transform:"scaleX(0)"' in FRONTEND
-    assert 'transform:"scaleY(0)"' in FRONTEND
-    assert 'clipPath:"circle(0% at 50% 50%)"' in FRONTEND
-    assert 'fill:"both"' in FRONTEND
-    assert "elementIndex * 22" in FRONTEND
-    assert "_ensureChartTracer(card" in FRONTEND
-    assert 'document.createElementNS("http://www.w3.org/2000/svg", "animateMotion")' in FRONTEND
-    assert 'svg.style.overflow = "hidden"' in FRONTEND
-    assert "_armCardMotionObservers(card" in FRONTEND
+    assert 'const icons = this._cardMotionElements(card, "ha-icon")' in FRONTEND
+    assert 'movement-icons-only' in FRONTEND
+    assert 'data-fitness-motion-lite' in FRONTEND
+    assert '_applyCastMotionPolicy(card)' in FRONTEND
+    assert 'data-fitness-cast-static' in FRONTEND
+    assert 'if (FITNESS_TV_CAST_RECEIVER) return false;' in FRONTEND
     assert "new MutationObserver" in FRONTEND
-    assert "_animateCardStateRefresh(card)" in FRONTEND
-    assert "@keyframes fitness-data-sheen" in FRONTEND
-    assert "_animateRemoteSectionInterior(section, active)" in FRONTEND
-    assert "_ensureCardLivingMotion(card" in FRONTEND
-    assert 'semantic = "heart"' in FRONTEND
-    assert 'semantic = "motion"' in FRONTEND
-    assert 'semantic = "recovery"' in FRONTEND
-    assert 'semantic = "energy"' in FRONTEND
-    assert 'overflow-x:clip;overflow-y:visible' in FRONTEND
 
 
 def test_profile_animation_preference_and_reduced_motion_remain_authoritative():
@@ -46,8 +30,9 @@ def test_profile_animation_preference_and_reduced_motion_remain_authoritative():
 
 def test_cast_buttons_are_toggles_and_receiver_gets_only_requested_profile_controls():
     assert 'this.shadowRoot.getElementById("cast")?.addEventListener("click"' in FRONTEND
-    assert 'this._serverCastActive && activeTarget' in FRONTEND
-    assert 'this._serverCastActive && target && target === String(this._activeCastTarget || "")' in FRONTEND
+    assert 'this._castState === "connected"' in FRONTEND
+    assert 'this._castMode === "server"' in FRONTEND
+    assert 'void this._stopCurrentCast()' in FRONTEND
     assert 'id="light-feedback-toggle"' in FRONTEND
     assert 'id="tts-announcements-toggle"' in FRONTEND
     assert 'id="backend-config"' in FRONTEND
@@ -62,7 +47,7 @@ def test_main_tv_overview_is_admin_only_castable_and_accounts_stay_account_focus
     assert 'type:"fitness/accounts/delete"' in FRONTEND
     assert 'data-account-language' not in FRONTEND
     assert 'href="/config/person"' not in FRONTEND
-    assert '_tv_cast_targets(hass, registry) if access.get("is_admin") else []' in DASHBOARD
+    assert 'access.get("is_admin") and access.get("local_ha_hardware_allowed")' in DASHBOARD
 
 def test_profile_language_is_authoritative_and_account_settings_have_no_override():
     # Keep the websocket field readable for upgrade compatibility, but account

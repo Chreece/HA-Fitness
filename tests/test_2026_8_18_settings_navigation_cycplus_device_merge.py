@@ -35,8 +35,8 @@ def test_main_menu_never_saves_form_selections_implicitly():
 
 
 def test_save_button_wraps_without_clipping_on_narrow_settings_views():
-    assert ".flow-actions>button{flex:0 0 auto;min-width:118px;max-width:min(220px,100%)}" in FRONTEND
-    assert ".flow-actions{display:flex;justify-content:flex-end;gap:8px;padding:8px 0 2px;flex-wrap:wrap" in FRONTEND
+    assert ".flow-actions>button{flex:0 0 auto;align-self:center;height:auto;min-width:118px;max-width:min(220px,100%)}" in FRONTEND
+    assert ".flow-actions{display:flex;justify-content:flex-end;align-items:center;align-self:stretch;gap:8px;margin-top:auto;position:sticky" in FRONTEND
 
 
 def test_account_selector_centers_selected_account_across_whole_control():
@@ -67,8 +67,8 @@ def test_registry_cleanup_uses_captured_device_id_and_own_identifiers():
 
 
 def test_frontend_cache_revision_85_matches_backend():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
-    assert '?v=unreleased-110' in DASH
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in FRONTEND
+    assert '?v=unreleased-138' in DASH
 
 
 def test_mobile_backend_settings_use_viewport_and_compact_nonsticky_header():
@@ -79,7 +79,9 @@ def test_mobile_backend_settings_use_viewport_and_compact_nonsticky_header():
     assert '.flow-mobile-description{display:none' in flow_style
     assert '.flow-head p{display:none!important}' in flow_style
     assert 'position:relative!important' in flow_style
-    assert '.flow-actions{position:sticky;bottom:-8px' in flow_style
+    assert '.flow-actions{display:flex;justify-content:flex-end;align-items:center;align-self:stretch' in flow_style
+    assert 'position:sticky;bottom:-15px' in flow_style
+    assert '@media(max-width:620px){.flow-body{padding:8px 10px max(8px,env(safe-area-inset-bottom))}.flow-actions{bottom:-8px' in flow_style
 
 
 def test_local_bluetooth_connection_identity_merges_offline_archive_and_live_surfaces():

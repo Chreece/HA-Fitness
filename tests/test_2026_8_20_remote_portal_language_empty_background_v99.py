@@ -46,6 +46,6 @@ def test_composite_cards_propagate_empty_child_state_and_portal_fills_viewport()
 
 
 def test_frontend_cache_revision_is_v99():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in JS
-    assert '?v=unreleased-110' in DASH
-    assert 'frontend_version = "unreleased-110"' in ACCOUNTS
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in JS
+    assert '?v=unreleased-138' in DASH
+    assert 'frontend_version = "unreleased-138"' in ACCOUNTS

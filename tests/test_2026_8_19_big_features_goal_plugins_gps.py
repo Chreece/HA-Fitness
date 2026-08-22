@@ -12,9 +12,11 @@ ACCESS=(ROOT/'custom_components/fitness/access_control.py').read_text()
 ACCOUNTS=(ROOT/'custom_components/fitness/fitness_accounts.py').read_text()
 
 def test_workouts_card_uses_route_and_compact_sport_specific_summary():
-    assert 'extra.gps_track||extra.gps_points' in JS
-    assert 'class="tools"' in JS and '… More' in JS
-    assert 'Avg power' in JS and 'Pace' in JS and 'Best e1RM' in JS
+    assert '"gps_track","gps_points","route","track","coordinates","geometry","polyline"' in JS
+    # The compact workout summary is translated now, so assert the structural
+    # controls and translation keys instead of English-only UI literals.
+    assert 'class="workout-meta"' in JS and 'class="more"' in JS
+    assert 't.avg_power' in JS and 't.pace' in JS and 't.best_e1rm' in JS
     assert 'class="strava"' in JS
     assert '"gps_track": _gps_points(relevant)' in GAR
     assert '"gps_track": _gps_points(relevant)' in CYC

@@ -42,6 +42,17 @@ def _enrich_connected_metadata(
     serial_identity = cycplus_m1_serial_identity(result.get("serial_number"))
     if serial_identity:
         result.update(serial_identity)
+        # Device Information reports the OEM/legal manufacturer (currently
+        # ``CDZN Tech Co.,Ltd``) rather than the consumer CYCPLUS brand. Keep
+        # the adapter-owned canonical identity after the GATT read so registry
+        # identity and later rotating-address reconciliation remain stable.
+        result.update({
+            "manufacturer": "CYCPLUS",
+            "fitness_vendor_identity": "cycplus",
+            "model": "CYCPLUS M1 GPS Bike Computer",
+            "model_id": "M1",
+            "archive_adapter": "cycplus_m1",
+        })
         # This flag can only be set after the M1 vendor service and the full
         # Device Information serial have both been verified by a live GATT
         # connection. It is deliberately stronger than the advertised M1_XXXX

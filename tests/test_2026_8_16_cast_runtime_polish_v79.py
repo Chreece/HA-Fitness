@@ -36,9 +36,10 @@ def test_profile_playback_routes_tts_to_current_audio_owner_not_configured_speak
 
 
 def test_stop_cast_uses_actual_active_session_not_profile_default():
-    assert 'this._localCastActive || this._localCastServerActive || this._localCastSessionActive()' in JS
-    assert 'const activeTarget = String(this._activeCastTarget || "")' in JS
-    assert 'this._stopCastDashboard(activeTarget)' in JS
+    assert 'async _stopCurrentCast()' in JS
+    assert 'if (this._castState === "idle") return;' in JS
+    assert 'if (this._castMode === "server" && this._activeCastTarget)' in JS
+    assert 'await this._stopCastDashboard(String(this._activeCastTarget));' in JS
     assert 'String(this._activeCastTarget || root.querySelector("#cast-target")?.value || "")' in JS
     stop = DASH[DASH.index('async def async_stop_tv_dashboard('):DASH.index('async def _async_cast_receiver_is_stable', DASH.index('async def async_stop_tv_dashboard('))]
     assert 'active_target = str(hub.cast_target(entry.entry_id) or "").strip()' in stop

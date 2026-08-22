@@ -9,7 +9,7 @@ FRONT = (FIT / "frontend" / "fitness-dashboard.js").read_text(encoding="utf-8")
 
 
 def test_top_level_protocol_flow_is_real_multi_manager_with_manual_discovery():
-    assert 'menu_options=["manage_protocols", "add_user"]' in FLOW
+    assert 'menu_options=["add_protocol", "add_user"]' in FLOW
     assert 'async def async_step_manage_protocols' in FLOW
     assert '"bluetooth_automatic_hardware"' in FLOW
     assert '"antplus_automatic_hardware"' in FLOW

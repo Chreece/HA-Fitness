@@ -88,6 +88,18 @@ class FitnessEventLoopWatchdog:
             and (" in async_stop\n" in normalized or "EVENT_HOMEASSISTANT_STOP" in normalized)
         )
 
+    @staticmethod
+    def _external_component(stack: str) -> str:
+        """Best-effort component name for a non-Fitness MainThread stall."""
+        normalized = stack.replace("\\", "/")
+        marker = "/custom_components/"
+        pos = normalized.rfind(marker)
+        if pos < 0:
+            return "unknown"
+        tail = normalized[pos + len(marker):]
+        component = tail.split("/", 1)[0].strip()
+        return component or "unknown"
+
     def _run(self) -> None:
         while not self._stop.wait(0.25):
             now = time.monotonic()
@@ -113,12 +125,15 @@ class FitnessEventLoopWatchdog:
                 continue
 
             if not self._stack_is_fitness_owned(main_stack):
+                culprit = self._external_component(main_stack)
                 _LOGGER.warning(
                     "FITNESS_STALL_OBSERVED_EXTERNAL event_loop_heartbeat_age=%.3fs; "
+                    "observer=fitness; culprit=custom_components.%s; "
                     "MainThread is not executing Fitness code\n"
                     "FITNESS_STALL_EXTERNAL_MAINTHREAD_STACK_BEGIN\n%s\n"
                     "FITNESS_STALL_EXTERNAL_MAINTHREAD_STACK_END",
                     age,
+                    culprit,
                     main_stack,
                 )
                 continue

@@ -67,7 +67,8 @@ def test_inline_options_save_is_explicit_and_main_menu_discards_unsaved_changes(
 
 
 def test_tv_setup_enable_buttons_use_renderable_icons_and_menu_has_icons():
-    assert FRONTEND.count('icon="mdi:plus-circle-outline"') >= 2
+    assert FRONTEND.count('icon="mdi:plus-circle-outline"') >= 1
+    assert FRONTEND.count('icon="mdi:account-plus-outline"') >= 2
     assert FRONTEND.count('icon="mdi:monitor-dashboard"') >= 2
     assert 'class="modal-title-with-icon"><ha-icon icon="mdi:plus-circle-outline"' in FRONTEND
     assert 'class="tool enable-profile"><ha-icon icon="mdi:television-play"' in FRONTEND
@@ -85,5 +86,5 @@ def test_tv_setup_text_does_not_name_an_external_frontend_extension():
 
 
 def test_unreleased_frontend_revision_is_47():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
-    assert '?v=unreleased-110' in DASH
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in FRONTEND
+    assert '?v=unreleased-138' in DASH

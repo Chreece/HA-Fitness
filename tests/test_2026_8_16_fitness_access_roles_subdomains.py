@@ -12,8 +12,11 @@ DOC = (ROOT / "docs/REMOTE_ACCESS.md").read_text()
 
 def test_fitness_access_roles_are_persistent_admin_assigned_and_owner_bootstrapped():
     assert 'ROLE_ADMIN = "admin"' in ACCOUNTS
-    assert 'ROLE_LOCAL = "local"' in ACCOUNTS
-    assert 'ROLE_REMOTE = "remote"' in ACCOUNTS
+    assert 'ROLE_ADMIN_USER = "admin_user"' in ACCOUNTS
+    assert 'ROLE_USER = "user"' in ACCOUNTS
+    assert 'NETWORK_LOCAL_ONLY = "local_only"' in ACCOUNTS
+    assert 'NETWORK_REMOTE_ONLY = "remote_only"' in ACCOUNTS
+    assert 'NETWORK_LOCAL_REMOTE = "local_remote"' in ACCOUNTS
     assert 'ACCOUNT_STORE_KEY = "fitness.accounts"' in ACCOUNTS
     assert 'private=True' in ACCOUNTS
     assert 'vol.Required("type"): "fitness/accounts/save"' in ACCOUNTS
@@ -25,9 +28,9 @@ def test_fitness_access_roles_are_persistent_admin_assigned_and_owner_bootstrapp
     assert 'getattr(user, "is_admin", False)' in ACCESS
 
 def test_local_and_remote_sessions_are_enforced_server_side():
-    assert 'if role == ROLE_LOCAL and not _client_is_local(remote):' in ACCOUNTS
-    assert 'if role == ROLE_ADMIN and not _client_is_local(remote) and not exact_remote_host:' in ACCOUNTS
-    assert 'if role == ROLE_REMOTE and not exact_remote_host:' in ACCOUNTS
+    assert 'network_access == NETWORK_LOCAL_ONLY and not local_client' in ACCOUNTS
+    assert 'network_access == NETWORK_REMOTE_ONLY and not exact_remote_host' in ACCOUNTS
+    assert 'network_access == NETWORK_LOCAL_REMOTE and not (local_client or exact_remote_host)' in ACCOUNTS
     assert 'remote_host_mismatch' in ACCOUNTS
     assert 'principal = self._fitness_principal(connection)' in ACCESS
     assert 'visible = self._view_profile_ids(principal)' in ACCESS
@@ -48,7 +51,7 @@ def test_dashboard_never_enumerates_other_profiles_for_normal_users():
     assert 'visible_profile_ids = await access_controller.async_visible_profile_ids(' in DASH
     assert 'if entry.entry_id not in visible_profile_ids:' in DASH
     assert '"access": access' in DASH
-    assert '_tv_cast_targets(hass, registry) if access.get("is_admin") else []' in DASH
+    assert 'access.get("is_admin") and access.get("local_ha_hardware_allowed")' in DASH
 
 
 def test_profile_scoped_tv_and_remote_gateway_commands_require_access():
@@ -107,19 +110,18 @@ def test_removed_account_is_forced_out_of_an_already_open_profile():
 
 
 def test_access_release_bumps_one_frontend_cache_revision():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in JS
-    assert '?v=unreleased-110' in DASH
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in JS
+    assert '?v=unreleased-138' in DASH
 
 
 def test_fitness_admin_can_keep_an_own_profile_and_ha_user_link_is_current():
-    assert 'role == ROLE_ADMIN' in ACCOUNTS
-    assert 'if role in {ROLE_LOCAL, ROLE_REMOTE} and not profile_id:' in ACCOUNTS
-    assert 'if role == ROLE_ADMIN:' in ACCOUNTS
+    assert 'ROLE_ADMIN_USER = "admin_user"' in ACCOUNTS
+    assert 'if _role_requires_profile(role) and not profile_id:' in ACCOUNTS
+    assert 'if role == ROLE_ADMIN and profile_id:' in ACCOUNTS
     assert 'views.clear()' in ACCOUNTS
     assert 'data-account-profile' in JS
-    assert 'admin_profile_optional' in JS
+    assert 'role_admin_user' in JS
     assert 'href="/config/person"' not in JS
     assert 'legacy_ha_user_id' in ACCOUNTS
     assert 'Credentials cannot be migrated because the old model delegated passwords' in ACCOUNTS
-    assert '"runtime_available": False' in DASH
 

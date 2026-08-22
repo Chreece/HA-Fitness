@@ -27,13 +27,19 @@ def test_ma_relay_client_id_is_optional_and_backend_returns_authoritative_id():
 
 
 def test_ma_play_click_unlocks_before_network_connect_and_queue_dispatch():
+    helper_start = FRONTEND.index("async _prepareMALocalAudioFromGesture()")
+    helper_end = FRONTEND.index("async _selectMusic(item, options = {})", helper_start)
+    helper = FRONTEND[helper_start:helper_end]
+    unlock = helper.index("await player.unlock?.();")
+    connect = helper.index("await this._connectMASendspinPlayer(player);")
+    assert unlock < connect
+
     start = FRONTEND.index("async _selectMusic(item, options = {})")
     end = FRONTEND.index("async _playMusic()", start)
     body = FRONTEND[start:end]
-    unlock = body.index("await player.unlock?.();")
-    connect = body.index("await this._connectMASendspinPlayer(player);")
+    prepare = body.index("await this._prepareMALocalAudioFromGesture();")
     dispatch = body.index('await this._sendMediaCommand("select"')
-    assert unlock < connect < dispatch
+    assert prepare < dispatch
 
 
 def test_dashboard_config_reconciles_managed_fitness_tv_views_before_open():
@@ -47,9 +53,9 @@ def test_dashboard_config_reconciles_managed_fitness_tv_views_before_open():
 
 
 def test_admin_profile_assignment_uses_the_account_row_without_duplicate_profile_manager():
-    assert 'class="access-profile-field"' in FRONTEND
+    assert 'class="access-profile-field ${role === "admin" ? "hidden" : ""}"' in FRONTEND
     assert 'data-account-profile' in FRONTEND
-    assert 'profile_entry_id:String(profile?.value || "") || null' in FRONTEND
+    assert 'profile_entry_id:currentRole === "admin" ? null' in FRONTEND
     assert 'data-profile-assign' not in FRONTEND
     assert 'profile_already_assigned' in ACCOUNTS
 
@@ -60,9 +66,9 @@ def test_manage_ha_users_uses_exact_person_route_not_people_route():
     assert 'type:"fitness/accounts/save"' in FRONTEND
 
 def test_frontend_resource_revision_is_68_and_synchronized():
-    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-110"' in FRONTEND
+    assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in FRONTEND
     assert '_RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"' in DASHBOARD
-    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-110"' in DASHBOARD
+    assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-138"' in DASHBOARD
 
 
 def test_unreleased_frontend_uses_uncached_unique_resource_path():

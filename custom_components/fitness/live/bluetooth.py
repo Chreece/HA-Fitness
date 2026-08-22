@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -171,6 +172,13 @@ DISCOVERY_DEDUPE_WINDOW = 0.5
 BLE_DISCONNECT_TIMEOUT = 5.0
 DISCOVERY_CACHE_REPLAY_LIMIT = 512
 DISCOVERY_CACHE_SCAN_LIMIT = 2048
+# Home Assistant keeps Bluetooth service-info history across scanner lifecycle
+# changes. Cache replay is useful at Fitness startup, but it must never turn an
+# old route into a fresh/available discovery candidate. Live callbacks are the
+# authority after this short startup bridge.
+DISCOVERY_CACHE_MAX_AGE = 60.0
+DISCOVERY_CACHE_FUTURE_TOLERANCE = 5.0
+DISCOVERY_CACHE_SCAN_START_TOLERANCE = 0.25
 DISCOVERY_REFRESH_MIN_INTERVAL = 20.0
 DISCOVERY_ACTIVE_SCAN_DURATION = 8.0
 DISCOVERY_ACTIVE_SCAN_TIMEOUT = 12.0
@@ -259,6 +267,10 @@ class BluetoothFitnessProvider:
         # cannot force the Bluetooth stack into continuous active scanning.
         self._discovery_refresh_lock = asyncio.Lock()
         self._last_discovery_refresh = -DISCOVERY_REFRESH_MIN_INTERVAL
+        # Explicit scan replay keeps the historical no-argument replay call
+        # contract. The temporary monotonic boundary is scoped to the refresh
+        # lock and consumed only by the immediately following replay.
+        self._cache_replay_allow_new_since: float | None = None
         self.device_archives = DeviceArchiveRegistry(self)
         # Raw BLE fitness measurements require an active GATT subscription, but
         # Fitness deliberately does not keep telemetry GATT open while idle.
@@ -329,8 +341,63 @@ class BluetoothFitnessProvider:
             getattr(info, "name", None), uuids, manufacturer_data
         ) is not None
 
+    def _cached_discovery_is_fresh(self, info, now_mono: float) -> bool:
+        """Return whether cached HA service info is recent enough to replay.
+
+        ``BluetoothServiceInfoBleak.time`` is Home Assistant's monotonic
+        observation timestamp.  A cache entry may survive scanner restarts,
+        proxy changes, adapter recovery and integration reloads long after that
+        address stopped advertising.  Feeding such an entry through the normal
+        callback would stamp it with ``datetime.now()`` and ``available=True``,
+        effectively resurrecting a stale route as a brand-new discovery.
+
+        Unknown/invalid timestamps are intentionally not replayed. A current
+        device will arrive through the registered HA callback, and the setup
+        guide can request a bounded active scan before replaying the cache.
+        """
+        observed_at = getattr(info, "time", None)
+        try:
+            observed_at = float(observed_at)
+        except (TypeError, ValueError):
+            return False
+        if not math.isfinite(observed_at):
+            return False
+
+        age = now_mono - observed_at
+        if age < -DISCOVERY_CACHE_FUTURE_TOLERANCE:
+            # A timestamp from a different clock domain is not safe evidence of
+            # current presence. Do not guess and accidentally create Discovery.
+            return False
+        return age <= DISCOVERY_CACHE_MAX_AGE
+
+    def _cached_discovery_known_endpoint(self, info) -> bool:
+        """Return whether one cached route already belongs to runtime topology.
+
+        Startup cache replay is state restoration, not discovery. Home Assistant
+        scanners/proxies can republish a remembered service-info record with a
+        recent-looking timestamp while the physical route is no longer present.
+        Only an endpoint already restored by Fitness may therefore be refreshed
+        during provider setup. New physical sensors must come from a live HA
+        callback or from an explicit bounded scan performed by Fitness.
+        """
+        address = str(getattr(info, "address", "") or "").upper()
+        if not address:
+            return False
+        sensor_id = self.runtime.endpoint_aliases.get(f"bluetooth:{address}")
+        if not sensor_id:
+            return False
+        canonical_id = self.runtime.resolve_sensor_id(sensor_id)
+        return canonical_id in self.runtime.sensors
+
     def _replay_cached_discovery(self) -> int:
-        """Replay a bounded relevant subset of Home Assistant's current cache."""
+        """Replay bounded HA cache without creating startup ghost sensors.
+
+        During normal provider startup, cache replay may refresh only endpoints
+        already present in Fitness's restored topology. An explicit bounded scan
+        temporarily records its monotonic start boundary on the provider; only
+        cache observations from that scan window may then create a new route.
+        """
+        allow_new_since = self._cache_replay_allow_new_since
         try:
             infos = bluetooth.async_discovered_service_info(self.hass, connectable=False)
         except TypeError:
@@ -340,7 +407,12 @@ class BluetoothFitnessProvider:
             return 0
 
         processed = 0
+        stale = 0
+        untimed = 0
+        unknown_startup = 0
+        before_scan = 0
         seen: set[tuple[str, str]] = set()
+        now_mono = self.hass.loop.time()
         for cache_index, info in enumerate(infos):
             if cache_index >= DISCOVERY_CACHE_SCAN_LIMIT:
                 _LOGGER.debug(
@@ -355,6 +427,32 @@ class BluetoothFitnessProvider:
             if key in seen or not key[0] or not self._cached_discovery_relevant(info):
                 continue
             seen.add(key)
+
+            observed_at = getattr(info, "time", None)
+            if not self._cached_discovery_is_fresh(info, now_mono):
+                try:
+                    observed_value = float(observed_at)
+                except (TypeError, ValueError):
+                    untimed += 1
+                else:
+                    if math.isfinite(observed_value):
+                        stale += 1
+                    else:
+                        untimed += 1
+                continue
+
+            known_endpoint = self._cached_discovery_known_endpoint(info)
+            if not known_endpoint:
+                if allow_new_since is None:
+                    unknown_startup += 1
+                    continue
+                observed_value = float(observed_at)
+                if observed_value < (
+                    float(allow_new_since) - DISCOVERY_CACHE_SCAN_START_TOLERANCE
+                ):
+                    before_scan += 1
+                    continue
+
             self._async_discovered(info, None)
             processed += 1
             if processed >= DISCOVERY_CACHE_REPLAY_LIMIT:
@@ -363,6 +461,16 @@ class BluetoothFitnessProvider:
                     DISCOVERY_CACHE_REPLAY_LIMIT,
                 )
                 break
+
+        if stale or untimed or unknown_startup or before_scan:
+            _LOGGER.debug(
+                "Fitness Bluetooth cache replay skipped stale=%s untimed=%s "
+                "unknown_startup=%s before_scan=%s relevant routes",
+                stale,
+                untimed,
+                unknown_startup,
+                before_scan,
+            )
         return processed
 
     async def async_refresh_discovery(self) -> None:
@@ -374,10 +482,12 @@ class BluetoothFitnessProvider:
         """
         async with self._discovery_refresh_lock:
             now = self.hass.loop.time()
+            allow_new_since: float | None = None
             if now - self._last_discovery_refresh >= DISCOVERY_REFRESH_MIN_INTERVAL:
                 self._last_discovery_refresh = now
                 request_scan = getattr(bluetooth, "async_request_active_scan", None)
                 if request_scan is not None:
+                    scan_started = self.hass.loop.time()
                     try:
                         async with asyncio.timeout(DISCOVERY_ACTIVE_SCAN_TIMEOUT):
                             try:
@@ -387,6 +497,7 @@ class BluetoothFitnessProvider:
                             except TypeError:
                                 # Compatibility with the first HA API shape.
                                 await request_scan(self.hass)
+                        allow_new_since = scan_started
                     except TimeoutError:
                         _LOGGER.debug("Timed out requesting Fitness Bluetooth discovery sweep")
                     except Exception:
@@ -394,7 +505,11 @@ class BluetoothFitnessProvider:
                             "Unable to request Fitness Bluetooth discovery sweep",
                             exc_info=True,
                         )
-            self._replay_cached_discovery()
+            self._cache_replay_allow_new_since = allow_new_since
+            try:
+                self._replay_cached_discovery()
+            finally:
+                self._cache_replay_allow_new_since = None
 
     def _refresh_available(self) -> None:
         scanner_count = getattr(bluetooth, "async_scanner_count", None)

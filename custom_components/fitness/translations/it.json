@@ -8,18 +8,14 @@
         "data": {
           "profile_name": "Nome",
           "language": "Lingua",
-          "birth_day": "Giorno di nascita",
-          "birth_month": "Mese di nascita",
-          "birth_year": "Anno di nascita",
-          "sex": "Sesso"
+          "sex": "Sesso",
+          "date_of_birth": "Data di nascita"
         },
         "data_description": {
           "profile_name": "Nome usato per creare il profilo Fitness e le entità separate di questa persona.",
           "language": "Lingua per annunci, coaching e attributi esplicativi. La lingua UI di Home Assistant viene preselezionata se supportata.",
-          "birth_day": "Giorno di nascita, usato con mese e anno per calcolare l'età nei metodi dipendenti dall'età.",
-          "birth_month": "Mese di nascita usato con la data completa per calcoli di riferimento legati all'età.",
-          "birth_year": "Anno di nascita usato per calcolare l'età nei metodi di riferimento fitness.",
-          "sex": "Sesso biologico opzionale, usato solo da metodi scientifici che richiedono coefficienti specifici per sesso."
+          "sex": "Sesso biologico opzionale, usato solo da metodi scientifici che richiedono coefficienti specifici per sesso.",
+          "date_of_birth": "Seleziona la data di nascita completa. Il calendario consente di scegliere direttamente l’anno."
         }
       },
       "required": {
@@ -167,7 +163,7 @@
         "description": "Scegli cosa aggiungere per prima. Potrai aggiungere l’altra parte in seguito senza modificare il flusso esistente del profilo.",
         "menu_options": {
           "add_user": "Aggiungi profilo utente",
-          "manage_protocols": "Gestisci protocolli sensori"
+          "add_protocol": "Aggiungi / gestisci protocollo sensore"
         }
       },
       "add_user": {
@@ -229,6 +225,30 @@
           "bluetooth_hardware": "Scegli gli adattatori supportati che Fitness può utilizzare in modalità manuale.",
           "antplus_hardware": "Scegli gli adattatori supportati che Fitness può utilizzare in modalità manuale."
         }
+      },
+      "account_access": {
+        "title": "Ruolo e accesso utente Fitness",
+        "description": "Solo amministratori: imposta prima ruolo e accesso del nuovo account Fitness.",
+        "data": {
+          "fitness_account_role": "Ruolo",
+          "fitness_network_access": "Accesso di rete",
+          "fitness_account_display_name": "Nome account",
+          "fitness_account_username": "Nome di accesso",
+          "fitness_remote_slug": "Hostname remoto",
+          "fitness_view_profile_entry_ids": "Diritti di visualizzazione account"
+        },
+        "data_description": {
+          "fitness_account_role": "Gli amministratori hanno accesso completo a Fitness. Gli utenti locali e remoti controllano solo il proprio profilo e possono visualizzare altri profili in sola lettura solo se autorizzati da un amministratore.",
+          "fitness_network_access": "Accesso solo tramite hostname remoto; l’hardware LAN HA non viene mai esposto. Accesso locale e remoto; hardware LAN visibile solo con connessione realmente locale.",
+          "fitness_account_display_name": "Questo account controlla solo il proprio profilo Fitness.",
+          "fitness_account_username": "Per gli account remoti il sottodominio è predefinito. L’utente può cambiare il nome di accesso in seguito.",
+          "fitness_remote_slug": "Questo hostname appartiene esclusivamente a questo account Fitness remoto.",
+          "fitness_view_profile_entry_ids": "Gli account selezionati sono in sola lettura; non è possibile modificarne impostazioni, allenamenti o dispositivi."
+        }
+      },
+      "account_credentials": {
+        "title": "Password iniziale monouso",
+        "description": "Password iniziale monouso: **{temporary_password}**. Copiala ora. Fitness non la memorizza mai in forma leggibile e non potrà mostrarla di nuovo."
       }
     },
     "error": {
@@ -236,7 +256,11 @@
       "invalid_number_or_entity": "Inserisci un valore numerico valido o un ID entità Home Assistant.",
       "select_profile": "Seleziona almeno un utente Fitness.",
       "select_smart_device_owner": "Scegli esattamente un profilo Fitness come proprietario degli allenamenti salvati. Le funzioni live potranno essere condivise in seguito.",
-      "invalid_protocol": "Scegli un protocollo sensori supportato."
+      "invalid_protocol": "Scegli un protocollo sensori supportato.",
+      "invalid_role": "Ruolo: Questo campo è obbligatorio.",
+      "invalid_network_access": "Accesso di rete: Questo campo è obbligatorio.",
+      "profile_not_found": "Gli account selezionati sono in sola lettura; non è possibile modificarne impostazioni, allenamenti o dispositivi.",
+      "required": "Questo campo è obbligatorio."
     },
     "abort": {
       "already_configured": "Esiste già un profilo Fitness con questo nome.",
@@ -247,7 +271,8 @@
       "adapters_already_configured": "Tutti gli adattatori live Fitness sono già configurati. Abilitali o disabilitali dai relativi dispositivi adattatore.",
       "adapters_managed_on_devices": "Gli adattatori dei sensori locali si configurano dai dispositivi adattatore ANT+ e Bluetooth.",
       "protocol_enabled": "Il protocollo di connessione selezionato è attivo.",
-      "protocols_updated": "I protocolli sensori di Fitness sono stati aggiornati."
+      "protocols_updated": "I protocolli sensori di Fitness sono stati aggiornati.",
+      "fitness_admin_created": "Copiala ora. Fitness non la memorizza mai in forma leggibile e non potrà mostrarla di nuovo."
     }
   },
   "options": {
@@ -275,17 +300,13 @@
         "description": "Modifica le informazioni del profilo della persona.",
         "data": {
           "language": "Lingua",
-          "birth_day": "Giorno di nascita",
-          "birth_month": "Mese di nascita",
-          "birth_year": "Anno di nascita",
-          "sex": "Sesso"
+          "sex": "Sesso",
+          "date_of_birth": "Data di nascita"
         },
         "data_description": {
           "language": "Lingua per annunci, coaching e attributi esplicativi. La lingua UI di Home Assistant viene preselezionata se supportata.",
-          "birth_day": "Giorno di nascita, usato con mese e anno per calcolare l'età nei metodi dipendenti dall'età.",
-          "birth_month": "Mese di nascita usato con la data completa per calcoli di riferimento legati all'età.",
-          "birth_year": "Anno di nascita usato per calcolare l'età nei metodi di riferimento fitness.",
-          "sex": "Sesso biologico opzionale, usato solo da metodi scientifici che richiedono coefficienti specifici per sesso."
+          "sex": "Sesso biologico opzionale, usato solo da metodi scientifici che richiedono coefficienti specifici per sesso.",
+          "date_of_birth": "Seleziona la data di nascita completa. Il calendario consente di scegliere direttamente l’anno."
         }
       },
       "fitness_inputs": {
@@ -3572,6 +3593,156 @@
       },
       "cycplus_history_30d_moving_time": {
         "name": "Tempo ciclistico di 30 giorni"
+      },
+      "device_heart_rate": {
+        "name": "Frequenza cardiaca"
+      },
+      "device_resting_heart_rate": {
+        "name": "Frequenza cardiaca a riposo"
+      },
+      "device_min_heart_rate": {
+        "name": "Minima heart rate"
+      },
+      "device_max_heart_rate": {
+        "name": "Massima heart rate"
+      },
+      "device_hrv_ms": {
+        "name": "Variabilità della frequenza cardiaca"
+      },
+      "device_beat_interval_ms": {
+        "name": "Intervallo tra battiti"
+      },
+      "device_respiratory_rate": {
+        "name": "Frequenza respiratoria"
+      },
+      "device_spo2": {
+        "name": "Ossigeno nel sangue"
+      },
+      "device_skin_temperature": {
+        "name": "Temperatura cutanea"
+      },
+      "device_skin_temperature_min": {
+        "name": "Minima skin temperature"
+      },
+      "device_skin_temperature_max": {
+        "name": "Massima skin temperature"
+      },
+      "device_skin_temperature_deviation": {
+        "name": "Deviazione della temperatura cutanea"
+      },
+      "device_skin_temperature_7d_deviation": {
+        "name": "Deviazione della temperatura cutanea su 7 giorni"
+      },
+      "device_body_temperature": {
+        "name": "Temperatura corporea"
+      },
+      "device_device_temperature": {
+        "name": "Dispositivo temperature"
+      },
+      "device_device_temperature_min": {
+        "name": "Minima device temperature"
+      },
+      "device_device_temperature_max": {
+        "name": "Massima device temperature"
+      },
+      "device_steps": {
+        "name": "Passi"
+      },
+      "device_distance_m": {
+        "name": "Distanza"
+      },
+      "device_calories": {
+        "name": "Calorie"
+      },
+      "device_active_calories": {
+        "name": "Attive calories"
+      },
+      "device_active_minutes": {
+        "name": "Minuti attivi"
+      },
+      "device_moderate_minutes": {
+        "name": "Attività moderata minutes"
+      },
+      "device_vigorous_minutes": {
+        "name": "Attività intensa minutes"
+      },
+      "device_activity_level": {
+        "name": "Livello di attività"
+      },
+      "device_stress": {
+        "name": "Livello di stress"
+      },
+      "device_body_battery": {
+        "name": "Corpo battery"
+      },
+      "device_body_battery_charged": {
+        "name": "Corpo battery charged"
+      },
+      "device_body_battery_drained": {
+        "name": "Corpo battery drained"
+      },
+      "device_sleep_score": {
+        "name": "Punteggio sonno del dispositivo"
+      },
+      "device_vo2_max": {
+        "name": "Consumo massimo di ossigeno (VO₂ max)"
+      },
+      "device_floors_climbed": {
+        "name": "Piani saliti"
+      },
+      "device_systolic_blood_pressure": {
+        "name": "Sistolica blood pressure"
+      },
+      "device_diastolic_blood_pressure": {
+        "name": "Diastolica blood pressure"
+      },
+      "device_mean_arterial_pressure": {
+        "name": "Arteriosa media pressure"
+      },
+      "device_weight": {
+        "name": "Peso"
+      },
+      "device_bmi": {
+        "name": "Indice di massa corporea (BMI)"
+      },
+      "device_body_fat": {
+        "name": "Grasso corporeo"
+      },
+      "device_body_water": {
+        "name": "Acqua corporea"
+      },
+      "device_muscle_mass": {
+        "name": "Massa muscolare"
+      },
+      "device_bone_mass": {
+        "name": "Massa ossea"
+      },
+      "device_basal_metabolic_rate": {
+        "name": "Metabolismo basale"
+      },
+      "device_active_metabolic_rate": {
+        "name": "Metabolismo attivo"
+      },
+      "device_metabolic_age": {
+        "name": "Età metabolica"
+      },
+      "device_visceral_fat_mass": {
+        "name": "Viscerale fat mass"
+      },
+      "device_visceral_fat_rating": {
+        "name": "Viscerale fat rating"
+      },
+      "device_battery": {
+        "name": "Batteria dispositivo"
+      },
+      "device_device_battery_voltage": {
+        "name": "Dispositivo battery voltage"
+      },
+      "device_charging": {
+        "name": "In carica"
+      },
+      "device_wear_state": {
+        "name": "Stato di utilizzo"
       }
     },
     "binary_sensor": {
@@ -3665,6 +3836,20 @@
         "lights": "Luci",
         "video": "TV / contenuti video",
         "weather": "Meteo"
+      }
+    },
+    "fitness_account_role": {
+      "options": {
+        "admin_user": "Admin + utente Fitness",
+        "user": "Utente",
+        "admin": "Amministrazione Fitness completa"
+      }
+    },
+    "fitness_network_access": {
+      "options": {
+        "local_only": "Solo locale",
+        "remote_only": "Solo remoto",
+        "local_remote": "Locale + remoto"
       }
     }
   },

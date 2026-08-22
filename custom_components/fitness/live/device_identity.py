@@ -94,23 +94,73 @@ def _catalog_manufacturer(endpoints: dict[str, Any]) -> str | None:
                 return str(bt_map[str(value)])
     return None
 
+def _endpoint_semantic_names(endpoints: dict[str, Any], transport: str | None = None) -> list[str]:
+    """Return names carried by currently observed transport metadata.
+
+    Top-level ``sensor.name`` is persisted across restarts and can therefore be
+    stale after a device was forgotten or an address was reused. Product-family
+    matching must prefer evidence transmitted by the endpoint we are looking at
+    now. This deliberately excludes generated profile labels such as
+    ``Power Meter`` unless the endpoint itself advertised them.
+    """
+    names: list[str] = []
+    candidates = (
+        [(transport, endpoints.get(transport))] if transport else list(endpoints.items())
+    )
+    for _kind, endpoint in candidates:
+        if endpoint is None:
+            continue
+        metadata = getattr(endpoint, "metadata", {}) or {}
+        for key in ("advertised_name", "local_name", "bluetooth_name", "device_name"):
+            value = _text(metadata.get(key))
+            if value and value not in names:
+                names.append(value)
+    return names
+
+
 def _matches_rule(rule: dict[str, Any], name: str, endpoints: dict[str, Any]) -> bool:
+    """Return whether every constraint declared by one catalog rule matches.
+
+    A rule can combine a transport constraint with a name prefix and/or protocol
+    identity fields. Those fields are conjunctive. Name-only product rules are
+    evaluated against a *currently observed endpoint name* whenever endpoints
+    exist; a persisted top-level display name is not sufficient to resurrect a
+    previously forgotten product identity.
+    """
+    transport = _text(rule.get("transport"))
+    endpoint = endpoints.get(transport) if transport else None
+    if transport and endpoint is None:
+        return False
+
     prefix = _text(rule.get("name_prefix"))
-    if prefix and _clean(name).startswith(_clean(prefix)):
-        return True
-    transport = rule.get("transport")
-    if not transport:
+    if prefix:
+        current_names = _endpoint_semantic_names(endpoints, transport)
+        if current_names:
+            if not any(_clean(value).startswith(_clean(prefix)) for value in current_names):
+                return False
+        elif endpoints:
+            # Endpoint(s) exist but none currently carries a semantic name. Do
+            # not trust a persisted/generated sensor title as product evidence.
+            return False
+        elif not _clean(name).startswith(_clean(prefix)):
+            return False
+
+    # Protocol-backed fields require a transport endpoint. Malformed catalog
+    # rules must fail closed instead of accidentally matching by name alone.
+    protocol_fields = ("manufacturer_id", "manufacturer_data_id", "model_no")
+    if any(field in rule for field in protocol_fields) and endpoint is None:
         return False
-    endpoint = endpoints.get(str(transport))
-    if endpoint is None:
-        return False
-    if "manufacturer_id" in rule and endpoint.metadata.get("manufacturer_id") != rule.get("manufacturer_id"):
-        return False
-    if "manufacturer_data_id" in rule and rule.get("manufacturer_data_id") not in (endpoint.metadata.get("manufacturer_data_ids") or []):
-        return False
-    if "model_no" in rule and endpoint.metadata.get("model_no") != rule.get("model_no"):
-        return False
-    return True
+
+    if endpoint is not None:
+        metadata = getattr(endpoint, "metadata", {}) or {}
+        if "manufacturer_id" in rule and metadata.get("manufacturer_id") != rule.get("manufacturer_id"):
+            return False
+        if "manufacturer_data_id" in rule and rule.get("manufacturer_data_id") not in (metadata.get("manufacturer_data_ids") or []):
+            return False
+        if "model_no" in rule and metadata.get("model_no") != rule.get("model_no"):
+            return False
+
+    return bool(prefix or transport or any(field in rule for field in protocol_fields))
 
 
 def catalog_transport_correlation(sensor) -> dict[str, Any] | None:
@@ -581,14 +631,22 @@ def resolve_identity(sensor) -> dict[str, Any]:
             name = endpoint_names[0][1]
     if not name:
         advertised = _text(sensor.name)
+        stale_catalog_name = bool(
+            sensor.endpoints
+            and catalog_name_vendor(advertised)
+            and not catalog_product_id(advertised or "", sensor.endpoints)
+        )
         if (
             advertised
             and advertised != "Fitness sensor"
             and not _looks_address(advertised)
             and not _numeric_only(advertised)
+            and not stale_catalog_name
         ):
             # A trailing number is normal product identity (Forerunner 965,
             # Edge 1050, Watch 2, ...), not evidence of an opaque scanner ID.
+            # A catalog product title with no current endpoint proof is different:
+            # it may be stale after Forget/remove and must not resurrect identity.
             name = advertised
     if not name:
         manufacturer = identity.get("manufacturer")

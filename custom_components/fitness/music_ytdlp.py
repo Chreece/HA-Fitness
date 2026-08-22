@@ -335,6 +335,59 @@ def search_youtube_playlists(query: str, limit: int = YTDLP_SEARCH_LIMIT) -> lis
             break
     return results
 
+
+def list_youtube_playlist_entries(target: str, limit: int = 100) -> list[dict[str, Any]]:
+    """Return flat playlist entries without resolving media streams.
+
+    Playback resolution is deliberately a second step so inaccessible/deleted
+    entries can be discarded independently instead of poisoning the whole
+    playlist.
+    """
+    target = _validated_youtube_target(target)
+    try:
+        limit = max(1, min(100, int(limit)))
+    except (TypeError, ValueError):
+        limit = 100
+    yt_dlp = _yt_dlp_module()
+    logger = _QuietLogger()
+    options = _base_options(logger)
+    options.update({"extract_flat": True, "playlistend": limit, "noplaylist": False})
+    try:
+        with yt_dlp.YoutubeDL(options) as ydl:
+            info = ydl.extract_info(target, download=False)
+    except Exception as err:  # noqa: BLE001 - third-party extractor boundary
+        detail = logger.last_message or str(err)
+        raise FitnessYTDLPError(f"YouTube playlist extraction failed: {detail}") from err
+    entries = info.get("entries") if isinstance(info, dict) else None
+    rows: list[dict[str, Any]] = []
+    for raw in entries if isinstance(entries, list) else []:
+        if not isinstance(raw, dict):
+            continue
+        video_id = str(raw.get("id") or "").strip()
+        url = str(raw.get("webpage_url") or raw.get("url") or "").strip()
+        if url and not url.startswith(("http://", "https://")):
+            url = ""
+        if not url and video_id:
+            url = f"https://www.youtube.com/watch?v={video_id}"
+        title = str(raw.get("title") or "").strip()
+        if not url or not title:
+            continue
+        live_status = str(raw.get("live_status") or "").strip().lower()
+        if bool(raw.get("is_live")) or live_status in {"is_live", "is_upcoming"}:
+            # Fitness' direct browser-audio path intentionally excludes live
+            # and upcoming items from yt-dlp playlists.
+            continue
+        rows.append({
+            "title": title,
+            "url": url,
+            "artist": str(raw.get("channel") or raw.get("uploader") or "").strip(),
+            "thumbnail": str(raw.get("thumbnail") or "").strip(),
+            "duration": raw.get("duration"),
+        })
+        if len(rows) >= limit:
+            break
+    return rows
+
 def _selected_download(info: dict[str, Any]) -> dict[str, Any]:
     """Return the selected direct media dictionary produced by yt-dlp."""
     url = str(info.get("url") or "").strip()
@@ -360,7 +413,7 @@ def resolve_youtube_audio(target: str) -> YTDLPResolvedAudio:
             # Prefer a direct HTTPS audio stream because Fitness proxies it
             # through HA. HLS/DASH manifests can reference additional segment
             # URLs and are much less reliable in browser/Cast playback.
-            "format": "bestaudio[protocol=https][ext=m4a]/bestaudio[protocol=https][vcodec=none][acodec^=mp4a]/bestaudio[protocol=https][vcodec=none]",
+            "format": "bestaudio[protocol=https][ext=m4a][acodec^=mp4a]/bestaudio[protocol=https][ext=m4a]",
         }
     )
 
@@ -390,6 +443,10 @@ def resolve_youtube_audio(target: str) -> YTDLPResolvedAudio:
         raise FitnessYTDLPError("yt-dlp did not return a direct playable audio URL")
     if any(token in protocol for token in ("m3u8", "dash", "ism")):
         raise FitnessYTDLPError("yt-dlp selected a segmented stream that Fitness cannot proxy reliably")
+    ext = str(selected.get("ext") or info.get("ext") or "").lower()
+    acodec = str(selected.get("acodec") or info.get("acodec") or "").lower()
+    if ext not in {"m4a", "mp4"} or (acodec and not acodec.startswith("mp4a")):
+        raise FitnessYTDLPError("yt-dlp did not return browser-safe AAC/M4A audio")
 
     headers_raw = selected.get("http_headers") or info.get("http_headers") or {}
     headers = {

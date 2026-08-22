@@ -7,8 +7,8 @@ FRONTEND = (ROOT / "custom_components/fitness/frontend/fitness-dashboard.js").re
 
 def test_all_dashboard_cards_keep_natural_height_instead_of_clipping_content():
     assert 'card.toggleAttribute("fitness-natural-height", true);' in FRONTEND
-    assert 'const requestedInnerHeight = Math.max(innerScrollHeight' in FRONTEND
-    assert ':host([fitness-natural-height]) ha-card{' in FRONTEND
+    assert 'const requestedInnerHeight = Math.max(intrinsicInnerScrollHeight' in FRONTEND
+    assert ':host([fitness-natural-height]) > ha-card{' in FRONTEND
     assert 'height:auto!important;max-height:none!important' in FRONTEND
 
 
