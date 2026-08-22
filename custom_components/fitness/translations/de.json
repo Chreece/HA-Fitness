@@ -233,16 +233,14 @@
           "fitness_account_role": "Rolle",
           "fitness_network_access": "Netzwerkzugriff",
           "fitness_account_display_name": "Kontoname",
-          "fitness_account_username": "Anmeldename",
-          "fitness_remote_slug": "Remote-Hostname",
+          "fitness_account_username": "Benutzername / Remote-Hostname",
           "fitness_view_profile_entry_ids": "Anzeigerechte für Konten"
         },
         "data_description": {
           "fitness_account_role": "Administratoren haben vollen Fitness-Zugriff. Lokale und Remote-Benutzer steuern nur ihr eigenes Profil und sehen zusätzliche Profile nur nach Freigabe durch einen Administrator.",
           "fitness_network_access": "Anmeldung nur über den zugewiesenen Remote-Hostnamen; lokale HA-Hardware wird nie freigegeben. Anmeldung lokal und über Remote-Hostname; LAN-Hardware erscheint nur bei echter lokaler Verbindung.",
           "fitness_account_display_name": "Dieses Konto steuert nur sein eigenes Fitness-Profil.",
-          "fitness_account_username": "Bei Remote-Konten ist die Subdomain der Standard. Der Benutzer kann den Anmeldenamen später ändern.",
-          "fitness_remote_slug": "Dieser Hostname gehört ausschließlich zu diesem Remote-Fitness-Konto.",
+          "fitness_account_username": "Erforderlich und eindeutig. Bei Remote-Zugriff ist derselbe Benutzername zugleich Hostname/Subdomain des Kontos; es gibt keinen separaten Remote-Hostnamen.",
           "fitness_view_profile_entry_ids": "Ausgewählte Konten sind nur lesbar; Einstellungen, Trainings und Geräte können nicht geändert werden."
         }
       },
@@ -260,7 +258,9 @@
       "invalid_role": "Rolle: Dieses Feld ist erforderlich.",
       "invalid_network_access": "Netzwerkzugriff: Dieses Feld ist erforderlich.",
       "profile_not_found": "Ausgewählte Konten sind nur lesbar; Einstellungen, Trainings und Geräte können nicht geändert werden.",
-      "required": "Dieses Feld ist erforderlich."
+      "required": "Dieses Feld ist erforderlich.",
+      "invalid_username": "Gib einen gültigen Benutzernamen ein. Für Remote-Zugriff sind nur Kleinbuchstaben, Zahlen und Bindestriche zulässig.",
+      "username_in_use": "Dieser Fitness-Benutzername wird bereits verwendet."
     },
     "abort": {
       "already_configured": "Ein Fitness-Profil mit diesem Namen ist bereits vorhanden.",

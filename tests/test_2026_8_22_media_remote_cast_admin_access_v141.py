@@ -60,7 +60,7 @@ def test_dashcast_heartbeat_is_authoritative_over_home_assistant_cast_app_id():
     start = JS.index('  _refreshCastUiState() {')
     block = JS[start:JS.index('  _cancelRadioRecovery()', start)]
     assert 'this._castState === "connected"' in block
-    assert 'receiver heartbeat may turn Cast green' in block
+    assert 'real receiver heartbeat' in block
     assert 'FITNESS_TV_CAST_APP_ID' not in block
     code_only = '\n'.join(line for line in block.splitlines() if not line.lstrip().startswith('//'))
     assert 'A078F6B0' not in code_only

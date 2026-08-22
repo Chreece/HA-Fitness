@@ -50,7 +50,10 @@ def test_every_named_direct_device_metric_has_a_canonical_health_sensor():
 
 def test_wellness_entities_are_data_driven_and_add_no_device_io():
     assert "WELLNESS_DESCRIPTIONS" in SENSOR
-    assert 'if manager.device_intraday_history.get(desc.metric) or manager.metric_history.get(desc.metric)' in SENSOR
+    assert 'test_wellness_metrics = {' in SENSOR
+    assert 'manager.device_intraday_history.get(desc.metric)' in SENSOR
+    assert 'manager.metric_history.get(desc.metric)' in SENSOR
+    assert 'desc.metric in test_wellness_metrics' in SENSOR
     assert 'if self.entity_description.kind == "wellness":' in SENSOR
     assert "No read here" in SENSOR
     assert "WELLNESS_ADDITIVE_METRICS" in SENSOR

@@ -36,7 +36,8 @@ def test_temporary_password_is_rendered_inside_its_account_row():
 
 
 def test_non_remote_account_rows_hide_remote_only_fields_and_align_controls():
-    assert 'access-slug-field access-remote-only' in JS
+    assert 'access-slug-field access-remote-only' not in JS
+    assert 'access-username-field' in JS
     assert 'access-url access-remote-only' in JS
     assert 'row.querySelectorAll(".access-remote-only").forEach' in JS
     assert 'grid-template-columns:repeat(2,minmax(0,1fr));gap:11px 12px;align-items:start' in JS

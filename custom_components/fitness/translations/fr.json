@@ -233,16 +233,14 @@
           "fitness_account_role": "Rôle",
           "fitness_network_access": "Accès réseau",
           "fitness_account_display_name": "Nom du compte",
-          "fitness_account_username": "Identifiant",
-          "fitness_remote_slug": "Nom d’hôte distant",
+          "fitness_account_username": "Nom d’utilisateur / nom d’hôte distant",
           "fitness_view_profile_entry_ids": "Droits de consultation des comptes"
         },
         "data_description": {
           "fitness_account_role": "Les administrateurs ont un accès Fitness complet. Les utilisateurs locaux et distants contrôlent uniquement leur propre profil et ne voient les profils supplémentaires qu’en lecture seule après autorisation d’un administrateur.",
           "fitness_network_access": "Connexion uniquement via le nom d’hôte distant ; le matériel LAN HA n’est jamais exposé. Connexion locale et distante ; le matériel LAN n’apparaît que lors d’une connexion réellement locale.",
           "fitness_account_display_name": "Ce compte contrôle uniquement son propre profil Fitness.",
-          "fitness_account_username": "Pour les comptes distants, le sous-domaine est utilisé par défaut. L’utilisateur peut modifier l’identifiant plus tard.",
-          "fitness_remote_slug": "Ce nom d’hôte appartient exclusivement à ce compte Fitness distant.",
+          "fitness_account_username": "Obligatoire et unique. Avec l’accès distant, ce même nom d’utilisateur devient le nom d’hôte/sous-domaine du compte ; il n’existe pas de nom d’hôte distant séparé.",
           "fitness_view_profile_entry_ids": "Les comptes sélectionnés sont consultables uniquement ; aucun réglage, entraînement ou appareil ne peut être modifié."
         }
       },
@@ -260,7 +258,9 @@
       "invalid_role": "Rôle: Ce champ est obligatoire.",
       "invalid_network_access": "Accès réseau: Ce champ est obligatoire.",
       "profile_not_found": "Les comptes sélectionnés sont consultables uniquement ; aucun réglage, entraînement ou appareil ne peut être modifié.",
-      "required": "Ce champ est obligatoire."
+      "required": "Ce champ est obligatoire.",
+      "invalid_username": "Saisissez un nom d’utilisateur valide. Pour l’accès distant, utilisez uniquement des lettres minuscules, des chiffres et des tirets.",
+      "username_in_use": "Ce nom d’utilisateur Fitness est déjà utilisé."
     },
     "abort": {
       "already_configured": "Un profil Fitness portant ce nom existe déjà.",

@@ -233,16 +233,14 @@
           "fitness_account_role": "Rol",
           "fitness_network_access": "Netwerktoegang",
           "fitness_account_display_name": "Accountnaam",
-          "fitness_account_username": "Inlognaam",
-          "fitness_remote_slug": "Externe hostnaam",
+          "fitness_account_username": "Gebruikersnaam / externe hostnaam",
           "fitness_view_profile_entry_ids": "Kijkrechten voor accounts"
         },
         "data_description": {
           "fitness_account_role": "Beheerders hebben volledige Fitness-toegang. Lokale en externe gebruikers beheren alleen hun eigen profiel en kunnen extra profielen alleen-lezen bekijken als een beheerder toegang geeft.",
           "fitness_network_access": "Aanmelden alleen via de externe hostnaam; lokale HA-hardware wordt nooit blootgesteld. Lokaal en extern aanmelden; LAN-hardware verschijnt alleen bij een echte lokale verbinding.",
           "fitness_account_display_name": "Dit account beheert alleen het eigen Fitness-profiel.",
-          "fitness_account_username": "Bij externe accounts is het subdomein de standaard. De gebruiker kan de inlognaam later wijzigen.",
-          "fitness_remote_slug": "Deze hostnaam hoort uitsluitend bij dit externe Fitness-account.",
+          "fitness_account_username": "Verplicht en uniek. Bij externe toegang is dezelfde gebruikersnaam ook de hostnaam/subdomain van het account; er is geen aparte externe hostnaam.",
           "fitness_view_profile_entry_ids": "Geselecteerde accounts zijn alleen-lezen; instellingen, trainingen en apparaten kunnen niet worden gewijzigd."
         }
       },
@@ -260,7 +258,9 @@
       "invalid_role": "Rol: Dit veld is verplicht.",
       "invalid_network_access": "Netwerktoegang: Dit veld is verplicht.",
       "profile_not_found": "Geselecteerde accounts zijn alleen-lezen; instellingen, trainingen en apparaten kunnen niet worden gewijzigd.",
-      "required": "Dit veld is verplicht."
+      "required": "Dit veld is verplicht.",
+      "invalid_username": "Voer een geldige gebruikersnaam in. Voor externe toegang zijn alleen kleine letters, cijfers en koppeltekens toegestaan.",
+      "username_in_use": "Deze Fitness-gebruikersnaam is al in gebruik."
     },
     "abort": {
       "already_configured": "Er bestaat al een Fitness-profiel met deze naam.",

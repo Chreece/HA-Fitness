@@ -133,6 +133,14 @@ def normalize_prescription(raw: dict[str, Any], *, source: str = "fitness") -> d
         })
         if len(steps) >= MAX_STEPS:
             break
+    raw_reference = raw.get("reference") if isinstance(raw.get("reference"), dict) else {}
+    reference_url = _text(raw_reference.get("url"), 500)
+    reference_title = _text(raw_reference.get("title"), 500)
+    reference = (
+        {"title": reference_title, "url": reference_url}
+        if reference_title and reference_url.startswith("https://")
+        else None
+    )
     return {
         "schema_version": 1,
         "id": _text(raw.get("id"), 128),
@@ -144,6 +152,7 @@ def normalize_prescription(raw: dict[str, Any], *, source: str = "fitness") -> d
         "goal": _text(raw.get("goal"), 300),
         "notes": _text(raw.get("notes"), 1000),
         "duration_minutes": raw.get("duration_minutes"),
+        "reference": reference,
         "steps": steps,
     }
 
@@ -152,15 +161,37 @@ FITNESS_TESTS = {
     "running_cooper_12min": {
         "id": "running_cooper_12min", "name": "Cooper 12-minute run", "sport": "running",
         "goal": "Estimate aerobic running fitness from maximum sustainable distance in 12 minutes.",
+        "reference": {"title": "Cooper KH. A means of assessing maximal oxygen intake. JAMA. 1968.", "url": "https://pubmed.ncbi.nlm.nih.gov/5694044/"},
         "steps": [
             {"name": "Warm up", "instruction": "Run easily and prepare for a hard continuous effort.", "duration_seconds": 600, "target": {"effort": "easy"}},
             {"name": "12-minute test", "instruction": "Cover as much distance as you safely can at an even hard effort.", "duration_seconds": 720, "target": {"effort": "max_sustainable"}},
             {"name": "Cool down", "instruction": "Walk or jog easily.", "duration_seconds": 600, "target": {"effort": "easy"}},
         ],
     },
+    "running_5k_time_trial": {
+        "id": "running_5k_time_trial", "name": "5 km running time trial", "sport": "running",
+        "goal": "Measure current 5 km running performance with an evenly paced maximal sustainable effort.",
+        "reference": {"title": "Stevens et al. Reliability of running performance in a 5 km time trial. Int J Sports Med. 2015.", "url": "https://pubmed.ncbi.nlm.nih.gov/25790087/"},
+        "steps": [
+            {"name": "Warm up", "instruction": "Run easily, then include three short relaxed accelerations before the test.", "duration_seconds": 900, "target": {"effort": "easy"}},
+            {"name": "5 km test", "instruction": "Run 5 km as evenly and quickly as you can sustain. Avoid an all-out sprint at the start.", "distance_m": 5000, "target": {"effort": "max_sustainable"}},
+            {"name": "Cool down", "instruction": "Walk or jog easily after finishing the 5 km effort.", "duration_seconds": 600, "target": {"effort": "easy"}},
+        ],
+    },
+    "running_5min_field": {
+        "id": "running_5min_field", "name": "5-minute running field test", "sport": "running",
+        "goal": "Track maximal aerobic running velocity from the distance covered in a repeatable five-minute field effort.",
+        "reference": {"title": "Dabonneville et al. The 5 min running field test: test and retest reliability. Eur J Appl Physiol. 2003.", "url": "https://pubmed.ncbi.nlm.nih.gov/12527963/"},
+        "steps": [
+            {"name": "Warm up", "instruction": "Run easily for ten minutes and include several short relaxed accelerations.", "duration_seconds": 600, "target": {"effort": "easy"}},
+            {"name": "5-minute test", "instruction": "Run for five minutes at the highest even speed you can sustain. Cover as much distance as possible.", "duration_seconds": 300, "target": {"effort": "max_sustainable"}},
+            {"name": "Cool down", "instruction": "Walk or jog easily until breathing settles.", "duration_seconds": 600, "target": {"effort": "easy"}},
+        ],
+    },
     "cycling_ftp_20min": {
         "id": "cycling_ftp_20min", "name": "Cycling 20-minute FTP test", "sport": "cycling",
         "goal": "Record a controlled maximal 20-minute power effort for FTP estimation.",
+        "reference": {"title": "Borszcz et al. Reliability of the Functional Threshold Power in Competitive Cyclists. Int J Sports Med. 2020.", "url": "https://pubmed.ncbi.nlm.nih.gov/31952081/"},
         "steps": [
             {"name": "Warm up", "instruction": "Ride progressively from easy to moderate.", "duration_seconds": 900, "target": {"effort": "easy_to_moderate"}},
             {"name": "Openers", "instruction": "Ride three short hard efforts with easy recovery.", "duration_seconds": 360, "repetitions": 3, "target": {"effort": "hard"}},
@@ -169,36 +200,10 @@ FITNESS_TESTS = {
             {"name": "Cool down", "instruction": "Ride easily.", "duration_seconds": 600, "target": {"effort": "easy"}},
         ],
     },
-    "strength_submax_1rm": {
-        "id": "strength_submax_1rm", "name": "Submaximal strength test", "sport": "strength",
-        "goal": "Estimate strength from a controlled submaximal set without requiring a true one-repetition maximum.",
-        "steps": [
-            {"name": "Specific warm up", "instruction": "Warm up the selected exercise with progressively heavier comfortable sets.", "duration_seconds": 600},
-            {"name": "Test set", "instruction": "Perform one technically clean set with a known load, stopping before form breaks. Record load and repetitions.", "target": {"effort": "hard_submaximal"}},
-            {"name": "Recovery", "instruction": "Finish the test and recover. Do not repeat a maximal set solely to improve the score.", "duration_seconds": 300},
-        ],
-    },
-    "walking_6min": {
-        "id": "walking_6min", "name": "6-minute walk test", "sport": "walking",
-        "goal": "Track how much distance you can cover during a controlled six-minute brisk walk.",
-        "steps": [
-            {"name": "Warm up", "instruction": "Walk easily for five minutes and choose a flat, safe route where you can continue without stopping.", "duration_seconds": 300, "target": {"effort": "easy"}},
-            {"name": "6-minute test", "instruction": "Walk as far as you comfortably can for six minutes. Keep walking; slow down if needed rather than sprinting.", "duration_seconds": 360, "target": {"effort": "hard_sustainable"}},
-            {"name": "Cool down", "instruction": "Walk easily until breathing and heart rate settle.", "duration_seconds": 300, "target": {"effort": "easy"}},
-        ],
-    },
-    "running_5k_time_trial": {
-        "id": "running_5k_time_trial", "name": "5 km running time trial", "sport": "running",
-        "goal": "Measure current 5 km running performance with an evenly paced maximal sustainable effort.",
-        "steps": [
-            {"name": "Warm up", "instruction": "Run easily, then include three short relaxed accelerations before the test.", "duration_seconds": 900, "target": {"effort": "easy"}},
-            {"name": "5 km test", "instruction": "Run 5 km as evenly and quickly as you can sustain. Avoid an all-out sprint at the start.", "distance_m": 5000, "target": {"effort": "max_sustainable"}},
-            {"name": "Cool down", "instruction": "Walk or jog easily after finishing the 5 km effort.", "duration_seconds": 600, "target": {"effort": "easy"}},
-        ],
-    },
     "cycling_5min_power": {
         "id": "cycling_5min_power", "name": "Cycling 5-minute power test", "sport": "cycling",
         "goal": "Track high aerobic cycling power with a repeatable five-minute maximal sustainable effort.",
+        "reference": {"title": "Sitko et al. Five-Minute Power-Based Test to Predict Maximal Oxygen Consumption in Road Cycling. 2022.", "url": "https://pubmed.ncbi.nlm.nih.gov/34225254/"},
         "steps": [
             {"name": "Warm up", "instruction": "Ride progressively from easy to moderate for fifteen minutes.", "duration_seconds": 900, "target": {"effort": "easy_to_moderate"}},
             {"name": "Openers", "instruction": "Complete three 20-second hard accelerations with easy riding between them.", "duration_seconds": 20, "repetitions": 3, "recovery_seconds": 100, "target": {"effort": "hard"}},
@@ -207,9 +212,41 @@ FITNESS_TESTS = {
             {"name": "Cool down", "instruction": "Ride easily for at least ten minutes.", "duration_seconds": 600, "target": {"effort": "easy"}},
         ],
     },
+    "cycling_3min_allout": {
+        "id": "cycling_3min_allout", "name": "Cycling 3-minute all-out critical-power test", "sport": "cycling",
+        "goal": "Estimate critical power from end-test power during a three-minute all-out cycling effort.",
+        "reference": {"title": "Vanhatalo, Doust & Burnley. Determination of critical power using a 3-min all-out cycling test. 2007.", "url": "https://pubmed.ncbi.nlm.nih.gov/17473782/"},
+        "steps": [
+            {"name": "Warm up", "instruction": "Ride easily to moderately, including several short high-cadence accelerations.", "duration_seconds": 900, "target": {"effort": "easy_to_moderate"}},
+            {"name": "Recovery", "instruction": "Ride very easily before the all-out effort.", "duration_seconds": 300, "target": {"effort": "recovery"}},
+            {"name": "3-minute all-out test", "instruction": "Ride all-out for the full three minutes. Do not pace the effort; keep producing the highest power possible to the finish.", "duration_seconds": 180, "target": {"metric": "power", "effort": "all_out"}},
+            {"name": "Cool down", "instruction": "Ride easily until breathing and heart rate settle.", "duration_seconds": 600, "target": {"effort": "easy"}},
+        ],
+    },
+    "walking_6min": {
+        "id": "walking_6min", "name": "6-minute walk test", "sport": "walking",
+        "goal": "Track how much distance you can cover during a controlled six-minute brisk walk.",
+        "reference": {"title": "Butland et al. Two-, six-, and 12-minute walking tests in respiratory disease. BMJ. 1982.", "url": "https://pubmed.ncbi.nlm.nih.gov/6805625/"},
+        "steps": [
+            {"name": "Warm up", "instruction": "Walk easily for five minutes and choose a flat, safe route where you can continue without stopping.", "duration_seconds": 300, "target": {"effort": "easy"}},
+            {"name": "6-minute test", "instruction": "Walk as far as you comfortably can for six minutes. Keep walking; slow down if needed rather than sprinting.", "duration_seconds": 360, "target": {"effort": "hard_sustainable"}},
+            {"name": "Cool down", "instruction": "Walk easily until breathing and heart rate settle.", "duration_seconds": 300, "target": {"effort": "easy"}},
+        ],
+    },
+    "walking_rockport_1mile": {
+        "id": "walking_rockport_1mile", "name": "1-mile walk aerobic test", "sport": "walking",
+        "goal": "Estimate aerobic fitness from a fast one-mile walk using time and finishing heart rate when profile data allow it.",
+        "reference": {"title": "Kline et al. Estimation of VO2max from a one-mile track walk, gender, age, and body weight. 1987.", "url": "https://pubmed.ncbi.nlm.nih.gov/3600239/"},
+        "steps": [
+            {"name": "Warm up", "instruction": "Walk easily for five to ten minutes on a flat measured route.", "duration_seconds": 420, "target": {"effort": "easy"}},
+            {"name": "1-mile walk", "instruction": "Walk one mile as fast as possible without running. Keep the effort steady and continue through the finish.", "distance_m": 1609.344, "target": {"effort": "hard_sustainable"}},
+            {"name": "Cool down", "instruction": "Keep walking easily while heart rate and breathing recover.", "duration_seconds": 300, "target": {"effort": "easy"}},
+        ],
+    },
     "rowing_2k": {
         "id": "rowing_2k", "name": "2 km rowing time trial", "sport": "rowing",
         "goal": "Measure repeatable 2 km rowing performance using time, pace, cadence and heart-rate data when available.",
+        "reference": {"title": "Ingham et al. Determinants of 2,000 m rowing ergometer performance in elite rowers. 2002.", "url": "https://pubmed.ncbi.nlm.nih.gov/12458367/"},
         "steps": [
             {"name": "Warm up", "instruction": "Row easily, gradually increasing stroke rate and include three short firm efforts.", "duration_seconds": 900, "target": {"effort": "easy_to_moderate"}},
             {"name": "2 km test", "instruction": "Row 2000 m at the fastest pace you can sustain with controlled technique from start to finish.", "distance_m": 2000, "target": {"effort": "max_sustainable"}},
@@ -218,7 +255,8 @@ FITNESS_TESTS = {
     },
     "swimming_css": {
         "id": "swimming_css", "name": "Swimming CSS test", "sport": "swimming",
-        "goal": "Collect separate 400 m and 200 m time trials that can be used to track critical swim speed.",
+        "goal": "Collect separate 400 m and 200 m time trials to calculate critical swim speed.",
+        "reference": {"title": "Wakayoshi et al. Does critical swimming velocity represent exercise intensity at maximal lactate steady state? 1993.", "url": "https://pubmed.ncbi.nlm.nih.gov/8425518/"},
         "steps": [
             {"name": "Warm up", "instruction": "Swim easily with a few short technique drills and relaxed accelerations.", "duration_seconds": 900, "target": {"effort": "easy"}},
             {"name": "400 m test", "instruction": "Swim 400 m as fast as you can sustain evenly. Record the total time.", "distance_m": 400, "target": {"effort": "max_sustainable"}},
@@ -227,9 +265,20 @@ FITNESS_TESTS = {
             {"name": "Cool down", "instruction": "Swim easily for several minutes.", "duration_seconds": 600, "target": {"effort": "easy"}},
         ],
     },
+    "strength_submax_1rm": {
+        "id": "strength_submax_1rm", "name": "Submaximal strength test", "sport": "strength",
+        "goal": "Estimate strength from a controlled submaximal set without requiring a true one-repetition maximum.",
+        "reference": {"title": "Brzycki M. Strength Testing—Predicting a One-Rep Max from Reps-to-Fatigue. 1993.", "url": "https://www.tandfonline.com/doi/abs/10.1080/07303084.1993.10606684"},
+        "steps": [
+            {"name": "Specific warm up", "instruction": "Warm up the selected exercise with progressively heavier comfortable sets.", "duration_seconds": 600},
+            {"name": "Test set", "instruction": "Perform one technically clean set with a known load, stopping before form breaks. Record load and repetitions.", "target": {"effort": "hard_submaximal"}},
+            {"name": "Recovery", "instruction": "Finish the test and recover. Do not repeat a maximal set solely to improve the score.", "duration_seconds": 300},
+        ],
+    },
     "strength_pushups_2min": {
         "id": "strength_pushups_2min", "name": "2-minute push-up test", "sport": "strength",
         "goal": "Track upper-body muscular endurance with consistent push-up technique.",
+        "reference": {"title": "Fielitz et al. Inter-Rater and Intra-Rater Reliability of Assessing the 2-Minute Push-Up Test. 2016.", "url": "https://pubmed.ncbi.nlm.nih.gov/26837086/"},
         "steps": [
             {"name": "Warm up", "instruction": "Warm shoulders, wrists and upper body, then perform a few easy practice repetitions.", "duration_seconds": 300},
             {"name": "2-minute test", "instruction": "Perform controlled push-ups for two minutes. Count only repetitions completed with the same full range of motion.", "duration_seconds": 120, "target": {"metric": "repetitions", "effort": "max_sustainable"}},
@@ -239,6 +288,7 @@ FITNESS_TESTS = {
     "strength_plank_hold": {
         "id": "strength_plank_hold", "name": "Plank hold test", "sport": "strength",
         "goal": "Track trunk endurance using a repeatable strict plank position.",
+        "reference": {"title": "Liu et al. Trunk muscle endurance in Chinese adults. J Back Musculoskelet Rehabil. 2018.", "url": "https://pubmed.ncbi.nlm.nih.gov/30103298/"},
         "steps": [
             {"name": "Set up", "instruction": "Warm up briefly, then set elbows under shoulders with a straight line from shoulders through heels.", "duration_seconds": 180},
             {"name": "Hold test", "instruction": "Hold the strict plank as long as good form is maintained. End the test when posture can no longer be held correctly.", "target": {"metric": "duration", "effort": "max_sustainable"}},
@@ -247,11 +297,13 @@ FITNESS_TESTS = {
     },
 }
 
-
 _TEST_LOCALIZATION: dict[str, dict[str, dict[str, Any]]] = {
     "de": {
         "running_cooper_12min": {"name":"Cooper-12-Minuten-Lauf","goal":"Schätze die aerobe Laufleistung anhand der maximal nachhaltig zurückgelegten Distanz in 12 Minuten.","steps":[("Aufwärmen","Laufe locker und bereite dich auf eine harte, gleichmäßige Belastung vor."),("12-Minuten-Test","Lege in 12 Minuten so viel Strecke wie sicher möglich zurück und halte die Belastung möglichst gleichmäßig."),("Abkühlen","Gehe oder jogge locker.")]},
         "cycling_ftp_20min": {"name":"20-Minuten-FTP-Test Radfahren","goal":"Erfasse eine kontrollierte maximale 20-Minuten-Leistung zur FTP-Schätzung.","steps":[("Aufwärmen","Fahre progressiv von locker bis moderat."),("Aktivierungen","Fahre drei kurze harte Belastungen mit lockerer Erholung dazwischen."),("Erholung","Fahre locker vor dem Test."),("20-Minuten-Test","Halte die höchste gleichmäßige Leistung, die du über die gesamten 20 Minuten aufrechterhalten kannst."),("Abkühlen","Fahre locker.")]},
+        "running_5min_field": {"name":"5-Minuten-Lauffeldtest","goal":"Verfolge die maximale aerobe Laufgeschwindigkeit anhand der in einer wiederholbaren fünfminütigen Feldbelastung zurückgelegten Distanz.","steps":[("Aufwärmen","Laufe zehn Minuten locker und baue mehrere kurze entspannte Steigerungen ein."),("5-Minuten-Test","Laufe fünf Minuten mit der höchsten gleichmäßigen Geschwindigkeit, die du halten kannst, und lege möglichst viel Strecke zurück."),("Abkühlen","Gehe oder jogge locker, bis sich die Atmung beruhigt.")]},
+        "cycling_3min_allout": {"name":"3-Minuten-All-out-Test Radfahren","goal":"Schätze die Critical Power aus der Endleistung einer dreiminütigen All-out-Belastung.","steps":[("Aufwärmen","Fahre locker bis moderat und baue mehrere kurze Beschleunigungen mit hoher Kadenz ein."),("Erholung","Fahre vor der All-out-Belastung sehr locker."),("3-Minuten-All-out-Test","Fahre die gesamten drei Minuten all-out. Teile die Belastung nicht ein und produziere bis zum Ende die höchstmögliche Leistung."),("Abkühlen","Fahre locker, bis sich Atmung und Herzfrequenz beruhigen.")]},
+        "walking_rockport_1mile": {"name":"1-Meilen-Gehtest","goal":"Schätze die aerobe Fitness aus einem schnellen Ein-Meilen-Gang anhand von Zeit und Zielherzfrequenz, sofern die Profildaten dies erlauben.","steps":[("Aufwärmen","Gehe fünf bis zehn Minuten locker auf einer flachen vermessenen Strecke."),("1-Meilen-Gehen","Gehe eine Meile so schnell wie möglich, ohne zu laufen. Halte die Belastung gleichmäßig bis ins Ziel."),("Abkühlen","Gehe locker weiter, während sich Herzfrequenz und Atmung erholen.")]},
         "strength_submax_1rm": {"name":"Submaximaler Krafttest","goal":"Schätze die Kraft aus einem kontrollierten submaximalen Satz, ohne ein echtes Ein-Wiederholungs-Maximum zu benötigen.","steps":[("Spezifisches Aufwärmen","Wärme die gewählte Übung mit zunehmend schwereren, aber komfortablen Sätzen auf."),("Testsatz","Führe einen technisch sauberen Satz mit bekanntem Gewicht aus und stoppe, bevor die Technik nachlässt. Gewicht und Wiederholungen notieren."),("Erholung","Beende den Test und erhole dich. Wiederhole keinen Maximalsatz nur, um das Ergebnis zu verbessern.")]},
         "walking_6min": {"name":"6-Minuten-Gehtest","goal":"Verfolge, welche Distanz du in sechs Minuten zügigem, kontrolliertem Gehen zurücklegen kannst.","steps":[("Aufwärmen","Gehe fünf Minuten locker und wähle eine flache, sichere Strecke, auf der du ohne Unterbrechung weitergehen kannst."),("6-Minuten-Test","Gehe sechs Minuten so weit, wie es dir angenehm möglich ist. Gehe weiter und reduziere bei Bedarf das Tempo, statt zu sprinten."),("Abkühlen","Gehe locker, bis sich Atmung und Herzfrequenz beruhigen.")]},
         "running_5k_time_trial": {"name":"5-km-Lauf-Zeitfahren","goal":"Miss deine aktuelle 5-km-Leistung mit einer gleichmäßig eingeteilten maximal nachhaltigen Belastung.","steps":[("Aufwärmen","Laufe locker und baue anschließend drei kurze, entspannte Steigerungen ein."),("5-km-Test","Laufe 5 km so gleichmäßig und schnell, wie du es durchhalten kannst. Vermeide einen Vollsprint direkt am Start."),("Abkühlen","Gehe oder jogge nach dem 5-km-Lauf locker aus.")]},
@@ -264,6 +316,9 @@ _TEST_LOCALIZATION: dict[str, dict[str, dict[str, Any]]] = {
     "el": {
         "running_cooper_12min": {"name":"Τεστ Cooper 12 λεπτών","goal":"Εκτίμησε την αερόβια δρομική ικανότητα από τη μέγιστη βιώσιμη απόσταση σε 12 λεπτά.","steps":[("Ζέσταμα","Τρέξε χαλαρά και προετοιμάσου για μια έντονη συνεχόμενη προσπάθεια."),("Τεστ 12 λεπτών","Κάλυψε όσο μεγαλύτερη απόσταση μπορείς με ασφάλεια σε 12 λεπτά, με όσο γίνεται σταθερή ένταση."),("Αποθεραπεία","Περπάτησε ή τρέξε πολύ χαλαρά.")]},
         "cycling_ftp_20min": {"name":"Τεστ FTP ποδηλασίας 20 λεπτών","goal":"Κατέγραψε μια ελεγχόμενη μέγιστη προσπάθεια 20 λεπτών για εκτίμηση FTP.","steps":[("Ζέσταμα","Ποδηλάτησε προοδευτικά από χαλαρά έως μέτρια."),("Ανοίγματα","Κάνε τρεις σύντομες δυνατές προσπάθειες με χαλαρή αποκατάσταση ανάμεσά τους."),("Αποκατάσταση","Ποδηλάτησε χαλαρά πριν από το τεστ."),("Τεστ 20 λεπτών","Κράτησε την υψηλότερη ομοιόμορφη ισχύ που μπορείς να διατηρήσεις για ολόκληρα τα 20 λεπτά."),("Αποθεραπεία","Ποδηλάτησε χαλαρά.")]},
+        "running_5min_field": {"name":"Τεστ τρεξίματος πεδίου 5 λεπτών","goal":"Παρακολούθησε τη μέγιστη αερόβια ταχύτητα τρεξίματος από την απόσταση που καλύπτεται σε επαναλήψιμη προσπάθεια πεδίου πέντε λεπτών.","steps":[("Ζέσταμα","Τρέξε χαλαρά για δέκα λεπτά και πρόσθεσε μερικές σύντομες άνετες επιταχύνσεις."),("Τεστ 5 λεπτών","Τρέξε για πέντε λεπτά με την υψηλότερη σταθερή ταχύτητα που μπορείς να διατηρήσεις και κάλυψε όσο μεγαλύτερη απόσταση γίνεται."),("Αποθεραπεία","Περπάτησε ή τρέξε χαλαρά μέχρι να ηρεμήσει η αναπνοή.")]},
+        "cycling_3min_allout": {"name":"All-out τεστ ποδηλασίας 3 λεπτών","goal":"Εκτίμησε την κρίσιμη ισχύ από την τελική ισχύ μιας all-out προσπάθειας τριών λεπτών.","steps":[("Ζέσταμα","Ποδηλάτησε χαλαρά έως μέτρια, με μερικές σύντομες επιταχύνσεις υψηλού ρυθμού."),("Αποκατάσταση","Ποδηλάτησε πολύ χαλαρά πριν από την all-out προσπάθεια."),("All-out τεστ 3 λεπτών","Ποδηλάτησε all-out για ολόκληρα τα τρία λεπτά. Μην κάνεις pacing· συνέχισε να παράγεις τη μέγιστη δυνατή ισχύ μέχρι το τέλος."),("Αποθεραπεία","Ποδηλάτησε χαλαρά μέχρι να ηρεμήσουν αναπνοή και καρδιακός ρυθμός.")]},
+        "walking_rockport_1mile": {"name":"Αερόβιο τεστ βάδισης 1 μιλίου","goal":"Εκτίμησε την αερόβια ικανότητα από γρήγορο βάδισμα ενός μιλίου, χρησιμοποιώντας χρόνο και τελικό καρδιακό ρυθμό όταν το επιτρέπουν τα δεδομένα προφίλ.","steps":[("Ζέσταμα","Περπάτησε χαλαρά για πέντε έως δέκα λεπτά σε επίπεδη μετρημένη διαδρομή."),("Βάδισμα 1 μιλίου","Περπάτησε ένα μίλι όσο πιο γρήγορα γίνεται χωρίς να τρέξεις. Κράτησε σταθερή προσπάθεια μέχρι τον τερματισμό."),("Αποθεραπεία","Συνέχισε να περπατάς χαλαρά όσο επανέρχονται καρδιακός ρυθμός και αναπνοή.")]},
         "strength_submax_1rm": {"name":"Υπομέγιστο τεστ δύναμης","goal":"Εκτίμησε τη δύναμη από ένα ελεγχόμενο υπομέγιστο σετ χωρίς πραγματική προσπάθεια μίας μέγιστης επανάληψης.","steps":[("Ειδικό ζέσταμα","Ζεστάσου στην επιλεγμένη άσκηση με προοδευτικά βαρύτερα αλλά άνετα σετ."),("Σετ τεστ","Κάνε ένα τεχνικά καθαρό σετ με γνωστό φορτίο και σταμάτησε πριν χαλάσει η τεχνική. Κατέγραψε βάρος και επαναλήψεις."),("Αποκατάσταση","Ολοκλήρωσε το τεστ και αναρρώσε. Μην επαναλάβεις μέγιστο σετ μόνο για να βελτιώσεις το σκορ.")]},
         "walking_6min": {"name":"Τεστ βάδισης 6 λεπτών","goal":"Παρακολούθησε πόση απόσταση καλύπτεις σε έξι λεπτά ελεγχόμενου γρήγορου βαδίσματος.","steps":[("Ζέσταμα","Περπάτησε χαλαρά για πέντε λεπτά και διάλεξε επίπεδη ασφαλή διαδρομή χωρίς αναγκαστικές στάσεις."),("Τεστ 6 λεπτών","Περπάτησε όσο πιο μακριά μπορείς άνετα για έξι λεπτά. Συνέχισε να περπατάς και μείωσε ρυθμό αν χρειάζεται αντί να σπριντάρεις."),("Αποθεραπεία","Περπάτησε χαλαρά μέχρι να ηρεμήσουν αναπνοή και καρδιακός ρυθμός.")]},
         "running_5k_time_trial": {"name":"Χρονομέτρηση τρεξίματος 5 km","goal":"Μέτρησε την τρέχουσα επίδοση στα 5 km με ομοιόμορφα κατανεμημένη μέγιστη βιώσιμη προσπάθεια.","steps":[("Ζέσταμα","Τρέξε χαλαρά και πρόσθεσε τρεις σύντομες άνετες επιταχύνσεις πριν από το τεστ."),("Τεστ 5 km","Τρέξε 5 km όσο πιο ομοιόμορφα και γρήγορα μπορείς να διατηρήσεις. Απόφυγε το απόλυτο σπριντ στην εκκίνηση."),("Αποθεραπεία","Περπάτησε ή τρέξε χαλαρά μετά την ολοκλήρωση των 5 km.")]},

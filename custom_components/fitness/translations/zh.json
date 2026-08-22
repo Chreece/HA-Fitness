@@ -233,16 +233,14 @@
           "fitness_account_role": "角色",
           "fitness_network_access": "网络访问",
           "fitness_account_display_name": "账户名称",
-          "fitness_account_username": "登录名",
-          "fitness_remote_slug": "远程主机名",
+          "fitness_account_username": "用户名 / 远程主机名",
           "fitness_view_profile_entry_ids": "帐户查看权限"
         },
         "data_description": {
           "fitness_account_role": "管理员拥有完整 Fitness 权限。本地和远程用户只能控制自己的个人资料；只有管理员授权后，才能以只读方式查看其他个人资料。",
           "fitness_network_access": "仅允许通过远程主机名登录；不会暴露 HA 局域网硬件。 可本地或远程登录；只有实际本地连接时才显示 LAN 硬件。",
           "fitness_account_display_name": "此账户只能控制自己的 Fitness 个人资料。",
-          "fitness_account_username": "远程账户默认使用子域名，用户之后可以更改登录名。",
-          "fitness_remote_slug": "此主机名仅属于这个远程 Fitness 账户。",
+          "fitness_account_username": "必填且必须唯一。启用远程访问时，同一用户名也作为该账户的主机名/子域名，不再设置单独的远程主机名。",
           "fitness_view_profile_entry_ids": "所选帐户仅可查看，不能更改其设置、训练或设备。"
         }
       },
@@ -260,7 +258,9 @@
       "invalid_role": "角色: 此字段为必填项。",
       "invalid_network_access": "网络访问: 此字段为必填项。",
       "profile_not_found": "所选帐户仅可查看，不能更改其设置、训练或设备。",
-      "required": "此字段为必填项。"
+      "required": "此字段为必填项。",
+      "invalid_username": "请输入有效用户名。启用远程访问时只能使用小写字母、数字和连字符。",
+      "username_in_use": "该 Fitness 用户名已被使用。"
     },
     "abort": {
       "already_configured": "已存在同名的 Fitness 个人资料。",

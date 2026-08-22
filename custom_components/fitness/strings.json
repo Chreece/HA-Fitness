@@ -233,16 +233,14 @@
           "fitness_account_role": "Role",
           "fitness_network_access": "Connection access",
           "fitness_account_display_name": "Account display name",
-          "fitness_account_username": "Local username",
-          "fitness_remote_slug": "Remote hostname / subdomain",
+          "fitness_account_username": "Username / remote hostname",
           "fitness_view_profile_entry_ids": "Profiles this user may view"
         },
         "data_description": {
           "fitness_account_role": "Admin manages all Fitness accounts; Admin + Fitness User also owns a personal profile; User controls only their own profile and may view explicitly shared profiles.",
           "fitness_network_access": "Remote-only accounts never receive Home Assistant LAN hardware controls. Local + Remote accounts may use local hardware only while connected locally.",
           "fitness_account_display_name": "Required for a pure administrator account. For profile-owning users, the profile name is used when this is left empty.",
-          "fitness_account_username": "Optional local login name. Remote-only accounts use their assigned remote hostname instead.",
-          "fitness_remote_slug": "Required when remote access is enabled. This identifies the account remote hostname.",
+          "fitness_account_username": "Required and unique. When remote access is enabled, this same username is the account hostname/subdomain; there is no separate remote hostname.",
           "fitness_view_profile_entry_ids": "Optional read-only access to existing Fitness profiles. Applies only to the User role."
         }
       },
@@ -260,7 +258,9 @@
       "invalid_role": "Select a valid Fitness role.",
       "invalid_network_access": "Select a valid connection access mode.",
       "profile_not_found": "One of the selected Fitness profiles no longer exists.",
-      "required": "This field is required."
+      "required": "This field is required.",
+      "invalid_username": "Enter a valid username. Remote-enabled usernames may use lowercase letters, numbers and hyphens only.",
+      "username_in_use": "That Fitness username is already in use."
     },
     "abort": {
       "already_configured": "A Fitness profile with this name already exists.",

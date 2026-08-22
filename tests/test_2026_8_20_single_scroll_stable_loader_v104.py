@@ -26,7 +26,7 @@ def test_frontend_version_is_fresh_in_ha_resource_and_remote_portal():
     assert 'FITNESS_DASHBOARD_VERSION = "unreleased-138"' in JS
     assert '_RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-138"' in DASH
     assert 'frontend_version = "unreleased-138"' in ACCOUNTS
-    assert 'frontend_cache_version = f"{frontend_version}-cast-ui-146"' in ACCOUNTS
+    assert 'frontend_cache_version = f"{frontend_version}-cast-ui-155"' in ACCOUNTS
     assert 'src="/fitness/frontend/fitness-dashboard.js?v={frontend_cache_version}"' in ACCOUNTS
 
 

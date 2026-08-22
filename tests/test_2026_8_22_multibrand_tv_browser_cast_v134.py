@@ -45,5 +45,6 @@ def test_ha_cast_targets_are_never_disclosed_to_remote_sessions():
 
 def test_smart_tv_receiver_reuses_restricted_cast_portal_and_local_audio_handoff():
     assert 'issue_cast_bootstrap(' in DASHBOARD
-    assert 'hub.expect_local_cast(profile_entry_id, f"smart-tv:' in ACCOUNTS
+    assert 'hub.expect_local_cast(' in ACCOUNTS
+    assert 'f"smart-tv:{str(ticket)[:18]}"' in ACCOUNTS
     assert 'card.setAttribute("fitness-cast-receiver","")' in ACCOUNTS

@@ -296,10 +296,12 @@ def test_tv_modals_anchor_under_toolbar_and_cards_pack_without_row_gaps():
     assert 'grid-auto-flow:dense' in FRONTEND
     assert 'new ResizeObserver((entries) =>' in FRONTEND
     assert 'wrapper.style.removeProperty("grid-row-end")' in FRONTEND
-    assert 'Number(this._tvScalePercent || 70) / 100' in FRONTEND
+    assert 'const castScale = 1;' in FRONTEND
+    assert 'const scale = 1;' in FRONTEND
     assert '@media(max-width:1500px){:host(:not([fitness-cast-receiver])) .tv-grid{--tv-columns:3}' in FRONTEND
     assert ':host([fitness-cast-receiver]) .tv-grid{--tv-columns:3;column-gap:6px' in FRONTEND
-    assert 'transform:scale(var(--fitness-tv-card-scale,.70))' in FRONTEND
+    assert 'transform:none!important' in FRONTEND
+    assert 'const shift = ((gridWidth - usedWidth) / 2) - usedLeft;' in FRONTEND
     assert 'zoom:.82' not in FRONTEND
     assert ':host([fitness-cast-receiver]) .tv-toolbar{grid-template-columns:auto minmax(76px,120px) auto minmax(180px,1fr)' in FRONTEND
 
@@ -390,7 +392,8 @@ def test_tv_media_browser_search_favorites_and_single_audio_owner():
     assert 'source_client_id:FITNESS_TV_CLIENT_ID' in FRONTEND
     assert 'self._audio_owner: dict[str, str] = {}' in TV
     assert '_ignored_cast_clients' in TV
-    assert '"command": "stop"' in TV
+    assert '_emit_media_command' in TV
+    assert '"stop", {"reason": "new_media_selected"}' in TV
     assert '"reason": "new_media_selected"' in TV
     assert 'commandName === "stop"' in FRONTEND
     assert 'this._hardStopMusic();' in FRONTEND
@@ -479,7 +482,9 @@ def test_unreleased_40_tv_scale_branding_and_live_controls():
     assert '"volume": max(0.0, min(1.0, volume))' not in TV
     assert 'vol.Range(min=10, max=150)' in TV
     assert 'min="10" max="150"' in FRONTEND
-    assert 'Math.max(0.10, Math.min(1.50' in FRONTEND
+    assert 'Math.max(10, Math.min(150, Number(this._tvScalePercent || 70))) / 100' in FRONTEND
+    assert '--fitness-tv-card-scale' in FRONTEND
+    assert 'const castScale = 1;' in FRONTEND
     assert 'sidebar_icon="mdi:television-play"' in DASHBOARD
     assert 'window.customIconsets.fitness' in FRONTEND
     assert 'FITNESS_BRAND_ICON_PATH = "/fitness/brand/icon.png"' in FRONTEND
@@ -572,9 +577,10 @@ def test_unreleased_44_cast_lifecycle_tracks_real_tv_receiver_and_pauses_phantom
     assert 'return None' in TV
     assert '"cast_active": hub.is_cast_active(profile_entry_id)' in TV
     assert 'this._serverCastActive = Boolean(result?.cast_active)' in FRONTEND
-    assert 'receiver heartbeat may turn Cast green' in FRONTEND
-    assert 'stopCast.hidden = !FITNESS_TV_CAST_RECEIVER || !castConnected' in FRONTEND
-    assert 'stopCast.disabled = !castConnected' in FRONTEND
+    assert 'real receiver heartbeat' in FRONTEND
+    assert 'if (stopCast) { stopCast.hidden = true; stopCast.disabled = true; }' in FRONTEND
+    assert 'castToggle.disabled = castPending' in FRONTEND
+    assert 'castLabel.textContent = castConnected ? l.cast_stop' in FRONTEND
     assert 'reason="manual_cast_stop"' in DASHBOARD
     assert 'return True' in DASHBOARD
 

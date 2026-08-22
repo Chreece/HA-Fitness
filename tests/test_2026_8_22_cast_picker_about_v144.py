@@ -15,8 +15,9 @@ def test_browser_tv_off_target_is_selectable_but_send_action_is_disabled():
     assert '${unavailable ? "disabled" : ""}' not in JS[JS.index("  _smartTvBrowserSection(l, {overview=false} = {})") : JS.index("  async _createSmartTvReceiver", JS.index("  _smartTvBrowserSection(l, {overview=false} = {})"))]
     helper = JS[JS.index("const _fitnessSmartTvLaunchSelection") : JS.index("const _fitnessMusicAdapterHint")]
     assert "const manual = !selection;" in helper
-    assert "const available = manual || Boolean(target?.available);" in helper
-    assert "button.disabled = !available;" in helper
+    assert "const targetAvailable = manual || Boolean(target?.available);" in helper
+    assert "const available = cast.connected || (!cast.busy && targetAvailable);" in helper
+    assert "button.disabled = cast.connecting || (!cast.connected && !targetAvailable);" in helper
     assert 'manual ? "mdi:link-variant-plus" : "mdi:open-in-new"' in helper
     assert "labels?.smart_tv_send_link" in helper
     assert '"smart_tv_send_link"' in TRANS
@@ -37,13 +38,14 @@ def test_automatic_browser_tv_send_never_exposes_manual_link_and_failed_ticket_i
 
 def test_profile_ha_cast_section_has_exactly_one_semantic_stop_control_while_busy():
     update = JS[JS.index("  _updateMediaControls(error = false)") : JS.index("  _style()", JS.index("  _updateMediaControls(error = false)"))]
-    assert 'const serverBusy = (castConnected || castPending) && this._castMode === "server";' in update
-    assert "modalHaStart.hidden = serverBusy;" in update
-    assert "modalHaStop.hidden = !serverBusy;" in update
-    assert "modalHaStop.disabled = !serverBusy;" in update
+    assert 'const castConnected = this._castState === "connected";' in update
+    assert 'const castPending = this._castState === "connecting";' in update
+    assert "modalHaStart.hidden = false;" in update
+    assert "modalHaStart.disabled = castPending || (!castConnected" in update
+    assert "if (modalHaStop) { modalHaStop.hidden = true; modalHaStop.disabled = true; }" in update
     cast_start = JS[JS.index("  async _castDashboard(entityId)") : JS.index("  async _stopCastDashboard(entityId)")]
-    assert 'buttonLabel.textContent = active ? l.cast_stop' not in cast_start
-    assert 'buttonIcon.setAttribute("icon", active ? "mdi:cast-off"' not in cast_start
+    assert 'buttonLabel.textContent = active ? l.cast_stop' in cast_start
+    assert 'buttonIcon.setAttribute("icon", active ? "mdi:cast-off"' in cast_start
 
 
 def test_overview_cast_picker_stacks_copy_and_target_controls_without_overlap():
@@ -81,5 +83,5 @@ def test_about_is_removed_from_per_user_and_hub_options_flows():
 
 
 def test_v144_frontend_cache_bust_is_consistent():
-    assert '_RESOURCE_URL += "&build=cast-ui-146"' in DASH
-    assert 'frontend_cache_version = f"{frontend_version}-cast-ui-146"' in ACCOUNTS
+    assert '_RESOURCE_URL += "&build=cast-ui-155"' in DASH
+    assert 'frontend_cache_version = f"{frontend_version}-cast-ui-155"' in ACCOUNTS

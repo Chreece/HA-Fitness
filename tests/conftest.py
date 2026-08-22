@@ -8,6 +8,19 @@ import types
 ROOT = Path(__file__).resolve().parents[1]
 FITNESS = ROOT / "custom_components" / "fitness"
 
+# Load pure Fitness helper modules in unit tests without executing the Home
+# Assistant integration package __init__.py.  CI installs only the deliberately
+# small test requirements, so namespace packages keep calculation/catalog tests
+# independent of a full Home Assistant runtime.
+if "custom_components" not in sys.modules:
+    custom_components_pkg = types.ModuleType("custom_components")
+    custom_components_pkg.__path__ = [str(ROOT / "custom_components")]
+    sys.modules["custom_components"] = custom_components_pkg
+if "custom_components.fitness" not in sys.modules:
+    fitness_pkg = types.ModuleType("custom_components.fitness")
+    fitness_pkg.__path__ = [str(FITNESS)]
+    sys.modules["custom_components.fitness"] = fitness_pkg
+
 
 def load_module(name: str, relative_path: str):
     spec = spec_from_file_location(name, FITNESS / relative_path)

@@ -133,13 +133,15 @@ def test_browser_local_cast_handoff_moves_audio_owner_to_receiver_and_stop_is_li
     assert 'def has_cast_expectation(' in TV
     assert 'vol.Required("type"): "fitness/tv/local_cast_handoff"' in TV
     assert 'vol.Required("type"): "fitness/tv/local_cast_stopped"' in TV
-    assert 'handoffArmed = await this._armLocalCastHandoff' in JS
+    assert 'const reservePromise = this._armLocalCastHandoff' in JS
+    assert 'handoffArmed = await reservePromise' in JS
     assert 'type:"fitness/tv/local_cast_handoff"' in JS
     assert 'type:"fitness/tv/local_cast_stopped"' in JS
     assert 'this._localCastSessionActive()' in JS
     assert 'this._localCastServerActive = Boolean(result?.local_cast_active)' in JS
-    assert 'stopCast.hidden = !FITNESS_TV_CAST_RECEIVER || !castConnected' in JS
-    assert 'stopCast.disabled = !castConnected' in JS
+    assert 'if (toolbarStop) { toolbarStop.hidden = true; toolbarStop.disabled = true; }' in JS
+    assert 'localToggle.disabled = pending' in JS
+    assert 'label.textContent = connected ? l.cast_stop' in JS
     assert 'if self.is_any_cast_active(profile_entry_id)' in TV
     assert 'cast_expected = self.has_cast_expectation(profile_entry_id)' in TV
     assert 'if (this._audioOwner && FITNESS_TV_CAST_RECEIVER)' in JS
@@ -147,7 +149,7 @@ def test_browser_local_cast_handoff_moves_audio_owner_to_receiver_and_stop_is_li
 
 def test_local_cast_handoff_preserves_playing_state_for_receiver_resume():
     block = TV[TV.index('    def expect_local_cast('):TV.index('    def clear_expected_local_cast(')]
-    assert '"command": "stop"' in block
+    assert 'self._emit_media_command(profile_entry_id, client_id, "stop", {"reason": "cast_handoff"})' in block
     assert '"reason": "cast_handoff"' in block
     assert 'async_broadcast_media_state' not in block
     handler = JS[JS.index('  async _handleMediaCommand('):JS.index('  async _ackTts(')]

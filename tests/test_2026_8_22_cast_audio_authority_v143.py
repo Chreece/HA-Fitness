@@ -60,6 +60,6 @@ def test_cast_map_paint_policy_has_opaque_fallbacks_and_explicit_overlay_layers(
 
 
 def test_cast_audio_fix_cache_busts_ha_and_restricted_portal_resources():
-    assert '_RESOURCE_URL += "&build=cast-ui-146"' in DASH
-    assert 'frontend_cache_version = f"{frontend_version}-cast-ui-146"' in ACCOUNTS
+    assert '_RESOURCE_URL += "&build=cast-ui-155"' in DASH
+    assert 'frontend_cache_version = f"{frontend_version}-cast-ui-155"' in ACCOUNTS
     assert 'fitness-dashboard.js?v={frontend_cache_version}' in ACCOUNTS

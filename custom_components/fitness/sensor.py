@@ -275,11 +275,11 @@ SLEEP_SOURCE_MIRROR_KEYS = frozenset({
 SOURCE_MIRROR_KEYS = SLEEP_SOURCE_MIRROR_KEYS
 
 
-# Canonical wellness metrics imported from directly synchronized devices. These
-# entities expose data Fitness already retains; they never trigger additional
-# Bluetooth/USB polling. A fixed descriptor set keeps entity ids stable while
-# materialization remains data-driven, so unsupported metrics do not create
-# unavailable entity clutter.
+# Canonical wellness metrics retained by Fitness. Every valid dated observation
+# of the same quantity joins one source-agnostic resolver, whether it came from a
+# device, provider/entity, Fitness Test or another future adapter. Nothing here
+# triggers additional Bluetooth/USB polling. A fixed descriptor set keeps
+# entity ids stable while materialization remains data-driven.
 WELLNESS_METRICS: tuple[tuple[str, str, str | None], ...] = (
     ("heart_rate", "Heart rate", "bpm"),
     ("resting_heart_rate", "Resting heart rate", "bpm"),
@@ -640,9 +640,18 @@ async def async_setup_entry(hass, entry, async_add_entities):
     # Existing direct-device history must become visible immediately after an
     # upgrade without waiting for the next wearable sync. This bounded check
     # reads only in-memory persisted history and never touches a radio.
+    test_wellness_metrics = {
+        str(observation.get("metric"))
+        for observation in manager.fitness_test_metric_observations()
+        if observation.get("metric")
+    }
     existing_wellness_keys = {
         desc.key for desc in WELLNESS_DESCRIPTIONS
-        if manager.device_intraday_history.get(desc.metric) or manager.metric_history.get(desc.metric)
+        if (
+            manager.device_intraday_history.get(desc.metric)
+            or manager.metric_history.get(desc.metric)
+            or desc.metric in test_wellness_metrics
+        )
     }
     if existing_wellness_keys:
         manager.remember_materialized_sensors(existing_wellness_keys, persist=True)
@@ -995,18 +1004,14 @@ class FitnessSensor(SensorEntity):
         m = self.entity_description.metric
 
         if self.entity_description.kind == "wellness":
-            # Daily cumulative values use the canonical daily summary. Sampled
-            # physiology exposes the newest synchronized point. No read here
-            # performs device I/O.
-            if m in WELLNESS_ADDITIVE_METRICS:
-                points = self.manager.metric_history.get(m) or []
-            else:
-                points = self.manager.device_intraday_history.get(m) or []
-                if not points:
-                    points = self.manager.metric_history.get(m) or []
-            if not points or not isinstance(points[-1], dict):
+            # Resolve the newest real observation without mutating any source.
+            # Source type never affects selection: the latest valid timestamp wins
+            # and provenance attributes explain where that value came from.
+            # No read here performs device I/O.
+            source = self.manager.canonical_wellness_observation(m)
+            if not isinstance(source, dict):
                 return None
-            value = points[-1].get("value")
+            value = source.get("value")
             if value is None:
                 return None
             if m in {"charging", "wear_state", "steps", "floors_climbed", "activity_minutes", "active_minutes", "moderate_minutes", "vigorous_minutes", "metabolic_age", "sleep_score"}:
@@ -1489,27 +1494,32 @@ class FitnessSensor(SensorEntity):
             return dict(self._data_map_attributes)
 
         if kind == "wellness":
-            raw_points = self.manager.device_intraday_history.get(m) or []
             daily_points = self.manager.metric_history.get(m) or []
-            if m in WELLNESS_ADDITIVE_METRICS and daily_points:
-                source = daily_points[-1]
-            elif raw_points:
-                source = raw_points[-1]
-            elif daily_points:
-                source = daily_points[-1]
-            else:
-                source = None
+            source = self.manager.canonical_wellness_observation(m)
             if not isinstance(source, dict):
                 return {"metric": m, "data_source": "direct_device_sync"}
             attrs = {
                 "metric": m,
                 "data_source": str(source.get("source_type") or "direct_device_sync"),
+                "observed_at": source.get("timestamp"),
                 "last_synced_sample": source.get("timestamp"),
                 "source_entity": source.get("source_entity"),
+                "source_name": source.get("source_name"),
             }
             sources = source.get("sources") or []
             if sources:
                 attrs["sources"] = list(sources)[:8]
+            if source.get("source_type") == "fitness_test":
+                reference = source.get("reference") or {}
+                attrs.update({
+                    "method": source.get("method"),
+                    "test_id": source.get("test_id"),
+                    "test_result_id": source.get("test_result_id"),
+                    "test_result_metric": source.get("metric_kind"),
+                    "performed_at": source.get("timestamp"),
+                    "study_title": reference.get("title"),
+                    "study_url": reference.get("url"),
+                })
             if daily_points and isinstance(daily_points[-1], dict):
                 attrs["daily_summary"] = daily_points[-1].get("value")
                 attrs["daily_summary_at"] = daily_points[-1].get("timestamp")

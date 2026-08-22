@@ -1808,3 +1808,38 @@ _add_rows(
     },
     SUPPORTED_DASHBOARD_LANGUAGES,
 )
+
+# v147 account identity contract. A Fitness username is mandatory and unique;
+# for remote-enabled accounts the same value is also the hostname/subdomain.
+_add_rows(
+    {
+        "account_username": (
+            "Username / remote hostname","Όνομα χρήστη / απομακρυσμένο hostname","Benutzername / Remote-Hostname","Nom d’utilisateur / nom d’hôte distant","Usuario / hostname remoto","Nome utente / hostname remoto","Nome de utilizador / hostname remoto","Gebruikersnaam / externe hostnaam","Nazwa użytkownika / zdalna nazwa hosta","Имя пользователя / удалённый hostname","Ім’я користувача / віддалений hostname","Kullanıcı adı / uzak hostname","用户名 / 远程主机名","ユーザー名 / リモートホスト名","사용자 이름 / 원격 호스트 이름",
+        ),
+        "account_username_hint": (
+            "Required and unique. With remote access, this same username is the account hostname/subdomain; there is no separate remote hostname.","Υποχρεωτικό και μοναδικό. Με απομακρυσμένη πρόσβαση το ίδιο όνομα χρήστη είναι και το hostname/subdomain του λογαριασμού· δεν υπάρχει ξεχωριστό hostname.","Erforderlich und eindeutig. Bei Remote-Zugriff ist derselbe Benutzername zugleich Hostname/Subdomain des Kontos; es gibt keinen separaten Remote-Hostnamen.","Obligatoire et unique. Avec l’accès distant, ce même nom devient le nom d’hôte/sous-domaine du compte ; il n’existe pas de nom d’hôte séparé.","Obligatorio y único. Con acceso remoto, este mismo usuario es también el hostname/subdominio de la cuenta; no existe un hostname separado.","Obbligatorio e univoco. Con accesso remoto, lo stesso nome utente è anche l’hostname/sottodominio dell’account; non esiste un hostname separato.","Obrigatório e único. Com acesso remoto, este mesmo nome de utilizador é também o hostname/subdomínio da conta; não existe hostname separado.","Verplicht en uniek. Bij externe toegang is dezelfde gebruikersnaam ook de hostnaam/subdomain van het account; er is geen aparte hostnaam.","Wymagana i unikalna. Przy dostępie zdalnym ta sama nazwa użytkownika jest także nazwą hosta/subdomeną konta; nie ma osobnej nazwy hosta.","Обязательное и уникальное. При удалённом доступе это же имя пользователя является hostname/поддоменом учётной записи; отдельного hostname нет.","Обов’язкове й унікальне. Для віддаленого доступу це саме ім’я користувача також є hostname/піддоменом облікового запису; окремого hostname немає.","Zorunlu ve benzersizdir. Uzak erişimde aynı kullanıcı adı hesabın hostname/alt alan adı olur; ayrı bir hostname yoktur.","必填且必须唯一。启用远程访问时，同一用户名也作为该账户的主机名/子域名，不再设置单独的主机名。","必須かつ一意です。リモートアクセス時は同じユーザー名がアカウントのホスト名/サブドメインにもなり、別のホスト名はありません。","필수이며 고유해야 합니다. 원격 액세스를 사용하면 동일한 사용자 이름이 계정의 호스트 이름/서브도메인도 되며 별도의 호스트 이름은 없습니다.",
+        ),
+        "invalid_username": (
+            "Enter a valid username. Remote-enabled usernames may use lowercase letters, numbers and hyphens only.","Εισαγάγετε έγκυρο όνομα χρήστη. Για απομακρυσμένη πρόσβαση επιτρέπονται μόνο πεζά λατινικά γράμματα, αριθμοί και παύλες.","Gib einen gültigen Benutzernamen ein. Für Remote-Zugriff sind nur Kleinbuchstaben, Zahlen und Bindestriche zulässig.","Saisissez un nom d’utilisateur valide. Pour l’accès distant, utilisez uniquement des lettres minuscules, des chiffres et des tirets.","Introduce un nombre de usuario válido. Para acceso remoto usa solo letras minúsculas, números y guiones.","Inserisci un nome utente valido. Per l’accesso remoto usa solo lettere minuscole, numeri e trattini.","Introduza um nome de utilizador válido. Para acesso remoto use apenas letras minúsculas, números e hífenes.","Voer een geldige gebruikersnaam in. Voor externe toegang zijn alleen kleine letters, cijfers en koppeltekens toegestaan.","Wprowadź prawidłową nazwę użytkownika. Dla dostępu zdalnego używaj tylko małych liter, cyfr i myślników.","Введите корректное имя пользователя. Для удалённого доступа разрешены только строчные латинские буквы, цифры и дефисы.","Введіть коректне ім’я користувача. Для віддаленого доступу дозволені лише малі латинські літери, цифри та дефіси.","Geçerli bir kullanıcı adı girin. Uzak erişim için yalnızca küçük harfler, rakamlar ve tire kullanın.","请输入有效用户名。启用远程访问时只能使用小写字母、数字和连字符。","有効なユーザー名を入力してください。リモートアクセスでは小文字、数字、ハイフンのみ使用できます。","올바른 사용자 이름을 입력하세요. 원격 액세스에는 소문자, 숫자, 하이픈만 사용할 수 있습니다.",
+        ),
+        "username_in_use": (
+            "That Fitness username is already in use.","Αυτό το όνομα χρήστη Fitness χρησιμοποιείται ήδη.","Dieser Fitness-Benutzername wird bereits verwendet.","Ce nom d’utilisateur Fitness est déjà utilisé.","Ese nombre de usuario Fitness ya está en uso.","Questo nome utente Fitness è già in uso.","Esse nome de utilizador Fitness já está em uso.","Deze Fitness-gebruikersnaam is al in gebruik.","Ta nazwa użytkownika Fitness jest już używana.","Это имя пользователя Fitness уже используется.","Це ім’я користувача Fitness уже використовується.","Bu Fitness kullanıcı adı zaten kullanılıyor.","该 Fitness 用户名已被使用。","その Fitness ユーザー名は既に使用されています。","해당 Fitness 사용자 이름은 이미 사용 중입니다.",
+        ),
+        "remote_url_pending": (
+            "The remote URL will use this username as its hostname/subdomain.","Το απομακρυσμένο URL θα χρησιμοποιεί αυτό το όνομα χρήστη ως hostname/subdomain.","Die Remote-URL verwendet diesen Benutzernamen als Hostname/Subdomain.","L’URL distante utilisera ce nom d’utilisateur comme nom d’hôte/sous-domaine.","La URL remota usará este usuario como hostname/subdominio.","L’URL remota userà questo nome utente come hostname/sottodominio.","O URL remoto usará este nome de utilizador como hostname/subdomínio.","De externe URL gebruikt deze gebruikersnaam als hostnaam/subdomain.","Zdalny adres URL użyje tej nazwy użytkownika jako hosta/subdomeny.","Удалённый URL использует это имя пользователя как hostname/поддомен.","Віддалений URL використовуватиме це ім’я користувача як hostname/піддомен.","Uzak URL bu kullanıcı adını hostname/alt alan adı olarak kullanır.","远程 URL 将使用此用户名作为主机名/子域名。","リモートURLはこのユーザー名をホスト名/サブドメインとして使用します。","원격 URL은 이 사용자 이름을 호스트 이름/서브도메인으로 사용합니다.",
+        ),
+    },
+    SUPPORTED_DASHBOARD_LANGUAGES,
+)
+
+_add_rows(
+    {
+        "account_username_local_hint": (
+            "Used for Fitness sign-in.","Χρησιμοποιείται για τη σύνδεση στο Fitness.","Wird für die Fitness-Anmeldung verwendet.","Utilisé pour la connexion Fitness.","Se usa para iniciar sesión en Fitness.","Usato per l’accesso a Fitness.","Usado para iniciar sessão no Fitness.","Wordt gebruikt om bij Fitness aan te melden.","Używana do logowania do Fitness.","Используется для входа в Fitness.","Використовується для входу у Fitness.","Fitness oturumu açmak için kullanılır.","用于登录 Fitness。","Fitnessへのサインインに使用します。","Fitness 로그인에 사용됩니다.",
+        ),
+        "account_username_remote_hint": (
+            "Username and remote hostname are the same","Το όνομα χρήστη και το απομακρυσμένο hostname είναι το ίδιο","Benutzername und Remote-Hostname sind identisch","Le nom d’utilisateur et le nom d’hôte distant sont identiques","El usuario y el hostname remoto son el mismo valor","Nome utente e hostname remoto coincidono","O nome de utilizador e o hostname remoto são iguais","Gebruikersnaam en externe hostnaam zijn hetzelfde","Nazwa użytkownika i zdalna nazwa hosta są takie same","Имя пользователя и удалённый hostname совпадают","Ім’я користувача і віддалений hostname однакові","Kullanıcı adı ve uzak hostname aynıdır","用户名与远程主机名相同","ユーザー名とリモートホスト名は同じです","사용자 이름과 원격 호스트 이름은 동일합니다",
+        ),
+    },
+    SUPPORTED_DASHBOARD_LANGUAGES,
+)

@@ -101,7 +101,8 @@ def test_remote_subdomain_is_account_owned_and_admin_portal_can_manage_accounts(
     assert 'remote_slug' in ACCOUNTS
     assert 'remote_url = f"https://{slug}.{base}"' in ACCOUNTS
     assert 'account_by_remote_host' in ACCOUNTS
-    assert 'data-account-slug' in JS
+    assert 'data-account-slug' not in JS
+    assert 'data-account-username' in JS
     assert 'data-account-url' in JS
     assert 'const ADMIN_VIEW="__fitness_admin__"' in ACCOUNTS
     assert 'document.createElement("fitness-tv-setup-card")' in ACCOUNTS

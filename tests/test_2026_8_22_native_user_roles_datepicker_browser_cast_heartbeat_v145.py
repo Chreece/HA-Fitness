@@ -90,5 +90,5 @@ def test_stale_browser_tv_after_ha_restart_self_terminates_instead_of_auth_retry
 
 
 def test_v145_frontend_cache_bust_reaches_ha_and_restricted_tv_portal():
-    assert "cast-ui-146" in DASH
-    assert "cast-ui-146" in ACCOUNTS
+    assert "cast-ui-155" in DASH
+    assert "cast-ui-155" in ACCOUNTS

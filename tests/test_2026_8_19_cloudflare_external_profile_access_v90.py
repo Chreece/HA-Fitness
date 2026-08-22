@@ -65,10 +65,11 @@ def test_profile_settings_have_external_switch_subdomain_url_and_help_for_both_s
     assert 'id="cfg-external-enabled"' not in JS
     assert 'id="cfg-external-subdomain"' not in JS
     assert 'type:"fitness/access/external/save"' not in JS
-    assert 'data-account-slug' in JS
+    assert 'data-account-slug' not in JS
+    assert 'data-account-username' in JS
     assert 'data-account-url' in JS
     assert 'class="icon-tool cloudflare-info-toggle"' in JS
-    assert 'remote_subdomain_hint' in JS
+    assert 'account_username_remote_hint' in JS
 
 def test_host_router_maps_exact_hostname_to_exact_profile_and_blocks_disabled_namespace():
     assert 'def async_register_fitness_portal_routing' in ACCOUNTS

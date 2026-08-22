@@ -13,11 +13,13 @@ def test_account_enabled_toggle_lives_in_account_header():
     assert '.account-enabled-head input{' in FRONTEND
 
 
-def test_remote_only_users_do_not_get_editable_login_name():
-    assert 'access-username-field ${networkAccess === "remote_only" ? "hidden" : ""}' in FRONTEND
-    assert 'username:currentNetwork === "remote_only" ? null' in FRONTEND
-    assert 'if network_access == NETWORK_REMOTE_ONLY:' in ACCOUNTS
-    assert 'requested_username = _normalize_username(slug)' in ACCOUNTS
+def test_remote_only_users_use_required_single_username_hostname_identity():
+    assert 'class="access-username-field"' in FRONTEND
+    assert 'data-account-username' in FRONTEND
+    assert 'required><small data-account-username-hint>' in FRONTEND
+    assert 'username:remoteActive ? usernameValue.toLowerCase() : usernameValue' in FRONTEND
+    assert 'requested_username = slug' in ACCOUNTS
+    assert 'row["remote_slug"] = username if _account_remote_enabled(row) else ""' in ACCOUNTS
     assert 'name="username"' not in ACCOUNTS[ACCOUNTS.index('def _password_page'):ACCOUNTS.index('def _portal_app_page')]
 
 def test_remote_portal_top_bar_keeps_profile_selector_and_logout_only():
@@ -29,13 +31,13 @@ def test_remote_portal_top_bar_keeps_profile_selector_and_logout_only():
     assert 'account-username' not in portal
 
 
-def test_remote_admin_can_derive_first_slug_when_enabled():
+def test_remote_admin_uses_username_as_the_only_remote_slug():
     save = ACCOUNTS[ACCOUNTS.index('async def async_save_account'):ACCOUNTS.index('async def async_delete_account')]
-    assert 'if remote_enabled and not slug:' in save
-    assert '_normalize_slug((current or {}).get("username"))' in save
-    assert '_normalize_slug(display_name)' in save
-    assert 'ensureRemoteSlug' in FRONTEND
-
+    assert 'raw_username = str(username if username is not None' in save
+    assert 'slug = _normalize_slug(raw_username)' in save
+    assert 'requested_username = slug' in save
+    assert 'if not self.username_available(requested_username' in save
+    assert 'ensureRemoteSlug' not in FRONTEND
 
 def test_account_admin_status_is_not_an_empty_sticky_bar():
     assert '.access-status{position:relative;bottom:auto;min-height:0;' in FRONTEND

@@ -19,7 +19,7 @@ def test_profile_cast_is_singleton_and_sender_ui_offers_stop_while_busy():
 
 def test_profile_cast_green_state_requires_receiver_confirmed_connected_state():
     refresh = JS[JS.index("  _refreshCastUiState() {") : JS.index("  _cancelRadioRecovery()", JS.index("  _refreshCastUiState() {"))]
-    assert "receiver heartbeat may turn Cast green" in refresh
+    assert "real receiver heartbeat" in refresh
     assert 'this._castState === "connected"' in refresh
     assert "FITNESS_TV_CAST_APP_ID" not in refresh
     assert ".tool.cast-pending#cast" in JS

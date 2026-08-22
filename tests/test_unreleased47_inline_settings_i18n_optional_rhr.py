@@ -32,7 +32,8 @@ def test_inline_flow_receives_and_applies_selector_translations():
     assert '"selector": data.get("selector")' in DASH
     assert "_localizedSchema(step)" in FRONTEND
     assert "this._flowTranslations?.selector?.[translationKey]?.options" in FRONTEND
-    assert "form.schema = this._localizedSchema(step);" in FRONTEND
+    assert "const localizedSchema = this._localizedSchema(step);" in FRONTEND
+    assert "form.schema = localizedSchema;" in FRONTEND
 
     greek = json.loads((BASE / "translations/el.json").read_text(encoding="utf-8"))
     assert greek["selector"]["sex"]["options"]["male"] == "Άνδρας"

@@ -267,6 +267,15 @@ class FitnessTVDashboardHub:
         # prevents old tabs or previous Cast receiver sessions from continuing
         # to play after a newer dashboard session takes over.
         self._audio_owner: dict[str, str] = {}
+        # Restricted Browser-TV portals do not have Home Assistant's websocket
+        # event bus.  Media commands addressed to those receivers are mirrored
+        # into a short per-client mailbox and collected by their heartbeat.
+        self._media_command_mailbox: dict[str, dict[str, list[dict[str, Any]]]] = {}
+        # Explicit Stop Cast requests stay sticky until the addressed receiver
+        # acknowledges them with a heartbeat/page-leave (or expires).  This
+        # keeps the profile Cast slot reserved while the TV is actually closing.
+        self._cast_stop_requests: dict[str, str] = {}
+        self._cast_stop_requested_at: dict[str, float] = {}
         # When a fresh Cast launch is expected, existing Cast browser IDs are
         # ignored so a stale background receiver cannot immediately reclaim audio.
         self._ignored_cast_clients: dict[str, set[str]] = {}
@@ -1023,6 +1032,9 @@ class FitnessTVDashboardHub:
             except Exception:
                 pass
         self._audio_owner.pop(profile_entry_id, None)
+        self._media_command_mailbox.pop(profile_entry_id, None)
+        self._cast_stop_requests.pop(profile_entry_id, None)
+        self._cast_stop_requested_at.pop(profile_entry_id, None)
         monitor = self._audio_output_monitors.pop(profile_entry_id, None)
         if monitor is not None:
             try:
@@ -1031,7 +1043,10 @@ class FitnessTVDashboardHub:
                 pass
         await self._async_save_data()
 
-    def heartbeat(self, profile_entry_id: str, client_id: str, *, is_cast_receiver: bool = False) -> bool:
+    def heartbeat(
+        self, profile_entry_id: str, client_id: str, *,
+        is_cast_receiver: bool = False, poll_media_commands: bool = False,
+    ) -> bool:
         """Record one client heartbeat and return whether it conflicts with a live Cast.
 
         Receiver heartbeats are also the final authority for browser/manual TV
@@ -1045,9 +1060,16 @@ class FitnessTVDashboardHub:
         now = time.monotonic()
         existing_cast_client = self.active_cast_client(profile_entry_id) if is_cast_receiver else None
         clients = self._clients.setdefault(profile_entry_id, {})
+        previous_meta = clients.get(client_id) or {}
         clients[client_id] = {
             "last_seen": now,
             "is_cast_receiver": bool(is_cast_receiver),
+            # The portal-level heartbeat and the dashboard-card heartbeat share
+            # one client id. Once the card asks to poll commands, do not let the
+            # lighter portal heartbeat switch that capability back off.
+            "poll_media_commands": bool(
+                poll_media_commands or previous_meta.get("poll_media_commands")
+            ),
         }
         if len(clients) > TV_CLIENTS_PER_PROFILE_LIMIT:
             for stale_id, _metadata in sorted(
@@ -1055,6 +1077,12 @@ class FitnessTVDashboardHub:
             )[: len(clients) - TV_CLIENTS_PER_PROFILE_LIMIT]:
                 clients.pop(stale_id, None)
         self._prune(now)
+
+        # A receiver that has been explicitly asked to stop must never reclaim
+        # ownership on the heartbeat that delivers that stop request.
+        stop_target = self._cast_stop_requests.get(profile_entry_id)
+        if is_cast_receiver and stop_target in {"*", client_id}:
+            return False
 
         # A newly-created receiver after expect_cast() is the only Cast client
         # allowed to take ownership. Existing background receiver IDs remain
@@ -1147,6 +1175,7 @@ class FitnessTVDashboardHub:
                 cutoff = cast_cutoff if bool(meta.get("is_cast_receiver")) else browser_cutoff
                 if float(meta.get("last_seen", 0.0)) < cutoff:
                     clients.pop(client_id, None)
+                    (self._media_command_mailbox.get(profile_id) or {}).pop(client_id, None)
             owner = self._audio_owner.get(profile_id)
             if owner and not str(owner).startswith("ha:") and owner not in clients:
                 self._audio_owner.pop(profile_id, None)
@@ -1155,8 +1184,22 @@ class FitnessTVDashboardHub:
                 ignored.intersection_update(clients)
                 if not ignored:
                     self._ignored_cast_clients.pop(profile_id, None)
+            stop_client = self._cast_stop_requests.get(profile_id)
+            stop_age = current - float(self._cast_stop_requested_at.get(profile_id, 0.0))
+            if stop_client == "*":
+                if stop_age > CAST_CLIENT_STALE_SECONDS:
+                    self._cast_stop_requests.pop(profile_id, None)
+                    self._cast_stop_requested_at.pop(profile_id, None)
+            elif stop_client and stop_client not in clients:
+                self._cast_stop_requests.pop(profile_id, None)
+                self._cast_stop_requested_at.pop(profile_id, None)
+                # A disappeared Browser-TV receiver must release its local Cast
+                # lease at the same heartbeat timeout used by Cast status.
+                if profile_id in self._expected_local_cast:
+                    self.clear_expected_local_cast(profile_id)
             if not clients:
                 self._clients.pop(profile_id, None)
+                self._media_command_mailbox.pop(profile_id, None)
 
     def _cast_target_state_ok(self, profile_entry_id: str) -> bool:
         target = self.cast_target(profile_entry_id)
@@ -1216,6 +1259,11 @@ class FitnessTVDashboardHub:
                 return True
             self.clear_expected_local_cast(profile_entry_id)
         return False
+
+    def local_cast_source(self, profile_entry_id: str) -> str | None:
+        """Return the controller/launch source holding the browser-Cast lease."""
+        source = self._expected_local_cast.get(str(profile_entry_id or ""))
+        return str(source) if source else None
 
     def cast_descriptor(self, profile_entry_id: str) -> dict[str, Any]:
         """Return the single authoritative Cast state for one Fitness profile."""
@@ -1409,15 +1457,7 @@ class FitnessTVDashboardHub:
             if bool((meta or {}).get("is_cast_receiver"))
         }
         for client_id in cast_clients:
-            self.hass.bus.async_fire(
-                TV_MEDIA_EVENT,
-                {
-                    "profile_entry_id": profile_entry_id,
-                    "client_id": client_id,
-                    "command": "stop",
-                    "data": {"reason": reason},
-                },
-            )
+            self._emit_media_command(profile_entry_id, client_id, "stop", {"reason": reason})
         self._ignored_cast_clients.setdefault(profile_entry_id, set()).update(cast_clients)
         if self._audio_owner.get(profile_entry_id) in cast_clients:
             self._audio_owner.pop(profile_entry_id, None)
@@ -1457,6 +1497,105 @@ class FitnessTVDashboardHub:
             await asyncio.sleep(0.2)
         return None
 
+    def _emit_media_command(
+        self, profile_entry_id: str, client_id: str, command: str, data: dict[str, Any] | None = None
+    ) -> None:
+        """Deliver a media command over HA events and the restricted-TV mailbox."""
+        payload = {
+            "profile_entry_id": str(profile_entry_id),
+            "client_id": str(client_id),
+            "command": str(command),
+            "data": dict(data or {}),
+        }
+        self.hass.bus.async_fire(TV_MEDIA_EVENT, payload)
+        meta = ((self._clients.get(str(profile_entry_id)) or {}).get(str(client_id)) or {})
+        if bool(meta.get("poll_media_commands")):
+            queues = self._media_command_mailbox.setdefault(str(profile_entry_id), {})
+            queue = queues.setdefault(str(client_id), [])
+            queue.append({"command": str(command), "data": dict(data or {})})
+            if len(queue) > 24:
+                del queue[:-24]
+
+    def take_media_commands(self, profile_entry_id: str, client_id: str) -> list[dict[str, Any]]:
+        """Return and clear queued commands for one restricted Browser-TV receiver."""
+        queues = self._media_command_mailbox.get(str(profile_entry_id)) or {}
+        commands = list(queues.pop(str(client_id), []) or [])
+        if not queues:
+            self._media_command_mailbox.pop(str(profile_entry_id), None)
+        return commands
+
+    def cast_stop_requested(self, profile_entry_id: str, client_id: str) -> bool:
+        target = self._cast_stop_requests.get(str(profile_entry_id))
+        return target in {"*", str(client_id)}
+
+    async def async_request_browser_cast_stop(
+        self, profile_entry_id: str, *, reason: str = "user_stop_cast"
+    ) -> dict[str, Any]:
+        """Ask the live Browser-TV receiver to stop, while keeping its slot reserved."""
+        profile_entry_id = str(profile_entry_id)
+        self._prune()
+        client_id = self.active_cast_client(profile_entry_id)
+        if client_id is None:
+            if profile_entry_id in self._expected_local_cast:
+                # Cancel a receiver that is still between Android-TV launch and
+                # its first heartbeat. The wildcard stop marker makes a late
+                # bootstrap heartbeat terminate instead of adopting itself as a
+                # new manual receiver after the pending reservation is cleared.
+                self._cast_stop_requests[profile_entry_id] = "*"
+                self._cast_stop_requested_at[profile_entry_id] = time.monotonic()
+                self.clear_expected_local_cast(profile_entry_id)
+                await self.async_release_profile_music(profile_entry_id, reason=reason)
+                result = dict(self.cast_descriptor(profile_entry_id))
+                result["stop_requested"] = True
+                return result
+            return self.cast_descriptor(profile_entry_id)
+        self._cast_stop_requests[profile_entry_id] = client_id
+        self._cast_stop_requested_at[profile_entry_id] = time.monotonic()
+        self._emit_media_command(profile_entry_id, client_id, "stop", {"reason": reason})
+        # Also stop server-owned MA/HA playback immediately. The heartbeat stop
+        # marker prevents this receiver from reclaiming ownership while closing.
+        await self.async_release_profile_music(profile_entry_id, reason=reason)
+        result = dict(self.cast_descriptor(profile_entry_id))
+        result["stop_requested"] = True
+        return result
+
+    async def async_receiver_departed(
+        self, profile_entry_id: str, client_id: str, *, reason: str = "receiver_left"
+    ) -> None:
+        """Release audio/Cast ownership when a Browser-TV page actually leaves."""
+        profile_entry_id = str(profile_entry_id)
+        client_id = str(client_id)
+        meta = ((self._clients.get(profile_entry_id) or {}).get(client_id) or {})
+        if not bool(meta.get("is_cast_receiver")):
+            return
+        # A rejected duplicate receiver can also send page-leave while another
+        # TV still owns audio. Never pause/stop the legitimate owner just because
+        # the duplicate page closed. Capture authority before releasing audio,
+        # because async_release_profile_music() clears _audio_owner.
+        authoritative_departure = (
+            self._audio_owner.get(profile_entry_id) == client_id
+            or (
+                self.active_cast_client(profile_entry_id) == client_id
+                and client_id not in self._ignored_cast_clients.get(profile_entry_id, set())
+            )
+        )
+        if self._audio_owner.get(profile_entry_id) == client_id:
+            await self.async_release_profile_music(profile_entry_id, reason=reason)
+        (self._clients.get(profile_entry_id) or {}).pop(client_id, None)
+        (self._media_command_mailbox.get(profile_entry_id) or {}).pop(client_id, None)
+        if self._cast_stop_requests.get(profile_entry_id) in {"*", client_id}:
+            self._cast_stop_requests.pop(profile_entry_id, None)
+            self._cast_stop_requested_at.pop(profile_entry_id, None)
+        if authoritative_departure and profile_entry_id in self._expected_local_cast:
+            self.clear_expected_local_cast(profile_entry_id)
+        if authoritative_departure and profile_entry_id in self._expected_cast:
+            self.clear_expected_cast(profile_entry_id)
+        ignored = self._ignored_cast_clients.get(profile_entry_id)
+        if ignored is not None:
+            ignored.discard(client_id)
+            if not ignored:
+                self._ignored_cast_clients.pop(profile_entry_id, None)
+
     def _claim_audio_owner(self, profile_entry_id: str, client_id: str) -> str:
         previous = self._audio_owner.get(profile_entry_id)
         self._audio_owner[profile_entry_id] = client_id
@@ -1473,15 +1612,7 @@ class FitnessTVDashboardHub:
             for other_id in (self._clients.get(profile_entry_id) or {}):
                 if other_id == client_id:
                     continue
-                self.hass.bus.async_fire(
-                    TV_MEDIA_EVENT,
-                    {
-                        "profile_entry_id": profile_entry_id,
-                        "client_id": other_id,
-                        "command": "stop",
-                        "data": {"reason": "session_replaced"},
-                    },
-                )
+                self._emit_media_command(profile_entry_id, other_id, "stop", {"reason": "session_replaced"})
         return client_id
 
     def is_audio_owner(self, profile_entry_id: str, client_id: str) -> bool:
@@ -1508,6 +1639,10 @@ class FitnessTVDashboardHub:
     def expect_local_cast(self, profile_entry_id: str, source_client_id: str) -> None:
         """Hand audible ownership from the initiating browser to local Cast."""
         self._require_cast_idle(profile_entry_id)
+        # A new explicit launch supersedes a short-lived wildcard cancellation
+        # left by a previously stopped pending Browser-TV attempt.
+        self._cast_stop_requests.pop(profile_entry_id, None)
+        self._cast_stop_requested_at.pop(profile_entry_id, None)
         self._expected_local_cast[profile_entry_id] = str(source_client_id or "")
         self._expected_local_cast_at[profile_entry_id] = time.monotonic()
         self._local_cast_established_at.pop(profile_entry_id, None)
@@ -1517,15 +1652,7 @@ class FitnessTVDashboardHub:
         clients = self._clients.get(profile_entry_id) or {}
         self._release_audio_owner_for_cast(profile_entry_id)
         for client_id in tuple(clients):
-            self.hass.bus.async_fire(
-                TV_MEDIA_EVENT,
-                {
-                    "profile_entry_id": profile_entry_id,
-                    "client_id": client_id,
-                    "command": "stop",
-                    "data": {"reason": "cast_handoff"},
-                },
-            )
+            self._emit_media_command(profile_entry_id, client_id, "stop", {"reason": "cast_handoff"})
         self._ignored_cast_clients[profile_entry_id] = {
             client_id
             for client_id, meta in clients.items()
@@ -1556,15 +1683,7 @@ class FitnessTVDashboardHub:
             if bool((meta or {}).get("is_cast_receiver"))
         }
         for client_id in cast_clients:
-            self.hass.bus.async_fire(
-                TV_MEDIA_EVENT,
-                {
-                    "profile_entry_id": profile_entry_id,
-                    "client_id": client_id,
-                    "command": "stop",
-                    "data": {"reason": reason},
-                },
-            )
+            self._emit_media_command(profile_entry_id, client_id, "stop", {"reason": reason})
         self._ignored_cast_clients.setdefault(profile_entry_id, set()).update(cast_clients)
         if self._audio_owner.get(profile_entry_id) in cast_clients:
             self._audio_owner.pop(profile_entry_id, None)
@@ -1593,15 +1712,7 @@ class FitnessTVDashboardHub:
         # configured HA speaker is silenced as part of the same handoff.
         self._release_audio_owner_for_cast(profile_entry_id)
         for client_id in tuple(clients):
-            self.hass.bus.async_fire(
-                TV_MEDIA_EVENT,
-                {
-                    "profile_entry_id": profile_entry_id,
-                    "client_id": client_id,
-                    "command": "stop",
-                    "data": {"reason": "cast_handoff"},
-                },
-            )
+            self._emit_media_command(profile_entry_id, client_id, "stop", {"reason": "cast_handoff"})
         self._ignored_cast_clients[profile_entry_id] = {
             client_id
             for client_id, meta in clients.items()
@@ -2343,10 +2454,9 @@ class FitnessTVDashboardHub:
                     "position": 0.0 if (bool(command_data.get("is_live")) or media_content_id.startswith(FITNESS_RADIO_PREFIX)) else self._media_seconds(command_data.get("position")),
                 })
             for other_id in clients:
-                self.hass.bus.async_fire(TV_MEDIA_EVENT, {
-                    "profile_entry_id": profile_entry_id, "client_id": other_id,
-                    "command": "stop", "data": {"reason": "ha_audio_output_selected"},
-                })
+                self._emit_media_command(
+                    profile_entry_id, other_id, "stop", {"reason": "ha_audio_output_selected"}
+                )
             if str(command) == "select":
                 return await self._async_play_on_ha_output(profile_entry_id, audio_output, command_data)
             if str(command) == "play" and media_content_id:
@@ -2414,37 +2524,15 @@ class FitnessTVDashboardHub:
             for other_id in clients:
                 if other_id == client_id:
                     continue
-                self.hass.bus.async_fire(
-                    TV_MEDIA_EVENT,
-                    {
-                        "profile_entry_id": profile_entry_id,
-                        "client_id": other_id,
-                        "command": "stop",
-                        "data": {"reason": "new_media_selected"},
-                    },
-                )
+                self._emit_media_command(profile_entry_id, other_id, "stop", {"reason": "new_media_selected"})
         elif command_name in {"pause", "stop"}:
             for other_id in clients:
                 if other_id == client_id:
                     continue
-                self.hass.bus.async_fire(
-                    TV_MEDIA_EVENT,
-                    {
-                        "profile_entry_id": profile_entry_id,
-                        "client_id": other_id,
-                        "command": "stop",
-                        "data": {"reason": f"{command_name}_non_owner_cleanup"},
-                    },
-                )
+                self._emit_media_command(profile_entry_id, other_id, "stop", {"reason": f"{command_name}_non_owner_cleanup"})
 
         self._claim_audio_owner(profile_entry_id, client_id)
-        payload = {
-            "profile_entry_id": profile_entry_id,
-            "client_id": client_id,
-            "command": str(command),
-            "data": command_data,
-        }
-        self.hass.bus.async_fire(TV_MEDIA_EVENT, payload)
+        self._emit_media_command(profile_entry_id, client_id, str(command), command_data)
         if wait_for_result and media_content_id:
             loop = asyncio.get_running_loop()
             deadline = loop.time() + 12.0
@@ -3483,6 +3571,7 @@ async def websocket_tv_profile_configure(hass: HomeAssistant, connection, msg) -
         vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
         vol.Required("client_id"): vol.All(str, vol.Length(max=240)),
         vol.Optional("is_cast_receiver", default=False): bool,
+        vol.Optional("poll_media_commands", default=False): bool,
     }
 )
 @websocket_api.async_response
@@ -3495,10 +3584,12 @@ async def websocket_tv_heartbeat(hass: HomeAssistant, connection, msg) -> None:
     hub = get_tv_dashboard_hub(hass)
     await _require_profile_control(hass, connection, profile_entry_id, hub=hub)
     is_cast_receiver = bool(msg.get("is_cast_receiver", False))
+    client_id = str(msg["client_id"])
     cast_conflict = hub.heartbeat(
         profile_entry_id,
-        str(msg["client_id"]),
+        client_id,
         is_cast_receiver=is_cast_receiver,
+        poll_media_commands=bool(msg.get("poll_media_commands", False)),
     )
     # The TV receiver's very first heartbeat can race HA's Cast state update.
     # Laptop/controller heartbeats are safe points to reconcile stale sessions.
@@ -3515,7 +3606,7 @@ async def websocket_tv_heartbeat(hass: HomeAssistant, connection, msg) -> None:
         msg["id"],
         {
             "active": True,
-            "audio_owner": hub.is_audio_owner(profile_entry_id, str(msg["client_id"])),
+            "audio_owner": hub.is_audio_owner(profile_entry_id, client_id),
             "cast_target": hub.cast_target(profile_entry_id),
             "cast_active": hub.is_cast_active(profile_entry_id),
             "local_cast_active": hub.is_local_cast_active(profile_entry_id),
@@ -3524,9 +3615,63 @@ async def websocket_tv_heartbeat(hass: HomeAssistant, connection, msg) -> None:
             "cast_busy": cast["busy"],
             "cast_mode": cast["mode"],
             "cast_conflict": bool(cast_conflict),
+            "stop_requested": hub.cast_stop_requested(profile_entry_id, client_id),
+            "media_commands": (
+                hub.take_media_commands(profile_entry_id, client_id)
+                if bool(msg.get("poll_media_commands", False)) else []
+            ),
             "media_state": state,
         },
     )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/tv/cast/stop",
+        vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+    }
+)
+@websocket_api.async_response
+async def websocket_tv_cast_stop(hass: HomeAssistant, connection, msg) -> None:
+    """Stop the profile's Browser-TV Cast from any authorized dashboard."""
+    profile_entry_id = str(msg["profile_entry_id"])
+    if not _profile_loaded(hass, profile_entry_id):
+        connection.send_error(msg["id"], "profile_not_found", "Fitness profile not loaded")
+        return
+    hub = get_tv_dashboard_hub(hass)
+    await _require_profile_control(hass, connection, profile_entry_id, hub=hub)
+    descriptor = hub.cast_descriptor(profile_entry_id)
+    if descriptor.get("mode") != "browser":
+        connection.send_result(msg["id"], descriptor)
+        return
+    connection.send_result(
+        msg["id"],
+        await hub.async_request_browser_cast_stop(profile_entry_id, reason="user_stop_cast"),
+    )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "fitness/tv/receiver/leave",
+        vol.Required("profile_entry_id"): vol.All(str, vol.Length(max=128)),
+        vol.Required("client_id"): vol.All(str, vol.Length(max=240)),
+        vol.Optional("reason", default="receiver_page_left"): vol.All(str, vol.Length(max=64)),
+    }
+)
+@websocket_api.async_response
+async def websocket_tv_receiver_leave(hass: HomeAssistant, connection, msg) -> None:
+    """Release a Browser-TV receiver immediately when its page is closed."""
+    profile_entry_id = str(msg["profile_entry_id"])
+    if not _profile_loaded(hass, profile_entry_id):
+        connection.send_error(msg["id"], "profile_not_found", "Fitness profile not loaded")
+        return
+    hub = get_tv_dashboard_hub(hass)
+    await _require_profile_control(hass, connection, profile_entry_id, hub=hub)
+    client_id = str(msg["client_id"])
+    await hub.async_receiver_departed(
+        profile_entry_id, client_id, reason=str(msg.get("reason") or "receiver_page_left")
+    )
+    connection.send_result(msg["id"], {"released": True})
 
 
 @websocket_api.websocket_command(
@@ -4440,6 +4585,8 @@ def async_register_tv_websocket_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, websocket_tv_profile_configure)
     websocket_api.async_register_command(hass, websocket_tv_heartbeat)
     websocket_api.async_register_command(hass, websocket_tv_cast_status)
+    websocket_api.async_register_command(hass, websocket_tv_cast_stop)
+    websocket_api.async_register_command(hass, websocket_tv_receiver_leave)
     websocket_api.async_register_command(hass, websocket_tv_cast_rearm)
     websocket_api.async_register_command(hass, websocket_tv_local_cast_handoff)
     websocket_api.async_register_command(hass, websocket_tv_local_cast_stopped)

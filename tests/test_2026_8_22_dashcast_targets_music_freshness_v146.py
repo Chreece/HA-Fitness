@@ -80,10 +80,11 @@ def test_integration_freshness_uses_measurement_or_last_changed_not_attribute_re
     assert 'State.last_updated`` can move merely because attributes refreshed' in WELLNESS
     assert 'getattr(state, "last_changed", None)' in WELLNESS
     assert 'Never stamp a stale integration value with' in MANAGER
-    assert 'return parse_timestamp(getattr(state, "last_changed", None)) or now' in MANAGER
+    assert 'return parse_timestamp(getattr(state, "last_changed", None))' in MANAGER
+    assert 'return parse_timestamp(getattr(state, "last_changed", None)) or now' not in MANAGER
     assert 'raw_points.sort(key=lambda item: parse_timestamp(item.get("timestamp"))' in MANAGER
 
 
 def test_v146_cache_busts_both_ha_and_portal_frontends():
-    assert 'cast-ui-146' in DASH
-    assert 'cast-ui-146' in ACCOUNTS
+    assert 'cast-ui-155' in DASH
+    assert 'cast-ui-155' in ACCOUNTS

@@ -665,6 +665,30 @@ class FitnessAccountController:
                 return option
         raise ValueError("username_in_use")
 
+    def username_available(self, candidate: str, *, exclude_account_id: str = "") -> bool:
+        """Return whether an explicit Fitness username is unused.
+
+        Explicit user/admin saves never auto-suffix names: the username is also
+        the remote hostname identity when remote access is enabled, so silently
+        changing it would create a different public address than the admin chose.
+        Disabled accounts keep their name reserved as well.
+        """
+        normalized = _normalize_username(candidate)
+        if not normalized:
+            return False
+        needle = normalized.casefold()
+        return all(
+            aid == exclude_account_id
+            or str(row.get("username") or "").casefold() != needle
+            for aid, row in self._accounts.items()
+        )
+
+    def suggested_username(self, candidate: str = "fitness-user") -> str:
+        """Return a valid unique suggestion without weakening explicit-save checks."""
+        raw = str(candidate or "fitness-user").strip()
+        base = _normalize_slug(raw) or _normalize_username(raw) or "fitness-user"
+        return self._unique_username(base)
+
     def account(self, account_id: str | None) -> dict[str, Any] | None:
         key = str(account_id or "")
         row = self._accounts.get(key)
@@ -966,46 +990,23 @@ class FitnessAccountController:
                 raise ValueError("profile_not_found")
             if _is_admin_role(role):
                 views.clear()
-            slug = _normalize_slug(remote_slug)
-            if remote_enabled and not slug:
-                # Enabling remote access on an existing account should not fail
-                # just because it predates remote hostnames. Derive a safe first
-                # slug from the existing identity/display name; admins can edit
-                # it before saving if they want a different hostname.
-                slug = (
-                    _normalize_slug((current or {}).get("remote_slug"))
-                    or _normalize_slug((current or {}).get("username"))
-                    or _normalize_slug(display_name)
-                )
+            # Username is the single account/hostname identity. A newly created
+            # account must always have one, and when remote access is enabled the
+            # DNS-safe lowercase username is *also* the remote subdomain. There
+            # is no independent remote slug that can drift away from the login.
+            raw_username = str(username if username is not None else (current or {}).get("username") or "").strip()
+            requested_username = _normalize_username(raw_username)
+            if not requested_username:
+                raise ValueError("invalid_username")
             if remote_enabled:
+                slug = _normalize_slug(raw_username)
                 if not slug:
-                    raise ValueError("invalid_remote_slug")
-                for aid, other in self._accounts.items():
-                    if (
-                        aid != account_id
-                        and other.get("enabled", True)
-                        and _account_remote_enabled(other)
-                        and _normalize_slug(other.get("remote_slug")) == slug
-                    ):
-                        raise ValueError("remote_slug_in_use")
+                    raise ValueError("invalid_username")
+                requested_username = slug
             else:
                 slug = ""
-            requested_username = _normalize_username(username)
-            if network_access == NETWORK_REMOTE_ONLY:
-                # A dedicated remote hostname selects the account, so a second
-                # user-editable login name is redundant and confusing. Keep an
-                # internal identifier derived from the assigned hostname.
-                requested_username = _normalize_username(slug)
-            elif username is not None and not requested_username:
-                raise ValueError("invalid_username")
-            if not requested_username:
-                requested_username = (
-                    _normalize_username(slug)
-                    or _normalize_username((current or {}).get("username"))
-                    or _normalize_username(re.sub(r"[^A-Za-z0-9_.-]+", "-", display_name).strip("-._"))
-                    or f"fitness-{secrets.token_hex(4)}"
-                )
-            requested_username = self._unique_username(requested_username, exclude_account_id=account_id)
+            if not self.username_available(requested_username, exclude_account_id=account_id):
+                raise ValueError("username_in_use")
             if current and _is_admin_role(current.get("role")) and current.get("enabled", True) and (not _is_admin_role(role) or not enabled):
                 other_admins = [
                     other for aid, other in self._accounts.items()
@@ -1318,11 +1319,20 @@ class FitnessAccountController:
             if not first_login:
                 if not current_password or not await self._async_verify_password(row, current_password):
                     raise ValueError("invalid_current_password")
-            if new_username is not None and str(row.get("network_access") or "") != NETWORK_REMOTE_ONLY:
-                username = _normalize_username(new_username)
+            if new_username is not None:
+                raw_username = str(new_username or "").strip()
+                username = _normalize_username(raw_username)
                 if not username:
                     raise ValueError("invalid_username")
-                row["username"] = self._unique_username(username, exclude_account_id=account_id)
+                if _account_remote_enabled(row):
+                    slug = _normalize_slug(raw_username)
+                    if not slug:
+                        raise ValueError("invalid_username")
+                    username = slug
+                if not self.username_available(username, exclude_account_id=account_id):
+                    raise ValueError("username_in_use")
+                row["username"] = username
+                row["remote_slug"] = username if _account_remote_enabled(row) else ""
             if new_password:
                 await self._async_set_password(row, new_password, force_change=False)
             elif first_login:
@@ -1829,6 +1839,8 @@ _PUBLIC_WS_NAMES: dict[str, tuple[str, str]] = {
     "fitness/tv/profile/configure": ("tv_dashboard", "websocket_tv_profile_configure"),
     "fitness/tv/heartbeat": ("tv_dashboard", "websocket_tv_heartbeat"),
     "fitness/tv/cast/status": ("tv_dashboard", "websocket_tv_cast_status"),
+    "fitness/tv/cast/stop": ("tv_dashboard", "websocket_tv_cast_stop"),
+    "fitness/tv/receiver/leave": ("tv_dashboard", "websocket_tv_receiver_leave"),
     "fitness/tv/cast/rearm": ("tv_dashboard", "websocket_tv_cast_rearm"),
     "fitness/tv/local_cast_handoff": ("tv_dashboard", "websocket_tv_local_cast_handoff"),
     "fitness/tv/local_cast_stopped": ("tv_dashboard", "websocket_tv_local_cast_stopped"),
@@ -2024,7 +2036,7 @@ def _portal_app_page(
         separators=(",", ":"),
     ).replace("</", "<\\/")
     frontend_version = "unreleased-138"
-    frontend_cache_version = f"{frontend_version}-cast-ui-146"
+    frontend_cache_version = f"{frontend_version}-cast-ui-155"
     cast_receiver_js = "true" if cast_receiver else "false"
     portal_top_display = "none" if cast_receiver else "flex"
     body = f"""<!doctype html><html lang="{html.escape(language)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark light"><title>HA-Fitness</title><style nonce="{nonce}">
@@ -2036,7 +2048,7 @@ const FITNESS_PORTAL_ICON_GLYPHS={{
 const fitnessPortalIconPath=(key)=>String(window.__FITNESS_MDI_PATHS__?.[key]||"");
 const fitnessPortalGlyph=(key)=>FITNESS_PORTAL_ICON_GLYPHS[key]||"●";
 if(!customElements.get("ha-icon"))customElements.define("ha-icon",class extends HTMLElement{{static get observedAttributes(){{return["icon"]}}connectedCallback(){{if(!this.shadowRoot)this.attachShadow({{mode:"open"}});this._draw()}}attributeChangedCallback(){{if(this.isConnected)this._draw()}}_draw(){{const key=String(this.getAttribute("icon")||"");const root=this.shadowRoot||this.attachShadow({{mode:"open"}});const path=fitnessPortalIconPath(key);this.setAttribute("aria-hidden","true");this.style.cssText="display:inline-flex;align-items:center;justify-content:center;width:var(--mdc-icon-size,22px);height:var(--mdc-icon-size,22px);line-height:1;flex:0 0 auto;color:inherit";if(path){{root.innerHTML='<svg viewBox="0 0 512 512" aria-hidden="true" focusable="false" style="display:block;width:100%;height:100%;fill:currentColor"><g transform="translate(0 448) scale(1 -1)"><path d="'+path+'"></path></g></svg>';return}}const glyph=fitnessPortalGlyph(key);root.innerHTML='<span aria-hidden="true" style="display:grid;place-items:center;width:100%;height:100%;font:800 78%/1 system-ui,sans-serif">'+glyph+'</span>'}}}});
-if(!customElements.get("ha-card"))customElements.define("ha-card",class extends HTMLElement{{}});
+if(!customElements.get("ha-card"))customElements.define("ha-card",class extends HTMLElement{{connectedCallback(){{if(!this.style.backgroundColor)this.style.backgroundColor="var(--ha-card-background,var(--card-background-color,#1d1f22))";}}}});
 if(!customElements.get("ha-circular-progress"))customElements.define("ha-circular-progress",class extends HTMLElement{{connectedCallback(){{this.setAttribute("aria-hidden","true");this.style.cssText="display:inline-block;width:22px;height:22px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%"}}}});
 </script><script type="module" nonce="{nonce}" src="/fitness/frontend/fitness-dashboard.js?v={frontend_cache_version}"></script><script type="module" nonce="{nonce}">
 const session=window.__FITNESS_PUBLIC_SESSION__;const portalText=window.__FITNESS_PORTAL_TEXT__||{{}};const castBootstrap=window.__FITNESS_CAST_BOOTSTRAP__||{{}};const csrf=session.csrf;const castPortal=Boolean(window.__FITNESS_CAST_PORTAL__);const castTicket=castPortal?String(location.pathname.split("/").filter(Boolean).pop()||""):"";const ADMIN_VIEW="__fitness_admin__";let currentProfile=session.is_admin?ADMIN_VIEW:(session.profile_entry_id||session.visible_profiles?.[0]?.entry_id||"");const app=document.getElementById("app");const nav=document.getElementById("profile-nav");
@@ -2058,6 +2070,7 @@ let card=null;function mount(profileId){{const requested=String(profileId||"");c
 const syncRoute=()=>{{const routed=routeProfile();if(routed&&routed!==currentProfile)mount(routed);}};
 async function startPortal(){{const routed=routeProfile();if(routed)currentProfile=routed;if(castPortal){{try{{await armCastBootstrap();}}catch(err){{console.error("[Fitness TV] Cast bootstrap heartbeat failed",err);}}}}mount(currentProfile);if(castPortal)setTimeout(()=>void refreshStates(),1000);}}
 nav.onchange=()=>mount(nav.value);addEventListener("location-changed",syncRoute);addEventListener("popstate",syncRoute);void startPortal();portalStateTimer=setInterval(refreshStates,castPortal?2500:3000);if(castPortal)portalHeartbeatTimer=setInterval(()=>void armCastBootstrap().catch((err)=>console.debug("[Fitness TV] portal heartbeat unavailable",err)),4000);
+if(castPortal)addEventListener("pagehide",()=>{{const profile=String(currentProfile||"");if(!profile||profile===ADMIN_VIEW)return;const clientId=String(window.__fitnessTvClientId||"");if(!clientId)return;try{{fetch("/fitness-auth/ws",{{method:"POST",credentials:"same-origin",keepalive:true,headers:{{"Content-Type":"application/json","X-Fitness-CSRF":csrf,...castHeaders()}},body:JSON.stringify({{type:"fitness/tv/receiver/leave",profile_entry_id:profile,client_id:clientId}})}});}}catch(_e){{}}}},{{capture:true}});
 document.getElementById("logout-btn").onclick=async()=>{{await fetch("/fitness-auth/logout",{{method:"POST",headers:{{"X-Fitness-CSRF":csrf,...castHeaders()}}}});location.href="/"}};
 
 </script></body></html>"""
@@ -2091,7 +2104,58 @@ class FitnessDashCastBootstrapView(HomeAssistantView):
                 from .tv_dashboard import get_tv_dashboard_hub  # noqa: PLC0415
                 hub = get_tv_dashboard_hub(hass)
                 await hub.async_load()
-                hub.expect_local_cast(profile_entry_id, f"smart-tv:{str(ticket)[:18]}")
+                target_entity_id = str(row.get("_cast_target_entity_id") or "")
+                descriptor = hub.cast_descriptor(profile_entry_id)
+                # Server DashCast already reserved this profile with expect_cast()
+                # before delivering the bootstrap URL. Re-arming that same page as
+                # a browser-local Cast calls _require_cast_idle() and kills the
+                # receiver before its first heartbeat. Keep the existing server
+                # reservation instead. Browser-TV auto-launches are likewise
+                # reserved before opening the URL; only a manually opened link
+                # needs to claim a fresh local-browser lease here.
+                if target_entity_id.startswith("media_player."):
+                    if not (
+                        descriptor.get("mode") == "server"
+                        and hub.cast_target(profile_entry_id) == target_entity_id
+                        and descriptor.get("busy")
+                    ):
+                        controller.revoke_cast_sessions(
+                            profile_entry_id=profile_entry_id,
+                            target_entity_id=target_entity_id,
+                        )
+                        raise web.HTTPConflict(text="Fitness Cast launch is no longer active")
+                elif descriptor.get("busy"):
+                    same_browser_attempt = False
+                    if descriptor.get("mode") == "browser" and target_entity_id.startswith("browser:"):
+                        launch_entity_id = target_entity_id.split(":", 2)[1] if ":" in target_entity_id else ""
+                        expected_source = hub.local_cast_source(profile_entry_id)
+                        same_browser_attempt = bool(
+                            launch_entity_id
+                            and launch_entity_id != "manual"
+                            and expected_source == f"browser-launch:{launch_entity_id}"
+                        )
+                    if not same_browser_attempt:
+                        controller.revoke_cast_sessions(
+                            profile_entry_id=profile_entry_id,
+                            target_entity_id=target_entity_id,
+                        )
+                        raise web.HTTPConflict(text="Another Fitness Cast is already active")
+                else:
+                    try:
+                        hub.expect_local_cast(
+                            profile_entry_id, f"smart-tv:{str(ticket)[:18]}"
+                        )
+                    except ValueError as err:
+                        # A controller can win the singleton race between ticket
+                        # redemption and receiver arming.  Treat that as an
+                        # explicit Cast conflict, never an opaque HTTP 500.
+                        controller.revoke_cast_sessions(
+                            profile_entry_id=profile_entry_id,
+                            target_entity_id=target_entity_id,
+                        )
+                        raise web.HTTPConflict(
+                            text="Another Fitness Cast is already active"
+                        ) from err
                 row["_cast_receiver_armed"] = True
         principal = controller.principal(row)
         remote = _effective_remote(request)
@@ -2622,9 +2686,8 @@ async def websocket_fitness_accounts_admin(hass: HomeAssistant, connection, msg)
         vol.Required("network_access"): vol.In(sorted(NETWORK_ACCESS_MODES)),
         vol.Optional("profile_entry_id"): vol.Any(None, vol.All(str, vol.Length(max=128))),
         vol.Optional("view_profile_entry_ids", default=[]): [vol.All(str, vol.Length(max=128))],
-        vol.Optional("remote_slug"): vol.Any(None, vol.All(str, vol.Length(max=63))),
         vol.Optional("remote_enabled", default=False): bool,
-        vol.Optional("username"): vol.Any(None, vol.All(str, vol.Length(max=64))),
+        vol.Required("username"): vol.All(str, vol.Length(min=1, max=64)),
         vol.Optional("enabled", default=True): bool,
     }
 )
@@ -2641,9 +2704,9 @@ async def websocket_fitness_accounts_save(hass: HomeAssistant, connection, msg) 
             network_access=str(msg.get("network_access") or ""),
             profile_entry_id=(str(msg.get("profile_entry_id") or "") or None),
             view_profile_entry_ids=[str(item) for item in (msg.get("view_profile_entry_ids") or [])],
-            remote_slug=(str(msg.get("remote_slug") or "") or None),
+            remote_slug=None,
             remote_enabled=bool(msg.get("remote_enabled", False)),
-            username=(str(msg.get("username")) if msg.get("username") is not None else None),
+            username=str(msg.get("username") or ""),
             enabled=bool(msg.get("enabled", True)),
         )
         temporary_password = None

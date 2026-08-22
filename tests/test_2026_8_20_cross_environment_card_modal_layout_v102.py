@@ -4,8 +4,9 @@ ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = (ROOT / "custom_components/fitness/frontend/fitness-dashboard.js").read_text()
 
 
-def test_manual_card_width_cannot_squeeze_below_current_logical_column():
-    assert 'const responsivePercent = Math.max(naturalPercent, requestedPercent);' in FRONTEND
+def test_manual_card_width_cannot_squeeze_below_current_logical_column_outside_cast():
+    assert 'const responsivePercent = FITNESS_TV_CAST_RECEIVER && savedPercent > 0' in FRONTEND
+    assert ': Math.max(naturalPercent, requestedPercent);' in FRONTEND
     assert 'const widthUnits = Math.max(1, Math.min(packUnits' in FRONTEND
     assert 'wrapper.style.width = `${Math.min(gridWidth, width)}px`;' in FRONTEND
     assert 'data-responsive-width-expanded' in FRONTEND

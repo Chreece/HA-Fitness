@@ -40,7 +40,8 @@ def test_local_and_remote_sessions_are_enforced_server_side():
 
 def test_remote_accounts_use_unique_logical_subdomains_and_direct_profile_urls():
     assert 'remote_slug' in ACCOUNTS
-    assert 'raise ValueError("remote_slug_in_use")' in ACCOUNTS
+    assert 'raise ValueError("username_in_use")' in ACCOUNTS
+    assert '"remote_slug": slug' in ACCOUNTS
     assert 'remote_url = f"https://{slug}.{base}"' in ACCOUNTS
     assert 'account_by_remote_host' in ACCOUNTS
     assert 'Cloudflare' in ACCESS

@@ -24,13 +24,14 @@ def test_tv_dense_masonry_no_longer_manufactures_a_source_order_last_row():
     assert 'grid.style.height = `${Math.ceil(totalHeight)}px`' in layout
 
 
-def test_hidden_toolbar_is_not_spatial_target_and_up_reveals_it_when_no_visible_section_above():
+def test_hidden_toolbar_is_not_spatial_target_and_only_dashboard_browser_up_reveals_it():
     spatial = _method("_moveCastRemoteSpatial", "_handleCastRemoteArrow")
     arrows = _method("_handleCastRemoteArrow", "_handleCastRemoteActivate")
     assert "this._visibleCastRemoteElement(rawToolbar)" in spatial
     assert 'key === "ArrowUp"' in arrows
-    assert "(!next || next === current)" in arrows
-    assert "this._setToolbarHidden(false)" in arrows
+    assert 'current?.classList?.contains("dashboard-switcher")' in arrows
+    assert 'this._revealCastToolbarFromDashboardBrowser("remote-outer-up")' in arrows
+    assert "(!next || next === current)" not in arrows
     assert "_isTopDashboardCard(current)" not in arrows
 
 
@@ -66,7 +67,8 @@ def test_accounts_use_profile_domain_and_language_and_admins_have_no_redundant_v
     start = JS.index("  _renderAccessAdmin(snapshot, oneTimeSecret = null)")
     account_ui = JS[start:JS.index("  _style() {", start)]
     assert "data-account-language" not in account_ui
-    assert "data-account-slug" in account_ui
+    assert "data-account-slug" not in account_ui
+    assert "data-account-username" in account_ui
     assert 'const remoteUrl = String(account.remote_url' in account_ui
     assert 'const viewOptions = role !== "user" ? ""' in account_ui
     assert 'remote_url = f"https://{slug}.{base}"' in ACCOUNTS

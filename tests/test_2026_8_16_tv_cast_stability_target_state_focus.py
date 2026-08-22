@@ -47,13 +47,14 @@ def test_remote_focus_visuals_have_clear_toolbar_spacing_and_modern_press_feedba
     assert ':host([fitness-cast-receiver]) .tv-actions{grid-column:auto;grid-template-columns:repeat(4,34px)' in FRONTEND
     assert ':host([fitness-cast-receiver]) .tv-toolbar .tool{width:34px;min-width:34px;max-width:34px' in FRONTEND
     assert ':host([fitness-cast-receiver]) .tv-toolbar button>span{display:none!important}' in FRONTEND
-    # Keep the focus effect on the real element: launcher-style lift + outer halo,
-    # not pseudo overlays that can steal/obscure TV remote interaction.
+    # Keep TV section focus bounded inside its assigned layout box. Whole-card
+    # scaling/3D lift can paint over neighbouring cards and dashboard chrome.
     assert '.fitness-remote-section-selected::after' not in FRONTEND
     assert '.fitness-remote-section-selected{outline:2px solid color-mix' in FRONTEND
-    assert ':host([fitness-cast-receiver]) .fitness-remote-section-selected{transform:translate3d(0,-1px,0) scale(1.012)' in FRONTEND
-    assert ':host([fitness-cast-receiver]) .tv-toolbar.fitness-remote-section-selected{transform:translate3d(0,-1px,0) scale(1.004)}' in FRONTEND
-    assert '0 8px 18px rgba(0,0,0,.24)!important' in FRONTEND
+    assert ':host([fitness-cast-receiver]) .fitness-remote-section-selected{transform:none!important' in FRONTEND
+    assert ':host([fitness-cast-receiver]) .tv-toolbar.fitness-remote-section-selected,:host([fitness-cast-receiver]) .tv-toolbar.fitness-remote-section-active{transform:none!important}' in FRONTEND
+    assert 'box-shadow:inset 0 0 0 2px' in FRONTEND
+    assert ':host([fitness-cast-receiver]) .tv-oled-stage{perspective:none!important;transform-style:flat!important}' in FRONTEND
     assert '.fitness-remote-section-active' in FRONTEND
     assert 'transform:scale(1.012)' in FRONTEND
     focus = FRONTEND[FRONTEND.index("  _markCastRemoteFocus(element, pressed = false, record = true)"):FRONTEND.index("  _restoreCastRemotePreviousFocus()") ]

@@ -744,17 +744,20 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Collect role/network rights before creating a native Fitness profile."""
         from .fitness_accounts import (
             NETWORK_ACCESS_MODES, NETWORK_LOCAL_ONLY, NETWORK_REMOTE_ONLY,
-            ROLE_ADMIN, ROLE_USER, ROLES,
+            ROLE_ADMIN, ROLE_USER, ROLES, _normalize_slug, _normalize_username,
+            get_fitness_account_controller,
         )
 
         errors: dict[str, str] = {}
         profiles = self._native_account_profiles()
+        controller = get_fitness_account_controller(self.hass)
+        await controller.async_load()
+        suggested_username = controller.suggested_username("fitness-user")
         if user_input is not None:
             role = str(user_input.get(_ACCOUNT_ROLE) or "")
             network_access = str(user_input.get(_ACCOUNT_NETWORK_ACCESS) or "")
             display_name = str(user_input.get(_ACCOUNT_DISPLAY_NAME) or "").strip()
             username = str(user_input.get(_ACCOUNT_USERNAME) or "").strip()
-            remote_slug = str(user_input.get(_ACCOUNT_REMOTE_SLUG) or "").strip()
             views = [str(item) for item in (user_input.get(_ACCOUNT_VIEW_PROFILE_IDS) or []) if str(item)]
             known_profiles = {item["value"] for item in profiles}
             if role not in ROLES:
@@ -763,17 +766,26 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors[_ACCOUNT_NETWORK_ACCESS] = "invalid_network_access"
             if role == ROLE_ADMIN and not display_name:
                 errors[_ACCOUNT_DISPLAY_NAME] = "required"
-            if network_access in {NETWORK_REMOTE_ONLY, "local_remote"} and not remote_slug:
-                errors[_ACCOUNT_REMOTE_SLUG] = "required"
+            normalized_username = _normalize_username(username)
+            if not username:
+                errors[_ACCOUNT_USERNAME] = "required"
+            elif not normalized_username:
+                errors[_ACCOUNT_USERNAME] = "invalid_username"
+            elif network_access in {NETWORK_REMOTE_ONLY, "local_remote"} and not _normalize_slug(username):
+                errors[_ACCOUNT_USERNAME] = "invalid_username"
+            else:
+                if not controller.username_available(normalized_username):
+                    errors[_ACCOUNT_USERNAME] = "username_in_use"
             if role == ROLE_USER and any(item not in known_profiles for item in views):
                 errors[_ACCOUNT_VIEW_PROFILE_IDS] = "profile_not_found"
             if not errors:
+                canonical_username = _normalize_slug(username) if network_access in {NETWORK_REMOTE_ONLY, "local_remote"} else normalized_username
                 self._pending_account_access = {
                     "role": role,
                     "network_access": network_access,
                     "display_name": display_name,
-                    "username": username,
-                    "remote_slug": remote_slug,
+                    "username": canonical_username,
+                    "remote_slug": canonical_username if network_access in {NETWORK_REMOTE_ONLY, "local_remote"} else "",
                     "view_profile_entry_ids": views if role == ROLE_USER else [],
                     "enabled": True,
                 }
@@ -784,8 +796,10 @@ class FitnessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required(_ACCOUNT_ROLE, default=ROLE_USER): _fitness_account_role_selector(),
             vol.Required(_ACCOUNT_NETWORK_ACCESS, default=NETWORK_LOCAL_ONLY): _fitness_network_access_selector(),
             vol.Optional(_ACCOUNT_DISPLAY_NAME): _text(),
-            vol.Optional(_ACCOUNT_USERNAME): _text(),
-            vol.Optional(_ACCOUNT_REMOTE_SLUG): _text(),
+            vol.Required(
+                _ACCOUNT_USERNAME,
+                default=str((user_input or {}).get(_ACCOUNT_USERNAME) or suggested_username),
+            ): _text(),
         }
         if profiles:
             schema[vol.Optional(_ACCOUNT_VIEW_PROFILE_IDS)] = selector.SelectSelector(

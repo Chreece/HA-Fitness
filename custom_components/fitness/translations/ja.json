@@ -233,16 +233,14 @@
           "fitness_account_role": "ロール",
           "fitness_network_access": "ネットワークアクセス",
           "fitness_account_display_name": "アカウント名",
-          "fitness_account_username": "ログイン名",
-          "fitness_remote_slug": "リモートホスト名",
+          "fitness_account_username": "ユーザー名 / リモートホスト名",
           "fitness_view_profile_entry_ids": "アカウント閲覧権限"
         },
         "data_description": {
           "fitness_account_role": "管理者は Fitness の全権限を持ちます。ローカルおよびリモートユーザーは自分のプロフィールだけを操作し、管理者が許可した追加プロフィールのみ読み取り専用で閲覧できます。",
           "fitness_network_access": "指定されたリモートホスト名からのみログインでき、HAのLAN機器は公開されません。 ローカルとリモートの両方でログインでき、LAN機器は実際にローカル接続中のみ表示されます。",
           "fitness_account_display_name": "このアカウントは自分の Fitness プロフィールだけを操作できます。",
-          "fitness_account_username": "リモートアカウントではサブドメインが既定です。ユーザーは後からログイン名を変更できます。",
-          "fitness_remote_slug": "このホスト名は、このリモート Fitness アカウント専用です。",
+          "fitness_account_username": "必須かつ一意です。リモートアクセス時は同じユーザー名がアカウントのホスト名/サブドメインにもなり、別のリモートホスト名はありません。",
           "fitness_view_profile_entry_ids": "選択したアカウントは表示専用で、設定・ワークアウト・機器は変更できません。"
         }
       },
@@ -260,7 +258,9 @@
       "invalid_role": "ロール: この項目は必須です。",
       "invalid_network_access": "ネットワークアクセス: この項目は必須です。",
       "profile_not_found": "選択したアカウントは表示専用で、設定・ワークアウト・機器は変更できません。",
-      "required": "この項目は必須です。"
+      "required": "この項目は必須です。",
+      "invalid_username": "有効なユーザー名を入力してください。リモートアクセスでは小文字、数字、ハイフンのみ使用できます。",
+      "username_in_use": "その Fitness ユーザー名は既に使用されています。"
     },
     "abort": {
       "already_configured": "同じ名前の Fitness プロフィールがすでに存在します。",

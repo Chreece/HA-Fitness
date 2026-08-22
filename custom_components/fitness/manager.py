@@ -28,6 +28,10 @@ from homeassistant.helpers.storage import Store
 
 from .explanations import provenance_text
 from .workout_prescriptions import normalize_prescription, fitness_test
+from .fitness_test_results import (
+    calculate_fitness_test_result,
+    fitness_test_metric_observations as extract_fitness_test_metric_observations,
+)
 from .live import get_live_runtime
 from .const import (
     CONF_AI_ENABLED,
@@ -3969,11 +3973,17 @@ class FitnessManager:
             self.samples = self.samples[::2]
             self._sample_stride *= 2
 
+        prescription = self.active_prescription or {}
         self.samples.append(
             {
                 "timestamp": now.isoformat(),
                 "_timestamp_epoch": active_epoch,
                 "_segment": self._session_segment,
+                "_prescription_id": str(prescription.get("id") or ""),
+                "_prescription_source": str(prescription.get("source") or ""),
+                "_prescription_step": (
+                    int(self.active_prescription_step) if prescription else None
+                ),
                 **values,
             }
         )
@@ -4004,7 +4014,10 @@ class FitnessManager:
         steps = list((self.active_prescription or {}).get("steps") or [])
         if not steps:
             return None
+        # Preserve an exact sensor boundary for test/result phase extraction.
+        self._capture_sample(force=True)
         self.active_prescription_step = max(0, min(len(steps) - 1, self.active_prescription_step + int(delta)))
+        self._capture_sample(force=True)
         await self._save()
         step = self.current_prescription_step()
         if step and step.get("instruction"):
@@ -4030,7 +4043,9 @@ class FitnessManager:
                 steps = list((self.active_prescription or {}).get("steps") or [])
                 if self.active_prescription_step >= len(steps) - 1:
                     return
+                self._capture_sample(force=True)
                 self.active_prescription_step += 1
+                self._capture_sample(force=True)
                 await self._save()
         except asyncio.CancelledError:
             return
@@ -5323,6 +5338,31 @@ class FitnessManager:
             ),
         )
 
+        if str((self.active_prescription or {}).get("source") or "") == "fitness_test":
+            try:
+                age = self.age()
+            except (KeyError, TypeError, ValueError):
+                age = None
+            weight = evaluation.get("weight")
+            try:
+                weight = float(weight) if weight is not None else None
+            except (TypeError, ValueError):
+                weight = None
+            result = calculate_fitness_test_result(
+                self.active_prescription,
+                self.samples,
+                completed_at=stop_time.isoformat(),
+                age=age,
+                sex=self.config.get(CONF_SEX),
+                weight_kg=weight,
+            )
+            if result is not None:
+                workout.extra = dict(workout.extra or {})
+                workout.extra["fitness_test_result"] = result
+                workout.extra["fitness_test_id"] = str(
+                    (self.active_prescription or {}).get("id") or ""
+                )
+
         workout = self._apply_beta2_workout_metrics(workout)
         return self._apply_personal_workout_context(workout)
 
@@ -5395,6 +5435,7 @@ class FitnessManager:
         changed = len(self.history) != before
         if changed:
             self._local_workouts_cache = None
+            self._fitness_test_metric_observations_cache = None
             self._latest_workout_cache_ready = False
             if hasattr(self, "_invalidate_evaluation_cache"):
                 self._invalidate_evaluation_cache()
@@ -6059,6 +6100,7 @@ class FitnessManager:
         else:
             self._local_workouts_cache = tuple(merged)
         if changed:
+            self._fitness_test_metric_observations_cache = None
             self._latest_workout_cache_ready = False
             if hasattr(self, "_invalidate_evaluation_cache"):
                 self._invalidate_evaluation_cache()
@@ -6122,6 +6164,228 @@ class FitnessManager:
         merged = merged_workouts(result)
         self._local_workouts_cache = tuple(merged)
         return list(self._local_workouts_cache)
+
+    def latest_fitness_test_results(self) -> dict[str, dict[str, Any]]:
+        """Return the newest persisted result for each built-in Fitness test."""
+        results: dict[str, dict[str, Any]] = {}
+        workouts = sorted(
+            self.local_workouts(),
+            key=lambda workout: str(workout.end or workout.start or ""),
+            reverse=True,
+        )
+        for workout in workouts:
+            result = (workout.extra or {}).get("fitness_test_result")
+            if not isinstance(result, dict):
+                continue
+            test_id = str(result.get("test_id") or "")
+            if test_id and test_id not in results:
+                results[test_id] = dict(result)
+        return results
+
+    def fitness_test_metric_observations(
+        self,
+        *,
+        metric: str | None = None,
+        evaluation_metric: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return immutable test-derived metric observations, newest first."""
+        cached = getattr(self, "_fitness_test_metric_observations_cache", None)
+        if cached is None:
+            observations: list[dict[str, Any]] = []
+            for workout in self.local_workouts():
+                result = (workout.extra or {}).get("fitness_test_result")
+                if not isinstance(result, dict):
+                    continue
+                test_id = str(result.get("test_id") or "")
+                try:
+                    prescription = fitness_test(test_id, self._ai_language())
+                except (KeyError, TypeError, ValueError):
+                    prescription = None
+                for observation in extract_fitness_test_metric_observations(result):
+                    enriched = dict(observation)
+                    if isinstance(prescription, dict):
+                        enriched["source_name"] = prescription.get("name")
+                        enriched["sport"] = prescription.get("sport")
+                    enriched["workout_start"] = workout.start
+                    enriched["workout_end"] = workout.end
+                    observations.append(enriched)
+            observations.sort(
+                key=lambda item: parse_timestamp(item.get("timestamp"))
+                or datetime.min.replace(tzinfo=timezone.utc),
+                reverse=True,
+            )
+            cached = tuple(dict(item) for item in observations)
+            self._fitness_test_metric_observations_cache = cached
+        return [
+            dict(observation)
+            for observation in cached
+            if (metric is None or observation.get("metric") == metric)
+            and (
+                evaluation_metric is None
+                or observation.get("evaluation_metric") == evaluation_metric
+            )
+        ]
+
+    def latest_fitness_test_metric_observation(
+        self,
+        *,
+        metric: str | None = None,
+        evaluation_metric: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Return the newest test observation for one canonical metric."""
+        observations = self.fitness_test_metric_observations(
+            metric=metric, evaluation_metric=evaluation_metric
+        )
+        return dict(observations[0]) if observations else None
+
+    @staticmethod
+    def _metric_observation_timestamp(observation: dict[str, Any]) -> float:
+        """Return the real observation time; unknown time is only a fallback."""
+        stamp = parse_timestamp(observation.get("timestamp"))
+        return stamp.timestamp() if stamp is not None else float("-inf")
+
+    @staticmethod
+    def _metric_observation_aliases(metric: str | None) -> set[str]:
+        """Return vendor-neutral aliases that represent the same metric."""
+        raw = str(metric or "").strip()
+        if not raw:
+            return set()
+        canonical = canonical_metric_key(raw)
+        aliases = {raw, canonical}
+        equivalent = {
+            "vo2_max": {"vo2_max", "vo2max"},
+            "vo2max": {"vo2_max", "vo2max"},
+            "threshold_power": {"threshold_power", "ftp_running"},
+            "ftp_running": {"threshold_power", "ftp_running"},
+        }
+        aliases.update(equivalent.get(raw, set()))
+        aliases.update(equivalent.get(canonical, set()))
+        return {item for item in aliases if item}
+
+    def canonical_metric_observation(
+        self,
+        metric: str,
+        *,
+        evaluation_metric: str | None = None,
+        extra_candidates: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any] | None:
+        """Return the newest valid observation for one metric, regardless of source.
+
+        Source type never participates in ranking. A Fitness Test, direct device,
+        provider entity, imported history point or profile entity is simply a dated
+        observation of the same canonical fact. The newest timestamp wins; source
+        metadata is retained only so the selected sensor value can explain where it
+        came from. Undated current/configured values are fallback candidates only.
+        """
+        aliases = self._metric_observation_aliases(metric)
+        aliases.update(self._metric_observation_aliases(evaluation_metric))
+        candidates: list[dict[str, Any]] = []
+
+        # Keep undated/current candidates first so any real dated observation wins.
+        for candidate in extra_candidates or []:
+            if isinstance(candidate, dict) and candidate.get("value") is not None:
+                candidates.append(dict(candidate))
+
+        # Both canonical histories are source-neutral stores. Inspect every alias
+        # because device adapters and provider-normalized history intentionally use
+        # slightly different public keys for a few long-established metrics.
+        for history in (self.metric_history, self.device_intraday_history):
+            for key in aliases:
+                for item in history.get(key) or []:
+                    if isinstance(item, dict) and item.get("value") is not None:
+                        candidate = dict(item)
+                        candidate.setdefault("metric", key)
+                        candidates.append(candidate)
+
+        # Test results remain immutable/rich. Add their published observations after
+        # compact history so an exact duplicate timestamp/value keeps the study/test
+        # provenance instead of the reduced longitudinal-history copy.
+        for observation in self.fitness_test_metric_observations():
+            observation_aliases = self._metric_observation_aliases(
+                observation.get("metric")
+            )
+            observation_aliases.update(
+                self._metric_observation_aliases(observation.get("evaluation_metric"))
+            )
+            if aliases.intersection(observation_aliases):
+                candidates.append(dict(observation))
+
+        if not candidates:
+            return None
+        # enumerate() is only a deterministic tie breaker for identical timestamps;
+        # it does not encode source quality or vendor priority.
+        _index, selected = max(
+            enumerate(candidates),
+            key=lambda pair: (self._metric_observation_timestamp(pair[1]), pair[0]),
+        )
+        return dict(selected)
+
+    def canonical_wellness_observation(self, metric: str) -> dict[str, Any] | None:
+        """Resolve a Wellness sensor from the newest source-agnostic observation."""
+        return self.canonical_metric_observation(metric)
+
+    def canonical_evaluation_metric_observation(
+        self,
+        metric: str,
+        provider: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
+        """Resolve an Evaluation input from the same universal observation timeline."""
+        provider = provider or collect_provider_metrics(self.hass, self.config)
+        specs = {
+            "vo2max": ("vo2max", CONF_VO2MAX),
+            "threshold_power": ("ftp_running", "threshold_power"),
+        }
+        spec = specs.get(metric)
+        if spec is None:
+            return self.canonical_metric_observation(metric, evaluation_metric=metric)
+        provider_key, config_key = spec
+        current_candidates: list[dict[str, Any]] = []
+
+        def entity_timestamp(entity_id: Any) -> str | None:
+            if not isinstance(entity_id, str) or not entity_id:
+                return None
+            state = self.hass.states.get(entity_id)
+            stamp = parse_timestamp(getattr(state, "last_changed", None)) if state else None
+            return stamp.isoformat() if stamp is not None else None
+
+        # Literal profile configuration has no observation timestamp. Keep it as a
+        # fallback; an entity-backed profile input carries the entity's real time.
+        configured_value = self.input_value(config_key)
+        if configured_value is not None:
+            raw_source = self.config.get(config_key)
+            source_entity = (
+                str(raw_source).strip() if is_entity_reference(raw_source) else None
+            )
+            current_candidates.append({
+                "metric": metric,
+                "evaluation_metric": metric,
+                "value": configured_value,
+                "timestamp": entity_timestamp(source_entity),
+                "source_type": "profile_entity" if source_entity else "profile_configuration",
+                "source_entity": source_entity,
+                "sources": [source_entity] if source_entity else [],
+                "method": "configured_input",
+            })
+
+        provider_value = provider.get(provider_key)
+        if provider_value is not None:
+            source_entity = provider.get(f"{provider_key}_entity")
+            current_candidates.append({
+                "metric": metric,
+                "evaluation_metric": metric,
+                "value": provider_value,
+                "timestamp": entity_timestamp(source_entity),
+                "source_type": "provider_entity",
+                "source_entity": source_entity,
+                "sources": [source_entity] if source_entity else [],
+                "method": "measured_or_provider_estimated",
+            })
+
+        return self.canonical_metric_observation(
+            metric,
+            evaluation_metric=metric,
+            extra_candidates=current_candidates,
+        )
 
     def latest_workout(self) -> Workout | None:
         """Return the newest persisted canonical workout.
@@ -6264,24 +6528,29 @@ class FitnessManager:
             if is_entity_reference(raw):
                 entity_to_metric[str(raw).strip()] = metric
 
-        # Persist normalized/selected Fitness facts with the observation time of
-        # their underlying entity. Never stamp a stale integration value with
-        # ``now``: direct-device history must remain newer when it really is.
-        def _source_stamp(entity_id: Any) -> datetime:
+        # Persist normalized facts only when their underlying entity provides a
+        # real observation timestamp. Never stamp a stale integration value with
+        # ``now``. An undated provider/config value is still a
+        # valid current fallback, but it must never be stamped with ``now`` and
+        # thereby outrank a genuinely newer observation from any other source.
+        def _source_stamp(entity_id: Any) -> datetime | None:
             if not isinstance(entity_id, str) or not entity_id:
-                return now
+                return None
             state = self.hass.states.get(entity_id)
             if state is None:
-                return now
-            return parse_timestamp(getattr(state, "last_changed", None)) or now
+                return None
+            return parse_timestamp(getattr(state, "last_changed", None))
 
         for metric in metric_keys:
             value = provider.get(metric)
             if value is None:
                 continue
             source_entity = provider.get(f"{metric}_entity")
+            source_stamp = _source_stamp(source_entity)
+            if source_stamp is None:
+                continue
             remember(
-                self.metric_history, metric, value, _source_stamp(source_entity),
+                self.metric_history, metric, value, source_stamp,
                 source_type="fitness_merged_current",
                 source_entity=source_entity,
                 sources=[str(source_entity)] if source_entity else [],
@@ -6289,14 +6558,38 @@ class FitnessManager:
             )
         for config_key, metric in ((CONF_WEIGHT,"weight"),(CONF_RESTING_HR,"resting_hr"),(CONF_VO2MAX,"vo2max")):
             value = self.input_value(config_key)
-            if value is not None:
-                raw_source = self.config.get(config_key)
-                source_entity = str(raw_source).strip() if is_entity_reference(raw_source) else None
-                remember(
-                    self.metric_history, metric, value, _source_stamp(source_entity),
-                    source_type="fitness_merged_current", source_entity=source_entity,
-                    sources=[source_entity] if source_entity else [], imported=False, now=now,
-                )
+            if value is None:
+                continue
+            raw_source = self.config.get(config_key)
+            source_entity = str(raw_source).strip() if is_entity_reference(raw_source) else None
+            source_stamp = _source_stamp(source_entity)
+            if source_stamp is None:
+                continue
+            remember(
+                self.metric_history, metric, value, source_stamp,
+                source_type="fitness_merged_current", source_entity=source_entity,
+                sources=[source_entity] if source_entity else [], imported=False, now=now,
+            )
+
+        # Fitness Tests publish every canonical derived metric into the same dated
+        # longitudinal timeline. No test source receives special selection rules:
+        # it wins only while its timestamp is the newest observation of that fact.
+        for observation in self.fitness_test_metric_observations():
+            history_metric = observation.get("evaluation_metric") or observation.get("metric")
+            stamp = parse_timestamp(observation.get("timestamp"))
+            if not history_metric or stamp is None:
+                continue
+            remember(
+                self.metric_history,
+                str(history_metric),
+                observation.get("value"),
+                stamp,
+                source_type="fitness_test",
+                source_entity=None,
+                sources=[str(observation.get("source_id") or "fitness_test")],
+                imported=False,
+                now=now,
+            )
 
         # Existing installations retain up to 90 days by importing Recorder
         # rows into Fitness storage. Recorder never directly produces a result.
@@ -6633,7 +6926,13 @@ class FitnessManager:
         resting_stats = stat("resting_hr")
         vo2_stats = stat("vo2max")
         current_resting = provider.get("resting_hr") or self.input_value(CONF_RESTING_HR)
-        current_vo2 = provider.get("vo2max") or self.input_value(CONF_VO2MAX)
+        current_vo2_observation = self.canonical_evaluation_metric_observation(
+            "vo2max", provider
+        )
+        current_vo2 = (
+            current_vo2_observation.get("value")
+            if current_vo2_observation is not None else None
+        )
 
         resting_7 = resting_stats.get("mean_7d") if resting_stats.get("days_7d", 0) >= 5 else None
         resting_28 = resting_stats.get("mean_28d") if resting_stats.get("days_28d", 0) >= 21 else None
@@ -7317,6 +7616,25 @@ class FitnessManager:
                 role=role,
             )
 
+        def observation_item(observation, role):
+            if not isinstance(observation, dict) or observation.get("value") is None:
+                return {}
+            item = {
+                "role": role,
+                "source_type": str(observation.get("source_type") or "canonical_observation"),
+                "value_used": observation.get("value"),
+                "observed_at": observation.get("timestamp"),
+            }
+            if observation.get("source_entity"):
+                item["entity_id"] = observation.get("source_entity")
+            if observation.get("source_name"):
+                item["source_name"] = observation.get("source_name")
+            if observation.get("sources"):
+                item["sources"] = list(observation.get("sources") or [])[:8]
+            if observation.get("method"):
+                item["method"] = observation.get("method")
+            return item
+
         if metric == "age":
             inputs.extend(
                 [
@@ -7415,14 +7733,35 @@ class FitnessManager:
             }
 
         if metric == "vo2max":
-            item = provider_item("vo2max", "vo2max")
-            if not item:
-                item = profile(CONF_VO2MAX, "vo2max", "vo2max")
-            if item:
-                add(item)
+            observation = self.canonical_evaluation_metric_observation(
+                "vo2max", provider
+            )
+            if observation and observation.get("source_type") == "fitness_test":
+                reference = observation.get("reference") or {}
+                add({
+                    "role": "vo2max",
+                    "source_type": "fitness_test",
+                    "source_name": observation.get("source_name"),
+                    "test_id": observation.get("test_id"),
+                    "test_result_id": observation.get("test_result_id"),
+                    "result_metric": observation.get("metric_kind"),
+                    "method": observation.get("method"),
+                    "value_used": observation.get("value"),
+                    "unit": observation.get("unit"),
+                    "performed_at": observation.get("timestamp"),
+                    "reference_title": reference.get("title"),
+                    "reference_url": reference.get("url"),
+                })
                 return {
-                    "value_origin": "provider_or_profile_input",
-                    "formula": "direct normalized VO₂max value; no Fitness estimation",
+                    "value_origin": "standardized_fitness_test_estimate",
+                    "formula": "newest dated canonical VO₂max observation used directly",
+                    "input_sources": inputs,
+                }
+            if observation:
+                add(observation_item(observation, "vo2max"))
+                return {
+                    "value_origin": "canonical_latest_observation",
+                    "formula": "newest dated canonical VO₂max observation used directly; source type does not affect selection",
                     "input_sources": inputs,
                 }
             max_info = self.evaluation_provenance("max_hr")
@@ -7547,13 +7886,35 @@ class FitnessManager:
             }
 
         if metric == "threshold_power":
-            item = provider_item("ftp_running", "running_ftp")
-            if not item:
-                item = profile("threshold_power", "power", "threshold_power")
-            add(item)
+            observation = self.canonical_evaluation_metric_observation(
+                "threshold_power", provider
+            )
+            if observation and observation.get("source_type") == "fitness_test":
+                reference = observation.get("reference") or {}
+                add({
+                    "role": "threshold_power",
+                    "source_type": "fitness_test",
+                    "source_name": observation.get("source_name"),
+                    "test_id": observation.get("test_id"),
+                    "test_result_id": observation.get("test_result_id"),
+                    "result_metric": observation.get("metric_kind"),
+                    "method": observation.get("method"),
+                    "value_used": observation.get("value"),
+                    "unit": observation.get("unit"),
+                    "performed_at": observation.get("timestamp"),
+                    "reference_title": reference.get("title"),
+                    "reference_url": reference.get("url"),
+                })
+                return {
+                    "value_origin": "standardized_fitness_test_estimate",
+                    "formula": "newest dated canonical threshold-power observation used directly",
+                    "input_sources": inputs,
+                }
+            if observation:
+                add(observation_item(observation, "threshold_power"))
             return {
-                "value_origin": "provider_or_profile_threshold_power",
-                "formula": "selected threshold/FTP power used directly; Fitness does not infer FTP",
+                "value_origin": "canonical_latest_observation" if observation else "unavailable",
+                "formula": "newest dated canonical threshold/FTP power observation used directly; source type does not affect selection",
                 "input_sources": inputs,
             }
 
@@ -7776,10 +8137,17 @@ class FitnessManager:
             max_hr = latest.max_hr
             max_hr_method = "observed_workout_peak"
 
-        # Evaluation reference comparisons require a provider/user VO2max. Do not
-        # manufacture a cardiorespiratory status from a fallback estimate.
-        vo2 = provider.get("vo2max") or self.input_value(CONF_VO2MAX)
-        vo2_method = "provider_or_user" if vo2 is not None else None
+        # VO₂max is resolved from the universal dated observation timeline. Tests,
+        # devices, provider entities and entity-backed profile inputs are peers; the
+        # newest timestamp wins and source metadata only explains the chosen value.
+        vo2_observation = self.canonical_evaluation_metric_observation(
+            "vo2max", provider
+        )
+        vo2 = vo2_observation.get("value") if vo2_observation is not None else None
+        vo2_method = (
+            f"canonical_observation:{vo2_observation.get('source_type') or 'unknown'}"
+            if vo2_observation is not None else None
+        )
 
         predicted = friend_predicted_vo2max(
             self.age(),
@@ -7795,14 +8163,24 @@ class FitnessManager:
         )
 
         threshold_hr = provider.get("threshold_hr") or self.input_value("threshold_hr")
-        threshold_power = provider.get("ftp_running") or self.input_value("threshold_power")
+        threshold_power_observation = self.canonical_evaluation_metric_observation(
+            "threshold_power", provider
+        )
+        threshold_power = (
+            threshold_power_observation.get("value")
+            if threshold_power_observation is not None else None
+        )
         threshold_pace = self.input_value("threshold_pace")
         if threshold_pace is None:
             threshold_pace = threshold_pace_from_speed(provider.get("threshold_speed"))
 
-        p2w = provider.get("power_to_weight_running")
-        if p2w is None and threshold_power and weight:
-            p2w = threshold_power / weight
+        # Derived power-to-weight must follow whichever threshold-power
+        # observation actually won the universal timeline, not the source class.
+        p2w = (
+            threshold_power / weight
+            if threshold_power and weight
+            else provider.get("power_to_weight_running")
+        )
 
         fitness_age = provider.get("fitness_age")
         age_difference = fitness_age - self.age() if fitness_age is not None else None

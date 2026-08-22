@@ -35,7 +35,7 @@ def test_add_dashboard_copy_no_longer_duplicates_plus_icon():
 def test_grid_uses_measured_masonry_gap_without_terminal_row_math():
     assert 'const skyline = Array(packUnits).fill(0)' in JS
     assert 'const packUnits = 200' in JS
-    assert 'const gap = FITNESS_TV_CAST_RECEIVER ? 6 :' in JS
+    assert 'const gap = Math.max(6, Number.parseFloat(getComputedStyle(this).getPropertyValue("--fitness-theme-gap")) || 12);' in JS
     assert 'const totalHeight = placed.length ? Math.max(0, ...skyline) - gap : 0;' in JS
 
 

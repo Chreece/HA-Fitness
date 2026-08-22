@@ -99,10 +99,11 @@ def test_double_back_stops_backend_cast_and_receiver_application():
     quit_block = remote[remote.index("  async _quitCastFromRemote("):remote.index("  _handleCastKeydown(event)")]
     assert 'await this._syncMediaState({playing:false, error:false});' in quit_block
     assert 'this._hass.callService("fitness", "stop_tv_dashboard"' in quit_block
-    assert 'type:"fitness/tv/local_cast_stopped"' in quit_block
-    assert 'reason:"tv_remote_double_back"' in quit_block
-    assert "CastReceiverContext?.getInstance?.()" in quit_block
-    assert "receiverContext.stop();" in quit_block
+    assert 'type:"fitness/tv/cast/stop"' in quit_block
+    assert 'await this._quitCastReceiver(`remote:${source}`);' in quit_block
+    receiver_quit = remote[remote.index("  async _quitCastReceiver("):remote.index("  async _quitCastFromRemote(")]
+    assert "CastReceiverContext?.getInstance?.()" in receiver_quit
+    assert "const stopped = receiverContext.stop();" in receiver_quit
 
 
 def test_exit_confirmation_is_localized_and_remote_debug_overlay_is_removed():

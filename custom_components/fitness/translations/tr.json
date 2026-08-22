@@ -233,16 +233,14 @@
           "fitness_account_role": "Rol",
           "fitness_network_access": "Ağ erişimi",
           "fitness_account_display_name": "Hesap adı",
-          "fitness_account_username": "Oturum açma adı",
-          "fitness_remote_slug": "Uzak hostname",
+          "fitness_account_username": "Kullanıcı adı / uzak hostname",
           "fitness_view_profile_entry_ids": "Hesap görüntüleme hakları"
         },
         "data_description": {
           "fitness_account_role": "Yöneticiler tam Fitness erişimine sahiptir. Yerel ve uzak kullanıcılar yalnızca kendi profillerini kontrol eder ve ek profilleri ancak yönetici izin verirse salt okunur olarak görebilir.",
           "fitness_network_access": "Giriş yalnızca uzak hostname üzerinden; HA LAN donanımı açılmaz. Yerel ve uzaktan giriş; LAN donanımı yalnızca gerçek yerel bağlantıda görünür.",
           "fitness_account_display_name": "Bu hesap yalnızca kendi Fitness profilini kontrol eder.",
-          "fitness_account_username": "Uzak hesaplarda varsayılan olarak alt alan adı kullanılır. Kullanıcı daha sonra oturum açma adını değiştirebilir.",
-          "fitness_remote_slug": "Bu hostname yalnızca bu uzak Fitness hesabına aittir.",
+          "fitness_account_username": "Zorunlu ve benzersizdir. Uzak erişimde aynı kullanıcı adı hesabın hostname/alt alan adı olur; ayrı bir uzak hostname yoktur.",
           "fitness_view_profile_entry_ids": "Seçilen hesaplar yalnızca görüntülenebilir; ayar, antrenman veya cihazları değiştirilemez."
         }
       },
@@ -260,7 +258,9 @@
       "invalid_role": "Rol: Bu alan zorunludur.",
       "invalid_network_access": "Ağ erişimi: Bu alan zorunludur.",
       "profile_not_found": "Seçilen hesaplar yalnızca görüntülenebilir; ayar, antrenman veya cihazları değiştirilemez.",
-      "required": "Bu alan zorunludur."
+      "required": "Bu alan zorunludur.",
+      "invalid_username": "Geçerli bir kullanıcı adı girin. Uzak erişim için yalnızca küçük harfler, rakamlar ve tire kullanın.",
+      "username_in_use": "Bu Fitness kullanıcı adı zaten kullanılıyor."
     },
     "abort": {
       "already_configured": "Bu ada sahip bir Fitness profili zaten var.",

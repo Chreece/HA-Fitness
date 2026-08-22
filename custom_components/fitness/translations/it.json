@@ -233,16 +233,14 @@
           "fitness_account_role": "Ruolo",
           "fitness_network_access": "Accesso di rete",
           "fitness_account_display_name": "Nome account",
-          "fitness_account_username": "Nome di accesso",
-          "fitness_remote_slug": "Hostname remoto",
+          "fitness_account_username": "Nome utente / hostname remoto",
           "fitness_view_profile_entry_ids": "Diritti di visualizzazione account"
         },
         "data_description": {
           "fitness_account_role": "Gli amministratori hanno accesso completo a Fitness. Gli utenti locali e remoti controllano solo il proprio profilo e possono visualizzare altri profili in sola lettura solo se autorizzati da un amministratore.",
           "fitness_network_access": "Accesso solo tramite hostname remoto; l’hardware LAN HA non viene mai esposto. Accesso locale e remoto; hardware LAN visibile solo con connessione realmente locale.",
           "fitness_account_display_name": "Questo account controlla solo il proprio profilo Fitness.",
-          "fitness_account_username": "Per gli account remoti il sottodominio è predefinito. L’utente può cambiare il nome di accesso in seguito.",
-          "fitness_remote_slug": "Questo hostname appartiene esclusivamente a questo account Fitness remoto.",
+          "fitness_account_username": "Obbligatorio e univoco. Con accesso remoto, lo stesso nome utente è anche l’hostname/sottodominio dell’account; non esiste un hostname remoto separato.",
           "fitness_view_profile_entry_ids": "Gli account selezionati sono in sola lettura; non è possibile modificarne impostazioni, allenamenti o dispositivi."
         }
       },
@@ -260,7 +258,9 @@
       "invalid_role": "Ruolo: Questo campo è obbligatorio.",
       "invalid_network_access": "Accesso di rete: Questo campo è obbligatorio.",
       "profile_not_found": "Gli account selezionati sono in sola lettura; non è possibile modificarne impostazioni, allenamenti o dispositivi.",
-      "required": "Questo campo è obbligatorio."
+      "required": "Questo campo è obbligatorio.",
+      "invalid_username": "Inserisci un nome utente valido. Per l’accesso remoto usa solo lettere minuscole, numeri e trattini.",
+      "username_in_use": "Questo nome utente Fitness è già in uso."
     },
     "abort": {
       "already_configured": "Esiste già un profilo Fitness con questo nome.",

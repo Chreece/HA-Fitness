@@ -134,7 +134,7 @@ _LEGACY_CAST_RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard-cast.js"
 _RESOURCE_PREFIX = "/fitness/frontend/fitness-dashboard-"
 _RESOURCE_NAMESPACE = "/fitness/frontend/fitness-dashboard.js"
 _RESOURCE_URL = f"{_RESOURCE_NAMESPACE}?v=unreleased-138"
-_RESOURCE_URL += "&build=cast-ui-146"
+_RESOURCE_URL += "&build=cast-ui-155"
 _SETUP_KEY = "_dashboard_frontend_setup"
 _RECONCILE_TASK_KEY = "_dashboard_reconcile_task"
 _RECONCILE_LAST_KEY = "_dashboard_reconcile_last"
@@ -2301,7 +2301,7 @@ _TV_DASHBOARD_ACCESS_TEXT: dict[str, dict[str, str]] = {
         "new_fitness_account":"Νέος λογαριασμός Fitness",
         "account_display_name":"Όνομα λογαριασμού",
         "account_username":"Όνομα σύνδεσης",
-        "account_username_hint":"Στους απομακρυσμένους λογαριασμούς προεπιλέγεται το subdomain. Ο χρήστης μπορεί αργότερα να το αλλάξει.",
+        "account_username_hint":"Το όνομα χρήστη είναι υποχρεωτικό και μοναδικό. Με απομακρυσμένη πρόσβαση είναι και το hostname/subdomain του λογαριασμού.",
         "remote_subdomain_hint":"Αυτό το hostname ανήκει αποκλειστικά σε αυτόν τον απομακρυσμένο λογαριασμό Fitness.",
         "account_enabled":"Ενεργός",
         "remote_url_pending":"Επίλεξε subdomain για να δημιουργηθεί το απομακρυσμένο URL.",
@@ -2386,7 +2386,7 @@ _TV_DASHBOARD_ACCESS_TEXT: dict[str, dict[str, str]] = {
         "new_fitness_account":"Neues Fitness-Konto",
         "account_display_name":"Kontoname",
         "account_username":"Anmeldename",
-        "account_username_hint":"Bei Remote-Konten ist die Subdomain der Standard. Der Benutzer kann den Namen später ändern.",
+        "account_username_hint":"Der Benutzername ist erforderlich und eindeutig. Bei Remote-Zugriff ist er zugleich Hostname/Subdomain des Kontos.",
         "remote_subdomain_hint":"Dieser Hostname gehört ausschließlich zu diesem Remote-Fitness-Konto.",
         "account_enabled":"Aktiv",
         "remote_url_pending":"Wähle eine Subdomain, um die Remote-URL zu erstellen.",
@@ -2440,21 +2440,21 @@ _TV_DASHBOARD_MULTI_TEXT: dict[str, dict[str, str]] = {
 }
 
 _TV_DASHBOARD_LAYOUT_TEXT: dict[str, dict[str, str]] = {
-    "en":{"manage_dashboards":"Dashboards","dashboard_auto_size":"Auto-size cards","toolbar_auto_hide":"Auto-hide top bar","toolbar_auto_hide_hint":"Hide the top bar after inactivity. Move or scroll to the top, or press Up from a top-row TV card, to show it again.","resize_card":"Resize card","reset_card_size":"Use automatic size"},
-    "el":{"manage_dashboards":"Πίνακες","dashboard_auto_size":"Αυτόματο μέγεθος καρτών","toolbar_auto_hide":"Αυτόματη απόκρυψη επάνω μπάρας","toolbar_auto_hide_hint":"Κρύβει την επάνω μπάρα μετά από αδράνεια. Μετακινήσου ή κύλησε στην κορυφή ή πάτησε Πάνω από κάρτα της επάνω σειράς στην TV για να εμφανιστεί ξανά.","resize_card":"Αλλαγή μεγέθους κάρτας","reset_card_size":"Αυτόματο μέγεθος"},
-    "de":{"manage_dashboards":"Dashboards","dashboard_auto_size":"Karten automatisch anpassen","toolbar_auto_hide":"Obere Leiste automatisch ausblenden","toolbar_auto_hide_hint":"Blendet die obere Leiste nach Inaktivität aus. Bewege oder scrolle nach oben oder drücke auf dem TV von einer Karte der obersten Reihe aus Nach oben, um sie wieder einzublenden.","resize_card":"Kartengröße ändern","reset_card_size":"Automatische Größe verwenden"},
-    "es":{"manage_dashboards":"Paneles","dashboard_auto_size":"Ajustar tarjetas automáticamente","toolbar_auto_hide":"Ocultar barra superior automáticamente","toolbar_auto_hide_hint":"Oculta la barra superior tras un periodo de inactividad. Mueve o desplázate arriba, o pulsa Arriba desde una tarjeta de la fila superior del televisor, para mostrarla de nuevo.","resize_card":"Cambiar tamaño de tarjeta","reset_card_size":"Usar tamaño automático"},
-    "fr":{"manage_dashboards":"Tableaux","dashboard_auto_size":"Dimensionner automatiquement les cartes","toolbar_auto_hide":"Masquer automatiquement la barre supérieure","toolbar_auto_hide_hint":"Masque la barre supérieure après une période d’inactivité. Revenez en haut ou appuyez sur Haut depuis une carte de la première rangée du téléviseur pour la réafficher.","resize_card":"Redimensionner la carte","reset_card_size":"Utiliser la taille automatique"},
-    "it":{"manage_dashboards":"Dashboard","dashboard_auto_size":"Ridimensiona automaticamente le schede","toolbar_auto_hide":"Nascondi automaticamente la barra superiore","toolbar_auto_hide_hint":"Nasconde la barra superiore dopo un periodo di inattività. Spostati o scorri verso l’alto oppure premi Su da una scheda della riga superiore sulla TV per mostrarla di nuovo.","resize_card":"Ridimensiona scheda","reset_card_size":"Usa dimensione automatica"},
-    "ja":{"manage_dashboards":"ダッシュボード","dashboard_auto_size":"カードを自動サイズ調整","toolbar_auto_hide":"上部バーを自動的に隠す","toolbar_auto_hide_hint":"操作がないと上部バーを隠します。上端へ移動・スクロールするか、TVで最上段のカードから上を押すと再表示します。","resize_card":"カードのサイズ変更","reset_card_size":"自動サイズを使用"},
-    "ko":{"manage_dashboards":"대시보드","dashboard_auto_size":"카드 자동 크기 조정","toolbar_auto_hide":"상단 표시줄 자동 숨김","toolbar_auto_hide_hint":"일정 시간 사용하지 않으면 상단 표시줄을 숨깁니다. 위쪽으로 이동하거나 스크롤하거나 TV에서 맨 위 행 카드에서 위쪽을 누르면 다시 표시됩니다.","resize_card":"카드 크기 조절","reset_card_size":"자동 크기 사용"},
-    "nl":{"manage_dashboards":"Dashboards","dashboard_auto_size":"Kaarten automatisch schalen","toolbar_auto_hide":"Bovenbalk automatisch verbergen","toolbar_auto_hide_hint":"Verbergt de bovenbalk na inactiviteit. Beweeg of scroll naar boven, of druk op Omhoog vanaf een kaart in de bovenste rij op de tv, om hem weer te tonen.","resize_card":"Kaartgrootte wijzigen","reset_card_size":"Automatische grootte gebruiken"},
-    "pl":{"manage_dashboards":"Pulpity","dashboard_auto_size":"Automatycznie dopasuj karty","toolbar_auto_hide":"Automatycznie ukrywaj górny pasek","toolbar_auto_hide_hint":"Ukrywa górny pasek po bezczynności. Przejdź lub przewiń do góry albo naciśnij Góra na TV z karty w górnym rzędzie, aby pokazać go ponownie.","resize_card":"Zmień rozmiar karty","reset_card_size":"Użyj automatycznego rozmiaru"},
-    "pt":{"manage_dashboards":"Painéis","dashboard_auto_size":"Dimensionar cartões automaticamente","toolbar_auto_hide":"Ocultar automaticamente a barra superior","toolbar_auto_hide_hint":"Oculta a barra superior após inatividade. Mova ou desloque para o topo, ou prima Para cima num cartão da fila superior da TV, para a mostrar novamente.","resize_card":"Redimensionar cartão","reset_card_size":"Usar tamanho automático"},
-    "ru":{"manage_dashboards":"Панели","dashboard_auto_size":"Автоматически подобрать размер карточек","toolbar_auto_hide":"Автоматически скрывать верхнюю панель","toolbar_auto_hide_hint":"Скрывает верхнюю панель после бездействия. Переместитесь или прокрутите вверх либо нажмите Вверх на верхней карточке ТВ, чтобы показать её снова.","resize_card":"Изменить размер карточки","reset_card_size":"Использовать автоматический размер"},
-    "tr":{"manage_dashboards":"Panolar","dashboard_auto_size":"Kartları otomatik boyutlandır","toolbar_auto_hide":"Üst çubuğu otomatik gizle","toolbar_auto_hide_hint":"Hareketsizlikten sonra üst çubuğu gizler. Yeniden göstermek için üste gidin veya kaydırın ya da TV’de üst sıradaki bir karttan Yukarı tuşuna basın.","resize_card":"Kartı yeniden boyutlandır","reset_card_size":"Otomatik boyutu kullan"},
-    "uk":{"manage_dashboards":"Панелі","dashboard_auto_size":"Автоматично підібрати розмір карток","toolbar_auto_hide":"Автоматично приховувати верхню панель","toolbar_auto_hide_hint":"Приховує верхню панель після бездіяльності. Перейдіть або прокрутіть угору чи натисніть Вгору на верхній картці TV, щоб показати її знову.","resize_card":"Змінити розмір картки","reset_card_size":"Використати автоматичний розмір"},
-    "zh":{"manage_dashboards":"仪表板","dashboard_auto_size":"自动调整卡片大小","toolbar_auto_hide":"自动隐藏顶部栏","toolbar_auto_hide_hint":"空闲后隐藏顶部栏。移动或滚动到顶部，或在电视上从顶行卡片按向上键，即可再次显示。","resize_card":"调整卡片大小","reset_card_size":"使用自动大小"},
+    "en":{"manage_dashboards":"Dashboards","dashboard_auto_size":"Auto-size cards","toolbar_auto_hide":"Auto-hide top bar","toolbar_auto_hide_hint":"Hide the top bar after inactivity. On Cast, show it again only with the down-arrow button or by pressing Up from the dashboard browser.","resize_card":"Resize card","reset_card_size":"Use automatic size"},
+    "el":{"manage_dashboards":"Πίνακες","dashboard_auto_size":"Αυτόματο μέγεθος καρτών","toolbar_auto_hide":"Αυτόματη απόκρυψη επάνω μπάρας","toolbar_auto_hide_hint":"Κρύβει την επάνω μπάρα μετά από αδράνεια. Στο Cast εμφανίζεται ξανά μόνο με το κουμπί κάτω βέλους ή πατώντας Πάνω από τον browser πινάκων.","resize_card":"Αλλαγή μεγέθους κάρτας","reset_card_size":"Αυτόματο μέγεθος"},
+    "de":{"manage_dashboards":"Dashboards","dashboard_auto_size":"Karten automatisch anpassen","toolbar_auto_hide":"Obere Leiste automatisch ausblenden","toolbar_auto_hide_hint":"Blendet die obere Leiste nach Inaktivität aus. Im Cast erscheint sie nur über die Pfeil-nach-unten-Schaltfläche oder mit Nach oben im Dashboard-Browser.","resize_card":"Kartengröße ändern","reset_card_size":"Automatische Größe verwenden"},
+    "es":{"manage_dashboards":"Paneles","dashboard_auto_size":"Ajustar tarjetas automáticamente","toolbar_auto_hide":"Ocultar barra superior automáticamente","toolbar_auto_hide_hint":"Oculta la barra superior tras un periodo de inactividad. En Cast vuelve a mostrarse solo con el botón de flecha abajo o pulsando Arriba desde el navegador de paneles.","resize_card":"Cambiar tamaño de tarjeta","reset_card_size":"Usar tamaño automático"},
+    "fr":{"manage_dashboards":"Tableaux","dashboard_auto_size":"Dimensionner automatiquement les cartes","toolbar_auto_hide":"Masquer automatiquement la barre supérieure","toolbar_auto_hide_hint":"Masque la barre supérieure après une période d’inactivité. En Cast, elle ne réapparaît qu’avec le bouton flèche vers le bas ou en appuyant sur Haut depuis le navigateur de tableaux.","resize_card":"Redimensionner la carte","reset_card_size":"Utiliser la taille automatique"},
+    "it":{"manage_dashboards":"Dashboard","dashboard_auto_size":"Ridimensiona automaticamente le schede","toolbar_auto_hide":"Nascondi automaticamente la barra superiore","toolbar_auto_hide_hint":"Nasconde la barra superiore dopo un periodo di inattività. In Cast riappare solo con il pulsante freccia giù o premendo Su dal browser delle dashboard.","resize_card":"Ridimensiona scheda","reset_card_size":"Usa dimensione automatica"},
+    "ja":{"manage_dashboards":"ダッシュボード","dashboard_auto_size":"カードを自動サイズ調整","toolbar_auto_hide":"上部バーを自動的に隠す","toolbar_auto_hide_hint":"操作がないと上部バーを隠します。Castでは、下矢印ボタンを押すか、ダッシュボードブラウザーで上を押したときだけ再表示します。","resize_card":"カードのサイズ変更","reset_card_size":"自動サイズを使用"},
+    "ko":{"manage_dashboards":"대시보드","dashboard_auto_size":"카드 자동 크기 조정","toolbar_auto_hide":"상단 표시줄 자동 숨김","toolbar_auto_hide_hint":"일정 시간 사용하지 않으면 상단 표시줄을 숨깁니다. Cast에서는 아래쪽 화살표 버튼을 누르거나 대시보드 브라우저에서 위쪽을 눌렀을 때만 다시 표시됩니다.","resize_card":"카드 크기 조절","reset_card_size":"자동 크기 사용"},
+    "nl":{"manage_dashboards":"Dashboards","dashboard_auto_size":"Kaarten automatisch schalen","toolbar_auto_hide":"Bovenbalk automatisch verbergen","toolbar_auto_hide_hint":"Verbergt de bovenbalk na inactiviteit. In Cast verschijnt die alleen via de knop met pijl omlaag of door Omhoog te drukken vanuit de dashboardbrowser.","resize_card":"Kaartgrootte wijzigen","reset_card_size":"Automatische grootte gebruiken"},
+    "pl":{"manage_dashboards":"Pulpity","dashboard_auto_size":"Automatycznie dopasuj karty","toolbar_auto_hide":"Automatycznie ukrywaj górny pasek","toolbar_auto_hide_hint":"Ukrywa górny pasek po bezczynności. W trybie Cast pojawia się ponownie tylko po użyciu przycisku strzałki w dół lub naciśnięciu Góra w przeglądarce pulpitów.","resize_card":"Zmień rozmiar karty","reset_card_size":"Użyj automatycznego rozmiaru"},
+    "pt":{"manage_dashboards":"Painéis","dashboard_auto_size":"Dimensionar cartões automaticamente","toolbar_auto_hide":"Ocultar automaticamente a barra superior","toolbar_auto_hide_hint":"Oculta a barra superior após inatividade. No Cast, volta a aparecer apenas com o botão de seta para baixo ou ao premir Para cima no navegador de painéis.","resize_card":"Redimensionar cartão","reset_card_size":"Usar tamanho automático"},
+    "ru":{"manage_dashboards":"Панели","dashboard_auto_size":"Автоматически подобрать размер карточек","toolbar_auto_hide":"Автоматически скрывать верхнюю панель","toolbar_auto_hide_hint":"Скрывает верхнюю панель после бездействия. В Cast она появляется снова только по кнопке со стрелкой вниз или по нажатию Вверх в браузере панелей.","resize_card":"Изменить размер карточки","reset_card_size":"Использовать автоматический размер"},
+    "tr":{"manage_dashboards":"Panolar","dashboard_auto_size":"Kartları otomatik boyutlandır","toolbar_auto_hide":"Üst çubuğu otomatik gizle","toolbar_auto_hide_hint":"Hareketsizlikten sonra üst çubuğu gizler. Cast’te yalnızca aşağı ok düğmesiyle veya pano tarayıcısındayken Yukarı tuşuna basarak yeniden gösterilir.","resize_card":"Kartı yeniden boyutlandır","reset_card_size":"Otomatik boyutu kullan"},
+    "uk":{"manage_dashboards":"Панелі","dashboard_auto_size":"Автоматично підібрати розмір карток","toolbar_auto_hide":"Автоматично приховувати верхню панель","toolbar_auto_hide_hint":"Приховує верхню панель після бездіяльності. У Cast вона знову з’являється лише кнопкою зі стрілкою вниз або натисканням Вгору в браузері панелей.","resize_card":"Змінити розмір картки","reset_card_size":"Використати автоматичний розмір"},
+    "zh":{"manage_dashboards":"仪表板","dashboard_auto_size":"自动调整卡片大小","toolbar_auto_hide":"自动隐藏顶部栏","toolbar_auto_hide_hint":"空闲后隐藏顶部栏。在 Cast 中，只能通过向下箭头按钮，或在仪表板浏览器上按向上键再次显示。","resize_card":"调整卡片大小","reset_card_size":"使用自动大小"},
 }
 
 
@@ -3900,7 +3900,8 @@ async def websocket_tv_browser_receiver(hass: HomeAssistant, connection, msg) ->
         except Exception:
             connection.send_error(msg["id"], "unauthorized", "Fitness profile control required")
             return
-        cast_state = get_tv_dashboard_hub(hass).cast_descriptor(profile_entry_id)
+        cast_hub = get_tv_dashboard_hub(hass)
+        cast_state = cast_hub.cast_descriptor(profile_entry_id)
         if cast_state.get("busy"):
             connection.send_error(
                 msg["id"], "cast_already_active", "This Fitness profile is already casting"
@@ -3938,6 +3939,42 @@ async def websocket_tv_browser_receiver(hass: HomeAssistant, connection, msg) ->
         origin = ""
 
     target_key = f"browser:{launch_entity_id or 'manual'}:{'overview' if overview else profile_entry_id}"
+    profile_cast_reserved = False
+    overview_cast_reserved = False
+    if launch_target is not None:
+        # Automatic Smart-TV launch is a real Cast attempt. Reserve its slot
+        # *before* calling Android TV so another controller cannot start HA Cast
+        # or Google Cast during the 12-second receiver bootstrap window.
+        if overview:
+            state = _tv_overview_cast_state(hass)
+            if _tv_overview_cast_descriptor(hass).get("busy"):
+                connection.send_error(
+                    msg["id"], "cast_already_active", "Fitness overview is already casting"
+                )
+                return
+            state.update({
+                "active": False,
+                "target": "browser",
+                "transport": "browser_receiver",
+                "receiver_client_id": "",
+                "stop_receiver_client_id": "",
+                "connecting": True,
+                "started_at": time.monotonic(),
+                "last_seen": 0.0,
+            })
+            overview_cast_reserved = True
+        else:
+            try:
+                cast_hub.expect_local_cast(
+                    profile_entry_id, f"browser-launch:{launch_entity_id}"
+                )
+                profile_cast_reserved = True
+            except ValueError:
+                connection.send_error(
+                    msg["id"], "cast_already_active", "This Fitness profile is already casting"
+                )
+                return
+
     account_controller = get_fitness_account_controller(hass)
     try:
         ticket = account_controller.issue_cast_bootstrap(
@@ -3949,6 +3986,14 @@ async def websocket_tv_browser_receiver(hass: HomeAssistant, connection, msg) ->
             ),
         )
     except ValueError as err:
+        if profile_cast_reserved:
+            cast_hub.clear_expected_local_cast(profile_entry_id)
+        if overview_cast_reserved:
+            _tv_overview_cast_state(hass).update({
+                "active": False, "target": "", "transport": "",
+                "receiver_client_id": "", "stop_receiver_client_id": "",
+                "connecting": False, "started_at": 0.0, "last_seen": 0.0,
+            })
         connection.send_error(msg["id"], str(err), "Unable to create TV browser receiver")
         return
     path = f"/fitness/cast/{ticket}?fitness_cast_receiver=1"
@@ -3998,6 +4043,14 @@ async def websocket_tv_browser_receiver(hass: HomeAssistant, connection, msg) ->
                 profile_entry_id=profile_entry_id,
                 target_entity_id=target_key,
             )
+            if profile_cast_reserved:
+                cast_hub.clear_expected_local_cast(profile_entry_id)
+            if overview_cast_reserved:
+                _tv_overview_cast_state(hass).update({
+                    "active": False, "target": "", "transport": "",
+                    "receiver_client_id": "", "stop_receiver_client_id": "",
+                    "connecting": False, "started_at": 0.0, "last_seen": 0.0,
+                })
 
     connection.send_result(msg["id"], {
         "path": path,
@@ -4008,6 +4061,10 @@ async def websocket_tv_browser_receiver(hass: HomeAssistant, connection, msg) ->
         "launch_error": launch_error or None,
         "launch_target": launch_target,
         "remote_receiver": not bool(access.get("is_local_connection")),
+        "cast": (
+            _tv_overview_cast_descriptor(hass)
+            if overview else cast_hub.cast_descriptor(profile_entry_id)
+        ),
     })
 
 
@@ -4933,10 +4990,13 @@ def _dashboard_today_summary(manager) -> dict[str, Any]:
 async def websocket_training_tests(hass: HomeAssistant, connection, msg) -> None:
     """Return built-in structured tests available to this athlete."""
     try:
-        entry, _manager = await _dashboard_profile_for_view(hass, connection, msg["profile_entry_id"])
+        entry, manager = await _dashboard_profile_for_view(hass, connection, msg["profile_entry_id"])
     except ValueError as err:
         connection.send_error(msg["id"], str(err), str(err)); return
-    connection.send_result(msg["id"], {"tests": fitness_test_catalog(_language(entry))})
+    connection.send_result(msg["id"], {
+        "tests": fitness_test_catalog(_language(entry)),
+        "results": manager.latest_fitness_test_results(),
+    })
 
 
 @websocket_api.websocket_command({

@@ -41,9 +41,10 @@ def test_stop_cast_is_visible_only_for_the_cast_mode_that_is_actually_active():
     assert 'id="cast-stop" hidden' in FRONTEND
     assert 'const castConnected = this._castState === "connected";' in FRONTEND
     assert 'const castPending = this._castState === "connecting";' in FRONTEND
-    assert 'stopCast.hidden = !FITNESS_TV_CAST_RECEIVER || !castConnected' in FRONTEND
-    assert 'modalHaStop.hidden = !serverBusy' in FRONTEND
-    assert 'modalHaStart.hidden = serverBusy' in FRONTEND
+    assert 'if (stopCast) { stopCast.hidden = true; stopCast.disabled = true; }' in FRONTEND
+    assert 'if (modalHaStop) { modalHaStop.hidden = true; modalHaStop.disabled = true; }' in FRONTEND
+    assert 'modalHaStart.disabled = castPending || (!castConnected' in FRONTEND
+    assert 'startLabel.textContent = castConnected ? l.cast_stop' in FRONTEND
 
 
 def test_ytdlp_playlist_search_uses_youtube_playlist_filter_and_is_playable():

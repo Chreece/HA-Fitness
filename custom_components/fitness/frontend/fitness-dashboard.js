@@ -7,12 +7,21 @@ const FITNESS_BUTTON_GUARD_CSS = `
 button,[role="button"]{box-sizing:border-box;max-width:100%;min-width:0;overflow:hidden;overflow-wrap:anywhere;word-break:normal;touch-action:pan-y}
 button>span,[role="button"]>span,.tool>span,.primary-tool>span,.adapter-setup>span,.flow-home>span{min-width:0!important;max-width:100%!important;white-space:normal!important;overflow:hidden!important;text-overflow:clip!important;overflow-wrap:anywhere!important;word-break:normal!important;line-height:1.16!important;text-align:center}
 button>ha-icon,[role="button"]>ha-icon{flex:0 0 auto}
+@keyframes fitness-cast-pending-spin{to{transform:rotate(1turn)}}
+:host(:not([fitness-cast-receiver])) .cast-pending ha-icon[icon="mdi:loading"]{animation:fitness-cast-pending-spin .82s linear infinite!important;transform-origin:50% 50%!important;will-change:transform}
 .setup-actions,.profile-actions,.settings-actions,.modal-actions,.access-user-actions,.flow-actions,.admin-weight-actions,.fitness-notification-actions{align-items:center!important;align-content:center!important}
 .setup-actions>button,.profile-actions>button,.settings-actions>button,.modal-actions>button,.access-user-actions>button,.flow-actions>button,.admin-weight-actions>button,.fitness-notification-actions>button{align-self:center!important;height:auto!important;max-height:none!important}
 :host([fitness-natural-height]){display:block!important;width:100%!important;min-width:0!important;max-width:100%!important;height:auto!important;max-height:none!important;overflow:visible!important}
 :host([fitness-natural-height]) > ha-card{box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:100%!important;height:auto!important;max-height:none!important;min-height:var(--fitness-natural-card-min-height,0px)!important}
 :host([fitness-user-sized]){min-height:var(--fitness-user-card-min-height,0px)!important}
 :host([fitness-user-sized]) > ha-card{min-height:var(--fitness-user-card-min-height,var(--fitness-natural-card-min-height,0px))!important}
+/* Restricted DashCast defines a lightweight ha-card custom element rather than
+   Home Assistant's styled ha-card implementation. Give every mounted Cast card
+   an opaque theme surface inside its own shadow root. background-color is used
+   deliberately so a card's supported gradient/background-image can still render
+   above this fallback; older TV engines that reject color-mix() no longer fall
+   through to transparent. */
+:host([fitness-tv-display]) > ha-card{background-color:var(--ha-card-background,var(--card-background-color,#1d1f22))!important}
 :host([fitness-natural-height]) .rows{max-height:none!important;overflow-y:visible!important}
 /* Shared modal/card audit contract.  Every overlay gets exactly one bounded
    vertical scroll surface; its content panels themselves stay natural-height
@@ -192,6 +201,36 @@ button>ha-icon,[role="button"]>ha-icon{flex:0 0 auto}
 :host([fitness-cast-receiver]) ha-card.tv-shell,:host([fitness-cast-receiver]) ha-card.setup-shell{background:transparent!important}
 :host([fitness-cast-receiver]) .tv-toolbar{background:var(--card-background-color,#1d1f22)!important;border:1px solid var(--divider-color,#3b4147)!important;box-shadow:0 10px 28px rgba(0,0,0,.28)!important}
 :host([fitness-cast-receiver]) .tv-card-slot{filter:none!important;box-shadow:0 8px 18px rgba(0,0,0,.08)!important}
+/* Receiver surface envelope: paint the card before crossing any custom-element
+   shadow boundary. DashCast and Browser-TV runtimes can lose/reject an inner
+   ha-card paint layer even when the nested CSS is correct. The slot + mounted
+   custom-element host therefore carry the same HA card surface as an opaque
+   underlay; card-specific gradients and child surfaces still render above it. */
+:host([fitness-cast-receiver]) .tv-card-slot:not(.fitness-empty-card),
+:host([fitness-cast-receiver]) .tv-card-slot:not(.fitness-empty-card)>.tv-mounted-card{
+  background-color:var(--ha-card-background,var(--card-background-color,#1d1f22))!important;
+  border-radius:var(--ha-card-border-radius,var(--fitness-theme-radius,22px))!important
+}
+/* Receiver cards are hard layout boxes just like normal dashboard cards.
+   Child canvases, maps, focus effects and old-TV compositor layers may paint
+   beyond their measured host; clip those pixels at the slot boundary so one
+   card can never cover a neighbour or the dashboard navigator. */
+:host([fitness-cast-receiver]) .tv-card-slot:not(.fitness-empty-card){
+  overflow:hidden!important;
+  contain:layout paint!important;
+  isolation:isolate!important;
+  z-index:1!important
+}
+/* Cast dashboard browser is viewport chrome, not dashboard content. Keep it
+   outside the scrollable card shell so masonry reflow/scroll/focus can never
+   move or cover it. Modals intentionally suppress it; the exit-confirm overlay
+   remains the only receiver layer above modal content. */
+:host([fitness-cast-receiver]) .cast-dashboard-browser-root{position:fixed!important;top:max(8px,env(safe-area-inset-top))!important;left:0!important;right:0!important;width:100vw!important;z-index:8000!important;display:flex!important;justify-content:center!important;align-items:flex-start!important;pointer-events:none!important;isolation:isolate!important;transform:none!important;filter:none!important;contain:layout style!important}
+:host([fitness-cast-receiver]) .cast-dashboard-browser-root .dashboard-browser-row{position:relative!important;top:auto!important;left:auto!important;right:auto!important;z-index:1!important;width:100%!important;max-width:100vw!important;margin:0!important;padding:0 max(8px,env(safe-area-inset-right)) 0 max(8px,env(safe-area-inset-left))!important;pointer-events:none!important;transform:none!important;filter:none!important;opacity:1!important}
+:host([fitness-cast-receiver]) .cast-dashboard-browser-root .dashboard-switcher,:host([fitness-cast-receiver]) .cast-dashboard-browser-root .toolbar-reveal-zone{position:relative!important;z-index:2!important;pointer-events:auto!important;transform:none!important;filter:none!important;opacity:1!important;margin-top:0!important;margin-bottom:0!important}
+:host([fitness-cast-receiver]) .cast-dashboard-browser-root .dashboard-switcher.fitness-remote-section-selected,:host([fitness-cast-receiver]) .cast-dashboard-browser-root .dashboard-switcher.fitness-remote-section-active{z-index:3!important;transform:none!important;filter:none!important;opacity:1!important}
+:host([fitness-cast-receiver][dashboard-browser-visible]) ha-card.tv-shell{padding-top:var(--fitness-cast-browser-reserve,44px)!important}
+:host([fitness-cast-receiver][cast-modal-open]) .cast-dashboard-browser-root{visibility:hidden!important;pointer-events:none!important}
 :host([fitness-cast-receiver]) .tv-mounted-card{--ha-card-background:var(--card-background-color,#1d1f22);--accent-color:var(--fitness-theme-accent,var(--primary-color,#03a9f4));--state-icon-active-color:var(--fitness-theme-accent,var(--primary-color,#03a9f4));--paper-item-icon-active-color:var(--fitness-theme-accent,var(--primary-color,#03a9f4));--fitness-card-accent:var(--fitness-theme-accent,var(--primary-color,#03a9f4))}
 :host([fitness-cast-receiver]) .modal-backdrop{top:6px!important;bottom:6px!important;left:6px!important;right:6px!important;padding:0!important;display:grid!important;place-items:center!important;overflow:hidden!important;background:rgba(0,0,0,.58)!important}
 :host([fitness-cast-receiver]) .modal-card{width:min(920px,calc(100vw - 24px))!important;max-width:calc(100vw - 24px)!important;height:auto!important;max-height:calc(100dvh - 24px)!important;background:var(--card-background-color,#1d1f22)!important;overflow:hidden!important}
@@ -1662,9 +1701,20 @@ const _fitnessFormatLabel = (value, replacements = {}) => String(value ?? "").re
     ? String(replacements[key])
     : match,
 );
-const _fitnessSmartTvLaunchSelection = (root, prefix, launchTargets = [], labels = {}) => {
+const _fitnessCastControlState = (descriptor) => {
+  if (descriptor && typeof descriptor === "object") {
+    const raw = String(descriptor.state || "").trim();
+    const state = ["idle","connecting","connected"].includes(raw)
+      ? raw
+      : (descriptor.active ? "connected" : (descriptor.pending || descriptor.busy ? "connecting" : "idle"));
+    return {state, connected:state === "connected", connecting:state === "connecting", busy:state !== "idle"};
+  }
+  return {state:descriptor ? "connecting" : "idle", connected:false, connecting:Boolean(descriptor), busy:Boolean(descriptor)};
+};
+const _fitnessSmartTvLaunchSelection = (root, prefix, launchTargets = [], labels = {}, castDescriptor = null) => {
   const select = root?.querySelector?.(`#${prefix}-launch`);
   const button = root?.querySelector?.(`#${prefix}-create`);
+  const cast = _fitnessCastControlState(castDescriptor);
   const selection = String(select?.value || "");
   const [launchMethod, ...entityParts] = selection ? selection.split("|") : [""];
   const launchEntityId = entityParts.join("|");
@@ -1675,16 +1725,25 @@ const _fitnessSmartTvLaunchSelection = (root, prefix, launchTargets = [], labels
       )) || null
     : null;
   const manual = !selection;
-  const available = manual || Boolean(target?.available);
+  const targetAvailable = manual || Boolean(target?.available);
+  const available = cast.connected || (!cast.busy && targetAvailable);
+  if (select) select.disabled = cast.busy;
   if (button) {
-    button.disabled = !available;
-    button.querySelector("ha-icon")?.setAttribute("icon", manual ? "mdi:link-variant-plus" : "mdi:open-in-new");
+    button.disabled = cast.connecting || (!cast.connected && !targetAvailable);
+    button.querySelector("ha-icon")?.setAttribute("icon", cast.connected
+      ? "mdi:cast-off"
+      : (cast.connecting ? "mdi:loading" : (manual ? "mdi:link-variant-plus" : "mdi:open-in-new")));
     const label = button.querySelector("span");
-    if (label) label.textContent = manual
-      ? String(labels?.smart_tv_create_link)
-      : String(labels?.smart_tv_send_link);
+    if (label) label.textContent = cast.connected
+      ? String(labels?.cast_stop ?? labels?.local_cast_stop ?? "")
+      : (cast.connecting
+        ? String(labels?.cast_connecting ?? "")
+        : (manual ? String(labels?.smart_tv_create_link) : String(labels?.smart_tv_send_link)));
+    button.classList.toggle("active", cast.connected);
+    button.classList.toggle("cast-pending", cast.connecting);
+    button.setAttribute("aria-busy", cast.connecting ? "true" : "false");
   }
-  return {manual, available, selection, launchMethod, launchEntityId, target};
+  return {manual, available, targetAvailable, selection, launchMethod, launchEntityId, target, cast};
 };
 const _fitnessCastAvailabilityLabel = (target, labels = {}) => (
   target?.available === false ? String(labels.cast_unavailable) : String(labels.cast_available)
@@ -1693,6 +1752,10 @@ const _fitnessUpdateCastTargetSelect = (host, root, {overview=false, preferred="
   const labels = host?._labels?.() || {};
   const selectId = overview ? "overview-cast-target" : "cast-target";
   const buttonId = overview ? "overview-cast-now" : "cast-now";
+  const descriptor = overview
+    ? (host?._overviewCast || {state:"idle"})
+    : {state:host?._castState || (host?._castBusy ? "connecting" : "idle"), busy:Boolean(host?._castBusy), mode:host?._castMode, target:host?._activeCastTarget};
+  const cast = _fitnessCastControlState(descriptor);
   const select = root?.querySelector?.(`#${selectId}`);
   if (select) {
     const oldValue = String(select.value || "");
@@ -1707,9 +1770,31 @@ const _fitnessUpdateCastTargetSelect = (host, root, {overview=false, preferred="
       || targets.find((target) => String(target?.entity_id || "") === String(preferred || ""))
       || targets[0];
     if (candidate) select.value = String(candidate.entity_id || "");
+    select.disabled = cast.busy;
     const selected = targets.find((target) => String(target?.entity_id || "") === String(select.value || ""));
     const button = root?.querySelector?.(`#${buttonId}`);
-    if (button) button.disabled = !selected || selected.available === false;
+    if (button) {
+      button.disabled = cast.connecting || (!cast.connected && (!selected || selected.available === false));
+      button.querySelector("ha-icon")?.setAttribute("icon", cast.connected ? "mdi:cast-off" : (cast.connecting ? "mdi:loading" : "mdi:cast-connected"));
+      const span = button.querySelector("span");
+      if (span) span.textContent = cast.connected ? labels.cast_stop : (cast.connecting ? labels.cast_connecting : labels.cast_now);
+      button.classList.toggle("active", cast.connected);
+      button.classList.toggle("cast-pending", cast.connecting);
+      button.setAttribute("aria-busy", cast.connecting ? "true" : "false");
+    }
+  }
+  if (overview) {
+    const localButton = root?.querySelector?.("#overview-cast-local");
+    if (localButton) {
+      localButton.disabled = cast.connecting;
+      localButton.querySelector("ha-icon")?.setAttribute("icon", cast.connected ? "mdi:cast-off" : (cast.connecting ? "mdi:loading" : "mdi:cast-connected"));
+      const span = localButton.querySelector("span");
+      if (span) span.textContent = cast.connected ? labels.cast_stop : (cast.connecting ? labels.cast_connecting : labels.local_cast_choose);
+      localButton.classList.toggle("active", cast.connected);
+      localButton.classList.toggle("cast-pending", cast.connecting);
+    }
+  } else {
+    host?._syncLocalCastButtons?.();
   }
   const smartPrefix = overview ? "overview-smart-tv" : "smart-tv";
   const smartSelect = root?.querySelector?.(`#${smartPrefix}-launch`);
@@ -1725,7 +1810,7 @@ const _fitnessUpdateCastTargetSelect = (host, root, {overview=false, preferred="
       }),
     ].join("");
     if ([...smartSelect.options].some((option) => option.value === oldValue)) smartSelect.value = oldValue;
-    _fitnessSmartTvLaunchSelection(root, smartPrefix, targets, labels);
+    _fitnessSmartTvLaunchSelection(root, smartPrefix, targets, labels, descriptor);
   }
 };
 const _fitnessStartCastTargetWatch = (host, root, options = {}) => {
@@ -1741,6 +1826,8 @@ const _fitnessStartCastTargetWatch = (host, root, options = {}) => {
     if (inFlight) return;
     inFlight = true;
     try {
+      if (options?.overview) await host?._syncOverviewCastStatus?.();
+      else await host?._syncCastStatus?.();
       const data = await host._hass.callWS({type:"fitness/dashboard/cast_targets"});
       if (Array.isArray(data?.cast_targets)) host._castTargets = data.cast_targets;
       if (Array.isArray(data?.browser_launch_targets)) host._browserLaunchTargets = data.browser_launch_targets;
@@ -4186,9 +4273,9 @@ class FitnessEvaluationCard extends FitnessCompositeCard {
 }
 
 const FITNESS_FEATURE_TEXT = Object.freeze({
-  en:{workout_browser:"Workout browser",delete_selected:"Delete selected",empty_all:"Empty workouts",no_workouts:"No workouts stored.",body_composition:"Body composition",weight:"Weight",bmi:"BMI",trend_30d:"30-day trend",body_fat:"Body fat",muscle_mass:"Muscle mass",body_water:"Body water",bone_mass:"Bone mass",training_ai:"Training AI coach",today_plan:"Today’s training",rest_today:"Recovery day",last_workout_ai:"Last workout AI evaluation",live_analysis:"Live AI analysis",confidence:"Confidence",no_ai:"No AI coaching summary is available yet.",refresh:"Refresh",regenerate:"Regenerate",regenerating:"Regenerating…",more_details:"More details",less_details:"Less details",why_this:"Why this suggestion",structured_workout:"Structured workout",calculation_basis:"How Fitness calculated it",calculation_basis_text:"Fitness combines current readiness, recovery estimate, sleep, recent training evidence and your training goal. Missing evidence lowers the confidence score.",rest_reason:"Why today is a rest day",confirm_delete:"Delete selected workout(s)?",confirm_empty:"Empty all stored Fitness workouts? Previously deleted provider history will remain suppressed.",training_zone:"Training zone",intensity:"Intensity",intensity_recovery:"Recovery",intensity_very_light:"Very light",intensity_light:"Light",intensity_moderate:"Moderate",intensity_vigorous:"Vigorous",intensity_near_maximal:"Near-maximal",step_instruction:"What to do",ai_user_text:"Tell the AI what to consider",ai_user_text_placeholder:"Optional note, preference or request for this plan"},
-  el:{workout_browser:"Περιήγηση προπονήσεων",delete_selected:"Διαγραφή επιλεγμένων",empty_all:"Άδειασμα προπονήσεων",no_workouts:"Δεν υπάρχουν αποθηκευμένες προπονήσεις.",body_composition:"Σύσταση σώματος",weight:"Βάρος",bmi:"ΔΜΣ",trend_30d:"Τάση 30 ημερών",body_fat:"Σωματικό λίπος",muscle_mass:"Μυϊκή μάζα",body_water:"Νερό σώματος",bone_mass:"Οστική μάζα",training_ai:"AI προπονητής",today_plan:"Σημερινή προπόνηση",rest_today:"Ημέρα αποκατάστασης",last_workout_ai:"AI αξιολόγηση τελευταίας προπόνησης",live_analysis:"Ζωντανή ανάλυση AI",confidence:"Βεβαιότητα",no_ai:"Δεν υπάρχει ακόμη διαθέσιμη σύνοψη AI προπονητή.",refresh:"Ανανέωση",regenerate:"Αναδημιουργία",regenerating:"Αναδημιουργία…",more_details:"Περισσότερες λεπτομέρειες",less_details:"Λιγότερες λεπτομέρειες",why_this:"Γιατί αυτή η πρόταση",structured_workout:"Δομημένη προπόνηση",calculation_basis:"Πώς το υπολόγισε το Fitness",calculation_basis_text:"Το Fitness συνδυάζει την τρέχουσα ετοιμότητα, την εκτίμηση αποκατάστασης, τον ύπνο, τα πρόσφατα δεδομένα προπόνησης και τον στόχο σου. Τα ελλιπή δεδομένα μειώνουν τη βεβαιότητα.",rest_reason:"Γιατί σήμερα είναι ημέρα ξεκούρασης",confirm_delete:"Να διαγραφούν οι επιλεγμένες προπονήσεις;",confirm_empty:"Να αδειάσουν όλες οι αποθηκευμένες προπονήσεις Fitness; Το διαγραμμένο ιστορικό παρόχων θα παραμείνει αποκλεισμένο.",training_zone:"Ζώνη προπόνησης",intensity:"Ένταση",intensity_recovery:"Αποκατάσταση",intensity_very_light:"Πολύ χαμηλή",intensity_light:"Χαμηλή",intensity_moderate:"Μέτρια",intensity_vigorous:"Υψηλή",intensity_near_maximal:"Σχεδόν μέγιστη",step_instruction:"Τι να κάνεις",ai_user_text:"Πες στο AI τι να λάβει υπόψη",ai_user_text_placeholder:"Προαιρετική σημείωση, προτίμηση ή αίτημα για αυτό το πλάνο"},
-  de:{workout_browser:"Workout-Browser",delete_selected:"Auswahl löschen",empty_all:"Workouts leeren",no_workouts:"Keine Workouts gespeichert.",body_composition:"Körperzusammensetzung",weight:"Gewicht",bmi:"BMI",trend_30d:"30-Tage-Trend",body_fat:"Körperfett",muscle_mass:"Muskelmasse",body_water:"Körperwasser",bone_mass:"Knochenmasse",training_ai:"KI-Trainingscoach",today_plan:"Heutiges Training",rest_today:"Erholungstag",last_workout_ai:"KI-Auswertung des letzten Trainings",live_analysis:"Live-KI-Analyse",confidence:"Sicherheit",no_ai:"Noch keine KI-Coaching-Zusammenfassung verfügbar.",refresh:"Aktualisieren",regenerate:"Neu generieren",regenerating:"Wird neu generiert…",more_details:"Mehr Details",less_details:"Weniger Details",why_this:"Warum diese Empfehlung",structured_workout:"Strukturiertes Training",calculation_basis:"So berechnet Fitness die Empfehlung",calculation_basis_text:"Fitness kombiniert aktuelle Trainingsbereitschaft, Erholungsprognose, Schlaf, jüngste Trainingsdaten und dein Trainingsziel. Fehlende Daten senken die Sicherheit.",rest_reason:"Warum heute ein Ruhetag ist",confirm_delete:"Ausgewählte Workouts löschen?",confirm_empty:"Alle gespeicherten Fitness-Workouts leeren? Bereits gelöschte Provider-Historie bleibt unterdrückt.",training_zone:"Trainingszone",intensity:"Intensität",intensity_recovery:"Erholung",intensity_very_light:"Sehr leicht",intensity_light:"Leicht",intensity_moderate:"Moderat",intensity_vigorous:"Intensiv",intensity_near_maximal:"Nahe maximal",step_instruction:"Was zu tun ist",ai_user_text:"Hinweis für die KI",ai_user_text_placeholder:"Optionale Notiz, Präferenz oder Wunsch für diesen Plan"}
+  en:{fitness_test_latest_result:"Latest result",fitness_test_manual_result:"Completed · manual result required",fitness_test_study:"Study / validation source",sport_running:"Running",sport_cycling:"Cycling",sport_walking:"Walking",sport_rowing:"Rowing",sport_swimming:"Swimming",sport_strength:"Strength",workout_browser:"Workout browser",delete_selected:"Delete selected",empty_all:"Empty workouts",no_workouts:"No workouts stored.",body_composition:"Body composition",weight:"Weight",bmi:"BMI",trend_30d:"30-day trend",body_fat:"Body fat",muscle_mass:"Muscle mass",body_water:"Body water",bone_mass:"Bone mass",training_ai:"Training AI coach",today_plan:"Today’s training",rest_today:"Recovery day",last_workout_ai:"Last workout AI evaluation",live_analysis:"Live AI analysis",confidence:"Confidence",no_ai:"No AI coaching summary is available yet.",refresh:"Refresh",regenerate:"Regenerate",regenerating:"Regenerating…",more_details:"More details",less_details:"Less details",why_this:"Why this suggestion",structured_workout:"Structured workout",calculation_basis:"How Fitness calculated it",calculation_basis_text:"Fitness combines current readiness, recovery estimate, sleep, recent training evidence and your training goal. Missing evidence lowers the confidence score.",rest_reason:"Why today is a rest day",confirm_delete:"Delete selected workout(s)?",confirm_empty:"Empty all stored Fitness workouts? Previously deleted provider history will remain suppressed.",training_zone:"Training zone",intensity:"Intensity",intensity_recovery:"Recovery",intensity_very_light:"Very light",intensity_light:"Light",intensity_moderate:"Moderate",intensity_vigorous:"Vigorous",intensity_near_maximal:"Near-maximal",step_instruction:"What to do",ai_user_text:"Tell the AI what to consider",ai_user_text_placeholder:"Optional note, preference or request for this plan"},
+  el:{fitness_test_latest_result:"Τελευταίο αποτέλεσμα",fitness_test_manual_result:"Ολοκληρώθηκε · απαιτείται χειροκίνητο αποτέλεσμα",fitness_test_study:"Μελέτη / πηγή επικύρωσης",sport_running:"Τρέξιμο",sport_cycling:"Ποδηλασία",sport_walking:"Βάδισμα",sport_rowing:"Κωπηλασία",sport_swimming:"Κολύμβηση",sport_strength:"Δύναμη",workout_browser:"Περιήγηση προπονήσεων",delete_selected:"Διαγραφή επιλεγμένων",empty_all:"Άδειασμα προπονήσεων",no_workouts:"Δεν υπάρχουν αποθηκευμένες προπονήσεις.",body_composition:"Σύσταση σώματος",weight:"Βάρος",bmi:"ΔΜΣ",trend_30d:"Τάση 30 ημερών",body_fat:"Σωματικό λίπος",muscle_mass:"Μυϊκή μάζα",body_water:"Νερό σώματος",bone_mass:"Οστική μάζα",training_ai:"AI προπονητής",today_plan:"Σημερινή προπόνηση",rest_today:"Ημέρα αποκατάστασης",last_workout_ai:"AI αξιολόγηση τελευταίας προπόνησης",live_analysis:"Ζωντανή ανάλυση AI",confidence:"Βεβαιότητα",no_ai:"Δεν υπάρχει ακόμη διαθέσιμη σύνοψη AI προπονητή.",refresh:"Ανανέωση",regenerate:"Αναδημιουργία",regenerating:"Αναδημιουργία…",more_details:"Περισσότερες λεπτομέρειες",less_details:"Λιγότερες λεπτομέρειες",why_this:"Γιατί αυτή η πρόταση",structured_workout:"Δομημένη προπόνηση",calculation_basis:"Πώς το υπολόγισε το Fitness",calculation_basis_text:"Το Fitness συνδυάζει την τρέχουσα ετοιμότητα, την εκτίμηση αποκατάστασης, τον ύπνο, τα πρόσφατα δεδομένα προπόνησης και τον στόχο σου. Τα ελλιπή δεδομένα μειώνουν τη βεβαιότητα.",rest_reason:"Γιατί σήμερα είναι ημέρα ξεκούρασης",confirm_delete:"Να διαγραφούν οι επιλεγμένες προπονήσεις;",confirm_empty:"Να αδειάσουν όλες οι αποθηκευμένες προπονήσεις Fitness; Το διαγραμμένο ιστορικό παρόχων θα παραμείνει αποκλεισμένο.",training_zone:"Ζώνη προπόνησης",intensity:"Ένταση",intensity_recovery:"Αποκατάσταση",intensity_very_light:"Πολύ χαμηλή",intensity_light:"Χαμηλή",intensity_moderate:"Μέτρια",intensity_vigorous:"Υψηλή",intensity_near_maximal:"Σχεδόν μέγιστη",step_instruction:"Τι να κάνεις",ai_user_text:"Πες στο AI τι να λάβει υπόψη",ai_user_text_placeholder:"Προαιρετική σημείωση, προτίμηση ή αίτημα για αυτό το πλάνο"},
+  de:{fitness_test_latest_result:"Letztes Ergebnis",fitness_test_manual_result:"Abgeschlossen · manuelles Ergebnis erforderlich",fitness_test_study:"Studie / Validierungsquelle",sport_running:"Laufen",sport_cycling:"Radfahren",sport_walking:"Gehen",sport_rowing:"Rudern",sport_swimming:"Schwimmen",sport_strength:"Kraft",workout_browser:"Workout-Browser",delete_selected:"Auswahl löschen",empty_all:"Workouts leeren",no_workouts:"Keine Workouts gespeichert.",body_composition:"Körperzusammensetzung",weight:"Gewicht",bmi:"BMI",trend_30d:"30-Tage-Trend",body_fat:"Körperfett",muscle_mass:"Muskelmasse",body_water:"Körperwasser",bone_mass:"Knochenmasse",training_ai:"KI-Trainingscoach",today_plan:"Heutiges Training",rest_today:"Erholungstag",last_workout_ai:"KI-Auswertung des letzten Trainings",live_analysis:"Live-KI-Analyse",confidence:"Sicherheit",no_ai:"Noch keine KI-Coaching-Zusammenfassung verfügbar.",refresh:"Aktualisieren",regenerate:"Neu generieren",regenerating:"Wird neu generiert…",more_details:"Mehr Details",less_details:"Weniger Details",why_this:"Warum diese Empfehlung",structured_workout:"Strukturiertes Training",calculation_basis:"So berechnet Fitness die Empfehlung",calculation_basis_text:"Fitness kombiniert aktuelle Trainingsbereitschaft, Erholungsprognose, Schlaf, jüngste Trainingsdaten und dein Trainingsziel. Fehlende Daten senken die Sicherheit.",rest_reason:"Warum heute ein Ruhetag ist",confirm_delete:"Ausgewählte Workouts löschen?",confirm_empty:"Alle gespeicherten Fitness-Workouts leeren? Bereits gelöschte Provider-Historie bleibt unterdrückt.",training_zone:"Trainingszone",intensity:"Intensität",intensity_recovery:"Erholung",intensity_very_light:"Sehr leicht",intensity_light:"Leicht",intensity_moderate:"Moderat",intensity_vigorous:"Intensiv",intensity_near_maximal:"Nahe maximal",step_instruction:"Was zu tun ist",ai_user_text:"Hinweis für die KI",ai_user_text_placeholder:"Optionale Notiz, Präferenz oder Wunsch für diesen Plan"}
 });
 function _fitnessFeatureText(profile,hass){
   const lang=String(profile?.language||hass?.language||"en").toLowerCase().split("-")[0];
@@ -4603,7 +4690,12 @@ const FITNESS_TV_CAST_RECEIVER = (() => {
   const host = String(globalThis.location?.hostname || "").toLowerCase();
   let direct = false;
   try { direct = new URLSearchParams(globalThis.location?.search || "").get("fitness_cast_receiver") === "1"; } catch (_err) {}
-  return host === "cast.home-assistant.io" || direct;
+  // The restricted Browser-TV portal declares its receiver role before this
+  // module is loaded. Treat it exactly like DashCast/CAF: layout, card surfaces,
+  // heartbeat ownership and TV-safe rendering must never depend on the URL host
+  // or an optional query parameter.
+  const portal = Boolean(globalThis.window?.__FITNESS_CAST_PORTAL__);
+  return host === "cast.home-assistant.io" || direct || portal;
 })();
 const FITNESS_TV_OVERVIEW_CAST_RECEIVER = Boolean(
   FITNESS_TV_CAST_RECEIVER && globalThis.window?.__FITNESS_CAST_BOOTSTRAP__?.overview
@@ -5060,6 +5152,18 @@ class FitnessTvDashboardCard extends HTMLElement {
       window.addEventListener("pointerout", this._boundCastPointerOut, true);
       window.addEventListener("input", this._boundCastTextInput, true);
       window.addEventListener("focusout", this._boundCastFocusOut, true);
+      if (!this._boundCastPageHide) this._boundCastPageHide = () => {
+        // Page/tab closure on Android TV is not guaranteed to disconnect the
+        // custom element immediately. Kill every local audio transport now; the
+        // portal keepalive request releases the server-side Cast lease.
+        this._mediaCommandGeneration = Number(this._mediaCommandGeneration || 0) + 1;
+        this._mediaCommandQueueGeneration = Number(this._mediaCommandQueueGeneration || 0) + 1;
+        this._mediaCommandQueue = Promise.resolve();
+        this._hardStopMusic();
+        this._hardStopAudio(this._ttsAudio);
+        this._audioOwner = false;
+      };
+      window.addEventListener("pagehide", this._boundCastPageHide, {capture:true});
       this._castRemoteExitAllowedAfter = Math.max(
         Number(this._castRemoteExitAllowedAfter || 0),
         performance.now() + FITNESS_TV_CAST_EXIT_STARTUP_GRACE_MS,
@@ -5100,6 +5204,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     if (this._boundCastPointerOut) window.removeEventListener("pointerout", this._boundCastPointerOut, true);
     if (this._boundCastTextInput) window.removeEventListener("input", this._boundCastTextInput, true);
     if (this._boundCastFocusOut) window.removeEventListener("focusout", this._boundCastFocusOut, true);
+    if (this._boundCastPageHide) window.removeEventListener("pagehide", this._boundCastPageHide, {capture:true});
     if (this._boundWakeVisibility) document.removeEventListener("visibilitychange", this._boundWakeVisibility);
     this._unbindCastFrameworkRemoteAdapter();
     this._unbindBrowserMediaSessionAdapter();
@@ -5438,12 +5543,16 @@ class FitnessTvDashboardCard extends HTMLElement {
 
   _castRemoteSectionFromEvent(event) {
     const path = typeof event?.composedPath === "function" ? event.composedPath() : [];
+    // A Cast modal is its own remote-control section. Previously pointer clicks
+    // inside settings/configuration dialogs kept the toolbar selected because
+    // only toolbar/card containers counted as sections. That made subsequent
+    // DPAD/OK input jump back to the upper bar and could even activate Close.
     for (const node of path) {
-      if (node?.classList?.contains?.("tv-toolbar") || node?.classList?.contains?.("tv-card-slot")) return node;
+      if (node?.classList?.contains?.("modal-card") || node?.classList?.contains?.("tv-toolbar") || node?.classList?.contains?.("tv-card-slot")) return node;
     }
     let node = event?.target || null;
     while (node) {
-      if (node?.classList?.contains?.("tv-toolbar") || node?.classList?.contains?.("tv-card-slot")) return node;
+      if (node?.classList?.contains?.("modal-card") || node?.classList?.contains?.("tv-toolbar") || node?.classList?.contains?.("tv-card-slot")) return node;
       node = node.parentElement || node.getRootNode?.()?.host || null;
       if (node === this) break;
     }
@@ -5466,6 +5575,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       this._castRemoteMode = "inner";
       this._castRemoteLastInnerFocus.set(section, control);
       this._markCastRemoteSection(section, true);
+      control.focus?.({preventScroll:true});
       this._markCastRemoteFocus(control);
       if (this._castRemoteTextEntryControl(control)) this._beginCastRemoteTextEntry(control, "pointer");
       else this._endCastRemoteTextEntry("pointer-control");
@@ -5885,12 +5995,32 @@ class FitnessTvDashboardCard extends HTMLElement {
     this.removeAttribute("remote-section-engaged");
   }
 
+  _scrollCastElementIntoView(element) {
+    if (!FITNESS_TV_CAST_RECEIVER || !element || element.closest?.(".cast-dashboard-browser-root")) return;
+    const shell = this.shadowRoot?.querySelector?.("ha-card.tv-shell");
+    if (!shell) { element.scrollIntoView?.({block:"nearest", inline:"nearest"}); return; }
+    const shellRect = shell.getBoundingClientRect?.();
+    const elementRect = element.getBoundingClientRect?.();
+    if (!shellRect || !elementRect) return;
+    const reserve = Math.max(0, Number.parseFloat(getComputedStyle(this).getPropertyValue("--fitness-cast-browser-reserve")) || 0);
+    const viewportTop = Number(shellRect.top || 0) + reserve + 10;
+    const viewportBottom = Number(shellRect.bottom || 0) - 18;
+    let delta = 0;
+    if (Number(elementRect.top || 0) < viewportTop) delta = Number(elementRect.top || 0) - viewportTop;
+    else if (Number(elementRect.bottom || 0) > viewportBottom) delta = Number(elementRect.bottom || 0) - viewportBottom;
+    if (!delta) return;
+    shell.scrollTop = Math.max(0, Number(shell.scrollTop || 0) + delta);
+  }
+
   _markCastRemoteSection(section, active = false) {
     if (!section) return;
     this._clearCastRemoteSectionMarks();
     this.toggleAttribute("remote-section-engaged", FITNESS_TV_CAST_RECEIVER);
     section.classList.add(active ? "fitness-remote-section-active" : "fitness-remote-section-selected");
-    section.scrollIntoView?.({block:"nearest", inline:"nearest"});
+    // The Cast dashboard browser is fixed viewport chrome. scrollIntoView() on
+    // fixed descendants can still scroll an ancestor/document on some TV
+    // Chromium builds, making the navigator appear to travel with the cards.
+    this._scrollCastElementIntoView(section);
     this._animateRemoteSectionInterior(section, active);
   }
 
@@ -5969,7 +6099,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     } else {
       element.style.backgroundColor = "color-mix(in srgb,white 16%,var(--secondary-background-color))";
     }
-    element.scrollIntoView?.({block:"nearest",inline:"nearest"});
+    this._scrollCastElementIntoView(element);
     this._scheduleCastFocusTooltip(element);
     if (pressed) {
       if (this._castRemotePressTimer) clearTimeout(this._castRemotePressTimer);
@@ -6126,19 +6256,13 @@ class FitnessTvDashboardCard extends HTMLElement {
         }
       }
       const next = this._moveCastRemoteSpatial(sections, current, key, {outer:true});
-      // A hidden toolbar cannot participate in spatial scoring. If Up has no
-      // visible section above the current section, reveal the navigation bar and
-      // move remote focus to it. This works with dense/masonry card placement and
-      // does not rely on source-order "top row" guesses.
-      if (key === "ArrowUp" && this._toolbarAutoHide && this._toolbarHidden && (!next || next === current)) {
-        this._setToolbarHidden(false);
-        this._scheduleToolbarAutoHide();
-        const toolbar = this.shadowRoot?.querySelector(".tv-toolbar");
-        if (toolbar) {
-          this._castRemoteSection = toolbar;
-          this._markCastRemoteSection(toolbar, false);
-          this._recordCastRemoteDiagnostic("nav", `${key} · ${this._castRemoteSectionName(toolbar)}`);
-        }
+      // Cast toolbar reveal is intentionally explicit. Cards may navigate Up
+      // into the always-visible dashboard browser, but only a second Up from the
+      // dashboard browser itself is allowed to pull the hidden top bar down.
+      // Scroll position, pointer proximity and top-row card geometry must never
+      // reveal it implicitly.
+      if (key === "ArrowUp" && this._toolbarHidden && current?.classList?.contains("dashboard-switcher")) {
+        this._revealCastToolbarFromDashboardBrowser("remote-outer-up");
         return true;
       }
       if (next && next !== current) {
@@ -6149,6 +6273,10 @@ class FitnessTvDashboardCard extends HTMLElement {
       this._castRemoteSection = next || current;
       this._markCastRemoteSection(this._castRemoteSection, false);
       this._recordCastRemoteDiagnostic("nav", `${key} · ${this._castRemoteSectionName(this._castRemoteSection)}`);
+      return true;
+    }
+    if (key === "ArrowUp" && this._toolbarHidden && this._castRemoteSection?.classList?.contains("dashboard-switcher")) {
+      this._revealCastToolbarFromDashboardBrowser("remote-inner-up");
       return true;
     }
     const controls = this._castRemoteInnerElements();
@@ -6448,20 +6576,61 @@ class FitnessTvDashboardCard extends HTMLElement {
     this._recordCastRemoteDiagnostic("back", recentPhysicalBack ? "history duplicate ignored" : "history fallback contained");
   }
 
+  async _notifyCastReceiverLeave(reason = "receiver_left") {
+    if (!FITNESS_TV_CAST_RECEIVER || !this._profile?.entry_id || !this._hass) return;
+    try {
+      await Promise.race([
+        this._hass.callWS({
+          type:"fitness/tv/receiver/leave",
+          profile_entry_id:this._profile.entry_id,
+          client_id:FITNESS_TV_CLIENT_ID,
+          reason,
+        }),
+        new Promise((resolve) => setTimeout(resolve, 450)),
+      ]);
+    } catch (_err) {}
+  }
+
+  async _quitCastReceiver(reason = "receiver_stop") {
+    if (!FITNESS_TV_CAST_RECEIVER || this._castRemoteQuitInFlight) return;
+    this._clearCastExitConfirmation();
+    this._castRemoteQuitInFlight = true;
+    this._recordCastRemoteDiagnostic("QUIT CAST", reason);
+    this._cancelRadioRecovery();
+    this._mediaCommandGeneration = Number(this._mediaCommandGeneration || 0) + 1;
+    this._mediaCommandQueueGeneration = Number(this._mediaCommandQueueGeneration || 0) + 1;
+    this._mediaCommandQueue = Promise.resolve();
+    // Local audio must die synchronously before waiting on the server/CAF. A TV
+    // browser can keep a hidden document alive after the user closes the tab.
+    this._hardStopMusic();
+    this._hardStopAudio(this._ttsAudio);
+    this._audioOwner = false;
+    await this._notifyCastReceiverLeave(reason);
+    try {
+      const receiverContext = globalThis.cast?.framework?.CastReceiverContext?.getInstance?.();
+      if (receiverContext?.stop) {
+        this._recordCastRemoteDiagnostic("quit-receiver", "CastReceiverContext.stop()");
+        const stopped = receiverContext.stop();
+        if (stopped?.then) await Promise.race([stopped, new Promise((resolve) => setTimeout(resolve, 900))]);
+      }
+    } catch (err) {
+      this._recordCastRemoteDiagnostic("quit-receiver", err?.message || "stop failed");
+    }
+    try { globalThis.close?.(); } catch (_err) {}
+    setTimeout(() => {
+      try { if (FITNESS_TV_CAST_RECEIVER && globalThis.location?.replace) globalThis.location.replace("about:blank"); } catch (_err) {}
+      this._castRemoteQuitInFlight = false;
+    }, 650);
+  }
+
   async _quitCastFromRemote(source = "double back", authorization = "") {
     if (!FITNESS_TV_CAST_RECEIVER || this._castRemoteQuitInFlight) return;
     // Destructive receiver shutdown is permitted only by the exact Back-key
     // signature that armed the visible confirmation. Never let lifecycle,
-    // history, timers or a future caller stop Cast by reaching this method.
+    // history or timers synthesize a physical double-Back.
     if (!authorization || authorization !== String(this._castRemoteExitAuthorization || "")) return;
     this._clearCastExitConfirmation();
-    this._castRemoteQuitInFlight = true;
     this._recordCastRemoteDiagnostic("QUIT CAST", source);
-    this._cancelRadioRecovery();
-    this._mediaCommandGeneration = Number(this._mediaCommandGeneration || 0) + 1;
-    this._mediaCommandQueueGeneration = Number(this._mediaCommandQueueGeneration || 0) + 1;
-    this._hardStopMusic();
-    this._hardStopAudio(this._ttsAudio);
     try {
       this._captureLocalMediaProgress?.(true);
       if (String(this._currentMediaContentId || this._sharedMediaState?.media_content_id || "").trim()) {
@@ -6477,32 +6646,14 @@ class FitnessTvDashboardCard extends HTMLElement {
         });
       } else if (this._profile?.entry_id && this._hass) {
         await this._hass.callWS({
-          type:"fitness/tv/local_cast_stopped",
+          type:"fitness/tv/cast/stop",
           profile_entry_id:this._profile.entry_id,
-          reason:"tv_remote_double_back",
         }).catch(() => {});
       }
     } catch (err) {
       this._recordCastRemoteDiagnostic("quit-backend", err?.message || "failed");
     }
-    try {
-      const receiverContext = globalThis.cast?.framework?.CastReceiverContext?.getInstance?.();
-      if (receiverContext?.stop) {
-        this._recordCastRemoteDiagnostic("quit-receiver", "CastReceiverContext.stop()");
-        const stopped = receiverContext.stop();
-        if (stopped?.then) await Promise.race([stopped, new Promise((resolve) => setTimeout(resolve, 900))]);
-      }
-    } catch (err) {
-      this._recordCastRemoteDiagnostic("quit-receiver", err?.message || "stop failed");
-    }
-    try { globalThis.close?.(); } catch (_err) {}
-    // Some Android/Google TV WebViews keep the document alive after CAF stop.
-    // Blank the receiver as a final local fallback so audio/UI cannot continue
-    // even if the platform takes a moment to tear down the Cast session.
-    setTimeout(() => {
-      try { if (FITNESS_TV_CAST_RECEIVER && globalThis.location?.replace) globalThis.location.replace("about:blank"); } catch (_err) {}
-      this._castRemoteQuitInFlight = false;
-    }, 650);
+    await this._quitCastReceiver(`remote:${source}`);
   }
 
   _handleCastKeydown(event) {
@@ -7161,6 +7312,23 @@ class FitnessTvDashboardCard extends HTMLElement {
     }, FITNESS_TV_AUDIO_EVENT);
   }
 
+  async _handlePolledMediaCommands(commands = []) {
+    if (!Array.isArray(commands) || !commands.length || !this._audioOwner) return;
+    for (const payload of commands) {
+      const command = String(payload?.command || "");
+      const data = payload?.data || {};
+      if (!command) continue;
+      if (["pause","stop"].includes(command)) {
+        this._mediaCommandGeneration = Number(this._mediaCommandGeneration || 0) + 1;
+        this._mediaCommandQueueGeneration = Number(this._mediaCommandQueueGeneration || 0) + 1;
+        this._mediaCommandQueue = Promise.resolve();
+        await this._handleMediaCommand(command, data);
+        continue;
+      }
+      await this._handleMediaCommand(command, data);
+    }
+  }
+
   async _subscribeTvMedia() {
     if (!this._hass?.connection) return;
     if (!this._unsubscribeTvMedia) {
@@ -7268,20 +7436,35 @@ class FitnessTvDashboardCard extends HTMLElement {
   }
 
   _refreshCastUiState() {
-    // Only a receiver heartbeat may turn Cast green. The HA media_player state,
-    // sender-side Google Cast session, and a launch request are deliberately not
-    // treated as proof that the Fitness dashboard actually loaded on the TV.
-    this._castActive = Boolean(this._castState === "connected" && this._castMode === "server");
+    // One universal receiver-authoritative Cast state. Browser-TV, Google Cast
+    // and HA Cast all paint the same dashboard Cast control green only after a
+    // real receiver heartbeat; pending handoffs stay gray.
+    this._castActive = Boolean(this._castState === "connected");
     return this._castActive;
   }
 
   async _stopCurrentCast() {
-    if (this._castState === "idle") return;
+    if (this._castState === "idle" || !this._profile || !this._hass) return;
     if (this._castMode === "server" && this._activeCastTarget) {
       await this._stopCastDashboard(String(this._activeCastTarget));
       return;
     }
-    await this._stopLocalCast();
+    // Browser-TV receivers may have been opened by another controller (or by a
+    // direct Smart-TV link), so sender-side CastContext is not a reliable stop
+    // mechanism. Ask the backend to stop the authoritative receiver itself.
+    try {
+      const result = await this._hass.callWS({
+        type:"fitness/tv/cast/stop",
+        profile_entry_id:this._profile.entry_id,
+      });
+      if (result?.state) this._applyCastDescriptor(result);
+    } catch (_err) {}
+    // If this browser also owns a Google Cast sender session, end it locally as
+    // cleanup; the backend stop request remains authoritative.
+    if (!FITNESS_TV_CAST_RECEIVER && this._localCastSessionActive()) {
+      try { await this._localCastContext?.endCurrentSession?.(true); } catch (_err) {}
+    }
+    this._updateMediaControls();
   }
 
   _cancelRadioRecovery() {
@@ -7453,6 +7636,9 @@ class FitnessTvDashboardCard extends HTMLElement {
         // receiver occupies the profile Cast/audio slot; controller browsers
         // must stay silent while it is alive.
         is_cast_receiver:FITNESS_TV_CAST_RECEIVER,
+        // Restricted Browser-TV portals have no HA event subscription. Pull
+        // commands through this heartbeat mailbox instead.
+        poll_media_commands:Boolean(FITNESS_TV_CAST_RECEIVER && !this._hass?.connection),
       });
       this._audioOwner = Boolean(result?.audio_owner);
       this._serverCastActive = Boolean(result?.cast_active);
@@ -7468,6 +7654,13 @@ class FitnessTvDashboardCard extends HTMLElement {
       });
       if (result?.local_cast_active) this._localCastRearmUntil = 0;
       if (result?.cast_target) this._serverCastRearmUntil = 0;
+      if (Boolean(result?.stop_requested) && FITNESS_TV_CAST_RECEIVER) {
+        this._audioOwner = false;
+        this._hardStopMusic();
+        this._hardStopAudio(this._ttsAudio);
+        void this._quitCastReceiver();
+        return;
+      }
       if (Boolean(result?.cast_conflict) && FITNESS_TV_CAST_RECEIVER) {
         console.warn("[Fitness TV] duplicate receiver rejected for profile", this._profile.entry_id);
         this._audioOwner = false;
@@ -7486,6 +7679,9 @@ class FitnessTvDashboardCard extends HTMLElement {
       if (!this._audioOwner) {
         this._hardStopMusic();
         this._hardStopAudio(this._ttsAudio);
+      }
+      if (this._audioOwner && Array.isArray(result?.media_commands) && result.media_commands.length) {
+        await this._handlePolledMediaCommands(result.media_commands);
       }
       if (result?.media_state) {
         this._applySharedMediaState(result.media_state);
@@ -8974,6 +9170,7 @@ class FitnessTvDashboardCard extends HTMLElement {
           <button class="dashboard-switch-button" id="dashboard-next" title="${_fitnessEscape(l.next)}" aria-label="${_fitnessEscape(l.next)}"><ha-icon icon="mdi:chevron-right"></ha-icon></button>
         </nav>`
       : "";
+    const dashboardBrowser = `<div class="dashboard-browser-row">${dashboardNavigator}${canControl ? `<button type="button" id="toolbar-reveal" class="toolbar-reveal-zone" aria-label="${_fitnessEscape(l.tv_dashboard)}"><ha-icon icon="mdi:chevron-down"></ha-icon></button>` : ""}</div>`;
     this._canControlProfile = canControl;
     this.toggleAttribute("fitness-view-only", !canControl);
     const profileOptions = this._profiles.map((profile) => `<option translate="no" value="${_fitnessEscape(profile.entry_id)}" ${profile.entry_id === this._profile.entry_id ? "selected" : ""}>${_fitnessEscape(profile.profile_name)}${profile.access?.can_control ? "" : ` · ${_fitnessEscape(accessCopy.view_only)}`}</option>`).join("");
@@ -9017,6 +9214,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       : l.tv_dashboard;
     this.shadowRoot.innerHTML = `
       ${FITNESS_TV_CAST_RECEIVER ? "" : ambientLayer}
+      ${FITNESS_TV_CAST_RECEIVER ? `<div id="cast-dashboard-browser-root" class="cast-dashboard-browser-root">${dashboardBrowser}</div>` : ""}
       <ha-card class="tv-shell ${canControl ? "" : "view-only-shell"}">
         ${FITNESS_TV_CAST_RECEIVER ? ambientLayer : ""}
         <div class="tv-oled-stage">
@@ -9039,17 +9237,17 @@ class FitnessTvDashboardCard extends HTMLElement {
           </div>
         </div>
         <div id="weight-confirmation-host" class="weight-confirmation-host" aria-label="${_fitnessEscape(l.notifications)}"></div>
-        <div class="dashboard-browser-row">${dashboardNavigator}${canControl ? `<button type="button" id="toolbar-reveal" class="toolbar-reveal-zone" aria-label="${_fitnessEscape(l.tv_dashboard)}"><ha-icon icon="mdi:chevron-down"></ha-icon></button>` : ""}</div>
+        ${FITNESS_TV_CAST_RECEIVER ? "" : dashboardBrowser}
         <div class="dashboard-scroll-fade" aria-hidden="true"></div>
         ${canControl ? "" : `<div class="view-only-notice"><ha-icon icon="mdi:eye-outline"></ha-icon><span>${_fitnessEscape(accessCopy.view_only)} — ${_fitnessEscape(accessCopy.view_only_hint)}</span></div>`}
         <div id="dashboard-empty-state" class="dashboard-empty-state" role="status" aria-live="polite"><ha-icon icon="mdi:view-dashboard-outline"></ha-icon><strong>${_fitnessEscape(l.no_current_data)}</strong>${canControl ? `<small>${_fitnessEscape(l.empty_card_preview)}</small>` : ""}</div>
         <div class="tv-grid" id="grid"></div>
         </div>
         <div id="modal-root"></div>
-        <div id="cast-exit-confirm" class="cast-exit-confirm" role="status" aria-live="assertive" hidden></div>
         <div id="cast-focus-tooltip" class="cast-focus-tooltip" role="tooltip" aria-live="polite" hidden></div>
         <div id="fitness-embed-host" class="fitness-embed-host" aria-hidden="true"></div>
       </ha-card>
+      <div id="cast-global-overlay-root" class="cast-global-overlay-root" aria-live="assertive"><div id="cast-exit-confirm" class="cast-exit-confirm" role="status" hidden></div></div>
       ${this._style()}`;
     this._updateWeightMeasurementPrompt();
     this._syncWorkoutStepNotification();
@@ -9083,8 +9281,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       void this._openCastPicker();
     });
     this.shadowRoot.getElementById("stop-cast")?.addEventListener("click", () => {
-      if (this._castState === "connecting") return;
-      if (this._castState === "connected") void this._stopCurrentCast();
+      if (this._castBusy || this._castState === "connecting" || this._castState === "connected") void this._stopCurrentCast();
     });
     this.shadowRoot.getElementById("browse")?.addEventListener("click", () => this._openMediaBrowser());
     this.shadowRoot.getElementById("play")?.addEventListener("click", () => this._playMusic());
@@ -9126,6 +9323,10 @@ class FitnessTvDashboardCard extends HTMLElement {
       if (!this._toolbarAutoHide || !this._toolbarHidden) return;
       event?.preventDefault?.();
       event?.stopPropagation?.();
+      if (FITNESS_TV_CAST_RECEIVER) {
+        this._revealCastToolbarFromDashboardBrowser("reveal-button");
+        return;
+      }
       this._setToolbarHidden(false);
       this._scheduleToolbarAutoHide();
     };
@@ -9261,6 +9462,13 @@ class FitnessTvDashboardCard extends HTMLElement {
     const naturalPercent = 100 / Math.max(1, logicalColumns);
     const stableDesktopGrid = !FITNESS_TV_CAST_RECEIVER && !this._layoutEditing && !mobileDocumentFlow;
 
+    // Cast receivers use the same explicit dense masonry engine as Arrange mode,
+    // but cards remain at their real natural size. The v148 wrapping-flex
+    // workaround grouped every row by its tallest card, which produced the
+    // characteristic one-under-another/large-gap layout. Natural-size masonry
+    // avoids CSS transforms (important for older TV GPUs) while packing each
+    // card against the actual height of the cards above it.
+
     // Normal desktop dashboards deliberately use native CSS Grid document flow.
     // Absolute-position masonry repeatedly proved capable of creating stale
     // visual boxes/hit regions while dynamic cards were resizing. In normal
@@ -9391,7 +9599,7 @@ class FitnessTvDashboardCard extends HTMLElement {
     if (bottomSurface?.style) bottomSurface.style.scrollbarGutter = "stable";
 
     const gridWidth = Math.max(1, Number(grid.clientWidth || grid.getBoundingClientRect?.().width || 1));
-    const gap = FITNESS_TV_CAST_RECEIVER ? 6 : Math.max(6, Number.parseFloat(getComputedStyle(this).getPropertyValue("--fitness-theme-gap")) || 12);
+    const gap = Math.max(6, Number.parseFloat(getComputedStyle(this).getPropertyValue("--fitness-theme-gap")) || 12);
     // 200 packing units retain half-percent resize precision while still allowing
     // automatic hole-free masonry placement after every drag/resize frame.
     const packUnits = 200;
@@ -9408,7 +9616,13 @@ class FitnessTvDashboardCard extends HTMLElement {
       const savedPercent = transientWidth || Number(manual.width_percent || 0) || legacyPercent;
       const savedHeight = Number(wrapper.dataset.resizeHeight || 0) || Number(manual.height || 0);
       const requestedPercent = savedPercent > 0 ? Math.max(8, Math.min(100, savedPercent)) : naturalPercent;
-      const responsivePercent = Math.max(naturalPercent, requestedPercent);
+      // Cast must respect the same saved dashboard width contract as normal
+      // viewing. Only cards with no saved width receive the receiver's natural
+      // column width; previously max(naturalPercent, requestedPercent) silently
+      // enlarged user-sized cards and made dense TV rows crowd/overpaint peers.
+      const responsivePercent = FITNESS_TV_CAST_RECEIVER && savedPercent > 0
+        ? requestedPercent
+        : Math.max(naturalPercent, requestedPercent);
       const widthUnits = Math.max(1, Math.min(packUnits, Math.round(responsivePercent / 100 * packUnits)));
       const transientX = Number(wrapper.dataset.dragXPercent);
       const savedX = Number(manual.x_percent);
@@ -9421,7 +9635,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       wrapper.toggleAttribute("data-responsive-width-expanded", savedPercent > 0 && responsivePercent > requestedPercent + 0.05);
       wrapper.toggleAttribute("data-manual-height", savedHeight > 0);
       const savedVisualHeight = savedHeight > 0
-        ? Math.max(1, Math.round(Math.max(120, Math.min(1600, savedHeight)) * (FITNESS_TV_CAST_RECEIVER ? Math.max(0.10, Math.min(1.50, Number(this._tvScalePercent || 70) / 100)) : 1)))
+        ? Math.max(1, Math.round(Math.max(120, Math.min(1600, savedHeight))))
         : 0;
       if (savedVisualHeight > 0) wrapper.style.setProperty("--fitness-manual-card-height", `${savedVisualHeight}px`);
       else wrapper.style.removeProperty("--fitness-manual-card-height");
@@ -9454,9 +9668,10 @@ class FitnessTvDashboardCard extends HTMLElement {
         savedVisualHeight,
         this._layoutEditing && wrapper.classList.contains("fitness-empty-card") ? 150 : 0,
       );
-      const castScale = FITNESS_TV_CAST_RECEIVER
-        ? Math.max(0.10, Math.min(1.50, Number(this._tvScalePercent || 70) / 100))
-        : 1;
+      // DashCast no longer transforms card elements. Geometry therefore uses
+      // the rendered natural size instead of multiplying by the legacy scale
+      // preference, which previously made wrappers shorter than their contents.
+      const castScale = 1;
       const renderedCardHeight = card ? Math.max(
         Number(card.getBoundingClientRect?.().height || 0),
         Number(card.offsetHeight || 0) * castScale,
@@ -9714,6 +9929,8 @@ class FitnessTvDashboardCard extends HTMLElement {
     const browserHeight = browserVisible ? Math.ceil(browserRow?.getBoundingClientRect?.().height || 0) + 6 : 0;
     this.style.setProperty("--fitness-sticky-toolbar-offset", `${Math.max(0, toolbarHeight)}px`);
     this.style.setProperty("--fitness-sticky-browser-height", `${Math.max(0, browserHeight)}px`);
+    const castBrowserReserve = FITNESS_TV_CAST_RECEIVER && browserVisible ? Math.max(0, browserHeight + 12) : 0;
+    this.style.setProperty("--fitness-cast-browser-reserve", `${castBrowserReserve}px`);
     this.toggleAttribute("dashboard-browser-visible", browserVisible);
   }
 
@@ -9731,6 +9948,21 @@ class FitnessTvDashboardCard extends HTMLElement {
     this._toolbarProgrammaticChangeUntil = performance.now() + 220;
     requestAnimationFrame(() => this._syncDashboardStickyChrome());
     setTimeout(() => this._syncDashboardStickyChrome(), 420);
+  }
+
+  _revealCastToolbarFromDashboardBrowser(source = "dashboard-browser") {
+    if (!FITNESS_TV_CAST_RECEIVER || !this._toolbarAutoHide || !this._toolbarHidden) return false;
+    this._setToolbarHidden(false);
+    this._scheduleToolbarAutoHide();
+    const toolbar = this.shadowRoot?.querySelector(".tv-toolbar");
+    if (toolbar) {
+      this._castRemoteMode = "outer";
+      this._castRemoteSection = toolbar;
+      this._clearCastRemoteFocus?.();
+      this._markCastRemoteSection?.(toolbar, false);
+      this._recordCastRemoteDiagnostic?.("toolbar", `reveal · ${source}`);
+    }
+    return true;
   }
 
   _toolbarIsBeingBrowsed(toolbar = this.shadowRoot?.querySelector(".tv-toolbar"), {forAutoHide=false} = {}) {
@@ -9770,11 +10002,16 @@ class FitnessTvDashboardCard extends HTMLElement {
     const toolbar = this.shadowRoot?.querySelector(".tv-toolbar");
     const show = () => {
       if (!this._toolbarAutoHide) return;
+      // On Cast, the top bar is deliberate chrome: only the reveal button or
+      // ArrowUp from the dashboard browser may open it. Passive scroll/pointer
+      // signals are ignored so browsing cards cannot unexpectedly pull it down.
+      if (FITNESS_TV_CAST_RECEIVER) return;
       this._setToolbarHidden(false);
       this._scheduleToolbarAutoHide();
     };
     const holdOpen = () => {
       if (!this._toolbarAutoHide) return;
+      if (FITNESS_TV_CAST_RECEIVER && this._toolbarHidden) return;
       this._setToolbarHidden(false);
       if (this._toolbarHideTimer) clearTimeout(this._toolbarHideTimer);
       this._toolbarHideTimer = null;
@@ -9790,15 +10027,15 @@ class FitnessTvDashboardCard extends HTMLElement {
       scrollSurface.__fitnessToolbarScrollBound = true;
       scrollSurface.addEventListener("scroll", () => {
         if (!this._toolbarAutoHide || performance.now() < this._toolbarProgrammaticChangeUntil) return;
-        if (Number(scrollSurface.scrollTop || 0) <= 12) show();
+        if (!FITNESS_TV_CAST_RECEIVER && Number(scrollSurface.scrollTop || 0) <= 12) show();
         else this._scheduleToolbarAutoHide(1800);
       }, {passive:true});
       scrollSurface.addEventListener("wheel", (event) => {
-        if (this._toolbarAutoHide && Number(event.deltaY || 0) < 0 && Number(scrollSurface.scrollTop || 0) <= 32) show();
+        if (!FITNESS_TV_CAST_RECEIVER && this._toolbarAutoHide && Number(event.deltaY || 0) < 0 && Number(scrollSurface.scrollTop || 0) <= 32) show();
       }, {passive:true});
     }
     shell.addEventListener("pointermove", (event) => {
-      if (this._toolbarAutoHide && Number(event.clientY || 999) <= 72) show();
+      if (!FITNESS_TV_CAST_RECEIVER && this._toolbarAutoHide && Number(event.clientY || 999) <= 72) show();
     }, {passive:true});
     shell.addEventListener("focusin", (event) => {
       if (event.target?.closest?.(".tv-toolbar")) holdOpen();
@@ -9888,7 +10125,10 @@ class FitnessTvDashboardCard extends HTMLElement {
       }
       return false;
     }
-    const scale = FITNESS_TV_CAST_RECEIVER ? Math.max(0.10, Math.min(1.50, Number(this._tvScalePercent || 70) / 100)) : 1;
+    // Neither Arrange mode nor DashCast transforms the mounted card. Measure
+    // one CSS pixel as one layout pixel so wrapper height can never undercount
+    // the shadow-DOM card and let the next masonry item overlap it.
+    const scale = 1;
     const saved = this._activeDashboardLayout()?.[wrapper.dataset.cardId] || {};
     const manualHeight = Number(wrapper.dataset.resizeHeight || saved.height || 0);
     const innerCard = card.shadowRoot?.querySelector?.("ha-card");
@@ -10317,7 +10557,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       "fitness/body_composition","fitness/dashboard/options_flow/cancel","fitness/dashboard/options_flow/start","fitness/dashboard/options_flow/step",
       "fitness/remote_gateway/ant_packets","fitness/remote_gateway/ble_device","fitness/remote_gateway/ble_disconnect","fitness/remote_gateway/ble_frames","fitness/remote_gateway/capabilities","fitness/remote_gateway/gatt_notify","fitness/remote_gateway/gatt_poll","fitness/remote_gateway/gatt_result","fitness/remote_gateway/hello","fitness/remote_gateway/status",
       "fitness/sensor/claim","fitness/training/export","fitness/training/plan","fitness/training/plan/start","fitness/training/start","fitness/training/step","fitness/training/tests",
-      "fitness/tv/ack","fitness/tv/browser_receiver","fitness/tv/cast/rearm","fitness/tv/dashboard/manage","fitness/tv/heartbeat","fitness/tv/local_cast/config/save","fitness/tv/local_cast_credentials","fitness/tv/local_cast_handoff","fitness/tv/local_cast_stopped","fitness/tv/media_command","fitness/tv/music/ma/play","fitness/tv/music/ma/playlist","fitness/tv/music/ma/playlist/remove","fitness/tv/music/ma/queue","fitness/tv/music/ma/seek","fitness/tv/music/ma/sendspin","fitness/tv/music/resolve","fitness/tv/music/ytdlp","fitness/tv/overview/cast","fitness/tv/overview/stop","fitness/tv/preferences/save","fitness/tv/profile/configure","fitness/tv/start_workout",
+      "fitness/tv/ack","fitness/tv/browser_receiver","fitness/tv/cast/rearm","fitness/tv/cast/stop","fitness/tv/receiver/leave","fitness/tv/dashboard/manage","fitness/tv/heartbeat","fitness/tv/local_cast/config/save","fitness/tv/local_cast_credentials","fitness/tv/local_cast_handoff","fitness/tv/local_cast_stopped","fitness/tv/media_command","fitness/tv/music/ma/play","fitness/tv/music/ma/playlist","fitness/tv/music/ma/playlist/remove","fitness/tv/music/ma/queue","fitness/tv/music/ma/seek","fitness/tv/music/ma/sendspin","fitness/tv/music/resolve","fitness/tv/music/ytdlp","fitness/tv/overview/cast","fitness/tv/overview/stop","fitness/tv/preferences/save","fitness/tv/profile/configure","fitness/tv/start_workout",
       "fitness/weight/confirm","fitness/weight/dismiss","fitness/workouts/delete","fitness/workouts/edit","fitness/workouts/empty","fitness/workouts/rpe",
     ]);
     const proxy = new Proxy(target, {
@@ -12037,22 +12277,26 @@ class FitnessTvDashboardCard extends HTMLElement {
   }
 
   _syncLocalCastButtons() {
-    const active = Boolean(this._castState === "connected" && this._castMode === "browser");
-    const pending = Boolean(this._castState === "connecting" && this._castMode === "browser");
-    const anyCastActive = FITNESS_TV_CAST_RECEIVER || this._castState === "connected";
+    const connected = this._castState === "connected";
+    const pending = this._castState === "connecting";
     const toolbarStop = this.shadowRoot?.getElementById("stop-cast");
-    if (toolbarStop) { toolbarStop.hidden = !FITNESS_TV_CAST_RECEIVER || !anyCastActive; toolbarStop.disabled = !anyCastActive; }
+    // The main Cast button is the single toolbar control. Do not render a second
+    // receiver-only Stop button that can drift out of sync with it.
+    if (toolbarStop) { toolbarStop.hidden = true; toolbarStop.disabled = true; }
     const modalRoot = this.shadowRoot?.getElementById("modal-root");
     const localToggle = modalRoot?.querySelector?.("#cast-local");
     if (localToggle) {
-      localToggle.querySelector("ha-icon")?.setAttribute("icon", active ? "mdi:cast-off" : "mdi:cast-connected");
+      localToggle.querySelector("ha-icon")?.setAttribute("icon", connected ? "mdi:cast-off" : (pending ? "mdi:loading" : "mdi:cast-connected"));
       const label = localToggle.querySelector("span");
       const l = this._labels();
-      if (label) label.textContent = pending ? l.local_cast_connecting : (active ? l.local_cast_stop : l.local_cast_choose);
+      if (label) label.textContent = connected ? l.cast_stop : (pending ? l.cast_connecting : l.local_cast_choose);
       localToggle.disabled = pending;
+      localToggle.classList.toggle("active", connected);
+      localToggle.classList.toggle("cast-pending", pending);
+      localToggle.setAttribute("aria-busy", pending ? "true" : "false");
     }
     const modalStop = modalRoot?.querySelector?.("#cast-local-stop");
-    if (modalStop) { modalStop.hidden = true; modalStop.disabled = !active; }
+    if (modalStop) { modalStop.hidden = true; modalStop.disabled = true; }
   }
 
   async _armLocalCastHandoff(reason = "local_cast_started") {
@@ -12167,12 +12411,23 @@ class FitnessTvDashboardCard extends HTMLElement {
     const buttonLabel = button?.querySelector("span");
     if (button) button.disabled = true;
     try {
-      // requestSession must remain directly on the click path for Chrome. The
-      // backend handoff immediately afterwards is the race-proof single-Cast
-      // lock, so a second sender can never become the active Fitness receiver.
+      // Reserve the universal profile Cast slot at the same user gesture that
+      // opens Chrome's Cast chooser. Do not await the websocket before calling
+      // requestSession(): Cast requires requestSession() to stay on the direct
+      // click stack. The reservation promise runs in parallel and makes every
+      // other dashboard see `connecting` immediately.
       if (buttonLabel) buttonLabel.textContent = l.local_cast_connecting;
       if (status) status.textContent = l.local_cast_connecting;
-      await context.requestSession();
+      this._applyCastDescriptor({state:"connecting",mode:"browser",target:null});
+      this._updateMediaControls();
+      const reservePromise = this._armLocalCastHandoff("local_cast_requested");
+      const sessionPromise = context.requestSession();
+      handoffArmed = await reservePromise;
+      if (!handoffArmed) {
+        try { await sessionPromise; } catch (_err) {}
+        throw new Error("cast_already_active");
+      }
+      await sessionPromise;
       const session = context.getCurrentSession();
       if (!session) throw new Error(l.local_cast_cancelled);
       this._localCastSenderActive = true;
@@ -12225,11 +12480,8 @@ class FitnessTvDashboardCard extends HTMLElement {
       if (retryOne) { clearTimeout(retryOne); retryOne = null; }
       if (retryTwo) { clearTimeout(retryTwo); retryTwo = null; }
 
-      handoffArmed = await this._armLocalCastHandoff("local_cast_receiver_authenticated");
-      if (!handoffArmed) throw new Error("cast_already_active");
-      this._applyCastDescriptor({state:"connecting",mode:"browser",target:null});
-      this._updateMediaControls();
-
+      // The slot was reserved before the chooser opened. Authentication only
+      // advances that same attempt; it must never create a second reservation.
       if (buttonLabel) buttonLabel.textContent = l.local_cast_loading;
       if (status) status.textContent = l.local_cast_loading;
       await session.sendMessage(namespace, _fitnessLocalCastShowMessage(credentials));
@@ -12328,8 +12580,15 @@ class FitnessTvDashboardCard extends HTMLElement {
     const l = this._labels();
     const prefix = overview ? "overview-smart-tv" : "smart-tv";
     const launchTargets = this._access?.local_ha_hardware_allowed && Array.isArray(this._browserLaunchTargets) ? this._browserLaunchTargets : [];
-    const launch = _fitnessSmartTvLaunchSelection(root, prefix, launchTargets, l);
-    if (!launch.available) return;
+    const castDescriptor = overview
+      ? (this._overviewCast || {state:"idle"})
+      : {state:this._castState,busy:this._castBusy,mode:this._castMode,target:this._activeCastTarget};
+    const launch = _fitnessSmartTvLaunchSelection(root, prefix, launchTargets, l, castDescriptor);
+    if (launch.cast?.connected) {
+      if (overview) await this._stopOverviewCast(); else await this._stopCurrentCast();
+      return;
+    }
+    if (!launch.available || launch.cast?.connecting) return;
     const button = root?.querySelector(`#${prefix}-create`);
     const status = root?.querySelector(`#${prefix}-status`) || root?.querySelector(overview ? ".overview-cast-status" : "#cast-status");
     const buttonLabel = button?.querySelector("span");
@@ -12347,6 +12606,11 @@ class FitnessTvDashboardCard extends HTMLElement {
         launch_method:launch.launchMethod || "",
         origin:String(globalThis.location?.origin || ""),
       });
+      if (result?.cast) {
+        if (overview) this._applyOverviewCastDescriptor(result.cast);
+        else this._applyCastDescriptor(result.cast);
+        this._updateMediaControls();
+      }
       const path = String(result?.path || "");
       if (launch.manual) {
         if (!path) throw new Error("receiver_link_missing");
@@ -12383,46 +12647,18 @@ class FitnessTvDashboardCard extends HTMLElement {
         status.classList?.add?.("error");
       }
     } finally {
-      _fitnessSmartTvLaunchSelection(root, prefix, launchTargets, l);
+      _fitnessSmartTvLaunchSelection(root, prefix, launchTargets, l, overview
+        ? (this._overviewCast || {state:"idle"})
+        : {state:this._castState,busy:this._castBusy,mode:this._castMode,target:this._activeCastTarget});
     }
   }
 
   async _openCastPicker() {
     const l = this._labels();
-    const currentCast = await this._syncCastStatus();
-    if (currentCast?.busy) {
-      const connected = currentCast.state === "connected";
-      const targetName = currentCast.target
-        ? ((this._castTargets || []).find((item) => String(item?.entity_id || "") === String(currentCast.target || ""))?.name || String(currentCast.target))
-        : (this._localCastDeviceName || l.local_cast);
-      this._showModal(`
-        <div class="modal-card cast-modal cast-active-only">
-          <div class="modal-head"><strong>${_fitnessEscape(l.cast_dashboard_title)}</strong><button class="icon-tool modal-close"><ha-icon icon="mdi:close"></ha-icon></button></div>
-          <div class="cast-picker">
-            <section class="cast-section cast-current-section">
-              <div class="cast-section-copy"><ha-icon icon="${connected ? "mdi:cast-connected" : "mdi:cast"}"></ha-icon><span><strong>${_fitnessEscape(connected ? (l.local_cast_connected || l.cast_sent) : l.cast_connecting)}</strong><small>${_fitnessEscape(targetName)}</small></span></div>
-              <div class="cast-section-actions"><button class="tool cast-stop" id="cast-current-stop"><ha-icon icon="mdi:cast-off"></ha-icon><span>${_fitnessEscape(l.cast_stop)}</span></button></div>
-              <div class="cast-action-status" id="cast-status" aria-live="polite">${_fitnessEscape(connected ? "" : l.cast_connecting)}</div>
-            </section>
-          </div>
-        </div>`);
-      const root = this.shadowRoot?.getElementById("modal-root");
-      root?.querySelector("#cast-current-stop")?.addEventListener("click", async (event) => {
-        const button = event.currentTarget;
-        if (button) button.disabled = true;
-        const status = root?.querySelector("#cast-status");
-        if (status) status.textContent = l.cast_stopping;
-        await this._stopCurrentCast();
-        const synced = await this._syncCastStatus();
-        if (synced.state === "idle") {
-          if (status) status.textContent = l.cast_stopped;
-          setTimeout(() => root?.querySelector(".modal-close")?.click?.(), 250);
-        } else {
-          if (status) status.textContent = l.cast_stopping;
-          if (button) button.disabled = false;
-        }
-      });
-      return;
+    let currentCast = await this._syncCastStatus();
+    if (FITNESS_TV_CAST_RECEIVER && !currentCast?.busy && this._profile?.entry_id) {
+      currentCast = {state:"connecting",active:false,pending:true,busy:true,mode:"browser",target:null};
+      this._applyCastDescriptor(currentCast);
     }
     try {
       const data = await this._hass?.callWS({type:"fitness/dashboard/config"});
@@ -12489,7 +12725,11 @@ class FitnessTvDashboardCard extends HTMLElement {
         if (save) save.disabled = false;
       }
     });
-    root?.querySelector("#cast-local")?.addEventListener("click", () => void this._castLocalDashboard());
+    root?.querySelector("#cast-local")?.addEventListener("click", () => {
+      if (this._castState === "connected") { void this._stopCurrentCast(); return; }
+      if (this._castState === "connecting") return;
+      void this._castLocalDashboard();
+    });
     root?.querySelector("#cast-local-stop")?.addEventListener("click", () => void this._stopLocalCast());
     if (localCastVisible) {
       const localButton = root?.querySelector("#cast-local");
@@ -12503,21 +12743,22 @@ class FitnessTvDashboardCard extends HTMLElement {
         if (status) status.textContent = l.local_cast_unsupported;
       });
     }
-    root?.querySelector("#smart-tv-create")?.addEventListener("click", () => void this._createSmartTvReceiver(root));
-    root?.querySelector("#smart-tv-launch")?.addEventListener("change", () => _fitnessSmartTvLaunchSelection(root, "smart-tv", this._browserLaunchTargets || [], l));
-    _fitnessSmartTvLaunchSelection(root, "smart-tv", this._browserLaunchTargets || [], l);
+    root?.querySelector("#smart-tv-create")?.addEventListener("click", () => {
+      if (this._castState === "connected") { void this._stopCurrentCast(); return; }
+      if (this._castState === "connecting") return;
+      void this._createSmartTvReceiver(root);
+    });
+    root?.querySelector("#smart-tv-launch")?.addEventListener("change", () => _fitnessSmartTvLaunchSelection(root, "smart-tv", this._browserLaunchTargets || [], l, {state:this._castState,busy:this._castBusy,mode:this._castMode,target:this._activeCastTarget}));
+    _fitnessSmartTvLaunchSelection(root, "smart-tv", this._browserLaunchTargets || [], l, {state:this._castState,busy:this._castBusy,mode:this._castMode,target:this._activeCastTarget});
     _fitnessStartCastTargetWatch(this, root, {overview:false, preferred});
     root?.querySelector("#cast-now")?.addEventListener("click", () => {
+      if (this._castState === "connected") { void this._stopCurrentCast(); return; }
+      if (this._castState === "connecting") return;
       const target = String(root.querySelector("#cast-target")?.value || "");
       void this._castDashboard(target);
     });
     root?.querySelector("#cast-target")?.addEventListener("change", () => {
-      const target = String(root.querySelector("#cast-target")?.value || "");
-      const button = root.querySelector("#cast-now");
-      const selected = (this._castTargets || []).find((item) => String(item?.entity_id || "") === target);
-      if (button) button.disabled = !selected || selected.available === false;
-      button?.querySelector("ha-icon")?.setAttribute("icon", "mdi:cast-connected");
-      const span = button?.querySelector("span"); if (span) span.textContent = l.cast_now;
+      _fitnessUpdateCastTargetSelect(this, root, {overview:false, preferred});
     });
     root?.querySelector("#cast-stop")?.addEventListener("click", () => this._stopCastDashboard(String(this._activeCastTarget || root.querySelector("#cast-target")?.value || "")));
   }
@@ -12552,15 +12793,15 @@ class FitnessTvDashboardCard extends HTMLElement {
         await new Promise((resolve) => setTimeout(resolve, 450));
       }
       const active = this._castState === "connected" && this._castMode === "server";
-      if (buttonIcon) buttonIcon.setAttribute("icon", this._castState === "connecting" ? "mdi:cast" : "mdi:cast-connected");
-      if (buttonLabel) buttonLabel.textContent = this._castState === "connecting" ? l.cast_connecting : l.cast_now;
+      if (buttonIcon) buttonIcon.setAttribute("icon", active ? "mdi:cast-off" : (this._castState === "connecting" ? "mdi:loading" : "mdi:cast-connected"));
+      if (buttonLabel) buttonLabel.textContent = active ? l.cast_stop : (this._castState === "connecting" ? l.cast_connecting : l.cast_now);
       if (status) status.textContent = active ? l.cast_sent : (this._castState === "connecting" ? l.cast_connecting : l.cast_failed);
     } catch (err) {
       console.error("[Fitness TV] Cast start failed", err);
       await this._heartbeat();
       if (this._castState === "connected") {
-        if (buttonIcon) buttonIcon.setAttribute("icon", "mdi:cast-connected");
-        if (buttonLabel) buttonLabel.textContent = l.cast_now;
+        if (buttonIcon) buttonIcon.setAttribute("icon", "mdi:cast-off");
+        if (buttonLabel) buttonLabel.textContent = l.cast_stop;
         if (status) status.textContent = l.cast_sent;
       } else if (this._castState === "connecting") {
         if (buttonIcon) buttonIcon.setAttribute("icon", "mdi:cast");
@@ -12575,7 +12816,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       }
     } finally {
       this._updateMediaControls();
-      if (button) button.disabled = this._castState === "connecting";
+      _fitnessUpdateCastTargetSelect(this, root, {overview:false, preferred:String(this._profile?.tv_dashboard?.cast_media_player_id || "")});
     }
   }
 
@@ -12866,10 +13107,19 @@ class FitnessTvDashboardCard extends HTMLElement {
     if (castModal) requestAnimationFrame(() => {
       const controls = this._castFocusableElementsWithin(root);
       if (!controls.length) return;
+      // Transfer remote ownership into the modal itself instead of leaving the
+      // toolbar as the selected section. Prefer a real content control over the
+      // Close button so the same physical click/OK that opened a modal can never
+      // immediately close it on TV browsers with delayed key-up delivery.
+      const section = modalCard || root.querySelector(".modal-backdrop") || root;
+      const first = controls.find((control) => !control.classList?.contains?.("modal-close")) || controls[0];
+      this._castRemoteSection = section;
       this._castRemoteMode = "inner";
       this._clearCastRemoteFocus();
-      controls[0].focus?.({preventScroll:true});
-      this._markCastRemoteFocus(controls[0], false, false);
+      this._castRemoteLastInnerFocus.set(section, first);
+      this._markCastRemoteSection(section, true);
+      first.focus?.({preventScroll:true});
+      this._markCastRemoteFocus(first, false, false);
     });
   }
 
@@ -14045,45 +14295,45 @@ class FitnessTvDashboardCard extends HTMLElement {
     const castPending = this._castState === "connecting";
     const castToggle = this.shadowRoot?.getElementById("cast");
     if (castToggle) {
-      castToggle.querySelector("ha-icon")?.setAttribute("icon", castConnected ? "mdi:cast-off" : "mdi:cast");
+      castToggle.querySelector("ha-icon")?.setAttribute("icon", castConnected ? "mdi:cast-off" : (castPending ? "mdi:loading" : "mdi:cast"));
       const castLabel = castToggle.querySelector("span");
       if (castLabel) castLabel.textContent = castConnected ? l.cast_stop : (castPending ? l.cast_connecting : l.cast_dashboard);
       castToggle.title = castConnected ? l.cast_stop : (castPending ? l.cast_connecting : l.cast_dashboard);
-      castToggle.disabled = false; // pending stays grey but can open the stop-only view
+      // A Cast attempt owns the profile immediately. While connecting every
+      // launch control is inert; once the receiver heartbeat confirms it, the
+      // same control becomes the universal Disconnect Cast action.
+      castToggle.disabled = castPending;
       castToggle.classList.toggle("active", castConnected);
       castToggle.classList.toggle("cast-pending", castPending);
       castToggle.setAttribute("aria-busy", castPending ? "true" : "false");
     }
     const stopCast = this.shadowRoot?.getElementById("stop-cast");
-    if (stopCast) {
-      stopCast.hidden = !FITNESS_TV_CAST_RECEIVER || !castConnected;
-      stopCast.disabled = !castConnected;
-    }
+    if (stopCast) { stopCast.hidden = true; stopCast.disabled = true; }
     const modalRoot = this.shadowRoot?.getElementById("modal-root");
     const modalHaStart = modalRoot?.querySelector?.("#cast-now");
     const modalHaStop = modalRoot?.querySelector?.("#cast-stop");
-    const serverBusy = (castConnected || castPending) && this._castMode === "server";
+    const castDescriptor = {state:this._castState, busy:this._castBusy, mode:this._castMode, target:this._activeCastTarget};
     if (modalHaStart) {
-      modalHaStart.hidden = serverBusy;
+      modalHaStart.hidden = false;
       const selectedId = String(modalRoot?.querySelector?.("#cast-target")?.value || "");
       const selectedTarget = (this._castTargets || []).find((item) => String(item?.entity_id || "") === selectedId);
-      modalHaStart.disabled = serverBusy || !selectedId || selectedTarget?.available === false;
-      if (!serverBusy) {
-        modalHaStart.querySelector("ha-icon")?.setAttribute("icon", "mdi:cast-connected");
-        const startLabel = modalHaStart.querySelector("span");
-        if (startLabel) startLabel.textContent = l.cast_now;
-      }
+      modalHaStart.disabled = castPending || (!castConnected && (!selectedId || selectedTarget?.available === false));
+      modalHaStart.querySelector("ha-icon")?.setAttribute("icon", castConnected ? "mdi:cast-off" : (castPending ? "mdi:loading" : "mdi:cast-connected"));
+      const startLabel = modalHaStart.querySelector("span");
+      if (startLabel) startLabel.textContent = castConnected ? l.cast_stop : (castPending ? l.cast_connecting : l.cast_now);
+      modalHaStart.classList.toggle("active", castConnected);
+      modalHaStart.classList.toggle("cast-pending", castPending);
     }
-    if (modalHaStop) {
-      modalHaStop.hidden = !serverBusy;
-      modalHaStop.disabled = !serverBusy;
-    }
+    const castSelect = modalRoot?.querySelector?.("#cast-target");
+    if (castSelect) castSelect.disabled = castConnected || castPending;
+    if (modalHaStop) { modalHaStop.hidden = true; modalHaStop.disabled = true; }
+    _fitnessSmartTvLaunchSelection(modalRoot, "smart-tv", this._browserLaunchTargets || [], l, castDescriptor);
   }
 
   _style() {
     return `<style>
       :host{display:block;width:100%;max-width:none;min-height:0;position:relative;isolation:isolate;margin:0;background:var(--fitness-tv-ambient,var(--primary-background-color));color:var(--primary-text-color);overflow-x:hidden;transition:background .8s ease}
-      :host([fitness-cast-receiver]){position:fixed;inset:0;left:0;z-index:1;width:100vw;height:100vh;max-width:none;margin:0;overflow:auto;overscroll-behavior:none}
+      :host([fitness-cast-receiver]){position:fixed;inset:0;left:0;z-index:1;width:100vw;height:100dvh;max-width:none;margin:0;overflow:hidden!important;overscroll-behavior:none}
       :host([fitness-cast-receiver]) ha-card.tv-shell{width:100%;min-height:100%;margin:0}
       *{box-sizing:border-box}
       ha-card.tv-shell{min-height:0;width:100%;border:0;border-radius:0;box-shadow:none;background:var(--fitness-tv-ambient,var(--primary-background-color));padding:0 14px 14px;overflow:visible;transition:background .8s ease;position:relative;isolation:isolate}
@@ -14101,10 +14351,13 @@ class FitnessTvDashboardCard extends HTMLElement {
       select,.tool,.icon-tool{font:inherit;color:var(--primary-text-color);background:var(--secondary-background-color);border:1px solid var(--divider-color);border-radius:12px;min-height:42px}
       select{width:100%;min-width:0;padding:0 10px}.tool,.icon-tool{cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:5px 12px;min-width:0;line-height:1.2}.icon-tool{width:42px;min-width:42px;padding:0}.tool>span,.primary-tool>span,.adapter-setup>span,.flow-home>span{display:block;min-width:0;max-width:100%;font-size:clamp(11px,.76vw,13px);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;word-break:normal;overflow-wrap:normal}.tool:disabled,.icon-tool:disabled{opacity:.45;cursor:default}
       .music-controls{display:grid;grid-template-columns:auto minmax(280px,1fr);gap:10px;align-items:center;min-width:0}.music-button-strip{display:flex;align-items:center;gap:7px;flex-wrap:wrap;min-width:0}.music-button-strip>.tool{flex:1 1 118px;min-width:0}.music-button-strip>.tool span{min-width:0;overflow:visible;text-overflow:clip;white-space:normal}.media-now{min-width:0;display:grid;grid-template-columns:44px minmax(0,1fr);gap:8px;align-items:center;padding-left:3px}.media-art{width:44px;height:44px;display:grid;place-items:center;overflow:hidden;border-radius:9px;background:var(--secondary-background-color);color:var(--secondary-text-color)}.media-art img{width:100%;height:100%;object-fit:cover}.media-art ha-icon{--mdc-icon-size:25px}.media-now-main{min-width:0;width:min(420px,100%);max-width:420px}.media-copy{min-width:0;width:100%;max-width:420px;overflow:hidden}.media-copy small{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--secondary-text-color);font-size:9px}.media-scroll-line{min-width:0;max-width:100%;overflow:hidden;white-space:nowrap}.media-scroll-line strong,.media-scroll-line span{display:inline-block;white-space:nowrap;min-width:0;will-change:transform}.media-copy strong{font-size:13px}.media-copy span{margin-top:1px;color:var(--secondary-text-color);font-size:10px}.media-scroll-line .media-marquee{animation:fitness-media-marquee var(--media-scroll-duration,8s) ease-in-out 1s infinite alternate}@keyframes fitness-media-marquee{from{transform:translateX(0)}to{transform:translateX(calc(-1 * var(--media-scroll-distance,0px)))}}.media-progress-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:1px;align-items:center;margin-top:3px;color:var(--secondary-text-color);font-size:9px;font-variant-numeric:tabular-nums;min-width:0;width:min(420px,100%);max-width:420px;justify-self:start}.media-progress-wrap input{grid-column:1;width:100%;height:14px;min-width:0;margin:0;accent-color:var(--primary-color)}.media-progress-wrap input:disabled{opacity:.45}.playlist-control.active{color:var(--primary-color);border-color:color-mix(in srgb,var(--primary-color) 65%,var(--divider-color));background:color-mix(in srgb,var(--primary-color) 12%,var(--secondary-background-color))}.media-time-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;line-height:1}.media-time-row span{white-space:nowrap}
-      .tv-oled-stage{min-width:0;position:relative;z-index:1;perspective:none;transform-style:flat}.tv-grid{--tv-columns:4;--tv-row:4px;display:grid;--fitness-grid-tail-gap:12px;grid-template-columns:repeat(var(--tv-columns),minmax(0,1fr));grid-auto-rows:var(--tv-row);grid-auto-flow:dense;column-gap:var(--fitness-theme-gap,12px);row-gap:0;width:100%;align-items:start;margin-bottom:calc(-1 * var(--fitness-grid-tail-gap))}.tv-card-slot{min-width:0;position:relative;overflow:visible;min-height:var(--tv-card-visual-height,1px);border-radius:14px;pointer-events:none}.tv-card-slot>.tv-mounted-card{display:block;width:100%;max-width:none;pointer-events:auto}.layout-tools,.card-resize-handle{pointer-events:auto}:host([layout-editing]) .tv-card-slot{pointer-events:auto}:host([fitness-cast-receiver]) .tv-oled-stage{perspective:1200px;transform-style:preserve-3d}.tv-card-slot.read-only-card{cursor:default}.tv-card-slot.read-only-card>.tv-mounted-card{user-select:text}.layout-tools{display:none;position:absolute;z-index:80;top:5px;right:5px;align-items:center;gap:3px;padding:3px;border-radius:10px;background:color-mix(in srgb,var(--card-background-color) 92%,transparent);border:1px solid var(--divider-color);box-shadow:0 2px 8px rgba(0,0,0,.18)}.fitness-remote-section-selected,.fitness-remote-section-active{position:relative;z-index:72!important;transform-origin:center center;will-change:transform,box-shadow,filter,opacity;transition:transform .23s cubic-bezier(.18,.88,.22,1),outline-color .18s ease,box-shadow .23s ease,filter .2s ease,opacity .2s ease}:host([fitness-cast-receiver][remote-section-engaged]) .tv-card-slot:not(.fitness-remote-section-selected):not(.fitness-remote-section-active),:host([fitness-cast-receiver][remote-section-engaged]) .dashboard-switcher:not(.fitness-remote-section-selected):not(.fitness-remote-section-active){transform:translateZ(-34px) scale(.982);opacity:.78;filter:brightness(.92) saturate(.9);transition:transform .23s cubic-bezier(.18,.88,.22,1),opacity .2s ease,filter .2s ease}.fitness-remote-section-selected{outline:2px solid color-mix(in srgb,var(--primary-color,#03a9f4) 92%,white 8%)!important;outline-offset:3px!important;transform:translateZ(42px) scale(1.026);box-shadow:0 0 0 2px rgba(255,255,255,.10),0 0 0 5px color-mix(in srgb,var(--primary-color,#03a9f4) 36%,transparent),0 0 24px 8px color-mix(in srgb,var(--primary-color,#03a9f4) 29%,transparent),0 22px 50px rgba(0,0,0,.36)!important;filter:brightness(1.08) saturate(1.06);opacity:1}.tv-toolbar.fitness-remote-section-selected{transform:scale(1.012)}.fitness-remote-section-active{outline:1px solid color-mix(in srgb,var(--primary-color,#03a9f4) 72%,transparent)!important;outline-offset:3px!important;transform:translateZ(52px) scale(1.018);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary-color,#03a9f4) 16%,transparent),0 0 16px 4px color-mix(in srgb,var(--primary-color,#03a9f4) 14%,transparent),0 16px 36px rgba(0,0,0,.26)!important;filter:brightness(1.045) saturate(1.03);opacity:1}.tv-toolbar.fitness-remote-section-active{transform:scale(1.006)}.cast-exit-confirm[hidden]{display:none!important}:host([fitness-cast-receiver]) .cast-exit-confirm{position:fixed;left:9vw;right:9vw;bottom:28px;z-index:9999;margin:0 auto;max-width:760px;padding:13px 20px;border-radius:14px;background:rgba(0,0,0,.86);color:#fff;font:700 15px/1.3 system-ui,sans-serif;text-align:center;pointer-events:none;box-shadow:0 8px 28px rgba(0,0,0,.38);border:1px solid rgba(255,255,255,.24)}.layout-tools .card-move-handle,.layout-tools .card-reset-size{width:34px;height:34px}.layout-tools .card-move-handle{cursor:grab;touch-action:none}.layout-tools .card-move-handle:active,.layout-tools .card-move-handle.dragging{cursor:grabbing}.layout-tools .card-move-handle ha-icon,.layout-tools .card-reset-size ha-icon,.layout-tools .card-move-direction ha-icon{--mdc-icon-size:20px;color:var(--primary-color)}.layout-tools button{border:0;border-radius:9px;display:grid;place-items:center;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer}.card-direction-pad{display:grid;grid-template-columns:34px 34px 34px;grid-template-rows:34px 34px;grid-template-areas:". up ." "left down right";gap:3px}.card-move-direction{width:34px;height:34px;padding:0}.card-move-direction.move-up{grid-area:up}.card-move-direction.move-left{grid-area:left}.card-move-direction.move-right{grid-area:right}.card-move-direction.move-down{grid-area:down}:host([fitness-cast-receiver]) .layout-tools{top:6px;right:6px;padding:5px;border-radius:12px}:host([layout-editing]) .layout-tools{display:flex}:host([layout-editing]) .tv-card-slot{outline:2px dashed color-mix(in srgb,var(--primary-color) 65%,transparent);outline-offset:-2px;cursor:default}:host([layout-editing]) .tv-card-slot>.tv-mounted-card{pointer-events:none;user-select:none}:host([layout-editing]) .tv-card-slot.dragging{opacity:1}:host([layout-editing]) .tv-card-slot.drop-target{outline:3px solid var(--primary-color);background:color-mix(in srgb,var(--primary-color) 7%,transparent)}.arrange-tool[aria-pressed="true"]{border-color:var(--primary-color);background:color-mix(in srgb,var(--primary-color) 16%,var(--secondary-background-color))}
-      :host([fitness-cast-receiver]) .fitness-remote-section-selected,:host([fitness-cast-receiver]) .fitness-remote-section-active{will-change:transform;transition:transform .11s ease-out,outline-color .11s ease-out,box-shadow .11s ease-out;filter:none!important}
-      :host([fitness-cast-receiver]) .fitness-remote-section-selected{transform:translate3d(0,-1px,0) scale(1.012);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary-color,#03a9f4) 27%,transparent),0 8px 18px rgba(0,0,0,.24)!important}
-      :host([fitness-cast-receiver]) .tv-toolbar.fitness-remote-section-selected{transform:translate3d(0,-1px,0) scale(1.004)}
+      .tv-oled-stage{min-width:0;position:relative;z-index:1;perspective:none;transform-style:flat}.tv-grid{--tv-columns:4;--tv-row:4px;display:grid;--fitness-grid-tail-gap:12px;grid-template-columns:repeat(var(--tv-columns),minmax(0,1fr));grid-auto-rows:var(--tv-row);grid-auto-flow:dense;column-gap:var(--fitness-theme-gap,12px);row-gap:0;width:100%;align-items:start;margin-bottom:calc(-1 * var(--fitness-grid-tail-gap))}.tv-card-slot{min-width:0;position:relative;overflow:visible;min-height:var(--tv-card-visual-height,1px);border-radius:14px;pointer-events:none}.tv-card-slot>.tv-mounted-card{display:block;width:100%;max-width:none;pointer-events:auto}.layout-tools,.card-resize-handle{pointer-events:auto}:host([layout-editing]) .tv-card-slot{pointer-events:auto}:host([fitness-cast-receiver]) .tv-oled-stage{perspective:1200px;transform-style:preserve-3d}.tv-card-slot.read-only-card{cursor:default}.tv-card-slot.read-only-card>.tv-mounted-card{user-select:text}.layout-tools{display:none;position:absolute;z-index:80;top:5px;right:5px;align-items:center;gap:3px;padding:3px;border-radius:10px;background:color-mix(in srgb,var(--card-background-color) 92%,transparent);border:1px solid var(--divider-color);box-shadow:0 2px 8px rgba(0,0,0,.18)}.fitness-remote-section-selected,.fitness-remote-section-active{position:relative;z-index:72!important;transform-origin:center center;will-change:transform,box-shadow,filter,opacity;transition:transform .23s cubic-bezier(.18,.88,.22,1),outline-color .18s ease,box-shadow .23s ease,filter .2s ease,opacity .2s ease}:host([fitness-cast-receiver][remote-section-engaged]) .tv-card-slot:not(.fitness-remote-section-selected):not(.fitness-remote-section-active),:host([fitness-cast-receiver][remote-section-engaged]) .dashboard-switcher:not(.fitness-remote-section-selected):not(.fitness-remote-section-active){transform:translateZ(-34px) scale(.982);opacity:.78;filter:brightness(.92) saturate(.9);transition:transform .23s cubic-bezier(.18,.88,.22,1),opacity .2s ease,filter .2s ease}.fitness-remote-section-selected{outline:2px solid color-mix(in srgb,var(--primary-color,#03a9f4) 92%,white 8%)!important;outline-offset:3px!important;transform:translateZ(42px) scale(1.026);box-shadow:0 0 0 2px rgba(255,255,255,.10),0 0 0 5px color-mix(in srgb,var(--primary-color,#03a9f4) 36%,transparent),0 0 24px 8px color-mix(in srgb,var(--primary-color,#03a9f4) 29%,transparent),0 22px 50px rgba(0,0,0,.36)!important;filter:brightness(1.08) saturate(1.06);opacity:1}.tv-toolbar.fitness-remote-section-selected{transform:scale(1.012)}.fitness-remote-section-active{outline:1px solid color-mix(in srgb,var(--primary-color,#03a9f4) 72%,transparent)!important;outline-offset:3px!important;transform:translateZ(52px) scale(1.018);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary-color,#03a9f4) 16%,transparent),0 0 16px 4px color-mix(in srgb,var(--primary-color,#03a9f4) 14%,transparent),0 16px 36px rgba(0,0,0,.26)!important;filter:brightness(1.045) saturate(1.03);opacity:1}.tv-toolbar.fitness-remote-section-active{transform:scale(1.006)}.cast-exit-confirm[hidden]{display:none!important}:host([fitness-cast-receiver]) .cast-global-overlay-root{position:fixed!important;inset:0!important;z-index:2147483647!important;pointer-events:none!important;isolation:isolate!important;transform:translateZ(0)!important;contain:layout paint!important}:host([fitness-cast-receiver]) .cast-exit-confirm{position:absolute!important;left:9vw;right:9vw;bottom:max(28px,env(safe-area-inset-bottom));z-index:1!important;margin:0 auto;max-width:760px;padding:13px 20px;border-radius:14px;background:rgba(0,0,0,.92);color:#fff;font:700 15px/1.3 system-ui,sans-serif;text-align:center;pointer-events:none;box-shadow:0 8px 28px rgba(0,0,0,.48);border:1px solid rgba(255,255,255,.32)}.layout-tools .card-move-handle,.layout-tools .card-reset-size{width:34px;height:34px}.layout-tools .card-move-handle{cursor:grab;touch-action:none}.layout-tools .card-move-handle:active,.layout-tools .card-move-handle.dragging{cursor:grabbing}.layout-tools .card-move-handle ha-icon,.layout-tools .card-reset-size ha-icon,.layout-tools .card-move-direction ha-icon{--mdc-icon-size:20px;color:var(--primary-color)}.layout-tools button{border:0;border-radius:9px;display:grid;place-items:center;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer}.card-direction-pad{display:grid;grid-template-columns:34px 34px 34px;grid-template-rows:34px 34px;grid-template-areas:". up ." "left down right";gap:3px}.card-move-direction{width:34px;height:34px;padding:0}.card-move-direction.move-up{grid-area:up}.card-move-direction.move-left{grid-area:left}.card-move-direction.move-right{grid-area:right}.card-move-direction.move-down{grid-area:down}:host([fitness-cast-receiver]) .layout-tools{top:6px;right:6px;padding:5px;border-radius:12px}:host([layout-editing]) .layout-tools{display:flex}:host([layout-editing]) .tv-card-slot{outline:2px dashed color-mix(in srgb,var(--primary-color) 65%,transparent);outline-offset:-2px;cursor:default}:host([layout-editing]) .tv-card-slot>.tv-mounted-card{pointer-events:none;user-select:none}:host([layout-editing]) .tv-card-slot.dragging{opacity:1}:host([layout-editing]) .tv-card-slot.drop-target{outline:3px solid var(--primary-color);background:color-mix(in srgb,var(--primary-color) 7%,transparent)}.arrange-tool[aria-pressed="true"]{border-color:var(--primary-color);background:color-mix(in srgb,var(--primary-color) 16%,var(--secondary-background-color))}
+      :host([fitness-cast-receiver]) .fitness-remote-section-selected,:host([fitness-cast-receiver]) .fitness-remote-section-active{will-change:auto!important;transition:outline-color .11s ease-out,box-shadow .11s ease-out;filter:none!important;transform:none!important}
+      :host([fitness-cast-receiver]) .fitness-remote-section-selected{transform:none!important;box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--primary-color,#03a9f4) 34%,transparent),0 4px 10px rgba(0,0,0,.18)!important}
+      :host([fitness-cast-receiver]) .fitness-remote-section-active{transform:none!important;box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--primary-color,#03a9f4) 22%,transparent),0 3px 8px rgba(0,0,0,.14)!important}
+      :host([fitness-cast-receiver][remote-section-engaged]) .tv-card-slot:not(.fitness-remote-section-selected):not(.fitness-remote-section-active),:host([fitness-cast-receiver][remote-section-engaged]) .dashboard-switcher:not(.fitness-remote-section-selected):not(.fitness-remote-section-active){transform:none!important}
+      :host([fitness-cast-receiver]) .tv-toolbar.fitness-remote-section-selected,:host([fitness-cast-receiver]) .tv-toolbar.fitness-remote-section-active{transform:none!important}
+      :host([fitness-cast-receiver]) .tv-oled-stage{perspective:none!important;transform-style:flat!important}
       :host([fitness-cast-receiver]) .fitness-remote-section-active{transform:translate3d(0,0,0) scale(1.006);box-shadow:0 0 0 2px color-mix(in srgb,var(--primary-color,#03a9f4) 18%,transparent),0 6px 14px rgba(0,0,0,.18)!important}
       :host([fitness-cast-receiver]) .tv-toolbar.fitness-remote-section-active{transform:translate3d(0,0,0) scale(1.002)}
       .cast-focus-tooltip[hidden]{display:none!important}:host([fitness-cast-receiver]) .cast-focus-tooltip{position:fixed;z-index:9999;width:max-content;max-width:min(300px,calc(100vw - 24px));margin:0;padding:8px 12px;border-radius:10px;background:rgba(0,0,0,.90);color:#fff;font:600 12px/1.3 system-ui,sans-serif;text-align:center;white-space:normal;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.34);border:1px solid rgba(255,255,255,.22);animation:fitness-tooltip-in .14s ease-out both}:host([fitness-cast-receiver]) .cast-focus-tooltip::before{content:"";position:absolute;left:var(--cast-tooltip-arrow-left,50%);top:-7px;transform:translateX(-50%);border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:7px solid rgba(0,0,0,.90)}:host([fitness-cast-receiver]) .cast-focus-tooltip[data-placement="above"]::before{top:auto;bottom:-7px;border-bottom:0;border-top:7px solid rgba(0,0,0,.90)}@keyframes fitness-tooltip-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
@@ -14192,7 +14445,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       :host([fitness-cast-receiver]) .media-progress-wrap input{height:12px}
       :host([fitness-cast-receiver]) .tv-oled-stage{width:calc(100% - 4px);margin:2px;transition:transform .8s ease;will-change:transform}
       :host([fitness-cast-receiver]) .tv-grid{--tv-columns:3;column-gap:6px;--fitness-grid-tail-gap:6px}
-      :host([fitness-cast-receiver]) .tv-card-slot>.tv-mounted-card{position:absolute;top:0;left:0;width:calc(100% / var(--fitness-tv-card-scale,.70));transform:scale(var(--fitness-tv-card-scale,.70));transform-origin:top left}
+      :host([fitness-cast-receiver]) .tv-card-slot>.tv-mounted-card{position:relative;top:auto;left:auto;width:100%;max-width:100%;transform:none!important;transform-origin:center center}
       :host([oled-protection][fitness-cast-receiver]) .tv-oled-stage{transform:translate3d(var(--fitness-oled-x,0),var(--fitness-oled-y,0),0)}
       :host([oled-idle][fitness-cast-receiver]) .tv-toolbar{opacity:.34}
       @media(max-width:1600px){:host(:not([fitness-cast-receiver])) .tv-toolbar.fixed-profile .tv-actions{grid-template-columns:repeat(auto-fit,minmax(94px,1fr))}:host(:not([fitness-cast-receiver])) .tv-toolbar.fixed-profile .tv-actions .tool{width:auto;padding:5px 8px}}
@@ -14423,7 +14676,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       .tv-card-slot.read-only-card{touch-action:pan-y}.tv-card-slot.read-only-card>.tv-mounted-card{touch-action:pan-y;pointer-events:auto}
       ha-card.tv-shell:fullscreen{display:block;height:100dvh;max-height:100dvh;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain;padding-bottom:max(24px,env(safe-area-inset-bottom));scrollbar-gutter:stable}
       :host([fitness-cast-receiver]){overflow:hidden!important}
-      :host([fitness-cast-receiver]) ha-card.tv-shell{height:100dvh;max-height:100dvh;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain;scrollbar-gutter:stable}
+      :host([fitness-cast-receiver]) ha-card.tv-shell{height:100dvh;max-height:100dvh;overflow-y:auto!important;overflow-x:hidden!important;display:block!important;overscroll-behavior-y:contain;scrollbar-gutter:stable;touch-action:pan-y!important;-webkit-overflow-scrolling:touch}
       .tv-grid{--tv-logical-columns:4;grid-template-columns:repeat(12,minmax(0,1fr))!important}
       .tv-card-slot[data-manual-height]{height:var(--fitness-manual-card-height);min-height:var(--fitness-manual-card-height);overflow:auto;overscroll-behavior:contain;scrollbar-width:none}.tv-card-slot[data-manual-height]::-webkit-scrollbar{display:none}
       .tv-card-slot[data-manual-height]>.tv-mounted-card{min-height:100%}
@@ -14469,6 +14722,7 @@ class FitnessTvDashboardCard extends HTMLElement {
       :host([toolbar-hidden]) .dashboard-browser-row .dashboard-switcher{margin-top:0!important}
       .dashboard-scroll-fade{position:sticky;top:calc(var(--fitness-sticky-toolbar-offset,0px) + var(--fitness-sticky-browser-height,0px) - 12px);z-index:58;height:34px;margin:-10px 0 -24px;pointer-events:none;background:linear-gradient(to bottom,var(--fitness-tv-ambient,var(--primary-background-color)) 0%,color-mix(in srgb,var(--fitness-tv-ambient,var(--primary-background-color)) 84%,transparent) 38%,transparent 100%);transition:top .22s ease,opacity .18s ease}
       :host([toolbar-hidden]) .dashboard-scroll-fade{top:calc(var(--fitness-sticky-browser-height,0px) - 10px)}
+      :host([fitness-cast-receiver]) .cast-dashboard-browser-root .dashboard-switcher,:host([fitness-cast-receiver][remote-section-engaged]) .cast-dashboard-browser-root .dashboard-switcher:not(.fitness-remote-section-selected):not(.fitness-remote-section-active),:host([fitness-cast-receiver]) .cast-dashboard-browser-root .dashboard-switcher.fitness-remote-section-selected,:host([fitness-cast-receiver]) .cast-dashboard-browser-root .dashboard-switcher.fitness-remote-section-active{transform:none!important;filter:none!important;opacity:1!important}
       :host([fitness-cast-receiver]) .dashboard-scroll-fade{display:none!important}
       :host([layout-editing]) .dashboard-scroll-fade{opacity:.72}
       :host(:not([fitness-cast-receiver])){min-height:max(var(--fitness-dashboard-viewport-floor,0px),calc(100dvh - var(--fitness-dashboard-host-top,0px)))!important;background:var(--fitness-tv-ambient,var(--primary-background-color))!important}
@@ -14676,8 +14930,18 @@ class FitnessBackendFlow extends HTMLElement {
     const networkAccess = String(draft.network_access ?? existing?.network_access ?? "");
     const selectedViews = new Set((draft.view_profile_entry_ids ?? existing?.view_profile_entry_ids ?? []).map(String));
     const displayName = String(draft.display_name ?? existing?.display_name ?? this._profileName ?? "");
-    const username = String(draft.username ?? existing?.username ?? "");
-    const remoteSlug = String(draft.remote_slug ?? existing?.remote_slug ?? "");
+    const usernameBase = String(displayName || this._profileName || "fitness-user").normalize?.("NFKD")?.replace(/[\u0300-\u036f]/g, "") || String(displayName || this._profileName || "fitness-user");
+    const normalizedBase = usernameBase.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0,63);
+    let suggestedUsername = normalizedBase.length >= 3 ? normalizedBase : "fitness-user";
+    const usedUsernames = new Set(accounts.filter((row) => String(row?.account_id || "") !== String(existing?.account_id || "")).map((row) => String(row?.username || "").toLowerCase()));
+    if (usedUsernames.has(suggestedUsername)) {
+      const base = suggestedUsername.slice(0,58);
+      let suffix = 2;
+      while (usedUsernames.has(`${base}-${suffix}`) && suffix < 10000) suffix += 1;
+      suggestedUsername = `${base}-${suffix}`;
+    }
+    const username = String(draft.username ?? existing?.username ?? suggestedUsername);
+    const baseDomain = String(this._accountAccessSnapshot?.cloudflare?.base_domain || "").trim().replace(/^\.+|\.+$/g, "");
     const l = (key, fallback) => this._accountAccessLabel(key, fallback);
     const viewerRows = accounts
       .filter((row) => String(row?.profile_entry_id || "") && String(row?.profile_entry_id || "") !== String(this._entryId || "") && String(row?.account_id || "") !== String(existing?.account_id || ""))
@@ -14688,8 +14952,7 @@ class FitnessBackendFlow extends HTMLElement {
       <label><span>${_fitnessEscape(l("network_access", "Network access"))} *</span><select id="flow-access-network" required><option value="">—</option><option value="local_only" ${networkAccess === "local_only" ? "selected" : ""}>${_fitnessEscape(l("network_local_only", "Local only"))}</option><option value="remote_only" ${networkAccess === "remote_only" ? "selected" : ""}>${_fitnessEscape(l("network_remote_only", "Remote only"))}</option><option value="local_remote" ${networkAccess === "local_remote" ? "selected" : ""}>${_fitnessEscape(l("network_local_remote", "Local + Remote"))}</option></select><small id="flow-access-network-hint"></small></label>
       <div class="flow-access-views ${role === "user" ? "" : "hidden"}" id="flow-access-views"><span>${_fitnessEscape(l("view_rights_accounts", "View rights to account(s)"))}</span><small>${_fitnessEscape(l("view_rights_accounts_hint", "Selected accounts are browseable in view-only mode."))}</small><div>${viewerRows || `<em>${_fitnessEscape(l("no_other_profiles", "No other accounts with a dashboard"))}</em>`}</div></div>
       <label class="flow-access-name"><span>${_fitnessEscape(l("account_display_name", "Account name"))}</span><input id="flow-access-display" value="${_fitnessEscape(displayName)}" maxlength="128" autocomplete="off"></label>
-      <label class="flow-access-username ${networkAccess === "remote_only" ? "hidden" : ""}" id="flow-access-username-row"><span>${_fitnessEscape(l("account_username", "Login name"))}</span><input id="flow-access-username" value="${_fitnessEscape(username)}" maxlength="64" autocomplete="off"><small>${_fitnessEscape(l("account_username_local_hint", "Used for local Fitness sign-in."))}</small></label>
-      <label class="flow-access-remote ${networkAccess && networkAccess !== "local_only" ? "" : "hidden"}" id="flow-access-remote-row"><span>${_fitnessEscape(l("remote_slug", "Remote subdomain"))}</span><input id="flow-access-slug" value="${_fitnessEscape(remoteSlug)}" maxlength="63" autocomplete="off"><small>${_fitnessEscape(l("remote_subdomain_hint", "This hostname belongs exclusively to this Fitness account."))}</small></label>
+      <label class="flow-access-username" id="flow-access-username-row"><span>${_fitnessEscape(l("account_username", "Login name"))} *</span><input id="flow-access-username" value="${_fitnessEscape(username)}" maxlength="63" autocomplete="off" required><small id="flow-access-username-hint"></small></label>
     </div><div class="flow-actions"><button class="flow-submit" id="flow-access-next"><span>${_fitnessEscape(l("next", this._uiLabels?.next))}</span></button></div>`;
     this._flow = {type:"fitness_access",step_id:"fitness_access"};
     this._shell(body, {title:l("fitness_account_access", l("fitness_accounts", "Fitness account access")), description:l("fitness_roles_hint", "Choose the role and where this account may sign in."), error:errorMessage});
@@ -14700,8 +14963,13 @@ class FitnessBackendFlow extends HTMLElement {
       const currentRole = String(roleSelect?.value || "");
       const network = String(networkSelect?.value || "");
       root?.getElementById("flow-access-views")?.classList.toggle("hidden", currentRole !== "user");
-      root?.getElementById("flow-access-username-row")?.classList.toggle("hidden", network === "remote_only");
-      root?.getElementById("flow-access-remote-row")?.classList.toggle("hidden", !network || network === "local_only");
+      const usernameHint = root?.getElementById("flow-access-username-hint");
+      if (usernameHint) {
+        const currentUsername = String(root?.getElementById("flow-access-username")?.value || username || "").trim().toLowerCase();
+        usernameHint.textContent = network && network !== "local_only" && baseDomain
+          ? `${l("account_username_remote_hint", "Login name and remote hostname are the same")}: ${currentUsername || "…"}.${baseDomain}`
+          : l("account_username_local_hint", "Used for Fitness sign-in.");
+      }
       const roleHint = root?.getElementById("flow-access-role-hint");
       if (roleHint) roleHint.textContent = currentRole === "admin" ? l("role_admin_hint", "Full Fitness administration") : currentRole === "admin_user" ? l("role_admin_user_hint", "Full administration plus a personal Fitness dashboard") : currentRole === "user" ? l("role_user_hint", "Manages only their own dashboard") : "";
       const networkHint = root?.getElementById("flow-access-network-hint");
@@ -14709,6 +14977,7 @@ class FitnessBackendFlow extends HTMLElement {
     };
     roleSelect?.addEventListener("change", sync);
     networkSelect?.addEventListener("change", sync);
+    root?.getElementById("flow-access-username")?.addEventListener("input", sync);
     sync();
     root?.getElementById("flow-access-next")?.addEventListener("click", () => void this._submitAccountAccessPrelude());
   }
@@ -14724,7 +14993,6 @@ class FitnessBackendFlow extends HTMLElement {
       view_profile_entry_ids:views,
       display_name:String(root?.getElementById("flow-access-display")?.value || "").trim(),
       username:String(root?.getElementById("flow-access-username")?.value || "").trim(),
-      remote_slug:String(root?.getElementById("flow-access-slug")?.value || "").trim(),
     };
   }
 
@@ -14738,7 +15006,7 @@ class FitnessBackendFlow extends HTMLElement {
       const profile = (snapshot?.profiles || []).find((row) => String(row?.entry_id || "") === profileId);
       displayName = String(profile?.name || "").trim();
     }
-    if (!displayName) displayName = String(draft?.username || draft?.remote_slug || this._uiLabels?.new_fitness_account || this._uiLabels?.add_fitness_user).trim();
+    if (!displayName) displayName = String(draft?.username || this._uiLabels?.new_fitness_account || this._uiLabels?.add_fitness_user).trim();
     return this._hass.callWS({
       type:"fitness/accounts/save",
       account_id:String(existing?.account_id || "") || undefined,
@@ -14747,8 +15015,7 @@ class FitnessBackendFlow extends HTMLElement {
       network_access:String(draft?.network_access || ""),
       profile_entry_id:profileId || null,
       view_profile_entry_ids:Array.isArray(draft?.view_profile_entry_ids) ? draft.view_profile_entry_ids : [],
-      remote_slug:String(draft?.remote_slug || "") || null,
-      username:String(draft?.username || "") || null,
+      username:String(draft?.username || "").trim(),
       enabled:existing?.enabled !== false,
     });
   }
@@ -14762,6 +15029,20 @@ class FitnessBackendFlow extends HTMLElement {
     if (!draft.role) { await this._openAccountAccessPrelude(`${l("account_role", "Role")}: ${requiredText}`); return; }
     if (!draft.network_access) { await this._openAccountAccessPrelude(`${l("network_access", "Network access")}: ${requiredText}`); return; }
     if (draft.role === "admin" && !draft.display_name) { await this._openAccountAccessPrelude(`${l("account_display_name", "Account name")}: ${requiredText}`); return; }
+    if (!draft.username) { await this._openAccountAccessPrelude(`${l("account_username", "Login name")}: ${requiredText}`); return; }
+    const normalizedUsername = String(draft.username || "").trim();
+    const usernamePattern = /^[A-Za-z0-9][A-Za-z0-9_.-]{2,63}$/;
+    const remoteUsernamePattern = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+    if (!usernamePattern.test(normalizedUsername) || (draft.network_access !== "local_only" && !remoteUsernamePattern.test(normalizedUsername.toLowerCase()))) {
+      await this._openAccountAccessPrelude(`${l("account_username", "Login name")}: ${l("invalid_username", "Invalid username")}`); return;
+    }
+    const existingId = String(this._accountAccessExisting?.account_id || "");
+    const duplicate = (this._accountAccessSnapshot?.accounts || []).some((row) => String(row?.account_id || "") !== existingId && String(row?.username || "").toLowerCase() === normalizedUsername.toLowerCase());
+    if (duplicate) { await this._openAccountAccessPrelude(`${l("account_username", "Login name")}: ${l("username_in_use", "Username already in use")}`); return; }
+    if (draft.network_access !== "local_only") {
+      draft.username = normalizedUsername.toLowerCase();
+      this._pendingAccountAccess = draft;
+    }
     this._busy = true;
     try {
       this._showOperationBusy(this._uiLabels?.settings_applying || this._uiLabels?.working, true);
@@ -14842,6 +15123,93 @@ class FitnessBackendFlow extends HTMLElement {
         });
       }
       return field;
+    });
+  }
+
+  _fallbackFormField(step, field) {
+    const name = String(field?.name || "");
+    if (!name) return "";
+    const value = this._formData?.[name];
+    const selector = field?.selector || {};
+    const required = field?.required === true;
+    const label = this._fieldLabel(step, field);
+    const helper = this._fieldHelper(step, field);
+    const errorCode = String(step?.errors?.[name] || "");
+    const section = this._flowNamespace();
+    const error = errorCode ? this._localize(
+      `component.fitness.${section}.error.${errorCode}`,
+      errorCode === "required" ? String(this._uiLabels?.field_required ?? "") : errorCode,
+    ) : "";
+    const common = `data-flow-field="${_fitnessEscape(name)}" ${required ? "required" : ""}`;
+    const current = value === undefined || value === null ? "" : value;
+    let control = "";
+    if (selector.boolean !== undefined || String(field?.type || "") === "boolean") {
+      control = `<label class="flow-fallback-check"><input type="checkbox" ${common} ${current === true ? "checked" : ""}><span>${_fitnessEscape(label)}</span></label>`;
+      return `<div class="flow-fallback-field flow-fallback-boolean">${control}${helper ? `<small>${_fitnessEscape(helper)}</small>` : ""}${error ? `<em>${_fitnessEscape(error)}</em>` : ""}</div>`;
+    }
+    const select = selector.select;
+    if (select && Array.isArray(select.options)) {
+      const multiple = Boolean(select.multiple);
+      const selected = new Set((multiple ? (Array.isArray(current) ? current : []) : [current]).map((item) => String(item)));
+      const options = select.options.map((option) => {
+        const optionValue = typeof option === "object" && option !== null ? String(option.value ?? "") : String(option);
+        const optionLabel = typeof option === "object" && option !== null ? String(option.label ?? optionValue) : optionValue;
+        return `<option value="${_fitnessEscape(optionValue)}" ${selected.has(optionValue) ? "selected" : ""}>${_fitnessEscape(optionLabel)}</option>`;
+      }).join("");
+      control = `<select ${common} ${multiple ? `multiple size="${Math.min(8, Math.max(3, select.options.length || 3))}" data-flow-multiple` : ""}>${!multiple && !required ? '<option value=""></option>' : ""}${options}</select>`;
+    } else if (selector.entity) {
+      const config = selector.entity || {};
+      const domains = new Set((Array.isArray(config.domain) ? config.domain : config.domain ? [config.domain] : []).map(String));
+      const states = Object.entries(this._hass?.states || {})
+        .filter(([entityId]) => !domains.size || domains.has(String(entityId).split(".", 1)[0]))
+        .sort((a, b) => String(a[1]?.attributes?.friendly_name || a[0]).localeCompare(String(b[1]?.attributes?.friendly_name || b[0])));
+      if (states.length) {
+        const multiple = Boolean(config.multiple);
+        const selected = new Set((multiple ? (Array.isArray(current) ? current : []) : [current]).map(String));
+        const options = states.map(([entityId, state]) => `<option value="${_fitnessEscape(entityId)}" ${selected.has(entityId) ? "selected" : ""}>${_fitnessEscape(state?.attributes?.friendly_name || entityId)}</option>`).join("");
+        control = `<select ${common} ${multiple ? `multiple size="7" data-flow-multiple` : ""}>${!multiple && !required ? '<option value=""></option>' : ""}${options}</select>`;
+      } else {
+        control = `<input type="text" ${common} value="${_fitnessEscape(Array.isArray(current) ? current.join(",") : current)}">`;
+      }
+    } else if (selector.date !== undefined) {
+      control = `<input type="date" ${common} value="${_fitnessEscape(String(current || ""))}">`;
+    } else if (selector.number || ["integer","float"].includes(String(field?.type || ""))) {
+      const config = selector.number || {};
+      const attrs = [config.min !== undefined ? `min="${_fitnessEscape(config.min)}"` : "", config.max !== undefined ? `max="${_fitnessEscape(config.max)}"` : "", config.step !== undefined ? `step="${_fitnessEscape(config.step)}"` : ""].filter(Boolean).join(" ");
+      control = `<input type="number" ${common} ${attrs} value="${_fitnessEscape(String(current ?? ""))}" data-flow-number>`;
+    } else {
+      const text = selector.text || {};
+      const type = String(text.type || "").toLowerCase() === "password" ? "password" : "text";
+      const multiline = Boolean(text.multiline);
+      control = multiline
+        ? `<textarea ${common} rows="4">${_fitnessEscape(String(current || ""))}</textarea>`
+        : `<input type="${type}" ${common} value="${_fitnessEscape(String(current || ""))}" ${text.autocomplete ? `autocomplete="${_fitnessEscape(text.autocomplete)}"` : ""}>`;
+    }
+    return `<label class="flow-fallback-field"><span>${_fitnessEscape(label)}${required ? " *" : ""}</span>${control}${helper ? `<small>${_fitnessEscape(helper)}</small>` : ""}${error ? `<em>${_fitnessEscape(error)}</em>` : ""}</label>`;
+  }
+
+  _fallbackForm(step, schema) {
+    return `<div id="flow-fallback-form" class="flow-fallback-form">${(schema || []).map((field) => this._fallbackFormField(step, field)).join("")}</div>`;
+  }
+
+  _wireFallbackForm() {
+    const root = this.shadowRoot?.querySelector("#flow-fallback-form");
+    if (!root) return;
+    const update = (control) => {
+      const name = String(control?.dataset?.flowField || "");
+      if (!name) return;
+      let value;
+      if (control.type === "checkbox") value = Boolean(control.checked);
+      else if (control.multiple || control.hasAttribute?.("data-flow-multiple")) value = [...control.selectedOptions].map((option) => option.value);
+      else if (control.hasAttribute?.("data-flow-number")) value = control.value === "" ? null : Number(control.value);
+      else value = control.value;
+      this._formData = {...(this._formData || {}), [name]:value};
+      this._formDirty = JSON.stringify(this._formData) !== JSON.stringify(this._formInitialData || {});
+      if (this._fitnessOptionsFlow) this._setBackgroundStatus(this._formDirty ? this._uiLabels?.settings_background_hint : "");
+    };
+    root.querySelectorAll("[data-flow-field]").forEach((control) => {
+      control.addEventListener("input", () => update(control));
+      control.addEventListener("change", () => update(control));
     });
   }
 
@@ -15071,12 +15439,19 @@ class FitnessBackendFlow extends HTMLElement {
       this._formInitialData = globalThis.structuredClone ? structuredClone(this._formData) : JSON.parse(JSON.stringify(this._formData));
       this._formDirty = false;
       const submitLabel = this._mode === "options" || step.last_step ? (this._uiLabels?.save) : (this._uiLabels?.next);
-      const formBody = `<ha-form id="flow-form"></ha-form>`;
+      const localizedSchema = this._localizedSchema(step);
+      // Normal HA dashboards provide <ha-form>. The restricted Browser-TV
+      // portal intentionally does not load Home Assistant's full frontend, so an
+      // unknown <ha-form> element rendered as an empty settings page. Use a
+      // native HTML renderer there while preserving HA's real form everywhere
+      // else.
+      const hasHaForm = Boolean(globalThis.customElements?.get?.("ha-form"));
+      const formBody = hasHaForm ? `<ha-form id="flow-form"></ha-form>` : this._fallbackForm(step, localizedSchema);
       this._shell(`${formBody}<div id="flow-background-status" class="flow-background-status" aria-live="polite" hidden></div><div class="flow-actions"><button class="flow-submit" id="flow-submit"><span>${_fitnessEscape(submitLabel)}</span></button></div>`, {title, description, error});
-      const form = this.shadowRoot.querySelector("#flow-form");
+      const form = hasHaForm ? this.shadowRoot.querySelector("#flow-form") : null;
       if (form) {
         form.hass = this._hass;
-        form.schema = this._localizedSchema(step);
+        form.schema = localizedSchema;
         form.data = {...this._formData};
         form.error = step.errors || {};
         form.computeLabel = (schema) => this._fieldLabel(step, schema);
@@ -15089,6 +15464,8 @@ class FitnessBackendFlow extends HTMLElement {
             this._setBackgroundStatus(this._formDirty ? this._uiLabels?.settings_background_hint : "");
           }
         });
+      } else {
+        this._wireFallbackForm();
       }
       this.shadowRoot.querySelector("#flow-submit")?.addEventListener("click", () => this._submit(this._formData));
       return;
@@ -15157,7 +15534,7 @@ class FitnessBackendFlow extends HTMLElement {
       .flow-home>span,.flow-submit>span,.flow-menu>span{display:block!important;min-width:0;max-width:100%;font-size:clamp(11px,1vw,13px)!important;line-height:1.3!important;white-space:normal!important;overflow:visible;text-overflow:clip;word-break:normal;overflow-wrap:anywhere!important}
       .flow-menu{grid-template-columns:auto minmax(0,1fr) auto!important;min-height:44px}
       @media(max-width:620px){.flow-head{align-items:center!important;flex-wrap:nowrap!important;padding:8px 10px!important;position:relative!important}.flow-head>div:first-child{flex:1 1 auto!important;min-width:0}.flow-head p{display:none!important}.flow-head strong{font-size:15px!important;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.flow-head-actions{gap:5px!important}.flow-home{width:auto!important;min-width:0!important;max-width:140px!important;padding:0 8px!important;min-height:38px!important}.flow-close{width:38px!important;min-width:38px!important;flex-basis:38px!important;min-height:38px!important}.flow-home span{display:block!important}.flow-mobile-description{display:block!important}}
-      :host{display:block;color:var(--primary-text-color);height:100%;max-height:100%;min-height:0;overflow:hidden}*{box-sizing:border-box}.flow-shell{width:100%;height:100%;max-height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden}.flow-head{flex:0 0 auto;position:sticky;top:0;z-index:3;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 16px;background:var(--card-background-color);border-bottom:1px solid var(--divider-color)}.flow-head strong{font-size:18px}.flow-head p{margin:5px 0 0;color:var(--secondary-text-color);font-size:12px;max-width:620px}.flow-head-actions{display:flex;align-items:center;gap:7px;flex:0 0 auto}.flow-close,.flow-home{min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--divider-color);border-radius:11px;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer}.flow-close{width:40px;min-width:40px;flex:0 0 40px}.flow-home{min-width:126px;max-width:min(240px,45vw);padding:7px 11px;font:inherit;white-space:normal;line-height:1.2;height:auto}.flow-home ha-icon{--mdc-icon-size:20px;flex:0 0 auto}.flow-home>span,.flow-submit>span,.flow-menu>span{font-size:clamp(11px,1vw,13px);line-height:1.2;min-width:0;word-break:normal;overflow-wrap:normal}.flow-body{display:flex;flex-direction:column;align-items:stretch;gap:9px;padding:15px 15px max(22px,env(safe-area-inset-bottom));overflow-y:auto;overflow-x:hidden;min-height:0;flex:1 1 auto;overscroll-behavior:contain;scrollbar-gutter:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}.flow-body::-webkit-scrollbar{display:none}.flow-mobile-description{display:none;padding:8px 10px;border-radius:10px;background:var(--secondary-background-color);color:var(--secondary-text-color);font-size:12px;line-height:1.4}.flow-error{flex:0 0 auto;margin:12px 15px 0;padding:10px 12px;border-radius:11px;background:color-mix(in srgb,var(--error-color) 12%,transparent);color:var(--error-color);font-size:12px}.flow-menu{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;min-height:44px;padding:13px 14px;border:0;border-radius:12px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;text-align:left;cursor:pointer}.flow-menu-icon{--mdc-icon-size:21px;color:var(--primary-color)}.flow-menu:hover{background:color-mix(in srgb,var(--primary-color) 12%,var(--secondary-background-color))}.flow-actions{display:flex;justify-content:flex-end;align-items:center;align-self:stretch;gap:8px;margin-top:auto;position:sticky;bottom:-15px;z-index:3;padding:10px 0 max(10px,env(safe-area-inset-bottom));background:var(--card-background-color);border-top:1px solid color-mix(in srgb,var(--divider-color) 60%,transparent);flex-wrap:wrap;min-width:0}.flow-actions>button{flex:0 0 auto;align-self:center;height:auto;min-width:118px;max-width:min(220px,100%)}.flow-submit{min-width:110px;min-height:42px;border:0;border-radius:11px;padding:0 18px;background:var(--primary-color);color:var(--text-primary-color,#fff);font:inherit;font-weight:700;cursor:pointer}.flow-submit:disabled{opacity:.55}.flow-background-status{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:10px;background:color-mix(in srgb,var(--primary-color) 8%,var(--secondary-background-color));color:var(--secondary-text-color);font-size:11px}.flow-background-status[hidden]{display:none}.flow-background-status ha-icon{--mdc-icon-size:18px;color:var(--primary-color)}.flow-background-status ha-circular-progress{width:18px;height:18px;--mdc-theme-primary:var(--primary-color)}.flow-operation-indicator{position:sticky;top:0;z-index:4;display:flex;align-items:center;justify-content:center;gap:9px;min-height:48px;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--primary-color) 10%,var(--card-background-color));border:1px solid color-mix(in srgb,var(--primary-color) 28%,var(--divider-color));color:var(--primary-text-color);box-shadow:0 5px 16px rgba(0,0,0,.08)}.flow-operation-indicator ha-circular-progress{width:20px;height:20px;--mdc-theme-primary:var(--primary-color)}.flow-operation-indicator ha-icon{--mdc-icon-size:20px;color:var(--primary-color)}.flow-body.flow-busy>:not(.flow-operation-indicator){pointer-events:none;opacity:.68}.flow-loading,.flow-message,.flow-success{min-height:100px;display:flex;align-items:center;justify-content:center;gap:10px;color:var(--secondary-text-color)}.flow-success{color:var(--success-color,#2e7d32)}.flow-success strong,.flow-success small{display:block}.flow-success small{margin-top:4px;color:var(--secondary-text-color);font-size:11px}.flow-success ha-icon{--mdc-icon-size:30px}.flow-message a{color:var(--primary-color)}ha-form{display:block;flex:0 0 auto}.flow-access-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.flow-access-grid>label,.flow-access-views{display:grid;gap:6px;min-width:0}.flow-access-grid label>span,.flow-access-views>span{font-size:11px;color:var(--secondary-text-color)}.flow-access-grid select,.flow-access-grid input{width:100%;min-width:0;min-height:44px;border:1px solid var(--divider-color);border-radius:12px;background:var(--secondary-background-color);color:var(--primary-text-color);padding:0 11px;font:inherit}.flow-access-grid small,.flow-access-views>small,.flow-access-secret small{color:var(--secondary-text-color);font-size:10px;line-height:1.4}.flow-access-views{grid-column:1/-1;padding:12px;border:1px solid var(--divider-color);border-radius:14px;background:var(--secondary-background-color)}.flow-access-views>div{display:flex;gap:7px;flex-wrap:wrap}.flow-access-view-option{display:inline-flex!important;grid-template-columns:auto 1fr!important;align-items:center;gap:6px;padding:7px 9px;border:1px solid var(--divider-color);border-radius:11px;background:var(--card-background-color)}.flow-access-view-option input{width:20px!important;min-height:20px!important}.flow-access-view-option span{color:var(--primary-text-color)!important}.flow-access-views.hidden,.flow-access-username.hidden,.flow-access-remote.hidden{display:none!important}.flow-access-secret{display:grid;gap:7px;padding:12px;border:1px solid var(--divider-color);border-radius:14px;background:var(--secondary-background-color)}.flow-access-secret>div{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:8px}.flow-access-secret input{min-width:0;border:1px solid var(--divider-color);border-radius:11px;background:var(--card-background-color);color:var(--primary-text-color);padding:0 10px;font:inherit}.flow-copy-password{border:1px solid var(--divider-color);border-radius:11px;background:var(--secondary-background-color);color:var(--primary-text-color)}@media(max-width:620px){.flow-access-grid{grid-template-columns:1fr}.flow-access-views{grid-column:1}}.flow-close:focus-visible,.flow-home:focus-visible,.flow-submit:focus-visible,.flow-menu:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}@media(max-width:620px){.flow-body{padding:8px 10px max(8px,env(safe-area-inset-bottom))}.flow-actions{bottom:-8px;padding:8px 0 max(8px,env(safe-area-inset-bottom))}.flow-actions>button{flex:0 0 auto;width:auto;min-width:118px;max-width:min(220px,100%)}.flow-submit{min-height:42px}}
+      :host{display:block;color:var(--primary-text-color);height:100%;max-height:100%;min-height:0;overflow:hidden}*{box-sizing:border-box}.flow-shell{width:100%;height:100%;max-height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden}.flow-head{flex:0 0 auto;position:sticky;top:0;z-index:3;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 16px;background:var(--card-background-color);border-bottom:1px solid var(--divider-color)}.flow-head strong{font-size:18px}.flow-head p{margin:5px 0 0;color:var(--secondary-text-color);font-size:12px;max-width:620px}.flow-head-actions{display:flex;align-items:center;gap:7px;flex:0 0 auto}.flow-close,.flow-home{min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--divider-color);border-radius:11px;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer}.flow-close{width:40px;min-width:40px;flex:0 0 40px}.flow-home{min-width:126px;max-width:min(240px,45vw);padding:7px 11px;font:inherit;white-space:normal;line-height:1.2;height:auto}.flow-home ha-icon{--mdc-icon-size:20px;flex:0 0 auto}.flow-home>span,.flow-submit>span,.flow-menu>span{font-size:clamp(11px,1vw,13px);line-height:1.2;min-width:0;word-break:normal;overflow-wrap:normal}.flow-body{display:flex;flex-direction:column;align-items:stretch;gap:9px;padding:15px 15px max(22px,env(safe-area-inset-bottom));overflow-y:auto;overflow-x:hidden;min-height:0;flex:1 1 auto;overscroll-behavior:contain;scrollbar-gutter:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}.flow-body::-webkit-scrollbar{display:none}.flow-mobile-description{display:none;padding:8px 10px;border-radius:10px;background:var(--secondary-background-color);color:var(--secondary-text-color);font-size:12px;line-height:1.4}.flow-error{flex:0 0 auto;margin:12px 15px 0;padding:10px 12px;border-radius:11px;background:color-mix(in srgb,var(--error-color) 12%,transparent);color:var(--error-color);font-size:12px}.flow-menu{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;min-height:44px;padding:13px 14px;border:0;border-radius:12px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;text-align:left;cursor:pointer}.flow-menu-icon{--mdc-icon-size:21px;color:var(--primary-color)}.flow-menu:hover{background:color-mix(in srgb,var(--primary-color) 12%,var(--secondary-background-color))}.flow-actions{display:flex;justify-content:flex-end;align-items:center;align-self:stretch;gap:8px;margin-top:auto;position:sticky;bottom:-15px;z-index:3;padding:10px 0 max(10px,env(safe-area-inset-bottom));background:var(--card-background-color);border-top:1px solid color-mix(in srgb,var(--divider-color) 60%,transparent);flex-wrap:wrap;min-width:0}.flow-actions>button{flex:0 0 auto;align-self:center;height:auto;min-width:118px;max-width:min(220px,100%)}.flow-submit{min-width:110px;min-height:42px;border:0;border-radius:11px;padding:0 18px;background:var(--primary-color);color:var(--text-primary-color,#fff);font:inherit;font-weight:700;cursor:pointer}.flow-submit:disabled{opacity:.55}.flow-background-status{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:10px;background:color-mix(in srgb,var(--primary-color) 8%,var(--secondary-background-color));color:var(--secondary-text-color);font-size:11px}.flow-background-status[hidden]{display:none}.flow-background-status ha-icon{--mdc-icon-size:18px;color:var(--primary-color)}.flow-background-status ha-circular-progress{width:18px;height:18px;--mdc-theme-primary:var(--primary-color)}.flow-operation-indicator{position:sticky;top:0;z-index:4;display:flex;align-items:center;justify-content:center;gap:9px;min-height:48px;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--primary-color) 10%,var(--card-background-color));border:1px solid color-mix(in srgb,var(--primary-color) 28%,var(--divider-color));color:var(--primary-text-color);box-shadow:0 5px 16px rgba(0,0,0,.08)}.flow-operation-indicator ha-circular-progress{width:20px;height:20px;--mdc-theme-primary:var(--primary-color)}.flow-operation-indicator ha-icon{--mdc-icon-size:20px;color:var(--primary-color)}.flow-body.flow-busy>:not(.flow-operation-indicator){pointer-events:none;opacity:.68}.flow-loading,.flow-message,.flow-success{min-height:100px;display:flex;align-items:center;justify-content:center;gap:10px;color:var(--secondary-text-color)}.flow-success{color:var(--success-color,#2e7d32)}.flow-success strong,.flow-success small{display:block}.flow-success small{margin-top:4px;color:var(--secondary-text-color);font-size:11px}.flow-success ha-icon{--mdc-icon-size:30px}.flow-message a{color:var(--primary-color)}ha-form{display:block;flex:0 0 auto}.flow-fallback-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;flex:0 0 auto}.flow-fallback-field{display:grid;gap:6px;min-width:0;padding:10px 11px;border:1px solid var(--divider-color);border-radius:12px;background:var(--secondary-background-color)}.flow-fallback-field>span{font-size:12px;color:var(--primary-text-color);font-weight:600}.flow-fallback-field small{font-size:10px;line-height:1.4;color:var(--secondary-text-color)}.flow-fallback-field em{font-size:10px;line-height:1.35;color:var(--error-color);font-style:normal}.flow-fallback-field input:not([type=checkbox]),.flow-fallback-field select,.flow-fallback-field textarea{width:100%;min-width:0;min-height:42px;padding:8px 10px;border:1px solid var(--divider-color);border-radius:10px;background:var(--card-background-color);color:var(--primary-text-color);font:inherit}.flow-fallback-field select[multiple]{min-height:116px}.flow-fallback-field textarea{resize:vertical}.flow-fallback-boolean{align-content:center}.flow-fallback-check{display:flex;align-items:center;gap:9px;min-height:42px}.flow-fallback-check input{width:20px;height:20px;flex:0 0 auto}.flow-fallback-check span{font-size:12px;font-weight:600}@media(max-width:620px){.flow-fallback-form{grid-template-columns:1fr}}.flow-access-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.flow-access-grid>label,.flow-access-views{display:grid;gap:6px;min-width:0}.flow-access-grid label>span,.flow-access-views>span{font-size:11px;color:var(--secondary-text-color)}.flow-access-grid select,.flow-access-grid input{width:100%;min-width:0;min-height:44px;border:1px solid var(--divider-color);border-radius:12px;background:var(--secondary-background-color);color:var(--primary-text-color);padding:0 11px;font:inherit}.flow-access-grid small,.flow-access-views>small,.flow-access-secret small{color:var(--secondary-text-color);font-size:10px;line-height:1.4}.flow-access-views{grid-column:1/-1;padding:12px;border:1px solid var(--divider-color);border-radius:14px;background:var(--secondary-background-color)}.flow-access-views>div{display:flex;gap:7px;flex-wrap:wrap}.flow-access-view-option{display:inline-flex!important;grid-template-columns:auto 1fr!important;align-items:center;gap:6px;padding:7px 9px;border:1px solid var(--divider-color);border-radius:11px;background:var(--card-background-color)}.flow-access-view-option input{width:20px!important;min-height:20px!important}.flow-access-view-option span{color:var(--primary-text-color)!important}.flow-access-views.hidden,.flow-access-username.hidden,.flow-access-remote.hidden{display:none!important}.flow-access-secret{display:grid;gap:7px;padding:12px;border:1px solid var(--divider-color);border-radius:14px;background:var(--secondary-background-color)}.flow-access-secret>div{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:8px}.flow-access-secret input{min-width:0;border:1px solid var(--divider-color);border-radius:11px;background:var(--card-background-color);color:var(--primary-text-color);padding:0 10px;font:inherit}.flow-copy-password{border:1px solid var(--divider-color);border-radius:11px;background:var(--secondary-background-color);color:var(--primary-text-color)}@media(max-width:620px){.flow-access-grid{grid-template-columns:1fr}.flow-access-views{grid-column:1}}.flow-close:focus-visible,.flow-home:focus-visible,.flow-submit:focus-visible,.flow-menu:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}@media(max-width:620px){.flow-body{padding:8px 10px max(8px,env(safe-area-inset-bottom))}.flow-actions{bottom:-8px;padding:8px 0 max(8px,env(safe-area-inset-bottom))}.flow-actions>button{flex:0 0 auto;width:auto;min-width:118px;max-width:min(220px,100%)}.flow-submit{min-height:42px}}
     </style>`;
   }
 }
@@ -15536,13 +15913,12 @@ class FitnessTvSetupCard extends HTMLElement {
     this.shadowRoot.innerHTML = `<ha-card class="setup-shell">
       <div class="setup-head">
         <div><div class="setup-title"><img class="fitness-brand-icon" src="${_fitnessEscape(_fitnessBrandIconUrl(this._hass))}" alt=""><strong>${_fitnessEscape(overviewTitle)}</strong></div><p>${_fitnessEscape(l.tv_setup_hint)}</p></div>
-        <div class="setup-actions"><button class="tool ${overviewCastConnected ? "active" : ""} ${overviewCastPending ? "cast-pending" : ""}" id="overview-cast-toggle" aria-busy="${overviewCastPending ? "true" : "false"}"><ha-icon icon="${overviewCastConnected ? "mdi:cast-off" : "mdi:cast-connected"}"></ha-icon><span>${_fitnessEscape(overviewCastConnected ? (l.cast_stop) : (overviewCastPending ? l.cast_connecting : l.cast_dashboard))}</span></button><button class="tool" id="manage-access"><ha-icon icon="mdi:account-lock-outline"></ha-icon><span>${_fitnessEscape(l.fitness_accounts)}</span></button><button class="tool" id="add-fitness-account"><ha-icon icon="mdi:account-plus-outline"></ha-icon><span>${_fitnessEscape(l.add_fitness_account)}</span></button><button class="tool" id="manage-fitness-protocols"><ha-icon icon="mdi:access-point-network"></ha-icon><span>${_fitnessEscape(l.manage_fitness_protocols)}</span></button>${this._access?.native_ha_admin && !FITNESS_TV_CAST_RECEIVER && !this.hasAttribute("fitness-public-portal") ? `<button class="tool" id="fitness-devices"><ha-icon icon="mdi:devices"></ha-icon><span>${_fitnessEscape(l.fitness_devices)}</span></button>` : ""}<button class="tool" id="about-fitness"><ha-icon icon="mdi:information-outline"></ha-icon><span>${_fitnessEscape(l.about_fitness)}</span></button></div>
+        <div class="setup-actions"><button class="tool ${overviewCastConnected ? "active" : ""} ${overviewCastPending ? "cast-pending" : ""}" id="overview-cast-toggle" aria-busy="${overviewCastPending ? "true" : "false"}"><ha-icon icon="${overviewCastConnected ? "mdi:cast-off" : (overviewCastPending ? "mdi:loading" : "mdi:cast-connected")}"></ha-icon><span>${_fitnessEscape(overviewCastConnected ? (l.cast_stop) : (overviewCastPending ? l.cast_connecting : l.cast_dashboard))}</span></button><button class="tool" id="manage-access"><ha-icon icon="mdi:account-lock-outline"></ha-icon><span>${_fitnessEscape(l.fitness_accounts)}</span></button><button class="tool" id="add-fitness-account"><ha-icon icon="mdi:account-plus-outline"></ha-icon><span>${_fitnessEscape(l.add_fitness_account)}</span></button><button class="tool" id="manage-fitness-protocols"><ha-icon icon="mdi:access-point-network"></ha-icon><span>${_fitnessEscape(l.manage_fitness_protocols)}</span></button>${this._access?.native_ha_admin && !FITNESS_TV_CAST_RECEIVER && !this.hasAttribute("fitness-public-portal") ? `<button class="tool" id="fitness-devices"><ha-icon icon="mdi:devices"></ha-icon><span>${_fitnessEscape(l.fitness_devices)}</span></button>` : ""}<button class="tool" id="about-fitness"><ha-icon icon="mdi:information-outline"></ha-icon><span>${_fitnessEscape(l.about_fitness)}</span></button></div>
       </div>
-      <div id="cast-exit-confirm" class="cast-exit-confirm" role="status" aria-live="assertive" hidden></div>
       <div id="admin-weight-confirmation-host" class="admin-weight-confirmation-host"></div>
       <div class="profiles-list">${rows || `<div class="empty">${_fitnessEscape(l.no_fitness_profiles)}</div>`}</div>
       <div id="setup-modal"></div>
-    </ha-card>${this._style()}`;
+    </ha-card><div id="cast-global-overlay-root" class="cast-global-overlay-root" aria-live="assertive"><div id="cast-exit-confirm" class="cast-exit-confirm" role="status" hidden></div></div>${this._style()}`;
     const openAdminProfileRow = (row, event = null) => {
       if (!row) return;
       if (event?.target?.closest?.("button,a,input,select,textarea,[role=button]")) return;
@@ -15623,7 +15999,7 @@ class FitnessTvSetupCard extends HTMLElement {
     button.classList.toggle("active", connected);
     button.classList.toggle("cast-pending", pending);
     button.setAttribute("aria-busy", pending ? "true" : "false");
-    button.querySelector("ha-icon")?.setAttribute("icon", connected ? "mdi:cast-off" : "mdi:cast-connected");
+    button.querySelector("ha-icon")?.setAttribute("icon", connected ? "mdi:cast-off" : (pending ? "mdi:loading" : "mdi:cast-connected"));
     const label = button.querySelector("span");
     if (label) label.textContent = connected ? l.cast_stop : (pending ? l.cast_connecting : l.cast_dashboard);
   }
@@ -15912,7 +16288,10 @@ class FitnessTvSetupCard extends HTMLElement {
     const l = this._labels();
     const prefix = overview ? "overview-smart-tv" : "smart-tv";
     const launchTargets = this._access?.local_ha_hardware_allowed && Array.isArray(this._browserLaunchTargets) ? this._browserLaunchTargets : [];
-    const launch = _fitnessSmartTvLaunchSelection(root, prefix, launchTargets, l);
+    const castBusy = overview
+      ? Boolean(this._overviewCast?.busy || ["connecting","connected"].includes(String(this._overviewCast?.state || "")))
+      : Boolean(this._castBusy);
+    const launch = _fitnessSmartTvLaunchSelection(root, prefix, launchTargets, l, castBusy);
     if (!launch.available) return;
     const button = root?.querySelector(`#${prefix}-create`);
     const status = root?.querySelector(`#${prefix}-status`) || root?.querySelector(overview ? ".overview-cast-status" : "#cast-status");
@@ -15967,7 +16346,10 @@ class FitnessTvSetupCard extends HTMLElement {
         status.classList?.add?.("error");
       }
     } finally {
-      _fitnessSmartTvLaunchSelection(root, prefix, launchTargets, l);
+      const castBusyNow = overview
+        ? Boolean(this._overviewCast?.busy || ["connecting","connected"].includes(String(this._overviewCast?.state || "")))
+        : Boolean(this._castBusy);
+      _fitnessSmartTvLaunchSelection(root, prefix, launchTargets, l, castBusyNow);
     }
   }
 
@@ -16046,8 +16428,9 @@ class FitnessTvSetupCard extends HTMLElement {
       if (button) button.disabled = !item || item.available === false;
     });
     root?.querySelector("#overview-smart-tv-create")?.addEventListener("click", () => void this._createOverviewSmartTvReceiver(root));
-    root?.querySelector("#overview-smart-tv-launch")?.addEventListener("change", () => _fitnessSmartTvLaunchSelection(root, "overview-smart-tv", this._browserLaunchTargets || [], l));
-    _fitnessSmartTvLaunchSelection(root, "overview-smart-tv", this._browserLaunchTargets || [], l);
+    const overviewCastBusy = () => Boolean(this._overviewCast?.busy || ["connecting","connected"].includes(String(this._overviewCast?.state || "")));
+    root?.querySelector("#overview-smart-tv-launch")?.addEventListener("change", () => _fitnessSmartTvLaunchSelection(root, "overview-smart-tv", this._browserLaunchTargets || [], l, overviewCastBusy()));
+    _fitnessSmartTvLaunchSelection(root, "overview-smart-tv", this._browserLaunchTargets || [], l, overviewCastBusy());
     _fitnessStartCastTargetWatch(this, root, {overview:true});
   }
 
@@ -16522,7 +16905,7 @@ class FitnessTvSetupCard extends HTMLElement {
       const selectedProfile = String(account.profile_entry_id || "");
       const selectedViews = new Set(Array.isArray(account.view_profile_entry_ids) ? account.view_profile_entry_ids.map(String) : []);
       const diagnostics = account.diagnostics && typeof account.diagnostics === "object" ? account.diagnostics : {};
-      const remoteSlug = String(account.remote_slug || "");
+      const remoteSlug = String(account.username || account.remote_slug || "").trim().toLowerCase();
       const remoteUrl = String(account.remote_url || (remoteSlug && baseDomain ? `https://${remoteSlug}.${baseDomain}` : ""));
       const state = String(account.current_state || "ready");
       const isDraft = Boolean(account.__draft);
@@ -16541,9 +16924,8 @@ class FitnessTvSetupCard extends HTMLElement {
         <div class="access-view-field ${role === "user" ? "" : "hidden"}"><span>${_fitnessEscape(t("view_rights_accounts", "View rights to account(s)"))}</span><small>${_fitnessEscape(t("view_rights_accounts_hint", "Selected accounts are browseable in view-only mode; this account cannot change their settings, workouts or devices."))}</small><div class="access-view-options">${viewOptions || `<em>${_fitnessEscape(t("no_other_profiles", "No other accounts with a dashboard"))}</em>`}</div></div>
         <label class="access-name-field"><span>${_fitnessEscape(t("account_display_name", "Account name"))}</span><input data-account-display value="${_fitnessEscape(account.display_name || "")}" maxlength="128" autocomplete="off"></label>
         <label class="access-profile-field ${role === "admin" ? "hidden" : ""}"><span>${_fitnessEscape(t("account_profile", "Fitness profile"))} *</span><select data-account-profile>${profileOptions(selectedProfile, false)}</select><small>${_fitnessEscape(t("account_profile_hint", "This is the account's own controllable Fitness dashboard."))}</small></label>
-        <label class="access-username-field ${networkAccess === "remote_only" ? "hidden" : ""}"><span>${_fitnessEscape(t("account_username", "Login name"))}</span><input data-account-username value="${_fitnessEscape(account.username || "")}" maxlength="64" autocomplete="off"><small>${_fitnessEscape(t("account_username_local_hint", "Used for local Fitness sign-in. Remote-only accounts use their assigned hostname instead."))}</small></label>
+        <label class="access-username-field"><span>${_fitnessEscape(t("account_username", "Login name"))} *</span><input data-account-username value="${_fitnessEscape(account.username || "")}" maxlength="63" autocomplete="off" required><small data-account-username-hint>${_fitnessEscape(remoteEnabled && baseDomain ? `${t("account_username_remote_hint", "Login name and remote hostname are the same")}: ${remoteSlug || "…"}.${baseDomain}` : t("account_username_local_hint", "Used for Fitness sign-in."))}</small></label>
         ${secretForAccount ? `<label class="access-temp-password-field"><span>${_fitnessEscape(t("temporary_password_title", "One-time first password"))}</span><div class="access-password-inline"><input data-temp-password readonly value="${_fitnessEscape(oneTimeSecret.password)}" autocomplete="off" spellcheck="false"><button type="button" class="icon-tool" data-copy-temp-password title="${_fitnessEscape(t("copy", "Copy"))}" aria-label="${_fitnessEscape(t("copy", "Copy"))}"><ha-icon icon="mdi:content-copy"></ha-icon></button></div><small>${_fitnessEscape(t("temporary_password_hint", "Copy it now. Fitness does not store this password in readable form and it cannot be shown again."))}</small></label>` : ""}
-        <label class="access-slug-field access-remote-only ${remoteEnabled ? "" : "hidden"}"><span>${_fitnessEscape(t("external_subdomain", "Subdomain"))}</span><div class="access-slug-input"><input data-account-slug value="${_fitnessEscape(remoteSlug)}" maxlength="63" autocomplete="off" placeholder="chreece"><span>${baseDomain ? `.${_fitnessEscape(baseDomain)}` : _fitnessEscape(t("remote_base_domain_missing", "Configure base domain first"))}</span></div><small>${_fitnessEscape(t("remote_subdomain_hint", "This hostname belongs to this remote Fitness account."))}</small></label>
         <div class="access-url access-remote-only ${remoteEnabled ? "" : "hidden"}" data-account-url>${remoteUrl ? `${_fitnessEscape(t("remote_url", "Remote URL"))}: <code>${_fitnessEscape(remoteUrl)}</code>` : _fitnessEscape(t("remote_url_pending", "Choose a subdomain to create the remote URL."))}</div>
         ${isDraft ? "" : `<div class="account-diagnostics"><div><span>${_fitnessEscape(t("account_diag_sessions", "Sessions"))}</span><strong data-diag="sessions">${Number(diagnostics.active_sessions || 0)}</strong></div><div><span>${_fitnessEscape(t("account_diag_last_login", "Last login"))}</span><strong data-diag="last-login">${_fitnessEscape(fmtWhen(diagnostics.last_login_at))}</strong></div><div><span>${_fitnessEscape(t("account_diag_last_seen", "Last seen"))}</span><strong data-diag="last-seen">${_fitnessEscape(fmtWhen(diagnostics.last_seen_at))}</strong></div><div class="access-remote-only ${remoteEnabled ? "" : "hidden"}"><span>${_fitnessEscape(t("account_diag_scope", "Login scope"))}</span><strong data-diag="scope">${_fitnessEscape(networkAccess === "local_remote" ? t("network_local_remote", "Local + Remote") : networkAccess === "remote_only" ? t("network_remote_only", "Remote only") : t("network_local_only", "Local only"))}</strong></div><div><span>${_fitnessEscape(t("account_diag_failures", "Failed logins"))}</span><strong data-diag="failures">${Number(diagnostics.failed_login_count || 0)}</strong></div><div><span>${_fitnessEscape(t("account_diag_password", "Credentials"))}</span><strong data-diag="password">${_fitnessEscape(diagnostics.password_change_required ? t("account_diag_password_first", "First change required") : t("account_diag_password_ready", "Configured"))}</strong></div>${remoteEnabled ? `<div><span>DNS</span><strong data-diag="dns">${_fitnessEscape(String(diagnostics.dns_state || "—"))}</strong></div>` : ""}<div class="diag-error ${diagnostics.lockout_until ? "" : "hidden"}" data-diag-row="lockout"><span>${_fitnessEscape(t("account_diag_lockout", "Locked until"))}</span><strong data-diag="lockout">${_fitnessEscape(fmtWhen(diagnostics.lockout_until))}</strong></div><div class="diag-error ${errorText ? "" : "hidden"}" data-diag-row="error"><span>${_fitnessEscape(t("account_diag_error", "Last error"))}</span><strong data-diag="error">${_fitnessEscape(errorText || "—")}</strong></div></div>`}
         <div class="access-user-actions"><button class="tool" data-account-save><ha-icon icon="mdi:content-save-outline"></ha-icon><span>${_fitnessEscape(t("save_account", "Save account"))}</span></button>${isDraft ? "" : `<button class="tool" data-account-reset><ha-icon icon="mdi:key-change"></ha-icon><span>${_fitnessEscape(t("account_reset_password", "Reset password"))}</span></button><button class="tool danger" data-account-delete><ha-icon icon="mdi:account-remove-outline"></ha-icon><span>${_fitnessEscape(t("remove_account", "Remove account"))}</span></button>`}</div>
@@ -16612,7 +16994,11 @@ class FitnessTvSetupCard extends HTMLElement {
     }));
     root.querySelector(".cloudflare-info-toggle")?.addEventListener("click", () => root.querySelector(".cloudflare-help")?.classList.toggle("hidden"));
     root.querySelector("#access-add-account")?.addEventListener("click", () => {
-      const draft = {__draft:true,account_id:"",display_name:"",username:"",role:"user",network_access:"local_only",enabled:true,remote_enabled:false,profile_entry_id:"",view_profile_entry_ids:[],remote_slug:"",diagnostics:{}};
+      const used = new Set(accounts.map((item) => String(item?.username || "").toLowerCase()));
+      let suffix = Math.max(1, accounts.length + 1);
+      let suggested = `fitness-user-${suffix}`;
+      while (used.has(suggested)) { suffix += 1; suggested = `fitness-user-${suffix}`; }
+      const draft = {__draft:true,account_id:"",display_name:"",username:suggested,role:"user",network_access:"local_only",enabled:true,remote_enabled:false,profile_entry_id:"",view_profile_entry_ids:[],remote_slug:"",diagnostics:{}};
       this._renderAccessAdmin({...snapshot, accounts:[draft, ...accounts]});
     });
     root.querySelector("#access-save-domain")?.addEventListener("click", async () => {
@@ -16629,42 +17015,45 @@ class FitnessTvSetupCard extends HTMLElement {
       catch (err) { console.error("[Fitness TV] dashboard limit save failed", err); if (button) button.disabled = false; setStatus(l.access_save_failed, true); }
     });
     root.querySelectorAll(".fitness-account-row").forEach((row) => {
-      const role = row.querySelector("[data-account-role]"); const network = row.querySelector("[data-account-network]"); const profile = row.querySelector("[data-account-profile]"); const slug = row.querySelector("[data-account-slug]"); const username = row.querySelector("[data-account-username]");
+      const role = row.querySelector("[data-account-role]"); const network = row.querySelector("[data-account-network]"); const profile = row.querySelector("[data-account-profile]"); const username = row.querySelector("[data-account-username]");
       const slugify = (value) => String(value || "").trim().toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0,63);
-      const ensureRemoteSlug = () => {
-        if (!slug || String(slug.value || "").trim()) return String(slug?.value || "").trim().toLowerCase();
-        const candidate = slugify(username?.value || row.querySelector("[data-account-display]")?.value || "");
-        if (candidate) slug.value = candidate;
-        return candidate;
-      };
       const update = () => {
         const currentRole = String(role?.value || "user");
         const currentNetwork = String(network?.value || "local_only");
         const remoteActive = currentNetwork !== "local_only";
         row.querySelector(".access-profile-field")?.classList.toggle("hidden", currentRole === "admin");
         row.querySelector(".access-view-field")?.classList.toggle("hidden", currentRole !== "user");
-        row.querySelector(".access-username-field")?.classList.toggle("hidden", currentNetwork === "remote_only");
         row.querySelectorAll(".access-remote-only").forEach((field) => field.classList.toggle("hidden", !remoteActive));
         const roleHint = row.querySelector("[data-role-hint]"); if (roleHint) roleHint.textContent = currentRole === "admin" ? t("role_admin_hint_v139", "Full Fitness administration across all accounts; no personal Fitness dashboard is assigned.") : currentRole === "admin_user" ? t("role_admin_user_hint", "Full Fitness administration plus a personal Fitness dashboard and all normal user features.") : t("role_user_hint", "Controls only the assigned personal account and can browse explicitly shared accounts.");
         const networkHint = row.querySelector("[data-network-hint]"); if (networkHint) networkHint.textContent = currentNetwork === "remote_only" ? t("network_remote_only_hint", "Login is accepted only on the assigned remote hostname. Home Assistant LAN hardware is never exposed.") : currentNetwork === "local_remote" ? t("network_local_remote_hint", "Login works locally and on the assigned remote hostname; LAN hardware appears only while actually connected locally.") : t("network_local_only_hint", "Login is accepted only from the Fitness/Home Assistant local network.");
         if (currentRole === "admin" && profile) profile.value = "";
-        const slugValue = remoteActive ? ensureRemoteSlug() : String(slug?.value || "").trim().toLowerCase();
-        const url = row.querySelector("[data-account-url]"); if (url && remoteActive) url.innerHTML = (slugValue && baseDomain) ? `${_fitnessEscape(t("remote_url", "Remote URL"))}: <code>https://${_fitnessEscape(slugValue)}.${_fitnessEscape(baseDomain)}</code>` : _fitnessEscape(baseDomain ? t("remote_url_pending", "Choose a subdomain to create the remote URL.") : t("remote_base_domain_missing", "Configure the Fitness base domain first."));
+        const slugValue = remoteActive ? slugify(username?.value || "") : "";
+        const usernameHint = row.querySelector("[data-account-username-hint]");
+        if (usernameHint) usernameHint.textContent = remoteActive && baseDomain
+          ? `${t("account_username_remote_hint", "Login name and remote hostname are the same")}: ${slugValue || "…"}.${baseDomain}`
+          : t("account_username_local_hint", "Used for Fitness sign-in.")
+        const url = row.querySelector("[data-account-url]"); if (url && remoteActive) url.innerHTML = (slugValue && baseDomain) ? `${_fitnessEscape(t("remote_url", "Remote URL"))}: <code>https://${_fitnessEscape(slugValue)}.${_fitnessEscape(baseDomain)}</code>` : _fitnessEscape(baseDomain ? t("remote_url_pending", "Choose a username to create the remote URL.") : t("remote_base_domain_missing", "Configure the Fitness base domain first."));
       };
-      role?.addEventListener("change", update); network?.addEventListener("change", update); slug?.addEventListener("input", update); profile?.addEventListener("change", update); update();
+      role?.addEventListener("change", update); network?.addEventListener("change", update); username?.addEventListener("input", update); profile?.addEventListener("change", update); update();
       row.querySelector("[data-account-save]")?.addEventListener("click", async () => {
         const button = row.querySelector("[data-account-save]"); if (button) button.disabled = true; setStatus(l.saving);
         try {
           const currentRole = String(role?.value || "user");
           const currentNetwork = String(network?.value || "local_only");
           const remoteActive = currentNetwork !== "local_only";
-          const slugValue = remoteActive ? ensureRemoteSlug() : String(slug?.value || "").trim().toLowerCase();
-          const payload = {type:"fitness/accounts/save",display_name:String(row.querySelector("[data-account-display]")?.value || "").trim(),role:currentRole,network_access:currentNetwork,profile_entry_id:currentRole === "admin" ? null : (String(profile?.value || "") || null),view_profile_entry_ids:currentRole === "user" ? [...row.querySelectorAll("[data-account-view]:checked")].map((input)=>String(input.value || "")).filter(Boolean) : [],remote_slug:slugValue || null,remote_enabled:remoteActive,username:currentNetwork === "remote_only" ? null : (String(username?.value || "").trim() || null),enabled:Boolean(row.querySelector("[data-account-enabled]")?.checked)};
-          const accountId = String(row.dataset.accountId || ""); if (accountId) payload.account_id = accountId;
+          const usernameValue = String(username?.value || "").trim();
+          if (!usernameValue) throw new Error("invalid_username");
+          const slugValue = remoteActive ? slugify(usernameValue) : "";
+          if (remoteActive && (!slugValue || slugValue !== usernameValue.toLowerCase())) throw new Error("invalid_username");
+          const accountId = String(row.dataset.accountId || "");
+          const duplicate = accounts.some((item) => String(item?.account_id || "") !== accountId && String(item?.username || "").toLowerCase() === usernameValue.toLowerCase());
+          if (duplicate) throw new Error("username_in_use");
+          const payload = {type:"fitness/accounts/save",display_name:String(row.querySelector("[data-account-display]")?.value || "").trim(),role:currentRole,network_access:currentNetwork,profile_entry_id:currentRole === "admin" ? null : (String(profile?.value || "") || null),view_profile_entry_ids:currentRole === "user" ? [...row.querySelectorAll("[data-account-view]:checked")].map((input)=>String(input.value || "")).filter(Boolean) : [],remote_enabled:remoteActive,username:remoteActive ? usernameValue.toLowerCase() : usernameValue,enabled:Boolean(row.querySelector("[data-account-enabled]")?.checked)};
+          if (accountId) payload.account_id = accountId;
           const result = await this._hass.callWS(payload);
           const account = result?.account || {}; const secret = result?.temporary_password ? {account_id:String(account.account_id || ""),password:String(result.temporary_password),username:String(account.username || ""),remote_url:String(account.remote_url || "")} : null;
           await reload(secret, account);
-        } catch (err) { console.error("[Fitness TV] Fitness account save failed", err); if (button) button.disabled = false; const code=String(err?.message||"").trim(); const known={invalid_remote_slug:t("invalid_remote_slug","Choose a valid remote subdomain."),remote_slug_in_use:t("remote_slug_in_use","That remote subdomain is already assigned to another account."),profile_not_found:t("profile_not_found","Choose a valid Fitness profile."),profile_already_assigned:t("profile_already_assigned","That Fitness profile already belongs to another account."),last_admin:t("last_admin","At least one enabled Fitness administrator is required."),invalid_username:t("invalid_username","Choose a valid local login name."),invalid_network_access:t("invalid_network_access","Choose a valid connection access mode."),admin_profile_not_allowed:t("admin_profile_not_allowed","Use Admin + Fitness User when an administrator needs a personal Fitness dashboard.")}; setStatus(known[code] || code || l.access_save_failed, true); }
+        } catch (err) { console.error("[Fitness TV] Fitness account save failed", err); if (button) button.disabled = false; const code=String(err?.message||"").trim(); const known={invalid_remote_slug:t("invalid_remote_slug","Choose a valid remote subdomain."),remote_slug_in_use:t("remote_slug_in_use","That remote subdomain is already assigned to another account."),profile_not_found:t("profile_not_found","Choose a valid Fitness profile."),profile_already_assigned:t("profile_already_assigned","That Fitness profile already belongs to another account."),last_admin:t("last_admin","At least one enabled Fitness administrator is required."),invalid_username:t("invalid_username","Choose a valid login/hostname-safe name."),username_in_use:t("username_in_use","That username is already assigned to another Fitness account."),invalid_network_access:t("invalid_network_access","Choose a valid connection access mode."),admin_profile_not_allowed:t("admin_profile_not_allowed","Use Admin + Fitness User when an administrator needs a personal Fitness dashboard.")}; setStatus(known[code] || code || l.access_save_failed, true); }
       });
       row.querySelector("[data-account-reset]")?.addEventListener("click", async () => {
         const accountId = String(row.dataset.accountId || ""); if (!accountId) return; setStatus(t("account_resetting_password", "Generating a new first-time password…"));
@@ -16715,7 +17104,17 @@ class FitnessTvSetupCard extends HTMLElement {
       .adapter-actions>*{flex:0 1 auto;min-width:104px;max-width:190px}.adapter-actions>.adapter-account{flex:1 1 140px;min-width:120px}.adapter-actions>.adapter-setup{min-width:112px;min-height:36px}.adapter-actions>.adapter-remove{min-width:102px}
       .adapter-actions>.adapter-setup>span,.provider-catalog-row>.adapter-setup>span,.setting-adapters-head>.adapter-setup>span{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;word-break:normal;overflow-wrap:normal!important}
       .provider-catalog-row>.adapter-setup{min-width:clamp(132px,16vw,190px);min-height:40px;white-space:normal}
-      :host([fitness-cast-receiver]) .cast-exit-confirm{position:fixed;left:9vw;right:9vw;bottom:28px;z-index:9999;margin:0 auto;max-width:760px;padding:13px 20px;border-radius:14px;background:rgba(0,0,0,.86);color:#fff;font:700 15px/1.3 system-ui,sans-serif;text-align:center;pointer-events:none;box-shadow:0 8px 28px rgba(0,0,0,.38);border:1px solid rgba(255,255,255,.24)}.cast-exit-confirm[hidden]{display:none!important}
+      /* Overview Cast is a TV surface, not a narrow desktop admin row. Give
+         translated action labels a real horizontal lane and a fixed control
+         height so flex shrink can never turn buttons into vertical text bars. */
+      :host([fitness-cast-receiver]) .setup-head{display:grid!important;grid-template-columns:minmax(280px,.8fr) minmax(520px,1.2fr)!important;align-items:start!important}
+      :host([fitness-cast-receiver]) .setup-actions{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(128px,1fr))!important;align-items:center!important;align-content:start!important;width:100%!important;min-width:0!important}
+      :host([fitness-cast-receiver]) .profile-row{grid-template-columns:46px minmax(180px,1fr) auto!important;align-items:center!important}
+      :host([fitness-cast-receiver]) .profile-actions{grid-column:1/-1!important;display:grid!important;grid-template-columns:repeat(auto-fit,minmax(132px,1fr))!important;align-items:center!important;width:100%!important;min-width:0!important}
+      :host([fitness-cast-receiver]) .setup-actions>.tool,:host([fitness-cast-receiver]) .profile-actions>.tool{box-sizing:border-box!important;flex:none!important;width:100%!important;height:44px!important;min-height:44px!important;max-height:44px!important;align-self:center!important;padding:0 10px!important}
+      :host([fitness-cast-receiver]) .setup-actions>.tool span,:host([fitness-cast-receiver]) .profile-actions>.tool span{white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;overflow-wrap:normal!important;word-break:normal!important;line-height:1.15!important}
+      @media(max-width:980px){:host([fitness-cast-receiver]) .setup-head{grid-template-columns:1fr!important}:host([fitness-cast-receiver]) .setup-actions{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+      :host([fitness-cast-receiver]) .cast-global-overlay-root{position:fixed!important;inset:0!important;z-index:2147483647!important;pointer-events:none!important;isolation:isolate!important;transform:translateZ(0)!important;contain:layout paint!important}:host([fitness-cast-receiver]) .cast-exit-confirm{position:absolute!important;left:9vw;right:9vw;bottom:max(28px,env(safe-area-inset-bottom));z-index:1!important;margin:0 auto;max-width:760px;padding:13px 20px;border-radius:14px;background:rgba(0,0,0,.92);color:#fff;font:700 15px/1.3 system-ui,sans-serif;text-align:center;pointer-events:none;box-shadow:0 8px 28px rgba(0,0,0,.48);border:1px solid rgba(255,255,255,.32)}.cast-exit-confirm[hidden]{display:none!important}
       .fitness-about-modal{width:min(900px,94vw);max-height:min(900px,92vh)}.fitness-about-body{display:grid;gap:12px}.fitness-about-hero{display:grid;grid-template-columns:46px minmax(0,1fr) auto;gap:12px;align-items:center;padding:14px;border:1px solid var(--divider-color);border-radius:16px;background:var(--secondary-background-color)}.fitness-about-hero>.fitness-brand-icon{width:46px;height:46px}.fitness-about-hero>span>strong,.fitness-about-hero>span>small,.fitness-about-version>small,.fitness-about-version>strong{display:block}.fitness-about-hero>span>strong{font-size:20px}.fitness-about-hero>span>small,.fitness-about-version>small{margin-top:3px;color:var(--secondary-text-color);font-size:11px}.fitness-about-version{text-align:right}.fitness-about-version>strong{margin-top:3px;font-size:15px}.fitness-about-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px;border:1px solid var(--divider-color);border-radius:16px;background:var(--secondary-background-color)}.fitness-about-meta>span,.fitness-about-link{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:6px 10px;border-radius:10px;background:var(--card-background-color);color:var(--primary-text-color);text-decoration:none}.fitness-about-meta ha-icon,.fitness-about-section-title ha-icon{--mdc-icon-size:19px;color:var(--primary-color)}.fitness-about-links{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto}.fitness-about-link{border:1px solid var(--divider-color)}.fitness-about-changelog{padding:14px;border:1px solid var(--divider-color);border-radius:16px;background:var(--secondary-background-color);line-height:1.5}.fitness-about-section-title{display:flex;align-items:center;gap:8px;margin-bottom:10px}.fitness-about-changelog h2,.fitness-about-changelog h3,.fitness-about-changelog h4{margin:15px 0 7px;color:var(--primary-text-color)}.fitness-about-changelog h2:first-of-type,.fitness-about-changelog h3:first-of-type{margin-top:4px}.fitness-about-changelog p{margin:7px 0;color:var(--secondary-text-color)}.fitness-about-changelog ul{margin:7px 0;padding-left:22px}.fitness-about-changelog li{margin:5px 0;color:var(--secondary-text-color)}@media(max-width:620px){.fitness-about-hero{grid-template-columns:40px minmax(0,1fr)}.fitness-about-hero>.fitness-brand-icon{width:40px;height:40px}.fitness-about-version{grid-column:1/-1;text-align:left}.fitness-about-links{margin-left:0;width:100%}.fitness-about-link{flex:1 1 120px;justify-content:center}}
       /* Cross-device setup reliability: safe areas, full-width mobile rows and touch targets. */
       .setup-shell{min-height:100dvh}
@@ -17176,15 +17575,76 @@ function _fitnessWorkoutExportTarget(host, targets) {
 }
 
 class FitnessTestsCard extends FitnessAutoProfileCard {
-  setConfig(c){super.setConfig(c);this._exportTargets=[];this._expandedTest=String(_fitnessCardUiGet(this,"expanded_test",this._expandedTest||"")||"");}
+  setConfig(c){
+    super.setConfig(c);
+    this._exportTargets=[];
+    this._expandedTest=String(_fitnessCardUiGet(this,"expanded_test",this._expandedTest||"")||"");
+    this._results={};
+    this._testsLoadedAt=0;
+  }
   async _loadTargets(){try{const r=await this._hass.callWS({type:"fitness/training/export_targets",profile_entry_id:this._profileId});this._exportTargets=Array.isArray(r?.targets)?r.targets:[];}catch(_err){this._exportTargets=[];}}
   async _export(test){if(!test)return;const target=_fitnessWorkoutExportTarget(this,this._exportTargets);if(!target)return;try{await this._hass.callWS({type:"fitness/training/export",profile_entry_id:this._profileId,sensor_id:target.sensor_id,prescription:test});}catch(e){this._testsError=String(e?.message||e);this._render();}}
-  async _loadTests(){if(this._testsLoading||!this._hass||!this._profileId)return;this._testsLoading=true;try{const r=await this._hass.callWS({type:"fitness/training/tests",profile_entry_id:this._profileId});this._tests=r?.tests||[];}catch(e){this._testsError=String(e?.message||e);}finally{this._testsLoading=false;this._render();}}
-  set hass(v){super.hass=v;if(!this._tests&&!this._testsLoading)this._loadTests();if(this._hass&&this._profileId&&this._profile?.access?.can_control&&!this._targetsLoading){this._targetsLoading=true;this._loadTargets().finally(()=>{this._targetsLoading=false;this._render();});}}
+  async _loadTests(){
+    if(this._testsLoading||!this._hass||!this._profileId)return;
+    this._testsLoading=true;
+    try{
+      const r=await this._hass.callWS({type:"fitness/training/tests",profile_entry_id:this._profileId});
+      this._tests=Array.isArray(r?.tests)?r.tests:[];
+      this._results=r?.results&&typeof r.results==="object"?r.results:{};
+      this._testsLoadedAt=Date.now();
+      this._testsError="";
+    }catch(e){this._testsError=String(e?.message||e);}
+    finally{this._testsLoading=false;this._render();}
+  }
+  set hass(v){
+    super.hass=v;
+    if((!this._tests&&!this._testsLoading)||(this._testsLoadedAt&&Date.now()-this._testsLoadedAt>15000&&!this._testsLoading))void this._loadTests();
+    if(this._hass&&this._profileId&&this._profile?.access?.can_control&&!this._targetsLoading){this._targetsLoading=true;this._loadTargets().finally(()=>{this._targetsLoading=false;this._render();});}
+  }
   async _start(id){try{await this._hass.callWS({type:"fitness/training/start",profile_entry_id:this._profileId,test_id:id});}catch(e){this._testsError=String(e?.message||e);this._render();}}
   _toggleSteps(id){this._expandedTest=String(_fitnessCardUiSet(this,"expanded_test",this._expandedTest===id?"":id)||"");this._render();}
   _sportIcon(sport){const s=String(sport||"");return s.includes("cycl")?'mdi:bike':s.includes("strength")?'mdi:dumbbell':s.includes("swim")?'mdi:swim':s.includes("row")?'mdi:rowing':s.includes("walk")?'mdi:walk':'mdi:run-fast';}
-  _render(){if(!this.shadowRoot||!this._hass||!this._profile)return;const tests=this._tests||[],l=this._profile.labels||{},t=_fitnessFeatureText(this._profile,this._hass);const rows=tests.map(x=>{const expanded=this._expandedTest===String(x.id);return `<article class="test-row ${expanded?'expanded':''}"><ha-icon icon="${this._sportIcon(x.sport)}"></ha-icon><span><b>${_fitnessEscape(x.name)}</b><small>${_fitnessEscape(x.goal||'')}</small></span><div class="test-actions"><button type="button" data-steps-id="${_fitnessEscape(x.id)}" title="${_fitnessEscape(expanded?t.hide_steps:t.show_steps)}"><ha-icon icon="${expanded?'mdi:chevron-up':'mdi:format-list-numbered'}"></ha-icon></button><button type="button" data-id="${_fitnessEscape(x.id)}" title="${_fitnessEscape(t.start_with_live)}"><ha-icon icon="mdi:play-circle-outline"></ha-icon></button>${this._exportTargets?.length?`<button type="button" data-export-id="${_fitnessEscape(x.id)}" title="${_fitnessEscape(t.send_to_device)}"><ha-icon icon="mdi:watch-export"></ha-icon></button>`:''}</div>${expanded?`<div class="test-steps">${_fitnessWorkoutPrescriptionMarkup(x,this._profile,this._hass)}</div>`:''}</article>`}).join('');this.shadowRoot.innerHTML=`<ha-card><header><ha-icon icon="mdi:clipboard-pulse-outline"></ha-icon><div><small>${_fitnessEscape(t.fitness_tests)}</small><b>${_fitnessEscape(t.guided_performance_tests)}</b></div></header><p>${_fitnessEscape(t.fitness_tests_intro)}</p><div class="tests">${rows||`<small>${_fitnessEscape(t.no_tests_available)}</small>`}</div>${this._testsError?`<div class="err">${_fitnessEscape(this._testsError)}</div>`:''}</ha-card><style>ha-card{padding:18px;border-radius:24px}header{display:flex;gap:12px;align-items:center}header>ha-icon{--mdc-icon-size:30px;color:var(--primary-color)}header small,header b{display:block}header small{font-size:10px;letter-spacing:.12em;color:var(--secondary-text-color)}p{color:var(--secondary-text-color);line-height:1.45}.tests{display:grid;gap:8px}.test-row{border:1px solid var(--divider-color);background:var(--secondary-background-color);color:var(--primary-text-color);border-radius:15px;padding:11px;display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:9px;align-items:center}.test-row>span b,.test-row>span small{display:block}.test-row>span small{margin-top:3px;color:var(--secondary-text-color);line-height:1.3}.test-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.test-actions button{width:34px;min-height:34px;border:0;border-radius:9px;background:var(--card-background-color);color:var(--primary-text-color);cursor:pointer}.test-actions ha-icon{--mdc-icon-size:19px}.test-steps{grid-column:1/-1;min-width:0}.test-steps .workout-zone-summary{display:none}.err{color:var(--error-color);margin-top:10px}${_fitnessWorkoutPrescriptionCss()}</style>`;this.shadowRoot.querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>this._start(b.dataset.id));this.shadowRoot.querySelectorAll('[data-steps-id]').forEach(b=>_fitnessBindReliablePress(b,()=>this._toggleSteps(b.dataset.stepsId)));this.shadowRoot.querySelectorAll('[data-export-id]').forEach(b=>b.onclick=()=>this._export((this._tests||[]).find(x=>x.id===b.dataset.exportId)));}
+  _sportLabel(sport,t){return String(t?.[`sport_${String(sport||"").toLowerCase()}`]||String(sport||"").replaceAll("_"," "));}
+  _time(seconds){
+    const n=Number(seconds);if(!Number.isFinite(n)||n<0)return "";
+    const whole=Math.round(n),h=Math.floor(whole/3600),m=Math.floor((whole%3600)/60),sec=whole%60;
+    return h?`${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`:`${m}:${String(sec).padStart(2,"0")}`;
+  }
+  _metric(metric){
+    if(!metric||typeof metric!=="object")return "";
+    const value=Number(metric.value),unit=String(metric.unit||"");if(!Number.isFinite(value))return "";
+    if(["s","s/km","s/500m","s/100m"].includes(unit)){const suffix={"s":"","s/km":" /km","s/500m":" /500m","s/100m":" /100m"}[unit];return `${this._time(value)}${suffix}`;}
+    const digits=Math.abs(value)>=100?0:(Math.abs(value)>=10?1:2);
+    return `${value.toFixed(digits).replace(/\.0+$/,'')} ${unit}`.trim();
+  }
+  _resultMarkup(test,t){
+    const result=this._results?.[String(test?.id||"")];if(!result||typeof result!=="object")return "";
+    const completed=String(result.completed_at||"");
+    if(String(result.status||"")==="completed_unscored")return `<div class="test-result"><ha-icon icon="mdi:check-circle-outline"></ha-icon><span><small>${_fitnessEscape(t.fitness_test_latest_result)}</small><b>${_fitnessEscape(t.fitness_test_manual_result)}</b>${completed?`<i>${_fitnessEscape(_fitnessDateTimeLabel(completed,this._profile?.language||this._hass?.language))}</i>`:""}</span></div>`;
+    const metrics=[result.primary,...(Array.isArray(result.metrics)?result.metrics:[])].filter(Boolean);
+    const seen=new Set();const values=metrics.map(metric=>{const rendered=this._metric(metric);const key=`${metric.kind}:${rendered}`;if(!rendered||seen.has(key))return "";seen.add(key);return `<em>${_fitnessEscape(rendered)}</em>`;}).filter(Boolean).join("");
+    return values?`<div class="test-result"><ha-icon icon="mdi:chart-timeline-variant"></ha-icon><span><small>${_fitnessEscape(t.fitness_test_latest_result)}</small><b class="test-result-values">${values}</b>${completed?`<i>${_fitnessEscape(_fitnessDateTimeLabel(completed,this._profile?.language||this._hass?.language))}</i>`:""}</span></div>`:"";
+  }
+  _render(){
+    if(!this.shadowRoot||!this._hass||!this._profile)return;
+    const tests=this._tests||[],t=_fitnessFeatureText(this._profile,this._hass);
+    const sportOrder=["running","cycling","walking","rowing","swimming","strength"];
+    const groups=new Map();
+    for(const test of tests){const sport=String(test?.sport||"other");if(!groups.has(sport))groups.set(sport,[]);groups.get(sport).push(test);}
+    const ordered=[...sportOrder.filter(s=>groups.has(s)),...[...groups.keys()].filter(s=>!sportOrder.includes(s))];
+    const markup=ordered.map(sport=>{
+      const rows=groups.get(sport).map(x=>{
+        const expanded=this._expandedTest===String(x.id),reference=x?.reference&&typeof x.reference==="object"?x.reference:null;
+        const title=reference?.url?`<a class="test-title" href="${_fitnessEscape(reference.url)}" target="_blank" rel="noopener noreferrer" title="${_fitnessEscape(reference.title||t.fitness_test_study)}">${_fitnessEscape(x.name)}<ha-icon icon="mdi:open-in-new"></ha-icon></a>`:`<b>${_fitnessEscape(x.name)}</b>`;
+        return `<article class="test-row ${expanded?'expanded':''}"><ha-icon icon="${this._sportIcon(x.sport)}"></ha-icon><span>${title}<small>${_fitnessEscape(x.goal||'')}</small>${this._resultMarkup(x,t)}</span><div class="test-actions"><button type="button" data-steps-id="${_fitnessEscape(x.id)}" title="${_fitnessEscape(expanded?t.hide_steps:t.show_steps)}"><ha-icon icon="${expanded?'mdi:chevron-up':'mdi:format-list-numbered'}"></ha-icon></button><button type="button" data-id="${_fitnessEscape(x.id)}" title="${_fitnessEscape(t.start_with_live)}"><ha-icon icon="mdi:play-circle-outline"></ha-icon></button>${this._exportTargets?.length?`<button type="button" data-export-id="${_fitnessEscape(x.id)}" title="${_fitnessEscape(t.send_to_device)}"><ha-icon icon="mdi:watch-export"></ha-icon></button>`:''}</div>${expanded?`<div class="test-steps">${_fitnessWorkoutPrescriptionMarkup(x,this._profile,this._hass)}${reference?.title?`<a class="study-link" href="${_fitnessEscape(reference.url)}" target="_blank" rel="noopener noreferrer"><ha-icon icon="mdi:notebook-outline"></ha-icon>${_fitnessEscape(reference.title)}</a>`:""}</div>`:''}</article>`;
+      }).join("");
+      return `<section class="sport-tests"><h3><ha-icon icon="${this._sportIcon(sport)}"></ha-icon>${_fitnessEscape(this._sportLabel(sport,t))}</h3><div class="sport-test-rows">${rows}</div></section>`;
+    }).join("");
+    this.shadowRoot.innerHTML=`<ha-card><header><ha-icon icon="mdi:clipboard-pulse-outline"></ha-icon><div><small>${_fitnessEscape(t.fitness_tests)}</small><b>${_fitnessEscape(t.guided_performance_tests)}</b></div></header><p>${_fitnessEscape(t.fitness_tests_intro)}</p><div class="tests">${markup||`<small>${_fitnessEscape(t.no_tests_available)}</small>`}</div>${this._testsError?`<div class="err">${_fitnessEscape(this._testsError)}</div>`:''}</ha-card><style>ha-card{padding:18px;border-radius:24px}header{display:flex;gap:12px;align-items:center}header>ha-icon{--mdc-icon-size:30px;color:var(--primary-color)}header small,header b{display:block}header small{font-size:10px;letter-spacing:.12em;color:var(--secondary-text-color)}p{color:var(--secondary-text-color);line-height:1.45}.tests,.sport-test-rows{display:grid;gap:8px}.sport-tests{display:grid;gap:7px}.sport-tests+h3{margin-top:8px}.sport-tests h3{display:flex;align-items:center;gap:7px;margin:8px 2px 0;font-size:14px}.sport-tests h3 ha-icon{--mdc-icon-size:19px;color:var(--primary-color)}.test-row{border:1px solid var(--divider-color);background:var(--secondary-background-color);color:var(--primary-text-color);border-radius:15px;padding:11px;display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:9px;align-items:center}.test-row>span>b,.test-row>span>small{display:block}.test-row>span>small{margin-top:3px;color:var(--secondary-text-color);line-height:1.3}.test-title{display:inline-flex;align-items:center;gap:5px;color:var(--primary-text-color);font-weight:700;text-decoration:none}.test-title:hover{text-decoration:underline}.test-title ha-icon{--mdc-icon-size:14px;color:var(--primary-color)}.test-result{display:grid;grid-template-columns:20px minmax(0,1fr);gap:6px;margin-top:8px;padding:7px 8px;border-radius:10px;background:var(--card-background-color)}.test-result>ha-icon{--mdc-icon-size:18px;color:var(--primary-color)}.test-result small,.test-result b,.test-result i{display:block}.test-result small,.test-result i{color:var(--secondary-text-color);font-size:10px}.test-result i{font-style:normal;margin-top:2px}.test-result-values{display:flex!important;gap:5px;flex-wrap:wrap;margin-top:2px}.test-result-values em{font-style:normal;padding:2px 6px;border-radius:999px;background:color-mix(in srgb,var(--primary-color) 12%,transparent)}.test-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.test-actions button{width:34px;min-height:34px;border:0;border-radius:9px;background:var(--card-background-color);color:var(--primary-text-color);cursor:pointer}.test-actions ha-icon{--mdc-icon-size:19px}.test-steps{grid-column:1/-1;min-width:0}.test-steps .workout-zone-summary{display:none}.study-link{display:flex;align-items:flex-start;gap:6px;margin-top:8px;padding:8px;border-radius:10px;background:var(--card-background-color);color:var(--primary-text-color);font-size:11px;text-decoration:none}.study-link ha-icon{--mdc-icon-size:16px;color:var(--primary-color);flex:0 0 auto}.err{color:var(--error-color);margin-top:10px}${_fitnessWorkoutPrescriptionCss()}</style>`;
+    this.shadowRoot.querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>this._start(b.dataset.id));
+    this.shadowRoot.querySelectorAll('[data-steps-id]').forEach(b=>_fitnessBindReliablePress(b,()=>this._toggleSteps(b.dataset.stepsId)));
+    this.shadowRoot.querySelectorAll('[data-export-id]').forEach(b=>b.onclick=()=>this._export((this._tests||[]).find(x=>x.id===b.dataset.exportId)));
+  }
 }
 if(!customElements.get("fitness-tests-card"))customElements.define("fitness-tests-card",FitnessTestsCard);
 

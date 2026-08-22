@@ -47,10 +47,13 @@ def test_threshold_pace_explains_mps_to_min_per_km_conversion():
     assert 'provider_item("threshold_speed"' in block
 
 
-def test_vo2max_identifies_direct_source_or_uth_formula():
+def test_vo2max_identifies_direct_test_source_or_uth_formula():
     start = MANAGER.index('if metric == "vo2max"')
-    block = MANAGER[start:start+2200]
-    assert 'provider_item("vo2max"' in block
+    end = MANAGER.index('if metric == "friend_predicted_vo2max"', start)
+    block = MANAGER[start:end]
+    assert 'canonical_evaluation_metric_observation(' in block
+    assert 'observation_item(observation, "vo2max")' in block
+    assert '"standardized_fitness_test_estimate"' in block
     assert "15.3 × maximum_hr / resting_hr" in block
 
 

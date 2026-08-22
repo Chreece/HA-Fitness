@@ -40,7 +40,8 @@ def test_double_back_still_requires_physical_keydown_and_authorization():
     quit_end = FRONTEND.index("  _handleCastKeydown(", quit_start)
     quit_block = FRONTEND[quit_start:quit_end]
     assert 'authorization !== String(this._castRemoteExitAuthorization || "")' in quit_block
-    assert "receiverContext.stop();" in quit_block
+    receiver_quit = FRONTEND[FRONTEND.index("  async _quitCastReceiver("):FRONTEND.index("  async _quitCastFromRemote(")]
+    assert "const stopped = receiverContext.stop();" in receiver_quit
 
 
 def test_history_never_authorizes_cast_quit():

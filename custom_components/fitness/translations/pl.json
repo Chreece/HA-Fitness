@@ -233,16 +233,14 @@
           "fitness_account_role": "Rola",
           "fitness_network_access": "Dostęp sieciowy",
           "fitness_account_display_name": "Nazwa konta",
-          "fitness_account_username": "Nazwa logowania",
-          "fitness_remote_slug": "Zdalna nazwa hosta",
+          "fitness_account_username": "Nazwa użytkownika / zdalna nazwa hosta",
           "fitness_view_profile_entry_ids": "Prawo podglądu kont"
         },
         "data_description": {
           "fitness_account_role": "Administratorzy mają pełny dostęp Fitness. Użytkownicy lokalni i zdalni kontrolują tylko własny profil, a dodatkowe profile mogą przeglądać wyłącznie w trybie tylko do odczytu po przyznaniu dostępu przez administratora.",
           "fitness_network_access": "Logowanie tylko przez zdalną nazwę hosta; sprzęt LAN HA nie jest udostępniany. Logowanie lokalne i zdalne; sprzęt LAN jest widoczny tylko przy rzeczywistym połączeniu lokalnym.",
           "fitness_account_display_name": "To konto kontroluje tylko własny profil Fitness.",
-          "fitness_account_username": "Dla kont zdalnych domyślnie używana jest subdomena. Użytkownik może później zmienić nazwę logowania.",
-          "fitness_remote_slug": "Ta nazwa hosta należy wyłącznie do tego zdalnego konta Fitness.",
+          "fitness_account_username": "Wymagana i unikalna. Przy dostępie zdalnym ta sama nazwa użytkownika jest także nazwą hosta/subdomeną konta; nie ma osobnej zdalnej nazwy hosta.",
           "fitness_view_profile_entry_ids": "Wybrane konta są tylko do odczytu; nie można zmieniać ustawień, treningów ani urządzeń."
         }
       },
@@ -260,7 +258,9 @@
       "invalid_role": "Rola: To pole jest wymagane.",
       "invalid_network_access": "Dostęp sieciowy: To pole jest wymagane.",
       "profile_not_found": "Wybrane konta są tylko do odczytu; nie można zmieniać ustawień, treningów ani urządzeń.",
-      "required": "To pole jest wymagane."
+      "required": "To pole jest wymagane.",
+      "invalid_username": "Wprowadź prawidłową nazwę użytkownika. Dla dostępu zdalnego używaj tylko małych liter, cyfr i myślników.",
+      "username_in_use": "Ta nazwa użytkownika Fitness jest już używana."
     },
     "abort": {
       "already_configured": "Profil Fitness o tej nazwie już istnieje.",

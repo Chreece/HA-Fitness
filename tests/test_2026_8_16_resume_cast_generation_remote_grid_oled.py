@@ -85,4 +85,4 @@ def test_oled_pixel_shift_moves_toolbar_and_cards_as_one_safe_stage():
 def test_stop_cast_toolbar_dispatches_only_one_stop_request():
     render = _method(FRONTEND, "  _render()", "  async _toggleFullscreen(")
     assert render.count('if (this._castState === "connected") { void this._stopCurrentCast(); return; }') == 1
-    assert render.count('if (this._castState === "connected") void this._stopCurrentCast();') == 1
+    assert render.count('if (this._castBusy || this._castState === "connecting" || this._castState === "connected") void this._stopCurrentCast();') == 1

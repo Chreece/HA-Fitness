@@ -37,7 +37,7 @@ def test_profile_playback_routes_tts_to_current_audio_owner_not_configured_speak
 
 def test_stop_cast_uses_actual_active_session_not_profile_default():
     assert 'async _stopCurrentCast()' in JS
-    assert 'if (this._castState === "idle") return;' in JS
+    assert 'if (this._castState === "idle" || !this._profile || !this._hass) return;' in JS
     assert 'if (this._castMode === "server" && this._activeCastTarget)' in JS
     assert 'await this._stopCastDashboard(String(this._activeCastTarget));' in JS
     assert 'String(this._activeCastTarget || root.querySelector("#cast-target")?.value || "")' in JS
